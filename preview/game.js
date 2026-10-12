@@ -121,7 +121,8 @@ const IMG_SIZE={launch_tower:[360,360,0,360],launch_tower_ship:[360,360,0,360],w
 window.__firstBytesMark=0;
 const groupState={};
 async function tryJSON(p){try{const r=await fetch(p);if(r.ok)return await r.json()}catch(e){}return null}
-function getImg(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src})}
+function getImg1(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src})}
+async function getImg(src){for(let a=0;a<4;a++){const im=await getImg1(a?src+(src.includes('?')?'&':'?')+'retry='+a:src);if(im)return im;if(a<3)await new Promise(r=>setTimeout(r,400*(a+1)))}return null}   // a failed load (e.g. a 503) is retried 3 times
 const bmp=async im=>{if(!im)return null;try{return await createImageBitmap(im)}catch(e){return im}};
 let loadedBytes=0;
 async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.loading;
@@ -167,8 +168,11 @@ const noCrew=d=>!!d.res||d.role==='housing'||!!d.upper;   // Life Support + Livi
 function fresh(){const n=Date.now();return{money:CFG.econ.startGrant,pop:3,trips:0,arr:0,pt:0,he:0,refPt:0,refHe:0,ptAcc:0,heAcc:0,refAcc:0,oreAcc:0,firstReturn:0,gt:n,rt:n,step:0,hint:0,tapped:0,wrench:0,
  dock:{crane:1,crew:1,pad:1,refuel:1},
  elev:Object.fromEntries(BUILDINGS.map(b=>[b.id,1])),ship:{st:'docked',t:n,pt:0,he:0,refPt:0,refHe:0,loadAcc:0},
- f:Object.fromEntries(F.map(d=>[d.id,{built:d.cost===0,lvl:1,workers:d.cost===0&&!noCrew(d)?1:0,pend:0,ac:0}]))}}
-function load(){try{const s=JSON.parse(localStorage.getItem(SAVEKEY));if(s&&s.f){F.forEach(d=>{if(noCrew(d)&&s.f[d.id])s.f[d.id].workers=0});   /* migrate: free Life Support / quarters crew to idle */const z=fresh();for(const k in z.f)s.f[k]=Object.assign(z.f[k],s.f[k]);s.elev=Object.assign(z.elev,s.elev);s.ship=Object.assign(z.ship,s.ship);s.dock=Object.assign(z.dock,s.dock);return Object.assign(z,s,{f:s.f})}}catch(e){}return fresh()}
+ f:Object.fromEntries(F.map(d=>[d.id,{built:d.cost===0&&!d.upper,lvl:1,workers:d.cost===0&&!noCrew(d)?1:0,pend:0,ac:0}]))}}
+function load(){try{const s=JSON.parse(localStorage.getItem(SAVEKEY));if(s&&s.f){F.forEach(d=>{if(noCrew(d)&&s.f[d.id])s.f[d.id].workers=0});   /* migrate: free Life Support / quarters crew to idle */const z=fresh();for(const k in z.f)s.f[k]=Object.assign(z.f[k],s.f[k]);
+   F.forEach(d=>{if(d.upper)s.f[d.id].built=!!s.f[d.upper].built});   /* migrate: the Assembly upper slot was 'built' for free on every fresh save, which drew the unbuilt Refinery as a built floor */
+   {const r=s.f.refinery;if(r&&!r.built){if(r.lvl>1)r.built=true;else{r.lvl=1;r.workers=0}}}   /* paid upgrades on the ghost Refinery count as built; otherwise it starts unbuilt */
+s.elev=Object.assign(z.elev,s.elev);s.ship=Object.assign(z.ship,s.ship);s.dock=Object.assign(z.dock,s.dock);return Object.assign(z,s,{f:s.f})}}catch(e){}return fresh()}
 let S=load();
 const gnow=()=>S.gt+(Date.now()-S.rt)*SPEED;
 function save(){S.gt=gnow();S.rt=Date.now();try{localStorage.setItem(SAVEKEY,JSON.stringify(S))}catch(e){}}
@@ -219,8 +223,11 @@ function econ(){const P=CFG.econ.pod,e={oxygen:P.oxygen,water:P.water,energy:P.e
  e.mineMul=m;e.ptRate=m*CFG.econ.ptPerMin;e.heRate=m*CFG.econ.hePerMin;   // containers per minute
  e.refRate=F[IDX.refinery]._out;                                          // refined per minute
  e.ore=S.firstReturn?0:F[IDX.rover]._out*CFG.econ.oreTrickle/CFG.econ.oreTrickleSec;   // $/s
- e.cargoRate=(e.ptRate*CFG.econ.ptValue+e.heRate*CFG.econ.heValue)/60;   // total (30% at pack + 70% on delivery)    // $/s once shipped
- {const C=CFG.econ,cont=e.ptRate+e.heRate;e.refIncome=cont>0?Math.min(e.refRate,cont)*((e.ptRate*C.ptValue+e.heRate*C.heValue)/cont)*(C.refinedMult-1)/60:0;e.cargoRate+=e.refIncome}   // refined bonus included
+ {const C=CFG.econ,cont=e.ptRate+e.heRate,avg=cont>0?(e.ptRate*C.ptValue+e.heRate*C.heValue)/cont:0,lr=loadRate(),cyc=(tripFor(S.trips||0)+turnSec())/60+holdCap()/Math.max(0.01,lr);
+  e.shipPerMin=Math.min(cont,holdCap()/cyc);   // containers the ship can actually deliver per minute
+  e.packIncome=cont*avg*C.packShare/60;e.deliverIncome=e.shipPerMin*avg*(1-C.packShare)/60;
+  e.refIncome=Math.min(e.refRate,e.shipPerMin)*avg*(C.refinedMult-1)/60;
+  e.cargoRate=e.packIncome+e.deliverIncome+e.refIncome}   // $/s you really earn: 30% on every container packed + 70% (and the refined bonus) on what the ship carries
  e.rate=e.ore+e.cargoRate;E=e;return e}
 const staged=()=>S.pt+S.he;
 function step(dt,live,rate=1){const e=econ();let earned=0;
@@ -428,7 +435,11 @@ function pillBtn(x,y,txt,on){const p=on?1+0.03*Math.sin(T*5):1;ctx.save();ctx.tr
  const g=ctx.createLinearGradient(0,-18,0,18);if(on){g.addColorStop(0,'#ffb347');g.addColorStop(1,'#ff8a2a')}else{g.addColorStop(0,'#3a4560');g.addColorStop(1,'#2a3247')}
  ctx.fillStyle=on?'#a84c0c':'#161b27';rr(ctx,-w/2,-17,w,38,19);ctx.fill();ctx.fillStyle=g;rr(ctx,-w/2,-19,w,36,18);ctx.fill();if(!on){ctx.strokeStyle='#5b667e';ctx.lineWidth=1.5;ctx.stroke()}
  ctx.fillStyle=on?'#3a1600':'#eaf2ff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,0,0);ctx.restore()}
+const emptyFloorSite=bi=>siteOpen(bi)&&!BUILDINGS[bi].soon&&nextFloor(bi)&&nextFloor(bi).id==='refinery';
 function drawSite(bi){const b=BUILDINGS[bi],open=siteOpen(bi),p=1+0.03*Math.max(0,Math.sin(T*Math.PI*2/1.6));
+ if(emptyFloorSite(bi)){const nf=nextFloor(bi),why=lockReason(IDX[nf.id]);   // unbuilt Refinery: same dashed empty-floor frame as other unbuilt floors, button centred on it
+  ctx.save();ctx.globalAlpha=.55;ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle='#8fa3c4';ctx.strokeRect(-176,-116,352,112);ctx.restore();
+  label(0,-132,b.full||b.name,'#c9d3e6',15);pillBtn(0,-60,`Build ${nf.name} · ${fmt(nf.cost)}`,!why);if(why)label(0,-26,'🔒 '+why,'#ffb347',13);return}
  spr(ctx,'site',fr('site',T),0,-6,p,p);label(0,-112,b.full||b.name,'#c9d3e6',15);
  if(b.soon)label(0,-93,b.note?`Coming soon · ${b.note}`:'Coming soon','#8fa3c4',12);
  else if(!open){label(0,-93,`🔒 Needs ${b.needs.floors} floors in ${BUILDINGS.find(x=>x.id===b.needs.building).name}`,'#ffb347',13)}
@@ -443,17 +454,17 @@ const lowPower=d=>(d.use||0)>0&&E.power<0.999;
 function tierLayers(d,f){if(!d.tierBase)return[];   // no tier art → base art only (never blank)
 const out=[];CFG.tierLevels.forEach(L=>{if(f.lvl>=L){const s=ensureTier(d,L);if(s.ready)out.push({L,s})}});return out}
 function floorStatic(c,d,f){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id];
- if(s&&s.ready)c.drawImage(lowPower(d)&&s.lp?s.lp:s.base,0,-H,360,H);else placeholderStatic(c,d);
+ if(s&&s.ready)c.drawImage(s.base,0,-H,360,H);else placeholderStatic(c,d);
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;if(!(dt&&dt.L===o.L&&T-dt.t<0.45))c.drawImage(o.s.base,0,-H,360,H)});
  const L=tierOf(f.lvl);if(L&&!tierLayers(d,f).length){const col=CFG.tierColors[CFG.tierLevels.indexOf(L)];c.save();c.strokeStyle=col;c.lineWidth=3;c.globalAlpha=.9;c.strokeRect(2.5,-117.5,355,111);c.restore()}}
 function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id],lp=lowPower(d),t=T+k*0.3;
- if(s&&s.ready){if(!(lp&&s.lp))drawLayers(ctx,s,t,lp,H)}else placeholderAnim(d,f,t,lp);
+ if(s&&s.ready){drawLayers(ctx,s,t,lp,H)}else placeholderAnim(d,f,t,lp);
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;
   if(dt&&dt.L===o.L&&T-dt.t<0.45){const q=Math.max(0,Math.min(1,(T-dt.t-0.15)/0.26));if(q>0){ctx.save();ctx.globalAlpha=q;ctx.translate(0,-24*(1-easeOutBack(q,1.7)));ctx.drawImage(o.s.base,0,-H,360,H);drawLayers(ctx,o.s,T,lp,H);ctx.restore()}}
   else drawLayers(ctx,o.s,T,lp,H)});
  if(d.id==='rover'&&s&&s.ready)roverBay(s,f,lp);
  if(f.lvl>=50&&ok('fx_gold_shimmer')&&d.id!=='oxy'){spr(ctx,'fx_gold_shimmer',fr('fx_gold_shimmer',T),0,0)}
- if(lp){spr(ctx,'floor_low_power',fr('floor_low_power',T),0,0);spr(ctx,'icon_low_power_blink',fr('icon_low_power_blink',T),340,-120+22)}
+ if(lp)spr(ctx,'floor_low_power',fr('floor_low_power',T),0,0);   // dim only; the single warning lives in the HUD pill
  if(!f.workers&&!noCrew(d)){ctx.fillStyle='rgba(5,8,15,.45)';ctx.fillRect(0,-H,360,H);label(180,-60,(f.off?'No crew · tap, then + to assign':'Needs crew · tap to assign a resident'),'#ffb347',13)}
  const fx=floorFx[d.id]||{};if(fx.up!=null){const q=(T-fx.up)/0.25;if(q<1){ctx.globalAlpha=0.6*(1-q);ctx.fillStyle='#fff';ctx.fillRect(0,-H,360,H);ctx.globalAlpha=1}}
  (crew[d.id]||[]).forEach(a=>{const y=-120+104,role=(d.crew&&ok('walk_'+d.crew))?d.crew:'worker',key=(a.idle>0?'idle_':'walk_')+role;
@@ -463,7 +474,6 @@ function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=
  if(L){const bt=(L===50?'🏅 ':'★ ')+d.tierInfo[L].name;ctx.font=bf;bw=ctx.measureText(bt).width+12;chip(352-bw-34,-H+6,bt,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205',bf)}   // badge pinned right (clear of the star medal)
  ctx.font='700 11px Inter,system-ui,-apple-system,sans-serif';const maxW=(L?352-bw-34-6:340)-8-12;let txt=`${d.name} ${f.lvl} · ${meter(IDX[d.id])}`;
  if(ctx.measureText(txt).width>maxW){while(txt.length>4&&ctx.measureText(txt+'…').width>maxW)txt=txt.slice(0,-1);txt=txt.trimEnd()+'…'}chip(8,-H+6,txt);
- if(lp)chip(8,-95,'⚡ LOW POWER',`rgba(90,20,20,.8)`,'#ffb0a8','700 10.5px Inter,system-ui,sans-serif');
 }
 function coinBubble(x,y,txt){ctx.font='800 12px Rajdhani,Inter,system-ui,sans-serif';const w=ctx.measureText(txt).width+30;ctx.fillStyle='rgba(255,138,42,.95)';rr(ctx,x-w/2,y-11,w,22,11);ctx.fill();
  spr(ctx,'coin_spin',fr('coin_spin',T),x-w/2+12,y,0.8,0.8);ctx.fillStyle='#3a1600';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,x-w/2+22,y+1)}
@@ -798,7 +808,10 @@ let tt=0;function toast(m){const t=$('#toast');t.textContent=m;{const g=$('#goal
 // HUD
 // =====================================================================
 let shownMoney=0;
-function hud(){const e=E;if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money/20)+'|'+shipLoad()+'|'+S.pt+'|'+S.he;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
+function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=E&&E.power<0.999;el.style.display=low?'flex':'none';if(!low)return;const d=F[IDX.nuke],f=S.f.nuke;
+ const t=f.built?`Low power: upgrade Nuclear (${fmt(upCost(IDX.nuke))})`:`Low power: build Nuclear (${fmt(d.cost)})`;if(el.dataset.t!==t){el.dataset.t=t;el.querySelector('span').textContent=t}}
+function goNuclear(){const si=STOPS.findIndex(s=>s.kind==='tower'&&s.bi===F[IDX.nuke].b);closeSheet();goSite(si);if(S.f.nuke.built)setTimeout(()=>openSheet(IDX.nuke),480)}
+function hud(){const e=E;lowPowerUI();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money/20)+'|'+shipLoad()+'|'+S.pt+'|'+S.he;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
  const lim=e.limit,low=e.power<0.999,m=[['people','ui_icon_people',`${num(S.pop)}/${num(e.cap)}`,lim==='Beds'],['oxygen','ui_icon_oxygen',num(e.oxygen),lim==='Oxygen'],['water','ui_icon_water',num(e.water),lim==='Water'],['energy','ui_icon_energy',`${num(e.energy)}/${num(e.demand)}`,lim==='Energy']];
  const box=$('#meters');if(!box.children.length)box.innerHTML=m.map(r=>`<div class="m glass" data-k="${r[0]}"><img src="${ui(r[1])}"><span></span></div>`).join('');
  m.forEach((r,j)=>{const el=box.children[j];el.querySelector('span').textContent=r[2];el.classList.toggle('lim',!!r[3]&&r[0]!=='energy');el.classList.toggle('low',r[0]==='energy'&&low)});
@@ -840,7 +853,7 @@ function goSite(k,instant){k=Math.max(0,Math.min(STOPS.length-1,k));const from=c
 function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind==='dock'?dockPan:0))/TS,ly=(p.y-(OY+cam.y)-f.y)/TS;
  if(s.kind==='dock'){if(Math.abs(ly+390)<24&&Math.abs(lx)<170&&S.ship.st==='docked'){if(launchShip()){shipAnim.mode='launch';shipAnim.t0=T;shipAnim.smoke=0;toast('🚀 Cargo away · '+fmt(shipValue(S.ship))+' · back in '+mmss(tripSec(S.ship)/SPEED))}else toast('Nothing loaded yet: the crane loads staged cargo')}else openDock();return}
  const bi=s.bi,n=floorsBuilt(bi),fl=BUILDINGS[bi].floors;
- if(n===0){if(siteOpen(bi)&&Math.abs(ly+138)<24&&Math.abs(lx)<160){const nf=nextFloor(bi),i=IDX[nf.id],w=lockReason(i);if(w)toast('🔒 '+w);else buyFloor(i)}else if(!siteOpen(bi))toast(BUILDINGS[bi].soon?'Coming soon':'🔒 Build 3 Life Support floors first');return}
+ if(n===0){if(siteOpen(bi)&&Math.abs(ly-(emptyFloorSite(bi)?-60:-138))<24&&Math.abs(lx)<160){const nf=nextFloor(bi),i=IDX[nf.id],w=lockReason(i);if(w)toast('🔒 '+w);else buyFloor(i)}else if(!siteOpen(bi))toast(BUILDINGS[bi].soon?'Coming soon':'🔒 Build 3 Life Support floors first');return}
  const k=Math.floor((floorBottom(0)-ly)/120);
  if(lx>=160&&lx<=200&&k>=0&&k<n){openElev(bi);return}
  if(lx>=FX0&&lx<160){if(k>=0&&k<n){const d=fl[k];tapFloor(IDX[d.upper||d.id]);return}

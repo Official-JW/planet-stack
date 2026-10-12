@@ -95,3 +95,10 @@
 - [x] Station dots: no tap highlight/focus ring after a turn.
 - [x] Walkway at rest (Game Director): airlock caps drawn OVER the main tower's outer wall column (~10 pt in), on both sides; Mine right cap lifted above the truck opening; Dock caps sit on the pad deck clear of the cranes. Tube/mids stay behind the towers; all fade out during turns.
 - [x] Mine raised right cap: two ~6 pt steel legs (rib style) with foot plates and contact shadows down to the regolith, right of the wall line, clear of the truck opening and path.
+
+## r8 fixes (10/12/2026)
+- Refinery starts unbuilt (root cause: cost-0 assembly_up was auto-built on fresh saves, so the Shipyard counted 1 floor and drew the unbuilt Refinery). Old saves migrated; dashed empty-floor frame with centred $2,500 button; goal completes on build.
+- Ship pays exactly the value locked at launch; cargo/min HUD now = 30% pack share on all containers + 70% (and refined bonus) capped by ship throughput.
+- Image loads retry 3x (400/800/1200 ms).
+- One amber HUD pill "Low power: build Nuclear ($150)" → taps to Nuclear; per-floor warning icons removed.
+- Stray "Build Assembly · $0" gone (same root cause).
