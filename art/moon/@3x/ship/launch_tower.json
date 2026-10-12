@@ -1,0 +1,42 @@
+{
+ "meta": {
+  "images": [
+   "launch_tower.webp"
+  ],
+  "image": "launch_tower.webp",
+  "scale": 3,
+  "fps": 2,
+  "logicalFrame": {
+   "w": 120,
+   "h": 250
+  },
+  "pivot": {
+   "x": 101,
+   "y": 250
+  },
+  "loop": true,
+  "note": "quick-disconnect arm tip at x=6 (left), y=96..108; place tower so the arm tip touches the ship hull"
+ },
+ "frames": {
+  "launch_tower_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 750
+   },
+   "duration": 500
+  },
+  "launch_tower_1": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 360,
+    "h": 750
+   },
+   "duration": 500
+  }
+ }
+}

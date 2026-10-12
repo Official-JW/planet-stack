@@ -1,0 +1,103 @@
+{
+ "meta": {
+  "images": [
+   "car_maglev_doors.webp"
+  ],
+  "image": "car_maglev_doors.webp",
+  "scale": 2,
+  "fps": 40,
+  "logicalFrame": {
+   "w": 34,
+   "h": 56
+  },
+  "pivot": {
+   "x": 17,
+   "y": 56
+  },
+  "loop": false,
+  "level": 30,
+  "note": "frame 0 closed -> 7 open (ease-in-out baked). Play backwards to close."
+ },
+ "frames": {
+  "car_maglev_doors_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  },
+  "car_maglev_doors_1": {
+   "page": 0,
+   "frame": {
+    "x": 68,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  },
+  "car_maglev_doors_2": {
+   "page": 0,
+   "frame": {
+    "x": 136,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  },
+  "car_maglev_doors_3": {
+   "page": 0,
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  },
+  "car_maglev_doors_4": {
+   "page": 0,
+   "frame": {
+    "x": 272,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  },
+  "car_maglev_doors_5": {
+   "page": 0,
+   "frame": {
+    "x": 340,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  },
+  "car_maglev_doors_6": {
+   "page": 0,
+   "frame": {
+    "x": 408,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  },
+  "car_maglev_doors_7": {
+   "page": 0,
+   "frame": {
+    "x": 476,
+    "y": 0,
+    "w": 68,
+    "h": 112
+   },
+   "duration": 25
+  }
+ }
+}

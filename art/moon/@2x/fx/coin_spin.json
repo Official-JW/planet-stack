@@ -1,0 +1,81 @@
+{
+ "meta": {
+  "images": [
+   "coin_spin.webp"
+  ],
+  "image": "coin_spin.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 20,
+   "h": 20
+  },
+  "pivot": {
+   "x": 10,
+   "y": 10
+  },
+  "loop": true
+ },
+ "frames": {
+  "coin_spin_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 40,
+    "h": 40
+   },
+   "duration": 83
+  },
+  "coin_spin_1": {
+   "page": 0,
+   "frame": {
+    "x": 40,
+    "y": 0,
+    "w": 40,
+    "h": 40
+   },
+   "duration": 83
+  },
+  "coin_spin_2": {
+   "page": 0,
+   "frame": {
+    "x": 80,
+    "y": 0,
+    "w": 40,
+    "h": 40
+   },
+   "duration": 83
+  },
+  "coin_spin_3": {
+   "page": 0,
+   "frame": {
+    "x": 120,
+    "y": 0,
+    "w": 40,
+    "h": 40
+   },
+   "duration": 83
+  },
+  "coin_spin_4": {
+   "page": 0,
+   "frame": {
+    "x": 160,
+    "y": 0,
+    "w": 40,
+    "h": 40
+   },
+   "duration": 83
+  },
+  "coin_spin_5": {
+   "page": 0,
+   "frame": {
+    "x": 200,
+    "y": 0,
+    "w": 40,
+    "h": 40
+   },
+   "duration": 83
+  }
+ }
+}

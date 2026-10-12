@@ -2,7 +2,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#05070f">
 <link rel="icon" href="data:,"><title>Planet Stack</title>
-<link rel="preload" as="image" href="art/moon/bg/sky.webp"><link rel="preload" as="image" href="art/moon/bg/globe_surface_strip.webp"><link rel="preload" as="image" href="art/moon/floors/floor_oxygen_anim.png">
 <style>
 :root{--o1:#e8701a;--o2:#ffb04d;--ink:#2a3245;--txt:#f2f5fb}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
@@ -33,7 +32,9 @@ html,body{margin:0;position:fixed;inset:0;overflow:hidden;background:#05070f;col
 .row{display:flex;gap:8px}
 .btn{flex:1;border:0;border-radius:14px;padding:12px 8px;font:800 15px system-ui;color:#3a1600;background:linear-gradient(var(--o2),var(--o1));box-shadow:0 3px 0 #a84c0c;transition:transform .1s}
 .btn small{display:block;font-size:12px;font-weight:700;opacity:.8;margin-top:2px}
-.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #a84c0c}.btn:disabled{background:#3a4258;color:#8794ad;box-shadow:0 3px 0 #23293a}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #a84c0c}.btn:disabled{background:#2a3142;color:#dfe6f3;box-shadow:0 3px 0 #161b27;border:1.5px solid #5b667e}
+.btn:disabled small{color:#ffb04d;opacity:1;font-size:13px}
+.btn small{font-size:13px}
 .btn.ghost{background:#2b3349;color:#c9d3e6;box-shadow:0 3px 0 #1a1f2e}
 #shade{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .3s}#shade.on{opacity:1;pointer-events:auto}
 #modal{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .3s}

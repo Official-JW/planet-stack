@@ -1,0 +1,181 @@
+{
+ "meta": {
+  "images": [
+   "fx_elevator_tierup.webp"
+  ],
+  "image": "fx_elevator_tierup.webp",
+  "scale": 2,
+  "fps": 24,
+  "logicalFrame": {
+   "w": 40,
+   "h": 240
+  },
+  "pivot": {
+   "x": 0,
+   "y": 240
+  },
+  "loop": false
+ },
+ "frames": {
+  "fx_elevator_tierup_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_1": {
+   "page": 0,
+   "frame": {
+    "x": 80,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_2": {
+   "page": 0,
+   "frame": {
+    "x": 160,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_3": {
+   "page": 0,
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_4": {
+   "page": 0,
+   "frame": {
+    "x": 320,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_5": {
+   "page": 0,
+   "frame": {
+    "x": 400,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_6": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_7": {
+   "page": 0,
+   "frame": {
+    "x": 560,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_8": {
+   "page": 0,
+   "frame": {
+    "x": 640,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_9": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_10": {
+   "page": 0,
+   "frame": {
+    "x": 800,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_11": {
+   "page": 0,
+   "frame": {
+    "x": 880,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_12": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_13": {
+   "page": 0,
+   "frame": {
+    "x": 1040,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_14": {
+   "page": 0,
+   "frame": {
+    "x": 1120,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_elevator_tierup_15": {
+   "page": 0,
+   "frame": {
+    "x": 1200,
+    "y": 0,
+    "w": 80,
+    "h": 480
+   },
+   "duration": 42
+  }
+ }
+}

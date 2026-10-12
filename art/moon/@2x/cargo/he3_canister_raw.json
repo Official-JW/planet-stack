@@ -1,0 +1,61 @@
+{
+ "meta": {
+  "images": [
+   "he3_canister_raw.webp"
+  ],
+  "image": "he3_canister_raw.webp",
+  "scale": 2,
+  "fps": 6,
+  "logicalFrame": {
+   "w": 20,
+   "h": 28
+  },
+  "pivot": {
+   "x": 10,
+   "y": 28
+  },
+  "loop": true
+ },
+ "frames": {
+  "he3_canister_raw_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 40,
+    "h": 56
+   },
+   "duration": 167
+  },
+  "he3_canister_raw_1": {
+   "page": 0,
+   "frame": {
+    "x": 40,
+    "y": 0,
+    "w": 40,
+    "h": 56
+   },
+   "duration": 167
+  },
+  "he3_canister_raw_2": {
+   "page": 0,
+   "frame": {
+    "x": 80,
+    "y": 0,
+    "w": 40,
+    "h": 56
+   },
+   "duration": 167
+  },
+  "he3_canister_raw_3": {
+   "page": 0,
+   "frame": {
+    "x": 120,
+    "y": 0,
+    "w": 40,
+    "h": 56
+   },
+   "duration": 167
+  }
+ }
+}

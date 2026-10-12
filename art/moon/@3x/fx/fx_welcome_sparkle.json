@@ -1,0 +1,141 @@
+{
+ "meta": {
+  "images": [
+   "fx_welcome_sparkle.webp"
+  ],
+  "image": "fx_welcome_sparkle.webp",
+  "scale": 3,
+  "fps": 20,
+  "logicalFrame": {
+   "w": 64,
+   "h": 64
+  },
+  "pivot": {
+   "x": 32,
+   "y": 32
+  },
+  "loop": false
+ },
+ "frames": {
+  "fx_welcome_sparkle_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_1": {
+   "page": 0,
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_2": {
+   "page": 0,
+   "frame": {
+    "x": 384,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_3": {
+   "page": 0,
+   "frame": {
+    "x": 576,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_4": {
+   "page": 0,
+   "frame": {
+    "x": 768,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_5": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_6": {
+   "page": 0,
+   "frame": {
+    "x": 1152,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_7": {
+   "page": 0,
+   "frame": {
+    "x": 1344,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_8": {
+   "page": 0,
+   "frame": {
+    "x": 1536,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_9": {
+   "page": 0,
+   "frame": {
+    "x": 1728,
+    "y": 0,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_10": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 192,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  },
+  "fx_welcome_sparkle_11": {
+   "page": 0,
+   "frame": {
+    "x": 192,
+    "y": 192,
+    "w": 192,
+    "h": 192
+   },
+   "duration": 50
+  }
+ }
+}

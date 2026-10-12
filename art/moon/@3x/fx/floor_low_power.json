@@ -1,0 +1,185 @@
+{
+ "meta": {
+  "images": [
+   "floor_low_power-0.webp",
+   "floor_low_power-1.webp",
+   "floor_low_power-2.webp",
+   "floor_low_power-3.webp"
+  ],
+  "image": "floor_low_power-0.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 360,
+   "h": 120
+  },
+  "pivot": {
+   "x": 0,
+   "y": 120
+  },
+  "loop": true,
+  "note": "multiply-free overlay: draw on top of floor+tiers; also pause floor ambient layers"
+ },
+ "frames": {
+  "floor_low_power_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_1": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_2": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_3": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 1080,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_4": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 1440,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_5": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_6": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_7": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_8": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 1080,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_9": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 1440,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_10": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_11": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_12": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_13": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 1080,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_14": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 1440,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "floor_low_power_15": {
+   "page": 3,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 83
+  }
+ }
+}

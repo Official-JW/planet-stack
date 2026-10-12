@@ -43,21 +43,32 @@ const SPR={
 };
 // astronaut role variants: worker (orange), engineer (blue), medic (green) — only roles in use are loaded
 [...new Set(['worker',...F.map(d=>d.crew||'worker')])].forEach(r=>{const p=r==='worker'?'astronaut_':`astronaut_${r}_`;['walk','idle','carry'].forEach(a=>SPR[a+'_'+r]={atlas:'astronaut/'+p+a})});
-F.forEach(d=>{SPR['f_'+d.id]={atlas:`floors/floor_${d.art}_anim`};if(d.store)SPR['ns_'+d.id]={src:`floors/floor_${d.art}_needs_stock.png`,w:360,h:120}});
+F.forEach(d=>{SPR['f_'+d.id]={floor:d.art,atlas:`floors/floor_${d.art}_anim`};if(d.store)SPR['ns_'+d.id]={src:`floors/floor_${d.art}_needs_stock.png`,w:360,h:120}});
+// Art set: 3x when DPR>2 else 2x (art/moon/@3x/, @2x/); falls back to the base pack per file.
+const ART_SET=Math.min(3,window.devicePixelRatio||1)>2?'@3x/':'@2x/';
+async function getJSON(p){for(const base of [A+ART_SET,A]){try{const r=await fetch(base+p);if(r.ok)return{j:await r.json(),base}}catch(e){}}throw new Error('missing '+p)}
+function getImg(paths){return new Promise(res=>{let i=0;const im=new Image();im.onload=()=>res(im);im.onerror=()=>{i++;if(i<paths.length)im.src=paths[i];else res(im)};im.src=paths[0]})}
+async function tryJSON(p){try{const r=await fetch(p);if(r.ok)return await r.json()}catch(e){}return null}
+const bmp=async im=>{try{return await createImageBitmap(im)}catch(e){return im}};   // decoded off the main thread; never draws blank
 function loadArt(){const keys=Object.keys(SPR);let done=0;const tick=()=>{done++;$('#lbar').style.width=(done/keys.length*100)+'%'};
  return Promise.all(keys.map(async k=>{const s=SPR[k];
-  if(s.atlas){const j=await (await fetch(A+s.atlas+'.json')).json(),m=j.meta;s.src=s.atlas.replace(/[^/]+$/,'')+m.image;
-   s.frames=Object.values(j.frames).map(f=>f.frame);s.n=s.frames.length;s.fps=m.fps||1;s.w=m.logicalFrame.w;s.h=m.logicalFrame.h;s.px=m.pivot.x;s.py=m.pivot.y;s.scale=m.scale||3;s.loop=m.loop!==false}
-  await new Promise(r=>{const im=new Image();im.onload=im.onerror=r;im.src=A+s.src;s.img=im});
-  if(s.img.decode)try{await s.img.decode()}catch(e){}   // decode up front so no frame ever draws blank
-  tick()}))}
+  if(s.floor){const j=await tryJSON(A+ART_SET+`floors/floor_${s.floor}.json`);
+   if(j&&j.layers){const dir=A+ART_SET+'floors/';s.layered=true;s.base=await bmp(await getImg([dir+j.base]));s.pages=await Promise.all(j.layersImages.map(async n=>bmp(await getImg([dir+n]))));
+    s.layers=j.layers;s.fps=j.fps;s.n=j.frames;s.w=j.logicalSize.w;s.h=j.logicalSize.h;s.px=j.pivot.x;s.py=j.pivot.y;tick();return}}
+  if(s.atlas){const {j,base}=await getJSON(s.atlas+'.json'),m=j.meta,dir=s.atlas.replace(/[^/]+$/,'');
+   s.frames=Object.values(j.frames).map(f=>Object.assign({page:f.page||0},f.frame));s.n=s.frames.length;s.fps=m.fps||1;s.w=m.logicalFrame.w;s.h=m.logicalFrame.h;s.px=m.pivot.x;s.py=m.pivot.y;s.loop=m.loop!==false;
+   const imgs=m.images||[m.image];s.pages=await Promise.all(imgs.map(async n=>{const p=[base+dir+n];if(base!==A)p.push(A+dir+n);return bmp(await getImg(p))}));s.img=s.pages[0];tick();return}
+  s.img=await bmp(await getImg([A+ART_SET+s.src.replace(/\.png$/,'.webp'),A+s.src]));tick()}))}
+function drawFloor(key,t){const s=SPR[key];if(!s.layered){spr(ctx,key,fr(key,t),-180,0);return}
+ ctx.drawImage(s.base,-180,-120,360,120);const gf=Math.floor(t*s.fps);
+ for(const L of s.layers){const f=L.frames[((gf%L.frames.length)+L.frames.length)%L.frames.length];ctx.drawImage(s.pages[f.page||0],f.x,f.y,f.w,f.h,-180+L.x,-120+L.y,L.w,L.h)}}
 // draw a frame (logical units) with its pivot at (x,y)
 function spr(ctx,s,frame,x,y,sx=1,sy=1){const S=SPR[s];if(!S.frames){ctx.drawImage(S.img,x-(S.px||0)*sx,y-(S.py||0)*sy,S.w*sx,S.h*sy);return}
- const f=S.frames[Math.max(0,frame|0)%S.n];ctx.drawImage(S.img,f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}
+ const f=S.frames[Math.max(0,frame|0)%S.n];ctx.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}
 const frOnce=(s,t)=>Math.floor(t*SPR[s].fps);
 const fr=(s,t)=>Math.floor(t*SPR[s].fps)%SPR[s].n;
 // ----- save / time (all timing from saved timestamps) -----
-const SAVEKEY='planetstack_moon_v1';
+const SAVEKEY=location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v1';
 function fresh(){const n=Date.now();return{money:0,gt:n,rt:n,step:0,f:Object.fromEntries(F.map(d=>[d.id,{built:d.cost===0,lvl:1,workers:d.cost===0?1:0,pend:0,stock:d.startStock||0,dt:0}]))}}
 function load(){try{const s=JSON.parse(localStorage.getItem(SAVEKEY));if(s&&s.f){const fr0=fresh();for(const k in fr0.f)s.f[k]=Object.assign(fr0.f[k],s.f[k]);return s}}catch(e){}return fresh()}
 let S=load();
@@ -108,15 +119,23 @@ function goalTick(){let g=GOALS[S.step];if(!g.last&&g.p()>=1){S.step++;g=GOALS[S
 // RENDERING
 // =====================================================================
 const cv=$('#cv'),ctx=cv.getContext('2d',{alpha:false});
-let W=390,H=844,DPR=1,SC=1,OY=0,maxDPR=Math.min(2,window.devicePixelRatio||1);
+const DEV_DPR=Math.min(3,window.devicePixelRatio||1);   // never lowered
+let W=390,H=844,DPR=DEV_DPR,SC=1,OY=0,OX=0;
+const snap=v=>Math.round(v*DPR*SC)/(DPR*SC);   // align to whole device pixels
+function smooth(c){c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high'}
 const C={x:195,y:1320},R=760,HOR=560;
-function resize(){DPR=maxDPR;W=innerWidth;H=innerHeight;cv.width=W*DPR|0;cv.height=H*DPR|0;SC=W/390;OY=H/SC-844}
+function resize(){DPR=DEV_DPR;W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);  // backing store = CSS size × DPR
+ SC=Math.max(0.5,Math.round(W/390*DPR*4)/(4*DPR));if(390*SC>W)SC=Math.floor(W/390*DPR*4)/(4*DPR);
+ OX=snap((W/SC-390)/2);OY=snap(H/SC-844);smooth(ctx);if(typeof skyC!=='undefined')skyC=null;band.width=0;dbgText()}
+const DBG=new URLSearchParams(location.search).has('dbg');
+function dbgText(fps){if(!DBG)return;let el=document.getElementById('dbg');if(!el){el=document.createElement('div');el.id='dbg';el.style.cssText='position:fixed;right:6px;top:calc(env(safe-area-inset-top) + 150px);z-index:60;background:rgba(0,0,0,.75);color:#7ff3ff;font:600 11px ui-monospace,Menlo,monospace;padding:6px 8px;border-radius:8px;pointer-events:none;white-space:pre';document.body.appendChild(el)}
+ el.textContent=`devicePixelRatio ${window.devicePixelRatio}\nDPR used ${DPR}\ncanvas ${cv.width}×${cv.height} (${(cv.width/innerWidth).toFixed(2)}× CSS)\nCSS ${innerWidth}×${innerHeight}\nSC ${SC}  art ${ART_SET}${fps?`\nfps ${fps}`:''}`}
 addEventListener('resize',resize);
 // camera
 const cam={rot:0,y:0,anim:null};
 // strip offscreen (bent surface band)
 const band=document.createElement('canvas'),bctx=band.getContext('2d');const BAND_TOP=HOR-6,BAND_H=190;
-function drawBand(u0){const s=DPR*SC;if(band.width!==(390*s|0)){band.width=390*s|0;band.height=BAND_H*s|0}
+function drawBand(u0){const s=Math.min(2,DPR)*SC;if(band.width!==(390*s|0)){band.width=390*s|0;band.height=BAND_H*s|0;smooth(bctx)}
  const b=bctx;b.setTransform(1,0,0,1,0,0);b.clearRect(0,0,band.width,band.height);b.setTransform(s,0,0,s,0,-BAND_TOP*s);
  const img=SPR.strip.img,SW=3;
  for(let x=-60;x<=450;x+=SW){const a=Math.asin((x+SW/2-C.x)/R),px=C.x+R*Math.sin(a),py=C.y-R*Math.cos(a);
@@ -139,13 +158,13 @@ function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*280,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,Math.min(4,f.workers))})}
 let T=0;
 let skyC=null;
-function skyLayer(){const w=W*DPR|0,h=H*DPR|0;if(skyC&&skyC.width===w&&skyC.height===h)return skyC;skyC=document.createElement('canvas');skyC.width=w;skyC.height=h;skyC.getContext('2d').drawImage(SPR.sky.img,0,0,w,h);return skyC}
-function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.imageSmoothingQuality='high';
+function skyLayer(){const w=W*DPR|0,h=H*DPR|0;if(skyC&&skyC.width===w&&skyC.height===h)return skyC;skyC=document.createElement('canvas');skyC.width=w;skyC.height=h;{const c=skyC.getContext('2d');smooth(c);c.drawImage(SPR.sky.img,0,0,w,h)};return skyC}
+function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  // sky + stars cached into one layer; twinkle on top (parallax 0.05, tiled only when offset)
- ctx.setTransform(DPR*SC,0,0,DPR*SC,0,0);
+ ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const yb=OY+cam.y,rx=cam.rot*R;
  const sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
- ctx.drawImage(skyLayer(),0,0,390,H/SC);                       // sky: parallax 0, never tiled (nebula band isn't seamless)
+ ctx.drawImage(skyLayer(),-OX,0,W/SC,H/SC);                       // sky: parallax 0, never tiled (nebula band isn't seamless)
  ctx.save();ctx.translate(0,syy);ctx.drawImage(SPR.stars.img,sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars.img,sx-390,0,390,844);ctx.restore();
  const tw=0.675+0.325*Math.sin(T*Math.PI*2/2.4);
  ctx.save();ctx.translate(0,syy);
@@ -156,13 +175,13 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.imageSmoothingQuality='h
  const ex=40-rx*0.1,eyy=90+OY*0.4+cam.y*0.1+Math.sin(T*Math.PI*2/20)*2;
  ctx.drawImage(SPR.earth.img,ex,eyy,120,120);
  // ground layer
- ctx.save();ctx.translate(0,yb);
+ ctx.save();ctx.translate(0,snap(yb));
  ctx.drawImage(SPR.globe.img,0,0,390,844);                       // base craters below the band
  drawBand(T*CFG.surfaceScroll+rx);ctx.drawImage(band,0,BAND_TOP,390,BAND_H);
  ctx.drawImage(SPR.shade.img,0,0,390,844);
  // buildings
  BUILDINGS.forEach((b,bi)=>{const tf=towerFrame(bi);if(Math.abs(tf.a)>0.75)return;
-  ctx.save();ctx.translate(tf.x,tf.y);ctx.rotate(tf.a);
+  ctx.save();if(Math.abs(tf.a)<0.001)ctx.translate(snap(tf.x),snap(tf.y));else{ctx.translate(tf.x,tf.y);ctx.rotate(tf.a)}   // at rest: no rotation, pixel-snapped
   const n=floorsBuilt(bi);
   if(n===0)drawSite(bi);else drawTower(bi,n);
   ctx.restore()});
@@ -187,14 +206,14 @@ function drawTower(bi,n){
   if(fx.up!=null){const t=(T-fx.up)/0.4;if(t<1){const w=Math.sin(t*Math.PI)*(1-t);sx*=1+0.05*w;sy*=1-0.06*w}}
   if(fx.tap!=null){const t=(T-fx.tap)/0.16;if(t<1){const w=Math.sin(t*Math.PI);sx*=1-0.015*w;sy*=1-0.03*w}}
   ctx.scale(sx,sy);
-  spr(ctx,'f_'+d.id,fr('f_'+d.id,T+k*0.3),-180,0);
+  drawFloor('f_'+d.id,T+k*0.3);
   if(d.store){const tgt=f.stock<=0?1:0;fx.ns=(fx.ns||0)+(tgt-(fx.ns||0))*Math.min(1,dtG/0.25*1.6);floorFx[d.id]=fx;
    if(fx.ns>0.01){ctx.globalAlpha=Math.min(1,fx.ns);ctx.drawImage(SPR['ns_'+d.id].img,-180,-120,360,120);ctx.globalAlpha=1}}
   if(fx.up!=null){const t=(T-fx.up)/0.35;if(t<1){ctx.globalAlpha=0.55*(1-t);ctx.fillStyle='#fff';ctx.fillRect(-180,-120,360,120);ctx.globalAlpha=1}}
   // crew at walk line y=104 (relative to floor top)
   (crew[d.id]||[]).forEach(a=>{const y=-120+104;
    ctx.globalAlpha=.25;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(a.x-180,y,5,1,0,0,7);ctx.fill();ctx.globalAlpha=1;
-   ctx.save();ctx.translate(a.x-180,y);if(a.v<0)ctx.scale(-1,1);{const k=(a.idle>0?'idle_':'walk_')+(d.crew||'worker');spr(ctx,k,fr(k,T+a.t),0,0)};ctx.restore()});
+   ctx.save();ctx.translate(snap(a.x-180),y);if(a.v<0)ctx.scale(-1,1);{const k=(a.idle>0?'idle_':'walk_')+(d.crew||'worker');spr(ctx,k,fr(k,T+a.t),0,0)};ctx.restore()});
   // floor name + level chip, pending coin bubble
   chip(-170,-112,`${d.name}  Lv ${f.lvl}`);
   if(f.pend>=1){const bob=Math.sin(T*3+k)*2;coinBubble(150,-92+bob,fmt(f.pend))}
@@ -229,8 +248,10 @@ function drawFX(){for(let i=FX.length-1;i>=0;i--){const o=FX[i],t=T-o.t;if(t<0)c
   ctx.font=`900 ${16*s}px system-ui,-apple-system,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.lineWidth=3;ctx.strokeStyle='#5a2a00';ctx.strokeText('+'+fmt(o.amt),o.x,y);ctx.fillStyle='#ffe2b0';ctx.fillText('+'+fmt(o.amt),o.x,y);ctx.globalAlpha=1}
  else if(o.type==='sparkle'){const f=frOnce('sparkle',t);if(f>=SPR.sparkle.n){FX.splice(i,1);continue}spr(ctx,'sparkle',f,o.x,o.y)}
  else if(o.type==='dust'){const f=frOnce('dust',t);if(f>=SPR.dust.n){FX.splice(i,1);continue}spr(ctx,'dust',f,o.x,o.y)}
- else if(o.type==='text'){if(t>1){FX.splice(i,1);continue}const y=o.y-50*easeOutCubic(t),s=t<.2?easeOutBack(t/.2):1;ctx.globalAlpha=t>.7?(1-t)/.3:1;
-  ctx.save();ctx.translate(o.x,y);ctx.scale(s,s);ctx.font='900 22px system-ui,-apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=4;ctx.strokeStyle='#5a2a00';ctx.strokeText(o.txt,0,0);ctx.fillStyle='#ffd08a';ctx.fillText(o.txt,0,0);ctx.restore();ctx.globalAlpha=1}
+ else if(o.type==='text'){if(t>1){FX.splice(i,1);continue}const y=o.y-(o.pill?14:50)*easeOutCubic(t),s=t<.2?easeOutBack(t/.2):1;ctx.globalAlpha=t>.7?(1-t)/.3:1;
+  ctx.save();ctx.translate(o.x,y);ctx.scale(s,s);ctx.font='900 22px system-ui,-apple-system,sans-serif';
+  if(o.pill){const w=ctx.measureText(o.txt).width+28;ctx.fillStyle='rgba(10,14,26,.88)';rr(-w/2,-17,w,34,17);ctx.fill();ctx.strokeStyle='#ffb04d';ctx.lineWidth=2;ctx.stroke()}   // banner sits above the floor on its own backing, never over floor text
+ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=4;ctx.strokeStyle='#5a2a00';ctx.strokeText(o.txt,0,0);ctx.fillStyle='#ffd08a';ctx.fillText(o.txt,0,0);ctx.restore();ctx.globalAlpha=1}
  else if(o.type==='courier'){ // carry astronaut leaving Water
   const d=1.6;if(t>d){FX.splice(i,1);continue}const tf=towerFrame(o.bi);if(Math.abs(tf.a)>0.75)continue;
   ctx.save();ctx.translate(tf.x,tf.y);ctx.rotate(tf.a);const x=-180+o.x0+(350-o.x0)*(t/d);ctx.translate(x,floorBottom(o.k)-16);ctx.globalAlpha=t>d-0.3?(d-t)/0.3:1;spr(ctx,'carry_worker',fr('carry_worker',t),0,0);ctx.restore();ctx.globalAlpha=1}}}
@@ -241,7 +262,7 @@ function crewTick(dt){for(const id in crew)for(const a of crew[id]){if(a.idle>0)
 // =====================================================================
 // INPUT: drag sideways rotates the Moon (direction-locked), vertical pans, tap hits
 // =====================================================================
-const toLogical=(cx,cy)=>({x:cx/SC,y:cy/SC});
+const toLogical=(cx,cy)=>({x:cx/SC-OX,y:cy/SC});
 let g0=null;
 function gStart(e,fromShade){cancelAnimationFrame(cam.anim);cam.anim=null;
  g0={x:e.clientX,y:e.clientY,rot0:cam.rot,y0:cam.y,axis:null,edge:e.clientX<20||e.clientX>W-20,lx:e.clientX,lt:performance.now(),v:0,fromShade}}
@@ -295,7 +316,7 @@ function drawSheet(){if(sheetI<0)return;const i=sheetI,f=st(i),d=F[i],max=f.lvl>
  <button class="btn" id="bHire" ${fullFloor||fullCap||S.money<hc?'disabled':''}>Hire · ${fmt(hc)}<small>${fullFloor?`Floor full · more room at Lv ${(ms(f.lvl)+1)*5}`:fullCap?`Crew cap ${tw}/${cap} · ${S.f.living.built?'upgrade':'build'} Living Quarters`:S.money<hc?`Need ${fmt(hc-S.money)} more`:'+25% income'}</small></button></div>`;
  const sh=$('#sheet');if(sh.dataset.h===html)return;sh.innerHTML=html;sh.dataset.h=html;
  $('#bUp').onclick=()=>{const c=upCost(i);if(f.lvl>=CFG.maxLevel||S.money<c)return;S.money-=c;f.lvl++;const fx=floorFx[d.id]=floorFx[d.id]||{};fx.up=T;
-  const m=toGround(d.b,0,floorBottom(d.k)-60),mile=f.lvl%5===0;burst(m.x,m.y,mile?12:5,mile?'★ MILESTONE!':'LV '+f.lvl);if(mile){shake=0.2;crewSync()}drawSheet();save()};
+  const m=toGround(d.b,0,floorBottom(d.k)-60),mile=f.lvl%5===0;{const top=toGround(d.b,0,floorBottom(d.k)-120-18);burst(m.x,m.y,mile?12:5);FX.push({type:'text',x:top.x,y:top.y,t:T,txt:mile?'★ MILESTONE!':'LV '+f.lvl,pill:true})}if(mile){shake=0.2;crewSync()}drawSheet();save()};
  $('#bHire').onclick=()=>{const c=hireCost(i);if(f.workers>=floorSlots(f)||totalWorkers()>=workerCap()||S.money<c)return;S.money-=c;f.workers++;crewSync();
   const m=toGround(d.b,0,floorBottom(d.k)-30);burst(m.x,m.y,3,'+1 crew');drawSheet();save()}}
 function bumpMoney(){const m=$('#money');m.classList.add('bump');setTimeout(()=>m.classList.remove('bump'),180)}
@@ -313,14 +334,14 @@ function catchUp(){const t=gnow(),gap=(t-lastG)/1000;lastG=t;if(gap<=0)return;
    const p=toGround(0,0,floorBottom(0)-60);coinFx(p.x,p.y,g);save()}}
  save()}
 let perfN=0,perfT=0,lastF=0,acc=0,saveT=0,dtG=0;
-function frame(now){const dt=Math.min(0.1,(now-lastF)/1000||0);lastF=now;T+=dt;dtG=dt;
+function frame(now){const dt=Math.max(0,Math.min(0.1,(now-lastF)/1000||0));lastF=now;T+=dt;dtG=dt;
  if(!document.hidden){const t=gnow(),gd=(t-lastG)/1000;if(gd>2)catchUp();else{lastG=t;if(!$('#modal').classList.contains('on'))step(gd,true)}}
  crewTick(dt);
  if(shake>0){shake-=dt}
  ctx.save();render();ctx.restore();
  if(shake>0){cv.style.transform=`translate(${(Math.random()-.5)*4*shake/0.25}px,${(Math.random()-.5)*4*shake/0.25}px)`}else if(cv.style.transform)cv.style.transform='';
  // adaptive resolution: if a device can't hold ~50fps, step the canvas resolution down
- perfN++;perfT+=dt;if(perfT>2){if(perfN/perfT<50&&maxDPR>1){maxDPR=Math.max(1,maxDPR-0.5);resize();console.log('dpr->',maxDPR)}perfN=0;perfT=0}
+ perfN++;perfT+=dt;if(perfT>=1){dbgText(Math.round(perfN/perfT));perfN=0;perfT=0}   // no resolution fallback: DPR is never lowered
  acc+=dt;saveT+=dt;if(acc>0.2){acc=0;hud();goalTick();drawSheet()}if(saveT>5){saveT=0;save()}
  requestAnimationFrame(frame)}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else catchUp()});
