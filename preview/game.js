@@ -102,7 +102,7 @@ let BAYROUTE=null;tryJSON(ART+MINE+'rover/rover_bay_route.json').then(j=>BAYROUT
 ['loaded_box_pulse','loaded_box_sealed','loaded_box_stack3','he3_canister_pulse','he3_canister_sealed','he3_canister_stack3'].forEach(n=>def(n,MINE+'box/'+n,'mine_starter'));
 ['pickup_ore','pickup_miner','pickup_refined_coin'].forEach(n=>{def(n+'_spin',MINE+'fx/'+n+'_spin','mine_starter');def(n+'_sparkle',MINE+'fx/'+n+'_sparkle','mine_starter')});
 def('tunnel_back',MINE+'tunnel/tunnel_back','mine_starter','floor');def('tunnel_haze',MINE+'tunnel/tunnel_haze','mine_starter','img');def('tunnel_front_lip',MINE+'tunnel/tunnel_front_lip','mine_starter','img');
-const WALK=`../shared/walkway/${DEV_DPR>2?'@3x':'@2x'}/`;['walkway_cap','walkway_cap_R','walkway_astro_walk'].forEach(n=>def(n,WALK+n,'walkway'));['walkway_mid','walkway_truss'].forEach(n=>def(n,WALK+n,'walkway','img'));
+const WALK=`../shared/walkway/${DEV_DPR>2?'@3x':'@2x'}/`;['walkway_cap','walkway_cap_R','walkway_astro_walk'].forEach(n=>def(n,WALK+n,'walkway'));['walkway_mid','walkway_mid_s','walkway_truss'].forEach(n=>def(n,WALK+n,'walkway','img'));
 def('roof_mine',MINE+'floors/penthouse_mine','mine_later_penthouse','floor');SPR.roof_mine.lowpower=true;
 // Cargo Space Dock (own station; loads when the player heads to it)
 def('dock_base',DOCK+'pad/cargo_space_dock','dock','img');
@@ -113,7 +113,7 @@ def('ship4_hull',DOCK+'ship/ship4_hull','dock','img');def('launch_tower4',DOCK+'
 ['walk','carry','push','wave'].forEach(n=>def('crew13_'+n,DOCK+'crew/crew13_'+n,'dock'));
 def('ui_btn_dock_wrench_firsttime',DOCK+'ui/ui_btn_dock_wrench_firsttime','dock');
 def('walk_medic','astronaut/astronaut_medic_walk','hab');def('idle_medic','astronaut/astronaut_medic_idle','hab');
-const IMG_SIZE={walkway_mid:[48,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],launch_tower4:[240,500,38,500],
+const IMG_SIZE={walkway_mid:[48,64,0,52],walkway_mid_s:[36,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],launch_tower4:[240,500,38,500],
  crane_gantry:[120,200,60,200],crane_trolley:[24,10,12,0],crane_hook_empty:[40,40,20,0],crane_jib_mast:[40,180,20,180],crane_jib_boom:[150,20,10,10],floodlight_mast:[30,150,15,150],floodlight_cone:[160,160,80,0],
  dock_sign_neon_base:[200,48,100,48],dock_sign_neon_pad_t10:[240,48,120,48],dock_sign_neon_pad_t20:[280,48,140,48],dock_sign_bloom_base:[280,40,140,20],dock_sign_bloom_pad_t10:[320,40,160,20],dock_sign_bloom_pad_t20:[360,40,180,20]};
 window.__firstBytesMark=0;
@@ -338,13 +338,14 @@ function drawWalkways(){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_
  for(let i=0;i<STOPS.length-1;i++){const am=(i+0.5)*P-cam.rot;if(Math.abs(am)>0.36)continue;
   const x0=-SP/2+hw(i)-6,x1=SP/2-hw(i+1)+6,G=x1-x0;if(G<70)continue;const gnd=x=>x*x/(2*R);   // ground (curved) below the mid-span tangent
   const N=Math.max(1,Math.round((G-60)/48)),sx=Math.max(0.85,Math.min(1.15,(G-60)/(48*N)));   // mids never outside 0.85-1.15 (caps may overlap a squeezed mid)
-  const tx=[];for(let x=x0+30;x+48<=x1-30+0.5;x+=96)tx.push(x+24);if(!tx.length)tx.push((x0+x1)/2);
+  const short=G-60<41&&ok('walkway_mid_s');   // short gap: one mid_s stretched by (G-60)/36
+  const tx=[];if(short)tx.push((x0+x1)/2);else for(let x=x0+30;x+48<=x1-30+0.5;x+=96)tx.push(x+24);if(!tx.length)tx.push((x0+x1)/2);
   const gy=Math.max(...tx.map(gnd))-52;   // fixed 40pt trusses: lower the tube until the truss over the lowest ground reaches it
   ctx.save();ctx.translate(C.x+R*Math.sin(am),C.y-R*Math.cos(am));ctx.rotate(am);
   tx.forEach(x=>spr(ctx,'walkway_truss',0,x,gy+12));
-  const ms=(48*N*sx);for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+(G-60-ms)/2+k*48*sx,gy,sx,1);
+  const ms=(48*N*sx),mids=()=>{if(short)spr(ctx,'walkway_mid_s',0,x0+30,gy,(G-60)/36,1);else for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+(G-60-ms)/2+k*48*sx,gy,sx,1)};mids();
   if(ok('walkway_astro_walk')){const L=G-70,nA=G<150?1:2;for(let j=0;j<nA;j++){const per=L/22*2,q=((T+i*3.1+j*per/2)%per)/per,go=q<.5,u=go?q*2:2-q*2;ctx.save();ctx.translate(x0+35+L*u,gy);if(!go)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',fr('walkway_astro_walk',T+j),0,0);ctx.restore()}}   // 2 walkers start half a cycle apart (opposite directions)
-  ctx.globalAlpha=.35;for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+(G-60-ms)/2+k*48*sx,gy,sx,1);ctx.globalAlpha=1;   // glass-front pass
+  ctx.globalAlpha=.35;mids();ctx.globalAlpha=1;   // glass-front pass
   spr(ctx,'walkway_cap',fr('walkway_cap',T),x0,gy);spr(ctx,'walkway_cap_R',fr('walkway_cap_R',T+0.5),x1,gy);ctx.restore()}}
 function drawStop(o){const {s,f}=o;curStopA=f.a;ctx.save();
  if(Math.abs(f.a)<0.0004)ctx.translate(snap(f.x),snap(f.y));else{ctx.translate(f.x,f.y);ctx.rotate(f.a)}
