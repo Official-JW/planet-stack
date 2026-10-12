@@ -49,7 +49,7 @@
     "@3x/tunnel/tunnel_front_lip.webp",
     "@3x/tunnel/tunnel_haze.webp"
    ],
-   "bytes": 1180380
+   "bytes": 1169428
   },
   "@2x": {
    "files": [
@@ -98,7 +98,7 @@
     "@2x/tunnel/tunnel_front_lip.webp",
     "@2x/tunnel/tunnel_haze.webp"
    ],
-   "bytes": 716261
+   "bytes": 709465
   }
  }
 }

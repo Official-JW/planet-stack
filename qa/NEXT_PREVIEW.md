@@ -157,3 +157,11 @@
 - Code-drawn ground gradient x1.21 (Art), same stops/shape, tinted to the strip's average surface hue (R 1.023 / G 1.000 / B 0.968). Strip unchanged.
 
 ## r14c (11:17 PT) — code ground scale 1.21 → 1.13 (GD), hue tint kept
+
+## r15 (QA 12:15)
+- Toast is placed every frame at least 8pt below the stats bar and 18pt below the low-power pill. It no longer animates `top`.
+- Low-power dim/crossfade (mine floors and Life Support) uses the same eased 400ms fade each way from the rAF clock. Ambient layers and trucks no longer freeze; the truck slows smoothly with the fade.
+- The ground strip fade is advanced per frame. In dev it logs `[ground strip] alpha` to the console and an on-screen readout.
+- COLLECT and welcome-back payouts are held until tapped, then banked with a money pop.
+- Touch input is enabled only after the loader is gone. The loader is pointer-events:none while it fades.
+- mine_starter re-export: tunnel_back and tunnel_front_lip have feathered edges (@3x pack 1,169,428 B).

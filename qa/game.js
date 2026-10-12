@@ -398,7 +398,13 @@ function buildGround(){const k=DPR*SC;if(gK===k)return;gK=k;gC.width=Math.ceil(G
  c.fillStyle='rgba(255,255,255,.18)';c.fillRect(0,0,GTW,1.2)}
 // ground: code-drawn tile (first-screen fallback) → Art's ground_strip, 200 ms crossfade once loaded.
 // The strip's groundLineY sits on HOR, so building pads (y 0 = HOR) and walkway legs (down to HOR) stand on the art's ground line.
-function drawGround(rx){const S=SPR.ground_strip,fa=S&&S.ready&&GSTRIP.t0?easeIO(Math.min(1,Math.max(0,(NOW-GSTRIP.t0)/200))):0,bottom=H/SC-(OY+cam.y)+40;
+// strip fade progress: advances per rAF by the frame's real time, but a long (hitchy) frame counts as at most 34 ms,
+// so the 200 ms ramp always spans >= 6 drawn frames and can never pop in one frame. Dev: logs alpha every frame + on-screen readout.
+let gsLast=0;function stripTick(now){if(!GSTRIP.t0||GSTRIP.done)return;const dt=gsLast?Math.min(34,now-gsLast):0;gsLast=now;GSTRIP.p=Math.min(1,(GSTRIP.p||0)+dt/200);const a=easeIO(GSTRIP.p);
+ if(DEV){(GSTRIP.log=GSTRIP.log||[]).push([Math.round(now),+a.toFixed(3)]);console.log(`[ground strip] t=${Math.round(now-GSTRIP.t0)}ms alpha=${a.toFixed(3)}`);let el=$('#gsa');if(!el){el=document.createElement('div');el.id='gsa';el.style.cssText='position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 230px);z-index:20;font:11px ui-monospace,Menlo,monospace;color:#9ff0ff;background:rgba(0,0,0,.6);padding:4px 6px;border-radius:6px;pointer-events:none;white-space:pre';document.body.appendChild(el)}
+  el.textContent='strip α '+GSTRIP.log.slice(-8).map(x=>x[1].toFixed(2)).join(' ');if(GSTRIP.p>=1)setTimeout(()=>el.remove(),3000)}
+ if(GSTRIP.p>=1)GSTRIP.done=true}
+function drawGround(rx){const S=SPR.ground_strip,fa=GSTRIP.t0?easeIO(GSTRIP.p||0):0,bottom=H/SC-(OY+cam.y)+40;
  if(fa<1){buildGround();ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
   const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
  if(fa>0){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h,sc=S.img.width/TW;ctx.save();ctx.globalAlpha=fa;
@@ -482,7 +488,7 @@ function floorStatic(c,d,f){if(d.upper)return;const H=d.slots===2?240:120;const 
 // floor labels never hide under the Goal card: if a floor's top is under the HUD band, its label sticks just below the band (within the floor)
 let BAND=0;const stickT={};function chipY(H,id){const m=ctx.getTransform();let y=-H+6;if(BAND&&Math.abs(m.b)<=0.01&&m.d>0){const st=(BAND-m.f)/m.d;y=Math.min(Math.max(-H+6,st),-26)}
  const stuck=y>-H+6.5;if(!stuck){delete stickT[id];return{y,a:1,sh:false}}if(stickT[id]==null)stickT[id]=T;return{y,a:Math.min(1,(T-stickT[id])/0.12),sh:true}}   // stuck: same plate + 1 pt shadow, fades in over 120 ms
-function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id],lp=lowPower(d),t=T+k*0.3;
+function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id],lp=false,t=T+k*0.3;   // low power never freezes/jumps the ambient layers any more: the ONLY low-power visual is the eased 400 ms dim / _lowpower crossfade (LPS.k)
  if(s&&s.ready){drawLayers(ctx,s,t,lp,H)}else placeholderAnim(d,f,t,lp);
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;
   if(dt&&dt.L===o.L&&T-dt.t<0.45){const q=Math.max(0,Math.min(1,(T-dt.t-0.15)/0.26));if(q>0){ctx.save();ctx.globalAlpha=q;ctx.translate(0,-24*(1-easeOutBack(q,1.7)));ctx.drawImage(o.s.base,0,-H,360,H);drawLayers(ctx,o.s,T,lp,H);ctx.restore()}}
@@ -600,7 +606,7 @@ function drawDust(dt){for(let i=dust.length-1;i>=0;i--){const d=dust[i];d.t+=dt;
 let fgLast=0;
 // ---- Truck cycle (MINE_SPEC Rover Bay v3). Two labelled trucks share an 8.4 s beat: one dumps in the bay while the other works the tunnel.
 const BEAT=8.4,truckKind=n=>n%2?'he3':'pt';
-let TCK=0;const truckSpeed=()=>(LPS.on?0.5:1)*Math.min(1.6,1+(S.f.rover.lvl-1)*0.02);   // accumulated clock: a speed change never jumps the truck
+let TCK=0;const truckSpeed=()=>(1-0.5*LPS.k)*Math.min(1.6,1+(S.f.rover.lvl-1)*0.02);   // accumulated clock: a speed change never jumps the truck
 function truckClock(){const t=TCK;return{n:Math.floor(t/BEAT),c:t%BEAT}}
 const tintC=document.createElement('canvas'),tintX=tintC.getContext('2d');
 function sprTint(key,frame,x,y,tint){if(tint>=0.999){spr(ctx,key,frame,x,y);return}const S=SPR[key];if(!S||!S.ready)return;const k=DPR*SC,w=Math.ceil(S.w*k)+2,h=Math.ceil(S.h*k)+2;
@@ -612,7 +618,7 @@ function roverBay(base,f,lp){const R=BAYROUTE;if(!R||S.f.rover.workers<=0)return
  if(c>=7.9)return;const i=Math.min(R.frames.length-1,Math.floor(c*R.fps)),q=c*R.fps-i,a=R.frames[i],b=R.frames[Math.min(R.frames.length-1,i+1)],x=Math.max(R.stopX??92,a.x+(b.x-a.x)*q),bob=a.bob+(b.bob-a.bob)*q;
  const tint=x>330?0.45:x<220?1:1-0.55*(x-220)/110,y=FY-bob;
  let key,fr8;if(c>=2.7&&c<5.8){key='rover_bay_dump_'+kind;fr8=Math.min(15,Math.floor((c-2.7)/3.1*16));if(!SPR[key].ready){key='rover_bay_dump_still_'+kind;fr8=0}}else{key='truck_'+kind+'_drive';const rev=a.seg==='reverseIn',mv=Math.abs(b.x-a.x)>0.05;fr8=mv?(rev?7-Math.floor(c*12)%8:Math.floor(c*12)%8):0}
- if(lp&&key.startsWith('truck'))fr8=0;
+ 
  ctx.save();ctx.globalAlpha=.35*tint;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(x+45,FY+0.5,46,3,0,0,7);ctx.fill();ctx.restore();
  sprTint(key,fr8,x,y,tint);
  if(x+90>292&&base.base){const kk=base.base.width/360;ctx.drawImage(base.base,292*kk,42*kk,10*kk,62*kk,292,42-120,10,62)}}   // right jamb over the truck
@@ -769,6 +775,7 @@ function tickMeter(k){const el=document.querySelector(`.m[data-k="${k}"]`)||(k==
 // =====================================================================
 // ACTIONS
 // =====================================================================
+function moneyPop(v){if(!(v>0))return;const r=$('#money').getBoundingClientRect(),d=document.createElement('div');d.textContent='+'+fmt(v);d.style.cssText=`position:fixed;left:${r.left+r.width/2}px;top:${r.bottom+4}px;transform:translateX(-50%);z-index:60;font:700 20px var(--num);color:#ffe2b0;text-shadow:0 2px 6px rgba(0,0,0,.6);pointer-events:none;transition:transform .9s cubic-bezier(.2,.9,.3,1),opacity .9s`;document.body.appendChild(d);requestAnimationFrame(()=>{d.style.transform='translate(-50%,-26px)';d.style.opacity='0'});setTimeout(()=>d.remove(),1000)}
 function bump(){const m=$('#money');m.classList.add('bump');setTimeout(()=>m.classList.remove('bump'),160)}
 function buyFloor(i){let d=F[i];const nc=noCrew(d);if(d.upper){i=IDX[d.upper];d=F[i]}if(lockReason(i))return false;if(d.slots===2){const u=S.f[d.id+'_up'];if(u){u.built=true;u.lvl=1}}S.money-=d.cost;if(d.pack)loadGroup(d.pack);const f=st(i);f.built=true;f.lvl=1;if(!nc&&idleResidents()>0)f.workers=1;
  ensureBuildingArt(d.b);(floorFx[d.id]=floorFx[d.id]||{}).build=T;const p=floorPt(d,0,120);FX.push({type:'sprite',key:'fx_floor_unlock',si:p.si,x:p.x,y:p.y,t:T});
@@ -879,8 +886,12 @@ let sheetDragClosed=0;
  document.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&sd)sdMove(e.clientY,e)});
  document.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')sdEnd()})}
 $('#shade').onclick=()=>{if(performance.now()-sheetOpenedAt>400)closeSheet()};
-let tt=0,padDip=null;function placeToast(){const t=$('#toast'),lp=$('#lpw'),pr=lp&&lp.offsetParent&&lp.getBoundingClientRect(),g=$('#goal'),r=g&&g.getBoundingClientRect();   // never cover the low-power pill: sit just below it when it shows
- if(pr&&pr.height)t.style.top=Math.round(pr.bottom+18)+'px';else if(r&&r.height)t.style.top=Math.round(r.top+r.height/2-18)+'px'}
+let tt=0,padDip=null;
+// Toast: always >= 8 pt below the lowest HUD element showing (stats bar #meters, or the low-power pill #lpw → 18 pt below it, as Art spec'd).
+// Re-placed EVERY frame while visible: the pill can appear after the toast (power hysteresis), so a one-off placement could end up under it.
+function placeToast(){const t=$('#toast'),vis=e=>{if(!e||!e.offsetParent)return null;const r=e.getBoundingClientRect();return r.height?r:null};
+ const m=vis($('#meters')),pr=vis($('#lpw'));let top=m?m.bottom+8:0;if(pr)top=Math.max(top,pr.bottom+18);
+ const v=Math.round(top)+'px';if(t.style.top!==v)t.style.top=v}
 function toast(m,tap){const t=$('#toast');t.textContent=m;t.onclick=tap?()=>{t.classList.remove('on');tap()}:null;t.style.pointerEvents=tap?'auto':'';if(E){econ();lowPowerUI()}placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>{t.classList.remove('on');t.style.pointerEvents='';t.onclick=null},2200)}
 // =====================================================================
 // HUD
@@ -929,7 +940,8 @@ function maxScroll(){const s=STOPS[site];const top=stopTop(s);let m=Math.max(0,h
 let g0=null,dockPan=0;const PANMAX=60;   // dock stop: sideways pan over the 760-wide art (screen pts)
 // Gestures: one set of handlers fed by TOUCH events on touch devices (iOS Safari can cancel touch pointer streams, e.g. after a reload,
 // which left drags dead while dot taps still worked) and by POINTER events for mouse/pen only.
-function gStart(x,y,shade){if(!shade&&(x<20||x>innerWidth-20)){g0={edge:true};return}g0=shade?{x,y,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}:{x,y,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};if(!shade)cam.vy=0}
+let inputReady=false;
+function gStart(x,y,shade){if(!inputReady){g0=null;return}if(!shade&&(x<20||x>innerWidth-20)){g0={edge:true};return}g0=shade?{x,y,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}:{x,y,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};if(!shade)cam.vy=0}
 function gMove(x,y){if(!g0||g0.edge)return;const dx=x-g0.x,dy=y-g0.y;
  if(!g0.axis&&Math.hypot(dx,dy)>9){g0.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';if(g0.fromShade&&g0.axis==='x')closeSheet();if(g0.fromShade&&g0.axis==='y'){g0=null;return}if(g0.axis==='x'&&g0.onDock&&!((dx>0&&g0.pan0<=-PANMAX+0.5)||(dx<0&&g0.pan0>=PANMAX-0.5)))g0.axis='p';   // pan until the edge; only a NEW swipe from the edge changes station
   if(g0.axis==='x'){if(cam.anim){cam.anim=null;g0.rot0=cam.rot+dx/SC*CFG.rotPerSlot/SPAN}}if(g0.axis==='x'&&hintOn)endHint()}
@@ -969,7 +981,7 @@ function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind=
 // =====================================================================
 let last=performance.now(),saveAcc=0,hudAcc=0,fpsN=0,fpsT=0;
 let scrolledCls=false;
-function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;NOW=now;lpTick(dt,now);if(!window.__freeze&&E)TCK+=dt*truckSpeed();
+function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;NOW=now;stripTick(now);if($('#toast').classList.contains('on'))placeToast();lpTick(dt,now);if(!window.__freeze&&E)TCK+=dt*truckSpeed();
  if(!cam.anim&&!g0){const P=CFG.rotPerSlot,k=Math.max(0,Math.min(STOPS.length-1,Math.round(cam.rot/P)));if(Math.abs(cam.rot-k*P)>0.0004)goSite(k)}   // never rest half-turned
  if(cam.anim){const a=cam.anim,q=Math.min(1,(T-a.t0)/a.d);cam.rot=a.from+(a.to-a.from)*easeOutCubic(q);if(q>=1){cam.rot=a.to;cam.anim=null}}
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
@@ -984,12 +996,15 @@ function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r
 // Welcome back: display:none unless showing (no invisible hit area ever); shown as the LAST body child on its own layer above the canvas/HUD;
 // COLLECT answers pointerup/touchend/click (first wins); dismiss removes pointer events at once and display after the fade.
 function showWelcome(){const m=$('#modal'),b=$('#wbok');document.body.appendChild(m);m.classList.add('show');m.offsetWidth;requestAnimationFrame(()=>m.classList.add('on'));
- let done=false;const go=e=>{if(done)return;done=true;if(e&&e.cancelable)e.preventDefault();m.classList.remove('on');m.style.pointerEvents='none';setTimeout(()=>{m.classList.remove('show');m.style.pointerEvents=''},320);bump();g0=null;tId=null};
+ let done=false;const go=e=>{if(done)return;done=true;if(e&&e.cancelable)e.preventDefault();m.classList.remove('on');m.style.pointerEvents='none';setTimeout(()=>{m.classList.remove('show');m.style.pointerEvents=''},320);g0=null;tId=null;
+  const v=S.wbPend||0;S.wbPend=0;S.money+=v;save();hud();bump();moneyPop(v)};
  b.onclick=go;b.onpointerup=go;b.ontouchend=go}
-function offline(){const now=Date.now(),away=Math.min(CFG.offlineCapSec,(now-S.rt)/1000*SPEED);let earned=0;const before=S.ship.st;
+function offline(){const now=Date.now(),away=Math.min(CFG.offlineCapSec,(now-S.rt)/1000*SPEED);let earned=0;const before=S.ship.st,m0=S.money;
  if(away>5){let left=away;while(left>0){const ch=Math.min(10,left);earned+=step(ch,false,CFG.offlineRate);left-=ch}}
  S.gt=gnow();S.rt=now;const ev=shipTick(S.gt,false);ev.forEach(e=>{if(e.type==='landed'){earned+=e.v;FX.push({type:'dock',key:'dust_puff4',t:0})}});
- if(earned>=1&&away>30){$('#wbtext').textContent=`Your base ran for ${mmss(away/SPEED)} while you were away.`;$('#wbamt').textContent='+'+fmt(earned);showWelcome()}
+ // Welcome back: everything earned while away (production + cargo that landed) is HELD in S.wbPend and banked only on COLLECT.
+ // A pending amount from a reload before collecting is carried over (never lost, never double-paid).
+ const gained=Math.max(0,S.money-m0);if(gained>=1&&away>30||(S.wbPend||0)>=1){S.money=m0;S.wbPend=(S.wbPend||0)+gained;$('#wbtext').textContent=`Your base ran for ${mmss(Math.max(away,1)/SPEED)} while you were away.`;$('#wbamt').textContent='+'+fmt(S.wbPend);showWelcome()}
  save()}
 // boot: first screen = core + Life Support; then stream the Mine (preview → starter pack), Habitat, fx in the background
 let bgDone=false;
@@ -997,7 +1012,7 @@ let bgDone=false;
  const bar=$('#lbar');await Promise.all([loadGroup('core',p=>bar.style.width=(p*80)+'%'),loadGroup('life',p=>{})]);bar.style.width='100%';
  ensureLook(elevLook(0));
  offline();econ();crewSync();hud();devUI();
- {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
+ {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.pointerEvents='none';L.style.opacity=0;setTimeout(()=>{L.remove();inputReady=true},500);/* the fading loader no longer catches taps; touch input turns on when it is gone */requestAnimationFrame(t=>{last=t;frame(t)});document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
  await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('mine_later_dump');loadGroup('fx_later_upgrade_burst');loadGroup('floors_later_offscreen');tryJSON(ART+SPR.ground_strip.path+'.json').then(j=>{if(j){GSTRIP.tileWidth=j.tileWidth||GSTRIP.tileWidth;GSTRIP.groundLineY=j.groundLineY??GSTRIP.groundLineY;GSTRIP.h=(j.logicalSize&&j.logicalSize.h)||GSTRIP.h;IMG_SIZE.ground_strip=[GSTRIP.tileWidth,GSTRIP.h,0,0]}});loadGroup('ground_later_strip').then(()=>{const S=SPR.ground_strip;if(S.ready){S.w=GSTRIP.tileWidth;S.h=GSTRIP.h;const im=S.img;Promise.resolve(im&&im.decode?im.decode():null).catch(()=>{}).then(()=>{
    // warm the GPU upload with an invisible draw, then start the 200 ms fade on the NEXT frame: no decode hitch mid-fade
