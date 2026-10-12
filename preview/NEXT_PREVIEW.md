@@ -117,3 +117,4 @@
 - Hold scales with trip: 1x / 2.5x / 6x (12/30/72); crane scales the same (full hold loads in ~2 min); pad cap = max(60, hold).
 - ?dev params (truckdelay, speed…) survive the ?fresh URL cleanup.
 - Art checks: pad stack stays capped at its full 60-height (counter shows real N/72; slide still animates max 12); sticky floor label = same plate + 1 pt drop shadow, fades in over 120 ms.
+- Big launches: loaded containers stay drawn until they leave; past the 12 animated, the rest fade out over 200 ms after the slide so the stack matches the remaining pad (unloaded ones stay). No pop-back; lift beat unchanged.

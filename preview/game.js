@@ -280,7 +280,7 @@ function shipTick(t,live){const s=S.ship,ev=[];
 const tripFor=n=>n<1?120:n<2?300:600;   // 1st trip 2 min, 2nd 5 min, then 10 min
 const tripSec=s=>s.dur||CFG.ship.tripSec;
 const shipValue=s=>s.st!=='docked'&&s.val!=null?s.val:Math.round(cargoValue(s));
-function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;padDip={n:shipLoad(),he:s.he,from:staged(),t:T,end:0.4+0.04*(Math.min(shipLoad(),12)-1)};s.val=Math.round(cargoValue(s));s.st='trip';s.t=gnow();s.dur=tripFor(S.trips||0);armT=T;save();return true}
+function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;padDip={n:shipLoad(),he:s.he,lp:s.pt,lh:s.he,from:staged(),t:T,end:0.4+0.04*(Math.min(shipLoad(),12)-1)};s.val=Math.round(cargoValue(s));s.st='trip';s.t=gnow();s.dur=tripFor(S.trips||0);armT=T;save();return true}
 const SUF=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
 function compact(n){n=Math.floor(n);if(n<1000)return String(n);let k=0,v=n;while(v>=999.5&&k<SUF.length-1){v/=1000;k++}if(v>=999.5)return n.toExponential(1).replace('+','');let t=v.toPrecision(3);if(t.includes('.'))t=t.replace(/0+$/,'').replace(/\.$/,'');return t+SUF[k]}   // 3 significant digits, ≤6 chars with $
 const fmt=n=>'$'+compact(n);
@@ -638,6 +638,13 @@ const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'wa
 // lift waits for the slide + pad tick-down + a 150 ms beat; ignition (0.4 s) is timed so the rise starts right after the beat. Visual only: trip timer and payout stay locked to the launch tap.
 const hatchAt=()=>padDip?padDip.end+0.3:0;   // hatch shuts in the 150 ms beat: 6 frames x 24 ms
 const liftDelay=()=>padDip&&T-padDip.t<5?padDip.end+0.3+0.15-0.4:0;
+// what the pad stacks show around a launch: loaded containers stay drawn until they leave. The animated 12 leave one by one (top first);
+// the rest of the load fades out over 200 ms after the slide, so the stack matches the pad count when the tick-down ends. Unloaded containers stay.
+function padVis(){const r={pt:padPt(),he:padHe(),spt:0,she:0,fpt:0,fhe:0,fa:1};if(!padDip||padDip.lp==null)return r;const dt=T-padDip.t,E0=padDip.end;if(dt>=E0+0.2)return r;
+ const n=padDip.n,k=Math.min(n,12),ah=Math.round(k*padDip.he/Math.max(1,n)),ap=k-ah,fh=padDip.lh-ah,fp=padDip.lp-ap;let wp=0,wh=0;
+ for(let i=0;i<k;i++)if(dt-i*0.04<=0){if(i<ah)wh++;else wp++}   // animated boxes not yet departed
+ if(dt<E0){r.spt=fp+wp;r.she=fh+wh;return r}
+ r.fa=1-(dt-E0)/0.2;r.fpt=fp;r.fhe=fh;return r}
 function padSlide(deck,X,sy0){const dt=padDip?T-padDip.t:9;   // drawn over the hull so the slide into the hold reads
  if(padDip&&dt<padDip.end){const k=Math.min(padDip.n,12),he=Math.round(k*padDip.he/Math.max(1,padDip.n));for(let i=0;i<k;i++){const isHe=i<he,j=isHe?i:i-he,q=Math.max(0,Math.min(1,(dt-i*0.04)/0.4));if(q<=0||q>=1)continue;
     const sx=X(isHe?540:440),sy=deck-5*44+j*10,e=easeInOutCubic(q),bx=sx+(36-sx)*e,by=sy+(sy0-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
@@ -652,7 +659,8 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  dockOverlays(['crew','refuel','pad']);
  // staged containers in the LOADING zones (Pt in zone 1, He-3 in zone 2)
  const zone=(cx,n,key,keyS)=>{const full=Math.floor(n/3);for(let i=0;i<Math.min(full,5);i++)spr(ctx,keyS,fr(keyS,T+i*.3),X(cx),deck-i*44);if(n%3&&full<5)for(let j=0;j<n%3;j++)spr(ctx,key,fr(key,T+j*.4),X(cx)-15+j*30,deck-Math.min(full,5)*44)};
- zone(440,padPt(),'loaded_box_pulse','loaded_box_stack3');zone(540,padHe(),'he3_canister_pulse','he3_canister_stack3');
+ {const v=padVis(),zp=(n,a)=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(440,n,'loaded_box_pulse','loaded_box_stack3');ctx.restore()},zh=(n,a)=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(540,n,'he3_canister_pulse','he3_canister_stack3');ctx.restore()};
+  if(v.fa<1){zp(v.pt+v.fpt,v.fa);zh(v.he+v.fhe,v.fa)}zp(v.pt+v.spt,1);zh(v.he+v.she,1)}
  {const dt=padDip?T-padDip.t:9,dip=dt<(padDip?padDip.end:0.4)+1.2;   // launch: loaded containers slide up into the hold (400 ms, low-g ease, top of stack first), then the pad count ticks down by exactly that many
   const E0=padDip?padDip.end:0.4,shown=dt<E0?padDip.from:dt<E0+0.3?padDip.from-Math.round(padDip.n*(dt-E0)/0.3):staged();
   label(X(490),deck-330,`Pad ${Math.max(staged(),dt<E0+0.3?shown:0)}/${padCap()}`,dip?'#ff9b7a':'#bfe9ff',13);
