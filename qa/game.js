@@ -170,8 +170,8 @@ function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const 
 // =====================================================================
 // SAVE / TIME — everything runs from saved timestamps
 // =====================================================================
-if(DEV&&QS.has('fresh')){try{localStorage.removeItem('planetstack-dev')}catch(e){}{const q=new URLSearchParams(location.search);q.delete('fresh');history.replaceState(null,'',location.pathname+'?'+q.toString().replace(/=(?=&|$)/g,''))}}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched
-const SAVEKEY=DEV?'planetstack-dev':IS_QA?'planetstack-qa':location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v2';
+const SAVEKEY=DEV?(IS_QA?'planetstack-qa-dev':'planetstack-dev'):IS_QA?'planetstack-qa':location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v2';
+if(IS_PREVIEW&&QS.has('fresh')){try{localStorage.removeItem(SAVEKEY)}catch(e){}{const q=new URLSearchParams(location.search);q.delete('fresh');history.replaceState(null,'',location.pathname+'?'+q.toString().replace(/=(?=&|$)/g,''))}}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched   // ?fresh clears THIS build's save (dev or not; preview/qa only)
 const noCrew=d=>!!d.res||d.role==='housing'||!!d.upper;   // Life Support + Living Quarters run without crew
 function fresh(){const n=Date.now();return{money:CFG.econ.startGrant,pop:3,trips:0,arr:0,pt:0,he:0,refPt:0,refHe:0,ptAcc:0,heAcc:0,refAcc:0,oreAcc:0,firstReturn:0,gt:n,rt:n,step:0,hint:0,tapped:0,wrench:0,
  dock:{crane:1,crew:1,pad:1,refuel:1},
@@ -395,7 +395,7 @@ function buildGround(){const k=DPR*SC;if(gK===k)return;gK=k;gC.width=Math.ceil(G
  c.fillStyle='rgba(255,255,255,.18)';c.fillRect(0,0,GTW,1.2)}
 // ground: code-drawn tile (first-screen fallback) → Art's ground_strip, 200 ms crossfade once loaded.
 // The strip's groundLineY sits on HOR, so building pads (y 0 = HOR) and walkway legs (down to HOR) stand on the art's ground line.
-function drawGround(rx){const S=SPR.ground_strip,fa=S&&S.ready?Math.min(1,Math.max(0,(T-GSTRIP.t)/0.2)):0,bottom=H/SC-(OY+cam.y)+40;
+function drawGround(rx){const S=SPR.ground_strip,fa=S&&S.ready&&GSTRIP.t0?easeIO(Math.min(1,Math.max(0,(NOW-GSTRIP.t0)/200))):0,bottom=H/SC-(OY+cam.y)+40;
  if(fa<1){buildGround();ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
   const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
  if(fa>0){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h,sc=S.img.width/TW;ctx.save();ctx.globalAlpha=fa;
@@ -463,8 +463,12 @@ function floorScale(fx){let sx=1,sy=1;
 // Low power: ONE steady state with hysteresis (was re-picked from E.power every frame + a 12 fps flicker overlay → strobing).
 // Goes short when power < 0.99, or < 0.999 for 0.6 s; recovers only after power >= 0.999 for 1.2 s. Dim fades to 60% / back over 400 ms.
 const LPS={on:false,k:0,lo:0,hi:0};
-function lpTick(dt){const p=E?E.power:1;if(!LPS.on){LPS.lo=p<0.999?LPS.lo+dt:0;if(p<0.99||LPS.lo>=0.6){LPS.on=true;LPS.hi=0}}else{LPS.hi=p>=0.999?LPS.hi+dt:0;if(LPS.hi>=1.2){LPS.on=false;LPS.lo=0}}
- LPS.k=Math.max(0,Math.min(1,LPS.k+(LPS.on?1:-1)*dt/0.4))}
+// Animated every rAF from the frame timestamp (ms), eased; power is re-read from a fresh econ() each frame (not the game tick), so the restore starts right after the buffer.
+let NOW=0;const easeIO=q=>q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2;
+function lpTick(dt,now){const p=econ().power;
+ if(!LPS.on){LPS.lo=p<0.999?LPS.lo+dt:0;if(p<0.99||LPS.lo>=0.6){LPS.on=true;LPS.hi=0;lpAnim(1,now)}}else{LPS.hi=p>=0.999?LPS.hi+dt:0;if(LPS.hi>=0.6){LPS.on=false;LPS.lo=0;lpAnim(0,now)}}
+ const a=LPS.a;if(a){const q=Math.min(1,(now-a.t0)/400);LPS.k=a.from+(a.to-a.from)*easeIO(q);if(q>=1)LPS.a=null}}
+function lpAnim(to,now){LPS.a={from:LPS.k,to,t0:now}}
 const lowPower=d=>(d.use||0)>0&&LPS.on;
 function tierLayers(d,f){if(!d.tierBase)return[];   // no tier art → base art only (never blank)
 const out=[];CFG.tierLevels.forEach(L=>{if(f.lvl>=L){const s=ensureTier(d,L);if(s.ready)out.push({L,s})}});return out}
@@ -962,7 +966,7 @@ function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind=
 // =====================================================================
 let last=performance.now(),saveAcc=0,hudAcc=0,fpsN=0,fpsT=0;
 let scrolledCls=false;
-function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;lpTick(dt);if(!window.__freeze&&E)TCK+=dt*truckSpeed();
+function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;NOW=now;lpTick(dt,now);if(!window.__freeze&&E)TCK+=dt*truckSpeed();
  if(!cam.anim&&!g0){const P=CFG.rotPerSlot,k=Math.max(0,Math.min(STOPS.length-1,Math.round(cam.rot/P)));if(Math.abs(cam.rot-k*P)>0.0004)goSite(k)}   // never rest half-turned
  if(cam.anim){const a=cam.anim,q=Math.min(1,(T-a.t0)/a.d);cam.rot=a.from+(a.to-a.from)*easeOutCubic(q);if(q>=1){cam.rot=a.to;cam.anim=null}}
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
@@ -974,10 +978,15 @@ function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
  requestAnimationFrame(frame)}
 // offline catch-up
+// Welcome back: display:none unless showing (no invisible hit area ever); shown as the LAST body child on its own layer above the canvas/HUD;
+// COLLECT answers pointerup/touchend/click (first wins); dismiss removes pointer events at once and display after the fade.
+function showWelcome(){const m=$('#modal'),b=$('#wbok');document.body.appendChild(m);m.classList.add('show');m.offsetWidth;requestAnimationFrame(()=>m.classList.add('on'));
+ let done=false;const go=e=>{if(done)return;done=true;if(e&&e.cancelable)e.preventDefault();m.classList.remove('on');m.style.pointerEvents='none';setTimeout(()=>{m.classList.remove('show');m.style.pointerEvents=''},320);bump();g0=null;tId=null};
+ b.onclick=go;b.onpointerup=go;b.ontouchend=go}
 function offline(){const now=Date.now(),away=Math.min(CFG.offlineCapSec,(now-S.rt)/1000*SPEED);let earned=0;const before=S.ship.st;
  if(away>5){let left=away;while(left>0){const ch=Math.min(10,left);earned+=step(ch,false,CFG.offlineRate);left-=ch}}
  S.gt=gnow();S.rt=now;const ev=shipTick(S.gt,false);ev.forEach(e=>{if(e.type==='landed'){earned+=e.v;FX.push({type:'dock',key:'dust_puff4',t:0})}});
- if(earned>=1&&away>30){$('#wbtext').textContent=`Your base ran for ${mmss(away/SPEED)} while you were away.`;$('#wbamt').textContent='+'+fmt(earned);$('#modal').classList.add('on');$('#wbok').onclick=()=>{$('#modal').classList.remove('on');bump()}}
+ if(earned>=1&&away>30){$('#wbtext').textContent=`Your base ran for ${mmss(away/SPEED)} while you were away.`;$('#wbamt').textContent='+'+fmt(earned);showWelcome()}
  save()}
 // boot: first screen = core + Life Support; then stream the Mine (preview → starter pack), Habitat, fx in the background
 let bgDone=false;
@@ -987,7 +996,9 @@ let bgDone=false;
  offline();econ();crewSync();hud();devUI();
  {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
- await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('mine_later_dump');loadGroup('fx_later_upgrade_burst');loadGroup('floors_later_offscreen');tryJSON(ART+SPR.ground_strip.path+'.json').then(j=>{if(j){GSTRIP.tileWidth=j.tileWidth||GSTRIP.tileWidth;GSTRIP.groundLineY=j.groundLineY??GSTRIP.groundLineY;GSTRIP.h=(j.logicalSize&&j.logicalSize.h)||GSTRIP.h;IMG_SIZE.ground_strip=[GSTRIP.tileWidth,GSTRIP.h,0,0]}});loadGroup('ground_later_strip').then(()=>{const S=SPR.ground_strip;if(S.ready){S.w=GSTRIP.tileWidth;S.h=GSTRIP.h;GSTRIP.t=T}});loadGroup('dock_later_hatch');loadGroup('floors_later_empty');bgDone=true;
+ await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('mine_later_dump');loadGroup('fx_later_upgrade_burst');loadGroup('floors_later_offscreen');tryJSON(ART+SPR.ground_strip.path+'.json').then(j=>{if(j){GSTRIP.tileWidth=j.tileWidth||GSTRIP.tileWidth;GSTRIP.groundLineY=j.groundLineY??GSTRIP.groundLineY;GSTRIP.h=(j.logicalSize&&j.logicalSize.h)||GSTRIP.h;IMG_SIZE.ground_strip=[GSTRIP.tileWidth,GSTRIP.h,0,0]}});loadGroup('ground_later_strip').then(()=>{const S=SPR.ground_strip;if(S.ready){S.w=GSTRIP.tileWidth;S.h=GSTRIP.h;const im=S.img;Promise.resolve(im&&im.decode?im.decode():null).catch(()=>{}).then(()=>{
+   // warm the GPU upload with an invisible draw, then start the 200 ms fade on the NEXT frame: no decode hitch mid-fade
+   try{const c=document.createElement('canvas').getContext('2d');c.drawImage(im,0,0,1,1)}catch(e){}requestAnimationFrame(t=>{GSTRIP.t0=t})})}});loadGroup('dock_later_hatch');loadGroup('floors_later_empty');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();
 // dev mode (?dev=1 on preview only): unlimited money + Max out
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}

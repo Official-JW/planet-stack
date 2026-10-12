@@ -147,3 +147,8 @@
 - Swipes: touch events drive gestures on touch devices (pointer only for mouse); ghost/stale touches can't block drags; touchcancel snaps; dock pan carries on into the station swipe.
 - Vertical scroll on every station; range lets the topmost item clear the HUD goal card (safe-area aware), min 60 pt.
 - /qa/ path with 'QA · HH:MM' tag; separate save key.
+
+## r14 (11:01 PT) — Playtester run-1 fixes (/qa/ only)
+- Welcome back: display:none unless shown, own top layer (z 200, last body child), COLLECT on pointerup/touchend/click, dismiss removes pointer events at once and the element after the fade.
+- Low-power dim + ground crossfade animate per rAF from the frame timestamp, eased (400 ms / 200 ms); power re-read every frame; restore buffer 0.6 s. Ground: code ground stays fully under the strip; strip fades 0→1 after img.decode() + warm-up draw; code ground removed after the fade.
+- Trip tiers: /qa/?dev=1 shared the preview dev save (trips already ≥1 → 5:00 first trip). Dev save key is now per build, and ?fresh clears this build's own save.
