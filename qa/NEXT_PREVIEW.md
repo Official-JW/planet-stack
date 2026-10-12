@@ -165,3 +165,11 @@
 - COLLECT and welcome-back payouts are held until tapped, then banked with a money pop.
 - Touch input is enabled only after the loader is gone. The loader is pointer-events:none while it fades.
 - mine_starter re-export: tunnel_back and tunnel_front_lip have feathered edges (@3x pack 1,169,428 B).
+
+## r16 (QA · 13:23) — fixes only (no new Mine)
+- Packing $6,400 → $1,800 (GD).
+- Price staleness audit: canvas Build pills + lock labels already read F[].cost live; upgrade sheet re-rendered only per $50 money bucket and dock sheet per $20, elevator sheet never → all three now re-render on every $1 / any cost change.
+- Toast clears stats bar, low-power pill and Goal card by ≥8 pt each, including the 10 px slide-in.
+- Welcome back only after ≥60 s real (wall-clock) away in every mode incl. ?dev=1/?speed; shorter gaps bank silently.
+- Dev: [mine dim] alpha logged every frame + on-screen readout.
+- ADIT-2 halo fix: Art's tunnel_back / tunnel_front_lip (@3x/@2x) 13:05 re-export; mine_starter bytes +17,200 @3x / +9,442 @2x. No truck_wheel.

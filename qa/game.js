@@ -37,7 +37,7 @@ const BUILDINGS=[
   {id:'rover',name:'Rover Bay',art:'mine_rover_bay',pack:'floors_later_offscreen',role:'mine',cost:0,out:1,use:2,up:12,ph:'#5a4a3a',desc:'Rovers drive into ADIT-2, mine regolith and dump it by ore type. Higher levels add speed.'},
   {id:'crusher',name:'Crusher',art:'mine_crusher',pack:'mine_later_crusher',role:'mine',cost:250,out:1,use:1,up:120,ph:'#4a4a5a',desc:'Crushes ore: more crates from every rover load.'},
   {id:'separator',name:'Separator',art:'mine_separator',pack:'mine_later_separator',role:'mine',cost:500,out:1,use:3,up:450,ph:'#2f4a5a',crew:'engineer',desc:'Separates Helium-3 and platinum. Uses a lot of energy.'},
-  {id:'packing',name:'Packing',art:'mine_packing',pack:'mine_later_packing',role:'mine',cost:6400,out:1,use:1,up:1600,ph:'#4a3f2a',desc:'Packs Pt crates and He-3 canisters faster.'}]},
+  {id:'packing',name:'Packing',art:'mine_packing',pack:'mine_later_packing',role:'mine',cost:1800,out:1,use:1,up:1600,ph:'#4a3f2a',desc:'Packs Pt crates and He-3 canisters faster.'}]},
  {id:'dock',name:'Cargo Space Dock',dock:true,floors:[]},
  {id:'hab',name:'Habitat',art:'hab',roof:'roof_habitat',floors:[
   {id:'living',name:'Living Quarters',art:'living_quarters',tiers:1,role:'housing',cost:0,out:2,use:2,up:40,desc:'Beds for miners. Sets the population cap.'},
@@ -476,7 +476,7 @@ const LPS={on:false,k:0,lo:0,hi:0};
 let NOW=0;const easeIO=q=>q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2;
 function lpTick(dt,now){const p=econ().power;
  if(!LPS.on){LPS.lo=p<0.999?LPS.lo+dt:0;if(p<0.99||LPS.lo>=0.6){LPS.on=true;LPS.hi=0;lpAnim(1,now)}}else{LPS.hi=p>=0.999?LPS.hi+dt:0;if(LPS.hi>=0.6){LPS.on=false;LPS.lo=0;lpAnim(0,now)}}
- const a=LPS.a;if(a){const q=Math.min(1,(now-a.t0)/400);LPS.k=a.from+(a.to-a.from)*easeIO(q);if(q>=1)LPS.a=null}}
+ const a=LPS.a;if(a){const q=Math.min(1,(now-a.t0)/400);LPS.k=a.from+(a.to-a.from)*easeIO(q);if(DEV){const ms=Math.round(now-a.t0);(LPS.log=LPS.log||[]).push([Math.round(now),ms,+LPS.k.toFixed(3)]);console.log(`[mine dim] t=${ms}ms alpha=${LPS.k.toFixed(3)}`);let el=$('#mda');if(!el){el=document.createElement('div');el.id='mda';el.style.cssText='position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 250px);z-index:20;font:11px ui-monospace,Menlo,monospace;color:#ffd27f;background:rgba(0,0,0,.6);padding:4px 6px;border-radius:6px;pointer-events:none';document.body.appendChild(el)}el.textContent=`mine dim ${LPS.k.toFixed(3)} @${ms}ms`}if(q>=1)LPS.a=null}}
 function lpAnim(to,now){LPS.a={from:LPS.k,to,t0:now}}
 const lowPower=d=>(d.use||0)>0&&LPS.on;
 function tierLayers(d,f){if(!d.tierBase)return[];   // no tier art → base art only (never blank)
@@ -890,7 +890,8 @@ let tt=0,padDip=null;
 // Toast: always >= 8 pt below the lowest HUD element showing (stats bar #meters, or the low-power pill #lpw → 18 pt below it, as Art spec'd).
 // Re-placed EVERY frame while visible: the pill can appear after the toast (power hysteresis), so a one-off placement could end up under it.
 function placeToast(){const t=$('#toast'),vis=e=>{if(!e||!e.offsetParent)return null;const r=e.getBoundingClientRect();return r.height?r:null};
- const m=vis($('#meters')),pr=vis($('#lpw'));let top=m?m.bottom+8:0;if(pr)top=Math.max(top,pr.bottom+18);
+ const m=vis($('#meters')),pr=vis($('#lpw')),g=$('#goal'),gr=g&&+getComputedStyle(g).opacity>0.05?vis(g):null;const SLIDE=10;   // toast slides in from -10px: every clearance includes it so the gap is >=8pt during the slide too
+ let top=m?m.bottom+8+SLIDE:0;if(pr)top=Math.max(top,pr.bottom+8+SLIDE);if(gr)top=Math.max(top,gr.bottom+8+SLIDE);
  const v=Math.round(top)+'px';if(t.style.top!==v)t.style.top=v}
 function toast(m,tap){const t=$('#toast');t.textContent=m;t.onclick=tap?()=>{t.classList.remove('on');tap()}:null;t.style.pointerEvents=tap?'auto':'';if(E){econ();lowPowerUI()}placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>{t.classList.remove('on');t.style.pointerEvents='';t.onclick=null},2200)}
 // =====================================================================
@@ -909,13 +910,14 @@ function powerStep(){let i=IDX.nuke,guard=0;
 function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=powerShort();el.style.display=low?'flex':'none';if(!low)return;
  const t='Low power: '+powerStep().text;if(el.dataset.t!==t){el.dataset.t=t;el.querySelector('span').textContent=t}}
 function goNuclear(){const p=powerStep(),d=F[p.i],si=STOPS.findIndex(s=>s.kind==='tower'&&s.bi===d.b);closeSheet();goSite(si);if(S.f[d.id].built)setTimeout(()=>openSheet(p.i),480)}   // opens that exact step: the floor's sheet if built, else its station with the build button
-function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money/20)+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
+function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money)+'|'+['crane','crew','pad','refuel'].map(dockCost).join(',')+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
  const lim=e.limit,low=e.power<0.999,m=[['people','ui_icon_people',`${num(S.pop)}/${num(e.cap)}`,lim==='Beds'],['oxygen','ui_icon_oxygen',num(e.oxygen),lim==='Oxygen'],['water','ui_icon_water',num(e.water),lim==='Water'],['energy','ui_icon_energy',`${num(e.energy)}/${num(e.demand)}`,lim==='Energy']];
  const box=$('#meters');if(!box.children.length)box.innerHTML=m.map(r=>`<div class="m glass" data-k="${r[0]}"><img src="${ui(r[1])}"><span></span></div>`).join('');
  m.forEach((r,j)=>{const el=box.children[j];el.querySelector('span').textContent=r[2];el.classList.toggle('lim',!!r[3]&&r[0]!=='energy');el.classList.toggle('low',r[0]==='energy'&&low)});
  goalTick();const s=STOPS[site];$('#sname').textContent=s.name.toUpperCase();
  const dots=$('#dots');if(dots.children.length!==STOPS.length){dots.innerHTML=STOPS.map(()=>'<i><b></b></i>').join('');dots.onclick=ev=>{ev.stopPropagation();if(sheetFor||$('#sheet').classList.contains('open'))closeSheet();const r=dots.children[0].getBoundingClientRect(),j=Math.floor((ev.clientX-r.left)/r.width);goSite(Math.max(0,Math.min(STOPS.length-1,j)))}}   /* fixed-width slots: tap maps to its slot; active pill centred in its slot */[...dots.children].forEach((d,j)=>d.classList.toggle('on',j===site));
- if(sheetFor&&sheetFor.i!=null&&!document.activeElement.closest?.('#sheet')){const k=JSON.stringify([S.money>=upCost(sheetFor.i),Math.floor(S.money/50),st(sheetFor.i).lvl,idleResidents()]);if(k!==sheetFor.k){sheetFor.k=k;openSheet(sheetFor.i,true)}}}
+ if(sheetFor&&sheetFor.elev!=null&&!document.activeElement.closest?.('#sheet')){const k=Math.floor(S.money)+'|'+elevCost(sheetFor.elev);if(k!==sheetFor.k){openElev(sheetFor.elev);sheetFor.k=k}}
+ if(sheetFor&&sheetFor.i!=null&&!document.activeElement.closest?.('#sheet')){const k=JSON.stringify([Math.floor(S.money),upCost(sheetFor.i),hireCost(sheetFor.i),st(sheetFor.i).lvl,st(sheetFor.i).workers,idleResidents(),mult]);if(k!==sheetFor.k){sheetFor.k=k;openSheet(sheetFor.i,true)}}}
 // =====================================================================
 // SWIPE HINT (one time)
 // =====================================================================
@@ -999,12 +1001,16 @@ function showWelcome(){const m=$('#modal'),b=$('#wbok');document.body.appendChil
  let done=false;const go=e=>{if(done)return;done=true;if(e&&e.cancelable)e.preventDefault();m.classList.remove('on');m.style.pointerEvents='none';setTimeout(()=>{m.classList.remove('show');m.style.pointerEvents=''},320);g0=null;tId=null;
   const v=S.wbPend||0;S.wbPend=0;S.money+=v;save();hud();bump();moneyPop(v)};
  b.onclick=go;b.onpointerup=go;b.ontouchend=go}
-function offline(){const now=Date.now(),away=Math.min(CFG.offlineCapSec,(now-S.rt)/1000*SPEED);let earned=0;const before=S.ship.st,m0=S.money;
+const WB_MIN_SEC=60;
+function offline(){const now=Date.now(),rt0=S.rt,away=Math.min(CFG.offlineCapSec,(now-S.rt)/1000*SPEED);let earned=0;const before=S.ship.st,m0=S.money;
  if(away>5){let left=away;while(left>0){const ch=Math.min(10,left);earned+=step(ch,false,CFG.offlineRate);left-=ch}}
  S.gt=gnow();S.rt=now;const ev=shipTick(S.gt,false);ev.forEach(e=>{if(e.type==='landed'){earned+=e.v;FX.push({type:'dock',key:'dust_puff4',t:0})}});
  // Welcome back: everything earned while away (production + cargo that landed) is HELD in S.wbPend and banked only on COLLECT.
  // A pending amount from a reload before collecting is carried over (never lost, never double-paid).
- const gained=Math.max(0,S.money-m0);if(gained>=1&&away>30||(S.wbPend||0)>=1){S.money=m0;S.wbPend=(S.wbPend||0)+gained;$('#wbtext').textContent=`Your base ran for ${mmss(Math.max(away,1)/SPEED)} while you were away.`;$('#wbamt').textContent='+'+fmt(S.wbPend);showWelcome()}
+ // Shown only after >=60 real seconds away (wall clock, every mode incl. ?dev=1 / ?speed=N). Shorter gaps bank silently; a carried pending amount is banked too.
+ const realAway=(now-rt0)/1000,gained=Math.max(0,S.money-m0);
+ if(realAway<WB_MIN_SEC){if((S.wbPend||0)>=1&&!$('#modal').classList.contains('show')){const p=S.wbPend;S.wbPend=0;S.money+=p;moneyPop(p)}}
+ else if(gained>=1||(S.wbPend||0)>=1){S.money=m0;S.wbPend=(S.wbPend||0)+gained;$('#wbtext').textContent=`Your base ran for ${mmss(realAway)} while you were away.`;$('#wbamt').textContent='+'+fmt(S.wbPend);showWelcome()}
  save()}
 // boot: first screen = core + Life Support; then stream the Mine (preview → starter pack), Habitat, fx in the background
 let bgDone=false;
@@ -1022,4 +1028,4 @@ let bgDone=false;
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}
 function maxOut(){BUILDINGS.forEach(b=>b.soon=false);S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=noCrew(d)?0:2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
  for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40,F.filter(d=>!d.upper).length*2);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
-window.__ps={cam,refineFx,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
+window.__ps={openSheet,openElev,toast,LPS,placeToast,offline,cam,refineFx,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
