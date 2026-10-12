@@ -183,7 +183,7 @@ const elevCost=bi=>Math.round(CFG.elevator.cost*Math.pow(CFG.elevator.costMult,e
 const elevLook=bi=>CFG.elevator.looks[Math.min(CFG.elevator.looks.length-1,Math.floor(elevLvl(bi)/CFG.elevator.lookEvery))];
 const crewMul=()=>S.f.oxy.lvl>=20?1+CFG.oxygenCrewSpeed:1;
 // output at full power for a given level/crew (people supported · kW · beds · $/resident/s · crates/min)
-const mineCurve=lv=>Math.pow(312.5,(lv-1)/49)*Math.pow(CFG.tierMult,tiersReached(lv));   // Mine/Refinery: L50 = 312.5 x 2^5 = 10,000x L1 (doublings included)
+const MG=Math.pow(10000/(Math.pow(1.25,9)*32),1/40);const mineCurve=lv=>(lv<=10?Math.pow(1.25,lv-1):Math.pow(1.25,9)*Math.pow(MG,lv-10))*Math.pow(CFG.tierMult,tiersReached(lv));   // hybrid (Game Director): L10 ≈14.9×, L50 = 10,000×   // Mine/Refinery: L50 = 312.5 x 2^5 = 10,000x L1 (doublings included)
 const procBoost=(d,lv)=>0.5+2.5*(lv-1)/49;   // Crusher/Separator/Packing: +50% at L1 to +300% at L50, summed
 function rawOut(i,lv,w){const f=st(i),d=F[i];lv=lv||f.lvl;w=w==null?f.workers:w;if(!f.built||w<1)return 0;
  if(d.role==='mine'||d.role==='refinery')return d.out*mineCurve(lv)*(1+CFG.econ.staffBonus*(w-1));   // no extra compounding perks on income floors
@@ -252,8 +252,10 @@ function shipTick(t,live){const s=S.ship,ev=[];
  if(s.st==='turn'&&t>=s.t+turnSec()*1000){s.st='docked';s.t+=turnSec()*1000;ev.push({type:'ready'})}
  return ev}
 function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;s.st='trip';s.t=gnow();save();return true}
-const fmt=n=>{n=Math.floor(n);if(n>=1e36)return '$'+n.toExponential(2).replace('+','');if(n<1e4)return '$'+n.toLocaleString('en-US');const u=['K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];let k=-1;while(n>=1e3&&k<10){n/=1e3;k++}return '$'+n.toFixed(n<100?1:0)+u[k]};
-const num=n=>n<10?n.toFixed(1):n<1e4?Math.floor(n).toLocaleString('en-US'):fmt(n).slice(1);
+const SUF=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
+function compact(n){n=Math.floor(n);if(n<1000)return String(n);let k=0,v=n;while(v>=999.5&&k<SUF.length-1){v/=1000;k++}if(v>=999.5)return n.toExponential(1).replace('+','');let t=v.toPrecision(3);if(t.includes('.'))t=t.replace(/0+$/,'').replace(/\.$/,'');return t+SUF[k]}   // 3 significant digits, ≤6 chars with $
+const fmt=n=>'$'+compact(n);
+const num=n=>n<10?n.toFixed(1):compact(n);
 const mmss=s=>{s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 function lockReason(i){const d=F[i],b=BUILDINGS[d.b];if(b.soon)return 'Coming soon';if(DEV)return null;
  if(b.needs&&!siteOpen(d.b)){const nb=BUILDINGS.find(x=>x.id===b.needs.building);return `Needs ${b.needs.floors} ${nb.name} floors`}
@@ -792,4 +794,4 @@ let bgDone=false;
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}
 function maxOut(){BUILDINGS.forEach(b=>b.soon=false);S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=d.upper?0:2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
  for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40,F.filter(d=>!d.upper).length*2);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
-window.__ps={cam,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
+window.__ps={cam,refineFx,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
