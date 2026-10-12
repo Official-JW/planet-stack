@@ -83,7 +83,7 @@ CFG.tierLevels.forEach(L=>def('banner_'+L,'fx/tier_banner_l'+L,'fx2','img'));
 // per building floors. Mine + Supply Depot art live in art/moon/mine/, the dock in art/moon/dock/ (packs: ../packs/*.json)
 const MINE=`../mine/${DEV_DPR>2?'@3x':'@2x'}/`,DOCK=`../dock/${DEV_DPR>2?'@3x':'@2x'}/`;
 F.filter(d=>d.art).forEach(d=>{const inMine=d.role==='mine'||d.id==='markets';d.tierBase=inMine?MINE+'floors/tiers/floor_'+d.art:(['oxy','water','nuke','refinery'].includes(d.id)?'floors/tiers/floor_'+d.art:null);   // others: base art only
- def('f_'+d.id,(inMine?MINE:'')+(d.id==='refinery'?'floors/tiers/floor_refinery_base':'floors/floor_'+d.art),d.pack||BUILDINGS[d.b].art,'floor');if(inMine)SPR['f_'+d.id].lowpower=true});
+ def('f_'+d.id,(inMine?MINE:'')+'floors/floor_'+d.art,d.pack||BUILDINGS[d.b].art,'floor');if(inMine)SPR['f_'+d.id].lowpower=true});
 def('mine_preview',MINE+'preview/mine_preview','mine_preview','img');
 ['rover_drive','rover_scoop','rover_dump','rover_tunnel'].forEach(n=>def(n,MINE+'rover/'+n,'mine_starter'));
 ['loaded_box_pulse','loaded_box_sealed','loaded_box_stack3','he3_canister_pulse','he3_canister_sealed','he3_canister_stack3'].forEach(n=>def(n,MINE+'box/'+n,'mine_starter'));
@@ -427,7 +427,7 @@ function drawTower(bi,n,atRest){const fl=BUILDINGS[bi].floors,live=!atRest||towe
  if(nf&&n<CFG.maxFloors){ctx.save();ctx.globalAlpha=.55;ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle='#8fa3c4';ctx.strokeRect(FX0+4,yTop-116,352,112);ctx.restore();
   const why=lockReason(IDX[nf.id]);pillBtn(FX0+180,yTop-66,`Build ${nf.name} · ${fmt(nf.cost)}`,!why);if(why)label(FX0+180,yTop-32,'🔒 '+why,'#ffb347',13)}}
 // ----- Mine foreground: ADIT-2 tunnel, rover, hopper (MINE_SPEC "Scene layers" + "Rover route") -----
-const FG={y:70,s:1.25,par:1.15,tunnel:115,hopper:10};
+const FG={y:70,s:1.25,par:1.15,tunnel:-150,hopper:60};   // tunnel fully on screen at 390w (was 115); rebuilt cave will bring its own offset
 const ROUTE=(()=>{const bay=-90,top=FG.tunnel+20,dump=FG.hopper+58,seg=[['drive',3,bay,top,false],['down',1],['hide',2],['up',1],['rev',3,top,dump,false],['dump',1.333],['back',2.5,dump,bay,true]];
  let t=0;seg.forEach(g=>{g.t0=t;t+=g[1]});return{seg,len:t,bay,top,dump}})();
 function roverState(t){const c=((t%ROUTE.len)+ROUTE.len)%ROUTE.len,g=ROUTE.seg.find(x=>c>=x.t0&&c<x.t0+x[1]),q=(c-g.t0)/g[1];
