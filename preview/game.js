@@ -276,7 +276,7 @@ function shipTick(t,live){const s=S.ship,ev=[];
 const tripFor=n=>n<1?120:n<2?300:600;   // 1st trip 2 min, 2nd 5 min, then 10 min
 const tripSec=s=>s.dur||CFG.ship.tripSec;
 const shipValue=s=>s.st!=='docked'&&s.val!=null?s.val:Math.round(cargoValue(s));
-function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;padDip={n:shipLoad(),he:s.he,from:staged(),t:T};s.val=Math.round(cargoValue(s));s.st='trip';s.t=gnow();s.dur=tripFor(S.trips||0);armT=T;save();return true}
+function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;padDip={n:shipLoad(),he:s.he,from:staged(),t:T,end:0.4+0.04*(Math.min(shipLoad(),12)-1)};s.val=Math.round(cargoValue(s));s.st='trip';s.t=gnow();s.dur=tripFor(S.trips||0);armT=T;save();return true}
 const SUF=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
 function compact(n){n=Math.floor(n);if(n<1000)return String(n);let k=0,v=n;while(v>=999.5&&k<SUF.length-1){v/=1000;k++}if(v>=999.5)return n.toExponential(1).replace('+','');let t=v.toPrecision(3);if(t.includes('.'))t=t.replace(/0+$/,'').replace(/\.$/,'');return t+SUF[k]}   // 3 significant digits, ≤6 chars with $
 const fmt=n=>'$'+compact(n);
@@ -626,9 +626,9 @@ function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!trackMan())return null;c
  return list.map(e=>{let o=trkImg[e.file];if(!o){o=trkImg[e.file]={e,img:null};getImg(ART+DOCK+'tracks/'+e.file).then(bmp).then(im=>o.img=im)}return{e,o}})}
 function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const ps=ensureTrack(t,L);if(ps)ps.forEach(({e,o})=>{if(o.img)ctx.drawImage(o.img,-380+e.x,-620+e.y,e.w,e.h)})}})}   // cumulative per track; every piece; missing art → base dock
 const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'walk'},{a:500,b:560,k:'carry'}];
-function padSlide(deck,X){const dt=padDip?T-padDip.t:9;   // drawn over the hull so the slide into the hold reads
- if(dt<0.4){const k=Math.min(padDip.n,12),he=Math.round(k*padDip.he/Math.max(1,padDip.n));for(let i=0;i<k;i++){const isHe=i<he,j=isHe?i:i-he,q=Math.max(0,Math.min(1,(dt-i*(0.1/k))/0.3));if(q<=0||q>=1)continue;
-    const sx=X(isHe?540:440),sy=deck-5*44+j*10,e=easeOutBack(q,1.7),bx=sx+(36-sx)*e,by=sy+(deck-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
+function padSlide(deck,X,sy0){const dt=padDip?T-padDip.t:9;   // drawn over the hull so the slide into the hold reads
+ if(padDip&&dt<padDip.end){const k=Math.min(padDip.n,12),he=Math.round(k*padDip.he/Math.max(1,padDip.n));for(let i=0;i<k;i++){const isHe=i<he,j=isHe?i:i-he,q=Math.max(0,Math.min(1,(dt-i*0.04)/0.4));if(q<=0||q>=1)continue;
+    const sx=X(isHe?540:440),sy=deck-5*44+j*10,e=easeInOutCubic(q),bx=sx+(36-sx)*e,by=sy+(sy0-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
 }
 function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOPS[site].bi?dockPan:0)/TS,0);ctx.scale(k,k);
  if(!ok('dock_base')){spr(ctx,'site',fr('site',T),0,-6,1/k,1/k);label(0,-150,'Cargo Space Dock','#c9d3e6',22);label(0,-120,'Loading dock art…','#8fa3c4',18);ctx.restore();return}
@@ -641,10 +641,10 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  // staged containers in the LOADING zones (Pt in zone 1, He-3 in zone 2)
  const zone=(cx,n,key,keyS)=>{const full=Math.floor(n/3);for(let i=0;i<Math.min(full,5);i++)spr(ctx,keyS,fr(keyS,T+i*.3),X(cx),deck-i*44);if(n%3&&full<5)for(let j=0;j<n%3;j++)spr(ctx,key,fr(key,T+j*.4),X(cx)-15+j*30,deck-Math.min(full,5)*44)};
  zone(440,padPt(),'loaded_box_pulse','loaded_box_stack3');zone(540,padHe(),'he3_canister_pulse','he3_canister_stack3');
- {const dt=padDip?T-padDip.t:9,dip=dt<1.6;   // launch: loaded containers slide up into the hold (400 ms, low-g ease, top of stack first), then the pad count ticks down by exactly that many
-  const shown=dt<0.4?padDip.from:dt<0.7?padDip.from-Math.round(padDip.n*(dt-0.4)/0.3):staged();
-  label(X(490),deck-330,`Pad ${Math.max(staged(),dt<0.7?shown:0)}/${CFG.econ.stageCap}`,dip?'#ff9b7a':'#bfe9ff',13);
-  if(dip&&dt>=0.4){const q=(dt-0.4)/1.2;ctx.save();ctx.globalAlpha=1-q*q;label(X(490),deck-352-q*40,`−${padDip.n} loaded`,'#ff9b7a',16);ctx.restore()}}
+ {const dt=padDip?T-padDip.t:9,dip=dt<(padDip?padDip.end:0.4)+1.2;   // launch: loaded containers slide up into the hold (400 ms, low-g ease, top of stack first), then the pad count ticks down by exactly that many
+  const E0=padDip?padDip.end:0.4,shown=dt<E0?padDip.from:dt<E0+0.3?padDip.from-Math.round(padDip.n*(dt-E0)/0.3):staged();
+  label(X(490),deck-330,`Pad ${Math.max(staged(),dt<E0+0.3?shown:0)}/${CFG.econ.stageCap}`,dip?'#ff9b7a':'#bfe9ff',13);
+  if(dip&&dt>=E0){const q=Math.min(1,(dt-E0)/1.2);ctx.save();ctx.globalAlpha=1-q*q;label(X(490),deck-352-q*40,`−${padDip.n} loaded`,'#ff9b7a',16);ctx.restore()}}
  // ship
  const s=S.ship,a=shipAnim,t=T-a.t0;let y=deck,flame=0,glow=0,vis=s.st!=='trip';
  if(a.mode==='launch'){vis=true;if(t<0.4){flame=1;glow=1;if(!a.smoke){a.smoke=1;FX.push({type:'dock',key:'smoke_plume4',t:T})}}else if(t<1.9){const q=(t-0.4)/1.5;y=deck-1800*q*q;flame=1}else{a.mode=null;vis=false}}
@@ -653,7 +653,7 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
   if(flame>0){ctx.globalAlpha=Math.min(1,flame);spr(ctx,'ship4_flame',fr('ship4_flame',T),hx,top+432);ctx.globalAlpha=1}
   if(glow){ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_engine_glow',fr('ship4_engine_glow',T),hx,top+440);ctx.globalCompositeOperation='source-over'}
   spr(ctx,'ship4_hull',0,hx,y);ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_navlights',fr('ship4_navlights',T),hx-160+108,top+163);ctx.globalCompositeOperation='source-over'}
- padSlide(deck,X);
+ padSlide(deck,X,y);
  // cranes (6 s cycle: down 1.2, latch .3, up 1.2, traverse 1.5, release .5, return 1.3)
  const cs=1+CFG.dock.craneSpeed*(dockLvl('crane')-1),ct=(T*cs)%6;let drop=0,tx=0,load=false;
  if(ct<1.2)drop=ct/1.2;else if(ct<1.5)drop=1;else if(ct<2.7){drop=1-(ct-1.5)/1.2;load=true}else if(ct<4.2){tx=(ct-2.7)/1.5;load=true}else if(ct<4.7){tx=1;drop=(ct-4.2)/0.5*0.4;load=ct<4.5}else tx=1-(ct-4.7)/1.3;
