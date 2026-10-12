@@ -25,11 +25,17 @@
     "@3x/pad/crane_jib_boom.webp",
     "@3x/pad/crane_jib_mast.webp",
     "@3x/pad/crane_trolley.webp",
-    "@3x/pad/dock_sign_neon_base.json",
+    "@3x/pad/dock_sign_bloom_base.webp",
+    "@3x/pad/dock_sign_bloom_pad_t10.webp",
+    "@3x/pad/dock_sign_bloom_pad_t20.webp",
+    "@3x/pad/dock_sign_glow_base.json",
+    "@3x/pad/dock_sign_glow_base.webp",
+    "@3x/pad/dock_sign_glow_pad_t10.json",
+    "@3x/pad/dock_sign_glow_pad_t10.webp",
+    "@3x/pad/dock_sign_glow_pad_t20.json",
+    "@3x/pad/dock_sign_glow_pad_t20.webp",
     "@3x/pad/dock_sign_neon_base.webp",
-    "@3x/pad/dock_sign_neon_pad_t10.json",
     "@3x/pad/dock_sign_neon_pad_t10.webp",
-    "@3x/pad/dock_sign_neon_pad_t20.json",
     "@3x/pad/dock_sign_neon_pad_t20.webp",
     "@3x/pad/floodlight_cone.webp",
     "@3x/pad/floodlight_mast.webp",
@@ -52,8 +58,10 @@
     "@3x/tracks/dock_crane_t20.webp",
     "@3x/tracks/dock_crew_t10.webp",
     "@3x/tracks/dock_crew_t20.webp",
-    "@3x/tracks/dock_pad_t10.webp",
-    "@3x/tracks/dock_pad_t20.webp",
+    "@3x/tracks/dock_pad_t10-0.webp",
+    "@3x/tracks/dock_pad_t10-1.webp",
+    "@3x/tracks/dock_pad_t20-0.webp",
+    "@3x/tracks/dock_pad_t20-1.webp",
     "@3x/tracks/dock_refuel_t10.webp",
     "@3x/tracks/dock_refuel_t20.webp",
     "@3x/ui/ui_btn_dock_wrench.webp",
@@ -61,7 +69,7 @@
     "@3x/ui/ui_btn_dock_wrench_firsttime.webp",
     "@3x/ui/ui_icon_dock_wrench.webp"
    ],
-   "bytes": 2242997
+   "bytes": 2179064
   },
   "@2x": {
    "files": [
@@ -86,11 +94,17 @@
     "@2x/pad/crane_jib_boom.webp",
     "@2x/pad/crane_jib_mast.webp",
     "@2x/pad/crane_trolley.webp",
-    "@2x/pad/dock_sign_neon_base.json",
+    "@2x/pad/dock_sign_bloom_base.webp",
+    "@2x/pad/dock_sign_bloom_pad_t10.webp",
+    "@2x/pad/dock_sign_bloom_pad_t20.webp",
+    "@2x/pad/dock_sign_glow_base.json",
+    "@2x/pad/dock_sign_glow_base.webp",
+    "@2x/pad/dock_sign_glow_pad_t10.json",
+    "@2x/pad/dock_sign_glow_pad_t10.webp",
+    "@2x/pad/dock_sign_glow_pad_t20.json",
+    "@2x/pad/dock_sign_glow_pad_t20.webp",
     "@2x/pad/dock_sign_neon_base.webp",
-    "@2x/pad/dock_sign_neon_pad_t10.json",
     "@2x/pad/dock_sign_neon_pad_t10.webp",
-    "@2x/pad/dock_sign_neon_pad_t20.json",
     "@2x/pad/dock_sign_neon_pad_t20.webp",
     "@2x/pad/floodlight_cone.webp",
     "@2x/pad/floodlight_mast.webp",
@@ -112,8 +126,10 @@
     "@2x/tracks/dock_crane_t20.webp",
     "@2x/tracks/dock_crew_t10.webp",
     "@2x/tracks/dock_crew_t20.webp",
-    "@2x/tracks/dock_pad_t10.webp",
-    "@2x/tracks/dock_pad_t20.webp",
+    "@2x/tracks/dock_pad_t10-0.webp",
+    "@2x/tracks/dock_pad_t10-1.webp",
+    "@2x/tracks/dock_pad_t20-0.webp",
+    "@2x/tracks/dock_pad_t20-1.webp",
     "@2x/tracks/dock_refuel_t10.webp",
     "@2x/tracks/dock_refuel_t20.webp",
     "@2x/ui/ui_btn_dock_wrench.webp",
@@ -121,7 +137,7 @@
     "@2x/ui/ui_btn_dock_wrench_firsttime.webp",
     "@2x/ui/ui_icon_dock_wrench.webp"
    ],
-   "bytes": 1325926
+   "bytes": 1323870
   }
  }
 }

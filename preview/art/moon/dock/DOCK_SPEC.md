@@ -25,6 +25,17 @@ It has a flame trench at x 250–350, LOX and CH₄ fuel lines, a tank farm, and
 
 ## Upgrade tracks (4 tracks, L1–50, a new look every 10 levels)
 Overlay layers are drawn over the base dock, the same idea as the floor tiers (cumulative within a track). Canvas: `tracks/dock_{track}_t{lv}` is 760x620, pivot (380,620), which is the same ground point as the dock pivot. The dock's left edge is at overlay x 80; the deck is at overlay y 570.
+- **Trimmed images + offset manifest (dock-tracks-v1):** each track image is trimmed to its content, so it is no longer 760x620. Placement is in `tracks/dock_tracks.json` (one per scale):
+  `{format:"dock-tracks-v1", canvas:{w:760,h:620}, pivot:{x:380,y:620}, scale, images:{"dock_{track}_t{lv}":[{file,x,y,w,h}, ...]}}`.
+  - x/y/w/h are logical points inside the 760x620 overlay canvas.
+  - **Draw formula:** the origin (ox, oy) is the dock pivot, i.e. the point game.js passes for `dock_base` (pad bottom-centre = dock image (300,70), deck at oy-50). For each tile t:
+    `ctx.drawImage(img_t, ox - 380 + t.x, oy - 620 + t.y, t.w, t.h)`
+    - t.w and t.h are logical points. The image's pixel size is t.w*scale x t.h*scale.
+    - Example: G-2 gantry (crane L10) at x 520 → 140 pt right of the dock centre; y 373..572 → bottom 2 pt below the deck line (oy-48), i.e. the leg feet.
+    - Preview sheet: `dock_tiers_L50.png`, written by `artgen/tiers2/dock3.py -p`. `dock_tiers.png` is a copy. The legacy `mine/previews2.py` writes a 3-column sheet that does not read the manifest, so don't use it for tracks.
+  - Most entries have one tile. Wide overlays (pad L10, L20 and L50) are split into tiles named `-0`, `-1` so every shipped image is ≤2048 px.
+  - Rendered straight from vector at each target scale (no resampling), WebP q95, alpha 100. `_masters/tracks/` holds the same crops at 6x.
+  - game.js still assumes 760x620 per track image (`IMG_SIZE[dock_*_t*]`) and must switch to this manifest.
 - **Draw order:** dock base → crew/refuel/pad overlays → ship → crane overlays → neon sign → sprites.
 - **Crane speed:**
   - L10: second gantry G-2 (x 530–630) with work lights.
@@ -43,9 +54,23 @@ Overlay layers are drawn over the base dock, the same idea as the floor tiers (c
   - L10: LOX 2 and CH₄ 2 tanks plus a 2nd GSE fuel line (green).
   - L20: a repair gantry (service tower with 3 arms) and a LOX sphere.
   - Planned: L30 rapid-fill manifold; L40 robotic repair arms; L50 gold.
-- **Done so far:** L10 and L20 for all 4 tracks. Preview: `dock_tiers.png`. Size: 0.41 MB @3x / 0.24 MB @2x.
+- **Done:** L10–L50 for all 4 tracks.
+  - L30: STS-1 rail crane; crew rover CR-1; hold-down cradle; rapid-fill QD manifold.
+  - L40: auto twin-jib; lift drones; deluge trench; 6-axis robot arms.
+  - L50: gold trim and mastery badge.
+- Draw order: crane overlays after the ship.
+- Preview: `dock_tiers.png` (Base + L10–L50). The old preview is `dock_tiers_L20_backup.png`.
+- Size: 303,013 B @3x / 192,993 B @2x (all 20 looks, trimmed).
 
 ## UI
 - `ui/ui_icon_dock_wrench` 24x24 (UI-kit style).
 - `ui/ui_btn_dock_wrench` 64x64 (56 icon frame centred).
 - `ui/ui_btn_dock_wrench_firsttime` 64x64, 12f @12 loop: an amber ring pulse, a 6% scale breathe and a red "!" badge. Play it until the first tap, then swap to the static button.
+
+## Neon sign v2: blue tube letters (replaces the orange sheets)
+- Per width tier (base 200, pad_t10 240, pad_t20 280; height 48; pivot bottom-centre on the dock front):
+  - `pad/dock_sign_neon_<tier>.webp`: static housing and tubes.
+  - `pad/dock_sign_glow_<tier>`: 12f@12fps, blend ADD, flicker plus pulse, same pivot.
+  - `pad/dock_sign_bloom_<tier>.webp`: additive deck bloom and lit dust, (w+80)x40. Centre it on the deck line under the sign and modulate its alpha with the glow frame.
+- Preview: `dock_sign_closeup.png`.
+- Crispness: `dock_sign_neon_<tier>` is lossless WebP, unblurred: dark housing stroke, bright-blue tube edge, white-hot core. All softness lives in `dock_sign_glow_*` (draw behind/ADD) and `dock_sign_bloom_*`. `dock_sign_closeup.png` = 1:1 @3x + 2x nearest zoom.

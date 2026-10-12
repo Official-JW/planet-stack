@@ -95,3 +95,59 @@ Masters: every frame of every box and rover sheet is saved in `_masters/{box,rov
 
 ## SUPPLY DEPOT (`floors/floor_market*`, 360x120, pivot (0,120), layered 16f @12 loop + `floor_market_lowpower`)
 This replaces the Market floor's look. It lives in mine/@3x/floors/; the old ../floors/floor_markets is untouched (the code should point at this file). It has 3 pallet racks of Earth crates (`FROM EARTH · LEO-7`), a forklift drone shuttling a crate with its mast lifting, an inbound conveyor, `DOCK 2`, a manifest screen and a bay-fill screen, and a lit `SUPPLY DEPOT` sign in the header (label DEP-05, accent blue #5ab4ff). There are no prices or coins.
+
+## Rover Bay v2: side-wall cutout garage (supersedes the earlier Rover Bay and bin sections)
+- Floor `floors/floor_mine_rover_bay` (layered, 360x120, 16f@12fps, plus lowpower).
+- Left wall has a bay cutout at x 0–68, y 42–104. It shows the exterior through the opening, wall thickness (inner jamb face and soffit), a header beam with the rolled-up door drum, a door guide rail, AO, an amber beacon and an orange ROVER BAY sign.
+- Two sunk dump pits with a cutaway front:
+  - PLATINUM (silver): x 118–192.
+  - HELIUM-3 (blue): x 206–280.
+  - Rim at FY−3.
+- Labels are 10 px heavy stencil on dark plates. They sit on the back wall with baseline y=46, above the rover's highest point (the raised bed tops out near y≈52), so a dumping rover never hides them.
+- Icons sit at y≈22: a Pt hex and a He-3 atom.
+- `floors/bin_fill_{pt,he3}`: 5 frames (0/25/50/75/100%), attachToFloor (pit x, 104), 74x16. Draw after the floor base and before the rover.
+- `rover/rover_bay_dump`: 38 frames @12fps, rover only (90x58, pivot (0,58) = rear-bottom). Covers tilt up, pour and lower.
+- `rover/rover_bay_route.json`: per-frame x, tilt, bob and segment for the Pt pit. For He-3, add binX.he3 − binX.pt.
+- Timings (s, 12 fps, eased, low-g):
+
+  | step | time (s) | motion |
+  |---|---|---|
+  | enter | 0–1.8 | ease-out from x −96 to 262, dust |
+  | settle | 1.8–2.3 | decaying 1.6 px bounce |
+  | reverse | 2.3–3.9 | ease-in-out to binX−4 |
+  | settle | 3.9–4.3 | |
+  | tipUp | 4.3–5.5 | 0→38° |
+  | pour | 5.5–6.5 | |
+  | tipDown | 6.5–7.4 | |
+  | exit | 7.4–9.0 | reverse out to x −110, ease-in, dust |
+
+- Use rover_drive for the drive and settle steps; play its wheel spin backwards when reversing.
+- Rover tint: 0.45 outside, ramping to 1.0 inside over x −40..60.
+- Previews: `rover_bay_closeup.png` and `rover_bay_sequence.png` (7 frames).
+- Tiers (`floors/tiers/floor_mine_rover_bay_t10..t50`):
+  - L10: lane LEDs plus BAY 3 charger.
+  - L20: floods plus door strobes (AUTO-GUIDE).
+  - L30: grizzly screens on both pits plus a vibrator.
+  - L40: FUSION CHARGER glow on the charger.
+  - L50: gold trim plus GOLD FLEET.
+  - Nothing overlaps the labels or the rover lane.
+
+## Cave v3 (`tunnel/tunnel_back` 12f@12fps, `tunnel_front_lip`)
+- Canvas 260x130, pivot (0,70) = left end of the ground line.
+- The ramp runs (20,70)→(170,118), which matches the `rover_tunnel` geometry.
+- Pieces:
+  - outcrop with layered strata
+  - ribbed steel portal with shotcrete, rock bolts and mesh, and a hazard-striped ADIT-2 header
+  - 5 work lights receding inside, plus rail, vent duct and cables
+  - spoil piles, boulders and tracks
+  - control shack with amber beacons, plus drifting dust haze
+- The front lip still occludes the lower ramp. Preview: `tunnel_closeup.png`.
+
+## Rover Bay v3 — single ORE BIN, right-wall entry, labelled trucks (supersedes v2 pits/labels)
+- Floor `floors/floor_mine_rover_bay` (layered) + lowpower. ORE BIN on the LEFT x 14–98, top y 80; entry cutout moved to the RIGHT wall (x 292–360, same depth/jamb/header/AO/beacon, exterior matches world). Charger x 196–226. No wall pit labels.
+- `floors/bin_fill_ore` 5 states (0–100 %), 84x18, attachToFloor (14,68); Pt-silver / He-3-blue strata.
+- Trucks: `rover/truck_{pt,he3}_drive` (8f loop) and `rover/rover_bay_dump_{pt,he3}` (16f, 2.7–5.8 s, fps 5.16; rover sheets q86). `rover/rover_dump` (old outdoor hopper) is no longer in mine_starter. Bed labels PLATINUM / HELIUM-3 solid bold white on dark plate, cap height ≈ 11 px @3x; Pt load silver, He-3 load blue.
+- `rover/rover_bay_route.json` (12 fps): reverseIn 0–2.2 (ease-out, x 372→binX 74) · settle 2.2–2.7 (low-g bounce) · tipUp 2.7–3.9 (0→38°) · pour 3.9–4.9 · tipDown 4.9–5.8 · settle2 5.8–6.1 · driveOut 6.1–7.9 (ease-in forward to x 372). Tint 0.45 at x>330 → 1.0 at x<220; redraw the right jamb strip over the truck while x+90>292.
+- Tiers: L10 lane LEDs + BAY 3 charger (x140) · L20 floods + door strobes (x288) · L30 grizzly on bin mouth + vibrator · L40 FUSION CHARGER on charger · L50 gold.
+- Crispness: tunnel base/layers/lip exported q95, haze moved to its own soft sprite `tunnel/tunnel_haze` (draw over lip); closeups are now 1:1 @3x from exported files with a 2x nearest zoom.
+- Polish (00:50): pour stream now ends at the ORE BIN mouth (floor y 80) with a dust puff. Tunnel uses labelled trucks: `rover/rover_tunnel_{pt,he3}` (16f @8fps; descend 0–7, emerge 8–15; pivot (45,58); same ramp path). Old `rover_tunnel` removed. `rover/rover_drive` and `rover/rover_dump` are superseded by the truck sheets and excluded from mine_starter (files kept).

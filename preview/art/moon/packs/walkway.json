@@ -1,0 +1,32 @@
+{
+ "pack": "walkway",
+ "root": "shared/walkway",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/walkway_astro_walk.json",
+    "@3x/walkway_astro_walk.webp",
+    "@3x/walkway_cap.json",
+    "@3x/walkway_cap.webp",
+    "@3x/walkway_cap_R.json",
+    "@3x/walkway_cap_R.webp",
+    "@3x/walkway_mid.webp",
+    "@3x/walkway_truss.webp"
+   ],
+   "bytes": 84126
+  },
+  "@2x": {
+   "files": [
+    "@2x/walkway_astro_walk.json",
+    "@2x/walkway_astro_walk.webp",
+    "@2x/walkway_cap.json",
+    "@2x/walkway_cap.webp",
+    "@2x/walkway_cap_R.json",
+    "@2x/walkway_cap_R.webp",
+    "@2x/walkway_mid.webp",
+    "@2x/walkway_truss.webp"
+   ],
+   "bytes": 51588
+  }
+ }
+}

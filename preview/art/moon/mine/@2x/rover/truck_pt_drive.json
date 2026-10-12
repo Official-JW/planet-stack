@@ -1,0 +1,102 @@
+{
+ "meta": {
+  "images": [
+   "truck_pt_drive.webp"
+  ],
+  "image": "truck_pt_drive.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 90,
+   "h": 58
+  },
+  "pivot": {
+   "x": 0,
+   "y": 58
+  },
+  "loop": true,
+  "note": "loaded drive loop; play reversed wheel for reverseIn; use load-empty variant via rover_drive for driveOut if preferred"
+ },
+ "frames": {
+  "truck_pt_drive_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  },
+  "truck_pt_drive_1": {
+   "page": 0,
+   "frame": {
+    "x": 180,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  },
+  "truck_pt_drive_2": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  },
+  "truck_pt_drive_3": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  },
+  "truck_pt_drive_4": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  },
+  "truck_pt_drive_5": {
+   "page": 0,
+   "frame": {
+    "x": 900,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  },
+  "truck_pt_drive_6": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  },
+  "truck_pt_drive_7": {
+   "page": 0,
+   "frame": {
+    "x": 1260,
+    "y": 0,
+    "w": 180,
+    "h": 116
+   },
+   "duration": 83
+  }
+ }
+}

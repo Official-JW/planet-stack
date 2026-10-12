@@ -1,143 +1,53 @@
 {
- "meta": {
-  "images": [
-   "dock_sign_glow_base.webp"
-  ],
-  "image": "dock_sign_glow_base.webp",
-  "scale": 2,
-  "fps": 12,
-  "logicalFrame": {
-   "w": 200,
-   "h": 48
-  },
-  "pivot": {
-   "x": 100,
-   "y": 48
-  },
-  "loop": true,
-  "blend": "add",
-  "note": "12f flicker+pulse; same pivot as dock_sign_neon_base; mount bottom-centre on dock front at deck y"
- },
- "frames": {
-  "dock_sign_glow_base_0": {
-   "page": 0,
-   "frame": {
-    "x": 0,
-    "y": 0,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_1": {
-   "page": 0,
-   "frame": {
-    "x": 400,
-    "y": 0,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_2": {
-   "page": 0,
-   "frame": {
-    "x": 800,
-    "y": 0,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_3": {
-   "page": 0,
-   "frame": {
-    "x": 1200,
-    "y": 0,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_4": {
-   "page": 0,
-   "frame": {
-    "x": 1600,
-    "y": 0,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_5": {
-   "page": 0,
-   "frame": {
-    "x": 0,
-    "y": 96,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_6": {
-   "page": 0,
-   "frame": {
-    "x": 400,
-    "y": 96,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_7": {
-   "page": 0,
-   "frame": {
-    "x": 800,
-    "y": 96,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_8": {
-   "page": 0,
-   "frame": {
-    "x": 1200,
-    "y": 96,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_9": {
-   "page": 0,
-   "frame": {
-    "x": 1600,
-    "y": 96,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_10": {
-   "page": 0,
-   "frame": {
-    "x": 0,
-    "y": 192,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  },
-  "dock_sign_glow_base_11": {
-   "page": 0,
-   "frame": {
-    "x": 400,
-    "y": 192,
-    "w": 400,
-    "h": 96
-   },
-   "duration": 83
-  }
- }
+"image": "dock_sign_glow_base.webp",
+"blend": "add",
+"pivot": {
+"x": 100,
+"y": 48
+},
+"fps": 12,
+"loop": true,
+"alpha": [
+1.0,
+0.987,
+0.874,
+0.9,
+0.468,
+0.813,
+0.8,
+0.789,
+0.85,
+0.72,
+0.95,
+0.987
+],
+"flicker": [
+1,
+1,
+0.92,
+1,
+0.55,
+1,
+1,
+0.97,
+1,
+0.8,
+1,
+1
+],
+"pulse": [
+1.0,
+0.933,
+0.75,
+0.5,
+0.25,
+0.067,
+0.0,
+0.067,
+0.25,
+0.5,
+0.75,
+0.933
+],
+"note": "set glow alpha = alpha[frame]; bloom alpha = 0.6+0.4*alpha[frame]"
 }

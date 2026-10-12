@@ -1,0 +1,83 @@
+{
+ "meta": {
+  "images": [
+   "bin_fill_ore.webp"
+  ],
+  "image": "bin_fill_ore.webp",
+  "scale": 3,
+  "fps": 0,
+  "logicalFrame": {
+   "w": 84,
+   "h": 18
+  },
+  "pivot": {
+   "x": 0,
+   "y": 0
+  },
+  "loop": false,
+  "attachToFloor": {
+   "x": 14,
+   "y": 68
+  },
+  "states": [
+   "0%",
+   "25%",
+   "50%",
+   "75%",
+   "100%"
+  ],
+  "note": "single left ore bin, Pt/He-3 strata; draw after floor, before trucks"
+ },
+ "frames": {
+  "bin_fill_ore_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 252,
+    "h": 54
+   },
+   "duration": 0
+  },
+  "bin_fill_ore_1": {
+   "page": 0,
+   "frame": {
+    "x": 252,
+    "y": 0,
+    "w": 252,
+    "h": 54
+   },
+   "duration": 0
+  },
+  "bin_fill_ore_2": {
+   "page": 0,
+   "frame": {
+    "x": 504,
+    "y": 0,
+    "w": 252,
+    "h": 54
+   },
+   "duration": 0
+  },
+  "bin_fill_ore_3": {
+   "page": 0,
+   "frame": {
+    "x": 756,
+    "y": 0,
+    "w": 252,
+    "h": 54
+   },
+   "duration": 0
+  },
+  "bin_fill_ore_4": {
+   "page": 0,
+   "frame": {
+    "x": 1008,
+    "y": 0,
+    "w": 252,
+    "h": 54
+   },
+   "duration": 0
+  }
+ }
+}

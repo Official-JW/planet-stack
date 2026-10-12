@@ -9,7 +9,7 @@ const CFG={
  tierUtility:0.10,tierIndustrial:0.10,eliteBuilding:0.10,masteredPlanet:0.10,oxygenCrewSpeed:0.10,autoCollectSec:30,
  tierColors:['#c98b4a','#9fd6ff','#ff9a3c','#c08cff','#ffd34d'],
  offlineCapSec:4*3600,offlineRate:0.5,tutorialLevel:3,
- maxFloors:10,siteAngleDeg:60,rotPerSlot:0.5,neighbourSink:900,surfaceScroll:6,towerScale:0.93,
+ maxFloors:10,siteAngleDeg:60,rotPerSlot:0.2,neighbourSink:5625,surfaceScroll:6,towerScale:0.93,
  // money ONLY from mining (+ refining): $500 grant, a small raw-ore trickle until the first ship returns, then cargo sales
  econ:{startGrant:500,arrivalSec:20,leaveSec:10,
   pod:{housing:4,oxygen:0,water:4,energy:8},kwPerPerson:1,staffBonus:0.25,
@@ -81,29 +81,28 @@ def('el_call_panel','elevator/call_panel','core');def('el_floor_indicator','elev
 ['fx_floor_unlock','fx_tierup_flash_rays','fx_gold_shimmer','fx_elevator_tierup'].forEach(n=>def(n,'fx/'+n,'fx2'));
 CFG.tierLevels.forEach(L=>def('banner_'+L,'fx/tier_banner_l'+L,'fx2','img'));
 // per building floors. Mine + Supply Depot art live in art/moon/mine/, the dock in art/moon/dock/ (packs: ../packs/*.json)
-const MINE=`../mine/${DEV_DPR>2?'@3x':'@2x'}/`,DOCK=`../dock/${DEV_DPR>2?'@3x':'@2x'}/`;
+const MINE=`../mine/${DEV_DPR>2?'@3x':'@2x'}/`,DOCK=`../dock/${DEV_DPR*0.65>2.2?'@3x':'@2x'}/`   /* dock is drawn at 0.65: pick the atlas nearest 1:1 device px (3x phone -> 1.95 -> @2x) */;
 F.filter(d=>d.art).forEach(d=>{const inMine=d.role==='mine'||d.id==='markets';d.tierBase=inMine?MINE+'floors/tiers/floor_'+d.art:(['oxy','water','nuke','refinery'].includes(d.id)?'floors/tiers/floor_'+d.art:null);   // others: base art only
  def('f_'+d.id,(inMine?MINE:'')+'floors/floor_'+d.art,d.pack||BUILDINGS[d.b].art,'floor');if(inMine)SPR['f_'+d.id].lowpower=true});
 def('mine_preview',MINE+'preview/mine_preview','mine_preview','img');
-['rover_drive','rover_scoop','rover_dump','rover_tunnel'].forEach(n=>def(n,MINE+'rover/'+n,'mine_starter'));
+['truck_pt_drive','truck_he3_drive','rover_bay_dump_pt','rover_bay_dump_he3','rover_tunnel_pt','rover_tunnel_he3'].forEach(n=>def(n,MINE+'rover/'+n,'mine_starter'));def('bin_fill_ore',MINE+'floors/bin_fill_ore','mine_starter');   // Rover Bay v3 trucks (old rover_* sheets retired)
+let BAYROUTE=null;tryJSON(ART+MINE+'rover/rover_bay_route.json').then(j=>BAYROUTE=j);
 ['loaded_box_pulse','loaded_box_sealed','loaded_box_stack3','he3_canister_pulse','he3_canister_sealed','he3_canister_stack3'].forEach(n=>def(n,MINE+'box/'+n,'mine_starter'));
 ['pickup_ore','pickup_miner','pickup_refined_coin'].forEach(n=>{def(n+'_spin',MINE+'fx/'+n+'_spin','mine_starter');def(n+'_sparkle',MINE+'fx/'+n+'_sparkle','mine_starter')});
-def('tunnel_back',MINE+'tunnel/tunnel_back','mine_starter');def('tunnel_front_lip',MINE+'tunnel/tunnel_front_lip','mine_starter','img');
-def('surface_hopper',MINE+'pad/surface_hopper','mine_starter','img');
+def('tunnel_back',MINE+'tunnel/tunnel_back','mine_starter','floor');def('tunnel_haze',MINE+'tunnel/tunnel_haze','mine_starter','img');def('tunnel_front_lip',MINE+'tunnel/tunnel_front_lip','mine_starter','img');
 def('roof_mine',MINE+'floors/penthouse_mine','mine_later_penthouse','floor');SPR.roof_mine.lowpower=true;
 // Cargo Space Dock (own station; loads when the player heads to it)
 def('dock_base',DOCK+'pad/cargo_space_dock','dock','img');
-['crane_gantry','crane_trolley','crane_hook_empty','crane_jib_mast','crane_jib_boom','floodlight_mast','floodlight_cone','dock_sign_neon_base','dock_sign_neon_pad_t10'].forEach(n=>def(n,DOCK+'pad/'+n,'dock','img'));
-['crane_hook_box','cargo_mule','dock_sign_glow_base','dock_sign_glow_pad_t10'].forEach(n=>def(n,DOCK+'pad/'+n,'dock'));
+['crane_gantry','crane_trolley','crane_hook_empty','crane_jib_mast','crane_jib_boom','floodlight_mast','floodlight_cone','dock_sign_neon_base','dock_sign_neon_pad_t10','dock_sign_neon_pad_t20','dock_sign_bloom_base','dock_sign_bloom_pad_t10','dock_sign_bloom_pad_t20'].forEach(n=>def(n,DOCK+'pad/'+n,'dock','img'));
+['crane_hook_box','cargo_mule','dock_sign_glow_base','dock_sign_glow_pad_t10','dock_sign_glow_pad_t20'].forEach(n=>def(n,DOCK+'pad/'+n,'dock'));
 def('ship4_hull',DOCK+'ship/ship4_hull','dock','img');def('launch_tower4',DOCK+'ship/launch_tower4','dock','img');
 ['ship4_flame','ship4_engine_glow','ship4_navlights','dust_puff4','smoke_plume4'].forEach(n=>def(n,DOCK+'ship/'+n,'dock'));
 ['walk','carry','push','wave'].forEach(n=>def('crew13_'+n,DOCK+'crew/crew13_'+n,'dock'));
 def('ui_btn_dock_wrench_firsttime',DOCK+'ui/ui_btn_dock_wrench_firsttime','dock');
 def('walk_medic','astronaut/astronaut_medic_walk','hab');def('idle_medic','astronaut/astronaut_medic_idle','hab');
-const IMG_SIZE={surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[240,90,0,30],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],launch_tower4:[240,500,38,500],
+const IMG_SIZE={surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],launch_tower4:[240,500,38,500],
  crane_gantry:[120,200,60,200],crane_trolley:[24,10,12,0],crane_hook_empty:[40,40,20,0],crane_jib_mast:[40,180,20,180],crane_jib_boom:[150,20,10,10],floodlight_mast:[30,150,15,150],floodlight_cone:[160,160,80,0],
- dock_sign_neon_base:[200,30,100,30],dock_sign_neon_pad_t10:[240,30,120,30],dock_sign_neon_pad_t20:[280,30,140,30]};
-['crane','crew','pad','refuel'].forEach(t=>[10,20,30,40,50].forEach(L=>IMG_SIZE[`dock_${t}_t${L}`]=[760,620,380,620]));
+ dock_sign_neon_base:[200,48,100,48],dock_sign_neon_pad_t10:[240,48,120,48],dock_sign_neon_pad_t20:[280,48,140,48],dock_sign_bloom_base:[280,40,140,20],dock_sign_bloom_pad_t10:[320,40,160,20],dock_sign_bloom_pad_t20:[360,40,180,20]};
 window.__firstBytesMark=0;
 const groupState={};
 async function tryJSON(p){try{const r=await fetch(p);if(r.ok)return await r.json()}catch(e){}return null}
@@ -112,10 +111,12 @@ const bmp=async im=>{if(!im)return null;try{return await createImageBitmap(im)}c
 let loadedBytes=0;
 async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.loading;
  s.loading=(async()=>{
-  if(s.kind==='img'){s.img=await bmp(await getImg(ART+s.path+'.webp'));if(s.img){s.w=s.img.width/(DEV_DPR>2?3:2);s.h=s.img.height/(DEV_DPR>2?3:2);const z=IMG_SIZE[key];if(z){s.w=z[0];s.h=z[1];s.px=z[2];s.py=z[3]}}}
+  if(s.kind==='img'){s.img=await bmp(await getImg(ART+s.path+'.webp'));if(s.img){const dv=s.path.includes('/@2x/')?2:s.path.includes('/@3x/')?3:(DEV_DPR>2?3:2);s.w=s.img.width/dv;s.h=s.img.height/dv;const z=IMG_SIZE[key];if(z){s.w=z[0];s.h=z[1];s.px=z[2];s.py=z[3]}}}
   else if(s.kind==='floor'){const j=await tryJSON(ART+s.path+'.json');if(j){const dir=ART+s.path.replace(/[^/]+$/,'');
     s.base=await bmp(await getImg(dir+j.base));s.pages=await Promise.all(j.layersImages.map(async n=>bmp(await getImg(dir+n))));s.layers=j.layers;s.fps=j.fps;s.n=j.frames;if(s.lowpower)s.lp=await bmp(await getImg(ART+s.path+'_lowpower.webp'))}}
-  else{const j=await tryJSON(ART+s.path+'.json');if(j){const m=j.meta,dir=ART+s.path.replace(/[^/]+$/,'');
+  else{const j=await tryJSON(ART+s.path+'.json');if(j&&!j.meta&&j.image&&j.alpha){const dir=ART+s.path.replace(/[^/]+$/,''),im=await bmp(await getImg(dir+j.image));if(im){const dv=s.path.includes('/@2x/')?2:3;   // glow v2: one image, per-frame alpha, additive
+    s.pages=[im];s.img=im;s.frames=j.alpha.map(()=>({page:0,x:0,y:0,w:im.width,h:im.height}));s.n=j.alpha.length;s.fps=j.fps||12;s.w=im.width/dv;s.h=im.height/dv;s.px=j.pivot.x;s.py=j.pivot.y;s.alpha=j.alpha;s.add=j.blend==='add'}}
+  else if(j&&j.meta){const m=j.meta,dir=ART+s.path.replace(/[^/]+$/,'');
     s.frames=Object.values(j.frames).map(f=>Object.assign({page:f.page||0},f.frame));s.n=s.frames.length;s.fps=m.fps||1;s.w=m.logicalFrame.w;s.h=m.logicalFrame.h;s.px=m.pivot.x;s.py=m.pivot.y;s.loop=m.loop!==false;
     s.pages=await Promise.all((m.images||[m.image]).map(async n=>bmp(await getImg(dir+n))));s.img=s.pages[0]}}
   s.ready=!!(s.img||s.base);s.missing=!s.ready})();return s.loading}
@@ -131,7 +132,7 @@ function ensureTier(d,L){const k=tierKey(d,L);if(!SPR[k]){def(k,`${d.tierBase}_t
 function ensureLook(look){const kb='car_'+look+'_back',kd='car_'+look+'_doors';if(!SPR[kb]){def(kb,'elevator/'+kb,'look','img');def(kd,'elevator/'+kd,'look');loadSprite(kb);loadSprite(kd)}return SPR[kb].ready&&SPR[kd].ready}
 const ok=k=>SPR[k]&&SPR[k].ready;
 function spr(c,key,frame,x,y,sx=1,sy=1){const S=SPR[key];if(!S||!S.ready)return;if(!S.frames){c.drawImage(S.img,x-(S.px||0)*sx,y-(S.py||0)*sy,S.w*sx,S.h*sy);return}
- const f=S.frames[((frame|0)%S.n+S.n)%S.n];c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}
+ const fi=((frame|0)%S.n+S.n)%S.n,f=S.frames[fi];if(S.alpha){c.save();c.globalAlpha*=S.alpha[fi];if(S.add)c.globalCompositeOperation='lighter';c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy);c.restore();return}c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}
 const fr=(k,t)=>SPR[k]&&SPR[k].ready?Math.floor(t*SPR[k].fps)%SPR[k].n:0;
 const frOnce=(k,t)=>SPR[k]&&SPR[k].ready?Math.floor(t*SPR[k].fps):99;
 function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const gf=paused?0:Math.floor(t*s.fps);
@@ -269,7 +270,7 @@ const cv=$('#cv'),ctx=cv.getContext('2d',{alpha:false});
 let W=390,H=844,DPR=DEV_DPR,SC=1,OY=0,OX=0,TS=0.93;
 const snap=v=>Math.round(v*DPR*SC)/(DPR*SC);
 function smooth(c){c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high'}
-const C={x:195,y:1320},R=760,HOR=560,FOOT_MID=13.67,FX0=-200;   // tower_base_400: middle of the curved bottom is 13.67pt below its top
+const R=1900,C={x:195,y:560+R},HOR=560,FOOT_MID=13.67,FX0=-200;   // tower_base_400: middle of the curved bottom is 13.67pt below its top
 function resize(){DPR=DEV_DPR;W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);   // never lowered
  SC=Math.max(0.5,Math.round(W/390*DPR*4)/(4*DPR));if(390*SC>W)SC=Math.floor(W/390*DPR*4)/(4*DPR);
  OX=snap((W/SC-390)/2);OY=snap(H/SC-844);
@@ -290,7 +291,7 @@ function drawBand(u0){const s=Math.min(2,DPR)*SC;if(band.width!==(390*s|0)){band
  b.globalCompositeOperation='destination-in';const g=b.createRadialGradient(C.x,C.y,R-150,C.x,C.y,R-100);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'#000');b.fillStyle=g;b.beginPath();b.arc(C.x,C.y,R,0,7);b.fill();b.globalCompositeOperation='source-over'}
 // ----- stop geometry -----
 const stopOfTower=bi=>STOPS.findIndex(s=>s.kind==='tower'&&s.bi===bi);
-function stopFrame(si){const a=si*CFG.rotPerSlot-cam.rot,sink=Math.abs(a)>0.02?CFG.neighbourSink*(1-Math.cos(a)):0;
+function stopFrame(si){const a=si*CFG.rotPerSlot-cam.rot,sink=Math.abs(a)>0.008?CFG.neighbourSink*(1-Math.cos(a)):0;
  return{a,x:C.x+(R-sink)*Math.sin(a),y:C.y-(R-sink)*Math.cos(a)}}
 const floorBottom=k=>-FOOT_MID+4-k*120;
 let T=0,dtG=0,site=0;
@@ -308,17 +309,17 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  ctx.restore();ctx.globalAlpha=1;
  if(ok('earth'))ctx.drawImage(SPR.earth.img,40-rx*0.1,90+OY*0.4+cam.y*0.1+Math.sin(T*Math.PI*2/20)*2,120,120);
  ctx.save();ctx.translate(0,snap(OY+cam.y));
- const vis=STOPS.map((s,si)=>({s,si,f:stopFrame(si)})).filter(o=>Math.abs(o.f.a)<0.9);
- vis.filter(o=>Math.abs(o.f.a)>=0.02).forEach(drawStop);                 // neighbours sink behind the horizon
+ const vis=STOPS.map((s,si)=>({s,si,f:stopFrame(si)})).filter(o=>Math.abs(o.f.a)<0.36);
+ vis.filter(o=>Math.abs(o.f.a)>=0.008).forEach(drawStop);                 // neighbours sink behind the horizon
  if(ok('globe'))ctx.drawImage(SPR.globe.img,0,0,390,844);
  if(ok('globe_surface_strip')){drawBand(T*CFG.surfaceScroll+rx);ctx.drawImage(band,0,BAND_TOP,390,BAND_H)}
  if(ok('globe_shade'))ctx.drawImage(SPR.globe_shade.img,0,0,390,844);
- vis.filter(o=>Math.abs(o.f.a)<0.02).forEach(drawStop);
+ vis.filter(o=>Math.abs(o.f.a)<0.008).forEach(drawStop);
  drawFX();ctx.restore();
  const ms=STOPS[site];if(ms.kind==='tower'&&BUILDINGS[ms.bi].id==='mine'&&!ok('f_rover')&&ok('mine_preview')&&!cam.anim&&!g0){ctx.drawImage(SPR.mine_preview.img,0,snap(OY),390,844)}}
 function drawStop(o){const {s,f}=o;ctx.save();
- if(Math.abs(f.a)<0.001)ctx.translate(snap(f.x),snap(f.y));else{ctx.translate(f.x,f.y);ctx.rotate(f.a)}
- ctx.scale(TS,TS);const atRest=Math.abs(f.a)<0.001;
+ if(Math.abs(f.a)<0.0004)ctx.translate(snap(f.x),snap(f.y));else{ctx.translate(f.x,f.y);ctx.rotate(f.a)}
+ ctx.scale(TS,TS);const atRest=Math.abs(f.a)<0.0004;
  if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine')drawMineForeground(f)}
  ctx.restore()}
 function label(x,y,txt,col,size){ctx.font=`700 ${size}px Inter,system-ui,-apple-system,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(txt,x,y+1);ctx.fillStyle=col;ctx.fillText(txt,x,y)}
@@ -350,6 +351,7 @@ function floorAnim(d,f,k){const s=SPR['f_'+d.id],lp=lowPower(d),t=T+k*0.3;
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;
   if(dt&&dt.L===o.L&&T-dt.t<0.45){const q=Math.max(0,Math.min(1,(T-dt.t-0.15)/0.26));if(q>0){ctx.save();ctx.globalAlpha=q;ctx.translate(0,-24*(1-easeOutBack(q,1.7)));ctx.drawImage(o.s.base,0,-120,360,120);drawLayers(ctx,o.s,T,lp);ctx.restore()}}
   else drawLayers(ctx,o.s,T,lp)});
+ if(d.id==='rover'&&s&&s.ready)roverBay(s,f,lp);
  if(f.lvl>=50&&ok('fx_gold_shimmer')&&d.id!=='oxy'){spr(ctx,'fx_gold_shimmer',fr('fx_gold_shimmer',T),0,0)}
  if(lp){spr(ctx,'floor_low_power',fr('floor_low_power',T),0,0);spr(ctx,'icon_low_power_blink',fr('icon_low_power_blink',T),340,-120+22)}
  if(!f.workers){ctx.fillStyle='rgba(5,8,15,.45)';ctx.fillRect(0,-120,360,120);label(180,-60,'Needs crew · tap to assign a resident','#ffb347',13)}
@@ -426,33 +428,82 @@ function drawTower(bi,n,atRest){const fl=BUILDINGS[bi].floors,live=!atRest||towe
  const nf=fl[n],yTop=floorBottom(n);
  if(nf&&n<CFG.maxFloors){ctx.save();ctx.globalAlpha=.55;ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle='#8fa3c4';ctx.strokeRect(FX0+4,yTop-116,352,112);ctx.restore();
   const why=lockReason(IDX[nf.id]);pillBtn(FX0+180,yTop-66,`Build ${nf.name} · ${fmt(nf.cost)}`,!why);if(why)label(FX0+180,yTop-32,'🔒 '+why,'#ffb347',13)}}
-// ----- Mine foreground: ADIT-2 tunnel, rover, hopper (MINE_SPEC "Scene layers" + "Rover route") -----
-const FG={y:70,s:1.25,par:1.15,tunnel:-150,hopper:60};   // tunnel fully on screen at 390w (was 115); rebuilt cave will bring its own offset
-const ROUTE=(()=>{const bay=-90,top=FG.tunnel+20,dump=FG.hopper+58,seg=[['drive',3,bay,top,false],['down',1],['hide',2],['up',1],['rev',3,top,dump,false],['dump',1.333],['back',2.5,dump,bay,true]];
- let t=0;seg.forEach(g=>{g.t0=t;t+=g[1]});return{seg,len:t,bay,top,dump}})();
-function roverState(t){const c=((t%ROUTE.len)+ROUTE.len)%ROUTE.len,g=ROUTE.seg.find(x=>c>=x.t0&&c<x.t0+x[1]),q=(c-g.t0)/g[1];
- const tx=FG.tunnel,rampX=u=>tx+20+150*u,rampY=u=>(78-30)*u;
- switch(g[0]){case 'drive':case 'rev':case 'back':return{x:g[2]+(g[3]-g[2])*q,y:0,k:'rover_drive',f:fr('rover_drive',c),flip:g[4]};
-  case 'down':return{x:rampX(q),y:rampY(q),k:'rover_tunnel',f:Math.min(11,Math.floor(q*12)),flip:false};
-  case 'hide':return null;
-  case 'up':return{x:rampX(1-q),y:rampY(1-q),k:'rover_tunnel',f:12+Math.min(11,Math.floor(q*12)),flip:false};
-  case 'dump':{const ms=q*1333;return{x:ROUTE.dump,y:0,k:'rover_dump',f:Math.min(15,Math.floor(q*16)),flip:false,pour:ms>330&&ms<920}}}}
-function shadow(x,y,w){ctx.save();ctx.globalAlpha=.45;ctx.fillStyle='#000';ctx.filter='blur(2px)';ctx.beginPath();ctx.ellipse(x,y,0.53*w,4,0,0,7);ctx.fill();ctx.restore()}
-function drawMineForeground(f){if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS;   // foreground pans 1.15× the mid layer
+// ----- Mine foreground: ADIT-2 cave v3, rover, hopper. One ground line (y=0 here), scale 1 = same scale as the tower.
+// Cave sits fully on screen (right), hopper at left; rover rolls in from the Rover Bay (off-screen left).
+const FG={y:70,s:1,par:1.15,tunnel:-67,hopper:-160};
+const ease=q=>q<.5?2*q*q:1-2*(1-q)*(1-q);
+// outdoor half of the truck beat: in from the left, down the ADIT-2 ramp, mine, back up, out to the left (never crosses the portal)
+const rampPt=u=>({x:FG.tunnel+20+150*u,y:48*u});
+function roverState(){const {n,c}=truckClock(),kind=truckKind(n+1),top=rampPt(0).x,off=-330;
+ if(c<2.2){const e=1-Math.pow(1-c/2.2,3),x=off+(top-45-off)*e;return{x,y:-Math.abs(Math.sin(x*0.2))*0.6*(1-e),k:'truck_'+kind+'_drive',f:Math.floor(c*12)%8,moving:1-e,dir:1,kind}}
+ if(c<2.5){const q=(c-2.2)/0.3;return{x:top-45,y:Math.sin(q*Math.PI*2)*1.2*(1-q),k:'truck_'+kind+'_drive',f:0,moving:0,kind}}
+ if(c<3.5){const q=(c-2.5),u=q*q*(3-2*q),p=rampPt(u);return{x:p.x,y:p.y,k:'rover_tunnel_'+kind,f:Math.min(7,Math.floor(q*8)),ramp:u,moving:0.5,dir:1,kind,piv:1}}
+ if(c<5.0)return null;
+ if(c<6.0){const q=(c-5),u=1-q*q*(3-2*q),p=rampPt(u);return{x:p.x,y:p.y,k:'rover_tunnel_'+kind,f:8+Math.min(7,Math.floor(q*8)),ramp:u,moving:0.5,dir:-1,kind,piv:1}}
+ const q=(c-6)/2.4,e=q*q,x=top-45+(off-(top-45))*e;return{x,y:-Math.abs(Math.sin(x*0.2))*0.6*e,k:'truck_'+kind+'_drive',f:7-Math.floor(c*12)%8,moving:Math.min(1,e*2),dir:-1,kind}}   // backs out (never mirrored: bed labels stay readable)
+function shadow(x,y,w,a=.45){ctx.save();ctx.globalAlpha=a;ctx.fillStyle='#000';ctx.filter='blur(2px)';ctx.beginPath();ctx.ellipse(x,y,0.53*w,3.5,0,0,7);ctx.fill();ctx.restore()}
+// soft-edged cave: fade the art's rectangular sides/bottom into the regolith so it blends with the ground
+const caveC=document.createElement('canvas'),caveX=caveC.getContext('2d');
+function softCave(key,frame){const s=SPR[key];if(!s||!s.ready)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(caveC.width!==w||caveC.height!==h){caveC.width=w;caveC.height=h}
+ const c=caveX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.base,0,0,260,130);drawLayers(c,s,T,false,0);c.globalCompositeOperation='destination-in';
+ let g=c.createLinearGradient(0,0,260,0);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.07,'#000');g.addColorStop(0.95,'#000');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,260,130);
+ g=c.createLinearGradient(0,96,0,130);g.addColorStop(0,'#000');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,260,130);
+ c.globalCompositeOperation='source-over';ctx.drawImage(caveC,FG.tunnel,-70,260,130)}
+const dust=[];
+function dustTick(r,dt){if(!r||!r.moving||r.y>4)return;if(Math.random()<dt*22*r.moving){const back=-(r.dir||1)*(r.flip?-1:1)*0;dust.push({x:(r.piv?r.x:r.x+45)-(r.dir||1)*38+(Math.random()-.5)*8,y:-1,vx:-(r.dir||1)*(6+Math.random()*10),vy:-(4+Math.random()*6),t:0,life:0.9+Math.random()*0.6,s:2+Math.random()*2.5})}}
+function drawDust(dt){for(let i=dust.length-1;i>=0;i--){const d=dust[i];d.t+=dt;if(d.t>d.life){dust.splice(i,1);continue}d.x+=d.vx*dt;d.y+=d.vy*dt;d.vy+=1.62*4*dt;if(d.y>0){d.y=0;d.vy=0;d.vx*=0.9}   // low-g arc
+ const q=d.t/d.life;ctx.globalAlpha=0.35*(1-q);ctx.fillStyle='#b9b4aa';ctx.beginPath();ctx.arc(d.x,d.y,d.s*(1+q*1.6),0,7);ctx.fill()}ctx.globalAlpha=1}
+let fgLast=0;
+// ---- Truck cycle (MINE_SPEC Rover Bay v3). Two labelled trucks share an 8.4 s beat: one dumps in the bay while the other works the tunnel.
+const BEAT=8.4,truckKind=n=>n%2?'he3':'pt';
+function truckClock(){const sp=(E.power<0.999?0.5:1)*Math.min(1.6,1+(S.f.rover.lvl-1)*0.02),t=T*sp;return{n:Math.floor(t/BEAT),c:t%BEAT}}
+const tintC=document.createElement('canvas'),tintX=tintC.getContext('2d');
+function sprTint(key,frame,x,y,tint){if(tint>=0.999){spr(ctx,key,frame,x,y);return}const S=SPR[key];if(!S||!S.ready)return;const k=DPR*SC,w=Math.ceil(S.w*k)+2,h=Math.ceil(S.h*k)+2;
+ if(tintC.width<w||tintC.height<h){tintC.width=w;tintC.height=h}tintX.setTransform(1,0,0,1,0,0);tintX.clearRect(0,0,tintC.width,tintC.height);tintX.setTransform(k,0,0,k,0,0);smooth(tintX);spr(tintX,key,frame,S.px,S.py);
+ tintX.globalCompositeOperation='source-atop';tintX.fillStyle=`rgba(0,0,0,${1-tint})`;tintX.fillRect(0,0,S.w,S.h);tintX.globalCompositeOperation='source-over';ctx.drawImage(tintC,0,0,S.w*k,S.h*k,x-S.px,y-S.py,S.w,S.h)}
+function roverBay(base,f,lp){const R=BAYROUTE;if(!R||S.f.rover.workers<=0)return;const {n,c}=truckClock(),kind=truckKind(n),FY=R.floorY-120;
+ // bin: +1 step per pour end, wraps after full
+ const pours=n+(c>=4.9?1:0);spr(ctx,'bin_fill_ore',Math.min(4,pours%6),14,68-120);
+ if(c>=7.9)return;const i=Math.min(R.frames.length-1,Math.floor(c*R.fps)),q=c*R.fps-i,a=R.frames[i],b=R.frames[Math.min(R.frames.length-1,i+1)],x=a.x+(b.x-a.x)*q,bob=a.bob+(b.bob-a.bob)*q;
+ const tint=x>330?0.45:x<220?1:1-0.55*(x-220)/110,y=FY-bob;
+ let key,fr8;if(c>=2.7&&c<5.8){key='rover_bay_dump_'+kind;fr8=Math.min(15,Math.floor((c-2.7)/3.1*16))}else{key='truck_'+kind+'_drive';const rev=a.seg==='reverseIn',mv=Math.abs(b.x-a.x)>0.05;fr8=mv?(rev?7-Math.floor(c*12)%8:Math.floor(c*12)%8):0}
+ if(lp&&key.startsWith('truck'))fr8=0;
+ ctx.save();ctx.globalAlpha=.35*tint;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(x+45,FY+0.5,46,3,0,0,7);ctx.fill();ctx.restore();
+ sprTint(key,fr8,x,y,tint);
+ if(x+90>292&&base.base){const kk=base.base.width/360;ctx.drawImage(base.base,292*kk,42*kk,10*kk,62*kk,292,42-120,10,62)}}   // right jamb over the truck
+
+function drawMineForeground(f){if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
  ctx.save();ctx.translate(par,FG.y);ctx.scale(FG.s,FG.s);
- spr(ctx,'tunnel_back',fr('tunnel_back',T),FG.tunnel,0);
- spr(ctx,'surface_hopper',0,FG.hopper,0);
- if(S.f.rover.workers>0){const r=roverState(T*(E.power<0.999?0.5:1)*Math.min(1.6,1+(S.f.rover.lvl-1)*0.02));
-  if(r){if(r.y<6)shadow(r.x,r.y,90);ctx.save();ctx.translate(r.x,r.y);if(r.flip)ctx.scale(-1,1);spr(ctx,r.k,r.f,0,0);ctx.restore()}}
- spr(ctx,'tunnel_front_lip',0,FG.tunnel,0);
+ softCave('tunnel_back');
+ let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
+ dustTick(r,dt);drawDust(dt);
+ if(r){const ramp=r.ramp!=null;
+  if(!ramp||r.ramp<0.35)shadow(r.piv?r.x:r.x+45,r.y+0.5,90,.45*(ramp?1-r.ramp/0.35:1));
+  ctx.save();
+  // never draw over the portal: clip off the header/arch (x>=146,y<70 local) and everything right of the mouth (x>=228)
+  if(ramp){const L=FG.tunnel;ctx.beginPath();ctx.moveTo(-600,-300);ctx.lineTo(L+146,-300);ctx.lineTo(L+146,0+2);ctx.lineTo(L+226,2);ctx.lineTo(L+226,300);ctx.lineTo(-600,300);ctx.closePath();ctx.clip();
+   ctx.globalAlpha=Math.max(0,Math.min(1,(1-r.ramp)/0.25))}   // fade into the dark mouth
+  if(r.piv){ctx.translate(r.x,r.y);spr(ctx,r.k,r.f,0,0)}else{ctx.translate(r.x+45,r.y);if(r.flip)ctx.scale(-1,1);spr(ctx,r.k,r.f,-45,0)}ctx.restore()}
+ if(ok('tunnel_front_lip'))softCaveLip();
+ if(ok('tunnel_haze')){ctx.globalAlpha=0.75+0.25*Math.sin(T*0.9);spr(ctx,'tunnel_haze',0,FG.tunnel+Math.sin(T*0.35)*3,0);ctx.globalAlpha=1}
  ctx.restore()}
+const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
+function softCaveLip(){const s=SPR.tunnel_front_lip,k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
+ if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
+  let g=c.createLinearGradient(0,0,260,0);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.07,'#000');g.addColorStop(0.95,'#000');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,260,130);
+  g=c.createLinearGradient(0,96,0,130);g.addColorStop(0,'#000');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,260,130);c.globalCompositeOperation='source-over';lipC._ok=1}
+ ctx.drawImage(lipC,FG.tunnel,-70,260,130)}
 // ----- Cargo Space Dock (own station) -----
 const shipAnim={mode:null,t0:0};
 const stopOfDock=()=>STOPS.findIndex(s=>s.kind==='dock');
 const DSC=0.65;   // 600-wide dock fits the 390 screen
 const dockTier=t=>Math.floor(dockLvl(t)/10)*10;
-function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!SPR[k]){def(k,DOCK+`tracks/${k}`,'track','img');loadSprite(k)}return k}   // loaded when the level is reached
-function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const k=ensureTrack(t,L);if(ok(k))spr(ctx,k,0,0,0)}})}   // cumulative per track; missing art → base dock
+// dock track looks: trimmed pieces from tracks/dock_tracks.json (dock-tracks-v1), logical pts in a 760x620 canvas, pivot (380,620). Loaded on demand.
+let TRK=null,trkLoading=null;const trkImg={};
+function trackMan(){if(!trkLoading)trkLoading=tryJSON(ART+DOCK+'tracks/dock_tracks.json').then(j=>{TRK=j&&j.images?j:{images:{}}});return TRK}
+function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!trackMan())return null;const list=TRK.images[k];if(!list)return null;
+ return list.map(e=>{let o=trkImg[e.file];if(!o){o=trkImg[e.file]={e,img:null};getImg(ART+DOCK+'tracks/'+e.file).then(bmp).then(im=>o.img=im)}return{e,o}})}
+function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const ps=ensureTrack(t,L);if(ps)ps.forEach(({e,o})=>{if(o.img)ctx.drawImage(o.img,-380+e.x,-620+e.y,e.w,e.h)})}})}   // cumulative per track; every piece; missing art → base dock
 const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'walk'},{a:500,b:560,k:'carry'}];
 function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.scale(k,k);
  if(!ok('dock_base')){spr(ctx,'site',fr('site',T),0,-6,1/k,1/k);label(0,-150,'Cargo Space Dock','#c9d3e6',22);label(0,-120,'Loading dock art…','#8fa3c4',18);ctx.restore();return}
@@ -481,7 +532,9 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.scale(k,k);
  if(load&&staged()>0)spr(ctx,'crane_hook_box',fr('crane_hook_box',T),gx,hy);else spr(ctx,'crane_hook_empty',0,gx,hy);
  ctx.save();ctx.translate(X(515),deck);ctx.scale(1.45,1.45);spr(ctx,'crane_jib_mast',0,0,0);ctx.translate(0,-176);ctx.rotate(Math.sin(T*0.6*cs)*8*Math.PI/180);ctx.scale(-1,1);spr(ctx,'crane_jib_boom',0,0,0);ctx.restore();
  dockOverlays(['crane']);
- const pt=dockTier('pad'),sk=pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';   // t20 sign not exported yet → t10spr(ctx,'dock_sign_neon_'+sk,0,0,deck+38);spr(ctx,'dock_sign_glow_'+sk,fr('dock_sign_glow_'+sk,T),0,deck+38+9);
+ const pt=dockTier('pad'),sk=pt>=20&&ok('dock_sign_neon_pad_t20')?'pad_t20':pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';   // blue neon v2 at real 48pt; glow = one image + JSON flicker curve (additive)
+ {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;spr(ctx,'dock_sign_neon_'+sk,0,0,deck+38);spr(ctx,'dock_sign_glow_'+sk,gf,0,deck+38);
+  if(ok('dock_sign_bloom_'+sk)){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.6+0.4*al;spr(ctx,'dock_sign_bloom_'+sk,0,0,deck);ctx.restore()}}
  // cargo mule hauling from the Mine
  const mt=(T*30)%1400,mx=mt<700?-700+mt:700-(mt-700);ctx.save();ctx.translate(X(mx<0?mx:Math.min(mx,440))-0,deck);if(mt>=700)ctx.scale(-1,1);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);ctx.restore();
  // crew (1.3× set), more with the crew track
@@ -502,7 +555,7 @@ const easeOutCubic=t=>1-Math.pow(1-t,3),easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.po
 // =====================================================================
 const FX=[];
 function stopXf(si){const f=stopFrame(si);return f}
-function withStop(si,fn){const f=stopFrame(si);if(Math.abs(f.a)>0.9)return;ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a);ctx.scale(TS,TS);fn();ctx.restore()}
+function withStop(si,fn){const f=stopFrame(si);if(Math.abs(f.a)>0.36)return;ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a);ctx.scale(TS,TS);fn();ctx.restore()}
 function pop(si,x,y,key,txt,delay=0){FX.push({type:'pop',si,x,y,key,txt,t:T+delay})}
 function floorPt(d,x,y){return{si:stopOfTower(d.b),x:FX0+x,y:floorBottom(d.k)-120+y}}
 function drawFX(){for(let i=FX.length-1;i>=0;i--){const o=FX[i],t=T-o.t;if(t<0)continue;let done=false;
@@ -527,7 +580,7 @@ function drawArrive(o,t){const ex=o.x-17;
  if(t>1.0&&!o.p1){o.p1=1;FX.push({type:'pop',si:o.si,x:ex-18,y:o.y-50,key:ok('pickup_miner_spin')?'pickup_miner':'pickup_people',txt:'+1 miner',t:T,rise:0.7,dist:30})}
  if(t>1.6&&!o.p3){o.p3=1;tickMeter('people')}}
 // coins only for: dock delivery, ore trickle, Refinery
-function oreFx(v){const si=stopOfTower(IDX.rover!=null?F[IDX.rover].b:1);if(Math.abs(stopFrame(si).a)>0.9)return;pop(si,FG.hopper*FG.s,FG.y-50,ok('pickup_ore_spin')?'pickup_ore':'coin','+'+fmt(v));tickMeter('coin')}
+function oreFx(v){const si=stopOfTower(IDX.rover!=null?F[IDX.rover].b:1);if(Math.abs(stopFrame(si).a)>0.36)return;pop(si,FX0+56,-60,ok('pickup_ore_spin')?'pickup_ore':'coin','+'+fmt(v));tickMeter('coin')}
 function refineFx(v){const d=F[IDX.refinery],p=floorPt(d,250,40);pop(p.si,p.x,p.y,ok('pickup_refined_coin_spin')?'pickup_refined_coin':'coin','+'+fmt(v))}
 function tickMeter(k){const el=document.querySelector(`.m[data-k="${k}"]`)||(k==='coin'?$('#money'):null);if(!el)return;el.classList.remove('tick');void el.offsetWidth;el.classList.add('tick')}
 // =====================================================================
@@ -651,7 +704,7 @@ cv.addEventListener('pointerdown',e=>{if(e.clientX<20||e.clientX>innerWidth-20){
 $('#shade').addEventListener('pointerdown',e=>{g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}});
 addEventListener('pointermove',e=>{if(!g0||g0.edge)return;const dx=e.clientX-g0.x,dy=e.clientY-g0.y;
  if(!g0.axis&&Math.hypot(dx,dy)>9){g0.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';if(g0.fromShade&&g0.axis==='x')closeSheet();if(g0.fromShade&&g0.axis==='y'){g0=null;return}if(g0.axis==='x'&&hintOn)endHint()}
- if(g0.axis==='x'){cam.rot=g0.rot0-dx/SC/R*1.25;cam.rot=Math.max(-0.15,Math.min((STOPS.length-1)*CFG.rotPerSlot+0.15,cam.rot))}
+ if(g0.axis==='x'){cam.rot=g0.rot0-dx/SC/R*1.25;cam.rot=Math.max(-0.06,Math.min((STOPS.length-1)*CFG.rotPerSlot+0.06,cam.rot))}
  if(g0.axis==='y'){cam.y=Math.max(-30,Math.min(maxScroll()+30,g0.y0+dy/SC));g0.hist.push([performance.now(),cam.y]);if(g0.hist.length>6)g0.hist.shift()}},{passive:true});
 addEventListener('pointerup',e=>{if(!g0||g0.edge){g0=null;return}const g=g0;g0=null;
  if(g.axis==='x'){const dx=e.clientX-g.x,v=dx/(performance.now()-g.t);let tgt=Math.round(cam.rot/CFG.rotPerSlot);if(Math.abs(v)>0.4&&tgt===site)tgt=site+(v<0?1:-1);goSite(tgt);return}
@@ -676,7 +729,7 @@ function frame(now){const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;
  if(!g0||g0.axis!=='y'){const mx=maxScroll();if(cam.y<0){cam.y+=(0-cam.y)*Math.min(1,dt*12);if(cam.y>-0.3)cam.y=0;cam.vy=Math.max(0,cam.vy)}if(cam.y>mx){cam.y+=(mx-cam.y)*Math.min(1,dt*12);cam.vy=Math.min(0,cam.vy)}}
  const gdt=dt*SPEED;step(gdt,true);if(DEV)S.money=Math.max(S.money,1e12);
  shipTick(gnow(),true).forEach(ev=>{if(ev.type==='landed'){shipAnim.mode='land';shipAnim.t0=T;shipAnim.dust=0;toast(`🚀 Cargo delivered to Earth: +${fmt(ev.v)}`);bump();pop(stopOfDock(),0,-300,'coin','+'+fmt(ev.v))}if(ev.type==='ready')toast('🚀 Ship ready to load')});
- crewTick(dt);STOPS.forEach((s,si)=>{if(s.kind==='tower'){const n=floorsBuilt(s.bi);if(n&&Math.abs(stopFrame(si).a)<0.9)elevTick(s.bi,n,dt)}});
+ crewTick(dt);STOPS.forEach((s,si)=>{if(s.kind==='tower'){const n=floorsBuilt(s.bi);if(n&&Math.abs(stopFrame(si).a)<0.36)elevTick(s.bi,n,dt)}});
  render();hintDraw();hudAcc+=dt;if(hudAcc>0.25){hudAcc=0;hud();hintTick();if(bgDone)BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})}saveAcc+=dt;if(saveAcc>5){saveAcc=0;save()}
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
  requestAnimationFrame(frame)}
