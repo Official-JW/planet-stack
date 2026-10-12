@@ -171,6 +171,18 @@
   "w": 24,
   "h": 24
  },
+ "ui_icon_energy": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_people": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_low_power": {
+  "w": 24,
+  "h": 24
+ },
  "ui_icon_lock": {
   "w": 24,
   "h": 24

@@ -1,0 +1,181 @@
+{
+ "meta": {
+  "images": [
+   "rover_scoop.webp"
+  ],
+  "image": "rover_scoop.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 90,
+   "h": 50
+  },
+  "pivot": {
+   "x": 45,
+   "y": 50
+  },
+  "loop": false
+ },
+ "frames": {
+  "rover_scoop_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_1": {
+   "page": 0,
+   "frame": {
+    "x": 180,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_2": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_3": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_4": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_5": {
+   "page": 0,
+   "frame": {
+    "x": 900,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_6": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_7": {
+   "page": 0,
+   "frame": {
+    "x": 1260,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_8": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_9": {
+   "page": 0,
+   "frame": {
+    "x": 1620,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_10": {
+   "page": 0,
+   "frame": {
+    "x": 1800,
+    "y": 0,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_11": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 100,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_12": {
+   "page": 0,
+   "frame": {
+    "x": 180,
+    "y": 100,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_13": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 100,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_14": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 100,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  },
+  "rover_scoop_15": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 100,
+    "w": 180,
+    "h": 100
+   },
+   "duration": 83
+  }
+ }
+}

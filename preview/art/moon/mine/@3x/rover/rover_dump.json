@@ -1,0 +1,181 @@
+{
+ "meta": {
+  "images": [
+   "rover_dump.webp"
+  ],
+  "image": "rover_dump.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 90,
+   "h": 50
+  },
+  "pivot": {
+   "x": 45,
+   "y": 50
+  },
+  "loop": false
+ },
+ "frames": {
+  "rover_dump_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_1": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_2": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_3": {
+   "page": 0,
+   "frame": {
+    "x": 810,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_4": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_5": {
+   "page": 0,
+   "frame": {
+    "x": 1350,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_6": {
+   "page": 0,
+   "frame": {
+    "x": 1620,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_7": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_8": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_9": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_10": {
+   "page": 0,
+   "frame": {
+    "x": 810,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_11": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_12": {
+   "page": 0,
+   "frame": {
+    "x": 1350,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_13": {
+   "page": 0,
+   "frame": {
+    "x": 1620,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_14": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 300,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_dump_15": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 300,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  }
+ }
+}

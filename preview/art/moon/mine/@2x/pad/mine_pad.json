@@ -1,0 +1,150 @@
+{
+ "meta": {
+  "images": [
+   "mine_pad.webp"
+  ],
+  "image": "mine_pad.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 180,
+   "h": 36
+  },
+  "pivot": {
+   "x": 90,
+   "y": 36
+  },
+  "loop": true,
+  "shipPivotOnPad": {
+   "x": 62,
+   "y": 10
+  },
+  "boxStackZone": {
+   "x": 118,
+   "y": 10,
+   "w": 54
+  }
+ },
+ "frames": {
+  "mine_pad_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_1": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_2": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_3": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_4": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 0,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_5": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 72,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_6": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 72,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_7": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 72,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_8": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 72,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_9": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 72,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_10": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 144,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  },
+  "mine_pad_11": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 144,
+    "w": 360,
+    "h": 72
+   },
+   "duration": 83
+  }
+ }
+}

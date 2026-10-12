@@ -1,0 +1,161 @@
+{
+ "meta": {
+  "images": [
+   "rover_drive.webp"
+  ],
+  "image": "rover_drive.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 90,
+   "h": 50
+  },
+  "pivot": {
+   "x": 45,
+   "y": 50
+  },
+  "loop": true
+ },
+ "frames": {
+  "rover_drive_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_1": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_2": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_3": {
+   "page": 0,
+   "frame": {
+    "x": 810,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_4": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_5": {
+   "page": 0,
+   "frame": {
+    "x": 1350,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_6": {
+   "page": 0,
+   "frame": {
+    "x": 1620,
+    "y": 0,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_7": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_8": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_9": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_10": {
+   "page": 0,
+   "frame": {
+    "x": 810,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_11": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_12": {
+   "page": 0,
+   "frame": {
+    "x": 1350,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "rover_drive_13": {
+   "page": 0,
+   "frame": {
+    "x": 1620,
+    "y": 150,
+    "w": 270,
+    "h": 150
+   },
+   "duration": 83
+  }
+ }
+}

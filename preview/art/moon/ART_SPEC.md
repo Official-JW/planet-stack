@@ -1,111 +1,49 @@
-# Planet Stack — Moon Art Pack (v1)
+# Planet Stack — Moon Art Spec (v4, @3x/@2x)
+All sizes are **logical points**. Pick set by DPR: `@3x/` if devicePixelRatio>2, else `@2x/` (see BLUR_FIX.md). WebP q92, alpha q100, no palette. Atlas pages ≤2048 px (full-screen bg images 1170×2532 are single images). `_masters/` = 6x lossless sources, never ship. Old top-level folders (floors/, ship/, astronaut/...) are legacy and are kept only until game.js switches over.
 
-All art is drawn in code (SVG → PNG/WebP) by `/workspace/artgen/*.py`. Rerun a script to regenerate.
-**Every image is exported at 3x.** Divide pixel sizes by 3 to get logical (1x) points, or set the texture resolution to 3.
-Every sprite sheet is a single horizontal strip with a matching `.json` atlas (TexturePacker-style "hash": `frames`, plus `meta.fps`, `meta.pivot` in logical px, `meta.logicalFrame`, `meta.loop`).
-Pivots are given in logical px from the top-left corner of a frame.
+## Atlas JSON (sprite sheets)
+`meta: {images:[pages], scale, fps, logicalFrame:{w,h}, pivot:{x,y}, loop}`; `frames: {name_i: {page, frame:{x,y,w,h} (px), duration}}`. Draw: `drawImage(page, fx,fy,fw,fh, x-pivot.x, y-pivot.y, logicalW, logicalH)`.
 
-## 1. Background (`bg/`), 390 × 844 logical, 1170 × 2532 px unless noted
-Layer order, back to front, with parallax as a fraction of camera movement:
+## Layered floors (360×120, pivot (0,120))
+`floors/floor_X.webp` = static base. `floor_X.json`: `{base, layersImages, scale, logicalSize, pivot, fps:12, frames:16, loop:true, layers:[{x,y,w,h, frames:[{page,x,y,w,h}]}]}`. Each frame: draw base, then each layer's frame i at (x,y). 16-frame seamless eased loop @12 fps (steam curls, liquid sloshes, eased lights, motion-blur fans). Floors: oxygen, water, nuclear, living, markets, hospital, cafe; penthouse_control.
 
-| # | File | Size | Parallax | Notes |
-|---|------|------|----------|-------|
-| 1 | `sky.webp` | full screen, opaque | 0.0 | Deep navy gradient with a faint nebula band. |
-| 2 | `stars.webp` | full screen, alpha | 0.05 | About 420 small stars. |
-| 3 | `stars_twinkle.webp` | full screen, alpha | 0.05 | 26 bright cross-glint stars. Loop the alpha 0.35 → 1 → 0.35 over 2.4 s (sine). For variety, run a second copy flipped horizontally and half a cycle out of phase. |
-| 4 | `earth.webp` | 120 × 120 logical (360 px) | 0.1 | Earth with its glow. Mockup position: top-left corner at (40, 90). Optionally drift it by ±2 px over 20 s. |
-| 5 | `globe.webp` | full screen, alpha | 0.3 | **The Moon globe.** v2 adds layered craters with central peaks, ejecta rays, scattered rocks with shadows, darker maria and a terminator shadow on the right. A circle of radius 760 centred at (195, 1320), so its top (the horizon) sits at y = 560, the bottom third of the screen. It includes the craters, shading, the bright rim line and a soft blue atmosphere glow. Use it on its own as the static version. |
-| 5b | `globe_surface_strip.webp` | 1200 × 160 logical (3600 × 480 px), opaque | — | **Rotating surface.** It tiles seamlessly left to right, and its top edge is the horizon. To fake rotation, bend it along the arc (radius 760, centre (195, 1320)) with a mesh or rope, clip it to the globe circle and scroll its U offset at about 6 px/s. Then draw `globe_shade.webp` on top. |
-| 5c | `globe_shade.webp` | full screen, alpha | same as 5 | Lighting overlay for 5b: edge darkening, rim line and glow. Use 5b + 5c **instead of** 5. |
+## Floor tiers (Oxygen Plant done; others to follow)
+`floors/tiers/floor_oxygen_t{10,20,30,40,50}` (same layered format, transparent base), anchor floor origin (0,0), same 360×120. Draw order: base → t10 → t20 → … up to current tier (cumulative). L10 steel trim + 2nd electrolysis tank; L20 CO₂ scrubber wall; L30 industrial pipes with flowing bubbles; L40 glowing O₂ core; L50 gold trim, gold dome, mastery badge. Preview `oxygen_tiers.png`.
+**Tier-up sequence (total 1.6 s):** 0 ms fx/fx_tierup_flash_rays (360×160, pivot (0,160), 16f @20fps) starts; 0–120 ms white flash (in sheet); 150 ms new tier layer drops from y−24 with alpha 0→1, 260 ms, easeOutBack(1.7) (bounce); 300 ms tier banner (fx/tier_banner_l{lv}, 220×44) scales 0.6→1.08→1 (250 ms) centred above floor, holds 900 ms, fades 200 ms; L50 only: fx/fx_gold_shimmer loops ×2 over the floor.
 
-## 2. World pieces (`world/`)
-- `tower_base.png`: 372 × 39 logical (1116 × 117 px), pivot (186, 39). This is the footing where a tower meets the globe. Its top edge is flat, so the bottom floor sits on y = 0..4. Its bottom edge is an arc of radius 760, so it hugs the globe. Put the bottom-centre on the horizon point, then raise it about 25 px so the footing's middle meets the surface. Draw it **in front of** the globe and **behind** the lowest floor's slab.
-- `site_marker.png`: a 4-frame sheet, 120 × 90 logical per frame, 6 fps, looping, pivot (60, 90). It shows a locked building site: a dashed outline, a "+", two traffic cones and a blinking orange beacon. Optionally pulse it at a scale of 1.0 → 1.03 every 1.6 s to invite a tap.
+## Elevator (`elevator/`)
+Shaft 40 wide on the tower's right: floors 360 + shaft 40 = 400; scale tower group ≈0.93. Footing: `world/tower_base_400` (412 wide, pivot centre-bottom (206,h)), replaces the 372 footing. Pieces: shaft_tile 40×120 (one per floor), shaft_top 40×30, shaft_pit 40×24, cable_tile 4×120 (centre x=20; maglev looks use maglev_glow 8f instead), call_panel 10×16 (2f, at shaft x=2,y=60 per floor), floor_indicator 12×6 (2f).
+Car 34×56, pivot (17,56): draw car_{look}_back, riders, then car_{look}_doors frame (0 closed…7 open). Looks: cage L1, steel 10, glass 20, maglev 30, cargo 40, panorama 50, hauler 60, twin_deck 70, neon 80, platinum 90, gold_express 100. Riders (rider 9×16): 1–3 silhouettes standing on car floor y=52 (x=8,13,18 offsets); capacity >3 → show 2 riders + capacity_badge 16×10 at top-right with the number.
+**Tween:** travel easeInOutCubic, 220 ms + 90 ms per floor; on arrival 2 pt settle bounce (overshoot down 2 pt, back over 160 ms, easeOutBack); doors open 150 ms after arrival (8 frames @24 fps = 333 ms); hold; close in reverse before departure. Tier-up: fx/fx_elevator_tierup (40×240, 16f) over the shaft. Preview `elevator_preview.png`.
 
-## 3. Floors (`floors/`) — v2 polish, 360×120 logical (1080×360 px), pivot (0,120) bottom-left
-Per floor: `floor_<name>.png` (static), `floor_<name>_anim.png`+`.json` (**8 frames @ 8 fps, loop**, laid out in a 3-column grid — always read frame rects from the JSON), `floor_<name>_needs_stock.png` (dimmed + empty-crate icon; crossfade 0.25 s).
-Every floor now has: textured/grimy back wall with panel seams and rivets, ceiling conduit with drooping cables and a room-code plate (O2-01, H2O-02, PWR-03, HAB-04, MKT-05, MED-06, CAF-07), ceiling light cones with bloom and a slight flicker, drifting dust motes, ambient occlusion on all edges, glass reflections, scan-lined screens, a cable tray (power, data and coolant colour codes), floor plates, and an exterior truss frame with a cool rim light on the left edge.
-| name | moving parts |
+## Astronaut (32×44, pivot (16,44))
+walk/carry/push: 12 frames @14 fps with weight shift and low-g bounce; idle 8 @8 fps; wave 10 @12 fps (0–1 raise, 2–7 wave, 8–9 lower, not looped). Roles: worker (default), _engineer, _medic (walk/idle/carry/push).
+
+## Collect pop-ups (economy)
+Coins (fx/coin_spin + coin_sparkle) **only** for Markets, Hospital, Club, stipend, cargo. Life-support floors pop resources: fx/pickup_o2_spin (Oxygen), pickup_water_spin (Water), pickup_energy_spin (Nuclear), pickup_people_spin (population gain). All 20×20, pivot (10,10), 8 frames @12 fps loop, each with a matching pickup_*_sparkle (32×32, 6f, one-shot).
+Tween (same for coin and resources): spawn at floor tap point, rise 28 pt over 600 ms easeOutCubic, scale 0.6→1.1→1 in the first 180 ms, fade out the last 150 ms; on tap or arrival at the HUD meter, play the sparkle and tick the meter.
+
+## Low power
+fx/floor_low_power (360×120, pivot (0,120), 16f @12 fps loop): dark overlay with irregular flicker plus a red top strip, drawn over floor and tiers; pause floor ambient layers. fx/icon_low_power_blink (24×24, 8f @8 fps, pivot (12,24)) at floor (340,22). UI icon ui/ui_icon_low_power.
+
+## New resident arrives (first 30 s; high priority)
+Assets: elevator car doors (or the airlock), fx/fx_door_hiss (48×32, 8f @16 fps, pivot (2,30) at door edge, flip X for the left side), astronaut_walk, astronaut_wave, fx/pickup_people_spin, fx/coin_spin, fx/fx_welcome_sparkle (64×64, 12f @20 fps, pivot centre).
+| t (ms) | event |
 |---|---|
-| `oxygen` | Equipment: two PEM electrolysis stacks, colour-coded O₂ and H₂ lines, gas manifold A with pressure gauges and valves, a Sabatier reactor (CO₂+4H₂→CH₄+2H₂O), LOX and O₂ storage tanks with level bars, a status screen, a maintenance hatch and a breaker panel. Animation: Sabatier heater glow, manifold valves turning, gauge needle, tank levels, status LEDs, vent steam. |
-| `water` | Equipment: a regolith-ice feed hopper with an auger, a 450 °C extraction oven, a 5 µm cartridge filter skid, distillation column DIST-1, clear potable and grey-water tanks with scale marks, flow meter FT-201, a water-loop screen and valves. Animation: the auger turning, oven glow, the column level, tank waves and bubbles, the flow reading, steam. |
-| `nuclear` | Equipment: a Kilopower-style 10 kWe fission unit with a shield cone, a visible core and heat pipes to a 40 kWt radiator array, two Stirling converters, a CAUTION RADIATION AREA placard, a control-rod readout (k-eff, core temperature, kWe, SCRAM READY), breaker switches and battery strings B1–B3. Animation: core pulse, radiator heat tint, Stirling rotors, rod bars, battery charging, sparks. |
-| `living_quarters` | Equipment: four chamfered sleep pods (P1–P4) with reading lights, occupancy LEDs and glass fronts, orange handholds, a galley (cabinets, food warmer with a timer, a 22 °C water dispenser, MRE packs), a porthole with Earth, an exercise band and lockers L1–L3. Animation: a rising "z", pod lights, warmer glow and countdown, warmer steam, the band flexing. |
-| `markets` | Equipment: hydroponic racks HYDRO-A and HYDRO-B with grow LEDs (lettuce, tomatoes, herbs), drip lines, sealed-ration shelving, a checkout kiosk with tap-to-pay, a chilled 4 °C display case and a price board. The sign now reads "LUNAR MARKET". Animation: sign flicker, grow-light pulse, drips, the price total, pendant lamps. |
-| `hospital` | heart-rate monitors, blinking cross |
-| `moon_cafe` | espresso steam, steam from table cups, sign flicker, pendant lamps |
-Walkable line: **y = 104** inside each floor. Stack floors at exactly 120 px pitch.
+| 0 | Car arrives (settle bounce) or airlock lights up |
+| 150 | Doors open (8f, 333 ms) + fx_door_hiss at the door edge |
+| 400 | Astronaut walks out 18 pt over 500 ms (walk @14 fps), easeOut |
+| 900 | Switch to astronaut_wave (10f @12 fps = 830 ms), facing camera |
+| 950 | fx_welcome_sparkle centred on the head (y−48) |
+| 1000 | pickup_people_spin rises from y−50, 30 pt over 700 ms easeOutCubic, scale 0.6→1.1→1 |
+| 1150 | coin_spin (stipend) rises 10 pt to the right, same tween |
+| 1600 | Icons fade over 200 ms; HUD people and coin meters tick up (400 ms) with pickup sparkles |
+| 1730 | Wave ends → idle, then walk to the assigned floor; doors close |
 
-**Penthouse** `penthouse_control(.png/_anim)`: 360×180 logical (1080×540 px), pivot (0,180), **8 frames @ 8 fps**. Top 60 px is a glass dome with 7 framed ribs, two ring braces, rib lights, a beacon at the apex, a sweeping glass glint and a swinging dish antenna; bottom 120 px is the control room (radar sweep, scrolling bars, console lights).
+## FX
+fx_collect_sparkle 48×48 12f @24; fx_upgrade_burst 160×160 16f; fx_floor_unlock 360×120 16f pivot (0,120), drawn over the new floor; fx_tierup_flash_rays; fx_gold_shimmer; fx_elevator_tierup; fx_door_hiss; fx_welcome_sparkle.
 
-## 4. Astronaut (`astronaut/`) — v3 EVA suit, **32×44 logical (96×132 px), pivot (16,44) at the bottom centre**, facing right (mirror for left)
-The suit has a hard upper torso, a life-support backpack with vents and green/blue status lights, a gold-tinted visor with reflections, a helmet light pod, a chest control unit with a small display, joint rings at the knees and elbows, fabric fold shading, boots with treads, and role accent stripes on the shoulder, backpack, helmet and gloves.
-| file | frames | fps | notes |
-|---|---|---|---|
-| `astronaut_walk` | 8 | 12 | walk speed ≈ 30 px/s |
-| `astronaut_idle` | 8 | 6 | breathing; the chest display blinks |
-| `astronaut_carry` | 8 | 12 | He-3 canister held in front |
-| `astronaut_push` | 8 | 12 | **frame is 52×44**, pivot still (16,44); the dolly sticks out to the right |
-Role variants have the same frames and differ only in accent colour:
-- `astronaut_*`: worker, orange
-- `astronaut_engineer_*`: blue
-- `astronaut_medic_*`: green
+## Ship and world
+ship/ (160×240, flame attached at (80,216), smoke, dust), launch_pad (ship pivot at pad (110,8)), launch_tower 120×250 pivot (101,250). bg/ globe, sky, stars, stars_twinkle, globe_surface_strip. cargo/.
 
-The feet stand on the floor's walk line (y=104). The astronaut is now 44 px tall, about 37% of a floor's height.
-
-## 5. Coin (`fx/`)
-- `coin_spin`: 6 frames, 20×20 logical, 12 fps, loop, pivot (10,10).
-- `coin_sparkle`: 6 frames, 32×32, 12 fps, once, pivot (16,16).
-- Motion: rise 40 px over 0.6 s (ease-out cubic); scale 0.6→1.1 in 0.25 s (ease-out back) then 1.0 by 0.4 s; alpha fades to 0 over the last 0.2 s.
-
-## 6. Cargo ship (`ship/`) — v3 realistic starter ship, about 2 floors tall
-The ship is a tall, slim stainless-steel cylinder with an ogive nose. It has no logos or branding.
-- `ship.png`: **160×240 logical (480×720 px)**, pivot (80,240) at the bottom centre, 2 frames at 2 fps (red and green nav lights blink).
-  - The body is 38 px wide and made of brushed steel, with weld seam rings, faint dents and vertical reflections.
-  - The left (windward) side carries charcoal hex heat-shield tiles.
-  - It has two small forward flaps near the nose and two larger aft flaps at the base.
-  - There's a row of 4 small windows and an outlined cargo door.
-  - Lighting: a cool rim light on the left from Earthshine and a warm edge on the right.
-  - Underneath: an aft skirt, five visible engine bells (part of a 3 centre + 3 outer layout) and short lunar landing legs.
-- `ship_damaged.png`: same size, 4 frames at 6 fps. It shows scorched steel, clusters of missing tiles (bare steel showing through), a crack in the cargo door, smoke, sparks and a flickering red warning light.
-- `ship_flame.png`: 80×150, 8 frames at 16 fps, looping, pivot (40,0). It's a blue-white methalox flame: translucent blue engine cores with Mach diamonds inside a pale plume. **Put its top-centre on ship point (80,216)** and draw it behind the ship.
-- `smoke_plume.png`: 320×110, 10 frames at 12 fps, plays once, pivot (160,110). A grey regolith dust plume for engine start.
-- `dust_puff.png`: 160×50, 6 frames at 12 fps, plays once, pivot (80,50). Plays on touchdown.
-- `launch_pad.png`: 220×44, 4 frames at 2 fps (red edge beacons), pivot (110,44). A steel grated deck on lattice legs over a flame trench. **The ship's pivot goes at pad point (110,8).**
-- `launch_tower.png`: 120×250, 2 frames at 2 fps (beacon and arm LED), pivot (101,250) at the tower's base. It's a steel lattice tower with a truss quick-disconnect (QD) arm and hoses reaching left. The arm's tip is at x=6, y≈96–108. Place the tower on the ground so the tip touches the hull: tower pivot x = ship centre + 19 + 95. In the mockup, the pad centre is at 510 and the tower pivot at 624, with both bottoms on the same ground line.
-- **Launch:** retract the QD arm (rotate it away, or slide it right 30 px over 0.3 s). Then the ship squashes and shakes on the pad for 0.4 s (scale Y 1→0.97→1 and ±1 px jitter), with `smoke_plume` playing and the flame on. Then it rises off the top of the screen with ease-in (quad) over 1.5 s.
-- **Landing:** it drops in with ease-out (cubic) over 1.8 s with the flame on, and the flame fades out over the last 0.3 s. On touchdown it squashes to scale Y 0.97 for 80 ms, bounces 3 px and plays `dust_puff`. Then the QD arm swings back in.
-- **Offline return:** set the ship on the pad and play only `dust_puff`.
-- (The old `launch_gantry.png` was replaced by `launch_tower.png`.)
-
-## 7. Cargo (`cargo/`), bonus
-- `he3_canister_raw` / `he3_canister_refined`: 4 frames, 20 × 28, 6 fps, looping, pivot (10, 28). The raw canister is frosty and dim. The refined one glows bright blue and pulses (one cycle about every 0.67 s; for a slower 1.5 s pulse, play at 2.7 fps).
-- `pt_crate_raw`: 1 frame, 26 × 22, pivot (13, 22). Gray ore in a mesh cage.
-- `pt_crate_refined`: 6 frames, 26 × 22, 10 fps, pivot (13, 22). An armoured crate with a silver shine sweep. Play it once every 2 s.
-- **Lock-in:** the container slides into the hold, drops 2 px, shakes ±1 px for 0.12 s, and shows a white flash ring (draw it in code), with a clunk and a pop.
-
-## Previews
-- `contact_sheet.png`: every file in the pack.
-- `mockup.png`: a full phone screen at 1170×2532. The world (tower and pad) is drawn at 0.56 zoom so the tower and ship fit side by side. It shows the curved globe, Earth, the tower (penthouse, Markets, Living Quarters and Oxygen on the tower base), the ship on its pad with the gantry, astronauts and a coin pop. At 1.0 zoom the camera would scroll.
-
-## Palette
-- Moon and steel: #2a3245 (outline), #3a4258, #5b667e, #8794ad, #c9d3e6
-- Sky: #05070f → #2b3a5e
-- Tappable or warm: #e8701a → #ffb04d
-- Tech glow: #3ad0ff / #7ff3ff. OK: #6ee08a. Alert: #f25f5c
-
-
-## Design language for floors (v3)
-Equipment is based on real lunar-base engineering: PEM electrolysis, the Sabatier reaction, ISRU ice extraction, distillation, Kilopower and Stirling units, hydroponics. It uses chamfered panels and one consistent labelling system: a white tag with an orange bar for equipment IDs, blue for water and O₂, and yellow hazard tags. It also has cable trays, maintenance hatches and functional lighting. The hospital and Moon Café floors still use the v2 drawings and don't have the v3 engineering redesign yet.
-
-## Colour pass (v4)
-Each floor now has its own accent colour: an LED strip along the ceiling and the floor, pulsing status lights, warmer ceiling lights and +15% saturation.
-| Floor | Accent | Wall tint |
-|---|---|---|
-| Oxygen | cyan/teal #2fe0d0 | teal-grey |
-| Water | blue #3a9cff | blue |
-| Nuclear | amber #ffb020 | neutral grey, with green and amber control-rod readouts |
-| Living Quarters | soft orange #ff9a50 | warm, with a wood wainscot |
-| Markets | green #7be05a | green-grey |
-| Hospital | cyan #7ff3ff | (no wall tint change) |
-| Moon Café | warm orange #ffb347 | (no wall tint change) |
+UI: see UI_SPEC.md.
