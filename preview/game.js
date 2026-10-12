@@ -86,7 +86,7 @@ function def(key,path,group,kind){SPR[key]={path,group,kind:kind||'atlas'}}
 def('base400','world/tower_base_400','core');def('site','world/site_marker','core');
 ['walk','idle','wave','carry'].forEach(a=>def(a+'_worker','astronaut/astronaut_'+a,'core'));
 ['walk','idle'].forEach(a=>def(a+'_engineer','astronaut/astronaut_engineer_'+a,'core'));
-['coin_spin','coin_sparkle','pickup_o2_spin','pickup_o2_sparkle','pickup_water_spin','pickup_water_sparkle','pickup_energy_spin','pickup_energy_sparkle','pickup_people_spin','pickup_people_sparkle','fx_collect_sparkle','fx_upgrade_burst','floor_low_power','icon_low_power_blink','fx_door_hiss','fx_welcome_sparkle'].forEach(n=>def(n,'fx/'+n,'core'));
+['coin_spin','coin_sparkle','pickup_o2_spin','pickup_o2_sparkle','pickup_water_spin','pickup_water_sparkle','pickup_energy_spin','pickup_energy_sparkle','pickup_people_spin','pickup_people_sparkle','fx_collect_sparkle','floor_low_power','icon_low_power_blink','fx_door_hiss','fx_welcome_sparkle'].forEach(n=>def(n,'fx/'+n,'core'));def('fx_upgrade_burst','fx/fx_upgrade_burst','fx_burst');   // 722 KB @3x: loads right after the first screen
 ['shaft_tile','shaft_top','shaft_pit','cable_tile','rider','capacity_badge'].forEach(n=>def('el_'+n,'elevator/'+n,'core','img'));
 def('el_call_panel','elevator/call_panel','core');def('el_floor_indicator','elevator/floor_indicator','core');
 // heavy fx: loaded right after the first screen
@@ -251,7 +251,7 @@ const turnSec=()=>CFG.ship.turnaroundSec*Math.max(CFG.dock.refuelMin,1-CFG.dock.
 const shipLoad=()=>S.ship.pt+S.ship.he;
 const cargoValue=o=>(o.pt*CFG.econ.ptValue+o.he*CFG.econ.heValue)*(1-CFG.econ.packShare)+(o.refPt*CFG.econ.ptValue+o.refHe*CFG.econ.heValue)*(CFG.econ.refinedMult-1);
 function dockUpgrade(t){if(dockLvl(t)>=CFG.dock.maxLevel||S.money<dockCost(t))return;const before=Math.floor(dockLvl(t)/10);S.money-=dockCost(t);S.dock[t]++;
- if(Math.floor(dockLvl(t)/10)>before){const tr=DOCK_TRACKS.find(x=>x.id===t);toast(`🔧 ${tr.name}: ${tr.looks[dockLvl(t)]||'new look'}`);loadGroup('fx2');FX.push({type:'sprite',key:'fx_upgrade_burst',si:stopOfDock(),x:0,y:-60,t:T})}
+ if(Math.floor(dockLvl(t)/10)>before){const tr=DOCK_TRACKS.find(x=>x.id===t);toast(`🔧 ${tr.name}: ${tr.looks[dockLvl(t)]||'new look'}`);loadGroup('fx2');if(ok('fx_upgrade_burst'))FX.push({type:'sprite',key:'fx_upgrade_burst',si:stopOfDock(),x:0,y:-60,t:T})}
  save();hud();openDock(true)}
 // ----- cargo ship (timestamps) -----
 function shipTick(t,live){const s=S.ship,ev=[];
@@ -388,6 +388,7 @@ function drawSite(bi){const b=BUILDINGS[bi],open=siteOpen(bi),p=1+0.03*Math.max(
 function floorScale(fx){let sx=1,sy=1;
  if(fx.build!=null){const t=(T-fx.build)/0.65;if(t<1){sy=easeOutBack(Math.min(1,t));sx=1+0.04*Math.sin(t*Math.PI)}}
  if(fx.up!=null){const t=(T-fx.up)/0.4;if(t<1){const w=Math.sin(t*Math.PI)*(1-t);sx*=1+0.05*w;sy*=1-0.06*w}}
+ if(fx.pop!=null){const t=(T-fx.pop)/0.3;if(t<1){const w=Math.sin(t*Math.PI)*(1-t*0.5);sx*=1+0.08*w;sy*=1+0.08*w}}
  if(fx.tap!=null){const t=(T-fx.tap)/0.16;if(t<1){const w=Math.sin(t*Math.PI);sx*=1-0.015*w;sy*=1-0.03*w}}return[sx,sy]}
 const lowPower=d=>(d.use||0)>0&&E.power<0.999;
 function tierLayers(d,f){if(!d.tierBase)return[];   // no tier art → base art only (never blank)
@@ -466,7 +467,7 @@ function drawCar(bi,n){const e=elevState(bi),look=elevLook(bi);
 // ----- tower cache (static footing + shaft + floor bases) -----
 const towerCache={};let cacheHits=0;
 function towerKey(bi,n){const fl=BUILDINGS[bi].floors;let k=[DPR,SC,TS,n,E.power<0.999,!!roofSpr(bi,n)].join('|');for(let i=0;i<n;i++){const d=fl[i],f=S.f[d.id];k+='|'+tierOf(f.lvl)+(SPR['f_'+d.id]&&SPR['f_'+d.id].ready?'a':'p')+tierLayers(d,f).length}return k}
-function towerNeedsLive(bi,n){const fl=BUILDINGS[bi].floors;for(let i=0;i<n;i++){const fx=floorFx[fl[i].id]||{};if(fx.build!=null&&T-fx.build<0.7||fx.up!=null&&T-fx.up<0.45||fx.tap!=null&&T-fx.tap<0.2||fx.tierDrop&&T-fx.tierDrop.t<0.5)return true}return false}
+function towerNeedsLive(bi,n){const fl=BUILDINGS[bi].floors;for(let i=0;i<n;i++){const fx=floorFx[fl[i].id]||{};if(fx.build!=null&&T-fx.build<0.7||fx.up!=null&&T-fx.up<0.45||fx.tap!=null&&T-fx.tap<0.2||fx.pop!=null&&T-fx.pop<0.35||fx.tierDrop&&T-fx.tierDrop.t<0.5)return true}return false}
 function getTowerCache(bi,n){const key=towerKey(bi,n);let c=towerCache[bi];if(c&&c.key===key)return c;
  const s=DPR*SC*TS,top=Math.floor((floorBottom(n-1)-320)*s)/s,w=420,h=Math.ceil((50-top)*s)/s;
  const cv2=document.createElement('canvas');cv2.width=Math.ceil(w*s);cv2.height=Math.ceil(h*s);const x=cv2.getContext('2d');smooth(x);x.setTransform(s,0,0,s,w/2*s,-top*s);
@@ -651,7 +652,7 @@ function buyFloor(i){let d=F[i];const nc=noCrew(d);if(d.upper){i=IDX[d.upper];d=
  toast(f.workers||nc?`🏗️ ${d.name} built!`:`🏗️ ${d.name} built: needs a resident to staff it`);crewSync();save();hud();return true}
 function upgradeN(i,n){let c=0,k=0,lv=st(i).lvl;while(k<n&&lv+k<CFG.maxLevel){const x=upCost(i,lv+k);if(c+x>S.money)break;c+=x;k++}return{k,c}}
 function doUpgrade(i,n){const {k,c}=upgradeN(i,n);if(!k)return;const f=st(i),d=F[i],before=f.lvl;S.money-=c;f.lvl+=k;const fx=floorFx[d.id]=floorFx[d.id]||{};fx.up=T;
- const p=floorPt(d,180,60);FX.push({type:'sprite',key:'fx_upgrade_burst',si:p.si,x:p.x,y:p.y,t:T});
+ const p=floorPt(d,180,60);if(ok('fx_upgrade_burst'))FX.push({type:'sprite',key:'fx_upgrade_burst',si:p.si,x:p.x,y:p.y,t:T});else (floorFx[d.id]=floorFx[d.id]||{}).pop=T;   // burst not loaded yet: quick scale-pop instead
  CFG.tierLevels.forEach(L=>{if(before<L&&f.lvl>=L)tierUp(i,L)});crewSync();save();hud();openSheet(i,true)}
 function tierUp(i,L){const d=F[i],p=floorPt(d,0,120),fx=floorFx[d.id]=floorFx[d.id]||{};fx.tierDrop={L,t:T};loadGroup('fx2');if(d.tierBase)ensureTier(d,L);
  FX.push({type:'sprite',key:'fx_tierup_flash_rays',si:p.si,x:p.x,y:p.y,t:T});FX.push({type:'banner',key:'banner_'+L,si:p.si,x:p.x+180,y:p.y-150,t:T+0.3});
@@ -813,7 +814,7 @@ let bgDone=false;
  const bar=$('#lbar');await Promise.all([loadGroup('core',p=>bar.style.width=(p*80)+'%'),loadGroup('life',p=>{})]);bar.style.width='100%';
  ensureLook(elevLook(0));
  offline();econ();crewSync();hud();devUI();
- {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});
+ {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_burst');
  await new Promise(r=>setTimeout(r,400));
  await loadGroup('mine_preview');await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();

@@ -73,3 +73,7 @@
 - [x] Dock "Next look" moved to its own wrapping line; "placeholder art" text removed; floor packs load the moment a floor is built (Crusher/Hospital show real art).
 - [x] Tunnel trucks in mine_later_tunnel_trucks (loads after mine_starter); every mine_later_* pack waits for the first screen; the truck waits in the bay until the pack is ready.
 - [x] Walkway: measured per frame between the two on-screen tower walls, caps pinned to the walls, fades under ~40 pt, drawn behind every tower.
+
+## Done in follow-up preview push
+- [x] fx_upgrade_burst (722 KB @3x) moved off the first screen into fx_burst, loaded right after it; upgrades before it loads play a quick scale-pop on the floor. First screen ~2.07 MB @3x.
+- [x] Crew hint wraps to two lines (no ellipsis); nothing spills out of the crew row.
