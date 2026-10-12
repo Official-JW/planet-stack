@@ -38,14 +38,20 @@ Walkable line: **y = 104** inside each floor. Stack floors at exactly 120 px pit
 
 **Penthouse** `penthouse_control(.png/_anim)`: 360×180 logical (1080×540 px), pivot (0,180), **8 frames @ 8 fps**. Top 60 px is a glass dome with 7 framed ribs, two ring braces, rib lights, a beacon at the apex, a sweeping glass glint and a swinging dish antenna; bottom 120 px is the control room (radar sweep, scrolling bars, console lights).
 
-## 4. Astronaut (`astronaut/`) — 24×32 logical (72×96 px), pivot (12,32), faces right (mirror for left)
-Suit detail: visor with sky reflection + orange horizon glint, backpack with hose and status LED, belt and buckle, seams, knee/boot shading.
-| file | frames | fps |
-|---|---|---|
-| `astronaut_walk` | 8 | 10 (walk speed ≈ 24 px/s) |
-| `astronaut_idle` | 4 | 4 |
-| `astronaut_carry` | 8 | 10 (He-3 canister held in front) |
-| `astronaut_push` | 8 | 10 — **frame is 40×32**, pivot still (12,32); dolly sticks out to the right |
+## 4. Astronaut (`astronaut/`) — v3 EVA suit, **32×44 logical (96×132 px), pivot (16,44) at the bottom centre**, facing right (mirror for left)
+The suit has a hard upper torso, a life-support backpack with vents and green/blue status lights, a gold-tinted visor with reflections, a helmet light pod, a chest control unit with a small display, joint rings at the knees and elbows, fabric fold shading, boots with treads, and role accent stripes on the shoulder, backpack, helmet and gloves.
+| file | frames | fps | notes |
+|---|---|---|---|
+| `astronaut_walk` | 8 | 12 | walk speed ≈ 30 px/s |
+| `astronaut_idle` | 8 | 6 | breathing; the chest display blinks |
+| `astronaut_carry` | 8 | 12 | He-3 canister held in front |
+| `astronaut_push` | 8 | 12 | **frame is 52×44**, pivot still (16,44); the dolly sticks out to the right |
+Role variants have the same frames and differ only in accent colour:
+- `astronaut_*`: worker, orange
+- `astronaut_engineer_*`: blue
+- `astronaut_medic_*`: green
+
+The feet stand on the floor's walk line (y=104). The astronaut is now 44 px tall, about 37% of a floor's height.
 
 ## 5. Coin (`fx/`)
 - `coin_spin`: 6 frames, 20×20 logical, 12 fps, loop, pivot (10,10).

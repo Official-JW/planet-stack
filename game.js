@@ -21,7 +21,7 @@ const BUILDINGS=[
  {id:'life',name:'Life Support',floors:[
   {id:'oxy',name:'Oxygen Plant',art:'oxygen',cost:0,base:0.6,up:15,desc:'Splits water into air. Tap to collect.'},
   {id:'water',name:'Water',art:'water',cost:120,req:{floor:'oxy',lvl:3},base:0.5,up:70,stocks:'markets',desc:'Melts ice into water. Stocks the Markets.'},
-  {id:'nuke',name:'Nuclear Power',art:'nuclear',cost:300,base:1.2,up:110,boostBelow:true,desc:'Powers the floors below it: +30% income (+5% per milestone).'}]},
+  {id:'nuke',name:'Nuclear Power',art:'nuclear',cost:300,base:1.2,up:110,boostBelow:true,crew:'engineer',desc:'Powers the floors below it: +30% income (+5% per milestone).'}]},
  {id:'hab',name:'Habitat',needs:{building:'life',floors:3},floors:[
   {id:'living',name:'Living Quarters',art:'living_quarters',cost:750,base:1.5,up:250,workerCap:true,desc:'Bunks for crew. Raises the astronaut cap.'},
   {id:'markets',name:'Markets',art:'markets',cost:1875,base:4,up:600,store:true,startStock:120,desc:'Sells goods. Needs stock from Water.'}]},
@@ -38,10 +38,11 @@ const SPR={
  sky:{src:'bg/sky.webp'},stars:{src:'bg/stars.webp'},twinkle:{src:'bg/stars_twinkle.webp'},earth:{src:'bg/earth.webp'},
  globe:{src:'bg/globe.webp'},strip:{src:'bg/globe_surface_strip.webp'},shade:{src:'bg/globe_shade.webp'},
  base:{atlas:'world/tower_base'},site:{atlas:'world/site_marker'},
- walk:{atlas:'astronaut/astronaut_walk'},idle:{atlas:'astronaut/astronaut_idle'},carry:{atlas:'astronaut/astronaut_carry'},
  coin:{atlas:'fx/coin_spin'},sparkle:{atlas:'fx/coin_sparkle'},dust:{atlas:'ship/dust_puff'},
  // ship art is loaded only when the ship is shown again (hidden this build): ship/ship, ship_damaged, ship_flame, smoke_plume, launch_pad, launch_gantry
 };
+// astronaut role variants: worker (orange), engineer (blue), medic (green) — only roles in use are loaded
+[...new Set(['worker',...F.map(d=>d.crew||'worker')])].forEach(r=>{const p=r==='worker'?'astronaut_':`astronaut_${r}_`;['walk','idle','carry'].forEach(a=>SPR[a+'_'+r]={atlas:'astronaut/'+p+a})});
 F.forEach(d=>{SPR['f_'+d.id]={atlas:`floors/floor_${d.art}_anim`};if(d.store)SPR['ns_'+d.id]={src:`floors/floor_${d.art}_needs_stock.png`,w:360,h:120}});
 function loadArt(){const keys=Object.keys(SPR);let done=0;const tick=()=>{done++;$('#lbar').style.width=(done/keys.length*100)+'%'};
  return Promise.all(keys.map(async k=>{const s=SPR[k];
@@ -135,7 +136,7 @@ const FX=[];        // {type,t,dur,...}
 const floorFx={};   // id -> {build:t0, up:t0, tap:t0}
 const crew={};      // id -> [astronauts]
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
- while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*280,v:(Math.random()<.5?-1:1)*24,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,Math.min(4,f.workers))})}
+ while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*280,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,Math.min(4,f.workers))})}
 let T=0;
 let skyC=null;
 function skyLayer(){const w=W*DPR|0,h=H*DPR|0;if(skyC&&skyC.width===w&&skyC.height===h)return skyC;skyC=document.createElement('canvas');skyC.width=w;skyC.height=h;skyC.getContext('2d').drawImage(SPR.sky.img,0,0,w,h);return skyC}
@@ -193,7 +194,7 @@ function drawTower(bi,n){
   // crew at walk line y=104 (relative to floor top)
   (crew[d.id]||[]).forEach(a=>{const y=-120+104;
    ctx.globalAlpha=.25;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(a.x-180,y,5,1,0,0,7);ctx.fill();ctx.globalAlpha=1;
-   ctx.save();ctx.translate(a.x-180,y);if(a.v<0)ctx.scale(-1,1);spr(ctx,a.idle>0?'idle':'walk',fr(a.idle>0?'idle':'walk',T+a.t),0,0);ctx.restore()});
+   ctx.save();ctx.translate(a.x-180,y);if(a.v<0)ctx.scale(-1,1);{const k=(a.idle>0?'idle_':'walk_')+(d.crew||'worker');spr(ctx,k,fr(k,T+a.t),0,0)};ctx.restore()});
   // floor name + level chip, pending coin bubble
   chip(-170,-112,`${d.name}  Lv ${f.lvl}`);
   if(f.pend>=1){const bob=Math.sin(T*3+k)*2;coinBubble(150,-92+bob,fmt(f.pend))}
@@ -232,7 +233,7 @@ function drawFX(){for(let i=FX.length-1;i>=0;i--){const o=FX[i],t=T-o.t;if(t<0)c
   ctx.save();ctx.translate(o.x,y);ctx.scale(s,s);ctx.font='900 22px system-ui,-apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=4;ctx.strokeStyle='#5a2a00';ctx.strokeText(o.txt,0,0);ctx.fillStyle='#ffd08a';ctx.fillText(o.txt,0,0);ctx.restore();ctx.globalAlpha=1}
  else if(o.type==='courier'){ // carry astronaut leaving Water
   const d=1.6;if(t>d){FX.splice(i,1);continue}const tf=towerFrame(o.bi);if(Math.abs(tf.a)>0.75)continue;
-  ctx.save();ctx.translate(tf.x,tf.y);ctx.rotate(tf.a);const x=-180+o.x0+(350-o.x0)*(t/d);ctx.translate(x,floorBottom(o.k)-16);ctx.globalAlpha=t>d-0.3?(d-t)/0.3:1;spr(ctx,'carry',fr('carry',t),0,0);ctx.restore();ctx.globalAlpha=1}}}
+  ctx.save();ctx.translate(tf.x,tf.y);ctx.rotate(tf.a);const x=-180+o.x0+(350-o.x0)*(t/d);ctx.translate(x,floorBottom(o.k)-16);ctx.globalAlpha=t>d-0.3?(d-t)/0.3:1;spr(ctx,'carry_worker',fr('carry_worker',t),0,0);ctx.restore();ctx.globalAlpha=1}}}
 function deliverFx(from){const d=F[from];if(FX.length<60)FX.push({type:'courier',bi:d.b,k:d.k,x0:60+Math.random()*120,t:T})}
 // ----- crew AI -----
 function crewTick(dt){for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}
