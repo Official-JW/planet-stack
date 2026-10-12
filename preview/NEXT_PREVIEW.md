@@ -1,0 +1,66 @@
+# Next preview changes (locked in group, 10/11 23:50)
+- Money ONLY from mining + refining. Remove per-resident stipend, Market/Hospital/Club income. Keep $500 grant. Mine pays small raw-ore trickle before first ship returns.
+- Residents = miners; life support/habitat raise miner count. Life support upgrade shows "+N miners".
+- First goal points at the Mine.
+- Platinum crate ~1 min, Helium-3 canister ~3 min, He-3 worth ~4x per container.
+- Refinery: refined cargo x3 value; upgrades speed it; coin pop-ups on Refinery floor.
+- Coin pop-ups only at Cargo Space Dock delivery, ore trickle, Refinery. Market/Hospital/Club use resident/happiness icon.
+- Market floor renamed Supply Depot (stores Earth supplies, no coins).
+- Habitat and Mine start with first floor unlocked.
+- Mine pad renamed Cargo Space Dock (art files cargo_space_dock*).
+- Nuclear cost $150.
+- Fixes: Upgrade button pinned to bottom of sheet; "supports N people" in nameplate strip; debug box off sheet.
+- Pending art: ore-chunk pop-up, new Mine spec (4-floor ship, rover tunnel, busy dock).
+- Add LICENSES file (no 3rd-party code; art fonts Rajdhani/Inter OFL, DejaVu).
+- Incoming art (Mine spec drop): He-3 pressurized canister (violet trim, LED, LOADED) distinct from platinum LOADED box; pop-ups ore chunk, "+miner" helmet, refined-cargo coin; Supply Depot floor art.
+- He-3 canister: glowing blue core is main color, violet trim only.
+- Dev mode: ?dev=1 on preview = unlimited money + "Max out" button (unlock all floors/levels). Own save key planetstack-dev. Live stays normal.
+- Floors with no tier art fall back to base art (never blank). ?dev=1 must be ignored on live root.
+- New MINE_SPEC: ship4_hull 320x480 anchor (160,480) at dock (300,20), separate flame/glow; pad/cargo_space_dock 600x70 anchor (300,70) w/ cranes + astronaut routes; rover front layer 1.25x scale, 1.15x parallax, 24f tunnel behind lip; he3_canister* blue; fx/ ore,+miner,refined pop-ups; Supply Depot = mine/floor_market.
+- Mine split into starter pack (Rover Bay, rover+tunnel, dock, ship, containers) and later pack (Crusher/Separator/Packing/penthouse on unlock). First-screen budget issue: Life Support+UI alone was 2.79 MB @3x.
+- Globe: 6 stops at 60 deg: Life Support, Mine, Cargo Space Dock, Habitat, Shipyard, Engineering. Dock stop scaled ~0.65 to fit 600w, uses @3x; 1.3x crew set for dock. Tunnel front layer drawn at tower/dock seam so rover drives between.
+- Load: first screen <3 MB; Mine starter pack streams in background; 150 KB Mine still image covers gap. Later Mine pack on unlock.
+- Cargo Space Dock is its own station (6 stations). No floors: upgrade tracks crane speed, crew size, pad size (bigger ships), refuel/repair speed; each to L50, new look every 10 levels.
+- Dock art in art/moon/dock/ (own spec + pack). Upgrade looks are layers over base dock. Tap pad opens dock upgrade menu + wrench button that pulses first time. All 4 upgrades must fit in menu with Upgrade button visible.
+- Mining cave stays on the Mine's ground in front of the tower (rover in/out there); LOADED boxes hauled over to the Dock (replaces tunnel-at-seam idea).
+- Rover Bay garage: rovers drive inside and dump into labeled bins (silver "PLATINUM", blue "HELIUM-3", icons); "ROVER BAY" sign over door. Rover route: cave -> garage -> dump by ore type. Cargo vehicle hauls LOADED boxes Mine -> Dock.
+- Walkway tubes between neighboring stations: one reusable tube piece stretched per gap, drawn at horizon edge as globe turns, astronauts walking through. (Art pending.)
+- TODO: nudge Mine tunnel (currently tower x+115) so it's fully on screen (Game Director approved).
+- Refinery real art (base + L10-50) coming from Art Assistant: swap placeholder.
+- Rover Bay bins: DO NOT wire yet; A&A rebuilding (rovers enter via side-wall cutout). Rebuilt cave brings own x offset.
+- DONE (10/12/2026 - planet-stack - 00:31, preview only): Water, Nuclear, Refinery L10-L50 tier overlays wired (cumulative, lazy-loaded per level; not in first screen). Refinery placeholder replaced by floors/floor_refinery base room. First screen 2.79 MB @3x.
+- DONE (00:31): Mine tunnel moved from tower x+115 to x-150 (hopper 10 -> 60) so it's fully on screen at 390x844. Temporary until rebuilt cave brings its own offset. Rover Bay bins NOT wired (on hold).
+- DONE (preview): Moon radius 760 -> 1900 (flatter horizon), rotPerSlot 0.5 -> 0.2 so swipe distance/duration unchanged; all angle thresholds scaled 0.4x.
+- DONE (preview): Rover Bay v3 wired: floor + 5-step ORE BIN fill (+1 per pour), truck_{pt,he3}_drive (wheels reversed when backing), rover_bay_dump_{pt,he3} 2.7-5.8 s, route from rover_bay_route.json, depth tint, right-jamb redraw. Old rover_* sheets and outdoor hopper retired.
+- DONE (preview): Outdoor truck uses rover_tunnel_{pt,he3} on the cave v3 ramp, clipped so it never draws over the portal, fades into the mouth; tunnel_haze over lip; soft-edged cave; dust + contact shadows; eased moves + settle bounce. Cave at x-67 (scale 1) fully on screen.
+- DONE (preview): dock sign at real 48pt with v2 glow (alpha curve, additive) + bloom; t20 sign wired. Dock uses @2x on 3x phones (drawn at 0.65). Dock tracks drawn from dock_tracks.json (all pieces, on demand).
+- TODO: walkway tubes (shared/walkway) not wired yet.
+- DONE (preview): dock sideways pan (±60pt, starts centred; a drag pans to the edge; only a NEW swipe from the edge changes station); sign always level. Stop dots tappable (big hit area); station name no longer clips. Nameplates: badge pinned right, name/meter truncated with … (big numbers now Qa/Qi/…). Mine top floor headroom. Max out completes goals.
+- DONE (preview): pacing: crates/canisters pay 30% when packed, 70% on delivery; Crusher $250.
+- DONE (preview): outside truck follows the Moon curve; walkway tubes between neighbouring stations (station spacing 0.25 rad, no artificial sink).
+- TODO: Hospital/Cafe art not placed (Game Director to decide); tiers must be a later pack.
+- DONE (preview): flick (v>0.3 px/ms or 20% width) advances; dots 44pt-tall nearest-dot hit zone; Shipyard–Engineering tube; tube footings seated per WALKWAY spec (fixed 40pt trusses, tube lowered to reach ground), 1 astronaut on short tubes. Dock-side gap ~97pt needs mid at 0.77 (clamped 0.85) -> A&A shorter mid.
+- TODO: when shared/walkway/walkway_mid_s (36px) lands, use caps + one mid_s for short gaps (~97pt -> ~1.03x).
+- DONE (preview): Habitat (Living, Hospital, Café, Supply Depot), Shipyard (Refinery, Assembly 2-slot 360x240, Parts, Fuel), Engineering (CNC, CAD, CAM, Print, Chem, Prop) room art wired; tiers cumulative; rooms load per building (groups habitat_rooms/shipyard_rooms/engineering_rooms) on build/visit, never first screen. New rooms use placeholder balance: role boost ×(1+0.03·out) mining each — Game Director to set. Roofs/Launch Tower/Penthouse not in batch.
+- DONE (preview): walkway_mid_s for short gaps (G-60<41): cap + one mid_s ×(G-60)/36 + cap, one truss under centre.
+- DONE (preview): room boosts (+3% L1, +1%/lvl, +52% L50, no tier doubling) summed additively over 12 support rooms (incl. Supply Depot), applied once to mining. Max out: ×7.24.
+- DONE (preview): income chain fix: Mine/Refinery curve 312.5^((lv-1)/49)×2^tiers = 10,000× at L50 (no elite/mastered/elevator compounding); Crusher/Separator/Packing +50%→+300% summed; rooms ×(1+sum) once; refined 3× once. Max out cargo $84.5M/min (+$1.75M/min refined bonus).
+- DONE (preview): compact money (3 sig digits, ≤6 chars: $840, $1.75K, $86.2M…); hybrid Mine/Refinery curve 1.25^(L-1) to L10 then g≈1.0979, ×2 per tier: L10 14.9×, L50 10,000×.
+- TODO (after Playtester's 01:22 timing): money pop-up starts above nameplate, >=4pt gap, eased rise not clipping floor above; on top floor start lower so it doesn't hit the roof.
+- TODO (after Playtester's 01:22 timing, with pop-up fix): wire roofs per ART_SPEC ROOFS, pack art/moon/packs/roofs.json (later load). Habitat/Engineering roofs 360x180 pivot (0,180), still base + 16f motion @12fps. Shipyard gets Launch Tower 360x360 pivot (0,360) instead of roof; draw ship, tower, crew arm, fuel arm; arms play once @12fps. Preview art/moon/roofs_sheet.png. @3x arm frames may be repacked (same names).
+- Roofs: preload + decode all arm frames when the Shipyard pack loads (before first swing) to avoid hitching.
+- Roofs update: arm frames repacked to 1 page per arm; frames trimmed with {x,y} offset in atlas JSON, add offset when drawing. roofs.json 0.89MB @3x / 0.58MB @2x.
+
+## Playtester NO-GO fixes (10/12)
+- [x] Life Support (Oxygen/Water/Nuclear) + Living Quarters run without crew; save migration frees their crew to idle (also fixed: fresh save no longer puts a worker on Oxygen)
+- [x] Unassign: tap crew icon (44×44 hit) sends one resident to idle (reuses existing worker icon)
+- [x] Trips 2 min → 5 min → 10 min, trip count saved (S.trips); ore income unchanged
+- [x] Max-out total includes refining income
+- [x] Compact numbers everywhere (rates, capacities, pop/cap, supports); nameplates ≤18 chars
+- [x] Goal card fades + stops catching taps when scrolled high (top nameplates readable)
+- [x] Living Quarters: +1 bed per level; site dots use fixed-width slots (tap = that dot, pill centred)
+- [x] Supply Depot tiers t10–t50 via packs/supply_depot_later_tiers.json (json files DO exist; 0 × 404 in test)
+- [x] Money pop-up starts above nameplate (≥4pt gap), eased rise, lower start on top floor
+- [x] Roofs: Habitat + Engineering (360×180, 16f@12fps); Shipyard Launch Tower w/ ship, crew + fuel arms (trimmed frames w/ offsets, play once on launch)
+- [x] Re-exported Engineering/Parts/Fuel L50 badges, Engineering tiers, Living Quarters tiers
+- [x] Fresh-save soft-lock check: Nuclear + Water + Crusher with 3 crew → Crusher staffed, money keeps flowing
