@@ -9,8 +9,12 @@ Art
   (/workspace/artgen scripts). No third-party or stock artwork is included.
   The art references no real company, product or brand.
 
-Fonts (used by the art pipeline to letter labels baked into images; UI uses system fonts
-with Rajdhani/Inter named as preferred if installed — no font files are shipped)
+Fonts
+  Shipped with the game:
+  Rajdhani Bold (latin subset) — art/fonts/rajdhani-700-latin.woff2, used for the Dock delivery pop-up
+    Copyright (c) 2014, Indian Type Foundry (info@indiantypefoundry.com).
+    SIL Open Font License 1.1 — full text in art/fonts/OFL.txt (unmodified, from google/fonts ofl/rajdhani/OFL.txt)
+  Used only by the art pipeline to letter labels baked into images (no font files shipped):
   Rajdhani  — Indian Type Foundry, SIL Open Font License 1.1 (https://openfontlicense.org)
   Inter     — Rasmus Andersson, SIL Open Font License 1.1 (https://openfontlicense.org)
   DejaVu    — DejaVu fonts, Bitstream Vera license / public domain changes (https://dejavu-fonts.github.io/License.html)
