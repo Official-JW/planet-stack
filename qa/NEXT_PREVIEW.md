@@ -155,3 +155,5 @@
 
 ## r14b (11:15 PT) — code ground brightened (/qa/)
 - Code-drawn ground gradient x1.21 (Art), same stops/shape, tinted to the strip's average surface hue (R 1.023 / G 1.000 / B 0.968). Strip unchanged.
+
+## r14c (11:17 PT) — code ground scale 1.21 → 1.13 (GD), hue tint kept
