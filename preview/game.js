@@ -183,7 +183,10 @@ const elevCost=bi=>Math.round(CFG.elevator.cost*Math.pow(CFG.elevator.costMult,e
 const elevLook=bi=>CFG.elevator.looks[Math.min(CFG.elevator.looks.length-1,Math.floor(elevLvl(bi)/CFG.elevator.lookEvery))];
 const crewMul=()=>S.f.oxy.lvl>=20?1+CFG.oxygenCrewSpeed:1;
 // output at full power for a given level/crew (people supported · kW · beds · $/resident/s · crates/min)
+const mineCurve=lv=>Math.pow(312.5,(lv-1)/49)*Math.pow(CFG.tierMult,tiersReached(lv));   // Mine/Refinery: L50 = 312.5 x 2^5 = 10,000x L1 (doublings included)
+const procBoost=(d,lv)=>0.5+2.5*(lv-1)/49;   // Crusher/Separator/Packing: +50% at L1 to +300% at L50, summed
 function rawOut(i,lv,w){const f=st(i),d=F[i];lv=lv||f.lvl;w=w==null?f.workers:w;if(!f.built||w<1)return 0;
+ if(d.role==='mine'||d.role==='refinery')return d.out*mineCurve(lv)*(1+CFG.econ.staffBonus*(w-1));   // no extra compounding perks on income floors
  let x=d.out*growth(lv,CFG.earlyGrowth,CFG.lateGrowth)*Math.pow(CFG.tierMult,tiersReached(lv))*(1+CFG.econ.staffBonus*(w-1));
  if(lv>=20&&d.id!=='oxy')x*=1+CFG.tierUtility;if(lv>=30&&d.role!=='shop')x*=1+CFG.tierIndustrial;
  BUILDINGS[d.b].floors.forEach(o=>{if(S.f[o.id].built&&S.f[o.id].lvl>=40)x*=1+CFG.eliteBuilding});
@@ -200,7 +203,7 @@ function econ(){const P=CFG.econ.pod,e={oxygen:P.oxygen,water:P.water,energy:P.e
  const lim={Beds:e.housing,Oxygen:e.oxygen,Water:e.water,Energy:e.energySupport};
  e.cap=Math.floor(Math.min(...Object.values(lim)));e.limit=Object.keys(lim).reduce((a,k)=>lim[k]<lim[a]?k:a,'Beds');e.lim=lim;
  // mining: Rover Bay sets the base rate; each later floor and the Supply Depot multiply it
- let m=F[IDX.rover]._out;mineFloors.slice(1).forEach(id=>{const d=F[IDX[id]];if(d._out>0)m*=1+CFG.econ.laterFloorBoost*d._out/d.out});
+ e.procBoost=mineFloors.slice(1).reduce((a,id)=>{const d=F[IDX[id]],f=S.f[id];return a+(d._out>0?procBoost(d,f.lvl)*(d.use?e.power:1):0)},0);let m=F[IDX.rover]._out*(1+e.procBoost);   // processing boosts add, applied once
  e.roomBoost=F.reduce((a,d)=>a+roomBoost(d),0);m*=1+e.roomBoost;   // support rooms: boosts summed additively, applied once (Game Director)
  e.mineMul=m;e.ptRate=m*CFG.econ.ptPerMin;e.heRate=m*CFG.econ.hePerMin;   // containers per minute
  e.refRate=F[IDX.refinery]._out;                                          // refined per minute
@@ -263,7 +266,7 @@ function meter(i){const d=F[i],o=d._out||0;if(!st(i).workers)return 'No crew';
  if(d.res==='energy')return `${num(E.energy||0)} kW · using ${num(E.demand||0)}`;if(d.role==='housing')return `${Math.floor(o)} beds`;
  if(d.role==='depot'||d.role==='boost')return `+${Math.round(roomBoost(d)*100)}% mining`;
  if(d.role==='refinery')return `${num(o)} refined/min`;
- if(d.role==='mine')return d.id==='rover'?`${num(E.ptRate||0)} Pt + ${num(E.heRate||0)} He-3 /min`:`×${(1+CFG.econ.laterFloorBoost*o/d.out).toFixed(2)} mining`;return ''}
+ if(d.role==='mine')return d.id==='rover'?`${num(E.ptRate||0)} Pt + ${num(E.heRate||0)} He-3 /min`:`+${Math.round(procBoost(d,st(IDX[d.id]).lvl)*100)}% mining`;return ''}
 // ----- goals -----
 const GOALS=[
  {d:'Swipe to the Mine and tap the Rover Bay',p:()=>S.tapped?1:0},
@@ -655,7 +658,7 @@ function statRows(i){const d=F[i],f=st(i),lv=f.lvl,{k}=upgradeN(i,mult),nl=Math.
  if(d.role==='depot'||d.role==='boost')rows.push(['ui_icon_income','Mining boost',arrow('+'+(2+lv)+'% mining','+'+(2+nl)+'%')]);   // +3% at L1, +1%/level (summed with other rooms)
  if(d.role==='refinery')rows.push(['ui_icon_income','Refined',arrow(num(a*pw)+'/min',num(b*pw)+'/min')]);
  if(d.id==='rover')rows.push(['ui_icon_income','Mining',arrow(num(a*pw*CFG.econ.ptPerMin)+' Pt/min',num(b*pw*CFG.econ.ptPerMin)+' Pt/min')]);
- else if(d.role==='mine')rows.push(['ui_icon_income','Mining boost',arrow('×'+(1+CFG.econ.laterFloorBoost*a*pw/d.out).toFixed(2),'×'+(1+CFG.econ.laterFloorBoost*b*pw/d.out).toFixed(2))]);
+ else if(d.role==='mine')rows.push(['ui_icon_income','Mining boost',arrow('+'+Math.round(procBoost(d,lv)*100)+'%','+'+Math.round(procBoost(d,nl)*100)+'%')]);
  if(d.use)rows.push(['ui_icon_low_power','Power use',`${d.use} kW`+(E.power<1?` <span class="bad">· ${Math.round(E.power*100)}% power</span>`:'')]);
  rows.push(['ui_icon_worker','Crew',`${f.workers} / ${floorSlots(f)}`]);return rows}
 function openSheet(i,refresh){const d=F[i],f=st(i),el=$('#sheet'),lv=f.lvl,nt=nextTier(lv),prev=tierOf(lv),b=BUILDINGS[d.b];sheetFor={i};
