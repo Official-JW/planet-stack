@@ -1,0 +1,42 @@
+{
+ "meta": {
+  "images": [
+   "walkway_cap.webp"
+  ],
+  "image": "walkway_cap.webp",
+  "scale": 2,
+  "fps": 2,
+  "logicalFrame": {
+   "w": 30,
+   "h": 64
+  },
+  "pivot": {
+   "x": 0,
+   "y": 52
+  },
+  "loop": true,
+  "note": "left airlock, pivot = grating start; frame = status light blink"
+ },
+ "frames": {
+  "walkway_cap_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 60,
+    "h": 128
+   },
+   "duration": 500
+  },
+  "walkway_cap_1": {
+   "page": 0,
+   "frame": {
+    "x": 60,
+    "y": 0,
+    "w": 60,
+    "h": 128
+   },
+   "duration": 500
+  }
+ }
+}

@@ -1,0 +1,102 @@
+{
+ "meta": {
+  "images": [
+   "icon_low_power_blink.webp"
+  ],
+  "image": "icon_low_power_blink.webp",
+  "scale": 2,
+  "fps": 8,
+  "logicalFrame": {
+   "w": 24,
+   "h": 24
+  },
+  "pivot": {
+   "x": 12,
+   "y": 24
+  },
+  "loop": true,
+  "note": "place at floor (340,22)"
+ },
+ "frames": {
+  "icon_low_power_blink_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  },
+  "icon_low_power_blink_1": {
+   "page": 0,
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  },
+  "icon_low_power_blink_2": {
+   "page": 0,
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  },
+  "icon_low_power_blink_3": {
+   "page": 0,
+   "frame": {
+    "x": 144,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  },
+  "icon_low_power_blink_4": {
+   "page": 0,
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  },
+  "icon_low_power_blink_5": {
+   "page": 0,
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  },
+  "icon_low_power_blink_6": {
+   "page": 0,
+   "frame": {
+    "x": 288,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  },
+  "icon_low_power_blink_7": {
+   "page": 0,
+   "frame": {
+    "x": 336,
+    "y": 0,
+    "w": 48,
+    "h": 48
+   },
+   "duration": 125
+  }
+ }
+}

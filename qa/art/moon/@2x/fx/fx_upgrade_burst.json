@@ -1,0 +1,508 @@
+{
+ "meta": {
+  "images": [
+   "fx_upgrade_burst.webp",
+   "fx_upgrade_burst_glow.webp"
+  ],
+  "image": "fx_upgrade_burst.webp",
+  "scale": 2,
+  "fps": 24,
+  "logicalFrame": {
+   "w": 160,
+   "h": 160
+  },
+  "pivot": {
+   "x": 80,
+   "y": 80
+  },
+  "trimmed": true,
+  "loop": false,
+  "layers": [
+   "glow",
+   "sharp"
+  ],
+  "note": "centre on the floor; play with the floor squash (see tween spec). Two layers per frame i: draw fx_upgrade_burst_glow_i first, then fx_upgrade_burst_i on top, same pivot. offset is in that frame's own texture pixels from the top-left of the full frame; multiply frame size and offset by drawScale (glow is stored at half res, drawScale 2). Normal alpha blending."
+ },
+ "frames": {
+  "fx_upgrade_burst_glow_0": {
+   "page": 1,
+   "frame": {
+    "x": 1820,
+    "y": 0,
+    "w": 24,
+    "h": 24
+   },
+   "offset": {
+    "x": 68,
+    "y": 68
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_0": {
+   "page": 0,
+   "frame": {
+    "x": 484,
+    "y": 228,
+    "w": 120,
+    "h": 120
+   },
+   "offset": {
+    "x": 100,
+    "y": 100
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_1": {
+   "page": 1,
+   "frame": {
+    "x": 1742,
+    "y": 0,
+    "w": 76,
+    "h": 76
+   },
+   "offset": {
+    "x": 42,
+    "y": 42
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_1": {
+   "page": 0,
+   "frame": {
+    "x": 722,
+    "y": 228,
+    "w": 104,
+    "h": 104
+   },
+   "offset": {
+    "x": 108,
+    "y": 108
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_2": {
+   "page": 1,
+   "frame": {
+    "x": 1648,
+    "y": 0,
+    "w": 92,
+    "h": 92
+   },
+   "offset": {
+    "x": 34,
+    "y": 34
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_2": {
+   "page": 0,
+   "frame": {
+    "x": 606,
+    "y": 228,
+    "w": 114,
+    "h": 114
+   },
+   "offset": {
+    "x": 103,
+    "y": 103
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_3": {
+   "page": 1,
+   "frame": {
+    "x": 1540,
+    "y": 0,
+    "w": 106,
+    "h": 106
+   },
+   "offset": {
+    "x": 27,
+    "y": 27
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_3": {
+   "page": 0,
+   "frame": {
+    "x": 342,
+    "y": 228,
+    "w": 140,
+    "h": 140
+   },
+   "offset": {
+    "x": 90,
+    "y": 90
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_4": {
+   "page": 1,
+   "frame": {
+    "x": 1422,
+    "y": 0,
+    "w": 116,
+    "h": 116
+   },
+   "offset": {
+    "x": 22,
+    "y": 22
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_4": {
+   "page": 0,
+   "frame": {
+    "x": 180,
+    "y": 228,
+    "w": 160,
+    "h": 160
+   },
+   "offset": {
+    "x": 80,
+    "y": 80
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_5": {
+   "page": 1,
+   "frame": {
+    "x": 1294,
+    "y": 0,
+    "w": 126,
+    "h": 126
+   },
+   "offset": {
+    "x": 17,
+    "y": 17
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_5": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 228,
+    "w": 178,
+    "h": 178
+   },
+   "offset": {
+    "x": 71,
+    "y": 71
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_6": {
+   "page": 1,
+   "frame": {
+    "x": 1160,
+    "y": 0,
+    "w": 132,
+    "h": 132
+   },
+   "offset": {
+    "x": 14,
+    "y": 14
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_6": {
+   "page": 0,
+   "frame": {
+    "x": 1764,
+    "y": 0,
+    "w": 190,
+    "h": 190
+   },
+   "offset": {
+    "x": 65,
+    "y": 65
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_7": {
+   "page": 1,
+   "frame": {
+    "x": 1020,
+    "y": 0,
+    "w": 138,
+    "h": 138
+   },
+   "offset": {
+    "x": 11,
+    "y": 11
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_7": {
+   "page": 0,
+   "frame": {
+    "x": 1562,
+    "y": 0,
+    "w": 200,
+    "h": 200
+   },
+   "offset": {
+    "x": 60,
+    "y": 60
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_8": {
+   "page": 1,
+   "frame": {
+    "x": 737,
+    "y": 0,
+    "w": 140,
+    "h": 140
+   },
+   "offset": {
+    "x": 10,
+    "y": 10
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_8": {
+   "page": 0,
+   "frame": {
+    "x": 1350,
+    "y": 0,
+    "w": 210,
+    "h": 210
+   },
+   "offset": {
+    "x": 55,
+    "y": 55
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_9": {
+   "page": 1,
+   "frame": {
+    "x": 593,
+    "y": 0,
+    "w": 142,
+    "h": 142
+   },
+   "offset": {
+    "x": 9,
+    "y": 9
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_9": {
+   "page": 0,
+   "frame": {
+    "x": 1132,
+    "y": 0,
+    "w": 216,
+    "h": 216
+   },
+   "offset": {
+    "x": 52,
+    "y": 52
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_10": {
+   "page": 1,
+   "frame": {
+    "x": 150,
+    "y": 0,
+    "w": 146,
+    "h": 146
+   },
+   "offset": {
+    "x": 7,
+    "y": 7
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_10": {
+   "page": 0,
+   "frame": {
+    "x": 910,
+    "y": 0,
+    "w": 220,
+    "h": 220
+   },
+   "offset": {
+    "x": 50,
+    "y": 50
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_11": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 148,
+    "h": 147
+   },
+   "offset": {
+    "x": 6,
+    "y": 6
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_11": {
+   "page": 0,
+   "frame": {
+    "x": 684,
+    "y": 0,
+    "w": 224,
+    "h": 224
+   },
+   "offset": {
+    "x": 48,
+    "y": 48
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_12": {
+   "page": 1,
+   "frame": {
+    "x": 298,
+    "y": 0,
+    "w": 146,
+    "h": 146
+   },
+   "offset": {
+    "x": 7,
+    "y": 7
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_12": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 226,
+    "h": 226
+   },
+   "offset": {
+    "x": 47,
+    "y": 47
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_13": {
+   "page": 1,
+   "frame": {
+    "x": 446,
+    "y": 0,
+    "w": 145,
+    "h": 145
+   },
+   "offset": {
+    "x": 8,
+    "y": 8
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_13": {
+   "page": 0,
+   "frame": {
+    "x": 228,
+    "y": 0,
+    "w": 226,
+    "h": 226
+   },
+   "offset": {
+    "x": 47,
+    "y": 47
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_14": {
+   "page": 1,
+   "frame": {
+    "x": 879,
+    "y": 0,
+    "w": 139,
+    "h": 140
+   },
+   "offset": {
+    "x": 11,
+    "y": 10
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_14": {
+   "page": 0,
+   "frame": {
+    "x": 456,
+    "y": 0,
+    "w": 226,
+    "h": 226
+   },
+   "offset": {
+    "x": 47,
+    "y": 47
+   },
+   "drawScale": 1,
+   "duration": 42
+  },
+  "fx_upgrade_burst_glow_15": {
+   "page": 1,
+   "frame": {
+    "x": 1846,
+    "y": 0,
+    "w": 1,
+    "h": 1
+   },
+   "offset": {
+    "x": 0,
+    "y": 0
+   },
+   "drawScale": 2,
+   "duration": 42
+  },
+  "fx_upgrade_burst_15": {
+   "page": 0,
+   "frame": {
+    "x": 828,
+    "y": 228,
+    "w": 1,
+    "h": 1
+   },
+   "offset": {
+    "x": 0,
+    "y": 0
+   },
+   "drawScale": 1,
+   "duration": 42
+  }
+ }
+}

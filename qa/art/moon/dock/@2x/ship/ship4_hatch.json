@@ -1,0 +1,121 @@
+{
+ "meta": {
+  "images": [
+   "ship4_hatch.webp"
+  ],
+  "image": "ship4_hatch.webp",
+  "scale": 2,
+  "fps": 50,
+  "logicalFrame": {
+   "w": 320,
+   "h": 480
+  },
+  "pivot": {
+   "x": 175.96,
+   "y": 188
+  },
+  "trimmed": true,
+  "loop": false,
+  "attachToHull": {
+   "x": 0,
+   "y": 0
+  },
+  "hinge": [
+   175.96,
+   188
+  ],
+  "opening": {
+   "x": 159.92,
+   "y": 188,
+   "w": 32.08,
+   "h": 76
+  },
+  "note": "frame 0 = open (panel swung out edge-on), 5 = shut (matches hull door). Logical frame = ship4_hull space; draw frame at hull top-left + offset/scale. Play 0..5 over 120 ms (24 ms/frame) in the pre-liftoff beat; hold frame 5 for flight."
+ },
+ "frames": {
+  "ship4_hatch_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 68,
+    "h": 159
+   },
+   "offset": {
+    "x": 318,
+    "y": 371
+   },
+   "duration": 24
+  },
+  "ship4_hatch_1": {
+   "page": 0,
+   "frame": {
+    "x": 70,
+    "y": 0,
+    "w": 68,
+    "h": 159
+   },
+   "offset": {
+    "x": 318,
+    "y": 371
+   },
+   "duration": 24
+  },
+  "ship4_hatch_2": {
+   "page": 0,
+   "frame": {
+    "x": 140,
+    "y": 0,
+    "w": 68,
+    "h": 159
+   },
+   "offset": {
+    "x": 318,
+    "y": 371
+   },
+   "duration": 24
+  },
+  "ship4_hatch_3": {
+   "page": 0,
+   "frame": {
+    "x": 210,
+    "y": 0,
+    "w": 68,
+    "h": 159
+   },
+   "offset": {
+    "x": 318,
+    "y": 371
+   },
+   "duration": 24
+  },
+  "ship4_hatch_4": {
+   "page": 0,
+   "frame": {
+    "x": 280,
+    "y": 0,
+    "w": 68,
+    "h": 159
+   },
+   "offset": {
+    "x": 318,
+    "y": 371
+   },
+   "duration": 24
+  },
+  "ship4_hatch_5": {
+   "page": 0,
+   "frame": {
+    "x": 350,
+    "y": 0,
+    "w": 68,
+    "h": 159
+   },
+   "offset": {
+    "x": 318,
+    "y": 371
+   },
+   "duration": 24
+  }
+ }
+}

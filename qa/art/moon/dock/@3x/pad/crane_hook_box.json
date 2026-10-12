@@ -1,0 +1,102 @@
+{
+ "meta": {
+  "images": [
+   "crane_hook_box.webp"
+  ],
+  "image": "crane_hook_box.webp",
+  "scale": 3,
+  "fps": 8,
+  "logicalFrame": {
+   "w": 40,
+   "h": 40
+  },
+  "pivot": {
+   "x": 20,
+   "y": 0
+  },
+  "loop": true,
+  "note": "sway; pivot = cable end"
+ },
+ "frames": {
+  "crane_hook_box_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  },
+  "crane_hook_box_1": {
+   "page": 0,
+   "frame": {
+    "x": 120,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  },
+  "crane_hook_box_2": {
+   "page": 0,
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  },
+  "crane_hook_box_3": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  },
+  "crane_hook_box_4": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  },
+  "crane_hook_box_5": {
+   "page": 0,
+   "frame": {
+    "x": 600,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  },
+  "crane_hook_box_6": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  },
+  "crane_hook_box_7": {
+   "page": 0,
+   "frame": {
+    "x": 840,
+    "y": 0,
+    "w": 120,
+    "h": 120
+   },
+   "duration": 125
+  }
+ }
+}

@@ -1,0 +1,192 @@
+{
+ "meta": {
+  "images": [
+   "rover_tunnel_pt.webp"
+  ],
+  "image": "rover_tunnel_pt.webp",
+  "scale": 3,
+  "fps": 8,
+  "logicalFrame": {
+   "w": 106,
+   "h": 64
+  },
+  "pivot": {
+   "x": 45,
+   "y": 58
+  },
+  "loop": false,
+  "segments": {
+   "descend": [
+    0,
+    7
+   ],
+   "emerge": [
+    8,
+    15
+   ]
+  },
+  "note": "labelled truck; same ramp path as before, 8 fps"
+ },
+ "frames": {
+  "rover_tunnel_pt_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_1": {
+   "page": 0,
+   "frame": {
+    "x": 318,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_2": {
+   "page": 0,
+   "frame": {
+    "x": 636,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_3": {
+   "page": 0,
+   "frame": {
+    "x": 954,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_4": {
+   "page": 0,
+   "frame": {
+    "x": 1272,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_5": {
+   "page": 0,
+   "frame": {
+    "x": 1590,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_6": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_7": {
+   "page": 0,
+   "frame": {
+    "x": 318,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_8": {
+   "page": 0,
+   "frame": {
+    "x": 636,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_9": {
+   "page": 0,
+   "frame": {
+    "x": 954,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_10": {
+   "page": 0,
+   "frame": {
+    "x": 1272,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_11": {
+   "page": 0,
+   "frame": {
+    "x": 1590,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_12": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_13": {
+   "page": 0,
+   "frame": {
+    "x": 318,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_14": {
+   "page": 0,
+   "frame": {
+    "x": 636,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  },
+  "rover_tunnel_pt_15": {
+   "page": 0,
+   "frame": {
+    "x": 954,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 125
+  }
+ }
+}

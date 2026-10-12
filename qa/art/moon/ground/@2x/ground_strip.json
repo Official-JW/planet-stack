@@ -1,0 +1,17 @@
+{
+ "image": "ground_strip.webp",
+ "scale": 2,
+ "logicalSize": {
+  "w": 1170,
+  "h": 230
+ },
+ "tileWidth": 1170,
+ "tileWidthPx": 2340,
+ "groundLineY": 44,
+ "strataTopY": 200,
+ "pivot": {
+  "x": 0,
+  "y": 0
+ },
+ "note": "top edge = flat horizon (y 0). Repeat horizontally every tileWidth logical px; buildings stand on groundLineY. Opaque, no alpha."
+}

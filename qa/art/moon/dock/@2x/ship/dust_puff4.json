@@ -1,0 +1,81 @@
+{
+ "meta": {
+  "images": [
+   "dust_puff4.webp"
+  ],
+  "image": "dust_puff4.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 320,
+   "h": 100
+  },
+  "pivot": {
+   "x": 160,
+   "y": 100
+  },
+  "loop": false
+ },
+ "frames": {
+  "dust_puff4_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 640,
+    "h": 200
+   },
+   "duration": 83
+  },
+  "dust_puff4_1": {
+   "page": 0,
+   "frame": {
+    "x": 640,
+    "y": 0,
+    "w": 640,
+    "h": 200
+   },
+   "duration": 83
+  },
+  "dust_puff4_2": {
+   "page": 0,
+   "frame": {
+    "x": 1280,
+    "y": 0,
+    "w": 640,
+    "h": 200
+   },
+   "duration": 83
+  },
+  "dust_puff4_3": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 200,
+    "w": 640,
+    "h": 200
+   },
+   "duration": 83
+  },
+  "dust_puff4_4": {
+   "page": 0,
+   "frame": {
+    "x": 640,
+    "y": 200,
+    "w": 640,
+    "h": 200
+   },
+   "duration": 83
+  },
+  "dust_puff4_5": {
+   "page": 0,
+   "frame": {
+    "x": 1280,
+    "y": 200,
+    "w": 640,
+    "h": 200
+   },
+   "duration": 83
+  }
+ }
+}

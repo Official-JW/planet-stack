@@ -1,0 +1,143 @@
+{
+ "meta": {
+  "images": [
+   "walkway_astro_walk.webp"
+  ],
+  "image": "walkway_astro_walk.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 30,
+   "h": 40
+  },
+  "pivot": {
+   "x": 15,
+   "y": 40
+  },
+  "loop": true,
+  "speed_px_s": 22,
+  "note": "0.7x crew13 walk; feet on grating y=52; flip for leftward"
+ },
+ "frames": {
+  "walkway_astro_walk_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_1": {
+   "page": 0,
+   "frame": {
+    "x": 90,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_2": {
+   "page": 0,
+   "frame": {
+    "x": 180,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_3": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_4": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_5": {
+   "page": 0,
+   "frame": {
+    "x": 450,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_6": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_7": {
+   "page": 0,
+   "frame": {
+    "x": 630,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_8": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_9": {
+   "page": 0,
+   "frame": {
+    "x": 810,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_10": {
+   "page": 0,
+   "frame": {
+    "x": 900,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  },
+  "walkway_astro_walk_11": {
+   "page": 0,
+   "frame": {
+    "x": 990,
+    "y": 0,
+    "w": 90,
+    "h": 120
+   },
+   "duration": 83
+  }
+ }
+}

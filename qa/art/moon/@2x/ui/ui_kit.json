@@ -1,0 +1,208 @@
+{
+ "ui_sheet_panel": {
+  "w": 96,
+  "h": 96,
+  "nineSlice": {
+   "left": 30,
+   "top": 30,
+   "right": 30,
+   "bottom": 30
+  },
+  "note": "stretch centre; top corners radius 24"
+ },
+ "ui_grabber": {
+  "w": 40,
+  "h": 6
+ },
+ "ui_icon_frame": {
+  "w": 56,
+  "h": 56
+ },
+ "ui_level_badge": {
+  "w": 40,
+  "h": 22,
+  "nineSlice": {
+   "left": 11,
+   "top": 11,
+   "right": 11,
+   "bottom": 11
+  }
+ },
+ "ui_stat_row": {
+  "w": 64,
+  "h": 44,
+  "nineSlice": {
+   "left": 14,
+   "top": 14,
+   "right": 14,
+   "bottom": 14
+  }
+ },
+ "ui_arrow_next": {
+  "w": 16,
+  "h": 16
+ },
+ "ui_progress_track": {
+  "w": 32,
+  "h": 14,
+  "nineSlice": {
+   "left": 7,
+   "top": 7,
+   "right": 7,
+   "bottom": 7
+  }
+ },
+ "ui_progress_fill": {
+  "w": 32,
+  "h": 10,
+  "nineSlice": {
+   "left": 5,
+   "top": 5,
+   "right": 5,
+   "bottom": 5
+  },
+  "note": "draw inside track with 2pt inset; width = progress"
+ },
+ "ui_pip_off": {
+  "w": 12,
+  "h": 12
+ },
+ "ui_pip_on": {
+  "w": 12,
+  "h": 12
+ },
+ "ui_pip_milestone": {
+  "w": 16,
+  "h": 16
+ },
+ "ui_pip_milestone_done": {
+  "w": 16,
+  "h": 16
+ },
+ "ui_btn_primary": {
+  "w": 120,
+  "h": 56,
+  "nineSlice": {
+   "left": 24,
+   "top": 24,
+   "right": 24,
+   "bottom": 24
+  }
+ },
+ "ui_btn_primary_pressed": {
+  "w": 120,
+  "h": 56,
+  "nineSlice": {
+   "left": 24,
+   "top": 24,
+   "right": 24,
+   "bottom": 24
+  },
+  "note": "swap on pointerdown + scale 0.96"
+ },
+ "ui_btn_primary_disabled": {
+  "w": 120,
+  "h": 56,
+  "nineSlice": {
+   "left": 24,
+   "top": 24,
+   "right": 24,
+   "bottom": 24
+  },
+  "note": "show reason line below in #ff6a5a 12pt"
+ },
+ "ui_btn_glow": {
+  "w": 140,
+  "h": 76,
+  "nineSlice": {
+   "left": 36,
+   "top": 36,
+   "right": 36,
+   "bottom": 36
+  },
+  "note": "behind the affordable button; pulse alpha .35-.8, 1.6s ease-in-out"
+ },
+ "ui_toggle_bg": {
+  "w": 36,
+  "h": 32,
+  "nineSlice": {
+   "left": 14,
+   "top": 14,
+   "right": 14,
+   "bottom": 14
+  }
+ },
+ "ui_toggle_knob": {
+  "w": 36,
+  "h": 28,
+  "nineSlice": {
+   "left": 12,
+   "top": 12,
+   "right": 12,
+   "bottom": 12
+  },
+  "note": "slides between segments 180ms"
+ },
+ "ui_icon_coin": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_oxygen": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_water": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_power": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_food": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_worker": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_income": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_energy": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_people": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_low_power": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_icon_lock": {
+  "w": 24,
+  "h": 24
+ },
+ "ui_btn_close": {
+  "w": 36,
+  "h": 36
+ },
+ "ui_avatar_frame": {
+  "w": 40,
+  "h": 40
+ },
+ "ui_btn_secondary": {
+  "w": 80,
+  "h": 40,
+  "nineSlice": {
+   "left": 14,
+   "top": 14,
+   "right": 14,
+   "bottom": 14
+  }
+ }
+}

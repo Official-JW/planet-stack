@@ -1,0 +1,182 @@
+{
+ "meta": {
+  "images": [
+   "rover_bay_dump_he3.webp"
+  ],
+  "image": "rover_bay_dump_he3.webp",
+  "scale": 3,
+  "fps": 5.16,
+  "logicalFrame": {
+   "w": 90,
+   "h": 58
+  },
+  "pivot": {
+   "x": 0,
+   "y": 58
+  },
+  "loop": false,
+  "note": "16f = 2.7-5.8s tilt/pour/lower; see rover_bay_route.json"
+ },
+ "frames": {
+  "rover_bay_dump_he3_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_1": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 0,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_2": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 0,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_3": {
+   "page": 0,
+   "frame": {
+    "x": 810,
+    "y": 0,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_4": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_5": {
+   "page": 0,
+   "frame": {
+    "x": 1350,
+    "y": 0,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_6": {
+   "page": 0,
+   "frame": {
+    "x": 1620,
+    "y": 0,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_7": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 174,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_8": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 174,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_9": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 174,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_10": {
+   "page": 0,
+   "frame": {
+    "x": 810,
+    "y": 174,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_11": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 174,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_12": {
+   "page": 0,
+   "frame": {
+    "x": 1350,
+    "y": 174,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_13": {
+   "page": 0,
+   "frame": {
+    "x": 1620,
+    "y": 174,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_14": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 348,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  },
+  "rover_bay_dump_he3_15": {
+   "page": 0,
+   "frame": {
+    "x": 270,
+    "y": 348,
+    "w": 270,
+    "h": 174
+   },
+   "duration": 194
+  }
+ }
+}

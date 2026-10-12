@@ -1,0 +1,66 @@
+{
+ "meta": {
+  "images": [
+   "ship4_engine_glow.webp"
+  ],
+  "image": "ship4_engine_glow.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 200,
+   "h": 90
+  },
+  "pivot": {
+   "x": 100,
+   "y": 45
+  },
+  "loop": true,
+  "attachToHull": {
+   "x": 160,
+   "y": 440
+  },
+  "blend": "add"
+ },
+ "frames": {
+  "ship4_engine_glow_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 400,
+    "h": 180
+   },
+   "duration": 83
+  },
+  "ship4_engine_glow_1": {
+   "page": 0,
+   "frame": {
+    "x": 400,
+    "y": 0,
+    "w": 400,
+    "h": 180
+   },
+   "duration": 83
+  },
+  "ship4_engine_glow_2": {
+   "page": 0,
+   "frame": {
+    "x": 800,
+    "y": 0,
+    "w": 400,
+    "h": 180
+   },
+   "duration": 83
+  },
+  "ship4_engine_glow_3": {
+   "page": 0,
+   "frame": {
+    "x": 1200,
+    "y": 0,
+    "w": 400,
+    "h": 180
+   },
+   "duration": 83
+  }
+ }
+}

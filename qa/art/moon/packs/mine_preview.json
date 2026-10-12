@@ -1,0 +1,17 @@
+{
+ "pack": "mine_preview",
+ "root": "mine",
+ "files": {
+  "@3x": [
+   "preview/mine_preview.webp"
+  ],
+  "@2x": [
+   "preview/mine_preview.webp"
+  ]
+ },
+ "logicalSize": {
+  "w": 390,
+  "h": 844
+ },
+ "note": "@3x file is 780px wide (2x density) to stay under 150 KB; shown blurred-up as placeholder"
+}

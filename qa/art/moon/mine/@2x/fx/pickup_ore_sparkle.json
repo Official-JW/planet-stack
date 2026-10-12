@@ -1,0 +1,81 @@
+{
+ "meta": {
+  "images": [
+   "pickup_ore_sparkle.webp"
+  ],
+  "image": "pickup_ore_sparkle.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 32,
+   "h": 32
+  },
+  "pivot": {
+   "x": 16,
+   "y": 16
+  },
+  "loop": false
+ },
+ "frames": {
+  "pickup_ore_sparkle_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "duration": 83
+  },
+  "pickup_ore_sparkle_1": {
+   "page": 0,
+   "frame": {
+    "x": 64,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "duration": 83
+  },
+  "pickup_ore_sparkle_2": {
+   "page": 0,
+   "frame": {
+    "x": 128,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "duration": 83
+  },
+  "pickup_ore_sparkle_3": {
+   "page": 0,
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "duration": 83
+  },
+  "pickup_ore_sparkle_4": {
+   "page": 0,
+   "frame": {
+    "x": 256,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "duration": 83
+  },
+  "pickup_ore_sparkle_5": {
+   "page": 0,
+   "frame": {
+    "x": 320,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "duration": 83
+  }
+ }
+}

@@ -1,0 +1,61 @@
+{
+ "meta": {
+  "images": [
+   "ship_damaged.webp"
+  ],
+  "image": "ship_damaged.webp",
+  "scale": 2,
+  "fps": 6,
+  "logicalFrame": {
+   "w": 160,
+   "h": 240
+  },
+  "pivot": {
+   "x": 80,
+   "y": 240
+  },
+  "loop": true
+ },
+ "frames": {
+  "ship_damaged_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 480
+   },
+   "duration": 167
+  },
+  "ship_damaged_1": {
+   "page": 0,
+   "frame": {
+    "x": 320,
+    "y": 0,
+    "w": 320,
+    "h": 480
+   },
+   "duration": 167
+  },
+  "ship_damaged_2": {
+   "page": 0,
+   "frame": {
+    "x": 640,
+    "y": 0,
+    "w": 320,
+    "h": 480
+   },
+   "duration": 167
+  },
+  "ship_damaged_3": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 0,
+    "w": 320,
+    "h": 480
+   },
+   "duration": 167
+  }
+ }
+}

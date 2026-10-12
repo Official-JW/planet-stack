@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "images": [
+   "call_panel.webp"
+  ],
+  "image": "call_panel.webp",
+  "scale": 2,
+  "fps": 0,
+  "logicalFrame": {
+   "w": 10,
+   "h": 16
+  },
+  "pivot": {
+   "x": 5,
+   "y": 8
+  }
+ },
+ "frames": {
+  "call_panel_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 32
+   },
+   "duration": 0
+  },
+  "call_panel_1": {
+   "page": 0,
+   "frame": {
+    "x": 20,
+    "y": 0,
+    "w": 20,
+    "h": 32
+   },
+   "duration": 0
+  }
+ }
+}

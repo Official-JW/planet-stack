@@ -1,0 +1,25 @@
+{
+ "pack": "mine_later_dump",
+ "root": "mine",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/rover/rover_bay_dump_he3.json",
+    "@3x/rover/rover_bay_dump_he3.webp",
+    "@3x/rover/rover_bay_dump_pt.json",
+    "@3x/rover/rover_bay_dump_pt.webp"
+   ],
+   "bytes": 515564
+  },
+  "@2x": {
+   "files": [
+    "@2x/rover/rover_bay_dump_he3.json",
+    "@2x/rover/rover_bay_dump_he3.webp",
+    "@2x/rover/rover_bay_dump_pt.json",
+    "@2x/rover/rover_bay_dump_pt.webp"
+   ],
+   "bytes": 307580
+  }
+ },
+ "load": "after_first_screen"
+}

@@ -1,0 +1,24 @@
+{
+ "pack": "mine_later_tunnel_trucks",
+ "root": "mine",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/rover/rover_tunnel_he3.json",
+    "@3x/rover/rover_tunnel_he3.webp",
+    "@3x/rover/rover_tunnel_pt.json",
+    "@3x/rover/rover_tunnel_pt.webp"
+   ],
+   "bytes": 585642
+  },
+  "@2x": {
+   "files": [
+    "@2x/rover/rover_tunnel_he3.json",
+    "@2x/rover/rover_tunnel_he3.webp",
+    "@2x/rover/rover_tunnel_pt.json",
+    "@2x/rover/rover_tunnel_pt.webp"
+   ],
+   "bytes": 331764
+  }
+ }
+}

@@ -1,0 +1,42 @@
+{
+ "pack": "dock_later_tracks",
+ "root": "dock",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/tracks/dock_crane_t30.webp",
+    "@3x/tracks/dock_crane_t40.webp",
+    "@3x/tracks/dock_crane_t50.webp",
+    "@3x/tracks/dock_crew_t30.webp",
+    "@3x/tracks/dock_crew_t40.webp",
+    "@3x/tracks/dock_crew_t50.webp",
+    "@3x/tracks/dock_pad_t30.webp",
+    "@3x/tracks/dock_pad_t40.webp",
+    "@3x/tracks/dock_pad_t50-0.webp",
+    "@3x/tracks/dock_pad_t50-1.webp",
+    "@3x/tracks/dock_refuel_t30.webp",
+    "@3x/tracks/dock_refuel_t40.webp",
+    "@3x/tracks/dock_refuel_t50.webp"
+   ],
+   "bytes": 194072
+  },
+  "@2x": {
+   "files": [
+    "@2x/tracks/dock_crane_t30.webp",
+    "@2x/tracks/dock_crane_t40.webp",
+    "@2x/tracks/dock_crane_t50.webp",
+    "@2x/tracks/dock_crew_t30.webp",
+    "@2x/tracks/dock_crew_t40.webp",
+    "@2x/tracks/dock_crew_t50.webp",
+    "@2x/tracks/dock_pad_t30.webp",
+    "@2x/tracks/dock_pad_t40.webp",
+    "@2x/tracks/dock_pad_t50-0.webp",
+    "@2x/tracks/dock_pad_t50-1.webp",
+    "@2x/tracks/dock_refuel_t30.webp",
+    "@2x/tracks/dock_refuel_t40.webp",
+    "@2x/tracks/dock_refuel_t50.webp"
+   ],
+   "bytes": 125708
+  }
+ }
+}

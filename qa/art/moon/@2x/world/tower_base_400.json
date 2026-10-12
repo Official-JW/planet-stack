@@ -1,0 +1,31 @@
+{
+ "meta": {
+  "images": [
+   "tower_base_400.webp"
+  ],
+  "image": "tower_base_400.webp",
+  "scale": 2,
+  "fps": 0,
+  "logicalFrame": {
+   "w": 412,
+   "h": 44
+  },
+  "pivot": {
+   "x": 206,
+   "y": 44
+  },
+  "note": "412 wide: 360 floors + 40 elevator shaft + 6 trim each side. Bottom arc radius 760, sag 28.5px"
+ },
+ "frames": {
+  "tower_base_400_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 824,
+    "h": 88
+   },
+   "duration": 0
+  }
+ }
+}

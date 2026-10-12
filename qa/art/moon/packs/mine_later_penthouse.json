@@ -1,0 +1,24 @@
+{
+ "pack": "mine_later_penthouse",
+ "root": "mine",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/floors/penthouse_mine.json",
+    "@3x/floors/penthouse_mine.webp",
+    "@3x/floors/penthouse_mine_layers.webp",
+    "@3x/floors/penthouse_mine_lowpower.webp"
+   ],
+   "bytes": 714599
+  },
+  "@2x": {
+   "files": [
+    "@2x/floors/penthouse_mine.json",
+    "@2x/floors/penthouse_mine.webp",
+    "@2x/floors/penthouse_mine_layers.webp",
+    "@2x/floors/penthouse_mine_lowpower.webp"
+   ],
+   "bytes": 433400
+  }
+ }
+}

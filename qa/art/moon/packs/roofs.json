@@ -1,0 +1,47 @@
+{
+ "pack": "roofs",
+ "root": ".",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/roofs/launch_tower.webp",
+    "@3x/roofs/launch_tower_crew_arm.json",
+    "@3x/roofs/launch_tower_crew_arm.webp",
+    "@3x/roofs/launch_tower_fuel_arm.json",
+    "@3x/roofs/launch_tower_fuel_arm.webp",
+    "@3x/roofs/launch_tower_ship.webp",
+    "@3x/roofs/roof_engineering.json",
+    "@3x/roofs/roof_engineering.webp",
+    "@3x/roofs/roof_engineering_layers.webp",
+    "@3x/roofs/roof_habitat.json",
+    "@3x/roofs/roof_habitat.webp",
+    "@3x/roofs/roof_habitat_layers.webp",
+    "@3x/roofs/roof_shipyard.json",
+    "@3x/roofs/roof_shipyard.webp",
+    "@3x/roofs/roof_shipyard_layers.webp"
+   ],
+   "bytes": 937224
+  },
+  "@2x": {
+   "files": [
+    "@2x/roofs/launch_tower.webp",
+    "@2x/roofs/launch_tower_crew_arm.json",
+    "@2x/roofs/launch_tower_crew_arm.webp",
+    "@2x/roofs/launch_tower_fuel_arm.json",
+    "@2x/roofs/launch_tower_fuel_arm.webp",
+    "@2x/roofs/launch_tower_ship.webp",
+    "@2x/roofs/roof_engineering.json",
+    "@2x/roofs/roof_engineering.webp",
+    "@2x/roofs/roof_engineering_layers.webp",
+    "@2x/roofs/roof_habitat.json",
+    "@2x/roofs/roof_habitat.webp",
+    "@2x/roofs/roof_habitat_layers.webp",
+    "@2x/roofs/roof_shipyard.json",
+    "@2x/roofs/roof_shipyard.webp",
+    "@2x/roofs/roof_shipyard_layers.webp"
+   ],
+   "bytes": 607697
+  }
+ },
+ "load": "later"
+}

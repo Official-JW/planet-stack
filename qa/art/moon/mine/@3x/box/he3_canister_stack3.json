@@ -1,0 +1,141 @@
+{
+ "meta": {
+  "images": [
+   "he3_canister_stack3.webp"
+  ],
+  "image": "he3_canister_stack3.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 58,
+   "h": 46
+  },
+  "pivot": {
+   "x": 29,
+   "y": 46
+  },
+  "loop": true
+ },
+ "frames": {
+  "he3_canister_stack3_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_1": {
+   "page": 0,
+   "frame": {
+    "x": 174,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_2": {
+   "page": 0,
+   "frame": {
+    "x": 348,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_3": {
+   "page": 0,
+   "frame": {
+    "x": 522,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_4": {
+   "page": 0,
+   "frame": {
+    "x": 696,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_5": {
+   "page": 0,
+   "frame": {
+    "x": 870,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_6": {
+   "page": 0,
+   "frame": {
+    "x": 1044,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_7": {
+   "page": 0,
+   "frame": {
+    "x": 1218,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_8": {
+   "page": 0,
+   "frame": {
+    "x": 1392,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_9": {
+   "page": 0,
+   "frame": {
+    "x": 1566,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_10": {
+   "page": 0,
+   "frame": {
+    "x": 1740,
+    "y": 0,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  },
+  "he3_canister_stack3_11": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 138,
+    "w": 174,
+    "h": 138
+   },
+   "duration": 83
+  }
+ }
+}

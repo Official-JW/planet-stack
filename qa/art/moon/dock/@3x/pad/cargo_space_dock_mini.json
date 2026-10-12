@@ -1,0 +1,150 @@
+{
+ "meta": {
+  "images": [
+   "cargo_space_dock_mini.webp"
+  ],
+  "image": "cargo_space_dock_mini.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 180,
+   "h": 36
+  },
+  "pivot": {
+   "x": 90,
+   "y": 36
+  },
+  "loop": true,
+  "shipPivotOnPad": {
+   "x": 62,
+   "y": 10
+  },
+  "boxStackZone": {
+   "x": 118,
+   "y": 10,
+   "w": 54
+  }
+ },
+ "frames": {
+  "cargo_space_dock_mini_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_1": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 0,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_2": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_3": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 108,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_4": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 108,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_5": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 108,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_6": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 216,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_7": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 216,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_8": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 216,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_9": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 324,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_10": {
+   "page": 0,
+   "frame": {
+    "x": 540,
+    "y": 324,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  },
+  "cargo_space_dock_mini_11": {
+   "page": 0,
+   "frame": {
+    "x": 1080,
+    "y": 324,
+    "w": 540,
+    "h": 108
+   },
+   "duration": 83
+  }
+ }
+}

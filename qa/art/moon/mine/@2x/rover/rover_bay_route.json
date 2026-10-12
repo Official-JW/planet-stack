@@ -1,0 +1,615 @@
+{
+"fps": 12,
+"floorY": 104,
+"binX": 74,
+"entry": "right wall cutout x 292-360",
+"trucks": [
+"pt",
+"he3"
+],
+"pivot": "truck sprite left/bottom",
+"segments": [
+{
+"name": "reverseIn",
+"t0": 0,
+"t1": 2.2
+},
+{
+"name": "settle",
+"t0": 2.2,
+"t1": 2.7
+},
+{
+"name": "tipUp",
+"t0": 2.7,
+"t1": 3.9
+},
+{
+"name": "pour",
+"t0": 3.9,
+"t1": 4.9
+},
+{
+"name": "tipDown",
+"t0": 4.9,
+"t1": 5.8
+},
+{
+"name": "settle2",
+"t0": 5.8,
+"t1": 6.1
+},
+{
+"name": "driveOut",
+"t0": 6.1,
+"t1": 7.9
+}
+],
+"tint": "0.45 at x>330 -> 1.0 at x<220",
+"frames": [
+{
+"x": 372.0,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 347.73,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 324.58,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 302.54,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 281.6,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 261.76,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 243.0,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 225.3,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 208.67,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 193.1,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 178.55,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 165.04,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 152.54,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 141.04,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 130.52,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 120.98,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 112.38,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 104.73,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 97.99,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 92.16,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 87.19,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 83.08,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 79.78,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 77.28,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 75.52,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 74.47,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 74.03,
+"tilt": 0,
+"bob": 0,
+"seg": "reverseIn"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": 0.84,
+"seg": "settle"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": 0.37,
+"seg": "settle"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": -0.19,
+"seg": "settle"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": -0.11,
+"seg": "settle"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": 0.04,
+"seg": "settle"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": 0.03,
+"seg": "settle"
+},
+{
+"x": 74,
+"tilt": 0.16,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 1.15,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 2.98,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 5.56,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 8.79,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 12.5,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 16.52,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 20.66,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 24.71,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 28.5,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 31.84,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 34.56,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 36.55,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 37.71,
+"bob": 0,
+"seg": "tipUp"
+},
+{
+"x": 74,
+"tilt": 38.4,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 39.86,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 39.62,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 37.88,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 36.26,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 36.23,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 37.83,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 39.59,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 39.88,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 38.45,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 36.6,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 36.04,
+"bob": 0,
+"seg": "pour"
+},
+{
+"x": 74,
+"tilt": 37.97,
+"bob": 0.05,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 36.85,
+"bob": 0.27,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 34.24,
+"bob": 0.48,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 30.35,
+"bob": 0.64,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 25.5,
+"bob": 0.75,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 20.1,
+"bob": 0.8,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 14.62,
+"bob": 0.78,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 9.5,
+"bob": 0.69,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 5.18,
+"bob": 0.55,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 2.02,
+"bob": 0.36,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 0.29,
+"bob": 0.14,
+"seg": "tipDown"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": 0.54,
+"seg": "settle2"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": -0.07,
+"seg": "settle2"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": -0.02,
+"seg": "settle2"
+},
+{
+"x": 74,
+"tilt": 0,
+"bob": 0.02,
+"seg": "settle2"
+},
+{
+"x": 74.57,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 76.65,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 80.14,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 84.97,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 91.1,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 98.51,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 107.15,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 117.03,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 128.11,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 140.39,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 153.85,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 168.48,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 184.27,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 201.21,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 219.3,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 238.51,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 258.86,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 280.33,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 302.9,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+},
+{
+"x": 326.59,
+"tilt": 0,
+"bob": 0,
+"seg": "driveOut"
+}
+]
+}

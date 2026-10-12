@@ -1,0 +1,215 @@
+{
+ "format": "dock-tracks-v1",
+ "canvas": {
+  "w": 760,
+  "h": 620
+ },
+ "pivot": {
+  "x": 380,
+  "y": 620
+ },
+ "scale": 3,
+ "images": {
+  "dock_crane_t10": [
+   {
+    "file": "dock_crane_t10.webp",
+    "x": 520,
+    "y": 373,
+    "w": 126,
+    "h": 199
+   }
+  ],
+  "dock_crane_t20": [
+   {
+    "file": "dock_crane_t20.webp",
+    "x": 480,
+    "y": 313,
+    "w": 216,
+    "h": 261
+   }
+  ],
+  "dock_crane_t30": [
+   {
+    "file": "dock_crane_t30.webp",
+    "x": 417,
+    "y": 233,
+    "w": 342,
+    "h": 339
+   }
+  ],
+  "dock_crane_t40": [
+   {
+    "file": "dock_crane_t40.webp",
+    "x": 475,
+    "y": 154,
+    "w": 278,
+    "h": 419
+   }
+  ],
+  "dock_crane_t50": [
+   {
+    "file": "dock_crane_t50.webp",
+    "x": 418,
+    "y": 195,
+    "w": 340,
+    "h": 365
+   }
+  ],
+  "dock_crew_t10": [
+   {
+    "file": "dock_crew_t10.webp",
+    "x": 116,
+    "y": 547,
+    "w": 394,
+    "h": 27
+   }
+  ],
+  "dock_crew_t20": [
+   {
+    "file": "dock_crew_t20.webp",
+    "x": 118,
+    "y": 517,
+    "w": 107,
+    "h": 55
+   }
+  ],
+  "dock_crew_t30": [
+   {
+    "file": "dock_crew_t30.webp",
+    "x": 230,
+    "y": 522,
+    "w": 90,
+    "h": 50
+   }
+  ],
+  "dock_crew_t40": [
+   {
+    "file": "dock_crew_t40.webp",
+    "x": 472,
+    "y": 438,
+    "w": 186,
+    "h": 78
+   }
+  ],
+  "dock_crew_t50": [
+   {
+    "file": "dock_crew_t50.webp",
+    "x": 118,
+    "y": 468,
+    "w": 119,
+    "h": 59
+   }
+  ],
+  "dock_pad_t10": [
+   {
+    "file": "dock_pad_t10-0.webp",
+    "x": 18,
+    "y": 567,
+    "w": 81,
+    "h": 53
+   },
+   {
+    "file": "dock_pad_t10-1.webp",
+    "x": 667,
+    "y": 567,
+    "w": 75,
+    "h": 53
+   }
+  ],
+  "dock_pad_t20": [
+   {
+    "file": "dock_pad_t20-0.webp",
+    "x": 0,
+    "y": 565,
+    "w": 531,
+    "h": 55
+   },
+   {
+    "file": "dock_pad_t20-1.webp",
+    "x": 667,
+    "y": 567,
+    "w": 93,
+    "h": 53
+   }
+  ],
+  "dock_pad_t30": [
+   {
+    "file": "dock_pad_t30.webp",
+    "x": 228,
+    "y": 494,
+    "w": 254,
+    "h": 78
+   }
+  ],
+  "dock_pad_t40": [
+   {
+    "file": "dock_pad_t40.webp",
+    "x": 322,
+    "y": 570,
+    "w": 162,
+    "h": 46
+   }
+  ],
+  "dock_pad_t50": [
+   {
+    "file": "dock_pad_t50-0.webp",
+    "x": 0,
+    "y": 566,
+    "w": 380,
+    "h": 37
+   },
+   {
+    "file": "dock_pad_t50-1.webp",
+    "x": 380,
+    "y": 515,
+    "w": 380,
+    "h": 88
+   }
+  ],
+  "dock_refuel_t10": [
+   {
+    "file": "dock_refuel_t10.webp",
+    "x": 84,
+    "y": 536,
+    "w": 261,
+    "h": 59
+   }
+  ],
+  "dock_refuel_t20": [
+   {
+    "file": "dock_refuel_t20.webp",
+    "x": 94,
+    "y": 261,
+    "w": 175,
+    "h": 311
+   }
+  ],
+  "dock_refuel_t30": [
+   {
+    "file": "dock_refuel_t30.webp",
+    "x": 220,
+    "y": 524,
+    "w": 124,
+    "h": 48
+   }
+  ],
+  "dock_refuel_t40": [
+   {
+    "file": "dock_refuel_t40.webp",
+    "x": 164,
+    "y": 248,
+    "w": 117,
+    "h": 203
+   }
+  ],
+  "dock_refuel_t50": [
+   {
+    "file": "dock_refuel_t50.webp",
+    "x": 167,
+    "y": 215,
+    "w": 98,
+    "h": 356
+   }
+  ]
+ }
+}

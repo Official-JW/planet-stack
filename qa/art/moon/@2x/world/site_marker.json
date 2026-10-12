@@ -1,0 +1,61 @@
+{
+ "meta": {
+  "images": [
+   "site_marker.webp"
+  ],
+  "image": "site_marker.webp",
+  "scale": 2,
+  "fps": 6,
+  "logicalFrame": {
+   "w": 120,
+   "h": 90
+  },
+  "pivot": {
+   "x": 60,
+   "y": 90
+  },
+  "loop": true
+ },
+ "frames": {
+  "site_marker_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 240,
+    "h": 180
+   },
+   "duration": 167
+  },
+  "site_marker_1": {
+   "page": 0,
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 240,
+    "h": 180
+   },
+   "duration": 167
+  },
+  "site_marker_2": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 240,
+    "h": 180
+   },
+   "duration": 167
+  },
+  "site_marker_3": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 240,
+    "h": 180
+   },
+   "duration": 167
+  }
+ }
+}
