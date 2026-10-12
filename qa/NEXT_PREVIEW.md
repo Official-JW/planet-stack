@@ -152,3 +152,6 @@
 - Welcome back: display:none unless shown, own top layer (z 200, last body child), COLLECT on pointerup/touchend/click, dismiss removes pointer events at once and the element after the fade.
 - Low-power dim + ground crossfade animate per rAF from the frame timestamp, eased (400 ms / 200 ms); power re-read every frame; restore buffer 0.6 s. Ground: code ground stays fully under the strip; strip fades 0→1 after img.decode() + warm-up draw; code ground removed after the fade.
 - Trip tiers: /qa/?dev=1 shared the preview dev save (trips already ≥1 → 5:00 first trip). Dev save key is now per build, and ?fresh clears this build's own save.
+
+## r14b (11:15 PT) — code ground brightened (/qa/)
+- Code-drawn ground gradient x1.21 (Art), same stops/shape, tinted to the strip's average surface hue (R 1.023 / G 1.000 / B 0.968). Strip unchanged.

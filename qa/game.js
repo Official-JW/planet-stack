@@ -371,8 +371,11 @@ let curStopA=0,armT=-99;
 // ----- flat regolith ground (procedural, opaque): tile TW pt wide, repeats while panning. Depth gradient, craters and boulders with hard shadows, strata at the bottom.
 const GTW=1000,GTH=330,gC=document.createElement('canvas'),gX=gC.getContext('2d');let gK=0;
 function rng(seed){let x=seed>>>0;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return(x>>>0)/4294967296}}
+// GROUND_LIFT: same gradient shape, every stop scaled so the code ground's average gray matches Art's strip (~147)
+const GROUND_LIFT={k:1.21,tint:[1.023,1.000,0.968]};   // Art: x1.21 (#9a9aa0→~#bbbbc2 … #3c3c43→~#494951), hue tinted to the strip's average surface colour (150.9,147.5,142.7)
+const gLift=h=>{const v=[1,3,5].map(i=>parseInt(h.substr(i,2),16)),l=(v[0]+v[1]+v[2])/3*(window.__gl||GROUND_LIFT.k);return`rgb(${GROUND_LIFT.tint.map(t=>Math.min(255,Math.round(l*t)))})`};
 function buildGround(){const k=DPR*SC;if(gK===k)return;gK=k;gC.width=Math.ceil(GTW*k);gC.height=Math.ceil(GTH*k);const c=gX;c.setTransform(k,0,0,k,0,0);smooth(c);
- let g=c.createLinearGradient(0,0,0,GTH);g.addColorStop(0,'#9a9aa0');g.addColorStop(0.08,'#86868d');g.addColorStop(0.55,'#6b6b72');g.addColorStop(0.78,'#55555c');g.addColorStop(1,'#3c3c43');c.fillStyle=g;c.fillRect(0,0,GTW,GTH);
+ let g=c.createLinearGradient(0,0,0,GTH);[[0,'#9a9aa0'],[0.08,'#86868d'],[0.55,'#6b6b72'],[0.78,'#55555c'],[1,'#3c3c43']].forEach(([o,h])=>g.addColorStop(o,gLift(h)));c.fillStyle=g;c.fillRect(0,0,GTW,GTH);
  const r=rng(7);
  for(let i=0;i<2600;i++){const y=Math.pow(r(),0.8)*GTH*0.8,x=r()*GTW,s=0.4+r()*1.3*(0.5+y/GTH);c.fillStyle=r()<.5?'rgba(255,255,255,.07)':'rgba(0,0,0,.09)';c.fillRect(x,y,s,s*0.6)}   // regolith grain
  // strata at the bottom edge (wavy bands, darker with depth)
