@@ -1,0 +1,94 @@
+{
+ "meta": {
+  "image": "floor_markets_anim.png",
+  "size": {
+   "w": 3240,
+   "h": 1080
+  },
+  "scale": 3,
+  "fps": 8,
+  "logicalFrame": {
+   "w": 360,
+   "h": 120
+  },
+  "pivot": {
+   "x": 0,
+   "y": 120
+  },
+  "loop": true
+ },
+ "frames": {
+  "floor_markets_anim_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  },
+  "floor_markets_anim_1": {
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  },
+  "floor_markets_anim_2": {
+   "frame": {
+    "x": 2160,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  },
+  "floor_markets_anim_3": {
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  },
+  "floor_markets_anim_4": {
+   "frame": {
+    "x": 1080,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  },
+  "floor_markets_anim_5": {
+   "frame": {
+    "x": 2160,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  },
+  "floor_markets_anim_6": {
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  },
+  "floor_markets_anim_7": {
+   "frame": {
+    "x": 1080,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 125
+  }
+ }
+}

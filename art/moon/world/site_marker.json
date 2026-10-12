@@ -1,0 +1,58 @@
+{
+ "meta": {
+  "image": "site_marker.png",
+  "size": {
+   "w": 1440,
+   "h": 270
+  },
+  "scale": 3,
+  "fps": 6,
+  "logicalFrame": {
+   "w": 120,
+   "h": 90
+  },
+  "pivot": {
+   "x": 60,
+   "y": 90
+  },
+  "loop": true
+ },
+ "frames": {
+  "site_marker_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 270
+   },
+   "duration": 167
+  },
+  "site_marker_1": {
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 360,
+    "h": 270
+   },
+   "duration": 167
+  },
+  "site_marker_2": {
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 360,
+    "h": 270
+   },
+   "duration": 167
+  },
+  "site_marker_3": {
+   "frame": {
+    "x": 1080,
+    "y": 0,
+    "w": 360,
+    "h": 270
+   },
+   "duration": 167
+  }
+ }
+}

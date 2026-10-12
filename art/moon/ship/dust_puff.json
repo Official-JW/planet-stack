@@ -1,0 +1,76 @@
+{
+ "meta": {
+  "image": "dust_puff.png",
+  "size": {
+   "w": 2880,
+   "h": 150
+  },
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 160,
+   "h": 50
+  },
+  "pivot": {
+   "x": 80,
+   "y": 50
+  },
+  "loop": false
+ },
+ "frames": {
+  "dust_puff_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 480,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "dust_puff_1": {
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 480,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "dust_puff_2": {
+   "frame": {
+    "x": 960,
+    "y": 0,
+    "w": 480,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "dust_puff_3": {
+   "frame": {
+    "x": 1440,
+    "y": 0,
+    "w": 480,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "dust_puff_4": {
+   "frame": {
+    "x": 1920,
+    "y": 0,
+    "w": 480,
+    "h": 150
+   },
+   "duration": 83
+  },
+  "dust_puff_5": {
+   "frame": {
+    "x": 2400,
+    "y": 0,
+    "w": 480,
+    "h": 150
+   },
+   "duration": 83
+  }
+ }
+}
