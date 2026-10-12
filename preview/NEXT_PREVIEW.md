@@ -64,3 +64,12 @@
 - [x] Roofs: Habitat + Engineering (360×180, 16f@12fps); Shipyard Launch Tower w/ ship, crew + fuel arms (trimmed frames w/ offsets, play once on launch)
 - [x] Re-exported Engineering/Parts/Fuel L50 badges, Engineering tiers, Living Quarters tiers
 - [x] Fresh-save soft-lock check: Nuclear + Water + Crusher with 3 crew → Crusher staffed, money keeps flowing
+
+## Done in 10/12 02:31 preview push (01:55 re-check fixes)
+- [x] Goals: Supply Depot goal removed; chain is Crusher → Rover Bay Lv 10 → Separator ($800, was $1.6K) → Refinery. Fresh-save bot run at ?speed=10: Separator built at ~6:49 game time, longest gap between purchases 76 s (no 3-min dead stretch).
+- [x] Crew sheet: person icon only unassigns, separate "+" only assigns (both 44 pt tall); unassigned floors are no longer auto-restaffed; no crew controls or "now staffs" toast on Oxygen/Water/Nuclear/Living Quarters; duplicate Crew stat row removed, row text no longer spills.
+- [x] Payouts: value frozen at launch; button, trip card, toast and payout all use it. Dock labels now "Ship hold X/Y · waiting on pad N Pt + M He-3".
+- [x] Tapping a station dot closes any open sheet first; the tap never reaches the sheet.
+- [x] Dock "Next look" moved to its own wrapping line; "placeholder art" text removed; floor packs load the moment a floor is built (Crusher/Hospital show real art).
+- [x] Tunnel trucks in mine_later_tunnel_trucks (loads after mine_starter); every mine_later_* pack waits for the first screen; the truck waits in the bay until the pack is ready.
+- [x] Walkway: measured per frame between the two on-screen tower walls, caps pinned to the walls, fades under ~40 pt, drawn behind every tower.

@@ -60,10 +60,6 @@
     "@3x/rover/rover_scoop.json",
     "@3x/rover/rover_scoop.webp",
     "@3x/rover/rover_static.webp",
-    "@3x/rover/rover_tunnel_he3.json",
-    "@3x/rover/rover_tunnel_he3.webp",
-    "@3x/rover/rover_tunnel_pt.json",
-    "@3x/rover/rover_tunnel_pt.webp",
     "@3x/rover/truck_he3_drive.json",
     "@3x/rover/truck_he3_drive.webp",
     "@3x/rover/truck_pt_drive.json",
@@ -74,7 +70,7 @@
     "@3x/tunnel/tunnel_front_lip.webp",
     "@3x/tunnel/tunnel_haze.webp"
    ],
-   "bytes": 2251125
+   "bytes": 1829769
   },
   "@2x": {
    "files": [
@@ -134,10 +130,6 @@
     "@2x/rover/rover_scoop.json",
     "@2x/rover/rover_scoop.webp",
     "@2x/rover/rover_static.webp",
-    "@2x/rover/rover_tunnel_he3.json",
-    "@2x/rover/rover_tunnel_he3.webp",
-    "@2x/rover/rover_tunnel_pt.json",
-    "@2x/rover/rover_tunnel_pt.webp",
     "@2x/rover/truck_he3_drive.json",
     "@2x/rover/truck_he3_drive.webp",
     "@2x/rover/truck_pt_drive.json",
@@ -148,7 +140,7 @@
     "@2x/tunnel/tunnel_front_lip.webp",
     "@2x/tunnel/tunnel_haze.webp"
    ],
-   "bytes": 1388474
+   "bytes": 1140244
   }
  }
 }
