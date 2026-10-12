@@ -2,7 +2,7 @@
 - Format: same as ART_SPEC layered floors.
   - Files: `floors/floor_<art>.{json,webp,_layers.webp,_needs_stock.webp}`, @2x/@3x.
   - 16 frames at 12 fps, loop. WebP q95. One layers page each, ≤2048 px.
-- Size: 360x120, pivot (0,120), except **ship_assembly: 360x240, pivot (0,240), takes 2 floor slots**. It has no `_needs_stock` variant.
+- Size: 360x120, pivot (0,120), except **ship_assembly: 360x240, pivot (0,240), takes 2 floor slots** (see stacking note below).
 - Labels ≥10.5 px @3x. Never ship `_masters/`.
 
 ## Final floor order (Game Director)
@@ -34,3 +34,28 @@
 
 ## Shelved
 - `hab_quarters` is shelved in `art/moon/_shelved/hab_quarters/`. Do not ship it.
+
+## Shipyard tiers (L10–L50)
+- Files: `floors/tiers/floor_<id>_t{10..50}.{json,webp,_layers.webp}`, @2x/@3x.
+- Overlays are cumulative, use the same format as the Life Support tiers, and each has one layers page.
+- ship_assembly overlays are 360x240, pivot (0,240).
+- Tiers:
+  - **assembly:** UT NDT carriage, X-ray booth, orbital welder, laser seams, gold.
+  - **parts:** RFID portal, scan drone, pick gantry, rack lights, gold.
+  - **fuel:** LN2 subcooler, gas detection, VJ transfer line, tank halo, gold.
+- Bytes (@2x+@3x): assembly 511,116; parts 388,025; fuel 470,245; total 1,369,386.
+- Sheets: `ship_assembly_tiers.png`, `ship_parts_tiers.png`, `ship_fuel_tiers.png`.
+- Generator: `artgen/tiers2/shipyard_tiers.py`.
+
+## Packs (later-loading, `art/moon/packs/`, root "." = art/moon, same format as mine_later_*.json)
+- `shipyard_rooms.json`: bases and L10–L50 tiers for ship_assembly, ship_parts, ship_fuel and refinery.
+- `engineering_rooms.json`: the six eng_* bases.
+- `habitat_rooms.json`: hospital and moon_cafe bases and tiers. They were not in any pack before.
+- hab_quarters is shelved and is in no pack.
+
+## ship_assembly two-slot stacking
+- It occupies 2 consecutive floor slots and is drawn once, as a 360x240 image with pivot (0,240) at the bottom-left of the lower slot.
+- Its tiers are also 360x240 overlays and use the same anchor.
+- `floor_ship_assembly_needs_stock.webp` (360x240) now exists. It is the same dimmed room with the crate icon centred.
+- Treat the upper slot as occupied and draw nothing in it.
+- L10 fix: the NDT carriage now rides a short rail at x 148–210 on the hull crown, so it no longer covers the HULL SECTION 04 · CRADLE tag.

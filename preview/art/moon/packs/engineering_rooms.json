@@ -1,0 +1,64 @@
+{
+ "pack": "engineering_rooms",
+ "root": ".",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/floors/floor_eng_cnc.json",
+    "@3x/floors/floor_eng_cnc.webp",
+    "@3x/floors/floor_eng_cnc_layers.webp",
+    "@3x/floors/floor_eng_cnc_needs_stock.webp",
+    "@3x/floors/floor_eng_cad.json",
+    "@3x/floors/floor_eng_cad.webp",
+    "@3x/floors/floor_eng_cad_layers.webp",
+    "@3x/floors/floor_eng_cad_needs_stock.webp",
+    "@3x/floors/floor_eng_cam.json",
+    "@3x/floors/floor_eng_cam.webp",
+    "@3x/floors/floor_eng_cam_layers.webp",
+    "@3x/floors/floor_eng_cam_needs_stock.webp",
+    "@3x/floors/floor_eng_print.json",
+    "@3x/floors/floor_eng_print.webp",
+    "@3x/floors/floor_eng_print_layers.webp",
+    "@3x/floors/floor_eng_print_needs_stock.webp",
+    "@3x/floors/floor_eng_chem.json",
+    "@3x/floors/floor_eng_chem.webp",
+    "@3x/floors/floor_eng_chem_layers.webp",
+    "@3x/floors/floor_eng_chem_needs_stock.webp",
+    "@3x/floors/floor_eng_prop.json",
+    "@3x/floors/floor_eng_prop.webp",
+    "@3x/floors/floor_eng_prop_layers.webp",
+    "@3x/floors/floor_eng_prop_needs_stock.webp"
+   ],
+   "bytes": 729449
+  },
+  "@2x": {
+   "files": [
+    "@2x/floors/floor_eng_cnc.json",
+    "@2x/floors/floor_eng_cnc.webp",
+    "@2x/floors/floor_eng_cnc_layers.webp",
+    "@2x/floors/floor_eng_cnc_needs_stock.webp",
+    "@2x/floors/floor_eng_cad.json",
+    "@2x/floors/floor_eng_cad.webp",
+    "@2x/floors/floor_eng_cad_layers.webp",
+    "@2x/floors/floor_eng_cad_needs_stock.webp",
+    "@2x/floors/floor_eng_cam.json",
+    "@2x/floors/floor_eng_cam.webp",
+    "@2x/floors/floor_eng_cam_layers.webp",
+    "@2x/floors/floor_eng_cam_needs_stock.webp",
+    "@2x/floors/floor_eng_print.json",
+    "@2x/floors/floor_eng_print.webp",
+    "@2x/floors/floor_eng_print_layers.webp",
+    "@2x/floors/floor_eng_print_needs_stock.webp",
+    "@2x/floors/floor_eng_chem.json",
+    "@2x/floors/floor_eng_chem.webp",
+    "@2x/floors/floor_eng_chem_layers.webp",
+    "@2x/floors/floor_eng_chem_needs_stock.webp",
+    "@2x/floors/floor_eng_prop.json",
+    "@2x/floors/floor_eng_prop.webp",
+    "@2x/floors/floor_eng_prop_layers.webp",
+    "@2x/floors/floor_eng_prop_needs_stock.webp"
+   ],
+   "bytes": 443264
+  }
+ }
+}

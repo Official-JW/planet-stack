@@ -11,9 +11,10 @@
     "@3x/walkway_cap_R.json",
     "@3x/walkway_cap_R.webp",
     "@3x/walkway_mid.webp",
+    "@3x/walkway_mid_s.webp",
     "@3x/walkway_truss.webp"
    ],
-   "bytes": 84126
+   "bytes": 88710
   },
   "@2x": {
    "files": [
@@ -24,9 +25,10 @@
     "@2x/walkway_cap_R.json",
     "@2x/walkway_cap_R.webp",
     "@2x/walkway_mid.webp",
+    "@2x/walkway_mid_s.webp",
     "@2x/walkway_truss.webp"
    ],
-   "bytes": 51588
+   "bytes": 54660
   }
  }
 }

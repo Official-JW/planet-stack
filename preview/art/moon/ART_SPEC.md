@@ -57,7 +57,9 @@ Rajdhani and Inter: SIL Open Font License (OFL), via Google Fonts. DejaVu Sans /
 - `walkway_cap` (30x64, 2f blink, pivot (0,52)): left airlock.
 - `walkway_cap_R` (30x64, pivot (30,52)): right airlock. It is drawn unmirrored so its text reads correctly.
 - `walkway_mid` (48x64): tiles horizontally.
+- `walkway_mid_s` (36x64): a short mid with one centred rib. It shares baseline y=52 and the grating and sandbag rows, so it tiles with both the mid and the caps.
+- **Short gaps:** if G−60 < 41, use cap_L + one mid_s scaled horizontally by (G−60)/36 + cap_R. That covers G of about 90–101 px at 0.85–1.15. Put one truss under its centre. Otherwise use the rule below.
 - **Stretching:** for a gap of G px between the station walls, place cap_L at x0 and cap_R ending at x0+G. Fill between them with N = ceil((G−60)/48) mids from x0+30. The last mid may be clipped, or you can scale all mids horizontally by (G−60)/(48·N), which is fine between 0.85 and 1.15. Never scale vertically.
 - `walkway_truss` (48x40, pivot (24,0)): hang it under the grating base (y=64) every 96 px, starting at x0+30. The footings rest at +40.
 - `walkway_astro_walk` (30x40, 8f@12fps, pivot (15,40)): 0.7x crew13 walk, feet on y=52, 22 px/s. Flip it for leftward walking. Draw it after the mids so it sits inside the glass. For a glass-front effect, draw mid again at 35% alpha on top (optional).
-- Pack `packs/walkway.json`: 84 KB @3x, 52 KB @2x. Preview: `shared/walkway/walkway_closeup.png`.
+- Pack `packs/walkway.json`: 89 KB @3x, 54 KB @2x. Preview: `shared/walkway/walkway_closeup.png`.
