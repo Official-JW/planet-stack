@@ -1,0 +1,23 @@
+{
+ "pack": "fx_later_upgrade_burst",
+ "root": ".",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/fx/fx_upgrade_burst.json",
+    "@3x/fx/fx_upgrade_burst.webp",
+    "@3x/fx/fx_upgrade_burst_glow.webp"
+   ],
+   "bytes": 298180
+  },
+  "@2x": {
+   "files": [
+    "@2x/fx/fx_upgrade_burst.json",
+    "@2x/fx/fx_upgrade_burst.webp",
+    "@2x/fx/fx_upgrade_burst_glow.webp"
+   ],
+   "bytes": 173676
+  }
+ },
+ "load": "after_first_screen"
+}

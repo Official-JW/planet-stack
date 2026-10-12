@@ -86,7 +86,7 @@ function def(key,path,group,kind){SPR[key]={path,group,kind:kind||'atlas'}}
 def('base400','world/tower_base_400','core');def('site','world/site_marker','core');
 ['walk','idle','wave','carry'].forEach(a=>def(a+'_worker','astronaut/astronaut_'+a,'core'));
 ['walk','idle'].forEach(a=>def(a+'_engineer','astronaut/astronaut_engineer_'+a,'core'));
-['coin_spin','coin_sparkle','pickup_o2_spin','pickup_o2_sparkle','pickup_water_spin','pickup_water_sparkle','pickup_energy_spin','pickup_energy_sparkle','pickup_people_spin','pickup_people_sparkle','fx_collect_sparkle','floor_low_power','icon_low_power_blink','fx_door_hiss','fx_welcome_sparkle'].forEach(n=>def(n,'fx/'+n,'core'));def('fx_upgrade_burst','fx/fx_upgrade_burst','fx_burst');   // 722 KB @3x: loads right after the first screen
+['coin_spin','coin_sparkle','pickup_o2_spin','pickup_o2_sparkle','pickup_water_spin','pickup_water_sparkle','pickup_energy_spin','pickup_energy_sparkle','pickup_people_spin','pickup_people_sparkle','fx_collect_sparkle','floor_low_power','icon_low_power_blink','fx_door_hiss','fx_welcome_sparkle'].forEach(n=>def(n,'fx/'+n,'core'));def('fx_upgrade_burst','fx/fx_upgrade_burst','fx_later_upgrade_burst');   // 722 KB @3x: loads right after the first screen
 ['shaft_tile','shaft_top','shaft_pit','cable_tile','rider','capacity_badge'].forEach(n=>def('el_'+n,'elevator/'+n,'core','img'));
 def('el_call_panel','elevator/call_panel','core');def('el_floor_indicator','elevator/floor_indicator','core');
 // heavy fx: loaded right after the first screen
@@ -132,7 +132,9 @@ async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.l
   else{const j=await tryJSON(ART+s.path+'.json');if(j&&!j.meta&&j.image&&j.alpha){const dir=ART+s.path.replace(/[^/]+$/,''),im=await bmp(await getImg(dir+j.image));if(im){const dv=s.path.includes('/@2x/')?2:3;   // glow v2: one image, per-frame alpha, additive
     s.pages=[im];s.img=im;s.frames=j.alpha.map(()=>({page:0,x:0,y:0,w:im.width,h:im.height}));s.n=j.alpha.length;s.fps=j.fps||12;s.w=im.width/dv;s.h=im.height/dv;s.px=j.pivot.x;s.py=j.pivot.y;s.alpha=j.alpha;s.add=j.blend==='add'}}
   else if(j&&j.meta){const m=j.meta,dir=ART+s.path.replace(/[^/]+$/,'');
-    s.sc=m.scale||(DEV_DPR>2?3:2);s.frames=Object.values(j.frames).map(f=>Object.assign({page:f.page||0},f.frame,f.offset?{ox:f.offset.x,oy:f.offset.y}:{}));s.n=s.frames.length;s.fps=m.fps||1;s.w=m.logicalFrame.w;s.h=m.logicalFrame.h;s.px=m.pivot.x;s.py=m.pivot.y;s.loop=m.loop!==false;
+    s.sc=m.scale||(DEV_DPR>2?3:2);const fz=f=>Object.assign({page:f.page||0,ds:f.drawScale||1},f.frame,f.offset?{ox:f.offset.x,oy:f.offset.y}:{});const nm=s.path.split('/').pop();
+    if(m.layers&&m.layers.includes('glow')&&j.frames[nm+'_glow_0']){s.frames=[];for(let i=0;j.frames[nm+'_'+i];i++){const g=j.frames[nm+'_glow_'+i];s.frames.push({layers:[g?Object.assign(fz(g),{lin:1}):null,fz(j.frames[nm+'_'+i])].filter(Boolean)})}}   // 2-layer burst: glow (drawScale 2, linear) under sharp
+    else s.frames=Object.values(j.frames).map(fz);s.n=s.frames.length;const d0=Object.values(j.frames)[0];if(d0&&d0.duration&&m.layers)m.fps=1000/d0.duration;s.fps=m.fps||1;s.w=m.logicalFrame.w;s.h=m.logicalFrame.h;s.px=m.pivot.x;s.py=m.pivot.y;s.loop=m.loop!==false;
     s.pages=await Promise.all((m.images||[m.image]).map(async n=>bmp(await getImg(dir+n))));s.img=s.pages[0]}}
   s.ready=!!(s.img||s.base);s.missing=!s.ready})();return s.loading}
 let firstScreenDone=false;const laterWait=[];
@@ -149,7 +151,8 @@ function ensureTier(d,L){const k=tierKey(d,L);if(!SPR[k]){def(k,`${d.tierBase}_t
 function ensureLook(look){const kb='car_'+look+'_back',kd='car_'+look+'_doors';if(!SPR[kb]){def(kb,'elevator/'+kb,'look','img');def(kd,'elevator/'+kd,'look');loadSprite(kb);loadSprite(kd)}return SPR[kb].ready&&SPR[kd].ready}
 const ok=k=>SPR[k]&&SPR[k].ready;
 function spr(c,key,frame,x,y,sx=1,sy=1){const S=SPR[key];if(!S||!S.ready)return;if(!S.frames){c.drawImage(S.img,x-(S.px||0)*sx,y-(S.py||0)*sy,S.w*sx,S.h*sy);return}
- const fi=((frame|0)%S.n+S.n)%S.n,f=S.frames[fi];if(S.alpha){c.save();c.globalAlpha*=S.alpha[fi];if(S.add)c.globalCompositeOperation='lighter';c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy);c.restore();return}if(f.ox!=null){const k=1/S.sc;c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx+f.ox*k*sx,y-S.py*sy+f.oy*k*sy,f.w*k*sx,f.h*k*sy);return}c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}
+ const fi=((frame|0)%S.n+S.n)%S.n,f=S.frames[fi];if(S.alpha){c.save();c.globalAlpha*=S.alpha[fi];if(S.add)c.globalCompositeOperation='lighter';c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy);c.restore();return}if(f.layers){for(const L of f.layers){const k=L.ds/S.sc;c.save();c.globalCompositeOperation='source-over';if(L.lin){c.imageSmoothingEnabled=true;c.imageSmoothingQuality='low'}c.drawImage(S.pages[L.page],L.x,L.y,L.w,L.h,x-S.px*sx+L.ox*k*sx,y-S.py*sy+L.oy*k*sy,L.w*k*sx,L.h*k*sy);c.restore()}return}
+ if(f.ox!=null){const k=1/S.sc;c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx+f.ox*k*sx,y-S.py*sy+f.oy*k*sy,f.w*k*sx,f.h*k*sy);return}c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}
 const fr=(k,t)=>SPR[k]&&SPR[k].ready?Math.floor(t*SPR[k].fps)%SPR[k].n:0;
 const frOnce=(k,t)=>SPR[k]&&SPR[k].ready?Math.floor(t*SPR[k].fps):99;
 function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const gf=paused?0:Math.floor(t*s.fps);
@@ -814,7 +817,7 @@ let bgDone=false;
  const bar=$('#lbar');await Promise.all([loadGroup('core',p=>bar.style.width=(p*80)+'%'),loadGroup('life',p=>{})]);bar.style.width='100%';
  ensureLook(elevLook(0));
  offline();econ();crewSync();hud();devUI();
- {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_burst');
+ {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_later_upgrade_burst');
  await new Promise(r=>setTimeout(r,400));
  await loadGroup('mine_preview');await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();

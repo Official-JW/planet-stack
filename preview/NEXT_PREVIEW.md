@@ -77,3 +77,4 @@
 ## Done in follow-up preview push
 - [x] fx_upgrade_burst (722 KB @3x) moved off the first screen into fx_burst, loaded right after it; upgrades before it loads play a quick scale-pop on the floor. First screen ~2.07 MB @3x.
 - [x] Crew hint wraps to two lines (no ellipsis); nothing spills out of the crew row.
+- [x] Upgrade burst v2: fx_later_upgrade_burst pack (two pages: sharp + half-res glow at drawScale 2, 16 frames @ 42 ms); loader draws glow then sharp per frame with offsets x drawScale. Still loads after the first screen; scale-pop fallback kept.
