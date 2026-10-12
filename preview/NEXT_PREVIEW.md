@@ -105,3 +105,4 @@
 - Pad dip (GD call a): loaded containers stay counted on the pad until launch, then leave for real; 400 ms low-g slide into the hold (top first), "Pad N/60" ticks down, "−N loaded"; refill uses normal mining drop-in.
 - Toast sits just below the low-power pill when it shows (GD call b).
 - Pad slide tweak: each container starts 40 ms after the one above (top first), 400 ms ease-in-out move; hold target follows the ship; count ticks after the last one lands.
+- Lift timing (GD): ship stays on the pad until the last container lands and the pad tick-down ends, then lifts after a 150 ms beat (no hatch: ship art has no hatch frames). Containers no longer follow the hold. Visual only; trip timer + payout stay locked to the launch tap.

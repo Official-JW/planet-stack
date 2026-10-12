@@ -626,6 +626,8 @@ function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!trackMan())return null;c
  return list.map(e=>{let o=trkImg[e.file];if(!o){o=trkImg[e.file]={e,img:null};getImg(ART+DOCK+'tracks/'+e.file).then(bmp).then(im=>o.img=im)}return{e,o}})}
 function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const ps=ensureTrack(t,L);if(ps)ps.forEach(({e,o})=>{if(o.img)ctx.drawImage(o.img,-380+e.x,-620+e.y,e.w,e.h)})}})}   // cumulative per track; every piece; missing art → base dock
 const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'walk'},{a:500,b:560,k:'carry'}];
+// lift waits for the slide + pad tick-down + a 150 ms beat; ignition (0.4 s) is timed so the rise starts right after the beat. Visual only: trip timer and payout stay locked to the launch tap.
+const liftDelay=()=>padDip&&T-padDip.t<5?padDip.end+0.3+0.15-0.4:0;
 function padSlide(deck,X,sy0){const dt=padDip?T-padDip.t:9;   // drawn over the hull so the slide into the hold reads
  if(padDip&&dt<padDip.end){const k=Math.min(padDip.n,12),he=Math.round(k*padDip.he/Math.max(1,padDip.n));for(let i=0;i<k;i++){const isHe=i<he,j=isHe?i:i-he,q=Math.max(0,Math.min(1,(dt-i*0.04)/0.4));if(q<=0||q>=1)continue;
     const sx=X(isHe?540:440),sy=deck-5*44+j*10,e=easeInOutCubic(q),bx=sx+(36-sx)*e,by=sy+(sy0-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
@@ -647,13 +649,13 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
   if(dip&&dt>=E0){const q=Math.min(1,(dt-E0)/1.2);ctx.save();ctx.globalAlpha=1-q*q;label(X(490),deck-352-q*40,`−${padDip.n} loaded`,'#ff9b7a',16);ctx.restore()}}
  // ship
  const s=S.ship,a=shipAnim,t=T-a.t0;let y=deck,flame=0,glow=0,vis=s.st!=='trip';
- if(a.mode==='launch'){vis=true;if(t<0.4){flame=1;glow=1;if(!a.smoke){a.smoke=1;FX.push({type:'dock',key:'smoke_plume4',t:T})}}else if(t<1.9){const q=(t-0.4)/1.5;y=deck-1800*q*q;flame=1}else{a.mode=null;vis=false}}
+ if(a.mode==='launch'){vis=true;const tl=t-liftDelay();if(tl<0){}else if(tl<0.4){flame=1;glow=1;if(!a.smoke){a.smoke=1;FX.push({type:'dock',key:'smoke_plume4',t:T})}}else if(tl<1.9){const q=(tl-0.4)/1.5;y=deck-1800*q*q;flame=1}else{a.mode=null;vis=false}}
  if(a.mode==='land'){vis=true;if(t<1.8){const q=t/1.8;y=deck-1800*(1-easeOutCubic(q));flame=t>1.5?(1.8-t)/0.3:1;glow=t>1.3?1:0}else if(t<2.1){y=deck-4*Math.sin((t-1.8)/0.3*Math.PI);if(!a.dust){a.dust=1;FX.push({type:'dock',key:'dust_puff4',t:T})}}else a.mode=null}
  if(vis&&ok('ship4_hull')){const hx=0,top=y-480;
   if(flame>0){ctx.globalAlpha=Math.min(1,flame);spr(ctx,'ship4_flame',fr('ship4_flame',T),hx,top+432);ctx.globalAlpha=1}
   if(glow){ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_engine_glow',fr('ship4_engine_glow',T),hx,top+440);ctx.globalCompositeOperation='source-over'}
   spr(ctx,'ship4_hull',0,hx,y);ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_navlights',fr('ship4_navlights',T),hx-160+108,top+163);ctx.globalCompositeOperation='source-over'}
- padSlide(deck,X,y);
+ padSlide(deck,X,deck);
  // cranes (6 s cycle: down 1.2, latch .3, up 1.2, traverse 1.5, release .5, return 1.3)
  const cs=1+CFG.dock.craneSpeed*(dockLvl('crane')-1),ct=(T*cs)%6;let drop=0,tx=0,load=false;
  if(ct<1.2)drop=ct/1.2;else if(ct<1.5)drop=1;else if(ct<2.7){drop=1-(ct-1.5)/1.2;load=true}else if(ct<4.2){tx=(ct-2.7)/1.5;load=true}else if(ct<4.7){tx=1;drop=(ct-4.2)/0.5*0.4;load=ct<4.5}else tx=1-(ct-4.7)/1.3;
