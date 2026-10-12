@@ -436,7 +436,7 @@ function drawStop(o){const {s,f}=o;curStopA=f.a;ctx.save();
  ctx.restore()}
 function label(x,y,txt,col,size){ctx.font=`700 ${size}px Inter,system-ui,-apple-system,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(txt,x,y+1);ctx.fillStyle=col;ctx.fillText(txt,x,y)}
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
-function chip(x,y,txt,bg,fg,font){ctx.font=font||'700 11px Inter,system-ui,-apple-system,sans-serif';const w=ctx.measureText(txt).width+12;ctx.fillStyle=bg||'rgba(10,14,26,.66)';rr(ctx,x,y,w,17,8);ctx.fill();ctx.fillStyle=fg||'#eaf2ff';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,x+6,y+9);return w}
+function chip(x,y,txt,bg,fg,font,sh){ctx.font=font||'700 11px Inter,system-ui,-apple-system,sans-serif';const w=ctx.measureText(txt).width+12;ctx.fillStyle=bg||'rgba(10,14,26,.66)';rr(ctx,x,y,w,17,8);if(sh){ctx.save();ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=0;ctx.shadowOffsetY=ctx.getTransform().d;ctx.fill();ctx.restore()}else ctx.fill();ctx.fillStyle=fg||'#eaf2ff';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,x+6,y+9);return w}
 function pillBtn(x,y,txt,on){const p=on?1+0.03*Math.sin(T*5):1;ctx.save();ctx.translate(x,y);ctx.scale(p,p);ctx.font='800 15px Rajdhani,Inter,system-ui,sans-serif';const w=ctx.measureText(txt).width+34;
  const g=ctx.createLinearGradient(0,-18,0,18);if(on){g.addColorStop(0,'#ffb347');g.addColorStop(1,'#ff8a2a')}else{g.addColorStop(0,'#3a4560');g.addColorStop(1,'#2a3247')}
  ctx.fillStyle=on?'#a84c0c':'#161b27';rr(ctx,-w/2,-17,w,38,19);ctx.fill();ctx.fillStyle=g;rr(ctx,-w/2,-19,w,36,18);ctx.fill();if(!on){ctx.strokeStyle='#5b667e';ctx.lineWidth=1.5;ctx.stroke()}
@@ -466,7 +466,8 @@ function floorStatic(c,d,f){if(d.upper)return;const H=d.slots===2?240:120;const 
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;if(!(dt&&dt.L===o.L&&T-dt.t<0.45))c.drawImage(o.s.base,0,-H,360,H)});
  const L=tierOf(f.lvl);if(L&&!tierLayers(d,f).length){const col=CFG.tierColors[CFG.tierLevels.indexOf(L)];c.save();c.strokeStyle=col;c.lineWidth=3;c.globalAlpha=.9;c.strokeRect(2.5,-117.5,355,111);c.restore()}}
 // floor labels never hide under the Goal card: if a floor's top is under the HUD band, its label sticks just below the band (within the floor)
-let BAND=0;function chipY(H){const m=ctx.getTransform();if(!BAND||Math.abs(m.b)>0.01||m.d<=0)return -H+6;const st=(BAND-m.f)/m.d;return Math.min(Math.max(-H+6,st),-26)}
+let BAND=0;const stickT={};function chipY(H,id){const m=ctx.getTransform();let y=-H+6;if(BAND&&Math.abs(m.b)<=0.01&&m.d>0){const st=(BAND-m.f)/m.d;y=Math.min(Math.max(-H+6,st),-26)}
+ const stuck=y>-H+6.5;if(!stuck){delete stickT[id];return{y,a:1,sh:false}}if(stickT[id]==null)stickT[id]=T;return{y,a:Math.min(1,(T-stickT[id])/0.12),sh:true}}   // stuck: same plate + 1 pt shadow, fades in over 120 ms
 function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id],lp=lowPower(d),t=T+k*0.3;
  if(s&&s.ready){drawLayers(ctx,s,t,lp,H)}else placeholderAnim(d,f,t,lp);
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;
@@ -480,10 +481,10 @@ function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=
  (crew[d.id]||[]).forEach(a=>{const y=-120+104,role=(d.crew&&ok('walk_'+d.crew))?d.crew:'worker',key=(a.idle>0?'idle_':'walk_')+role;
   ctx.globalAlpha=.25;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(a.x,y,6,1.2,0,0,7);ctx.fill();ctx.globalAlpha=1;
   ctx.save();ctx.translate(snap(a.x),y);if(a.v<0)ctx.scale(-1,1);spr(ctx,key,lp&&a.idle<=0?0:fr(key,T+a.t),0,0);ctx.restore()});
- const L=tierOf(f.lvl);let bw=0;const bf='800 11px Inter,system-ui,sans-serif';const cy=chipY(H);
- if(L){const bt=(L===50?'🏅 ':'★ ')+d.tierInfo[L].name;ctx.font=bf;bw=ctx.measureText(bt).width+12;chip(352-bw-34,cy,bt,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205',bf)}   // badge pinned right (clear of the star medal)
+ const L=tierOf(f.lvl);let bw=0;const bf='800 11px Inter,system-ui,sans-serif';const cc=chipY(H,d.id),cy=cc.y;ctx.save();ctx.globalAlpha*=cc.a;
+ if(L){const bt=(L===50?'🏅 ':'★ ')+d.tierInfo[L].name;ctx.font=bf;bw=ctx.measureText(bt).width+12;chip(352-bw-34,cy,bt,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205',bf,cc.sh)}   // badge pinned right (clear of the star medal)
  ctx.font='700 11px Inter,system-ui,-apple-system,sans-serif';const maxW=(L?352-bw-34-6:340)-8-12;let txt=`${d.name} ${f.lvl} · ${meter(IDX[d.id])}`;
- if(ctx.measureText(txt).width>maxW){while(txt.length>4&&ctx.measureText(txt+'…').width>maxW)txt=txt.slice(0,-1);txt=txt.trimEnd()+'…'}chip(8,cy,txt);
+ if(ctx.measureText(txt).width>maxW){while(txt.length>4&&ctx.measureText(txt+'…').width>maxW)txt=txt.slice(0,-1);txt=txt.trimEnd()+'…'}chip(8,cy,txt,null,null,null,cc.sh);ctx.restore();
 }
 function coinBubble(x,y,txt){ctx.font='800 12px Rajdhani,Inter,system-ui,sans-serif';const w=ctx.measureText(txt).width+30;ctx.fillStyle='rgba(255,138,42,.95)';rr(ctx,x-w/2,y-11,w,22,11);ctx.fill();
  spr(ctx,'coin_spin',fr('coin_spin',T),x-w/2+12,y,0.8,0.8);ctx.fillStyle='#3a1600';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,x-w/2+22,y+1)}

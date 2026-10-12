@@ -116,3 +116,4 @@
 - Toast sits 18 px below the pill (8 pt gap even during its 10 px slide-in).
 - Hold scales with trip: 1x / 2.5x / 6x (12/30/72); crane scales the same (full hold loads in ~2 min); pad cap = max(60, hold).
 - ?dev params (truckdelay, speed…) survive the ?fresh URL cleanup.
+- Art checks: pad stack stays capped at its full 60-height (counter shows real N/72; slide still animates max 12); sticky floor label = same plate + 1 pt drop shadow, fades in over 120 ms.
