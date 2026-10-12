@@ -85,3 +85,4 @@
 - [x] Toasts sit over the goal card (never over a button); Dock money pop-up on delivery.
 - [x] Taps no longer freeze a running turn; the globe always settles on a station.
 - [x] ?dev=1&fresh clean dev save (preview only); build stamp next to PREVIEW.
+- [x] 10/12/2026 - planet-stack - 03:22: Refinery $2,500 (bot: bought 9:49, longest gap 91 s; saver-only wait after Separator 3:02). Bigger Dock delivery pop-up (Rajdhani Bold 22/26 pt, self-hosted art/fonts/rajdhani-700-latin.woff2 with fallback).

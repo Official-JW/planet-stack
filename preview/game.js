@@ -45,7 +45,7 @@ const BUILDINGS=[
   {id:'cafe',name:'Café',art:'moon_cafe',pack:'habitat_rooms',tiers:1,role:'boost',cost:700,out:1,use:1,up:220,ph:'#4a3a2f',desc:'Coffee under the dome: a small boost to mining.'},
   {id:'markets',name:'Supply Depot',art:'market',pack:'supply_depot',role:'depot',cost:900,out:1,use:2,up:300,desc:'Stores supplies from Earth. Keeps miners happy: +5% mining per level step.'}]},
  {id:'yard',name:'Shipyard',art:'yard',tower:true,needs:{building:'mine',floors:2},floors:[
-  {id:'refinery',name:'Refinery',art:'refinery',role:'refinery',cost:3000,out:1,use:3,up:900,ph:'#3a2f4a',desc:'Refines staged cargo: refined containers sell for 3× value.'},
+  {id:'refinery',name:'Refinery',art:'refinery',role:'refinery',cost:2500,out:1,use:3,up:900,ph:'#3a2f4a',desc:'Refines staged cargo: refined containers sell for 3× value.'},
   {id:'assembly',name:'Assembly',art:'ship_assembly',pack:'shipyard_rooms',tiers:1,slots:2,role:'boost',cost:6000,out:1,use:3,up:1800,ph:'#4a2f2a',desc:'Builds ship hull sections (2 floors tall).'},
   {id:'assembly_up',upper:'assembly',name:'Assembly',role:'none',cost:0,out:0,use:0,up:0},
   {id:'parts',name:'Parts',art:'ship_parts',pack:'shipyard_rooms',tiers:1,role:'boost',cost:9000,out:1,use:2,up:2600,ph:'#4a3a2a',desc:'Stores and picks ship parts.'},
@@ -626,10 +626,18 @@ const easeOutCubic=t=>1-Math.pow(1-t,3),easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.po
 const FX=[];
 function stopXf(si){const f=stopFrame(si);return f}
 function withStop(si,fn){const f=stopFrame(si);if(Math.abs(f.a)>0.36)return;ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a);ctx.scale(TS,TS);fn();ctx.restore()}
+// Dock delivery pop-up (Art & Animation spec): Rajdhani Bold 22/26 pt gold, 2 pt navy outline, soft cyan glow, 26 pt coin
+const coinImg=new Image();coinImg.src=ART+'ui/ui_icon_coin.webp';const POPFONT='Rajdhani,"Arial Narrow","Helvetica Neue",Arial,sans-serif';
+function drawDockPop(o,t){const sc=t<0.12?0.6+0.5*(t/0.12):t<0.18?1.1-0.1*((t-0.12)/0.06):1,ty=t<0.18?0:Math.min(1,(t-0.18)/1.2),y=o.y-40*easeOutCubic(ty),a=t<1.68?1:Math.max(0,1-(t-1.68)/0.3);
+ const fs=o.v>=1000?26:22;ctx.save();ctx.globalAlpha=a;ctx.globalCompositeOperation='source-over';ctx.filter='none';ctx.translate(o.x,y);ctx.scale(sc,sc);ctx.font=`700 ${fs}px ${POPFONT}`;const tw=ctx.measureText(o.txt).width,w=26+6+tw,x0=-w/2;
+ ctx.save();ctx.globalAlpha*=0.25;const g=ctx.createRadialGradient(0,0,4,0,0,w*0.7);g.addColorStop(0,'#3ad0ff');g.addColorStop(1,'rgba(58,208,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,0,w*0.7,fs*1.3,0,0,7);ctx.fill();ctx.restore();
+ if(coinImg.complete&&coinImg.naturalWidth)ctx.drawImage(coinImg,x0,-13,26,26);
+ ctx.textAlign='left';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle='rgba(11,16,32,.8)';ctx.strokeText(o.txt,x0+32,1);ctx.fillStyle='#FFD24A';ctx.fillText(o.txt,x0+32,1);ctx.restore()}
 function pop(si,x,y,key,txt,delay=0){FX.push({type:'pop',si,x,y,key,txt,t:T+delay})}
 function floorPt(d,x,y){return{si:stopOfTower(d.b),x:FX0+x,y:floorBottom(d.k)-120+y}}
 function drawFX(){for(let i=FX.length-1;i>=0;i--){const o=FX[i],t=T-o.t;if(t<0)continue;let done=false;
  if(o.type==='dock'){if(t>3)done=true}
+ else if(o.type==='dockpop'){done=t>1.98;withStop(o.si,()=>drawDockPop(o,t))}
  else if(o.type==='pop'){const D=o.rise||0.6;done=t>D+0.5;withStop(o.si,()=>{if(t<D){const q=t/D,sc=t<0.18?0.6+0.5*(t/0.18):(t<0.28?1.1-0.1*((t-0.18)/0.1):1);
    ctx.globalAlpha=t>D-0.15?(D-t)/0.15:1;const y=o.y-(o.dist||28)*easeOutCubic(q);spr(ctx,o.key+'_spin',fr(o.key+'_spin',t),o.x,y,sc,sc);
    if(o.txt){ctx.font='700 15px Rajdhani,Inter,system-ui,sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.6)';ctx.strokeText(o.txt,o.x+13,y);ctx.fillStyle=o.key==='coin'?'#ffd34d':'#eaf2ff';ctx.fillText(o.txt,o.x+13,y)}ctx.globalAlpha=1}
@@ -809,7 +817,7 @@ function frame(now){{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;docum
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
  if(!g0||g0.axis!=='y'){const mx=maxScroll();if(cam.y<0){cam.y+=(0-cam.y)*Math.min(1,dt*12);if(cam.y>-0.3)cam.y=0;cam.vy=Math.max(0,cam.vy)}if(cam.y>mx){cam.y+=(mx-cam.y)*Math.min(1,dt*12);cam.vy=Math.min(0,cam.vy)}}
  const gdt=dt*SPEED;step(gdt,true);if(DEV)S.money=Math.max(S.money,1e12);
- shipTick(gnow(),true).forEach(ev=>{if(ev.type==='landed'){shipAnim.mode='land';shipAnim.t0=T;shipAnim.dust=0;toast(`🚀 Cargo delivered to Earth: +${fmt(ev.v)}`);bump();pop(stopOfDock(),0,-300,'coin','+'+fmt(ev.v))}if(ev.type==='ready')toast('🚀 Ship ready to load')});
+ shipTick(gnow(),true).forEach(ev=>{if(ev.type==='landed'){shipAnim.mode='land';shipAnim.t0=T;shipAnim.dust=0;toast(`🚀 Cargo delivered to Earth: +${fmt(ev.v)}`);bump();FX.push({type:'dockpop',si:stopOfDock(),x:0,y:-230,v:ev.v,txt:'+'+fmt(ev.v),t:T})}if(ev.type==='ready')toast('🚀 Ship ready to load')});
  crewTick(dt);STOPS.forEach((s,si)=>{if(s.kind==='tower'){const n=floorsBuilt(s.bi);if(n&&Math.abs(stopFrame(si).a)<0.36)elevTick(s.bi,n,dt)}});
  render();hintDraw();hudAcc+=dt;if(hudAcc>0.25){hudAcc=0;hud();hintTick();if(bgDone)BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})}saveAcc+=dt;if(saveAcc>5){saveAcc=0;save()}
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
@@ -826,7 +834,7 @@ let bgDone=false;
  const bar=$('#lbar');await Promise.all([loadGroup('core',p=>bar.style.width=(p*80)+'%'),loadGroup('life',p=>{})]);bar.style.width='100%';
  ensureLook(elevLook(0));
  offline();econ();crewSync();hud();devUI();
- {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_later_upgrade_burst');
+ {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_later_upgrade_burst');document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
  await loadGroup('mine_preview');await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();
