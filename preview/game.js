@@ -138,12 +138,13 @@ async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.l
     s.pages=await Promise.all((m.images||[m.image]).map(async n=>bmp(await getImg(dir+n))));s.img=s.pages[0]}}
   s.ready=!!(s.img||s.base);s.missing=!s.ready})();return s.loading}
 let firstScreenDone=false;const laterWait=[];
-function loadGroup(g,onTick){if(groupState[g])return groupState[g];if(!firstScreenDone&&/^mine_later_/.test(g))return groupState[g]=new Promise(r=>laterWait.push(r)).then(()=>{delete groupState[g];return loadGroup(g,onTick)});   // every mine_later_* pack waits for the first screen
+function loadGroup(g,onTick){if(groupState[g])return groupState[g];if(g==='mine_later_tunnel_trucks'&&DEV&&+QS.get('truckdelay')>0&&!loadGroup.td){loadGroup.td=1;const ms=+QS.get('truckdelay')*1000;return groupState[g]=new Promise(r=>setTimeout(r,ms)).then(()=>{delete groupState[g];return loadGroup(g,onTick)})}   // ?dev=1&truckdelay=N: hold the tunnel trucks N s (no request is made until then, so no cache-busting is needed)
+if(!firstScreenDone&&/^mine_later_/.test(g))return groupState[g]=new Promise(r=>laterWait.push(r)).then(()=>{delete groupState[g];return loadGroup(g,onTick)});   // every mine_later_* pack waits for the first screen
 const keys=Object.keys(SPR).filter(k=>SPR[k].group===g);let done=0;
  return groupState[g]=Promise.all(keys.map(k=>loadSprite(k).then(()=>{done++;onTick&&onTick(done/keys.length)})))}
 // art for a station: its building group plus the pack of every built floor; Mine starter/preview first
 function ensureBuildingArt(bi){const b=BUILDINGS[bi];if(b.dock){loadGroup('dock');return}
- if(b.id==='mine'){loadGroup('mine_preview').then(()=>loadGroup('mine_starter')).then(()=>loadGroup('mine_later_tunnel_trucks'))}else if(b.art)loadGroup(b.art);
+ if(b.id==='mine'){loadGroup('mine_starter').then(()=>loadGroup('mine_later_tunnel_trucks'))}else if(b.art)loadGroup(b.art);
  b.floors.forEach(d=>{if(d.pack&&S.f[d.id].built)loadGroup(d.pack)});if(b.roof&&floorsBuilt(bi)===b.floors.length)loadGroup(b.id==='mine'?'mine_later_penthouse':'roofs');if(b.tower&&floorsBuilt(bi)===b.floors.length)loadGroup('roofs')}
 // tier layers (cumulative): floors/tiers/floor_<art>_t<L>
 function tierKey(d,L){return 't_'+d.id+'_'+L}
@@ -352,19 +353,57 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  drawWalkways();   // after the ground so footings sit on it, before every tower so the joints hide behind the walls
  vis.filter(o=>Math.abs(o.f.a)>=0.008).forEach(drawStop);
  vis.filter(o=>Math.abs(o.f.a)<0.008).forEach(drawStop);
+ drawRestCaps();   // Game Director: at rest the airlock caps sit OVER the main tower's wall edges
  drawFX();ctx.restore();
- const ms=STOPS[site];if(ms.kind==='tower'&&BUILDINGS[ms.bi].id==='mine'&&!ok('f_rover')&&ok('mine_preview')&&!cam.anim&&!g0){ctx.drawImage(SPR.mine_preview.img,0,snap(OY),390,844)}}
+ // (old mine_preview overlay removed: while mine_starter loads, the real Mine layout draws with placeholder floors, so nothing snaps)
+}
 let curStopA=0,armT=-99;
 // glass walkway tubes between neighbouring stations (ART_SPEC WALKWAY): caps + stretched mids + trusses every 96, astronauts inside
 let wkA=1,wkT=0;
 function drawWalkways(){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_cap_R'))return;
  {const P=CFG.rotPerSlot,rest=!cam.anim&&Math.abs(cam.rot-Math.round(cam.rot/P)*P)<0.0004,dt=Math.min(0.1,Math.max(0,T-wkT));wkT=T;
   wkA=rest?Math.min(1,wkA+dt/0.2):Math.max(0,wkA-dt/0.12)}   // Art & Animation: hidden while the globe turns (120 ms out), back once upright (200 ms in)
- if(wkA<=0)return;ctx.save();ctx.globalAlpha=wkA;try{drawWalkwaysInner()}finally{ctx.restore()}}
+ if(wkA<=0)return;ctx.save();ctx.globalAlpha=wkA;try{drawWalkwaysInner();drawRestStubs()}finally{ctx.restore()}}
+// At rest (Game Director / Art & Animation): the main station's tubes leave BOTH walls and run to the screen edge (or the neighbour's wall),
+// airlock pinned to the main wall (cap_R on its left wall, cap on its right wall), mids tiled outward, last 24 pt fading to 0, footings on the regolith.
+const wkC=document.createElement('canvas'),wkX=wkC.getContext('2d');let wkWalk={t0:-99,side:1,next:3};
+const WALL={tower:[-200,206],dock:[-195,195]};
+function drawRestCaps(){if(wkA<=0||!ok('walkway_cap')||!ok('walkway_cap_R'))return;const P=CFG.rotPerSlot,si=Math.round(cam.rot/P);if(si<0||si>=STOPS.length||cam.anim)return;
+ const f=stopFrame(si),s=STOPS[si];if(Math.abs(f.a)>0.0004)return;if(s.kind!=='dock'&&!floorsBuilt(s.bi))return;const w=WALL[s.kind==='dock'?'dock':'tower'],IN=10;   // Art & Animation: overlap only the outer steel wall column, ~10 pt in, never more
+ const isMine=s.kind==='tower'&&BUILDINGS[s.bi].id==='mine';
+ ctx.save();ctx.globalAlpha=wkA;
+ for(const side of [-1,1]){const nb=si+side;if(nb<0||nb>=STOPS.length)continue;const wallX=f.x+(side<0?w[0]:w[1])*TS,dist=Math.abs(wallX-f.x);let gy=f.y+dist*dist/(2*R)-52;
+  if(s.kind==='dock')gy=f.y+DOCK_CAP_DY;                 // dock: sits on the pad deck, footings on the deck
+  if(isMine&&side>0){const g0=gy;gy-=MINE_CAP_LIFT*TS;   // Mine: right cap sits above the truck opening in the right wall
+   // walkways never float: stacked walkway trusses from under the raised cap down to the regolith, on the shaft side (right of the wall line), clear of the truck path
+   {const top=gy+12,gnd=g0+52;for(const lx of [wallX-6,wallX+8]){   // two ~6 pt steel legs (walkway beam gray, rib style), foot plate + contact shadow, no glow
+     shadow(lx+3,gnd,14,.4);const g=ctx.createLinearGradient(lx,0,lx+6,0);g.addColorStop(0,'#5b6577');g.addColorStop(.45,'#9aa4b5');g.addColorStop(1,'#4a5364');ctx.fillStyle=g;ctx.fillRect(lx,top,6,gnd-top-2);
+     ctx.fillStyle='rgba(30,36,48,.55)';for(let y=top+8;y<gnd-6;y+=12)ctx.fillRect(lx,y,6,1.5);
+     ctx.fillStyle='#6b7486';ctx.fillRect(lx-3,gnd-3,12,3);ctx.fillStyle='#3d4555';ctx.fillRect(lx-3,gnd-1,12,1)}}}
+  if(side<0)spr(ctx,'walkway_cap_R',fr('walkway_cap_R',T+0.5),wallX+IN,gy);else spr(ctx,'walkway_cap',fr('walkway_cap',T),wallX-IN,gy)}
+ ctx.restore()}
+let DOCK_CAP_DY=-39,MINE_CAP_LIFT=80;
+function drawRestStubs(){const P=CFG.rotPerSlot,si=Math.round(cam.rot/P);if(si<0||si>=STOPS.length||cam.anim)return;const f=stopFrame(si),s=STOPS[si],w=WALL[s.kind==='dock'?'dock':'tower'];
+ if(s.kind!=='dock'&&!floorsBuilt(s.bi))return;
+ const k=DPR*SC,Wd=Math.ceil(W/SC),hgt=70;if(wkC.width!==Math.ceil(Wd*k)||wkC.height!==Math.ceil(hgt*k)){wkC.width=Math.ceil(Wd*k);wkC.height=Math.ceil(hgt*k)}
+ if(T>=wkWalk.next){wkWalk={t0:T,side:Math.random()<.5?-1:1,next:T+8+Math.random()*4}}
+ for(const side of [-1,1]){const nb=si+side;if(nb<0||nb>=STOPS.length)continue;
+  const wallX=f.x+(side<0?w[0]:w[1])*TS;let edge=side<0?0:Wd;   // screen pts (stop at rest: a=0)
+  const nf=stopFrame(nb),nw=WALL[STOPS[nb].kind==='dock'?'dock':'tower'],nWall=nf.x+(side<0?nw[1]:nw[0])*TS;if(side<0?nWall>0:nWall<Wd)edge=nWall;
+  const span=Math.abs(edge-wallX);if(span<2)continue;const dist=Math.abs(wallX-f.x),gy=f.y+dist*dist/(2*R)-52+OY*0;
+  wkX.setTransform(k,0,0,k,0,0);wkX.clearRect(0,0,Wd,hgt);const by=hgt-18;   // local baseline (grating top) inside the strip
+  const put=(key,fi,x,sx)=>spr(wkX,key,fi,x,by,sx||1,1);
+  if(side<0){put('walkway_cap_R',fr('walkway_cap_R',T+0.5),wallX);for(let x=wallX-30-48;x+48>edge-48;x-=48){put('walkway_mid',0,x);if(((wallX-30-x)/48|0)%2===0)spr(wkX,'walkway_truss',0,x+24,by+12)}}
+  else{put('walkway_cap',fr('walkway_cap',T),wallX);for(let x=wallX+30;x<edge+48;x+=48){put('walkway_mid',0,x);if(((x-wallX-30)/48|0)%2===0)spr(wkX,'walkway_truss',0,x+24,by+12)}}
+  if(wkWalk.side===side&&ok('walkway_astro_walk')){const d=(T-wkWalk.t0)*22,ax=side<0?wallX-12-d:wallX+12+d;if(d<span+20){wkX.save();wkX.translate(ax,by);if(side<0)wkX.scale(-1,1);spr(wkX,'walkway_astro_walk',fr('walkway_astro_walk',T),0,0);wkX.restore()}}
+  // fade the last 24 pt toward the screen edge (only when the tube runs off screen)
+  if(edge===0||edge===Wd){const fl=Math.min(24,span*0.6),g=wkX.createLinearGradient(edge,0,edge-side*fl,0);g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');wkX.globalCompositeOperation='destination-out';wkX.fillStyle=g;wkX.fillRect(Math.min(edge,edge-side*fl),0,fl,hgt);wkX.globalCompositeOperation='source-over'}
+  ctx.drawImage(wkC,0,0,wkC.width,wkC.height,0,gy-by,Wd,hgt)}}
 function drawWalkwaysInner(){
  // ART_SPEC WALKWAY: every frame measure the on-screen gap G between the two tower walls, then fill it: cap + ceil((G-60)/48) mids (or one mid_s) + cap_R.
  const hw=si=>{const s=STOPS[si];return (s.kind==='dock'?195:206)*TS};
- for(let i=0;i<STOPS.length-1;i++){const fa=stopFrame(i),fb=stopFrame(i+1);if(Math.min(Math.abs(fa.a),Math.abs(fb.a))>0.36)continue;
+ const mainSi=cam.anim?-9:Math.round(cam.rot/CFG.rotPerSlot);
+ for(let i=0;i<STOPS.length-1;i++){if(i===mainSi||i+1===mainSi)continue;const fa=stopFrame(i),fb=stopFrame(i+1);if(Math.min(Math.abs(fa.a),Math.abs(fb.a))>0.36)continue;
   const ax=fa.x+hw(i)*Math.cos(fa.a),ay=fa.y+hw(i)*Math.sin(fa.a),bx=fb.x-hw(i+1)*Math.cos(fb.a),by=fb.y-hw(i+1)*Math.sin(fb.a);   // right wall of i, left wall of i+1 (ground level)
   const G=Math.hypot(bx-ax,by-ay);if(G<20)continue;const alpha=Math.max(0,Math.min(1,(G-25)/20));   // fades out under ~40pt
   const x0=-G/2-6,x1=G/2+6,gnd=x=>-((G/2)*(G/2)-x*x)/(2*R);   // ground arc above the wall-to-wall chord
@@ -836,7 +875,7 @@ let bgDone=false;
  offline();econ();crewSync();hud();devUI();
  {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_later_upgrade_burst');document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
- await loadGroup('mine_preview');await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');bgDone=true;
+ await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();
 // dev mode (?dev=1 on preview only): unlimited money + Max out
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}

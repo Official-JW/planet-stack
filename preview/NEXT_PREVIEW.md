@@ -87,3 +87,11 @@
 - [x] ?dev=1&fresh clean dev save (preview only); build stamp next to PREVIEW.
 - [x] 10/12/2026 - planet-stack - 03:22: Refinery $2,500 (bot: bought 9:49, longest gap 91 s; saver-only wait after Separator 3:02). Bigger Dock delivery pop-up (Rajdhani Bold 22/26 pt, self-hosted art/fonts/rajdhani-700-latin.woff2 with fallback).
 - [x] 10/12/2026 - planet-stack - 03:34: Rajdhani OFL.txt (unmodified) at art/fonts/OFL.txt; LICENSES updated.
+
+## 10/12/2026 - planet-stack - 03:40 (committed locally, waiting to push; amended 03:44)
+- [x] Walkway rest stubs from both walls of the main tower (cap_R on its left wall, cap on its right wall, mids to the screen edge, 24 pt fade, walker every 8-12 s, behind the towers, hidden while turning). NOTE: at phone size the towers fill the full width (walls ~4-15 pt from the edges) so the stubs are not visible yet; needs a design call.
+- [x] Mine loading: old mine_preview overlay removed; the real Mine layout draws with placeholder floors while mine_starter loads (no snap).
+- [x] Dev: ?dev=1&truckdelay=N holds the tunnel-truck pack N s.
+- [x] Station dots: no tap highlight/focus ring after a turn.
+- [x] Walkway at rest (Game Director): airlock caps drawn OVER the main tower's outer wall column (~10 pt in), on both sides; Mine right cap lifted above the truck opening; Dock caps sit on the pad deck clear of the cranes. Tube/mids stay behind the towers; all fade out during turns.
+- [x] Mine raised right cap: two ~6 pt steel legs (rib style) with foot plates and contact shadows down to the regolith, right of the wall line, clear of the truck opening and path.
