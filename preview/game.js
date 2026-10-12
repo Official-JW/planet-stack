@@ -34,9 +34,9 @@ const BUILDINGS=[
   {id:'water',name:'Water',art:'water',role:'resource',res:'water',cost:120,req:{floor:'oxy',lvl:3},out:4,use:1,up:70,desc:'Makes water. More water supports more people.'},
   {id:'nuke',name:'Nuclear Power',art:'nuclear',role:'resource',res:'energy',cost:150,out:12,use:0,up:110,crew:'engineer',desc:'Makes energy for every floor and every person.'}]},
  {id:'mine',name:'He & Pt Mine',full:'Helium & Platinum Mine',art:'mine',roof:'penthouse_mine',floors:[
-  {id:'rover',name:'Rover Bay',art:'mine_rover_bay',pack:'mine_starter',role:'mine',cost:0,out:1,use:2,up:20,ph:'#5a4a3a',desc:'Rovers drive into ADIT-2, mine regolith and dump it by ore type. Higher levels add speed.'},
+  {id:'rover',name:'Rover Bay',art:'mine_rover_bay',pack:'mine_starter',role:'mine',cost:0,out:1,use:2,up:12,ph:'#5a4a3a',desc:'Rovers drive into ADIT-2, mine regolith and dump it by ore type. Higher levels add speed.'},
   {id:'crusher',name:'Crusher',art:'mine_crusher',pack:'mine_later_crusher',role:'mine',cost:250,out:1,use:1,up:120,ph:'#4a4a5a',desc:'Crushes ore: more crates from every rover load.'},
-  {id:'separator',name:'Separator',art:'mine_separator',pack:'mine_later_separator',role:'mine',cost:800,out:1,use:3,up:450,ph:'#2f4a5a',crew:'engineer',desc:'Separates Helium-3 and platinum. Uses a lot of energy.'},
+  {id:'separator',name:'Separator',art:'mine_separator',pack:'mine_later_separator',role:'mine',cost:500,out:1,use:3,up:450,ph:'#2f4a5a',crew:'engineer',desc:'Separates Helium-3 and platinum. Uses a lot of energy.'},
   {id:'packing',name:'Packing',art:'mine_packing',pack:'mine_later_packing',role:'mine',cost:6400,out:1,use:1,up:1600,ph:'#4a3f2a',desc:'Packs Pt crates and He-3 canisters faster.'}]},
  {id:'dock',name:'Cargo Space Dock',dock:true,floors:[]},
  {id:'hab',name:'Habitat',art:'hab',roof:'roof_habitat',floors:[
@@ -82,7 +82,7 @@ const ART=`art/moon/${DEV_DPR>2?'@3x':'@2x'}/`;
 const SPR={};   // key → {path, group, atlas?|floor?} ; filled when loaded
 function def(key,path,group,kind){SPR[key]={path,group,kind:kind||'atlas'}}
 // core (first screen)
-['sky','stars','stars_twinkle','earth','globe','globe_shade','globe_surface_strip'].forEach(n=>def(n,'bg/'+n,'core','img'));
+['sky','stars','stars_twinkle','earth'].forEach(n=>def(n,'bg/'+n,'core','img'));
 def('base400','world/tower_base_400','core');def('site','world/site_marker','core');
 ['walk','idle','wave','carry'].forEach(a=>def(a+'_worker','astronaut/astronaut_'+a,'core'));
 ['walk','idle'].forEach(a=>def(a+'_engineer','astronaut/astronaut_engineer_'+a,'core'));
@@ -320,29 +320,23 @@ const cv=$('#cv'),ctx=cv.getContext('2d',{alpha:false});
 let W=390,H=844,DPR=DEV_DPR,SC=1,OY=0,OX=0,TS=0.93;
 const snap=v=>Math.round(v*DPR*SC)/(DPR*SC);
 function smooth(c){c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high'}
-const R=1900,C={x:195,y:560+R},HOR=560,FOOT_MID=13.67,FX0=-200;   // tower_base_400: middle of the curved bottom is 13.67pt below its top
+const HOR=560,C={x:195,y:HOR},FOOT_MID=13.67,FX0=-200,SPAN=500;   // flat Moon (no globe): ground line at HOR; stations sit SPAN pt apart on one straight pan
 function resize(){DPR=DEV_DPR;W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);   // never lowered
  SC=Math.max(0.5,Math.round(W/390*DPR*4)/(4*DPR));if(390*SC>W)SC=Math.floor(W/390*DPR*4)/(4*DPR);
  OX=snap((W/SC-390)/2);OY=snap(H/SC-844);
  TS=Math.round(Math.min(CFG.towerScale,(W/SC-6)/412)*DPR*SC*4)/(4*DPR*SC);   // tower group fits 390 and lands on a clean device-pixel ratio
- smooth(ctx);skyC=null;band.width=0;for(const k in towerCache)delete towerCache[k];dbgText()}
+ smooth(ctx);skyC=null;gK=0;for(const k in towerCache)delete towerCache[k];dbgText()}
 addEventListener('resize',resize);
 function dbgText(fps){if(!DBG)return;let el=$('#dbg');if(!el){el=document.createElement('div');el.id='dbg';document.body.appendChild(el)}
  el.textContent=`devicePixelRatio ${window.devicePixelRatio}\nDPR used ${DPR}\ncanvas ${cv.width}×${cv.height} (${(cv.width/innerWidth).toFixed(2)}×)\nSC ${SC}  tower ${TS.toFixed(4)}\nart ${ART}${fps?`\nfps ${fps}`:''}`}
 const cam={rot:0,y:0,vy:0,anim:null};
 let skyC=null;
 function skyLayer(){const w=W*DPR|0,h=H*DPR|0;if(skyC&&skyC.width===w&&skyC.height===h)return skyC;skyC=document.createElement('canvas');skyC.width=w;skyC.height=h;const c=skyC.getContext('2d');smooth(c);if(ok('sky'))c.drawImage(SPR.sky.img,0,0,w,h);return skyC}
-const band=document.createElement('canvas'),bctx=band.getContext('2d'),BAND_TOP=HOR-6,BAND_H=190;
-function drawBand(u0){const s=Math.min(2,DPR)*SC;if(band.width!==(390*s|0)){band.width=390*s|0;band.height=BAND_H*s|0;smooth(bctx)}
- const b=bctx,img=SPR.globe_surface_strip.img,k=img.width/1200,SW=3;b.setTransform(1,0,0,1,0,0);b.clearRect(0,0,band.width,band.height);b.setTransform(s,0,0,s,0,-BAND_TOP*s);
- for(let x=-60;x<=450;x+=SW){const a=Math.asin((x+SW/2-C.x)/R),px=C.x+R*Math.sin(a),py=C.y-R*Math.cos(a);let u=((R*a+u0)%1200+1200)%1200;
-  b.save();b.translate(px,py);b.rotate(a);const sw=Math.min(SW+0.6,1200-u);b.drawImage(img,u*k,0,sw*k,160*k,-SW/2-0.3,0,sw,160);
-  if(sw<SW+0.6)b.drawImage(img,0,0,(SW+0.6-sw)*k,160*k,-SW/2-0.3+sw,0,SW+0.6-sw,160);b.restore()}
- b.globalCompositeOperation='destination-in';const g=b.createRadialGradient(C.x,C.y,R-150,C.x,C.y,R-100);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'#000');b.fillStyle=g;b.beginPath();b.arc(C.x,C.y,R,0,7);b.fill();b.globalCompositeOperation='source-over'}
 // ----- stop geometry -----
 const stopOfTower=bi=>STOPS.findIndex(s=>s.kind==='tower'&&s.bi===bi);
-function stopFrame(si){const a=si*CFG.rotPerSlot-cam.rot,sink=Math.abs(a)>0.008?CFG.neighbourSink*(1-Math.cos(a)):0;
- return{a,x:C.x+(R-sink)*Math.sin(a),y:C.y-(R-sink)*Math.cos(a)}}
+// cam.rot stays the pan coordinate (one station = CFG.rotPerSlot); a is just the offset from rest, there is no rotation any more
+function stopFrame(si){const a=si*CFG.rotPerSlot-cam.rot;return{a,x:C.x+a/CFG.rotPerSlot*SPAN,y:HOR}}
+const camX=()=>cam.rot/CFG.rotPerSlot*SPAN;
 const floorBottom=k=>-FOOT_MID+4-k*120;
 let T=0,dtG=0,site=0;
 const floorFx={},crew={},elev={};
@@ -351,7 +345,7 @@ function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
 function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
- const rx=cam.rot*R,sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
+ const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  ctx.drawImage(skyLayer(),-OX,0,W/SC,H/SC);
  ctx.save();ctx.translate(0,syy);if(ok('stars')){ctx.drawImage(SPR.stars.img,sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars.img,sx-390,0,390,844)}
  if(ok('stars_twinkle')){const tw=0.675+0.325*Math.sin(T*Math.PI*2/2.4);ctx.globalAlpha=tw;ctx.drawImage(SPR.stars_twinkle.img,sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars_twinkle.img,sx-390,0,390,844);
@@ -359,79 +353,75 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  ctx.restore();ctx.globalAlpha=1;
  if(ok('earth'))ctx.drawImage(SPR.earth.img,40-rx*0.1,90+OY*0.4+cam.y*0.1+Math.sin(T*Math.PI*2/20)*2,120,120);
  ctx.save();ctx.translate(0,snap(OY+cam.y));
- const vis=STOPS.map((s,si)=>({s,si,f:stopFrame(si)})).filter(o=>Math.abs(o.f.a)<0.36);
- if(ok('globe'))ctx.drawImage(SPR.globe.img,0,0,390,844);
- if(ok('globe_surface_strip')){drawBand(T*CFG.surfaceScroll+rx);ctx.drawImage(band,0,BAND_TOP,390,BAND_H)}
- if(ok('globe_shade'))ctx.drawImage(SPR.globe_shade.img,0,0,390,844);
+ const vis=STOPS.map((s,si)=>({s,si,f:stopFrame(si)})).filter(o=>Math.abs(o.f.x-195)<760);
+ drawGround(rx);
  drawWalkways();   // after the ground so footings sit on it, before every tower so the joints hide behind the walls
- vis.filter(o=>Math.abs(o.f.a)>=0.008).forEach(drawStop);
- vis.filter(o=>Math.abs(o.f.a)<0.008).forEach(drawStop);
- drawRestCaps();   // Game Director: at rest the airlock caps sit OVER the main tower's wall edges
+ vis.forEach(drawStop);
+ drawWalkways(true);
  drawFX();ctx.restore();
  // (old mine_preview overlay removed: while mine_starter loads, the real Mine layout draws with placeholder floors, so nothing snaps)
 }
 let curStopA=0,armT=-99;
-// glass walkway tubes between neighbouring stations (ART_SPEC WALKWAY): caps + stretched mids + trusses every 96, astronauts inside
-let wkA=1,wkT=0;
-function drawWalkways(){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_cap_R'))return;
- {const P=CFG.rotPerSlot,rest=!cam.anim&&Math.abs(cam.rot-Math.round(cam.rot/P)*P)<0.0004,dt=Math.min(0.1,Math.max(0,T-wkT));wkT=T;
-  wkA=rest?Math.min(1,wkA+dt/0.2):Math.max(0,wkA-dt/0.12)}   // Art & Animation: hidden while the globe turns (120 ms out), back once upright (200 ms in)
- if(wkA<=0)return;ctx.save();ctx.globalAlpha=wkA;try{drawWalkwaysInner();drawRestStubs()}finally{ctx.restore()}}
-// At rest (Game Director / Art & Animation): the main station's tubes leave BOTH walls and run to the screen edge (or the neighbour's wall),
-// airlock pinned to the main wall (cap_R on its left wall, cap on its right wall), mids tiled outward, last 24 pt fading to 0, footings on the regolith.
-const wkC=document.createElement('canvas'),wkX=wkC.getContext('2d');let wkWalk={t0:-99,side:1,next:3};
-const WALL={tower:[-200,206],dock:[-195,195]};
-function drawRestCaps(){if(wkA<=0||!ok('walkway_cap')||!ok('walkway_cap_R'))return;const P=CFG.rotPerSlot,si=Math.round(cam.rot/P);if(si<0||si>=STOPS.length||cam.anim)return;
- const f=stopFrame(si),s=STOPS[si];if(Math.abs(f.a)>0.0004)return;if(s.kind!=='dock'&&!floorsBuilt(s.bi))return;const w=WALL[s.kind==='dock'?'dock':'tower'],IN=10;   // Art & Animation: overlap only the outer steel wall column, ~10 pt in, never more
- const isMine=s.kind==='tower'&&BUILDINGS[s.bi].id==='mine';
- ctx.save();ctx.globalAlpha=wkA;
- for(const side of [-1,1]){const nb=si+side;if(nb<0||nb>=STOPS.length)continue;const wallX=f.x+(side<0?w[0]:w[1])*TS,dist=Math.abs(wallX-f.x);let gy=f.y+dist*dist/(2*R)-52;
-  if(s.kind==='dock')gy=f.y+DOCK_CAP_DY;                 // dock: sits on the pad deck, footings on the deck
-  if(isMine&&side>0){const g0=gy;gy-=MINE_CAP_LIFT*TS;   // Mine: right cap sits above the truck opening in the right wall
-   // walkways never float: stacked walkway trusses from under the raised cap down to the regolith, on the shaft side (right of the wall line), clear of the truck path
-   {const top=gy+12,gnd=g0+52;for(const lx of [wallX-6,wallX+8]){   // two ~6 pt steel legs (walkway beam gray, rib style), foot plate + contact shadow, no glow
-     shadow(lx+3,gnd,14,.4);const g=ctx.createLinearGradient(lx,0,lx+6,0);g.addColorStop(0,'#5b6577');g.addColorStop(.45,'#9aa4b5');g.addColorStop(1,'#4a5364');ctx.fillStyle=g;ctx.fillRect(lx,top,6,gnd-top-2);
-     ctx.fillStyle='rgba(30,36,48,.55)';for(let y=top+8;y<gnd-6;y+=12)ctx.fillRect(lx,y,6,1.5);
-     ctx.fillStyle='#6b7486';ctx.fillRect(lx-3,gnd-3,12,3);ctx.fillStyle='#3d4555';ctx.fillRect(lx-3,gnd-1,12,1)}}}
-  if(side<0)spr(ctx,'walkway_cap_R',fr('walkway_cap_R',T+0.5),wallX+IN,gy);else spr(ctx,'walkway_cap',fr('walkway_cap',T),wallX-IN,gy)}
- ctx.restore()}
+// ----- flat regolith ground (procedural, opaque): tile TW pt wide, repeats while panning. Depth gradient, craters and boulders with hard shadows, strata at the bottom.
+const GTW=1000,GTH=330,gC=document.createElement('canvas'),gX=gC.getContext('2d');let gK=0;
+function rng(seed){let x=seed>>>0;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return(x>>>0)/4294967296}}
+function buildGround(){const k=DPR*SC;if(gK===k)return;gK=k;gC.width=Math.ceil(GTW*k);gC.height=Math.ceil(GTH*k);const c=gX;c.setTransform(k,0,0,k,0,0);smooth(c);
+ let g=c.createLinearGradient(0,0,0,GTH);g.addColorStop(0,'#9a9aa0');g.addColorStop(0.08,'#86868d');g.addColorStop(0.55,'#6b6b72');g.addColorStop(0.78,'#55555c');g.addColorStop(1,'#3c3c43');c.fillStyle=g;c.fillRect(0,0,GTW,GTH);
+ const r=rng(7);
+ for(let i=0;i<2600;i++){const y=Math.pow(r(),0.8)*GTH*0.8,x=r()*GTW,s=0.4+r()*1.3*(0.5+y/GTH);c.fillStyle=r()<.5?'rgba(255,255,255,.07)':'rgba(0,0,0,.09)';c.fillRect(x,y,s,s*0.6)}   // regolith grain
+ // strata at the bottom edge (wavy bands, darker with depth)
+ const st=[[218,'#5e5a57'],[236,'#4f4b49'],[252,'#5a5652'],[268,'#46423f'],[286,'#3e3a38'],[304,'#35322f']];
+ st.forEach(([y0,col],j)=>{c.fillStyle=col;c.beginPath();c.moveTo(0,GTH);for(let x=0;x<=GTW;x+=20){c.lineTo(x,y0+Math.sin(x*0.012+j*1.7)*4+Math.sin(x*0.041+j)*1.5)}c.lineTo(GTW,GTH);c.closePath();c.fill();
+  c.strokeStyle='rgba(255,255,255,.08)';c.lineWidth=1;c.beginPath();for(let x=0;x<=GTW;x+=20){const yy=y0+Math.sin(x*0.012+j*1.7)*4+Math.sin(x*0.041+j)*1.5;x?c.lineTo(x,yy):c.moveTo(x,yy)}c.stroke()});
+ // craters (flattened by perspective), light rim toward the sun (left), hard shadow inside on the left
+ const wrap=(fn,x,w)=>{fn(x);if(x-w<0)fn(x+GTW);if(x+w>GTW)fn(x-GTW)};
+ for(let i=0;i<34;i++){const y=12+Math.pow(r(),1.3)*190,rad=(5+r()*22)*(0.6+y/220),x=r()*GTW,f=0.32+0.1*y/200;
+  wrap(cx=>{c.save();c.translate(cx,y);c.scale(1,f);c.fillStyle='#5d5d64';c.beginPath();c.arc(0,0,rad,0,7);c.fill();
+   c.fillStyle='#3d3d44';c.beginPath();c.arc(0,0,rad,0,7);c.arc(rad*0.28,-rad*0.12,rad*0.92,0,7,true);c.fill('evenodd');   // hard inner shadow
+   c.strokeStyle='rgba(225,225,230,.55)';c.lineWidth=1.6/f*0.5;c.beginPath();c.arc(0,0,rad+1,Math.PI*0.15,Math.PI*1.05);c.stroke();
+   c.strokeStyle='rgba(30,30,36,.5)';c.beginPath();c.arc(0,0,rad+1,Math.PI*1.1,Math.PI*2.1);c.stroke();c.restore()},x,rad+2)}
+ // boulders with hard cast shadows to the right
+ for(let i=0;i<46;i++){const y=8+Math.pow(r(),1.2)*200,sz=(2+r()*7)*(0.6+y/200),x=r()*GTW;
+  wrap(bx=>{c.fillStyle='rgba(20,20,26,.6)';c.beginPath();c.ellipse(bx+sz*1.1,y+sz*0.15,sz*1.5,sz*0.38,0,0,7);c.fill();
+   c.beginPath();const n=6;for(let j=0;j<n;j++){const a=j/n*Math.PI*2,rr0=sz*(0.75+((i*7+j*3)%5)/10);const px=bx+Math.cos(a)*rr0,py=y-sz*0.45+Math.sin(a)*rr0*0.7;j?c.lineTo(px,py):c.moveTo(px,py)}c.closePath();
+   const bg=c.createLinearGradient(bx-sz,y-sz,bx+sz,y);bg.addColorStop(0,'#b4b4ba');bg.addColorStop(0.55,'#7b7b82');bg.addColorStop(1,'#45454c');c.fillStyle=bg;c.fill()},x,sz*3)}
+ // horizon rim: a crisp lighter edge so the ground reads as a solid edge against the sky
+ c.fillStyle='rgba(255,255,255,.18)';c.fillRect(0,0,GTW,1.2)}
+function drawGround(rx){buildGround();const bottom=H/SC-(OY+cam.y)+40;
+ ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
+ const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
+// every building stands on a flat foundation pad with a contact shadow (replaces the curved globe base)
+function dockPlinth(){const w=420;ctx.save();ctx.globalAlpha=.5;ctx.fillStyle='#000';ctx.filter='blur(3px)';ctx.beginPath();ctx.ellipse(0,5,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
+ const g=ctx.createLinearGradient(0,-26,0,6);g.addColorStop(0,'#5a5f69');g.addColorStop(1,'#3a3d44');ctx.fillStyle=g;ctx.fillRect(-w/2,-26,w,32);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(-w/2,5,w,1)}   // solid plinth under the dock deck: nothing see-through
+function foundation(){const w=440,h=10;ctx.save();ctx.globalAlpha=.55;ctx.fillStyle='#000';ctx.filter='blur(3px)';ctx.beginPath();ctx.ellipse(0,h-1,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
+ const g=ctx.createLinearGradient(0,-4,0,h);g.addColorStop(0,'#a3a6ad');g.addColorStop(0.35,'#7d8088');g.addColorStop(1,'#4c4e55');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-w/2,h);ctx.lineTo(-w/2+6,-4);ctx.lineTo(w/2-6,-4);ctx.lineTo(w/2,h);ctx.closePath();ctx.fill();
+ ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(-w/2+6,-4,w-12,1);ctx.fillStyle='rgba(0,0,0,.25)';for(let x=-w/2+40;x<w/2-20;x+=60)ctx.fillRect(x,-3,1,h+2)}
+// flat steel base band under the tower (top strip of tower_base_400; the old curved underside is gone)
+function baseBand(c){c.save();c.beginPath();c.rect(-210,-FOOT_MID-2,420,FOOT_MID+2);c.clip();spr(c,'base400',0,0,-FOOT_MID+44);c.restore();c.fillStyle='#3b4252';c.fillRect(-206,-0.5,412,1)}
+// glass walkway tubes between neighbouring stations: always visible (no fade), flat ground, caps ~10 pt over each outer wall column,
+// tube on support legs down to the regolith. Mine's right end is raised over the truck door; the Dock end sits on its deck.
 let DOCK_CAP_DY=-39,MINE_CAP_LIFT=80;
-function drawRestStubs(){const P=CFG.rotPerSlot,si=Math.round(cam.rot/P);if(si<0||si>=STOPS.length||cam.anim)return;const f=stopFrame(si),s=STOPS[si],w=WALL[s.kind==='dock'?'dock':'tower'];
- if(s.kind!=='dock'&&!floorsBuilt(s.bi))return;
- const k=DPR*SC,Wd=Math.ceil(W/SC),hgt=70;if(wkC.width!==Math.ceil(Wd*k)||wkC.height!==Math.ceil(hgt*k)){wkC.width=Math.ceil(Wd*k);wkC.height=Math.ceil(hgt*k)}
- if(T>=wkWalk.next){wkWalk={t0:T,side:Math.random()<.5?-1:1,next:T+8+Math.random()*4}}
- for(const side of [-1,1]){const nb=si+side;if(nb<0||nb>=STOPS.length)continue;
-  const wallX=f.x+(side<0?w[0]:w[1])*TS;let edge=side<0?0:Wd;   // screen pts (stop at rest: a=0)
-  const nf=stopFrame(nb),nw=WALL[STOPS[nb].kind==='dock'?'dock':'tower'],nWall=nf.x+(side<0?nw[1]:nw[0])*TS;if(side<0?nWall>0:nWall<Wd)edge=nWall;
-  const span=Math.abs(edge-wallX);if(span<2)continue;const dist=Math.abs(wallX-f.x),gy=f.y+dist*dist/(2*R)-52+OY*0;
-  wkX.setTransform(k,0,0,k,0,0);wkX.clearRect(0,0,Wd,hgt);const by=hgt-18;   // local baseline (grating top) inside the strip
-  const put=(key,fi,x,sx)=>spr(wkX,key,fi,x,by,sx||1,1);
-  if(side<0){put('walkway_cap_R',fr('walkway_cap_R',T+0.5),wallX);for(let x=wallX-30-48;x+48>edge-48;x-=48){put('walkway_mid',0,x);if(((wallX-30-x)/48|0)%2===0)spr(wkX,'walkway_truss',0,x+24,by+12)}}
-  else{put('walkway_cap',fr('walkway_cap',T),wallX);for(let x=wallX+30;x<edge+48;x+=48){put('walkway_mid',0,x);if(((x-wallX-30)/48|0)%2===0)spr(wkX,'walkway_truss',0,x+24,by+12)}}
-  if(wkWalk.side===side&&ok('walkway_astro_walk')){const d=(T-wkWalk.t0)*22,ax=side<0?wallX-12-d:wallX+12+d;if(d<span+20){wkX.save();wkX.translate(ax,by);if(side<0)wkX.scale(-1,1);spr(wkX,'walkway_astro_walk',fr('walkway_astro_walk',T),0,0);wkX.restore()}}
-  // fade the last 24 pt toward the screen edge (only when the tube runs off screen)
-  if(edge===0||edge===Wd){const fl=Math.min(24,span*0.6),g=wkX.createLinearGradient(edge,0,edge-side*fl,0);g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');wkX.globalCompositeOperation='destination-out';wkX.fillStyle=g;wkX.fillRect(Math.min(edge,edge-side*fl),0,fl,hgt);wkX.globalCompositeOperation='source-over'}
-  ctx.drawImage(wkC,0,0,wkC.width,wkC.height,0,gy-by,Wd,hgt)}}
-function drawWalkwaysInner(){
- // ART_SPEC WALKWAY: every frame measure the on-screen gap G between the two tower walls, then fill it: cap + ceil((G-60)/48) mids (or one mid_s) + cap_R.
- const hw=si=>{const s=STOPS[si];return (s.kind==='dock'?195:206)*TS};
- const mainSi=cam.anim?-9:Math.round(cam.rot/CFG.rotPerSlot);
- for(let i=0;i<STOPS.length-1;i++){if(i===mainSi||i+1===mainSi)continue;const fa=stopFrame(i),fb=stopFrame(i+1);if(Math.min(Math.abs(fa.a),Math.abs(fb.a))>0.36)continue;
-  const ax=fa.x+hw(i)*Math.cos(fa.a),ay=fa.y+hw(i)*Math.sin(fa.a),bx=fb.x-hw(i+1)*Math.cos(fb.a),by=fb.y-hw(i+1)*Math.sin(fb.a);   // right wall of i, left wall of i+1 (ground level)
-  const G=Math.hypot(bx-ax,by-ay);if(G<20)continue;const alpha=Math.max(0,Math.min(1,(G-25)/20));   // fades out under ~40pt
-  const x0=-G/2-6,x1=G/2+6,gnd=x=>-((G/2)*(G/2)-x*x)/(2*R);   // ground arc above the wall-to-wall chord
-  const span=x1-x0-60,short=span<41&&ok('walkway_mid_s'),N=Math.max(1,Math.ceil(span/48)),sx=span/(48*N);
-  const tx=[];if(short)tx.push(0);else for(let x=x0+30;x+48<=x1-30+0.5;x+=96)tx.push(x+24);if(!tx.length)tx.push(0);
-  const gy=Math.max(...tx.map(gnd))-52;
-  const ga=ctx.globalAlpha;ctx.save();ctx.globalAlpha=alpha*ga;ctx.translate((ax+bx)/2,(ay+by)/2);ctx.rotate(Math.atan2(by-ay,bx-ax));
-  if(span>4)tx.forEach(x=>spr(ctx,'walkway_truss',0,x,gy+12));
-  const mids=()=>{if(span<=0)return;if(short)spr(ctx,'walkway_mid_s',0,x0+30,gy,span/36,1);else for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+k*48*sx,gy,sx,1)};mids();
-  if(ok('walkway_astro_walk')&&span>20){const L=span-10,nA=span<90?1:2;for(let j=0;j<nA;j++){const per=Math.max(1,L/22*2),q=((T+i*3.1+j*per/2)%per)/per,go=q<.5,u=go?q*2:2-q*2;ctx.save();ctx.translate(x0+35+L*u,gy);if(!go)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',fr('walkway_astro_walk',T+j),0,0);ctx.restore()}}
-  ctx.globalAlpha=.35*alpha*ga;mids();ctx.globalAlpha=alpha*ga;
-  spr(ctx,'walkway_cap',fr('walkway_cap',T),x0,gy);spr(ctx,'walkway_cap_R',fr('walkway_cap_R',T+0.5),x1,gy);ctx.restore()}}
-function drawStop(o){const {s,f}=o;curStopA=f.a;ctx.save();
- if(Math.abs(f.a)<0.0004)ctx.translate(snap(f.x),snap(f.y));else{ctx.translate(f.x,f.y);ctx.rotate(f.a)}
- ctx.scale(TS,TS);const atRest=Math.abs(f.a)<0.0004;
+const wkEnd=(si,side)=>{const s=STOPS[si];if(s.kind==='dock')return DOCK_CAP_DY;if(side>0&&BUILDINGS[s.bi].id==='mine')return -52-MINE_CAP_LIFT*TS;return -52};   // tube baseline (grating) relative to the ground
+const wkWall=si=>(STOPS[si].kind==='dock'?195:206)*TS;
+function leg(x,top,gnd){if(gnd-top<3)return;shadow(x+3,gnd,14,.4);const g=ctx.createLinearGradient(x,0,x+6,0);g.addColorStop(0,'#5b6577');g.addColorStop(.45,'#9aa4b5');g.addColorStop(1,'#4a5364');ctx.fillStyle=g;ctx.fillRect(x,top,6,gnd-top-2);
+ ctx.fillStyle='rgba(30,36,48,.55)';for(let y=top+8;y<gnd-6;y+=12)ctx.fillRect(x,y,6,1.5);ctx.fillStyle='#6b7486';ctx.fillRect(x-3,gnd-3,12,3);ctx.fillStyle='#3d4555';ctx.fillRect(x-3,gnd-1,12,1)}
+function drawWalkways(capsPass){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_cap_R'))return;
+ for(let i=0;i<STOPS.length-1;i++){const fa=stopFrame(i),fb=stopFrame(i+1),ax=fa.x+wkWall(i),bx=fb.x-wkWall(i+1);if(bx<-60||ax>450)continue;
+  const ea=wkEnd(i,1),eb=wkEnd(i+1,-1),dk=STOPS[i].kind==='dock'||STOPS[i+1].kind==='dock',lift=Math.min(ea,eb)<-60;
+  const yy=HOR+(lift?Math.min(ea,eb):dk?DOCK_CAP_DY:-52),ay=yy,by=yy,G=bx-ax,ang=0,IN=10;   // tubes stay level; caps upright
+  const x0=-G/2-IN,x1=G/2+IN,span=x1-x0-60,N=Math.max(1,Math.ceil(span/48)),sx=span/(48*N);
+  // legs first (behind the glass): world-vertical, every ~48 pt along the run, from the tube underside to the ground
+  if(capsPass){ctx.save();ctx.translate((ax+bx)/2,(ay+by)/2);ctx.rotate(ang);spr(ctx,'walkway_cap',fr('walkway_cap',T),x0,0);spr(ctx,'walkway_cap_R',fr('walkway_cap_R',T+0.5),x1,0);ctx.restore();continue}   // caps over the outer wall columns
+  const nL=Math.max(1,Math.round(span/56));for(let j=0;j<nL;j++){const u=(j+0.5)/nL,lx=ax+(bx-ax)*u,ly=ay+12;leg(lx-3,ly,HOR)}
+  if(lift)for(const ex of [ax-IN+4,bx+IN-10])leg(ex,ay+12,HOR+(ex<(ax+bx)/2?(ea<-60?0:DOCK_CAP_DY+12):(eb<-60?0:DOCK_CAP_DY+12)))   // raised run: legs under both caps (to the ground, or to the dock deck)
+  ctx.save();ctx.translate((ax+bx)/2,(ay+by)/2);ctx.rotate(ang);
+  const mids=()=>{for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+k*48*sx,0,sx,1)};mids();
+  if(ok('walkway_astro_walk')&&span>20){const L=span-10;const per=Math.max(1,L/22*2),q=((T+i*3.1)%per)/per,go=q<.5,u=go?q*2:2-q*2;ctx.save();ctx.translate(x0+35+L*u,0);if(!go)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',fr('walkway_astro_walk',T),0,0);ctx.restore()}
+  ctx.globalAlpha=.35;mids();ctx.globalAlpha=1;ctx.restore()}}
+function drawStop(o){const {s,f}=o;curStopA=0;ctx.save();
+ ctx.translate(snap(f.x),snap(f.y));   // upright, always
+ ctx.scale(TS,TS);const atRest=s.kind==='dock'?Math.abs(f.a)<0.0004:true;   // no rotation: the static tower cache is valid while panning too
+ if(s.kind!=='dock')foundation();else dockPlinth();
  if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine')drawMineForeground(f)}
  ctx.restore()}
 function label(x,y,txt,col,size){ctx.font=`700 ${size}px Inter,system-ui,-apple-system,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(txt,x,y+1);ctx.fillStyle=col;ctx.fillText(txt,x,y)}
@@ -541,13 +531,13 @@ function towerNeedsLive(bi,n){const fl=BUILDINGS[bi].floors;for(let i=0;i<n;i++)
 function getTowerCache(bi,n){const key=towerKey(bi,n);let c=towerCache[bi];if(c&&c.key===key)return c;
  const s=DPR*SC*TS,top=Math.floor((floorBottom(n-1)-320)*s)/s,w=420,h=Math.ceil((50-top)*s)/s;
  const cv2=document.createElement('canvas');cv2.width=Math.ceil(w*s);cv2.height=Math.ceil(h*s);const x=cv2.getContext('2d');smooth(x);x.setTransform(s,0,0,s,w/2*s,-top*s);
- spr(x,'base400',0,0,-FOOT_MID+44);drawShaftStatic(x,bi,n);
+ baseBand(x);drawShaftStatic(x,bi,n);
  const fl=BUILDINGS[bi].floors;for(let i=0;i<n;i++){x.save();x.translate(FX0,floorBottom(i));floorStatic(x,fl[i],S.f[fl[i].id]);x.restore()}
  roofStatic(x,bi,n);
  return towerCache[bi]={key,cv:cv2,top,w,h}}
 function drawTower(bi,n,atRest){const fl=BUILDINGS[bi].floors,live=!atRest||towerNeedsLive(bi,n);
  if(!live){const c=getTowerCache(bi,n);ctx.drawImage(c.cv,-c.w/2,c.top,c.w,c.h);cacheHits++}
- else{spr(ctx,'base400',0,0,-FOOT_MID+44);drawShaftStatic(ctx,bi,n);roofStatic(ctx,bi,n)}
+ else{baseBand(ctx);drawShaftStatic(ctx,bi,n);roofStatic(ctx,bi,n)}
  for(let k=0;k<n;k++){const d=fl[k],f=S.f[d.id];ctx.save();ctx.translate(FX0,floorBottom(k));
   if(live){const [sx,sy]=floorScale(floorFx[d.id]||{});ctx.scale(sx,sy);floorStatic(ctx,d,f)}floorAnim(d,f,k);ctx.restore()}
  drawCar(bi,n);roofAnim(bi,n);
@@ -593,7 +583,7 @@ function sprTint(key,frame,x,y,tint){if(tint>=0.999){spr(ctx,key,frame,x,y);retu
 function roverBay(base,f,lp){const R=BAYROUTE;if(!R||S.f.rover.workers<=0)return;const tc=truckClock(),n=tc.n,c=tunnelOk?tc.c:2.7,kind=truckKind(n),FY=R.floorY-120;
  // bin: +1 step per pour end, wraps after full
  const pours=n+(c>=4.9?1:0);spr(ctx,'bin_fill_ore',Math.min(4,pours%6),14,68-120);
- if(c>=7.9)return;const i=Math.min(R.frames.length-1,Math.floor(c*R.fps)),q=c*R.fps-i,a=R.frames[i],b=R.frames[Math.min(R.frames.length-1,i+1)],x=a.x+(b.x-a.x)*q,bob=a.bob+(b.bob-a.bob)*q;
+ if(c>=7.9)return;const i=Math.min(R.frames.length-1,Math.floor(c*R.fps)),q=c*R.fps-i,a=R.frames[i],b=R.frames[Math.min(R.frames.length-1,i+1)],x=Math.max(R.stopX??92,a.x+(b.x-a.x)*q),bob=a.bob+(b.bob-a.bob)*q;
  const tint=x>330?0.45:x<220?1:1-0.55*(x-220)/110,y=FY-bob;
  let key,fr8;if(c>=2.7&&c<5.8){key='rover_bay_dump_'+kind;fr8=Math.min(15,Math.floor((c-2.7)/3.1*16))}else{key='truck_'+kind+'_drive';const rev=a.seg==='reverseIn',mv=Math.abs(b.x-a.x)>0.05;fr8=mv?(rev?7-Math.floor(c*12)%8:Math.floor(c*12)%8):0}
  if(lp&&key.startsWith('truck'))fr8=0;
@@ -606,7 +596,7 @@ function drawMineForeground(f){if(!ok('tunnel_back'))return;const par=(f.x-195)*
  softCave('tunnel_back');
  let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
  dustTick(r,dt);drawDust(dt);
- if(r&&!r.piv){const d=Math.min(0,r.x+45-FG.tunnel);r.y+=d*d*TS/(2*R);r.ang=d*TS/R}   // off the cave pad the ground follows the Moon's curve
+ 
  if(r){const ramp=r.ramp!=null;
   if(!ramp||r.ramp<0.35)shadow(r.piv?r.x:r.x+45,(r.piv?r.y:r.y-Math.min(0,0))+0.5,90,.45*(ramp?1-r.ramp/0.35:1));
   ctx.save();
@@ -636,6 +626,9 @@ function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!trackMan())return null;c
 function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const ps=ensureTrack(t,L);if(ps)ps.forEach(({e,o})=>{if(o.img)ctx.drawImage(o.img,-380+e.x,-620+e.y,e.w,e.h)})}})}   // cumulative per track; every piece; missing art → base dock
 const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'walk'},{a:500,b:560,k:'carry'}];
 // lift waits for the slide + pad tick-down + a 150 ms beat; ignition (0.4 s) is timed so the rise starts right after the beat. Visual only: trip timer and payout stay locked to the launch tap.
+// pad stacks: ONE constant. 4 tiers x 3 per stack = 12 per stack, 24 drawn in total; above that both stacks stay full and the counter shows the real Pad N/cap.
+const PAD_VIS={tiers:4,perTier:3,tierGap:40,get perStack(){return this.tiers*this.perTier},get total(){return 2*this.perStack}};
+function padSplit(pt,he){const m=PAD_VIS.perStack,tot=Math.min(pt+he,PAD_VIS.total);return[Math.min(pt,m),Math.min(he,m)]}   // each stack shows its own type only (never Pt drawn as He-3)
 const hatchAt=()=>padDip?padDip.end+0.3:0;   // hatch shuts in the 150 ms beat: 6 frames x 24 ms
 const liftDelay=()=>padDip&&T-padDip.t<5?padDip.end+0.3+0.15-0.4:0;
 // what the pad stacks show around a launch: loaded containers stay drawn until they leave. The animated 12 leave one by one (top first);
@@ -647,7 +640,7 @@ function padVis(){const r={pt:padPt(),he:padHe(),spt:0,she:0,fpt:0,fhe:0,fa:1};i
  r.fa=1-(dt-E0)/0.2;r.fpt=fp;r.fhe=fh;return r}
 function padSlide(deck,X,sy0){const dt=padDip?T-padDip.t:9;   // drawn over the hull so the slide into the hold reads
  if(padDip&&dt<padDip.end){const k=Math.min(padDip.n,12),he=Math.round(k*padDip.he/Math.max(1,padDip.n));for(let i=0;i<k;i++){const isHe=i<he,j=isHe?i:i-he,q=Math.max(0,Math.min(1,(dt-i*0.04)/0.4));if(q<=0||q>=1)continue;
-    const sx=X(isHe?540:440),sy=deck-5*44+j*10,e=easeInOutCubic(q),bx=sx+(36-sx)*e,by=sy+(sy0-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
+    const sx=X(isHe?540:440),sy=deck-(PAD_VIS.tiers-1)*PAD_VIS.tierGap+j*10,e=easeInOutCubic(q),bx=sx+(36-sx)*e,by=sy+(sy0-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
 }
 function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOPS[site].bi?dockPan:0)/TS,0);ctx.scale(k,k);
  if(!ok('dock_base')){spr(ctx,'site',fr('site',T),0,-6,1/k,1/k);label(0,-150,'Cargo Space Dock','#c9d3e6',22);label(0,-120,'Loading dock art…','#8fa3c4',18);ctx.restore();return}
@@ -658,9 +651,12 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  spr(ctx,'dock_base',0,0,0);
  dockOverlays(['crew','refuel','pad']);
  // staged containers in the LOADING zones (Pt in zone 1, He-3 in zone 2)
- const zone=(cx,n,key,keyS)=>{const full=Math.floor(n/3);for(let i=0;i<Math.min(full,5);i++)spr(ctx,keyS,fr(keyS,T+i*.3),X(cx),deck-i*44);if(n%3&&full<5)for(let j=0;j<n%3;j++)spr(ctx,key,fr(key,T+j*.4),X(cx)-15+j*30,deck-Math.min(full,5)*44)};
- {const v=padVis(),zp=(n,a)=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(440,n,'loaded_box_pulse','loaded_box_stack3');ctx.restore()},zh=(n,a)=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(540,n,'he3_canister_pulse','he3_canister_stack3');ctx.restore()};
-  if(v.fa<1){zp(v.pt+v.fpt,v.fa);zh(v.he+v.fhe,v.fa)}zp(v.pt+v.spt,1);zh(v.he+v.she,1)}
+ const PT=PAD_VIS.tiers,PS=PAD_VIS.perTier,TG=PAD_VIS.tierGap;
+ const zone=(cx,n,key,keyS)=>{n=Math.min(n,PT*PS);const full=Math.floor(n/PS);for(let i=0;i<full;i++)spr(ctx,keyS,fr(keyS,T+i*.3),X(cx),deck-i*TG);if(n%PS)for(let j=0;j<n%PS;j++)spr(ctx,key,fr(key,T+j*.4),X(cx)-15+j*30,deck-full*TG)};
+ const v=padVis(),lay=[];if(v.fa<1)lay.push([padSplit(v.pt+v.fpt,v.he+v.fhe),v.fa]);lay.push([padSplit(v.pt+v.spt,v.he+v.she),1]);
+ lay.forEach(([c,a])=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(440,c[0],'loaded_box_pulse','loaded_box_stack3');ctx.restore()});
+ const heStack=()=>{const top=lay[lay.length-1][0][1];if(top>0){ctx.save();ctx.globalAlpha=.4;ctx.fillStyle='#000';ctx.filter='blur(2px)';ctx.beginPath();ctx.ellipse(X(540),deck+1,34,4,0,0,7);ctx.fill();ctx.restore()}   // contact shadow
+  lay.forEach(([c,a])=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(540,c[1],'he3_canister_pulse','he3_canister_stack3');ctx.restore()})};
  {const dt=padDip?T-padDip.t:9,dip=dt<(padDip?padDip.end:0.4)+1.2;   // launch: loaded containers slide up into the hold (400 ms, low-g ease, top of stack first), then the pad count ticks down by exactly that many
   const E0=padDip?padDip.end:0.4,shown=dt<E0?padDip.from:dt<E0+0.3?padDip.from-Math.round(padDip.n*(dt-E0)/0.3):staged();
   label(X(490),deck-330,`Pad ${Math.max(staged(),dt<E0+0.3?shown:0)}/${padCap()}`,dip?'#ff9b7a':'#bfe9ff',13);
@@ -683,6 +679,7 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  if(load&&staged()>0)spr(ctx,'crane_hook_box',fr('crane_hook_box',T),gx,hy);else spr(ctx,'crane_hook_empty',0,gx,hy);
  ctx.save();ctx.translate(X(515),deck);ctx.scale(1.45,1.45);spr(ctx,'crane_jib_mast',0,0,0);ctx.translate(0,-176);ctx.rotate(Math.sin(T*0.6*cs)*8*Math.PI/180);ctx.scale(-1,1);spr(ctx,'crane_jib_boom',0,0,0);ctx.restore();
  dockOverlays(['crane']);
+ heStack();   // He-3 stack in front of the orange jib tower
  const pt=dockTier('pad'),sk=pt>=20&&ok('dock_sign_neon_pad_t20')?'pad_t20':pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';   // blue neon v2 at real 48pt; glow = one image + JSON flicker curve (additive)
  {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;ctx.save();ctx.translate(0,deck+38);ctx.rotate(-curStopA);spr(ctx,'dock_sign_neon_'+sk,0,0,0);spr(ctx,'dock_sign_glow_'+sk,gf,0,0);ctx.restore();   // sign always level (pad space, 0°)
   if(ok('dock_sign_bloom_'+sk)){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.6+0.4*al;spr(ctx,'dock_sign_bloom_'+sk,0,0,deck);ctx.restore()}}
@@ -833,11 +830,31 @@ let dotSwallow=0;
 const inDots=(x,y)=>{const d=$('#dots');if(!d||!d.children.length)return -1;const r=d.getBoundingClientRect(),cy=r.top+r.height/2;if(Math.abs(y-cy)>22||x<r.left-8||x>r.right+8)return -1;const c=d.children[0].getBoundingClientRect();return Math.max(0,Math.min(STOPS.length-1,Math.floor((x-c.left)/c.width)))};
 addEventListener('pointerdown',ev=>{if(!$('#sheet').classList.contains('open'))return;const j=inDots(ev.clientX,ev.clientY);if(j<0)return;ev.preventDefault();ev.stopPropagation();dotSwallow=performance.now();closeSheet();goSite(j)},true);
 addEventListener('click',ev=>{if(performance.now()-dotSwallow<700){ev.preventDefault();ev.stopPropagation()}},true);
-function closeSheet(){sheetFor=null;$('#sheet').classList.remove('open');$('#shade').classList.remove('on')}
+function closeSheet(){sheetFor=null;sd=null;const el=$('#sheet'),sh=$('#shade');el.style.transform='';el.style.transition='';sh.style.opacity='';sh.style.transition='';el.classList.remove('open');sh.classList.remove('on')}
+// ----- sheet drag-to-dismiss (grab handle). Touch events (iOS Safari: preventDefault while dragging) + mouse pointer. 1:1 with the finger, backdrop fades;
+// release past 30% of the height or a flick closes in 250 ms ease-out, otherwise springs back. Tapping the backdrop still closes.
+let sd=null;
+function sdStart(y,target){const el=$('#sheet');if(!el.classList.contains('open'))return;const onHandle=!!(target&&target.closest&&(target.closest('.grab')||target.closest('.hdr')));
+ sd={y0:y,dy:0,h:el.offsetHeight||1,active:false,handle:onHandle,hist:[[performance.now(),y]]}}
+function sdMove(y,e){if(!sd)return false;const el=$('#sheet'),dy=y-sd.y0;sd.hist.push([performance.now(),y]);if(sd.hist.length>6)sd.hist.shift();
+ if(!sd.active){if(dy>6&&(sd.handle||el.scrollTop<=0)){sd.active=true;sd.y0=y;el.style.transition='none';$('#shade').style.transition='none'}else{if(Math.abs(dy)>6&&!sd.handle)sd=null;return false}}
+ const d=Math.max(0,y-sd.y0);sd.dy=d;el.style.transform=`translateY(${d}px)`;$('#shade').style.opacity=(0.35*(1-Math.min(1,d/sd.h))).toFixed(3);if(e&&e.cancelable)e.preventDefault();return true}
+function sdEnd(){if(!sd)return;const g=sd;sd=null;if(!g.active)return;const el=$('#sheet'),sh=$('#shade'),b=g.hist[g.hist.length-1],a=g.hist.find(h=>b[0]-h[0]<=100)||b,v=(b[1]-a[1])/Math.max(16,b[0]-a[0]);   // px/ms
+ if(g.dy>0.3*g.h||v>0.6){el.style.transition='transform .25s cubic-bezier(0,0,.58,1)';el.style.transform='translateY(100%)';sh.style.transition='opacity .25s ease-out';sh.style.opacity='0';sheetDragClosed=performance.now();setTimeout(()=>{if(!el.classList.contains('open'))return;closeSheet()},250)}
+ else{el.style.transition='transform .3s cubic-bezier(.2,1.25,.4,1)';el.style.transform='translateY(0)';sh.style.transition='opacity .3s';sh.style.opacity='.35';setTimeout(()=>{if(!sd){el.style.transition='';el.style.transform='';sh.style.transition='';sh.style.opacity=''}},320)}}
+let sheetDragClosed=0;
+{const el=$('#sheet');
+ // The sheet re-renders its innerHTML on refresh, which detaches the touch target; touch events keep going to that detached node and never bubble.
+ // So move/end listeners are bound to the touch target itself at touchstart (works on iOS Safari too), and removed at the end.
+ const tm=e=>{if(sd&&e.touches.length===1)sdMove(e.touches[0].clientY,e)},te=e=>{const t=e.currentTarget;t.removeEventListener('touchmove',tm);t.removeEventListener('touchend',te);t.removeEventListener('touchcancel',te);sdEnd()};
+ el.addEventListener('touchstart',e=>{if(e.touches.length!==1)return;sdStart(e.touches[0].clientY,e.target);if(!sd)return;const t=e.target;t.addEventListener('touchmove',tm,{passive:false});t.addEventListener('touchend',te);t.addEventListener('touchcancel',te)},{passive:true});
+ el.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){sdStart(e.clientY,e.target);}});
+ document.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&sd)sdMove(e.clientY,e)});
+ document.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')sdEnd()})}
 $('#shade').onclick=()=>{if(performance.now()-sheetOpenedAt>400)closeSheet()};
 let tt=0,padDip=null;function placeToast(){const t=$('#toast'),lp=$('#lpw'),pr=lp&&lp.offsetParent&&lp.getBoundingClientRect(),g=$('#goal'),r=g&&g.getBoundingClientRect();   // never cover the low-power pill: sit just below it when it shows
  if(pr&&pr.height)t.style.top=Math.round(pr.bottom+18)+'px';else if(r&&r.height)t.style.top=Math.round(r.top+r.height/2-18)+'px'}
-function toast(m,tap){const t=$('#toast');t.textContent=m;t.onclick=tap?()=>{t.classList.remove('on');tap()}:null;t.style.pointerEvents=tap?'auto':'';if(E)lowPowerUI();placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>{t.classList.remove('on');t.style.pointerEvents='';t.onclick=null},2200)}
+function toast(m,tap){const t=$('#toast');t.textContent=m;t.onclick=tap?()=>{t.classList.remove('on');tap()}:null;t.style.pointerEvents=tap?'auto':'';if(E){econ();lowPowerUI()}placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>{t.classList.remove('on');t.style.pointerEvents='';t.onclick=null},2200)}
 // =====================================================================
 // HUD
 // =====================================================================
@@ -877,15 +894,16 @@ function endHint(){hintOn=false;S.hint=1;$('#hint').style.display='none';save()}
 // INPUT: axis lock, edge guard, momentum vertical scroll, snap rotation
 // =====================================================================
 const toLogical=(cx,cy)=>({x:cx/SC-OX,y:cy/SC});
-function maxScroll(){const s=STOPS[site];if(s.kind!=='tower')return 0;const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);const topY=C.y-R+floorBottom(n-1)*TS-200*TS-70;return Math.max(0,-(topY+OY)+300)}
+function maxScroll(){const s=STOPS[site];if(s.kind!=='tower')return 0;const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);const topY=HOR+floorBottom(n-1)*TS-200*TS-70;return Math.max(0,-(topY+OY)+300)}
 let g0=null,dockPan=0;const PANMAX=60;   // dock stop: sideways pan over the 760-wide art (screen pts)
 cv.addEventListener('pointerdown',e=>{if(e.clientX<20||e.clientX>innerWidth-20){g0={edge:true};return}g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};cam.vy=0},{passive:true});
 $('#shade').addEventListener('pointerdown',e=>{g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}});
 addEventListener('pointermove',e=>{if(!g0||g0.edge)return;const dx=e.clientX-g0.x,dy=e.clientY-g0.y;
  if(!g0.axis&&Math.hypot(dx,dy)>9){g0.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';if(g0.fromShade&&g0.axis==='x')closeSheet();if(g0.fromShade&&g0.axis==='y'){g0=null;return}if(g0.axis==='x'&&g0.onDock&&!((dx>0&&g0.pan0<=-PANMAX+0.5)||(dx<0&&g0.pan0>=PANMAX-0.5)))g0.axis='p';   // pan until the edge; only a NEW swipe from the edge changes station
-  if(g0.axis==='x'){if(cam.anim){cam.anim=null;g0.rot0=cam.rot+dx/SC/R*1.25}}if(g0.axis==='x'&&hintOn)endHint()}
+  if(g0.axis==='x'){if(cam.anim){cam.anim=null;g0.rot0=cam.rot+dx/SC*CFG.rotPerSlot/SPAN}}if(g0.axis==='x'&&hintOn)endHint()}
  if(g0.axis==='p'){dockPan=Math.max(-PANMAX,Math.min(PANMAX,g0.pan0-dx/SC));return}
- if(g0.axis==='x'){cam.rot=g0.rot0-dx/SC/R*1.25;cam.rot=Math.max(-0.06,Math.min((STOPS.length-1)*CFG.rotPerSlot+0.06,cam.rot))}
+ if(g0.axis==='x'){cam.rot=g0.rot0-dx/SC*CFG.rotPerSlot/SPAN;   // straight pan, 1:1 with the finger
+ cam.rot=Math.max(-0.06,Math.min((STOPS.length-1)*CFG.rotPerSlot+0.06,cam.rot))}
  if(g0.axis==='y'){cam.y=Math.max(-30,Math.min(maxScroll()+30,g0.y0+dy/SC));g0.hist.push([performance.now(),cam.y]);if(g0.hist.length>6)g0.hist.shift()}},{passive:true});
 addEventListener('pointercancel',()=>{g0=null});
 addEventListener('pointerup',e=>{if(!g0||g0.edge){g0=null;return}const g=g0;g0=null;if(g.axis==='p')return;

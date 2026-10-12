@@ -118,3 +118,13 @@
 - ?dev params (truckdelay, speed…) survive the ?fresh URL cleanup.
 - Art checks: pad stack stays capped at its full 60-height (counter shows real N/72; slide still animates max 12); sticky floor label = same plate + 1 pt drop shadow, fades in over 120 ms.
 - Big launches: loaded containers stay drawn until they leave; past the 12 animated, the rest fade out over 200 ms after the slide so the stack matches the remaining pad (unloaded ones stay). No pop-back; lift beat unchanged.
+
+## r12 (08:07 PT) — flat world rework
+- Moon globe + rotation removed; flat procedural regolith (strata, craters, boulders, hard shadows); straight horizontal pan, 1:1 swipe, snaps to 6 stations.
+- Buildings upright on foundation pads with contact shadows; dock on a solid plinth.
+- Glass walkway tubes always visible on support legs (old fade removed).
+- Mine layout + loader are PLACEHOLDERS (Art's v3–v5 mine files are unapproved mockups; v6 coming) — nothing baked in.
+- Upgrade sheet: 36x5 grab handle, drag-to-dismiss (1:1, backdrop fades, >30% or flick closes in 250 ms ease-out, else spring back); iOS touch handled on the touch target.
+- Separator $500; Rover Bay upgrade base 20→12 for pacing; toast placed after econ() so it sits 18 px under the pill.
+- Pad cap constant PAD_VIS (4 tiers × 3 = 12/stack, 24 total); He-3 stack in front of the orange tower; Pt crate clears crossbar.
+- Rover stopX 92, truck x ≥ stopX; during truckdelay truck waits visible at the bin (x=92).
