@@ -80,7 +80,7 @@
     "@3x/floors/tiers/floor_refinery_t50.webp",
     "@3x/floors/tiers/floor_refinery_t50_layers.webp"
    ],
-   "bytes": 1936586
+   "bytes": 1874960
   },
   "@2x": {
    "files": [
@@ -160,7 +160,7 @@
     "@2x/floors/tiers/floor_refinery_t50.webp",
     "@2x/floors/tiers/floor_refinery_t50_layers.webp"
    ],
-   "bytes": 1215214
+   "bytes": 1177188
   }
  }
 }

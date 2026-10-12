@@ -63,3 +63,24 @@ Rajdhani and Inter: SIL Open Font License (OFL), via Google Fonts. DejaVu Sans /
 - `walkway_truss` (48x40, pivot (24,0)): hang it under the grating base (y=64) every 96 px, starting at x0+30. The footings rest at +40.
 - `walkway_astro_walk` (30x40, 8f@12fps, pivot (15,40)): 0.7x crew13 walk, feet on y=52, 22 px/s. Flip it for leftward walking. Draw it after the mids so it sits inside the glass. For a glass-front effect, draw mid again at 35% alpha on top (optional).
 - Pack `packs/walkway.json`: 89 KB @3x, 54 KB @2x. Preview: `shared/walkway/walkway_closeup.png`.
+
+## ROOFS (`art/moon/@3x|@2x/roofs/`, pack `packs/roofs.json`, load: later)
+- Script: `/workspace/artgen/roofs/roofs.py`. 6x masters are in `_masters/roofs/`. Exports are q95 with sharp edges. Labels are bold at 5.2 logical px (cap height about 11 px @3x).
+- Each roof is 360x180 with pivot (0,180): bottom-left, sitting on top of the station's top floor. The roof deck is at y=132.
+  - The building cap (y 132–180) carries the station accent band and a label.
+  - Each roof is layered: a static `roof_<st>.webp` plus a `roof_<st>_layers.webp` diff atlas, 16 frames @12fps, looping.
+
+  | roof | accent | static content | animated layer |
+  |---|---|---|---|
+  | `roof_habitat` | #f0a070 | glass observation lounge with seated crew, radiator fins | comms dish sweep (±20°), red/amber beacons, steam vent |
+  | `roof_shipyard` | #ff6a3d | gantry crane GC-40, parts hoist tower | gantry trolley travel with a swaying hull part, hoist crate lift, beacons, steam |
+  | `roof_engineering` | #d4e04a | 4 solar arrays, lattice sensor mast, test range (yagi, whips, dish) | radar bar sweep (±45°), dish nod, beacons, steam |
+
+- **Launch Tower** (360x360, pivot (0,360)): it stands on the Shipyard top floor in place of `roof_shipyard`. The area above the structures is transparent. Draw order: ship → tower → crew arm → fuel arm.
+  - `launch_tower.webp`: static lattice tower, elevator, platforms and pad mount.
+  - `launch_tower_ship.webp`: separate small ship LS-7 on the pad mount, about x 134–206.
+  - `launch_tower_crew_arm`: 12 frames @12fps, not looping, hinge (240,180). Frame 0 is docked at the ship's hatch; frame 11 is swung away (−75°).
+  - `launch_tower_fuel_arm`: 12 frames @12fps, not looping, hinge (240,300). Frame 0 is connected; frame 11 is retracted (−60°).
+  - Arm atlases are **trimmed**: each frame is cropped to its content (1 pt pad) and shelf-packed onto as few pages as possible (≤2048 px). `meta.trimmed=true`. Each frame entry has `offset:{x,y}` in px at that scale — place the trimmed rect at `(offset.x, offset.y)` inside the full `logicalFrame*scale` canvas, then draw at the pivot. Crew and fuel arms each fit on **1 page** at @3x and @2x (`launch_tower_crew_arm.webp`, `launch_tower_fuel_arm.webp`).
+  - All atlas pages are 2048 px or smaller. Pack `packs/roofs.json` load: later.
+- Preview: `art/moon/roofs_sheet.png`.

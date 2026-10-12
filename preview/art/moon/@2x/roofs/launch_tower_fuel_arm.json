@@ -1,0 +1,195 @@
+{
+ "meta": {
+  "images": [
+   "launch_tower_fuel_arm.webp"
+  ],
+  "image": "launch_tower_fuel_arm.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 360,
+   "h": 360
+  },
+  "pivot": {
+   "x": 0,
+   "y": 360
+  },
+  "trimmed": true,
+  "loop": false,
+  "hinge": [
+   240,
+   300
+  ],
+  "note": "frame 0 = connected, 11 = retracted (\u221260\u00b0)"
+ },
+ "frames": {
+  "launch_tower_fuel_arm_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 140,
+    "h": 60
+   },
+   "offset": {
+    "x": 360,
+    "y": 584
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_1": {
+   "page": 0,
+   "frame": {
+    "x": 140,
+    "y": 0,
+    "w": 140,
+    "h": 58
+   },
+   "offset": {
+    "x": 360,
+    "y": 586
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_2": {
+   "page": 0,
+   "frame": {
+    "x": 280,
+    "y": 0,
+    "w": 140,
+    "h": 54
+   },
+   "offset": {
+    "x": 360,
+    "y": 590
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_3": {
+   "page": 0,
+   "frame": {
+    "x": 420,
+    "y": 0,
+    "w": 140,
+    "h": 54
+   },
+   "offset": {
+    "x": 360,
+    "y": 590
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_4": {
+   "page": 0,
+   "frame": {
+    "x": 560,
+    "y": 0,
+    "w": 140,
+    "h": 58
+   },
+   "offset": {
+    "x": 360,
+    "y": 590
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_5": {
+   "page": 0,
+   "frame": {
+    "x": 700,
+    "y": 0,
+    "w": 140,
+    "h": 72
+   },
+   "offset": {
+    "x": 360,
+    "y": 590
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_6": {
+   "page": 0,
+   "frame": {
+    "x": 840,
+    "y": 0,
+    "w": 140,
+    "h": 84
+   },
+   "offset": {
+    "x": 360,
+    "y": 592
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_7": {
+   "page": 0,
+   "frame": {
+    "x": 980,
+    "y": 0,
+    "w": 140,
+    "h": 94
+   },
+   "offset": {
+    "x": 360,
+    "y": 592
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_8": {
+   "page": 0,
+   "frame": {
+    "x": 1120,
+    "y": 0,
+    "w": 140,
+    "h": 104
+   },
+   "offset": {
+    "x": 360,
+    "y": 592
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_9": {
+   "page": 0,
+   "frame": {
+    "x": 1260,
+    "y": 0,
+    "w": 140,
+    "h": 108
+   },
+   "offset": {
+    "x": 360,
+    "y": 594
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_10": {
+   "page": 0,
+   "frame": {
+    "x": 1400,
+    "y": 0,
+    "w": 140,
+    "h": 110
+   },
+   "offset": {
+    "x": 360,
+    "y": 594
+   },
+   "duration": 83
+  },
+  "launch_tower_fuel_arm_11": {
+   "page": 0,
+   "frame": {
+    "x": 1540,
+    "y": 0,
+    "w": 140,
+    "h": 112
+   },
+   "offset": {
+    "x": 360,
+    "y": 594
+   },
+   "duration": 83
+  }
+ }
+}
