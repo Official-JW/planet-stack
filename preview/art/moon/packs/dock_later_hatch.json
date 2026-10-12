@@ -1,0 +1,21 @@
+{
+ "pack": "dock_later_hatch",
+ "root": "dock",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/ship/ship4_hatch.json",
+    "@3x/ship/ship4_hatch.webp"
+   ],
+   "bytes": 14519
+  },
+  "@2x": {
+   "files": [
+    "@2x/ship/ship4_hatch.json",
+    "@2x/ship/ship4_hatch.webp"
+   ],
+   "bytes": 10060
+  }
+ },
+ "load": "later"
+}

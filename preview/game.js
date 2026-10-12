@@ -114,8 +114,10 @@ def('ship4_hull',DOCK+'ship/ship4_hull','dock','img');def('launch_tower4',DOCK+'
 ['ship4_flame','ship4_engine_glow','ship4_navlights','dust_puff4','smoke_plume4'].forEach(n=>def(n,DOCK+'ship/'+n,'dock'));
 ['walk','carry','push','wave'].forEach(n=>def('crew13_'+n,DOCK+'crew/crew13_'+n,'dock'));
 def('ui_btn_dock_wrench_firsttime',DOCK+'ui/ui_btn_dock_wrench_firsttime','dock');
+def('floor_empty','floors/floor_empty','floors_later_empty','img');   // later pack: empty-floor art for unbuilt floors
+def('ship4_hatch',DOCK+'ship/ship4_hatch','dock_later_hatch');   // later pack: cargo hatch (0 open → 5 shut), loaded after the first screen
 def('walk_medic','astronaut/astronaut_medic_walk','hab');def('idle_medic','astronaut/astronaut_medic_idle','hab');
-const IMG_SIZE={launch_tower:[360,360,0,360],launch_tower_ship:[360,360,0,360],walkway_mid:[48,64,0,52],walkway_mid_s:[36,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],launch_tower4:[240,500,38,500],
+const IMG_SIZE={launch_tower:[360,360,0,360],launch_tower_ship:[360,360,0,360],walkway_mid:[48,64,0,52],walkway_mid_s:[36,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],floor_empty:[360,120,0,120],launch_tower4:[240,500,38,500],
  crane_gantry:[120,200,60,200],crane_trolley:[24,10,12,0],crane_hook_empty:[40,40,20,0],crane_jib_mast:[40,180,20,180],crane_jib_boom:[150,20,10,10],floodlight_mast:[30,150,15,150],floodlight_cone:[160,160,80,0],
  dock_sign_neon_base:[200,48,100,48],dock_sign_neon_pad_t10:[240,48,120,48],dock_sign_neon_pad_t20:[280,48,140,48],dock_sign_bloom_base:[280,40,140,20],dock_sign_bloom_pad_t10:[320,40,160,20],dock_sign_bloom_pad_t20:[360,40,180,20]};
 window.__firstBytesMark=0;
@@ -140,7 +142,7 @@ async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.l
   s.ready=!!(s.img||s.base);s.missing=!s.ready})();return s.loading}
 let firstScreenDone=false;const laterWait=[];
 function loadGroup(g,onTick){if(groupState[g])return groupState[g];if(g==='mine_later_tunnel_trucks'&&DEV&&+QS.get('truckdelay')>0&&!loadGroup.td){loadGroup.td=1;const ms=+QS.get('truckdelay')*1000;return groupState[g]=new Promise(r=>setTimeout(r,ms)).then(()=>{delete groupState[g];return loadGroup(g,onTick)})}   // ?dev=1&truckdelay=N: hold the tunnel trucks N s (no request is made until then, so no cache-busting is needed)
-if(!firstScreenDone&&/^mine_later_/.test(g))return groupState[g]=new Promise(r=>laterWait.push(r)).then(()=>{delete groupState[g];return loadGroup(g,onTick)});   // every mine_later_* pack waits for the first screen
+if(!firstScreenDone&&/^(mine_later_|dock_later_hatch$|floors_later_empty$)/.test(g))return groupState[g]=new Promise(r=>laterWait.push(r)).then(()=>{delete groupState[g];return loadGroup(g,onTick)});   // every mine_later_* pack waits for the first screen
 const keys=Object.keys(SPR).filter(k=>SPR[k].group===g);let done=0;
  return groupState[g]=Promise.all(keys.map(k=>loadSprite(k).then(()=>{done++;onTick&&onTick(done/keys.length)})))}
 // art for a station: its building group plus the pack of every built floor; Mine starter/preview first
@@ -234,7 +236,7 @@ const padPt=()=>S.pt+(S.ship.st==='docked'?S.ship.pt:0),padHe=()=>S.he+(S.ship.s
 const staged=()=>padPt()+padHe();   // pad count: leaves only when the ship launches
 function step(dt,live,rate=1){const e=econ();let earned=0;
  if(S.pop<e.cap){S.arr+=dt;while(S.arr>=CFG.econ.arrivalSec&&S.pop<e.cap){S.arr-=CFG.econ.arrivalSec;S.pop++;if(live)residentArrives()}}
- else if(S.pop>e.cap){S.arr+=dt;if(S.arr>=CFG.econ.leaveSec){S.arr=0;S.pop=Math.max(e.cap,S.pop-1);if(live)toast(`👋 A miner left: not enough ${e.limit.toLowerCase()}`)}}else S.arr=0;
+ else if(S.pop>e.cap){S.arr+=dt;if(S.arr>=CFG.econ.leaveSec){S.arr=0;S.pop=Math.max(e.cap,S.pop-1);if(live)toast(`👋 A miner left: not enough ${e.limit.toLowerCase()}`,e.limit==='Energy'?goNuclear:null)}}else S.arr=0;
  let over=totalWorkers()-Math.floor(S.pop);for(let i=F.length-1;i>=0&&over>0;i--){const f=st(i);while(f.workers>0&&over>0&&!(i===0&&f.workers===1)){f.workers--;over--}}
  for(let i=0;i<F.length&&idleResidents()>0;i++){const f=st(i);if(f.built&&f.workers<1&&!noCrew(F[i])&&!f.off){f.workers=1;if(live){crewSync();toast(`👩‍🚀 A miner now staffs ${F[i].name}`)}}}
  // raw-ore trickle (only until the first ship returns)
@@ -437,10 +439,12 @@ function pillBtn(x,y,txt,on){const p=on?1+0.03*Math.sin(T*5):1;ctx.save();ctx.tr
  const g=ctx.createLinearGradient(0,-18,0,18);if(on){g.addColorStop(0,'#ffb347');g.addColorStop(1,'#ff8a2a')}else{g.addColorStop(0,'#3a4560');g.addColorStop(1,'#2a3247')}
  ctx.fillStyle=on?'#a84c0c':'#161b27';rr(ctx,-w/2,-17,w,38,19);ctx.fill();ctx.fillStyle=g;rr(ctx,-w/2,-19,w,36,18);ctx.fill();if(!on){ctx.strokeStyle='#5b667e';ctx.lineWidth=1.5;ctx.stroke()}
  ctx.fillStyle=on?'#3a1600':'#eaf2ff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,0,0);ctx.restore()}
+// unbuilt floor: floor_empty art (later pack) once loaded, dashed frame until then
+function emptyFloor(x0,yb){if(ok('floor_empty')){spr(ctx,'floor_empty',0,x0,yb);return}ctx.save();ctx.globalAlpha=.55;ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle='#8fa3c4';ctx.strokeRect(x0+4,yb-116,352,112);ctx.restore()}
 const emptyFloorSite=bi=>siteOpen(bi)&&!BUILDINGS[bi].soon&&nextFloor(bi)&&nextFloor(bi).id==='refinery';
 function drawSite(bi){const b=BUILDINGS[bi],open=siteOpen(bi),p=1+0.03*Math.max(0,Math.sin(T*Math.PI*2/1.6));
  if(emptyFloorSite(bi)){const nf=nextFloor(bi),why=lockReason(IDX[nf.id]);   // unbuilt Refinery: same dashed empty-floor frame as other unbuilt floors, button centred on it
-  ctx.save();ctx.globalAlpha=.55;ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle='#8fa3c4';ctx.strokeRect(-176,-116,352,112);ctx.restore();
+  emptyFloor(-180,0);
   label(0,-132,b.full||b.name,'#c9d3e6',15);pillBtn(0,-60,`Build ${nf.name} · ${fmt(nf.cost)}`,!why);if(why)label(0,-26,'🔒 '+why,'#ffb347',13);return}
  spr(ctx,'site',fr('site',T),0,-6,p,p);label(0,-112,b.full||b.name,'#c9d3e6',15);
  if(b.soon)label(0,-93,b.note?`Coming soon · ${b.note}`:'Coming soon','#8fa3c4',12);
@@ -543,7 +547,7 @@ function drawTower(bi,n,atRest){const fl=BUILDINGS[bi].floors,live=!atRest||towe
   if(live){const [sx,sy]=floorScale(floorFx[d.id]||{});ctx.scale(sx,sy);floorStatic(ctx,d,f)}floorAnim(d,f,k);ctx.restore()}
  drawCar(bi,n);roofAnim(bi,n);
  const nf=fl[n],yTop=floorBottom(n);
- if(nf&&n<CFG.maxFloors){ctx.save();ctx.globalAlpha=.55;ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle='#8fa3c4';ctx.strokeRect(FX0+4,yTop-116,352,112);ctx.restore();
+ if(nf&&n<CFG.maxFloors){emptyFloor(FX0,yTop);
   const why=lockReason(IDX[nf.id]);pillBtn(FX0+180,yTop-66,`Build ${nf.name} · ${fmt(nf.cost)}`,!why);if(why)label(FX0+180,yTop-32,'🔒 '+why,'#ffb347',13)}}
 // ----- Mine foreground: ADIT-2 cave v3, rover, hopper. One ground line (y=0 here), scale 1 = same scale as the tower.
 // Cave sits fully on screen (right), hopper at left; rover rolls in from the Rover Bay (off-screen left).
@@ -627,6 +631,7 @@ function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!trackMan())return null;c
 function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const ps=ensureTrack(t,L);if(ps)ps.forEach(({e,o})=>{if(o.img)ctx.drawImage(o.img,-380+e.x,-620+e.y,e.w,e.h)})}})}   // cumulative per track; every piece; missing art → base dock
 const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'walk'},{a:500,b:560,k:'carry'}];
 // lift waits for the slide + pad tick-down + a 150 ms beat; ignition (0.4 s) is timed so the rise starts right after the beat. Visual only: trip timer and payout stay locked to the launch tap.
+const hatchAt=()=>padDip?padDip.end+0.3:0;   // hatch shuts in the 150 ms beat: 6 frames x 24 ms
 const liftDelay=()=>padDip&&T-padDip.t<5?padDip.end+0.3+0.15-0.4:0;
 function padSlide(deck,X,sy0){const dt=padDip?T-padDip.t:9;   // drawn over the hull so the slide into the hold reads
  if(padDip&&dt<padDip.end){const k=Math.min(padDip.n,12),he=Math.round(k*padDip.he/Math.max(1,padDip.n));for(let i=0;i<k;i++){const isHe=i<he,j=isHe?i:i-he,q=Math.max(0,Math.min(1,(dt-i*0.04)/0.4));if(q<=0||q>=1)continue;
@@ -654,7 +659,8 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  if(vis&&ok('ship4_hull')){const hx=0,top=y-480;
   if(flame>0){ctx.globalAlpha=Math.min(1,flame);spr(ctx,'ship4_flame',fr('ship4_flame',T),hx,top+432);ctx.globalAlpha=1}
   if(glow){ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_engine_glow',fr('ship4_engine_glow',T),hx,top+440);ctx.globalCompositeOperation='source-over'}
-  spr(ctx,'ship4_hull',0,hx,y);ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_navlights',fr('ship4_navlights',T),hx-160+108,top+163);ctx.globalCompositeOperation='source-over'}
+  spr(ctx,'ship4_hull',0,hx,y);if(ok('ship4_hatch')){let hf=5;if(a.mode==='launch'){const tc=t-hatchAt();hf=tc<0?0:Math.min(5,Math.floor(tc/0.024))}else if(a.mode!=='land'&&(s.st==='docked'||s.st==='turn'))hf=0;spr(ctx,'ship4_hatch',hf,hx-160+SPR.ship4_hatch.px,top+SPR.ship4_hatch.py)}   // open while on the pad, shuts before lift, held shut in flight; not loaded yet = plain pause
+ ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_navlights',fr('ship4_navlights',T),hx-160+108,top+163);ctx.globalCompositeOperation='source-over'}
  padSlide(deck,X,deck);
  // cranes (6 s cycle: down 1.2, latch .3, up 1.2, traverse 1.5, release .5, return 1.3)
  const cs=1+CFG.dock.craneSpeed*(dockLvl('crane')-1),ct=(T*cs)%6;let drop=0,tx=0,load=false;
@@ -818,12 +824,13 @@ function closeSheet(){sheetFor=null;$('#sheet').classList.remove('open');$('#sha
 $('#shade').onclick=()=>{if(performance.now()-sheetOpenedAt>400)closeSheet()};
 let tt=0,padDip=null;function placeToast(){const t=$('#toast'),lp=$('#lpw'),pr=lp&&lp.offsetParent&&lp.getBoundingClientRect(),g=$('#goal'),r=g&&g.getBoundingClientRect();   // never cover the low-power pill: sit just below it when it shows
  if(pr&&pr.height)t.style.top=Math.round(pr.bottom+6)+'px';else if(r&&r.height)t.style.top=Math.round(r.top+r.height/2-18)+'px'}
-function toast(m){const t=$('#toast');t.textContent=m;if(E)lowPowerUI();placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2200)}
+function toast(m,tap){const t=$('#toast');t.textContent=m;t.onclick=tap?()=>{t.classList.remove('on');tap()}:null;t.style.pointerEvents=tap?'auto':'';if(E)lowPowerUI();placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>{t.classList.remove('on');t.style.pointerEvents='';t.onclick=null},2200)}
 // =====================================================================
 // HUD
 // =====================================================================
 let shownMoney=0;
-function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=E&&E.power<0.999;el.style.display=low?'flex':'none';if(!low)return;const d=F[IDX.nuke],f=S.f.nuke;
+const powerShort=()=>!!E&&(E.power<0.999||(E.limit==='Energy'&&S.pop>=E.cap));   // short when floors are underpowered OR energy can't support the crew (miners about to leave)
+function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=powerShort();el.style.display=low?'flex':'none';if(!low)return;const d=F[IDX.nuke],f=S.f.nuke;
  const t=f.built?`Low power: upgrade Nuclear (${fmt(upCost(IDX.nuke))})`:`Low power: build Nuclear (${fmt(d.cost)})`;if(el.dataset.t!==t){el.dataset.t=t;el.querySelector('span').textContent=t}}
 function goNuclear(){const si=STOPS.findIndex(s=>s.kind==='tower'&&s.bi===F[IDX.nuke].b);closeSheet();goSite(si);if(S.f.nuke.built)setTimeout(()=>openSheet(IDX.nuke),480)}
 function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money/20)+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
@@ -903,7 +910,7 @@ let bgDone=false;
  offline();econ();crewSync();hud();devUI();
  {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_later_upgrade_burst');document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
- await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');bgDone=true;
+ await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('dock_later_hatch');loadGroup('floors_later_empty');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();
 // dev mode (?dev=1 on preview only): unlimited money + Max out
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}

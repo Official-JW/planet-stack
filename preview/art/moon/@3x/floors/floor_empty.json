@@ -1,0 +1,15 @@
+{
+ "base": "floor_empty.webp",
+ "logicalSize": {
+  "w": 360,
+  "h": 120
+ },
+ "pivot": {
+  "x": 0,
+  "y": 120
+ },
+ "frames": 1,
+ "loop": false,
+ "note": "unbuilt floor; center ~x150-210 kept clear for build button",
+ "scale": 3
+}

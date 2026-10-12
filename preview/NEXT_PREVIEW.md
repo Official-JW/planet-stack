@@ -106,3 +106,6 @@
 - Toast sits just below the low-power pill when it shows (GD call b).
 - Pad slide tweak: each container starts 40 ms after the one above (top first), 400 ms ease-in-out move; hold target follows the ship; count ticks after the last one lands.
 - Lift timing (GD): ship stays on the pad until the last container lands and the pad tick-down ends, then lifts after a 150 ms beat (no hatch: ship art has no hatch frames). Containers no longer follow the hold. Visual only; trip timer + payout stay locked to the launch tap.
+- Cargo hatch (dock_later_hatch, after first screen): open on the pad, shuts 0→5 over 120 ms in the 150 ms pre-lift beat, held shut in flight; plain pause until it loads.
+- floor_empty art (floors_later_empty, after first screen) for every unbuilt floor incl. the Refinery site, button centred; dashed frame until it loads.
+- Low power pill also shows when energy limits the crew (pop >= energy cap); "A miner left: not enough energy" toast kept and taps to Nuclear.

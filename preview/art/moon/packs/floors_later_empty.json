@@ -1,0 +1,19 @@
+{
+ "pack": "floors_later_empty",
+ "root": ".",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/floors/floor_empty.webp"
+   ],
+   "bytes": 33298
+  },
+  "@2x": {
+   "files": [
+    "@2x/floors/floor_empty.webp"
+   ],
+   "bytes": 20078
+  }
+ },
+ "load": "after_first_screen"
+}
