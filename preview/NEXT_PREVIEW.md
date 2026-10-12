@@ -78,3 +78,10 @@
 - [x] fx_upgrade_burst (722 KB @3x) moved off the first screen into fx_burst, loaded right after it; upgrades before it loads play a quick scale-pop on the floor. First screen ~2.07 MB @3x.
 - [x] Crew hint wraps to two lines (no ellipsis); nothing spills out of the crew row.
 - [x] Upgrade burst v2: fx_later_upgrade_burst pack (two pages: sharp + half-res glow at drawScale 2, 16 frames @ 42 ms); loader draws glow then sharp per frame with offsets x drawScale. Still loads after the first screen; scale-pop fallback kept.
+
+## Done in 10/12/2026 - planet-stack - 03:15 preview push (r6 no-go)
+- [x] Pacing: mining no longer stops when the pad is full (surplus sells at the pack share), so money keeps ticking while the ship is away. Bot run: Refinery affordable 10:28 (was never within 15 min), longest wait 91 s.
+- [x] Walkway hidden while the globe turns (120 ms out, 200 ms back in at rest).
+- [x] Toasts sit over the goal card (never over a button); Dock money pop-up on delivery.
+- [x] Taps no longer freeze a running turn; the globe always settles on a station.
+- [x] ?dev=1&fresh clean dev save (preview only); build stamp next to PREVIEW.

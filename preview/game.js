@@ -160,6 +160,7 @@ function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const 
 // =====================================================================
 // SAVE / TIME — everything runs from saved timestamps
 // =====================================================================
+if(DEV&&QS.has('fresh')){try{localStorage.removeItem('planetstack-dev')}catch(e){}history.replaceState(null,'',location.pathname+'?dev=1')}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched
 const SAVEKEY=DEV?'planetstack-dev':location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v2';
 const noCrew=d=>!!d.res||d.role==='housing'||!!d.upper;   // Life Support + Living Quarters run without crew
 function fresh(){const n=Date.now();return{money:CFG.econ.startGrant,pop:3,trips:0,arr:0,pt:0,he:0,refPt:0,refHe:0,ptAcc:0,heAcc:0,refAcc:0,oreAcc:0,firstReturn:0,gt:n,rt:n,step:0,hint:0,tapped:0,wrench:0,
@@ -232,6 +233,7 @@ function step(dt,live,rate=1){const e=econ();let earned=0;
  const cap=CFG.econ.stageCap;
  if(staged()<cap){S.ptAcc+=e.ptRate*dt/60;S.heAcc+=e.heRate*dt/60;
   const ps=CFG.econ.packShare;while(S.ptAcc>=1&&staged()<cap){S.ptAcc--;S.pt++;const v=CFG.econ.ptValue*ps;S.money+=v;earned+=v}while(S.heAcc>=1&&staged()<cap){S.heAcc--;S.he++;const v=CFG.econ.heValue*ps;S.money+=v;earned+=v}}   // 30% paid when packed
+ else{S.ptAcc+=e.ptRate*dt/60;S.heAcc+=e.heRate*dt/60;const ps=CFG.econ.packShare;while(S.ptAcc>=1){S.ptAcc--;const v=CFG.econ.ptValue*ps;S.money+=v;earned+=v}while(S.heAcc>=1){S.heAcc--;const v=CFG.econ.heValue*ps;S.money+=v;earned+=v}}   // pad full: mining never stops, surplus sells locally at the pack share
  // Refinery: upgrades staged containers to refined (He-3 first: worth more)
  if(e.refRate>0){S.refAcc+=e.refRate*dt/60;while(S.refAcc>=1){const he=S.he-S.refHe>0,pt=S.pt-S.refPt>0;if(!he&&!pt){S.refAcc=Math.min(S.refAcc,1);break}S.refAcc--;
    const v=(he?CFG.econ.heValue:CFG.econ.ptValue)*(CFG.econ.refinedMult-1);if(he)S.refHe++;else S.refPt++;if(live)refineFx(v)}}
@@ -354,7 +356,12 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  const ms=STOPS[site];if(ms.kind==='tower'&&BUILDINGS[ms.bi].id==='mine'&&!ok('f_rover')&&ok('mine_preview')&&!cam.anim&&!g0){ctx.drawImage(SPR.mine_preview.img,0,snap(OY),390,844)}}
 let curStopA=0,armT=-99;
 // glass walkway tubes between neighbouring stations (ART_SPEC WALKWAY): caps + stretched mids + trusses every 96, astronauts inside
+let wkA=1,wkT=0;
 function drawWalkways(){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_cap_R'))return;
+ {const P=CFG.rotPerSlot,rest=!cam.anim&&Math.abs(cam.rot-Math.round(cam.rot/P)*P)<0.0004,dt=Math.min(0.1,Math.max(0,T-wkT));wkT=T;
+  wkA=rest?Math.min(1,wkA+dt/0.2):Math.max(0,wkA-dt/0.12)}   // Art & Animation: hidden while the globe turns (120 ms out), back once upright (200 ms in)
+ if(wkA<=0)return;ctx.save();ctx.globalAlpha=wkA;try{drawWalkwaysInner()}finally{ctx.restore()}}
+function drawWalkwaysInner(){
  // ART_SPEC WALKWAY: every frame measure the on-screen gap G between the two tower walls, then fill it: cap + ceil((G-60)/48) mids (or one mid_s) + cap_R.
  const hw=si=>{const s=STOPS[si];return (s.kind==='dock'?195:206)*TS};
  for(let i=0;i<STOPS.length-1;i++){const fa=stopFrame(i),fb=stopFrame(i+1);if(Math.min(Math.abs(fa.a),Math.abs(fb.a))>0.36)continue;
@@ -364,11 +371,11 @@ function drawWalkways(){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_
   const span=x1-x0-60,short=span<41&&ok('walkway_mid_s'),N=Math.max(1,Math.ceil(span/48)),sx=span/(48*N);
   const tx=[];if(short)tx.push(0);else for(let x=x0+30;x+48<=x1-30+0.5;x+=96)tx.push(x+24);if(!tx.length)tx.push(0);
   const gy=Math.max(...tx.map(gnd))-52;
-  ctx.save();ctx.globalAlpha=alpha;ctx.translate((ax+bx)/2,(ay+by)/2);ctx.rotate(Math.atan2(by-ay,bx-ax));
+  const ga=ctx.globalAlpha;ctx.save();ctx.globalAlpha=alpha*ga;ctx.translate((ax+bx)/2,(ay+by)/2);ctx.rotate(Math.atan2(by-ay,bx-ax));
   if(span>4)tx.forEach(x=>spr(ctx,'walkway_truss',0,x,gy+12));
   const mids=()=>{if(span<=0)return;if(short)spr(ctx,'walkway_mid_s',0,x0+30,gy,span/36,1);else for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+k*48*sx,gy,sx,1)};mids();
   if(ok('walkway_astro_walk')&&span>20){const L=span-10,nA=span<90?1:2;for(let j=0;j<nA;j++){const per=Math.max(1,L/22*2),q=((T+i*3.1+j*per/2)%per)/per,go=q<.5,u=go?q*2:2-q*2;ctx.save();ctx.translate(x0+35+L*u,gy);if(!go)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',fr('walkway_astro_walk',T+j),0,0);ctx.restore()}}
-  ctx.globalAlpha=.35*alpha;mids();ctx.globalAlpha=alpha;
+  ctx.globalAlpha=.35*alpha*ga;mids();ctx.globalAlpha=alpha*ga;
   spr(ctx,'walkway_cap',fr('walkway_cap',T),x0,gy);spr(ctx,'walkway_cap_R',fr('walkway_cap_R',T+0.5),x1,gy);ctx.restore()}}
 function drawStop(o){const {s,f}=o;curStopA=f.a;ctx.save();
  if(Math.abs(f.a)<0.0004)ctx.translate(snap(f.x),snap(f.y));else{ctx.translate(f.x,f.y);ctx.rotate(f.a)}
@@ -739,7 +746,7 @@ addEventListener('pointerdown',ev=>{if(!$('#sheet').classList.contains('open'))r
 addEventListener('click',ev=>{if(performance.now()-dotSwallow<700){ev.preventDefault();ev.stopPropagation()}},true);
 function closeSheet(){sheetFor=null;$('#sheet').classList.remove('open');$('#shade').classList.remove('on')}
 $('#shade').onclick=()=>{if(performance.now()-sheetOpenedAt>400)closeSheet()};
-let tt=0;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2200)}
+let tt=0;function toast(m){const t=$('#toast');t.textContent=m;{const g=$('#goal'),r=g&&g.getBoundingClientRect();if(r&&r.height)t.style.top=Math.round(r.top+r.height/2-18)+'px'}t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2200)}
 // =====================================================================
 // HUD
 // =====================================================================
@@ -769,14 +776,15 @@ function endHint(){hintOn=false;S.hint=1;$('#hint').style.display='none';save()}
 const toLogical=(cx,cy)=>({x:cx/SC-OX,y:cy/SC});
 function maxScroll(){const s=STOPS[site];if(s.kind!=='tower')return 0;const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);const topY=C.y-R+floorBottom(n-1)*TS-200*TS-70;return Math.max(0,-(topY+OY)+300)}
 let g0=null,dockPan=0;const PANMAX=60;   // dock stop: sideways pan over the 760-wide art (screen pts)
-cv.addEventListener('pointerdown',e=>{if(e.clientX<20||e.clientX>innerWidth-20){g0={edge:true};return}g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};cam.anim=null;cam.vy=0},{passive:true});
+cv.addEventListener('pointerdown',e=>{if(e.clientX<20||e.clientX>innerWidth-20){g0={edge:true};return}g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};cam.vy=0},{passive:true});
 $('#shade').addEventListener('pointerdown',e=>{g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}});
 addEventListener('pointermove',e=>{if(!g0||g0.edge)return;const dx=e.clientX-g0.x,dy=e.clientY-g0.y;
  if(!g0.axis&&Math.hypot(dx,dy)>9){g0.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';if(g0.fromShade&&g0.axis==='x')closeSheet();if(g0.fromShade&&g0.axis==='y'){g0=null;return}if(g0.axis==='x'&&g0.onDock&&!((dx>0&&g0.pan0<=-PANMAX+0.5)||(dx<0&&g0.pan0>=PANMAX-0.5)))g0.axis='p';   // pan until the edge; only a NEW swipe from the edge changes station
-  if(g0.axis==='x'&&hintOn)endHint()}
+  if(g0.axis==='x'){if(cam.anim){cam.anim=null;g0.rot0=cam.rot+dx/SC/R*1.25}}if(g0.axis==='x'&&hintOn)endHint()}
  if(g0.axis==='p'){dockPan=Math.max(-PANMAX,Math.min(PANMAX,g0.pan0-dx/SC));return}
  if(g0.axis==='x'){cam.rot=g0.rot0-dx/SC/R*1.25;cam.rot=Math.max(-0.06,Math.min((STOPS.length-1)*CFG.rotPerSlot+0.06,cam.rot))}
  if(g0.axis==='y'){cam.y=Math.max(-30,Math.min(maxScroll()+30,g0.y0+dy/SC));g0.hist.push([performance.now(),cam.y]);if(g0.hist.length>6)g0.hist.shift()}},{passive:true});
+addEventListener('pointercancel',()=>{g0=null});
 addEventListener('pointerup',e=>{if(!g0||g0.edge){g0=null;return}const g=g0;g0=null;if(g.axis==='p')return;
  if(g.axis==='x'){const dx=e.clientX-g.x,v=dx/(performance.now()-g.t);let tgt=Math.round(cam.rot/CFG.rotPerSlot);if((Math.abs(v)>0.3||Math.abs(dx)>0.2*innerWidth)&&tgt===site)tgt=site+(dx<0?1:-1);/* quick flick or ~20% width advances one station */goSite(tgt);return}
  if(g.axis==='y'){const h=g.hist;if(h.length>1){const a=h[0],b=h[h.length-1];cam.vy=(b[1]-a[1])/Math.max(16,b[0]-a[0])*1000}return}
@@ -796,6 +804,7 @@ function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind=
 let last=performance.now(),saveAcc=0,hudAcc=0,fpsN=0,fpsT=0;
 let scrolledCls=false;
 function frame(now){{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;
+ if(!cam.anim&&!g0){const P=CFG.rotPerSlot,k=Math.max(0,Math.min(STOPS.length-1,Math.round(cam.rot/P)));if(Math.abs(cam.rot-k*P)>0.0004)goSite(k)}   // never rest half-turned
  if(cam.anim){const a=cam.anim,q=Math.min(1,(T-a.t0)/a.d);cam.rot=a.from+(a.to-a.from)*easeOutCubic(q);if(q>=1){cam.rot=a.to;cam.anim=null}}
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
  if(!g0||g0.axis!=='y'){const mx=maxScroll();if(cam.y<0){cam.y+=(0-cam.y)*Math.min(1,dt*12);if(cam.y>-0.3)cam.y=0;cam.vy=Math.max(0,cam.vy)}if(cam.y>mx){cam.y+=(mx-cam.y)*Math.min(1,dt*12);cam.vy=Math.min(0,cam.vy)}}
