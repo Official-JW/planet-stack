@@ -1,0 +1,102 @@
+{
+ "meta": {
+  "images": [
+   "maglev_glow.webp"
+  ],
+  "image": "maglev_glow.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 40,
+   "h": 120
+  },
+  "pivot": {
+   "x": 0,
+   "y": 0
+  },
+  "loop": true,
+  "note": "tile vertically along the shaft for maglev looks (L30+)"
+ },
+ "frames": {
+  "maglev_glow_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "maglev_glow_1": {
+   "page": 0,
+   "frame": {
+    "x": 120,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "maglev_glow_2": {
+   "page": 0,
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "maglev_glow_3": {
+   "page": 0,
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "maglev_glow_4": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "maglev_glow_5": {
+   "page": 0,
+   "frame": {
+    "x": 600,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "maglev_glow_6": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  },
+  "maglev_glow_7": {
+   "page": 0,
+   "frame": {
+    "x": 840,
+    "y": 0,
+    "w": 120,
+    "h": 360
+   },
+   "duration": 83
+  }
+ }
+}

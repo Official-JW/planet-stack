@@ -1,0 +1,141 @@
+{
+ "meta": {
+  "images": [
+   "fx_collect_sparkle.webp"
+  ],
+  "image": "fx_collect_sparkle.webp",
+  "scale": 3,
+  "fps": 24,
+  "logicalFrame": {
+   "w": 48,
+   "h": 48
+  },
+  "pivot": {
+   "x": 24,
+   "y": 24
+  },
+  "loop": false
+ },
+ "frames": {
+  "fx_collect_sparkle_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_1": {
+   "page": 0,
+   "frame": {
+    "x": 144,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_2": {
+   "page": 0,
+   "frame": {
+    "x": 288,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_3": {
+   "page": 0,
+   "frame": {
+    "x": 432,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_4": {
+   "page": 0,
+   "frame": {
+    "x": 576,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_5": {
+   "page": 0,
+   "frame": {
+    "x": 720,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_6": {
+   "page": 0,
+   "frame": {
+    "x": 864,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_7": {
+   "page": 0,
+   "frame": {
+    "x": 1008,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_8": {
+   "page": 0,
+   "frame": {
+    "x": 1152,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_9": {
+   "page": 0,
+   "frame": {
+    "x": 1296,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_10": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  },
+  "fx_collect_sparkle_11": {
+   "page": 0,
+   "frame": {
+    "x": 1584,
+    "y": 0,
+    "w": 144,
+    "h": 144
+   },
+   "duration": 42
+  }
+ }
+}

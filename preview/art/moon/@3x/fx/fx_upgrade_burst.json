@@ -1,0 +1,182 @@
+{
+ "meta": {
+  "images": [
+   "fx_upgrade_burst.webp"
+  ],
+  "image": "fx_upgrade_burst.webp",
+  "scale": 3,
+  "fps": 24,
+  "logicalFrame": {
+   "w": 160,
+   "h": 160
+  },
+  "pivot": {
+   "x": 80,
+   "y": 80
+  },
+  "loop": false,
+  "note": "centre on the floor; play with the floor squash (see tween spec)"
+ },
+ "frames": {
+  "fx_upgrade_burst_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_1": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_2": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 0,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_3": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 0,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_4": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 480,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_5": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 480,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_6": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 480,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_7": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 480,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_8": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 960,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_9": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 960,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_10": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 960,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_11": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 960,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_12": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 1440,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_13": {
+   "page": 0,
+   "frame": {
+    "x": 480,
+    "y": 1440,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_14": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 1440,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  },
+  "fx_upgrade_burst_15": {
+   "page": 0,
+   "frame": {
+    "x": 1440,
+    "y": 1440,
+    "w": 480,
+    "h": 480
+   },
+   "duration": 42
+  }
+ }
+}

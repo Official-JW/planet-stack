@@ -1,0 +1,42 @@
+{
+ "meta": {
+  "images": [
+   "ship.webp"
+  ],
+  "image": "ship.webp",
+  "scale": 2,
+  "fps": 2,
+  "logicalFrame": {
+   "w": 160,
+   "h": 240
+  },
+  "pivot": {
+   "x": 80,
+   "y": 240
+  },
+  "loop": true,
+  "note": "nav lights blink"
+ },
+ "frames": {
+  "ship_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 480
+   },
+   "duration": 500
+  },
+  "ship_1": {
+   "page": 0,
+   "frame": {
+    "x": 320,
+    "y": 0,
+    "w": 320,
+    "h": 480
+   },
+   "duration": 500
+  }
+ }
+}

@@ -1,0 +1,41 @@
+{
+ "meta": {
+  "image": "ship.png",
+  "size": {
+   "w": 960,
+   "h": 720
+  },
+  "scale": 3,
+  "fps": 2,
+  "logicalFrame": {
+   "w": 160,
+   "h": 240
+  },
+  "pivot": {
+   "x": 80,
+   "y": 240
+  },
+  "loop": true,
+  "note": "nav lights blink"
+ },
+ "frames": {
+  "ship_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 480,
+    "h": 720
+   },
+   "duration": 500
+  },
+  "ship_1": {
+   "frame": {
+    "x": 480,
+    "y": 0,
+    "w": 480,
+    "h": 720
+   },
+   "duration": 500
+  }
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "meta": {
+  "image": "tower_base.png",
+  "size": {
+   "w": 1116,
+   "h": 117
+  },
+  "scale": 3,
+  "fps": 0,
+  "logicalFrame": {
+   "w": 372,
+   "h": 39
+  },
+  "pivot": {
+   "x": 186,
+   "y": 39
+  },
+  "note": "bottom edge is an arc of radius 760 matching the globe; arc sags 23.1px at the ends"
+ },
+ "frames": {
+  "tower_base_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1116,
+    "h": 117
+   },
+   "duration": 0
+  }
+ }
+}

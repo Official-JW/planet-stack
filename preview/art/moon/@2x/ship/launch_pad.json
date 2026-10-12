@@ -1,0 +1,62 @@
+{
+ "meta": {
+  "images": [
+   "launch_pad.webp"
+  ],
+  "image": "launch_pad.webp",
+  "scale": 2,
+  "fps": 2,
+  "logicalFrame": {
+   "w": 220,
+   "h": 44
+  },
+  "pivot": {
+   "x": 110,
+   "y": 44
+  },
+  "loop": true,
+  "note": "ship pivot sits at pad (110,8)"
+ },
+ "frames": {
+  "launch_pad_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 440,
+    "h": 88
+   },
+   "duration": 500
+  },
+  "launch_pad_1": {
+   "page": 0,
+   "frame": {
+    "x": 440,
+    "y": 0,
+    "w": 440,
+    "h": 88
+   },
+   "duration": 500
+  },
+  "launch_pad_2": {
+   "page": 0,
+   "frame": {
+    "x": 880,
+    "y": 0,
+    "w": 440,
+    "h": 88
+   },
+   "duration": 500
+  },
+  "launch_pad_3": {
+   "page": 0,
+   "frame": {
+    "x": 1320,
+    "y": 0,
+    "w": 440,
+    "h": 88
+   },
+   "duration": 500
+  }
+ }
+}

@@ -1,0 +1,185 @@
+{
+ "meta": {
+  "images": [
+   "fx_gold_shimmer-0.webp",
+   "fx_gold_shimmer-1.webp",
+   "fx_gold_shimmer-2.webp",
+   "fx_gold_shimmer-3.webp"
+  ],
+  "image": "fx_gold_shimmer-0.webp",
+  "scale": 3,
+  "fps": 20,
+  "logicalFrame": {
+   "w": 360,
+   "h": 120
+  },
+  "pivot": {
+   "x": 0,
+   "y": 120
+  },
+  "loop": false,
+  "note": "blend: screen/lighter over the L50 floor"
+ },
+ "frames": {
+  "fx_gold_shimmer_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_1": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_2": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_3": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 1080,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_4": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 1440,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_5": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_6": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_7": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_8": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 1080,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_9": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 1440,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_10": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_11": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 360,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_12": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 720,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_13": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 1080,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_14": {
+   "page": 2,
+   "frame": {
+    "x": 0,
+    "y": 1440,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  },
+  "fx_gold_shimmer_15": {
+   "page": 3,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 1080,
+    "h": 360
+   },
+   "duration": 50
+  }
+ }
+}

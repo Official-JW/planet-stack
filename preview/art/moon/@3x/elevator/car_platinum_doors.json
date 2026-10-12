@@ -1,0 +1,103 @@
+{
+ "meta": {
+  "images": [
+   "car_platinum_doors.webp"
+  ],
+  "image": "car_platinum_doors.webp",
+  "scale": 3,
+  "fps": 40,
+  "logicalFrame": {
+   "w": 34,
+   "h": 56
+  },
+  "pivot": {
+   "x": 17,
+   "y": 56
+  },
+  "loop": false,
+  "level": 90,
+  "note": "frame 0 closed -> 7 open (ease-in-out baked). Play backwards to close."
+ },
+ "frames": {
+  "car_platinum_doors_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  },
+  "car_platinum_doors_1": {
+   "page": 0,
+   "frame": {
+    "x": 102,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  },
+  "car_platinum_doors_2": {
+   "page": 0,
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  },
+  "car_platinum_doors_3": {
+   "page": 0,
+   "frame": {
+    "x": 306,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  },
+  "car_platinum_doors_4": {
+   "page": 0,
+   "frame": {
+    "x": 408,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  },
+  "car_platinum_doors_5": {
+   "page": 0,
+   "frame": {
+    "x": 510,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  },
+  "car_platinum_doors_6": {
+   "page": 0,
+   "frame": {
+    "x": 612,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  },
+  "car_platinum_doors_7": {
+   "page": 0,
+   "frame": {
+    "x": 714,
+    "y": 0,
+    "w": 102,
+    "h": 168
+   },
+   "duration": 25
+  }
+ }
+}

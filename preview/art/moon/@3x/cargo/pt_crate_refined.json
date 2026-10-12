@@ -1,0 +1,81 @@
+{
+ "meta": {
+  "images": [
+   "pt_crate_refined.webp"
+  ],
+  "image": "pt_crate_refined.webp",
+  "scale": 3,
+  "fps": 10,
+  "logicalFrame": {
+   "w": 26,
+   "h": 22
+  },
+  "pivot": {
+   "x": 13,
+   "y": 22
+  },
+  "loop": true
+ },
+ "frames": {
+  "pt_crate_refined_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 78,
+    "h": 66
+   },
+   "duration": 100
+  },
+  "pt_crate_refined_1": {
+   "page": 0,
+   "frame": {
+    "x": 78,
+    "y": 0,
+    "w": 78,
+    "h": 66
+   },
+   "duration": 100
+  },
+  "pt_crate_refined_2": {
+   "page": 0,
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 78,
+    "h": 66
+   },
+   "duration": 100
+  },
+  "pt_crate_refined_3": {
+   "page": 0,
+   "frame": {
+    "x": 234,
+    "y": 0,
+    "w": 78,
+    "h": 66
+   },
+   "duration": 100
+  },
+  "pt_crate_refined_4": {
+   "page": 0,
+   "frame": {
+    "x": 312,
+    "y": 0,
+    "w": 78,
+    "h": 66
+   },
+   "duration": 100
+  },
+  "pt_crate_refined_5": {
+   "page": 0,
+   "frame": {
+    "x": 390,
+    "y": 0,
+    "w": 78,
+    "h": 66
+   },
+   "duration": 100
+  }
+ }
+}
