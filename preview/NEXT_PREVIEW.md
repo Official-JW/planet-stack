@@ -109,3 +109,10 @@
 - Cargo hatch (dock_later_hatch, after first screen): open on the pad, shuts 0→5 over 120 ms in the 150 ms pre-lift beat, held shut in flight; plain pause until it loads.
 - floor_empty art (floors_later_empty, after first screen) for every unbuilt floor incl. the Refinery site, button centred; dashed frame until it loads.
 - Low power pill also shows when energy limits the crew (pop >= energy cap); "A miner left: not enough energy" toast kept and taps to Nuclear.
+
+## r9 (Playtester 04:20 no-go)
+- Low-power pill names the next real step (upgrade Oxygen to Lv3 → build Water ($120) → build Nuclear ($150) → upgrade Nuclear); tap opens that step (sheet if built, else its station); miner-left toast uses the same target.
+- Floor labels stick just below the Goal card when a floor's top is under it (every station, any scroll).
+- Toast sits 18 px below the pill (8 pt gap even during its 10 px slide-in).
+- Hold scales with trip: 1x / 2.5x / 6x (12/30/72); crane scales the same (full hold loads in ~2 min); pad cap = max(60, hold).
+- ?dev params (truckdelay, speed…) survive the ?fresh URL cleanup.

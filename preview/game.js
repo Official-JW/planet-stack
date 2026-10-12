@@ -164,7 +164,7 @@ function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const 
 // =====================================================================
 // SAVE / TIME — everything runs from saved timestamps
 // =====================================================================
-if(DEV&&QS.has('fresh')){try{localStorage.removeItem('planetstack-dev')}catch(e){}history.replaceState(null,'',location.pathname+'?dev=1')}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched
+if(DEV&&QS.has('fresh')){try{localStorage.removeItem('planetstack-dev')}catch(e){}{const q=new URLSearchParams(location.search);q.delete('fresh');history.replaceState(null,'',location.pathname+'?'+q.toString().replace(/=(?=&|$)/g,''))}}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched
 const SAVEKEY=DEV?'planetstack-dev':location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v2';
 const noCrew=d=>!!d.res||d.role==='housing'||!!d.upper;   // Life Support + Living Quarters run without crew
 function fresh(){const n=Date.now();return{money:CFG.econ.startGrant,pop:3,trips:0,arr:0,pt:0,he:0,refPt:0,refHe:0,ptAcc:0,heAcc:0,refAcc:0,oreAcc:0,firstReturn:0,gt:n,rt:n,step:0,hint:0,tapped:0,wrench:0,
@@ -242,7 +242,7 @@ function step(dt,live,rate=1){const e=econ();let earned=0;
  // raw-ore trickle (only until the first ship returns)
  if(e.ore>0){S.oreAcc+=e.ore*dt*rate;const v=CFG.econ.oreTrickle;while(S.oreAcc>=v){S.oreAcc-=v;S.money+=v;earned+=v;if(live)oreFx(v)}}
  // containers staged at the dock
- const cap=CFG.econ.stageCap;
+ const cap=padCap();
  if(staged()<cap){S.ptAcc+=e.ptRate*dt/60;S.heAcc+=e.heRate*dt/60;
   const ps=CFG.econ.packShare;while(S.ptAcc>=1&&staged()<cap){S.ptAcc--;S.pt++;const v=CFG.econ.ptValue*ps;S.money+=v;earned+=v}while(S.heAcc>=1&&staged()<cap){S.heAcc--;S.he++;const v=CFG.econ.heValue*ps;S.money+=v;earned+=v}}   // 30% paid when packed
  else{S.ptAcc+=e.ptRate*dt/60;S.heAcc+=e.heRate*dt/60;const ps=CFG.econ.packShare;while(S.ptAcc>=1){S.ptAcc--;const v=CFG.econ.ptValue*ps;S.money+=v;earned+=v}while(S.heAcc>=1){S.heAcc--;const v=CFG.econ.heValue*ps;S.money+=v;earned+=v}}   // pad full: mining never stops, surplus sells locally at the pack share
@@ -262,8 +262,10 @@ const DOCK_TRACKS=[
  {id:'refuel',name:'Refuel & repair',icon:'ui_icon_energy',looks:{10:'LOX 2 + CH₄ 2 tanks',20:'Repair gantry + LOX sphere',30:'Rapid-fill manifold',40:'Robotic repair arms',50:'Gold service tower'}}];
 const dockLvl=t=>S.dock[t]||1;
 const dockCost=t=>Math.round(CFG.dock.cost[t]*Math.pow(CFG.dock.costMult,dockLvl(t)-1));
-const loadRate=()=>CFG.ship.loadPerMin*(1+CFG.dock.craneSpeed*(dockLvl('crane')-1))*(1+CFG.dock.crewSpeed*(dockLvl('crew')-1));
-const holdCap=()=>CFG.ship.holdCrates+Math.floor((dockLvl('pad')-1)/2)*CFG.dock.padHoldPer2;
+const tripMult=n=>n<1?1:n<2?2.5:6;   // hold grows with trip length: 2-min 1x, 5-min 2.5x, 10-min 6x (pay per trip-minute stays level)
+const loadRate=()=>CFG.ship.loadPerMin*tripMult(S.trips||0)*(1+CFG.dock.craneSpeed*(dockLvl('crane')-1))*(1+CFG.dock.crewSpeed*(dockLvl('crew')-1));
+const holdCap=()=>Math.round((CFG.ship.holdCrates+Math.floor((dockLvl('pad')-1)/2)*CFG.dock.padHoldPer2)*tripMult(S.trips||0));
+const padCap=()=>Math.max(CFG.econ.stageCap,holdCap());   // the pad always fits a full hold
 const turnSec=()=>CFG.ship.turnaroundSec*Math.max(CFG.dock.refuelMin,1-CFG.dock.refuelPerLvl*(dockLvl('refuel')-1));
 const shipLoad=()=>S.ship.pt+S.ship.he;
 const cargoValue=o=>(o.pt*CFG.econ.ptValue+o.he*CFG.econ.heValue)*(1-CFG.econ.packShare)+(o.refPt*CFG.econ.ptValue+o.refHe*CFG.econ.heValue)*(CFG.econ.refinedMult-1);
@@ -463,6 +465,8 @@ function floorStatic(c,d,f){if(d.upper)return;const H=d.slots===2?240:120;const 
  if(s&&s.ready)c.drawImage(s.base,0,-H,360,H);else placeholderStatic(c,d);
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;if(!(dt&&dt.L===o.L&&T-dt.t<0.45))c.drawImage(o.s.base,0,-H,360,H)});
  const L=tierOf(f.lvl);if(L&&!tierLayers(d,f).length){const col=CFG.tierColors[CFG.tierLevels.indexOf(L)];c.save();c.strokeStyle=col;c.lineWidth=3;c.globalAlpha=.9;c.strokeRect(2.5,-117.5,355,111);c.restore()}}
+// floor labels never hide under the Goal card: if a floor's top is under the HUD band, its label sticks just below the band (within the floor)
+let BAND=0;function chipY(H){const m=ctx.getTransform();if(!BAND||Math.abs(m.b)>0.01||m.d<=0)return -H+6;const st=(BAND-m.f)/m.d;return Math.min(Math.max(-H+6,st),-26)}
 function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id],lp=lowPower(d),t=T+k*0.3;
  if(s&&s.ready){drawLayers(ctx,s,t,lp,H)}else placeholderAnim(d,f,t,lp);
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;
@@ -476,10 +480,10 @@ function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=
  (crew[d.id]||[]).forEach(a=>{const y=-120+104,role=(d.crew&&ok('walk_'+d.crew))?d.crew:'worker',key=(a.idle>0?'idle_':'walk_')+role;
   ctx.globalAlpha=.25;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(a.x,y,6,1.2,0,0,7);ctx.fill();ctx.globalAlpha=1;
   ctx.save();ctx.translate(snap(a.x),y);if(a.v<0)ctx.scale(-1,1);spr(ctx,key,lp&&a.idle<=0?0:fr(key,T+a.t),0,0);ctx.restore()});
- const L=tierOf(f.lvl);let bw=0;const bf='800 11px Inter,system-ui,sans-serif';
- if(L){const bt=(L===50?'🏅 ':'★ ')+d.tierInfo[L].name;ctx.font=bf;bw=ctx.measureText(bt).width+12;chip(352-bw-34,-H+6,bt,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205',bf)}   // badge pinned right (clear of the star medal)
+ const L=tierOf(f.lvl);let bw=0;const bf='800 11px Inter,system-ui,sans-serif';const cy=chipY(H);
+ if(L){const bt=(L===50?'🏅 ':'★ ')+d.tierInfo[L].name;ctx.font=bf;bw=ctx.measureText(bt).width+12;chip(352-bw-34,cy,bt,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205',bf)}   // badge pinned right (clear of the star medal)
  ctx.font='700 11px Inter,system-ui,-apple-system,sans-serif';const maxW=(L?352-bw-34-6:340)-8-12;let txt=`${d.name} ${f.lvl} · ${meter(IDX[d.id])}`;
- if(ctx.measureText(txt).width>maxW){while(txt.length>4&&ctx.measureText(txt+'…').width>maxW)txt=txt.slice(0,-1);txt=txt.trimEnd()+'…'}chip(8,-H+6,txt);
+ if(ctx.measureText(txt).width>maxW){while(txt.length>4&&ctx.measureText(txt+'…').width>maxW)txt=txt.slice(0,-1);txt=txt.trimEnd()+'…'}chip(8,cy,txt);
 }
 function coinBubble(x,y,txt){ctx.font='800 12px Rajdhani,Inter,system-ui,sans-serif';const w=ctx.measureText(txt).width+30;ctx.fillStyle='rgba(255,138,42,.95)';rr(ctx,x-w/2,y-11,w,22,11);ctx.fill();
  spr(ctx,'coin_spin',fr('coin_spin',T),x-w/2+12,y,0.8,0.8);ctx.fillStyle='#3a1600';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,x-w/2+22,y+1)}
@@ -650,7 +654,7 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  zone(440,padPt(),'loaded_box_pulse','loaded_box_stack3');zone(540,padHe(),'he3_canister_pulse','he3_canister_stack3');
  {const dt=padDip?T-padDip.t:9,dip=dt<(padDip?padDip.end:0.4)+1.2;   // launch: loaded containers slide up into the hold (400 ms, low-g ease, top of stack first), then the pad count ticks down by exactly that many
   const E0=padDip?padDip.end:0.4,shown=dt<E0?padDip.from:dt<E0+0.3?padDip.from-Math.round(padDip.n*(dt-E0)/0.3):staged();
-  label(X(490),deck-330,`Pad ${Math.max(staged(),dt<E0+0.3?shown:0)}/${CFG.econ.stageCap}`,dip?'#ff9b7a':'#bfe9ff',13);
+  label(X(490),deck-330,`Pad ${Math.max(staged(),dt<E0+0.3?shown:0)}/${padCap()}`,dip?'#ff9b7a':'#bfe9ff',13);
   if(dip&&dt>=E0){const q=Math.min(1,(dt-E0)/1.2);ctx.save();ctx.globalAlpha=1-q*q;label(X(490),deck-352-q*40,`−${padDip.n} loaded`,'#ff9b7a',16);ctx.restore()}}
  // ship
  const s=S.ship,a=shipAnim,t=T-a.t0;let y=deck,flame=0,glow=0,vis=s.st!=='trip';
@@ -804,7 +808,7 @@ function openElev(bi){const el=$('#sheet'),lv=elevLvl(bi),max=lv>=CFG.elevator.m
  $('#sx').onclick=closeSheet;$('#ub').onclick=()=>elevUpgrade(bi);el.classList.add('open');$('#shade').classList.add('on');sheetOpenedAt=performance.now()}
 function openDock(refresh){const el=$('#sheet');sheetFor={dock:1,k:refresh&&sheetFor?sheetFor.k:null};const sh=S.ship;
  const rows=DOCK_TRACKS.map(t=>{const lv=dockLvl(t.id),c=dockCost(t.id),max=lv>=CFG.dock.maxLevel,can=!max&&S.money>=c,nl=Math.ceil((lv+1)/10)*10;
-  const eff=t.id==='crane'?`Load ${num(CFG.ship.loadPerMin*(1+CFG.dock.craneSpeed*(lv-1)))}/min`:t.id==='crew'?`${2+Math.floor(lv/10)} crew · +${Math.round(CFG.dock.crewSpeed*(lv-1)*100)}% load`:t.id==='pad'?`Hold ${holdCap()}`:`Turnaround ${mmss(turnSec())}`;
+  const eff=t.id==='crane'?`Load ${num(CFG.ship.loadPerMin*tripMult(S.trips||0)*(1+CFG.dock.craneSpeed*(lv-1)))}/min`:t.id==='crew'?`${2+Math.floor(lv/10)} crew · +${Math.round(CFG.dock.crewSpeed*(lv-1)*100)}% load`:t.id==='pad'?`Hold ${holdCap()}`:`Turnaround ${mmss(turnSec())}`;
   return `<div class="drow"><img src="${ui(t.icon)}"><div class="dt"><b>${t.name} <span class="dl">LV ${lv}</span></b><small>${eff}</small>${max?'':`<small class="nl">Next look LV ${nl}: ${t.looks[nl]||''}</small>`}
    <div class="dbar"><i style="width:${lv/CFG.dock.maxLevel*100}%"></i></div></div>
    <button class="dup ${can?'glow':''}" data-t="${t.id}" ${can?'':'disabled'}>${max?'MAX':can?`<img src="${ui('ui_icon_coin')}">${fmt(c).slice(1)}`:`Need ${fmt(c-S.money)}`}</button></div>`}).join('');
@@ -823,16 +827,24 @@ addEventListener('click',ev=>{if(performance.now()-dotSwallow<700){ev.preventDef
 function closeSheet(){sheetFor=null;$('#sheet').classList.remove('open');$('#shade').classList.remove('on')}
 $('#shade').onclick=()=>{if(performance.now()-sheetOpenedAt>400)closeSheet()};
 let tt=0,padDip=null;function placeToast(){const t=$('#toast'),lp=$('#lpw'),pr=lp&&lp.offsetParent&&lp.getBoundingClientRect(),g=$('#goal'),r=g&&g.getBoundingClientRect();   // never cover the low-power pill: sit just below it when it shows
- if(pr&&pr.height)t.style.top=Math.round(pr.bottom+6)+'px';else if(r&&r.height)t.style.top=Math.round(r.top+r.height/2-18)+'px'}
+ if(pr&&pr.height)t.style.top=Math.round(pr.bottom+18)+'px';else if(r&&r.height)t.style.top=Math.round(r.top+r.height/2-18)+'px'}
 function toast(m,tap){const t=$('#toast');t.textContent=m;t.onclick=tap?()=>{t.classList.remove('on');tap()}:null;t.style.pointerEvents=tap?'auto':'';if(E)lowPowerUI();placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>{t.classList.remove('on');t.style.pointerEvents='';t.onclick=null},2200)}
 // =====================================================================
 // HUD
 // =====================================================================
 let shownMoney=0;
 const powerShort=()=>!!E&&(E.power<0.999||(E.limit==='Energy'&&S.pop>=E.cap));   // short when floors are underpowered OR energy can't support the crew (miners about to leave)
-function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=powerShort();el.style.display=low?'flex':'none';if(!low)return;const d=F[IDX.nuke],f=S.f.nuke;
- const t=f.built?`Low power: upgrade Nuclear (${fmt(upCost(IDX.nuke))})`:`Low power: build Nuclear (${fmt(d.cost)})`;if(el.dataset.t!==t){el.dataset.t=t;el.querySelector('span').textContent=t}}
-function goNuclear(){const si=STOPS.findIndex(s=>s.kind==='tower'&&s.bi===F[IDX.nuke].b);closeSheet();goSite(si);if(S.f.nuke.built)setTimeout(()=>openSheet(IDX.nuke),480)}
+// next step the player can actually take toward more power, following the real unlock order (floor below first, then level reqs)
+function powerStep(){let i=IDX.nuke,guard=0;
+ while(guard++<12){const d=F[i],f=S.f[d.id];
+  if(f.built)return{i,kind:'up',text:`upgrade ${d.name.replace(' Power','')} (${fmt(upCost(i))})`};
+  const nf=nextFloor(d.b);if(nf&&nf!==d){i=IDX[nf.id];continue}
+  if(d.req&&S.f[d.req.floor].lvl<d.req.lvl){const r=IDX[d.req.floor];if(!S.f[d.req.floor].built){i=r;continue}return{i:r,kind:'up',text:`upgrade ${F[r].name.replace(' Plant','')} to Lv${d.req.lvl}`}}
+  return{i,kind:'build',text:`build ${d.name.replace(' Power','')} (${fmt(d.cost)})`}}
+ return{i:IDX.nuke,kind:'build',text:`build Nuclear (${fmt(F[IDX.nuke].cost)})`}}
+function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=powerShort();el.style.display=low?'flex':'none';if(!low)return;
+ const t='Low power: '+powerStep().text;if(el.dataset.t!==t){el.dataset.t=t;el.querySelector('span').textContent=t}}
+function goNuclear(){const p=powerStep(),d=F[p.i],si=STOPS.findIndex(s=>s.kind==='tower'&&s.bi===d.b);closeSheet();goSite(si);if(S.f[d.id].built)setTimeout(()=>openSheet(p.i),480)}   // opens that exact step: the floor's sheet if built, else its station with the build button
 function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money/20)+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
  const lim=e.limit,low=e.power<0.999,m=[['people','ui_icon_people',`${num(S.pop)}/${num(e.cap)}`,lim==='Beds'],['oxygen','ui_icon_oxygen',num(e.oxygen),lim==='Oxygen'],['water','ui_icon_water',num(e.water),lim==='Water'],['energy','ui_icon_energy',`${num(e.energy)}/${num(e.demand)}`,lim==='Energy']];
  const box=$('#meters');if(!box.children.length)box.innerHTML=m.map(r=>`<div class="m glass" data-k="${r[0]}"><img src="${ui(r[1])}"><span></span></div>`).join('');
@@ -885,7 +897,7 @@ function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind=
 // =====================================================================
 let last=performance.now(),saveAcc=0,hudAcc=0,fpsN=0,fpsT=0;
 let scrolledCls=false;
-function frame(now){{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;
+function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;
  if(!cam.anim&&!g0){const P=CFG.rotPerSlot,k=Math.max(0,Math.min(STOPS.length-1,Math.round(cam.rot/P)));if(Math.abs(cam.rot-k*P)>0.0004)goSite(k)}   // never rest half-turned
  if(cam.anim){const a=cam.anim,q=Math.min(1,(T-a.t0)/a.d);cam.rot=a.from+(a.to-a.from)*easeOutCubic(q);if(q>=1){cam.rot=a.to;cam.anim=null}}
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
