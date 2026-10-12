@@ -190,6 +190,7 @@ function rawOut(i,lv,w){const f=st(i),d=F[i];lv=lv||f.lvl;w=w==null?f.workers:w;
  F.forEach(o=>{if(S.f[o.id].built&&S.f[o.id].lvl>=50)x*=1+CFG.masteredPlanet});
  return x*(1+CFG.elevator.bonusPerLevel*(elevLvl(d.b)-1))}
 let E={};
+const roomBoost=d=>{if(d.role!=='boost'&&d.role!=='depot')return 0;const f=S.f[d.id];if(!f.built||!f.workers)return 0;return (0.03+0.01*(f.lvl-1))*(d.use?E.power||1:1)};   // +3% at L1, +1%/level, +52% at L50; no tier doubling
 const mineFloors=['rover','crusher','separator','packing'];
 function econ(){const P=CFG.econ.pod,e={oxygen:P.oxygen,water:P.water,energy:P.energy,housing:P.housing,floorUse:0};
  F.forEach((d,i)=>{if(d.res==='energy')e.energy+=rawOut(i);if(st(i).built&&st(i).workers>0)e.floorUse+=d.use||0});
@@ -200,7 +201,7 @@ function econ(){const P=CFG.econ.pod,e={oxygen:P.oxygen,water:P.water,energy:P.e
  e.cap=Math.floor(Math.min(...Object.values(lim)));e.limit=Object.keys(lim).reduce((a,k)=>lim[k]<lim[a]?k:a,'Beds');e.lim=lim;
  // mining: Rover Bay sets the base rate; each later floor and the Supply Depot multiply it
  let m=F[IDX.rover]._out;mineFloors.slice(1).forEach(id=>{const d=F[IDX[id]];if(d._out>0)m*=1+CFG.econ.laterFloorBoost*d._out/d.out});
- if(F[IDX.markets]._out>0)m*=1+CFG.econ.depotBoost*F[IDX.markets]._out;F.forEach(d=>{if(d.role==='boost'&&d._out>0)m*=1+CFG.econ.boostPer*d._out/d.out});   // new rooms: small mining boost each (placeholder balance)
+ e.roomBoost=F.reduce((a,d)=>a+roomBoost(d),0);m*=1+e.roomBoost;   // support rooms: boosts summed additively, applied once (Game Director)
  e.mineMul=m;e.ptRate=m*CFG.econ.ptPerMin;e.heRate=m*CFG.econ.hePerMin;   // containers per minute
  e.refRate=F[IDX.refinery]._out;                                          // refined per minute
  e.ore=S.firstReturn?0:F[IDX.rover]._out*CFG.econ.oreTrickle/CFG.econ.oreTrickleSec;   // $/s
@@ -260,8 +261,8 @@ const nextFloor=bi=>BUILDINGS[bi].floors.find(d=>!S.f[d.id].built&&!d.upper);
 function meter(i){const d=F[i],o=d._out||0;if(!st(i).workers)return 'No crew';
  if(d.res==='oxygen')return `supports ${Math.floor(o)} people`;if(d.res==='water')return `supports ${Math.floor(o)} people`;
  if(d.res==='energy')return `${num(E.energy||0)} kW · using ${num(E.demand||0)}`;if(d.role==='housing')return `${Math.floor(o)} beds`;
- if(d.role==='depot')return `+${Math.round(CFG.econ.depotBoost*o*100)}% mining`;
- if(d.role==='refinery')return `${num(o)} refined/min`;if(d.role==='boost')return `×${(1+CFG.econ.boostPer*o/d.out).toFixed(2)} mining`;
+ if(d.role==='depot'||d.role==='boost')return `+${Math.round(roomBoost(d)*100)}% mining`;
+ if(d.role==='refinery')return `${num(o)} refined/min`;
  if(d.role==='mine')return d.id==='rover'?`${num(E.ptRate||0)} Pt + ${num(E.heRate||0)} He-3 /min`:`×${(1+CFG.econ.laterFloorBoost*o/d.out).toFixed(2)} mining`;return ''}
 // ----- goals -----
 const GOALS=[
@@ -651,7 +652,7 @@ function statRows(i){const d=F[i],f=st(i),lv=f.lvl,{k}=upgradeN(i,mult),nl=Math.
  if(d.res==='energy'){rows.push(['ui_icon_energy','Energy output',arrow(num(a)+' kW',num(b)+' kW')]);rows.push(['ui_icon_power','Base demand',`${num(E.demand)} kW`+(E.power<1?' <span class="bad">· short</span>':'')])}
  if(d.role==='housing')rows.push(['ui_icon_people','Beds',arrow(Math.floor(a),Math.floor(b))]);
  if(d.role==='housing'&&Math.floor(b)>Math.floor(a))rows[rows.length-1][2]+=` (+${Math.floor(b)-Math.floor(a)} miners)`;
- if(d.role==='depot')rows.push(['ui_icon_people','Miner morale',arrow('+'+Math.round(CFG.econ.depotBoost*a*100)+'% mining','+'+Math.round(CFG.econ.depotBoost*b*100)+'%')]);
+ if(d.role==='depot'||d.role==='boost')rows.push(['ui_icon_income','Mining boost',arrow('+'+(2+lv)+'% mining','+'+(2+nl)+'%')]);   // +3% at L1, +1%/level (summed with other rooms)
  if(d.role==='refinery')rows.push(['ui_icon_income','Refined',arrow(num(a*pw)+'/min',num(b*pw)+'/min')]);
  if(d.id==='rover')rows.push(['ui_icon_income','Mining',arrow(num(a*pw*CFG.econ.ptPerMin)+' Pt/min',num(b*pw*CFG.econ.ptPerMin)+' Pt/min')]);
  else if(d.role==='mine')rows.push(['ui_icon_income','Mining boost',arrow('×'+(1+CFG.econ.laterFloorBoost*a*pw/d.out).toFixed(2),'×'+(1+CFG.econ.laterFloorBoost*b*pw/d.out).toFixed(2))]);
@@ -786,6 +787,6 @@ let bgDone=false;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();
 // dev mode (?dev=1 on preview only): unlimited money + Max out
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}
-function maxOut(){BUILDINGS.forEach(b=>b.soon=false);S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
- for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
+function maxOut(){BUILDINGS.forEach(b=>b.soon=false);S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=d.upper?0:2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
+ for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40,F.filter(d=>!d.upper).length*2);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
 window.__ps={cam,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
