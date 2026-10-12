@@ -1,0 +1,61 @@
+{
+ "meta": {
+  "images": [
+   "cargo_mule.webp"
+  ],
+  "image": "cargo_mule.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 64,
+   "h": 34
+  },
+  "pivot": {
+   "x": 32,
+   "y": 34
+  },
+  "loop": true
+ },
+ "frames": {
+  "cargo_mule_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 128,
+    "h": 68
+   },
+   "duration": 83
+  },
+  "cargo_mule_1": {
+   "page": 0,
+   "frame": {
+    "x": 128,
+    "y": 0,
+    "w": 128,
+    "h": 68
+   },
+   "duration": 83
+  },
+  "cargo_mule_2": {
+   "page": 0,
+   "frame": {
+    "x": 256,
+    "y": 0,
+    "w": 128,
+    "h": 68
+   },
+   "duration": 83
+  },
+  "cargo_mule_3": {
+   "page": 0,
+   "frame": {
+    "x": 384,
+    "y": 0,
+    "w": 128,
+    "h": 68
+   },
+   "duration": 83
+  }
+ }
+}

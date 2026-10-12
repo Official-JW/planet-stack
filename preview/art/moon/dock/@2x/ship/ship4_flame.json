@@ -1,0 +1,105 @@
+{
+ "meta": {
+  "images": [
+   "ship4_flame.webp"
+  ],
+  "image": "ship4_flame.webp",
+  "scale": 2,
+  "fps": 16,
+  "logicalFrame": {
+   "w": 160,
+   "h": 300
+  },
+  "pivot": {
+   "x": 80,
+   "y": 0
+  },
+  "loop": true,
+  "attachToHull": {
+   "x": 160,
+   "y": 432
+  }
+ },
+ "frames": {
+  "ship4_flame_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  },
+  "ship4_flame_1": {
+   "page": 0,
+   "frame": {
+    "x": 320,
+    "y": 0,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  },
+  "ship4_flame_2": {
+   "page": 0,
+   "frame": {
+    "x": 640,
+    "y": 0,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  },
+  "ship4_flame_3": {
+   "page": 0,
+   "frame": {
+    "x": 960,
+    "y": 0,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  },
+  "ship4_flame_4": {
+   "page": 0,
+   "frame": {
+    "x": 1280,
+    "y": 0,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  },
+  "ship4_flame_5": {
+   "page": 0,
+   "frame": {
+    "x": 1600,
+    "y": 0,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  },
+  "ship4_flame_6": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 600,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  },
+  "ship4_flame_7": {
+   "page": 0,
+   "frame": {
+    "x": 320,
+    "y": 600,
+    "w": 320,
+    "h": 600
+   },
+   "duration": 62
+  }
+ }
+}

@@ -1,0 +1,143 @@
+{
+ "meta": {
+  "images": [
+   "crew13_carry.webp"
+  ],
+  "image": "crew13_carry.webp",
+  "scale": 2,
+  "fps": 14,
+  "logicalFrame": {
+   "w": 42,
+   "h": 57
+  },
+  "pivot": {
+   "x": 21,
+   "y": 57
+  },
+  "loop": true,
+  "role": "worker",
+  "note": "1.3x crew for the Cargo Space Dock stop"
+ },
+ "frames": {
+  "crew13_carry_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_1": {
+   "page": 0,
+   "frame": {
+    "x": 83,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_2": {
+   "page": 0,
+   "frame": {
+    "x": 166,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_3": {
+   "page": 0,
+   "frame": {
+    "x": 249,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_4": {
+   "page": 0,
+   "frame": {
+    "x": 332,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_5": {
+   "page": 0,
+   "frame": {
+    "x": 415,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_6": {
+   "page": 0,
+   "frame": {
+    "x": 498,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_7": {
+   "page": 0,
+   "frame": {
+    "x": 581,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_8": {
+   "page": 0,
+   "frame": {
+    "x": 664,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_9": {
+   "page": 0,
+   "frame": {
+    "x": 747,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_10": {
+   "page": 0,
+   "frame": {
+    "x": 830,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  },
+  "crew13_carry_11": {
+   "page": 0,
+   "frame": {
+    "x": 913,
+    "y": 0,
+    "w": 83,
+    "h": 114
+   },
+   "duration": 71
+  }
+ }
+}

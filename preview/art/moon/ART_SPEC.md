@@ -47,3 +47,6 @@ fx_collect_sparkle 48×48 12f @24; fx_upgrade_burst 160×160 16f; fx_floor_unloc
 ship/ (160×240, flame attached at (80,216), smoke, dust), launch_pad (ship pivot at pad (110,8)), launch_tower 120×250 pivot (101,250). bg/ globe, sky, stars, stars_twinkle, globe_surface_strip. cargo/.
 
 UI: see UI_SPEC.md.
+
+## Font credits
+Rajdhani and Inter: SIL Open Font License (OFL), via Google Fonts. DejaVu Sans / Sans Mono: free under the DejaVu Fonts license (Bitstream Vera derivative). Fonts are rasterised into the art; no font files ship.

@@ -1,0 +1,153 @@
+{
+ "meta": {
+  "images": [
+   "tunnel_back-0.webp",
+   "tunnel_back-1.webp"
+  ],
+  "image": "tunnel_back-0.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 260,
+   "h": 130
+  },
+  "pivot": {
+   "x": 0,
+   "y": 70
+  },
+  "loop": true,
+  "ramp": {
+   "top": [
+    20,
+    70
+   ],
+   "bottom": [
+    170,
+    118
+   ]
+  },
+  "note": "v3 cave: outcrop+portal+shack; work lights/beacons/haze animate"
+ },
+ "frames": {
+  "tunnel_back_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_1": {
+   "page": 0,
+   "frame": {
+    "x": 780,
+    "y": 0,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_2": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 390,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_3": {
+   "page": 0,
+   "frame": {
+    "x": 780,
+    "y": 390,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_4": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 780,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_5": {
+   "page": 0,
+   "frame": {
+    "x": 780,
+    "y": 780,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_6": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 1170,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_7": {
+   "page": 0,
+   "frame": {
+    "x": 780,
+    "y": 1170,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_8": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 1560,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_9": {
+   "page": 0,
+   "frame": {
+    "x": 780,
+    "y": 1560,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_10": {
+   "page": 1,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  },
+  "tunnel_back_11": {
+   "page": 1,
+   "frame": {
+    "x": 780,
+    "y": 0,
+    "w": 780,
+    "h": 390
+   },
+   "duration": 83
+  }
+ }
+}

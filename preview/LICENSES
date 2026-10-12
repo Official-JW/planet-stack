@@ -1,0 +1,16 @@
+Planet Stack — licenses and credits
+
+Code
+  All code in this repository (game.js, index.html) is original work for Planet Stack.
+  No third-party code, libraries or frameworks are included.
+
+Art
+  All art under art/ was made for Planet Stack by the team's Art & Animation pipeline
+  (/workspace/artgen scripts). No third-party or stock artwork is included.
+  The art references no real company, product or brand.
+
+Fonts (used by the art pipeline to letter labels baked into images; UI uses system fonts
+with Rajdhani/Inter named as preferred if installed — no font files are shipped)
+  Rajdhani  — Indian Type Foundry, SIL Open Font License 1.1 (https://openfontlicense.org)
+  Inter     — Rasmus Andersson, SIL Open Font License 1.1 (https://openfontlicense.org)
+  DejaVu    — DejaVu fonts, Bitstream Vera license / public domain changes (https://dejavu-fonts.github.io/License.html)

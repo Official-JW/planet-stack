@@ -1,9 +1,9 @@
 {
  "meta": {
   "images": [
-   "mine_pad.webp"
+   "cargo_space_dock_mini.webp"
   ],
-  "image": "mine_pad.webp",
+  "image": "cargo_space_dock_mini.webp",
   "scale": 3,
   "fps": 12,
   "logicalFrame": {
@@ -26,7 +26,7 @@
   }
  },
  "frames": {
-  "mine_pad_0": {
+  "cargo_space_dock_mini_0": {
    "page": 0,
    "frame": {
     "x": 0,
@@ -36,7 +36,7 @@
    },
    "duration": 83
   },
-  "mine_pad_1": {
+  "cargo_space_dock_mini_1": {
    "page": 0,
    "frame": {
     "x": 540,
@@ -46,7 +46,7 @@
    },
    "duration": 83
   },
-  "mine_pad_2": {
+  "cargo_space_dock_mini_2": {
    "page": 0,
    "frame": {
     "x": 1080,
@@ -56,7 +56,7 @@
    },
    "duration": 83
   },
-  "mine_pad_3": {
+  "cargo_space_dock_mini_3": {
    "page": 0,
    "frame": {
     "x": 0,
@@ -66,7 +66,7 @@
    },
    "duration": 83
   },
-  "mine_pad_4": {
+  "cargo_space_dock_mini_4": {
    "page": 0,
    "frame": {
     "x": 540,
@@ -76,7 +76,7 @@
    },
    "duration": 83
   },
-  "mine_pad_5": {
+  "cargo_space_dock_mini_5": {
    "page": 0,
    "frame": {
     "x": 1080,
@@ -86,7 +86,7 @@
    },
    "duration": 83
   },
-  "mine_pad_6": {
+  "cargo_space_dock_mini_6": {
    "page": 0,
    "frame": {
     "x": 0,
@@ -96,7 +96,7 @@
    },
    "duration": 83
   },
-  "mine_pad_7": {
+  "cargo_space_dock_mini_7": {
    "page": 0,
    "frame": {
     "x": 540,
@@ -106,7 +106,7 @@
    },
    "duration": 83
   },
-  "mine_pad_8": {
+  "cargo_space_dock_mini_8": {
    "page": 0,
    "frame": {
     "x": 1080,
@@ -116,7 +116,7 @@
    },
    "duration": 83
   },
-  "mine_pad_9": {
+  "cargo_space_dock_mini_9": {
    "page": 0,
    "frame": {
     "x": 0,
@@ -126,7 +126,7 @@
    },
    "duration": 83
   },
-  "mine_pad_10": {
+  "cargo_space_dock_mini_10": {
    "page": 0,
    "frame": {
     "x": 540,
@@ -136,7 +136,7 @@
    },
    "duration": 83
   },
-  "mine_pad_11": {
+  "cargo_space_dock_mini_11": {
    "page": 0,
    "frame": {
     "x": 1080,

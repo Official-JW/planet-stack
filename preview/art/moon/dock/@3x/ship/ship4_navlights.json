@@ -1,0 +1,46 @@
+{
+ "meta": {
+  "images": [
+   "ship4_navlights.webp"
+  ],
+  "image": "ship4_navlights.webp",
+  "scale": 3,
+  "fps": 2,
+  "logicalFrame": {
+   "w": 104,
+   "h": 24
+  },
+  "pivot": {
+   "x": 0,
+   "y": 0
+  },
+  "loop": true,
+  "attachToHull": {
+   "x": 108,
+   "y": 163
+  },
+  "blend": "add"
+ },
+ "frames": {
+  "ship4_navlights_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 312,
+    "h": 72
+   },
+   "duration": 500
+  },
+  "ship4_navlights_1": {
+   "page": 0,
+   "frame": {
+    "x": 312,
+    "y": 0,
+    "w": 312,
+    "h": 72
+   },
+   "duration": 500
+  }
+ }
+}

@@ -1,0 +1,152 @@
+{
+ "meta": {
+  "images": [
+   "tunnel_back.webp"
+  ],
+  "image": "tunnel_back.webp",
+  "scale": 2,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 260,
+   "h": 130
+  },
+  "pivot": {
+   "x": 0,
+   "y": 70
+  },
+  "loop": true,
+  "ramp": {
+   "top": [
+    20,
+    70
+   ],
+   "bottom": [
+    170,
+    118
+   ]
+  },
+  "note": "v3 cave: outcrop+portal+shack; work lights/beacons/haze animate"
+ },
+ "frames": {
+  "tunnel_back_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_1": {
+   "page": 0,
+   "frame": {
+    "x": 520,
+    "y": 0,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_2": {
+   "page": 0,
+   "frame": {
+    "x": 1040,
+    "y": 0,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_3": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 260,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_4": {
+   "page": 0,
+   "frame": {
+    "x": 520,
+    "y": 260,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_5": {
+   "page": 0,
+   "frame": {
+    "x": 1040,
+    "y": 260,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_6": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 520,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_7": {
+   "page": 0,
+   "frame": {
+    "x": 520,
+    "y": 520,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_8": {
+   "page": 0,
+   "frame": {
+    "x": 1040,
+    "y": 520,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_9": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 780,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_10": {
+   "page": 0,
+   "frame": {
+    "x": 520,
+    "y": 780,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  },
+  "tunnel_back_11": {
+   "page": 0,
+   "frame": {
+    "x": 1040,
+    "y": 780,
+    "w": 520,
+    "h": 260
+   },
+   "duration": 83
+  }
+ }
+}

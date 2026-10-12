@@ -1,0 +1,83 @@
+{
+ "meta": {
+  "images": [
+   "bin_fill_he3.webp"
+  ],
+  "image": "bin_fill_he3.webp",
+  "scale": 2,
+  "fps": 0,
+  "logicalFrame": {
+   "w": 74,
+   "h": 16
+  },
+  "pivot": {
+   "x": 0,
+   "y": 0
+  },
+  "loop": false,
+  "attachToFloor": {
+   "x": 206,
+   "y": 104
+  },
+  "states": [
+   "0%",
+   "25%",
+   "50%",
+   "75%",
+   "100%"
+  ],
+  "note": "pit cutaway fill; draw after floor base, before rover"
+ },
+ "frames": {
+  "bin_fill_he3_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 148,
+    "h": 32
+   },
+   "duration": 0
+  },
+  "bin_fill_he3_1": {
+   "page": 0,
+   "frame": {
+    "x": 148,
+    "y": 0,
+    "w": 148,
+    "h": 32
+   },
+   "duration": 0
+  },
+  "bin_fill_he3_2": {
+   "page": 0,
+   "frame": {
+    "x": 296,
+    "y": 0,
+    "w": 148,
+    "h": 32
+   },
+   "duration": 0
+  },
+  "bin_fill_he3_3": {
+   "page": 0,
+   "frame": {
+    "x": 444,
+    "y": 0,
+    "w": 148,
+    "h": 32
+   },
+   "duration": 0
+  },
+  "bin_fill_he3_4": {
+   "page": 0,
+   "frame": {
+    "x": 592,
+    "y": 0,
+    "w": 148,
+    "h": 32
+   },
+   "duration": 0
+  }
+ }
+}

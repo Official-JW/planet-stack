@@ -1,0 +1,271 @@
+{
+ "meta": {
+  "images": [
+   "rover_tunnel.webp"
+  ],
+  "image": "rover_tunnel.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 106,
+   "h": 64
+  },
+  "pivot": {
+   "x": 45,
+   "y": 58
+  },
+  "loop": false,
+  "segments": {
+   "descend": [
+    0,
+    11
+   ],
+   "emerge": [
+    12,
+    23
+   ]
+  }
+ },
+ "frames": {
+  "rover_tunnel_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_1": {
+   "page": 0,
+   "frame": {
+    "x": 318,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_2": {
+   "page": 0,
+   "frame": {
+    "x": 636,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_3": {
+   "page": 0,
+   "frame": {
+    "x": 954,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_4": {
+   "page": 0,
+   "frame": {
+    "x": 1272,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_5": {
+   "page": 0,
+   "frame": {
+    "x": 1590,
+    "y": 0,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_6": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_7": {
+   "page": 0,
+   "frame": {
+    "x": 318,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_8": {
+   "page": 0,
+   "frame": {
+    "x": 636,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_9": {
+   "page": 0,
+   "frame": {
+    "x": 954,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_10": {
+   "page": 0,
+   "frame": {
+    "x": 1272,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_11": {
+   "page": 0,
+   "frame": {
+    "x": 1590,
+    "y": 192,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_12": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_13": {
+   "page": 0,
+   "frame": {
+    "x": 318,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_14": {
+   "page": 0,
+   "frame": {
+    "x": 636,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_15": {
+   "page": 0,
+   "frame": {
+    "x": 954,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_16": {
+   "page": 0,
+   "frame": {
+    "x": 1272,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_17": {
+   "page": 0,
+   "frame": {
+    "x": 1590,
+    "y": 384,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_18": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 576,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_19": {
+   "page": 0,
+   "frame": {
+    "x": 318,
+    "y": 576,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_20": {
+   "page": 0,
+   "frame": {
+    "x": 636,
+    "y": 576,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_21": {
+   "page": 0,
+   "frame": {
+    "x": 954,
+    "y": 576,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_22": {
+   "page": 0,
+   "frame": {
+    "x": 1272,
+    "y": 576,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  },
+  "rover_tunnel_23": {
+   "page": 0,
+   "frame": {
+    "x": 1590,
+    "y": 576,
+    "w": 318,
+    "h": 192
+   },
+   "duration": 83
+  }
+ }
+}

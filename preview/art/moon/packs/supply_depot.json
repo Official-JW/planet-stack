@@ -1,0 +1,24 @@
+{
+ "pack": "supply_depot",
+ "root": "mine",
+ "scales": {
+  "@3x": {
+   "files": [
+    "@3x/floors/floor_market.json",
+    "@3x/floors/floor_market.webp",
+    "@3x/floors/floor_market_layers.webp",
+    "@3x/floors/floor_market_lowpower.webp"
+   ],
+   "bytes": 235186
+  },
+  "@2x": {
+   "files": [
+    "@2x/floors/floor_market.json",
+    "@2x/floors/floor_market.webp",
+    "@2x/floors/floor_market_layers.webp",
+    "@2x/floors/floor_market_lowpower.webp"
+   ],
+   "bytes": 153891
+  }
+ }
+}

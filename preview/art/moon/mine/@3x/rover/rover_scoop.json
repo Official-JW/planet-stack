@@ -7,14 +7,15 @@
   "scale": 3,
   "fps": 12,
   "logicalFrame": {
-   "w": 90,
+   "w": 106,
    "h": 50
   },
   "pivot": {
    "x": 45,
    "y": 50
   },
-  "loop": false
+  "loop": false,
+  "note": "scoop frame is 106 wide; pivot same as other rover sheets so the body lines up"
  },
  "frames": {
   "rover_scoop_0": {
@@ -22,7 +23,7 @@
    "frame": {
     "x": 0,
     "y": 0,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -30,9 +31,9 @@
   "rover_scoop_1": {
    "page": 0,
    "frame": {
-    "x": 270,
+    "x": 318,
     "y": 0,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -40,9 +41,9 @@
   "rover_scoop_2": {
    "page": 0,
    "frame": {
-    "x": 540,
+    "x": 636,
     "y": 0,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -50,9 +51,9 @@
   "rover_scoop_3": {
    "page": 0,
    "frame": {
-    "x": 810,
+    "x": 954,
     "y": 0,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -60,9 +61,9 @@
   "rover_scoop_4": {
    "page": 0,
    "frame": {
-    "x": 1080,
+    "x": 1272,
     "y": 0,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -70,9 +71,9 @@
   "rover_scoop_5": {
    "page": 0,
    "frame": {
-    "x": 1350,
+    "x": 1590,
     "y": 0,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -80,9 +81,9 @@
   "rover_scoop_6": {
    "page": 0,
    "frame": {
-    "x": 1620,
-    "y": 0,
-    "w": 270,
+    "x": 0,
+    "y": 150,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -90,9 +91,9 @@
   "rover_scoop_7": {
    "page": 0,
    "frame": {
-    "x": 0,
+    "x": 318,
     "y": 150,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -100,9 +101,9 @@
   "rover_scoop_8": {
    "page": 0,
    "frame": {
-    "x": 270,
+    "x": 636,
     "y": 150,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -110,9 +111,9 @@
   "rover_scoop_9": {
    "page": 0,
    "frame": {
-    "x": 540,
+    "x": 954,
     "y": 150,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -120,9 +121,9 @@
   "rover_scoop_10": {
    "page": 0,
    "frame": {
-    "x": 810,
+    "x": 1272,
     "y": 150,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -130,9 +131,9 @@
   "rover_scoop_11": {
    "page": 0,
    "frame": {
-    "x": 1080,
+    "x": 1590,
     "y": 150,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -140,9 +141,9 @@
   "rover_scoop_12": {
    "page": 0,
    "frame": {
-    "x": 1350,
-    "y": 150,
-    "w": 270,
+    "x": 0,
+    "y": 300,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -150,9 +151,9 @@
   "rover_scoop_13": {
    "page": 0,
    "frame": {
-    "x": 1620,
-    "y": 150,
-    "w": 270,
+    "x": 318,
+    "y": 300,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -160,9 +161,9 @@
   "rover_scoop_14": {
    "page": 0,
    "frame": {
-    "x": 0,
+    "x": 636,
     "y": 300,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83
@@ -170,9 +171,9 @@
   "rover_scoop_15": {
    "page": 0,
    "frame": {
-    "x": 270,
+    "x": 954,
     "y": 300,
-    "w": 270,
+    "w": 318,
     "h": 150
    },
    "duration": 83

@@ -1,0 +1,143 @@
+{
+ "meta": {
+  "images": [
+   "crew13_walk.webp"
+  ],
+  "image": "crew13_walk.webp",
+  "scale": 3,
+  "fps": 14,
+  "logicalFrame": {
+   "w": 42,
+   "h": 57
+  },
+  "pivot": {
+   "x": 21,
+   "y": 57
+  },
+  "loop": true,
+  "role": "worker",
+  "note": "1.3x crew for the Cargo Space Dock stop"
+ },
+ "frames": {
+  "crew13_walk_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_1": {
+   "page": 0,
+   "frame": {
+    "x": 124,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_2": {
+   "page": 0,
+   "frame": {
+    "x": 248,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_3": {
+   "page": 0,
+   "frame": {
+    "x": 372,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_4": {
+   "page": 0,
+   "frame": {
+    "x": 496,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_5": {
+   "page": 0,
+   "frame": {
+    "x": 620,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_6": {
+   "page": 0,
+   "frame": {
+    "x": 744,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_7": {
+   "page": 0,
+   "frame": {
+    "x": 868,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_8": {
+   "page": 0,
+   "frame": {
+    "x": 992,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_9": {
+   "page": 0,
+   "frame": {
+    "x": 1116,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_10": {
+   "page": 0,
+   "frame": {
+    "x": 1240,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  },
+  "crew13_walk_11": {
+   "page": 0,
+   "frame": {
+    "x": 1364,
+    "y": 0,
+    "w": 124,
+    "h": 172
+   },
+   "duration": 71
+  }
+ }
+}

@@ -1,0 +1,17 @@
+{
+ "base": "floor_mine_crusher_t10.webp",
+ "layersImages": [],
+ "scale": 3,
+ "logicalSize": {
+  "w": 360,
+  "h": 120
+ },
+ "pivot": {
+  "x": 0,
+  "y": 120
+ },
+ "fps": 12,
+ "frames": 16,
+ "loop": true,
+ "layers": []
+}
