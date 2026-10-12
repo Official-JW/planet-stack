@@ -102,3 +102,5 @@
 - Image loads retry 3x (400/800/1200 ms).
 - One amber HUD pill "Low power: build Nuclear ($150)" → taps to Nuclear; per-floor warning icons removed.
 - Stray "Build Assembly · $0" gone (same root cause).
+- Pad dip (GD call a): loaded containers stay counted on the pad until launch, then leave for real; 400 ms low-g slide into the hold (top first), "Pad N/60" ticks down, "−N loaded"; refill uses normal mining drop-in.
+- Toast sits just below the low-power pill when it shows (GD call b).
