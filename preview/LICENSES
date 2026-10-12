@@ -16,5 +16,5 @@ Fonts
     SIL Open Font License 1.1 — full text in art/fonts/OFL.txt (unmodified, from google/fonts ofl/rajdhani/OFL.txt)
   Used only by the art pipeline to letter labels baked into images (no font files shipped):
   Rajdhani  — Indian Type Foundry, SIL Open Font License 1.1 (https://openfontlicense.org)
-  Inter     — Rasmus Andersson, SIL Open Font License 1.1 (https://openfontlicense.org)
-  DejaVu    — DejaVu fonts, Bitstream Vera license / public domain changes (https://dejavu-fonts.github.io/License.html)
+  Inter     — Rasmus Andersson: SIL Open Font License (OFL) 1.1, via Google Fonts. Rasterised into the art; no font files ship.
+  DejaVu Sans / Sans Mono — free under the DejaVu Fonts license (Bitstream Vera derivative). Rasterised into the art; no font files ship.
