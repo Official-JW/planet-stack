@@ -24,8 +24,8 @@ html,body{margin:0;position:fixed;inset:0;overflow:hidden;background:#05070f;col
 #goal .pb{height:5px;border-radius:3px;background:#222a3d;margin-top:6px;overflow:hidden}#goal .pb i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--orange),var(--amber));transition:width .4s ease-out}
 #goal.pop{transform:scale(1.06)}
 #site{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:10;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
-#site .name{font-size:13px;letter-spacing:2.5px;color:#c9d3e6;text-shadow:0 1px 6px #000;font-weight:600}
-#dots{display:flex;gap:6px}#dots i{width:7px;height:7px;border-radius:4px;background:#5b667e;transition:all .3s}#dots i.on{width:20px;background:var(--amber)}
+#site .name{white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis;padding:0 16px;line-height:18px;font-size:13px;letter-spacing:2.5px;color:#c9d3e6;text-shadow:0 1px 6px #000;font-weight:600}
+#dots{display:flex;gap:14px;pointer-events:auto;margin-top:4px}#dots i{position:relative;width:7px;height:7px;border-radius:4px;background:#5b667e;transition:all .3s;cursor:pointer}#dots i::after{content:'';position:absolute;left:-10px;right:-10px;top:-18px;bottom:-18px}#dots i.on{width:20px;background:var(--amber)}
 /* ---------- upgrade sheet (upgrade_menu_mockup.png / UI_SPEC.md) ---------- */
 #sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0 auto;max-width:430px;max-height:56%;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;
  background:linear-gradient(#111a2e,#0d1424 40%);border:1.5px solid rgba(95,212,255,.55);border-bottom:0;border-radius:24px 24px 0 0;padding:10px 20px calc(env(safe-area-inset-bottom) + 18px);

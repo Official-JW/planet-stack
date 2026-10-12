@@ -9,11 +9,11 @@ const CFG={
  tierUtility:0.10,tierIndustrial:0.10,eliteBuilding:0.10,masteredPlanet:0.10,oxygenCrewSpeed:0.10,autoCollectSec:30,
  tierColors:['#c98b4a','#9fd6ff','#ff9a3c','#c08cff','#ffd34d'],
  offlineCapSec:4*3600,offlineRate:0.5,tutorialLevel:3,
- maxFloors:10,siteAngleDeg:60,rotPerSlot:0.2,neighbourSink:5625,surfaceScroll:6,towerScale:0.93,
+ maxFloors:10,siteAngleDeg:60,rotPerSlot:0.25,neighbourSink:0,surfaceScroll:6,towerScale:0.93,
  // money ONLY from mining (+ refining): $500 grant, a small raw-ore trickle until the first ship returns, then cargo sales
  econ:{startGrant:500,arrivalSec:20,leaveSec:10,
   pod:{housing:4,oxygen:0,water:4,energy:8},kwPerPerson:1,staffBonus:0.25,
-  ptPerMin:1,hePerMin:1/3,ptValue:40,heValue:160,refinedMult:3,stageCap:60,
+  ptPerMin:1,hePerMin:1/3,ptValue:40,heValue:160,packShare:0.3,refinedMult:3,stageCap:60,
   oreTrickleSec:16,oreTrickle:3,laterFloorBoost:0.5,depotBoost:0.05},
  elevator:{maxLevel:100,speedPerLevel:1.03,baseCapacity:1,capacityEvery:5,cost:25,costMult:1.12,lookEvery:10,bonusPerLevel:0.01,
   travelBaseMs:220,travelPerFloorMs:90,
@@ -35,7 +35,7 @@ const BUILDINGS=[
   {id:'nuke',name:'Nuclear Power',art:'nuclear',role:'resource',res:'energy',cost:150,out:12,use:0,up:110,crew:'engineer',desc:'Makes energy for every floor and every person.'}]},
  {id:'mine',name:'He & Pt Mine',full:'Helium & Platinum Mine',art:'mine',roof:'penthouse_mine',floors:[
   {id:'rover',name:'Rover Bay',art:'mine_rover_bay',pack:'mine_starter',role:'mine',cost:0,out:1,use:2,up:20,ph:'#5a4a3a',desc:'Rovers drive into ADIT-2, mine regolith and dump it by ore type. Higher levels add speed.'},
-  {id:'crusher',name:'Crusher',art:'mine_crusher',pack:'mine_later_crusher',role:'mine',cost:400,out:1,use:1,up:120,ph:'#4a4a5a',desc:'Crushes ore: more crates from every rover load.'},
+  {id:'crusher',name:'Crusher',art:'mine_crusher',pack:'mine_later_crusher',role:'mine',cost:250,out:1,use:1,up:120,ph:'#4a4a5a',desc:'Crushes ore: more crates from every rover load.'},
   {id:'separator',name:'Separator',art:'mine_separator',pack:'mine_later_separator',role:'mine',cost:1600,out:1,use:3,up:450,ph:'#2f4a5a',crew:'engineer',desc:'Separates Helium-3 and platinum. Uses a lot of energy.'},
   {id:'packing',name:'Packing',art:'mine_packing',pack:'mine_later_packing',role:'mine',cost:6400,out:1,use:1,up:1600,ph:'#4a3f2a',desc:'Packs Pt crates and He-3 canisters faster.'}]},
  {id:'dock',name:'Cargo Space Dock',dock:true,floors:[]},
@@ -90,6 +90,7 @@ let BAYROUTE=null;tryJSON(ART+MINE+'rover/rover_bay_route.json').then(j=>BAYROUT
 ['loaded_box_pulse','loaded_box_sealed','loaded_box_stack3','he3_canister_pulse','he3_canister_sealed','he3_canister_stack3'].forEach(n=>def(n,MINE+'box/'+n,'mine_starter'));
 ['pickup_ore','pickup_miner','pickup_refined_coin'].forEach(n=>{def(n+'_spin',MINE+'fx/'+n+'_spin','mine_starter');def(n+'_sparkle',MINE+'fx/'+n+'_sparkle','mine_starter')});
 def('tunnel_back',MINE+'tunnel/tunnel_back','mine_starter','floor');def('tunnel_haze',MINE+'tunnel/tunnel_haze','mine_starter','img');def('tunnel_front_lip',MINE+'tunnel/tunnel_front_lip','mine_starter','img');
+const WALK=`../shared/walkway/${DEV_DPR>2?'@3x':'@2x'}/`;['walkway_cap','walkway_cap_R','walkway_astro_walk'].forEach(n=>def(n,WALK+n,'walkway'));['walkway_mid','walkway_truss'].forEach(n=>def(n,WALK+n,'walkway','img'));
 def('roof_mine',MINE+'floors/penthouse_mine','mine_later_penthouse','floor');SPR.roof_mine.lowpower=true;
 // Cargo Space Dock (own station; loads when the player heads to it)
 def('dock_base',DOCK+'pad/cargo_space_dock','dock','img');
@@ -100,7 +101,7 @@ def('ship4_hull',DOCK+'ship/ship4_hull','dock','img');def('launch_tower4',DOCK+'
 ['walk','carry','push','wave'].forEach(n=>def('crew13_'+n,DOCK+'crew/crew13_'+n,'dock'));
 def('ui_btn_dock_wrench_firsttime',DOCK+'ui/ui_btn_dock_wrench_firsttime','dock');
 def('walk_medic','astronaut/astronaut_medic_walk','hab');def('idle_medic','astronaut/astronaut_medic_idle','hab');
-const IMG_SIZE={surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],launch_tower4:[240,500,38,500],
+const IMG_SIZE={walkway_mid:[48,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],launch_tower4:[240,500,38,500],
  crane_gantry:[120,200,60,200],crane_trolley:[24,10,12,0],crane_hook_empty:[40,40,20,0],crane_jib_mast:[40,180,20,180],crane_jib_boom:[150,20,10,10],floodlight_mast:[30,150,15,150],floodlight_cone:[160,160,80,0],
  dock_sign_neon_base:[200,48,100,48],dock_sign_neon_pad_t10:[240,48,120,48],dock_sign_neon_pad_t20:[280,48,140,48],dock_sign_bloom_base:[280,40,140,20],dock_sign_bloom_pad_t10:[320,40,160,20],dock_sign_bloom_pad_t20:[360,40,180,20]};
 window.__firstBytesMark=0;
@@ -191,7 +192,7 @@ function econ(){const P=CFG.econ.pod,e={oxygen:P.oxygen,water:P.water,energy:P.e
  e.mineMul=m;e.ptRate=m*CFG.econ.ptPerMin;e.heRate=m*CFG.econ.hePerMin;   // containers per minute
  e.refRate=F[IDX.refinery]._out;                                          // refined per minute
  e.ore=S.firstReturn?0:F[IDX.rover]._out*CFG.econ.oreTrickle/CFG.econ.oreTrickleSec;   // $/s
- e.cargoRate=(e.ptRate*CFG.econ.ptValue+e.heRate*CFG.econ.heValue)/60;    // $/s once shipped
+ e.cargoRate=(e.ptRate*CFG.econ.ptValue+e.heRate*CFG.econ.heValue)/60;   // total (30% at pack + 70% on delivery)    // $/s once shipped
  e.rate=e.ore+e.cargoRate;E=e;return e}
 const staged=()=>S.pt+S.he;
 function step(dt,live,rate=1){const e=econ();let earned=0;
@@ -204,7 +205,7 @@ function step(dt,live,rate=1){const e=econ();let earned=0;
  // containers staged at the dock
  const cap=CFG.econ.stageCap;
  if(staged()<cap){S.ptAcc+=e.ptRate*dt/60;S.heAcc+=e.heRate*dt/60;
-  while(S.ptAcc>=1&&staged()<cap){S.ptAcc--;S.pt++}while(S.heAcc>=1&&staged()<cap){S.heAcc--;S.he++}}
+  const ps=CFG.econ.packShare;while(S.ptAcc>=1&&staged()<cap){S.ptAcc--;S.pt++;const v=CFG.econ.ptValue*ps;S.money+=v;earned+=v}while(S.heAcc>=1&&staged()<cap){S.heAcc--;S.he++;const v=CFG.econ.heValue*ps;S.money+=v;earned+=v}}   // 30% paid when packed
  // Refinery: upgrades staged containers to refined (He-3 first: worth more)
  if(e.refRate>0){S.refAcc+=e.refRate*dt/60;while(S.refAcc>=1){const he=S.he-S.refHe>0,pt=S.pt-S.refPt>0;if(!he&&!pt){S.refAcc=Math.min(S.refAcc,1);break}S.refAcc--;
    const v=(he?CFG.econ.heValue:CFG.econ.ptValue)*(CFG.econ.refinedMult-1);if(he)S.refHe++;else S.refPt++;if(live)refineFx(v)}}
@@ -225,7 +226,7 @@ const loadRate=()=>CFG.ship.loadPerMin*(1+CFG.dock.craneSpeed*(dockLvl('crane')-
 const holdCap=()=>CFG.ship.holdCrates+Math.floor((dockLvl('pad')-1)/2)*CFG.dock.padHoldPer2;
 const turnSec=()=>CFG.ship.turnaroundSec*Math.max(CFG.dock.refuelMin,1-CFG.dock.refuelPerLvl*(dockLvl('refuel')-1));
 const shipLoad=()=>S.ship.pt+S.ship.he;
-const cargoValue=o=>o.pt*CFG.econ.ptValue+o.he*CFG.econ.heValue+(o.refPt*CFG.econ.ptValue+o.refHe*CFG.econ.heValue)*(CFG.econ.refinedMult-1);
+const cargoValue=o=>(o.pt*CFG.econ.ptValue+o.he*CFG.econ.heValue)*(1-CFG.econ.packShare)+(o.refPt*CFG.econ.ptValue+o.refHe*CFG.econ.heValue)*(CFG.econ.refinedMult-1);
 function dockUpgrade(t){if(dockLvl(t)>=CFG.dock.maxLevel||S.money<dockCost(t))return;const before=Math.floor(dockLvl(t)/10);S.money-=dockCost(t);S.dock[t]++;
  if(Math.floor(dockLvl(t)/10)>before){const tr=DOCK_TRACKS.find(x=>x.id===t);toast(`🔧 ${tr.name}: ${tr.looks[dockLvl(t)]||'new look'}`);loadGroup('fx2');FX.push({type:'sprite',key:'fx_upgrade_burst',si:stopOfDock(),x:0,y:-60,t:T})}
  save();hud();openDock(true)}
@@ -235,7 +236,7 @@ function shipTick(t,live){const s=S.ship,ev=[];
  if(s.st==='turn'&&t>=s.t+turnSec()*1000){s.st='docked';s.t+=turnSec()*1000;ev.push({type:'ready'})}
  return ev}
 function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;s.st='trip';s.t=gnow();save();return true}
-const fmt=n=>{n=Math.floor(n);if(n<1e4)return '$'+n.toLocaleString('en-US');const u=['K','M','B','T'];let k=-1;while(n>=1e3&&k<3){n/=1e3;k++}return '$'+n.toFixed(n<100?1:0)+u[k]};
+const fmt=n=>{n=Math.floor(n);if(n<1e4)return '$'+n.toLocaleString('en-US');const u=['K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];let k=-1;while(n>=1e3&&k<10){n/=1e3;k++}return '$'+n.toFixed(n<100?1:0)+u[k]};
 const num=n=>n<10?n.toFixed(1):n<1e4?Math.floor(n).toLocaleString('en-US'):fmt(n).slice(1);
 const mmss=s=>{s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 function lockReason(i){const d=F[i],b=BUILDINGS[d.b];if(b.soon)return 'Coming soon';if(DEV)return null;
@@ -311,13 +312,26 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  ctx.save();ctx.translate(0,snap(OY+cam.y));
  const vis=STOPS.map((s,si)=>({s,si,f:stopFrame(si)})).filter(o=>Math.abs(o.f.a)<0.36);
  vis.filter(o=>Math.abs(o.f.a)>=0.008).forEach(drawStop);                 // neighbours sink behind the horizon
+ drawWalkways();
  if(ok('globe'))ctx.drawImage(SPR.globe.img,0,0,390,844);
  if(ok('globe_surface_strip')){drawBand(T*CFG.surfaceScroll+rx);ctx.drawImage(band,0,BAND_TOP,390,BAND_H)}
  if(ok('globe_shade'))ctx.drawImage(SPR.globe_shade.img,0,0,390,844);
  vis.filter(o=>Math.abs(o.f.a)<0.008).forEach(drawStop);
  drawFX();ctx.restore();
  const ms=STOPS[site];if(ms.kind==='tower'&&BUILDINGS[ms.bi].id==='mine'&&!ok('f_rover')&&ok('mine_preview')&&!cam.anim&&!g0){ctx.drawImage(SPR.mine_preview.img,0,snap(OY),390,844)}}
-function drawStop(o){const {s,f}=o;ctx.save();
+let curStopA=0;
+// glass walkway tubes between neighbouring stations (ART_SPEC WALKWAY): caps + stretched mids + trusses every 96, astronauts inside
+function drawWalkways(){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_cap_R'))return;const P=CFG.rotPerSlot,SP=P*R;
+ const hw=si=>{const s=STOPS[si];return s.kind==='dock'?195:206*TS};
+ for(let i=0;i<STOPS.length-1;i++){if(BUILDINGS[STOPS[i+1].bi].soon||BUILDINGS[STOPS[i].bi].soon)continue;const am=(i+0.5)*P-cam.rot;if(Math.abs(am)>0.36)continue;
+  const x0=-SP/2+hw(i)-6,x1=SP/2-hw(i+1)+6,G=x1-x0;if(G<70)continue;const drop=(SP/2)*(SP/2)/(2*R),gy=drop-52;
+  ctx.save();ctx.translate(C.x+R*Math.sin(am),C.y-R*Math.cos(am));ctx.rotate(am);
+  for(let x=x0+30;x<x1-30;x+=96)spr(ctx,'walkway_truss',0,x+24,gy+12);
+  const N=Math.ceil((G-60)/48),sx=(G-60)/(48*N);for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+k*48*sx,gy,sx,1);
+  if(ok('walkway_astro_walk')){const L=G-70;[0,1].forEach(j=>{const per=L/22*2,q=((T+i*3.1+j*per/2)%per)/per,go=q<.5,u=go?q*2:2-q*2;ctx.save();ctx.translate(x0+35+L*u,gy);if(!go)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',fr('walkway_astro_walk',T+j),0,0);ctx.restore()})}
+  ctx.globalAlpha=.35;for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+k*48*sx,gy,sx,1);ctx.globalAlpha=1;   // glass-front pass
+  spr(ctx,'walkway_cap',fr('walkway_cap',T),x0,gy);spr(ctx,'walkway_cap_R',fr('walkway_cap_R',T+0.5),x1,gy);ctx.restore()}}
+function drawStop(o){const {s,f}=o;curStopA=f.a;ctx.save();
  if(Math.abs(f.a)<0.0004)ctx.translate(snap(f.x),snap(f.y));else{ctx.translate(f.x,f.y);ctx.rotate(f.a)}
  ctx.scale(TS,TS);const atRest=Math.abs(f.a)<0.0004;
  if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine')drawMineForeground(f)}
@@ -359,8 +373,10 @@ function floorAnim(d,f,k){const s=SPR['f_'+d.id],lp=lowPower(d),t=T+k*0.3;
  (crew[d.id]||[]).forEach(a=>{const y=-120+104,role=(d.crew&&ok('walk_'+d.crew))?d.crew:'worker',key=(a.idle>0?'idle_':'walk_')+role;
   ctx.globalAlpha=.25;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(a.x,y,6,1.2,0,0,7);ctx.fill();ctx.globalAlpha=1;
   ctx.save();ctx.translate(snap(a.x),y);if(a.v<0)ctx.scale(-1,1);spr(ctx,key,lp&&a.idle<=0?0:fr(key,T+a.t),0,0);ctx.restore()});
- const w=chip(8,-114,`${d.name}  Lv ${f.lvl} · ${meter(IDX[d.id])}`);   // nameplate strip carries the meter
- const L=tierOf(f.lvl);if(L)chip(8+w+4,-114,(L===50?'🏅 ':'★ ')+d.tierInfo[L].name,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205','800 11px Inter,system-ui,sans-serif');
+ const L=tierOf(f.lvl);let bw=0;const bf='800 11px Inter,system-ui,sans-serif';
+ if(L){const bt=(L===50?'🏅 ':'★ ')+d.tierInfo[L].name;ctx.font=bf;bw=ctx.measureText(bt).width+12;chip(352-bw-34,-114,bt,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205',bf)}   // badge pinned right (clear of the star medal)
+ ctx.font='700 11px Inter,system-ui,-apple-system,sans-serif';const maxW=(L?352-bw-34-6:340)-8-12;let txt=`${d.name}  Lv ${f.lvl} · ${meter(IDX[d.id])}`;
+ if(ctx.measureText(txt).width>maxW){while(txt.length>4&&ctx.measureText(txt+'…').width>maxW)txt=txt.slice(0,-1);txt=txt.trimEnd()+'…'}chip(8,-114,txt);
  if(lp)chip(8,-95,'⚡ LOW POWER',`rgba(90,20,20,.8)`,'#ffb0a8','700 10.5px Inter,system-ui,sans-serif');
 }
 function coinBubble(x,y,txt){ctx.font='800 12px Rajdhani,Inter,system-ui,sans-serif';const w=ctx.measureText(txt).width+30;ctx.fillStyle='rgba(255,138,42,.95)';rr(ctx,x-w/2,y-11,w,22,11);ctx.fill();
@@ -477,13 +493,14 @@ function drawMineForeground(f){if(!ok('tunnel_back'))return;const par=(f.x-195)*
  softCave('tunnel_back');
  let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
  dustTick(r,dt);drawDust(dt);
+ if(r&&!r.piv){const d=Math.min(0,r.x+45-FG.tunnel);r.y+=d*d*TS/(2*R);r.ang=d*TS/R}   // off the cave pad the ground follows the Moon's curve
  if(r){const ramp=r.ramp!=null;
-  if(!ramp||r.ramp<0.35)shadow(r.piv?r.x:r.x+45,r.y+0.5,90,.45*(ramp?1-r.ramp/0.35:1));
+  if(!ramp||r.ramp<0.35)shadow(r.piv?r.x:r.x+45,(r.piv?r.y:r.y-Math.min(0,0))+0.5,90,.45*(ramp?1-r.ramp/0.35:1));
   ctx.save();
   // never draw over the portal: clip off the header/arch (x>=146,y<70 local) and everything right of the mouth (x>=228)
   if(ramp){const L=FG.tunnel;ctx.beginPath();ctx.moveTo(-600,-300);ctx.lineTo(L+146,-300);ctx.lineTo(L+146,0+2);ctx.lineTo(L+226,2);ctx.lineTo(L+226,300);ctx.lineTo(-600,300);ctx.closePath();ctx.clip();
    ctx.globalAlpha=Math.max(0,Math.min(1,(1-r.ramp)/0.25))}   // fade into the dark mouth
-  if(r.piv){ctx.translate(r.x,r.y);spr(ctx,r.k,r.f,0,0)}else{ctx.translate(r.x+45,r.y);if(r.flip)ctx.scale(-1,1);spr(ctx,r.k,r.f,-45,0)}ctx.restore()}
+  if(r.piv){ctx.translate(r.x,r.y);spr(ctx,r.k,r.f,0,0)}else{ctx.translate(r.x+45,r.y);if(r.ang)ctx.rotate(r.ang);if(r.flip)ctx.scale(-1,1);spr(ctx,r.k,r.f,-45,0)}ctx.restore()}
  if(ok('tunnel_front_lip'))softCaveLip();
  if(ok('tunnel_haze')){ctx.globalAlpha=0.75+0.25*Math.sin(T*0.9);spr(ctx,'tunnel_haze',0,FG.tunnel+Math.sin(T*0.35)*3,0);ctx.globalAlpha=1}
  ctx.restore()}
@@ -505,7 +522,7 @@ function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!trackMan())return null;c
  return list.map(e=>{let o=trkImg[e.file];if(!o){o=trkImg[e.file]={e,img:null};getImg(ART+DOCK+'tracks/'+e.file).then(bmp).then(im=>o.img=im)}return{e,o}})}
 function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const ps=ensureTrack(t,L);if(ps)ps.forEach(({e,o})=>{if(o.img)ctx.drawImage(o.img,-380+e.x,-620+e.y,e.w,e.h)})}})}   // cumulative per track; every piece; missing art → base dock
 const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'walk'},{a:500,b:560,k:'carry'}];
-function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.scale(k,k);
+function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOPS[site].bi?dockPan:0)/TS,0);ctx.scale(k,k);
  if(!ok('dock_base')){spr(ctx,'site',fr('site',T),0,-6,1/k,1/k);label(0,-150,'Cargo Space Dock','#c9d3e6',22);label(0,-120,'Loading dock art…','#8fa3c4',18);ctx.restore();return}
  const X=x=>x-300,deck=-50;
  // floodlights
@@ -533,7 +550,7 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.scale(k,k);
  ctx.save();ctx.translate(X(515),deck);ctx.scale(1.45,1.45);spr(ctx,'crane_jib_mast',0,0,0);ctx.translate(0,-176);ctx.rotate(Math.sin(T*0.6*cs)*8*Math.PI/180);ctx.scale(-1,1);spr(ctx,'crane_jib_boom',0,0,0);ctx.restore();
  dockOverlays(['crane']);
  const pt=dockTier('pad'),sk=pt>=20&&ok('dock_sign_neon_pad_t20')?'pad_t20':pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';   // blue neon v2 at real 48pt; glow = one image + JSON flicker curve (additive)
- {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;spr(ctx,'dock_sign_neon_'+sk,0,0,deck+38);spr(ctx,'dock_sign_glow_'+sk,gf,0,deck+38);
+ {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;ctx.save();ctx.translate(0,deck+38);ctx.rotate(-curStopA);spr(ctx,'dock_sign_neon_'+sk,0,0,0);spr(ctx,'dock_sign_glow_'+sk,gf,0,0);ctx.restore();   // sign always level (pad space, 0°)
   if(ok('dock_sign_bloom_'+sk)){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.6+0.4*al;spr(ctx,'dock_sign_bloom_'+sk,0,0,deck);ctx.restore()}}
  // cargo mule hauling from the Mine
  const mt=(T*30)%1400,mx=mt<700?-700+mt:700-(mt-700);ctx.save();ctx.translate(X(mx<0?mx:Math.min(mx,440))-0,deck);if(mt>=700)ctx.scale(-1,1);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);ctx.restore();
@@ -662,7 +679,7 @@ function openDock(refresh){const el=$('#sheet');sheetFor={dock:1,k:refresh&&shee
    <div class="dbar"><i style="width:${lv/CFG.dock.maxLevel*100}%"></i></div></div>
    <button class="dup ${can?'glow':''}" data-t="${t.id}" ${can?'':'disabled'}>${max?'MAX':can?`<img src="${ui('ui_icon_coin')}">${fmt(c).slice(1)}`:`Need ${fmt(c-S.money)}`}</button></div>`}).join('');
  el.innerHTML=`<div class="grab"></div><div class="hdr"><div class="ico"><img src="${ART+DOCK}ui/ui_icon_dock_wrench.webp"></div><div><h2>Cargo Space Dock</h2><div class="sub">Hold ${shipLoad()}/${holdCap()} · ${S.pt} Pt + ${S.he} He-3 staged</div></div><button class="x" id="sx" style="margin-left:auto">✕</button></div>${rows}
- <div class="desc">Pt crate ${fmt(CFG.econ.ptValue)} · He-3 canister ${fmt(CFG.econ.heValue)} · refined ×${CFG.econ.refinedMult}. A new look every 10 levels.</div>`;
+ <div class="desc">Pt crate ${fmt(CFG.econ.ptValue)} · He-3 canister ${fmt(CFG.econ.heValue)} (30% when packed, 70% on delivery) · refined ×${CFG.econ.refinedMult}. A new look every 10 levels.</div>`;
  $('#sx').onclick=closeSheet;el.querySelectorAll('.dup').forEach(b=>b.onclick=()=>dockUpgrade(b.dataset.t));
  if(!refresh){el.classList.add('open');$('#shade').classList.add('on');sheetOpenedAt=performance.now()}}
 function wrenchUI(){let b=$('#wrench');const show=STOPS[site].kind==='dock';
@@ -680,7 +697,7 @@ function hud(){const e=E;if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money/
  const box=$('#meters');if(!box.children.length)box.innerHTML=m.map(r=>`<div class="m glass" data-k="${r[0]}"><img src="${ui(r[1])}"><span></span></div>`).join('');
  m.forEach((r,j)=>{const el=box.children[j];el.querySelector('span').textContent=r[2];el.classList.toggle('lim',!!r[3]&&r[0]!=='energy');el.classList.toggle('low',r[0]==='energy'&&low)});
  goalTick();const s=STOPS[site];$('#sname').textContent=s.name.toUpperCase();
- const dots=$('#dots');if(dots.children.length!==STOPS.length)dots.innerHTML=STOPS.map(()=>'<i></i>').join('');[...dots.children].forEach((d,j)=>d.classList.toggle('on',j===site));
+ const dots=$('#dots');if(dots.children.length!==STOPS.length){dots.innerHTML=STOPS.map(()=>'<i></i>').join('');[...dots.children].forEach((d,j)=>d.addEventListener('click',ev=>{ev.stopPropagation();goSite(j)}))}[...dots.children].forEach((d,j)=>d.classList.toggle('on',j===site));
  if(sheetFor&&sheetFor.i!=null&&!document.activeElement.closest?.('#sheet')){const k=JSON.stringify([S.money>=upCost(sheetFor.i),Math.floor(S.money/50),st(sheetFor.i).lvl,idleResidents()]);if(k!==sheetFor.k){sheetFor.k=k;openSheet(sheetFor.i,true)}}}
 // =====================================================================
 // SWIPE HINT (one time)
@@ -698,20 +715,22 @@ function endHint(){hintOn=false;S.hint=1;$('#hint').style.display='none';save()}
 // INPUT: axis lock, edge guard, momentum vertical scroll, snap rotation
 // =====================================================================
 const toLogical=(cx,cy)=>({x:cx/SC-OX,y:cy/SC});
-function maxScroll(){const s=STOPS[site];if(s.kind!=='tower')return 0;const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);const topY=C.y-R+floorBottom(n-1)*TS-200*TS-70;return Math.max(0,-(topY+OY)+170)}
-let g0=null;
-cv.addEventListener('pointerdown',e=>{if(e.clientX<20||e.clientX>innerWidth-20){g0={edge:true};return}g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[]};cam.anim=null;cam.vy=0},{passive:true});
+function maxScroll(){const s=STOPS[site];if(s.kind!=='tower')return 0;const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);const topY=C.y-R+floorBottom(n-1)*TS-200*TS-70;return Math.max(0,-(topY+OY)+300)}
+let g0=null,dockPan=0;const PANMAX=60;   // dock stop: sideways pan over the 760-wide art (screen pts)
+cv.addEventListener('pointerdown',e=>{if(e.clientX<20||e.clientX>innerWidth-20){g0={edge:true};return}g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};cam.anim=null;cam.vy=0},{passive:true});
 $('#shade').addEventListener('pointerdown',e=>{g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}});
 addEventListener('pointermove',e=>{if(!g0||g0.edge)return;const dx=e.clientX-g0.x,dy=e.clientY-g0.y;
- if(!g0.axis&&Math.hypot(dx,dy)>9){g0.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';if(g0.fromShade&&g0.axis==='x')closeSheet();if(g0.fromShade&&g0.axis==='y'){g0=null;return}if(g0.axis==='x'&&hintOn)endHint()}
+ if(!g0.axis&&Math.hypot(dx,dy)>9){g0.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';if(g0.fromShade&&g0.axis==='x')closeSheet();if(g0.fromShade&&g0.axis==='y'){g0=null;return}if(g0.axis==='x'&&g0.onDock&&!((dx>0&&g0.pan0<=-PANMAX+0.5)||(dx<0&&g0.pan0>=PANMAX-0.5)))g0.axis='p';   // pan until the edge; only a NEW swipe from the edge changes station
+  if(g0.axis==='x'&&hintOn)endHint()}
+ if(g0.axis==='p'){dockPan=Math.max(-PANMAX,Math.min(PANMAX,g0.pan0-dx/SC));return}
  if(g0.axis==='x'){cam.rot=g0.rot0-dx/SC/R*1.25;cam.rot=Math.max(-0.06,Math.min((STOPS.length-1)*CFG.rotPerSlot+0.06,cam.rot))}
  if(g0.axis==='y'){cam.y=Math.max(-30,Math.min(maxScroll()+30,g0.y0+dy/SC));g0.hist.push([performance.now(),cam.y]);if(g0.hist.length>6)g0.hist.shift()}},{passive:true});
-addEventListener('pointerup',e=>{if(!g0||g0.edge){g0=null;return}const g=g0;g0=null;
+addEventListener('pointerup',e=>{if(!g0||g0.edge){g0=null;return}const g=g0;g0=null;if(g.axis==='p')return;
  if(g.axis==='x'){const dx=e.clientX-g.x,v=dx/(performance.now()-g.t);let tgt=Math.round(cam.rot/CFG.rotPerSlot);if(Math.abs(v)>0.4&&tgt===site)tgt=site+(v<0?1:-1);goSite(tgt);return}
  if(g.axis==='y'){const h=g.hist;if(h.length>1){const a=h[0],b=h[h.length-1];cam.vy=(b[1]-a[1])/Math.max(16,b[0]-a[0])*1000}return}
  if(!g.fromShade)tap(toLogical(e.clientX,e.clientY))});
-function goSite(k){k=Math.max(0,Math.min(STOPS.length-1,k));const from=cam.rot,to=k*CFG.rotPerSlot;cam.anim={from,to,t0:T,d:0.45};if(k!==site){site=k;cam.y=0;cam.vy=0;const s=STOPS[k];if(siteOpen(s.bi))ensureBuildingArt(s.bi);if(k>=1&&k<=3)ensureBuildingArt(stopOfDock())}hud();wrenchUI()}
-function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x)/TS,ly=(p.y-(OY+cam.y)-f.y)/TS;
+function goSite(k,instant){k=Math.max(0,Math.min(STOPS.length-1,k));const from=cam.rot,to=k*CFG.rotPerSlot;cam.anim=instant?null:{from,to,t0:T,d:0.45};if(instant)cam.rot=to;if(k!==site)dockPan=0;if(k!==site){site=k;cam.y=0;cam.vy=0;const s=STOPS[k];if(siteOpen(s.bi))ensureBuildingArt(s.bi);if(k>=1&&k<=3)ensureBuildingArt(stopOfDock())}hud();wrenchUI()}
+function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind==='dock'?dockPan:0))/TS,ly=(p.y-(OY+cam.y)-f.y)/TS;
  if(s.kind==='dock'){if(Math.abs(ly+390)<24&&Math.abs(lx)<170&&S.ship.st==='docked'){if(launchShip()){shipAnim.mode='launch';shipAnim.t0=T;shipAnim.smoke=0;toast('🚀 Cargo away! Back in '+mmss(CFG.ship.tripSec/SPEED))}else toast('Nothing loaded yet: the crane loads staged cargo')}else openDock();return}
  const bi=s.bi,n=floorsBuilt(bi),fl=BUILDINGS[bi].floors;
  if(n===0){if(siteOpen(bi)&&Math.abs(ly+138)<24&&Math.abs(lx)<160){const nf=nextFloor(bi),i=IDX[nf.id],w=lockReason(i);if(w)toast('🔒 '+w);else buyFloor(i)}else if(!siteOpen(bi))toast(BUILDINGS[bi].soon?'Coming soon':'🔒 Build 3 Life Support floors first');return}
@@ -723,7 +742,7 @@ function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x)/TS,ly=(
 // LOOP
 // =====================================================================
 let last=performance.now(),saveAcc=0,hudAcc=0,fpsN=0,fpsT=0;
-function frame(now){const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=dt;
+function frame(now){const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;
  if(cam.anim){const a=cam.anim,q=Math.min(1,(T-a.t0)/a.d);cam.rot=a.from+(a.to-a.from)*easeOutCubic(q);if(q>=1){cam.rot=a.to;cam.anim=null}}
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
  if(!g0||g0.axis!=='y'){const mx=maxScroll();if(cam.y<0){cam.y+=(0-cam.y)*Math.min(1,dt*12);if(cam.y>-0.3)cam.y=0;cam.vy=Math.max(0,cam.vy)}if(cam.y>mx){cam.y+=(mx-cam.y)*Math.min(1,dt*12);cam.vy=Math.min(0,cam.vy)}}
@@ -747,10 +766,10 @@ let bgDone=false;
  offline();econ();crewSync();hud();devUI();
  {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});
  await new Promise(r=>setTimeout(r,400));
- await loadGroup('mine_preview');await loadGroup('mine_starter');await loadGroup('hab');await loadGroup('fx2');bgDone=true;
+ await loadGroup('mine_preview');await loadGroup('mine_starter');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();
 // dev mode (?dev=1 on preview only): unlimited money + Max out
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}
-function maxOut(){F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
+function maxOut(){S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
  for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
-window.__ps={S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
+window.__ps={cam,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
