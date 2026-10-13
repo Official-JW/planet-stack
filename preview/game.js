@@ -664,11 +664,15 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-function drawMineForeground(f){if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
+const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png';
+function drawMineForeground(f){const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
  ctx.save();ctx.translate(par,FG.y);ctx.scale(FG.s,FG.s);
- // No stand-in road, conveyor, or stick attendant. Those covered Art's cave.
- // attendant_marshal, road_light, and lamp_post are not in the repo yet.
- softCave('tunnel_back');
+ if(YARD.complete&&YARD.naturalWidth){
+  // Approved yard sheet: flat cave on the left, road, platinum truck, lamp posts. Not the old rocky ADIT-2.
+  const w=470,h=w*YARD.naturalHeight/YARD.naturalWidth;
+  ctx.drawImage(YARD,-250,-155,w,h);
+  ctx.restore();return}
+ if(!ok('tunnel_back')){ctx.restore();return}
  let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
  dustTick(r,dt);drawDust(dt);
  
