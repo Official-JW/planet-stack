@@ -206,7 +206,11 @@
 
 ## r25 (11:05 PT) — the road dump truck, not the old rover
 - The 3D rover is gone from the mine road and from inside the Rover Bay.
-- The still truck is gone from the road. The moving piece is the whole truck, paint and body together, not a highlight sliding off. It is not mirrored. No price changes.
+## r26 (11:32 PT) — new-game demo
+- The QA and preview sites open as a brand new base every visit. Your live save is not touched.
+- Money and crystals both show as unlimited. Crystal prices are not in the game yet.
+- A four-step card explains swipe, how you get paid, and tapping a floor. No price changes.
+
 
 
 

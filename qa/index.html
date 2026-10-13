@@ -85,14 +85,42 @@ html,body{margin:0;position:fixed;inset:0;overflow:hidden;background:#05070f;col
 #wrench.first{animation:wr 1s ease-in-out infinite}#wrench.first::after{content:'!';position:absolute;right:4px;top:2px;width:18px;height:18px;border-radius:9px;background:#ff4a3a;color:#fff;font:800 13px/18px system-ui}
 @keyframes wr{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 #ffb347)}50%{transform:scale(1.06);filter:drop-shadow(0 0 10px #ffb347)}}
 #devmax{position:fixed;left:calc(env(safe-area-inset-left) + 10px);bottom:calc(env(safe-area-inset-bottom) + 44px);z-index:15;border:1.5px solid #ff6a5a;background:rgba(40,10,10,.85);color:#ffb0a8;border-radius:10px;padding:8px 10px;font:700 12px system-ui}
+#cash{display:flex;gap:8px;align-items:center}
+.gems{color:#d7c6ff;border-color:rgba(180,140,255,.55);padding-right:12px}
+.gems svg{width:22px;height:22px;display:block}
+#demo{position:fixed;inset:0;z-index:40;display:none;align-items:flex-end;justify-content:center;background:linear-gradient(180deg,rgba(5,7,15,.15),rgba(5,7,15,.72) 55%);padding:0 14px calc(env(safe-area-inset-bottom) + 18px)}
+#demo.on{display:flex}
+#demo .card{width:min(390px,100%);background:linear-gradient(#152038,#0d1424);border:1.5px solid rgba(95,212,255,.45);border-radius:22px;padding:16px 16px 14px;box-shadow:0 -12px 40px rgba(0,0,0,.45)}
+#demo .art{height:92px;border-radius:16px;background:radial-gradient(120px 60px at 50% 80%,rgba(255,179,71,.25),transparent 70%),#0b1222;border:1px solid #243352;display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:12px;overflow:hidden}
+#demo .kicker{font:700 11px/1 system-ui;letter-spacing:1.6px;color:var(--amber)}
+#demo h2{margin:6px 0 0;font:700 26px/1.05 var(--num)}
+#demo p{margin:8px 0 0;color:#d5e2f7;font-size:16px;line-height:1.35}
+#demo .row{display:flex;align-items:center;gap:10px;margin-top:14px}
+#demo .pips{display:flex;gap:6px;flex:1}
+#demo .pips i{width:7px;height:7px;border-radius:4px;background:#3a4766}
+#demo .pips i.on{width:18px;background:var(--amber)}
+#demo button{height:48px;min-width:118px;border:0;border-radius:14px;color:#3a1600;background:linear-gradient(#ffb347,#ff8a2a);font:700 18px var(--num);letter-spacing:.5px}
+#demo .coin{width:54px;height:54px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.45))}
+#demo .biggem{width:48px;height:48px;filter:drop-shadow(0 6px 10px rgba(120,80,255,.45))}
+#demo .stations{display:flex;gap:8px;align-items:flex-end}
+#demo .stations b{width:36px;border-radius:8px 8px 4px 4px;background:linear-gradient(#3ad0ff,#1a3c66);box-shadow:0 8px 0 #0a1628}
+#demo .stations b:nth-child(1){height:46px}#demo .stations b:nth-child(2){height:64px;background:linear-gradient(#ffb347,#8a4a12)}
+#demo .stations b:nth-child(3){height:34px;background:linear-gradient(#c9b7ff,#4a3a78)}#demo .stations b:nth-child(4){height:52px}
+#demo .flow{display:flex;align-items:center;gap:8px;color:#ffd9a0;font:700 13px var(--num)}
+#demo .flow span{width:54px;text-align:center}
+#demo .stack{display:flex;flex-direction:column-reverse;gap:4px}
+#demo .stack i{display:block;width:120px;height:22px;border-radius:6px;background:linear-gradient(#2a4068,#16243f);border:1px solid #5fd4ff}
+#demo .stack i:last-child{box-shadow:0 0 0 3px rgba(255,179,71,.85)}
 </style></head><body>
 <canvas id="cv"></canvas>
-<div id="hud"><div class="money glass" id="money"><img data-ui="ui_icon_coin" alt=""><span id="mval">$0</span><span class="rate" id="rate"></span></div>
+<div id="hud"><div id="cash"><div class="money glass" id="money"><img data-ui="ui_icon_coin" alt=""><span id="mval">$0</span><span class="rate" id="rate"></span></div>
+<div class="money glass gems" id="gems"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 20 8.5 12 22 4 8.5Z" fill="#b89bff"/><path d="M12 2 20 8.5 12 10Z" fill="#efe7ff"/><path d="M4 8.5 12 2 12 10Z" fill="#8d6cff"/></svg><span id="gval">∞</span></div></div>
 <div id="meters"></div><button id="lpw" onclick="goNuclear()" aria-label="Low power: go to Nuclear"><svg viewBox="0 0 24 24" width="14" height="14"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="#1a1205"/></svg><span></span></button>
 <div id="goal" class="glass"><div class="t">GOAL</div><div class="d" id="gd"></div><div class="pb"><i id="gp"></i></div></div></div>
 <div id="site"><div class="name" id="sname"></div><div id="dots"></div></div>
 <div id="hint"><img class="arc" data-ui="ui_swipe_arc" alt=""><img class="hand" data-ui="ui_swipe_hand" alt=""></div>
 <div id="toast"></div><div id="shade"></div><div id="sheet"></div>
 <div id="modal"><div class="card"><div style="font:700 20px var(--num)">Welcome back!</div><div id="wbtext" style="color:var(--dim);margin-top:6px"></div><div class="big" id="wbamt"></div><button class="up" id="wbok">COLLECT</button></div></div>
+<div id="demo"><div class="card"><div class="art" id="demoart"></div><div class="kicker" id="demok"></div><h2 id="demoh"></h2><p id="demop"></p><div class="row"><div class="pips" id="demodots"></div><button id="demonext" type="button">NEXT</button></div></div></div>
 <div id="load"><h1>PLANET STACK</h1><div class="bar"><i id="lbar"></i></div></div>
-<script>if(location.pathname.includes("/preview/")||location.pathname.includes("/qa/")||location.port==="8080"){const t=document.createElement("div");t.id="pvtag";t.textContent=(location.pathname.includes("/preview/")&&!location.pathname.includes("/qa/")?"PREVIEW":"QA")+" · 11:24";t.style.cssText="position:fixed;right:calc(env(safe-area-inset-right) + 10px);bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:20;pointer-events:none;font:700 10px/1 system-ui,sans-serif;letter-spacing:1.5px;color:#ffb347;background:rgba(13,20,36,.75);border:1px solid rgba(255,179,71,.6);border-radius:6px;padding:4px 6px";document.body.appendChild(t)}</script><script src="game.js?v=1122"></script></body></html>
+<script>if(location.pathname.includes("/preview/")||location.pathname.includes("/qa/")||location.port==="8080"){const t=document.createElement("div");t.id="pvtag";t.textContent=(location.pathname.includes("/preview/")&&!location.pathname.includes("/qa/")?"PREVIEW":"QA")+" · 11:32";t.style.cssText="position:fixed;right:calc(env(safe-area-inset-right) + 10px);bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:20;pointer-events:none;font:700 10px/1 system-ui,sans-serif;letter-spacing:1.5px;color:#ffb347;background:rgba(13,20,36,.75);border:1px solid rgba(255,179,71,.6);border-radius:6px;padding:4px 6px";document.body.appendChild(t)}</script><script src="game.js?v=1132"></script></body></html>
