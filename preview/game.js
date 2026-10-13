@@ -13,7 +13,7 @@ const CFG={
  // money ONLY from mining (+ refining): $500 grant, a small raw-ore trickle until the first ship returns, then cargo sales
  econ:{startGrant:500,arrivalSec:20,leaveSec:10,
   pod:{housing:4,oxygen:0,water:4,energy:8},kwPerPerson:1,staffBonus:0.25,
-  ptPerMin:1,hePerMin:1/3,ptValue:40,heValue:160,packShare:0.3,refinedMult:3,stageCap:60,
+  ptPerMin:1,hePerMin:1/3,ptValue:40,heValue:160,packShare:0.3,refinedMult:3,stageCap:72,
   oreTrickleSec:16,oreTrickle:3,laterFloorBoost:0.5,boostPer:0.03,depotBoost:0.05},
  elevator:{maxLevel:100,speedPerLevel:1.03,baseCapacity:1,capacityEvery:5,cost:25,costMult:1.12,lookEvery:10,bonusPerLevel:0.01,
   travelBaseMs:220,travelPerFloorMs:90,
@@ -24,7 +24,7 @@ const CFG={
   craneSpeed:0.04,crewSpeed:0.03,padHoldPer2:1,refuelPerLvl:0.015,refuelMin:0.3},
 };
 const QS=new URLSearchParams(location.search);
-const IS_PREVIEW=location.pathname.includes('/preview/')||location.port==='8765';   // dev server counts as preview
+const IS_QA=location.pathname.includes('/qa/')||location.port==='8080',IS_PREVIEW=location.pathname.includes('/preview/')||IS_QA||location.port==='8765';   // /qa/ or the local preview = Playtester build   // dev server counts as preview
 const DEV=IS_PREVIEW&&QS.get('dev')==='1';   // ?dev=1 is ignored on the live root
 const SPEED=Math.max(0.1,+QS.get('speed')||1),DBG=QS.has('dbg');
 // ----- buildings (order on the Moon). Max 10 floors each. -----
@@ -34,10 +34,10 @@ const BUILDINGS=[
   {id:'water',name:'Water',art:'water',role:'resource',res:'water',cost:120,req:{floor:'oxy',lvl:3},out:4,use:1,up:70,desc:'Makes water. More water supports more people.'},
   {id:'nuke',name:'Nuclear Power',art:'nuclear',role:'resource',res:'energy',cost:150,out:12,use:0,up:110,crew:'engineer',desc:'Makes energy for every floor and every person.'}]},
  {id:'mine',name:'He & Pt Mine',full:'Helium & Platinum Mine',art:'mine',roof:'penthouse_mine',floors:[
-  {id:'rover',name:'Rover Bay',art:'mine_rover_bay',pack:'mine_starter',role:'mine',cost:0,out:1,use:2,up:12,ph:'#5a4a3a',desc:'Rovers drive into ADIT-2, mine regolith and dump it by ore type. Higher levels add speed.'},
+  {id:'rover',name:'Rover Bay',art:'mine_rover_bay',pack:'floors_later_offscreen',role:'mine',cost:0,out:1,use:2,up:12,ph:'#5a4a3a',desc:'Rovers drive into ADIT-2, mine regolith and dump it by ore type. Higher levels add speed.'},
   {id:'crusher',name:'Crusher',art:'mine_crusher',pack:'mine_later_crusher',role:'mine',cost:250,out:1,use:1,up:120,ph:'#4a4a5a',desc:'Crushes ore: more crates from every rover load.'},
   {id:'separator',name:'Separator',art:'mine_separator',pack:'mine_later_separator',role:'mine',cost:500,out:1,use:3,up:450,ph:'#2f4a5a',crew:'engineer',desc:'Separates Helium-3 and platinum. Uses a lot of energy.'},
-  {id:'packing',name:'Packing',art:'mine_packing',pack:'mine_later_packing',role:'mine',cost:6400,out:1,use:1,up:1600,ph:'#4a3f2a',desc:'Packs Pt crates and He-3 canisters faster.'}]},
+  {id:'packing',name:'Packing',art:'mine_packing',pack:'mine_later_packing',role:'mine',cost:1800,out:1,use:1,up:1600,ph:'#4a3f2a',desc:'Packs Pt crates and He-3 canisters faster.'}]},
  {id:'dock',name:'Cargo Space Dock',dock:true,floors:[]},
  {id:'hab',name:'Habitat',art:'hab',roof:'roof_habitat',floors:[
   {id:'living',name:'Living Quarters',art:'living_quarters',tiers:1,role:'housing',cost:0,out:2,use:2,up:40,desc:'Beds for miners. Sets the population cap.'},
@@ -83,10 +83,14 @@ const SPR={};   // key → {path, group, atlas?|floor?} ; filled when loaded
 function def(key,path,group,kind){SPR[key]={path,group,kind:kind||'atlas'}}
 // core (first screen)
 ['sky','stars','stars_twinkle','earth'].forEach(n=>def(n,'bg/'+n,'core','img'));
-def('base400','world/tower_base_400','core');def('site','world/site_marker','core');
+def('base400','world/tower_base_400','core');
+// Art's ground strip (later pack). Lives in art/moon/ground/@Nx/, not under ART's @Nx folder. Code ground stays as the first-screen fallback.
+def('ground_strip','../ground/'+(DEV_DPR>2?'@3x':'@2x')+'/ground_strip','core','img');
+const GSTRIP={tileWidth:1170,groundLineY:44,h:230,t:0};   // JSON values; refreshed from ground_strip.json on load
+def('site','world/site_marker','core');
 ['walk','idle','wave','carry'].forEach(a=>def(a+'_worker','astronaut/astronaut_'+a,'core'));
 ['walk','idle'].forEach(a=>def(a+'_engineer','astronaut/astronaut_engineer_'+a,'core'));
-['coin_spin','coin_sparkle','pickup_o2_spin','pickup_o2_sparkle','pickup_water_spin','pickup_water_sparkle','pickup_energy_spin','pickup_energy_sparkle','pickup_people_spin','pickup_people_sparkle','fx_collect_sparkle','floor_low_power','icon_low_power_blink','fx_door_hiss','fx_welcome_sparkle'].forEach(n=>def(n,'fx/'+n,'core'));def('fx_upgrade_burst','fx/fx_upgrade_burst','fx_later_upgrade_burst');   // 722 KB @3x: loads right after the first screen
+['coin_spin','coin_sparkle','pickup_o2_spin','pickup_o2_sparkle','pickup_water_spin','pickup_water_sparkle','pickup_energy_spin','pickup_energy_sparkle','pickup_people_spin','pickup_people_sparkle','fx_collect_sparkle','floor_low_power','icon_low_power_blink','fx_door_hiss','fx_welcome_sparkle'].forEach(n=>def(n,'fx/'+n,'core'));def('fx_upgrade_burst','fx/fx_upgrade_burst','fx_later_upgrade_burst');   // later pack (after the first screen); until it loads, upgrades show the floor scale-pop instead
 ['shaft_tile','shaft_top','shaft_pit','cable_tile','rider','capacity_badge'].forEach(n=>def('el_'+n,'elevator/'+n,'core','img'));
 def('el_call_panel','elevator/call_panel','core');def('el_floor_indicator','elevator/floor_indicator','core');
 // heavy fx: loaded right after the first screen
@@ -97,7 +101,8 @@ const MINE=`../mine/${DEV_DPR>2?'@3x':'@2x'}/`,DOCK=`../dock/${DEV_DPR*0.65>2.2?
 F.filter(d=>d.art).forEach(d=>{const inMine=d.role==='mine'||d.id==='markets';d.tierBase=inMine?MINE+'floors/tiers/floor_'+d.art:((['oxy','water','nuke','refinery'].includes(d.id)||d.tiers)?'floors/tiers/floor_'+d.art:null);   // others: base art only
  def('f_'+d.id,(inMine?MINE:'')+'floors/floor_'+d.art,d.pack||BUILDINGS[d.b].art,'floor');if(inMine)SPR['f_'+d.id].lowpower=true});
 def('mine_preview',MINE+'preview/mine_preview','mine_preview','img');
-['truck_pt_drive','truck_he3_drive','rover_bay_dump_pt','rover_bay_dump_he3'].forEach(n=>def(n,MINE+'rover/'+n,'mine_starter'));['rover_tunnel_pt','rover_tunnel_he3'].forEach(n=>def(n,MINE+'rover/'+n,'mine_later_tunnel_trucks'));   // tunnel trucks: later pack (after the first screen)def('bin_fill_ore',MINE+'floors/bin_fill_ore','mine_starter');   // Rover Bay v3 trucks (old rover_* sheets retired)
+['truck_pt_drive','truck_he3_drive','rover_bay_dump_still_pt','rover_bay_dump_still_he3'].forEach(n=>def(n,MINE+'rover/'+n,'mine_starter',n.includes('_still_')?'img':undefined));['rover_bay_dump_pt','rover_bay_dump_he3'].forEach(n=>def(n,MINE+'rover/'+n,'mine_later_dump'));   // dump sheets: later pack; the mid-pour still stands in until it loads
+def('bin_fill_ore',MINE+'floors/bin_fill_ore','floors_later_offscreen');['rover_tunnel_pt','rover_tunnel_he3'].forEach(n=>def(n,MINE+'rover/'+n,'mine_later_tunnel_trucks'));   // tunnel trucks: later pack (after the first screen)def('bin_fill_ore',MINE+'floors/bin_fill_ore','mine_starter');   // Rover Bay v3 trucks (old rover_* sheets retired)
 let BAYROUTE=null;tryJSON(ART+MINE+'rover/rover_bay_route.json').then(j=>BAYROUTE=j);
 ['loaded_box_pulse','loaded_box_sealed','loaded_box_stack3','he3_canister_pulse','he3_canister_sealed','he3_canister_stack3'].forEach(n=>def(n,MINE+'box/'+n,'mine_starter'));
 ['pickup_ore','pickup_miner','pickup_refined_coin'].forEach(n=>{def(n+'_spin',MINE+'fx/'+n+'_spin','mine_starter');def(n+'_sparkle',MINE+'fx/'+n+'_sparkle','mine_starter')});
@@ -117,7 +122,7 @@ def('ui_btn_dock_wrench_firsttime',DOCK+'ui/ui_btn_dock_wrench_firsttime','dock'
 def('floor_empty','floors/floor_empty','floors_later_empty','img');   // later pack: empty-floor art for unbuilt floors
 def('ship4_hatch',DOCK+'ship/ship4_hatch','dock_later_hatch');   // later pack: cargo hatch (0 open → 5 shut), loaded after the first screen
 def('walk_medic','astronaut/astronaut_medic_walk','hab');def('idle_medic','astronaut/astronaut_medic_idle','hab');
-const IMG_SIZE={launch_tower:[360,360,0,360],launch_tower_ship:[360,360,0,360],walkway_mid:[48,64,0,52],walkway_mid_s:[36,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],floor_empty:[360,120,0,120],launch_tower4:[240,500,38,500],
+const IMG_SIZE={rover_bay_dump_still_pt:[90,58,0,58],rover_bay_dump_still_he3:[90,58,0,58],ground_strip:[1170,230,0,0],launch_tower:[360,360,0,360],launch_tower_ship:[360,360,0,360],walkway_mid:[48,64,0,52],walkway_mid_s:[36,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],floor_empty:[360,120,0,120],launch_tower4:[240,500,38,500],
  crane_gantry:[120,200,60,200],crane_trolley:[24,10,12,0],crane_hook_empty:[40,40,20,0],crane_jib_mast:[40,180,20,180],crane_jib_boom:[150,20,10,10],floodlight_mast:[30,150,15,150],floodlight_cone:[160,160,80,0],
  dock_sign_neon_base:[200,48,100,48],dock_sign_neon_pad_t10:[240,48,120,48],dock_sign_neon_pad_t20:[280,48,140,48],dock_sign_bloom_base:[280,40,140,20],dock_sign_bloom_pad_t10:[320,40,160,20],dock_sign_bloom_pad_t20:[360,40,180,20]};
 window.__firstBytesMark=0;
@@ -151,7 +156,8 @@ function ensureBuildingArt(bi){const b=BUILDINGS[bi];if(b.dock){loadGroup('dock'
  b.floors.forEach(d=>{if(d.pack&&S.f[d.id].built)loadGroup(d.pack)});if(b.roof&&floorsBuilt(bi)===b.floors.length)loadGroup(b.id==='mine'?'mine_later_penthouse':'roofs');if(b.tower&&floorsBuilt(bi)===b.floors.length)loadGroup('roofs')}
 // tier layers (cumulative): floors/tiers/floor_<art>_t<L>
 function tierKey(d,L){return 't_'+d.id+'_'+L}
-function ensureTier(d,L){const k=tierKey(d,L);if(!SPR[k]){def(k,`${d.tierBase}_t${L}`,'tier','floor');loadSprite(k)}return SPR[k]}
+function ensureTier(d,L){const k=tierKey(d,L);if(!SPR[k]){if(d.pack==='floors_later_offscreen'&&!firstScreenDone)return{};   // Rover Bay tiers are in floors_later_offscreen: never fetched before the first screen
+ def(k,`${d.tierBase}_t${L}`,'tier','floor');loadSprite(k)}return SPR[k]}
 function ensureLook(look){const kb='car_'+look+'_back',kd='car_'+look+'_doors';if(!SPR[kb]){def(kb,'elevator/'+kb,'look','img');def(kd,'elevator/'+kd,'look');loadSprite(kb);loadSprite(kd)}return SPR[kb].ready&&SPR[kd].ready}
 const ok=k=>SPR[k]&&SPR[k].ready;
 function spr(c,key,frame,x,y,sx=1,sy=1){const S=SPR[key];if(!S||!S.ready)return;if(!S.frames){c.drawImage(S.img,x-(S.px||0)*sx,y-(S.py||0)*sy,S.w*sx,S.h*sy);return}
@@ -164,8 +170,8 @@ function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const 
 // =====================================================================
 // SAVE / TIME — everything runs from saved timestamps
 // =====================================================================
-if(DEV&&QS.has('fresh')){try{localStorage.removeItem('planetstack-dev')}catch(e){}{const q=new URLSearchParams(location.search);q.delete('fresh');history.replaceState(null,'',location.pathname+'?'+q.toString().replace(/=(?=&|$)/g,''))}}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched
-const SAVEKEY=DEV?'planetstack-dev':location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v2';
+const SAVEKEY=DEV?(IS_QA?'planetstack-qa-dev':'planetstack-dev'):IS_QA?'planetstack-qa':location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v2';
+if(IS_PREVIEW&&QS.has('fresh')){try{localStorage.removeItem(SAVEKEY)}catch(e){}{const q=new URLSearchParams(location.search);q.delete('fresh');history.replaceState(null,'',location.pathname+'?'+q.toString().replace(/=(?=&|$)/g,''))}}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched   // ?fresh clears THIS build's save (dev or not; preview/qa only)
 const noCrew=d=>!!d.res||d.role==='housing'||!!d.upper;   // Life Support + Living Quarters run without crew
 function fresh(){const n=Date.now();return{money:CFG.econ.startGrant,pop:3,trips:0,arr:0,pt:0,he:0,refPt:0,refHe:0,ptAcc:0,heAcc:0,refAcc:0,oreAcc:0,firstReturn:0,gt:n,rt:n,step:0,hint:0,tapped:0,wrench:0,
  dock:{crane:1,crew:1,pad:1,refuel:1},
@@ -249,10 +255,8 @@ function step(dt,live,rate=1){const e=econ();let earned=0;
  // Refinery: upgrades staged containers to refined (He-3 first: worth more)
  if(e.refRate>0){S.refAcc+=e.refRate*dt/60;while(S.refAcc>=1){const he=S.he-S.refHe>0,pt=S.pt-S.refPt>0;if(!he&&!pt){S.refAcc=Math.min(S.refAcc,1);break}S.refAcc--;
    const v=(he?CFG.econ.heValue:CFG.econ.ptValue)*(CFG.econ.refinedMult-1);if(he)S.refHe++;else S.refPt++;if(live)refineFx(v)}}
- // crane loading while docked
- const sh=S.ship;if(sh.st==='docked'){const room=holdCap()-shipLoad();if(room>0&&loose()>0){sh.loadAcc+=loadRate()*dt/60;
-   while(sh.loadAcc>=1&&holdCap()-shipLoad()>0&&loose()>0){sh.loadAcc--;const he=S.he>0&&(S.he>=S.pt/3||S.pt===0);
-    if(he){S.he--;sh.he++;if(S.refHe>S.he){S.refHe--;sh.refHe++}}else{S.pt--;sh.pt++;if(S.refPt>S.pt){S.refPt--;sh.refPt++}}}}else sh.loadAcc=0}
+ // crane: one container moves pad → hold when the roller starts. Leftovers stay on the pad. Launch never adds cargo.
+ craneSim(dt);
  return earned}
 // ----- dock tracks -----
 const DOCK_TRACKS=[
@@ -263,7 +267,30 @@ const DOCK_TRACKS=[
 const dockLvl=t=>S.dock[t]||1;
 const dockCost=t=>Math.round(CFG.dock.cost[t]*Math.pow(CFG.dock.costMult,dockLvl(t)-1));
 const tripMult=n=>n<1?1:n<2?2.5:6;   // hold grows with trip length: 2-min 1x, 5-min 2.5x, 10-min 6x (pay per trip-minute stays level)
-const loadRate=()=>CFG.ship.loadPerMin*tripMult(S.trips||0)*(1+CFG.dock.craneSpeed*(dockLvl('crane')-1))*(1+CFG.dock.crewSpeed*(dockLvl('crew')-1));
+// Hammerhead cycle is 7.6 s at crane L1. Each crane tier (every 10 levels) speeds it ~10%.
+// Trip length speeds the same crane so a bigger hold still fills in the same time as the first 12 — flag if that should stay a flat 7.6 s.
+const CRANE_CYCLE=7.6, CRANE_ROLLER=5.60, CRANE_LATCH=2.00;
+function craneTierMul(){return Math.pow(1.1,Math.floor((dockLvl('crane')-1)/10))}
+function craneCrewMul(){return 1+CFG.dock.crewSpeed*(dockLvl('crew')-1)}
+function craneSpeedMul(){return craneTierMul()*craneCrewMul()*tripMult(S.trips||0)}
+function loadRate(){return (60/CRANE_CYCLE)*craneSpeedMul()}
+function craneWantsHe(){return S.he>0&&(S.he>=S.pt/3||S.pt===0)}
+function craneTakeOne(){const sh=S.ship,he=craneWantsHe();
+ if(he){S.he--;sh.he++;if(S.refHe>S.he){S.refHe--;sh.refHe++}}
+ else if(S.pt>0){S.pt--;sh.pt++;if(S.refPt>S.pt){S.refPt--;sh.refPt++}}}
+function craneSim(dt){const sh=S.ship;
+ if(sh.st!=='docked'){sh.craneT=0;return}
+ const committed=(sh.craneT||0)>CRANE_LATCH;
+ if(!committed&&(loose()<=0||shipLoad()>=holdCap())){sh.craneT=0;return}
+ let left=dt*craneSpeedMul(),guard=0;sh.craneT=sh.craneT||0;
+ while(left>1e-4&&guard++<40){
+  if(sh.craneT>=CRANE_CYCLE)sh.craneT=0;
+  if(sh.craneT<CRANE_ROLLER){
+   if(sh.craneT<CRANE_LATCH&&(loose()<=0||shipLoad()>=holdCap())){sh.craneT=0;return}
+   const to=CRANE_ROLLER-sh.craneT;if(left<to){sh.craneT+=left;return}
+   left-=to;sh.craneT=CRANE_ROLLER;if(loose()>0&&shipLoad()<holdCap())craneTakeOne()}
+  const toEnd=CRANE_CYCLE-sh.craneT;if(left<toEnd){sh.craneT+=left;return}
+  left-=toEnd;sh.craneT=0}}
 const holdCap=()=>Math.round((CFG.ship.holdCrates+Math.floor((dockLvl('pad')-1)/2)*CFG.dock.padHoldPer2)*tripMult(S.trips||0));
 const padCap=()=>Math.max(CFG.econ.stageCap,holdCap());   // the pad always fits a full hold
 const turnSec=()=>CFG.ship.turnaroundSec*Math.max(CFG.dock.refuelMin,1-CFG.dock.refuelPerLvl*(dockLvl('refuel')-1));
@@ -280,7 +307,7 @@ function shipTick(t,live){const s=S.ship,ev=[];
 const tripFor=n=>n<1?120:n<2?300:600;   // 1st trip 2 min, 2nd 5 min, then 10 min
 const tripSec=s=>s.dur||CFG.ship.tripSec;
 const shipValue=s=>s.st!=='docked'&&s.val!=null?s.val:Math.round(cargoValue(s));
-function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;padDip={n:shipLoad(),he:s.he,lp:s.pt,lh:s.he,from:staged(),t:T,end:0.4+0.04*(Math.min(shipLoad(),12)-1)};s.val=Math.round(cargoValue(s));s.st='trip';s.t=gnow();s.dur=tripFor(S.trips||0);armT=T;save();return true}
+function launchShip(){const s=S.ship;if(s.st!=='docked'||shipLoad()<1)return false;padDip=null;s.val=Math.round(cargoValue(s));s.st='trip';s.t=gnow();s.dur=tripFor(S.trips||0);s.craneT=0;armT=T;save();return true}
 const SUF=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
 function compact(n){n=Math.floor(n);if(n<1000)return String(n);let k=0,v=n;while(v>=999.5&&k<SUF.length-1){v/=1000;k++}if(v>=999.5)return n.toExponential(1).replace('+','');let t=v.toPrecision(3);if(t.includes('.'))t=t.replace(/0+$/,'').replace(/\.$/,'');return t+SUF[k]}   // 3 significant digits, ≤6 chars with $
 const fmt=n=>'$'+compact(n);
@@ -365,8 +392,11 @@ let curStopA=0,armT=-99;
 // ----- flat regolith ground (procedural, opaque): tile TW pt wide, repeats while panning. Depth gradient, craters and boulders with hard shadows, strata at the bottom.
 const GTW=1000,GTH=330,gC=document.createElement('canvas'),gX=gC.getContext('2d');let gK=0;
 function rng(seed){let x=seed>>>0;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return(x>>>0)/4294967296}}
+// GROUND_LIFT: same gradient shape, every stop scaled so the code ground's average gray matches Art's strip (~147)
+const GROUND_LIFT={k:1.13,tint:[1.023,1.000,0.968]};   // x1.13 (GD-approved: on-screen match to the strip; Art's 1.21 was ~7 gray too bright), hue tinted to the strip's average surface colour (150.9,147.5,142.7)
+const gLift=h=>{const v=[1,3,5].map(i=>parseInt(h.substr(i,2),16)),l=(v[0]+v[1]+v[2])/3*(window.__gl||GROUND_LIFT.k);return`rgb(${GROUND_LIFT.tint.map(t=>Math.min(255,Math.round(l*t)))})`};
 function buildGround(){const k=DPR*SC;if(gK===k)return;gK=k;gC.width=Math.ceil(GTW*k);gC.height=Math.ceil(GTH*k);const c=gX;c.setTransform(k,0,0,k,0,0);smooth(c);
- let g=c.createLinearGradient(0,0,0,GTH);g.addColorStop(0,'#9a9aa0');g.addColorStop(0.08,'#86868d');g.addColorStop(0.55,'#6b6b72');g.addColorStop(0.78,'#55555c');g.addColorStop(1,'#3c3c43');c.fillStyle=g;c.fillRect(0,0,GTW,GTH);
+ let g=c.createLinearGradient(0,0,0,GTH);[[0,'#9a9aa0'],[0.08,'#86868d'],[0.55,'#6b6b72'],[0.78,'#55555c'],[1,'#3c3c43']].forEach(([o,h])=>g.addColorStop(o,gLift(h)));c.fillStyle=g;c.fillRect(0,0,GTW,GTH);
  const r=rng(7);
  for(let i=0;i<2600;i++){const y=Math.pow(r(),0.8)*GTH*0.8,x=r()*GTW,s=0.4+r()*1.3*(0.5+y/GTH);c.fillStyle=r()<.5?'rgba(255,255,255,.07)':'rgba(0,0,0,.09)';c.fillRect(x,y,s,s*0.6)}   // regolith grain
  // strata at the bottom edge (wavy bands, darker with depth)
@@ -387,9 +417,21 @@ function buildGround(){const k=DPR*SC;if(gK===k)return;gK=k;gC.width=Math.ceil(G
    const bg=c.createLinearGradient(bx-sz,y-sz,bx+sz,y);bg.addColorStop(0,'#b4b4ba');bg.addColorStop(0.55,'#7b7b82');bg.addColorStop(1,'#45454c');c.fillStyle=bg;c.fill()},x,sz*3)}
  // horizon rim: a crisp lighter edge so the ground reads as a solid edge against the sky
  c.fillStyle='rgba(255,255,255,.18)';c.fillRect(0,0,GTW,1.2)}
-function drawGround(rx){buildGround();const bottom=H/SC-(OY+cam.y)+40;
- ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
- const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
+// ground: code-drawn tile (first-screen fallback) → Art's ground_strip, 200 ms crossfade once loaded.
+// The strip's groundLineY sits on HOR, so building pads (y 0 = HOR) and walkway legs (down to HOR) stand on the art's ground line.
+// strip fade progress: advances per rAF by the frame's real time, but a long (hitchy) frame counts as at most 34 ms,
+// so the 200 ms ramp always spans >= 6 drawn frames and can never pop in one frame. Dev: logs alpha every frame + on-screen readout.
+let gsLast=0;function stripTick(now){if(!GSTRIP.t0||GSTRIP.done)return;const dt=gsLast?Math.min(34,now-gsLast):0;gsLast=now;GSTRIP.p=Math.min(1,(GSTRIP.p||0)+dt/200);const a=easeIO(GSTRIP.p);
+ if(DEV){(GSTRIP.log=GSTRIP.log||[]).push([Math.round(now),+a.toFixed(3)]);console.log(`[ground strip] t=${Math.round(now-GSTRIP.t0)}ms alpha=${a.toFixed(3)}`);let el=$('#gsa');if(!el){el=document.createElement('div');el.id='gsa';el.style.cssText='position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 230px);z-index:20;font:11px ui-monospace,Menlo,monospace;color:#9ff0ff;background:rgba(0,0,0,.6);padding:4px 6px;border-radius:6px;pointer-events:none;white-space:pre';document.body.appendChild(el)}
+  el.textContent='strip α '+GSTRIP.log.slice(-8).map(x=>x[1].toFixed(2)).join(' ');if(GSTRIP.p>=1)setTimeout(()=>el.remove(),3000)}
+ if(GSTRIP.p>=1)GSTRIP.done=true}
+function drawGround(rx){const S=SPR.ground_strip,fa=GSTRIP.t0?easeIO(GSTRIP.p||0):0,bottom=H/SC-(OY+cam.y)+40;
+ if(fa<1){buildGround();ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
+  const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
+ if(fa>0){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h,sc=S.img.width/TW;ctx.save();ctx.globalAlpha=fa;
+  ctx.fillStyle='#2e2c2a';ctx.fillRect(-OX-2,top+GH-1,W/SC+4,Math.max(0,bottom-top-GH+1));   // below the strip: same dark rock as its strata edge
+  const ox=-(((rx%TW)+TW)%TW);for(let x=ox-OX-TW;x<W/SC-OX+TW;x+=TW){const dx=Math.round(x*SC*DPR)/(SC*DPR);ctx.drawImage(S.img,0,0,S.img.width,S.img.height,dx,top,TW+1/(SC*DPR),GH)}   // device-pixel-snapped, 1 device px overlap: no hairline seams
+  ctx.restore()}}
 // every building stands on a flat foundation pad with a contact shadow (replaces the curved globe base)
 function dockPlinth(){const w=420;ctx.save();ctx.globalAlpha=.5;ctx.fillStyle='#000';ctx.filter='blur(3px)';ctx.beginPath();ctx.ellipse(0,5,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
  const g=ctx.createLinearGradient(0,-26,0,6);g.addColorStop(0,'#5a5f69');g.addColorStop(1,'#3a3d44');ctx.fillStyle=g;ctx.fillRect(-w/2,-26,w,32);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(-w/2,5,w,1)}   // solid plinth under the dock deck: nothing see-through
@@ -448,7 +490,16 @@ function floorScale(fx){let sx=1,sy=1;
  if(fx.up!=null){const t=(T-fx.up)/0.4;if(t<1){const w=Math.sin(t*Math.PI)*(1-t);sx*=1+0.05*w;sy*=1-0.06*w}}
  if(fx.pop!=null){const t=(T-fx.pop)/0.3;if(t<1){const w=Math.sin(t*Math.PI)*(1-t*0.5);sx*=1+0.08*w;sy*=1+0.08*w}}
  if(fx.tap!=null){const t=(T-fx.tap)/0.16;if(t<1){const w=Math.sin(t*Math.PI);sx*=1-0.015*w;sy*=1-0.03*w}}return[sx,sy]}
-const lowPower=d=>(d.use||0)>0&&E.power<0.999;
+// Low power: ONE steady state with hysteresis (was re-picked from E.power every frame + a 12 fps flicker overlay → strobing).
+// Goes short when power < 0.99, or < 0.999 for 0.6 s; recovers only after power >= 0.999 for 1.2 s. Dim fades to 60% / back over 400 ms.
+const LPS={on:false,k:0,lo:0,hi:0};
+// Animated every rAF from the frame timestamp (ms), eased; power is re-read from a fresh econ() each frame (not the game tick), so the restore starts right after the buffer.
+let NOW=0;const easeIO=q=>q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2;
+function lpTick(dt,now){const p=econ().power;
+ if(!LPS.on){LPS.lo=p<0.999?LPS.lo+dt:0;if(p<0.99||LPS.lo>=0.6){LPS.on=true;LPS.hi=0;lpAnim(1,now)}}else{LPS.hi=p>=0.999?LPS.hi+dt:0;if(LPS.hi>=0.6){LPS.on=false;LPS.lo=0;lpAnim(0,now)}}
+ const a=LPS.a;if(a){const q=Math.min(1,(now-a.t0)/400);LPS.k=a.from+(a.to-a.from)*easeIO(q);if(DEV){const ms=Math.round(now-a.t0);(LPS.log=LPS.log||[]).push([Math.round(now),ms,+LPS.k.toFixed(3)]);console.log(`[mine dim] t=${ms}ms alpha=${LPS.k.toFixed(3)}`);let el=$('#mda');if(!el){el=document.createElement('div');el.id='mda';el.style.cssText='position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 250px);z-index:20;font:11px ui-monospace,Menlo,monospace;color:#ffd27f;background:rgba(0,0,0,.6);padding:4px 6px;border-radius:6px;pointer-events:none';document.body.appendChild(el)}el.textContent=`mine dim ${LPS.k.toFixed(3)} @${ms}ms`}if(q>=1)LPS.a=null}}
+function lpAnim(to,now){LPS.a={from:LPS.k,to,t0:now}}
+const lowPower=d=>(d.use||0)>0&&LPS.on;
 function tierLayers(d,f){if(!d.tierBase)return[];   // no tier art → base art only (never blank)
 const out=[];CFG.tierLevels.forEach(L=>{if(f.lvl>=L){const s=ensureTier(d,L);if(s.ready)out.push({L,s})}});return out}
 function floorStatic(c,d,f){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id];
@@ -458,14 +509,15 @@ function floorStatic(c,d,f){if(d.upper)return;const H=d.slots===2?240:120;const 
 // floor labels never hide under the Goal card: if a floor's top is under the HUD band, its label sticks just below the band (within the floor)
 let BAND=0;const stickT={};function chipY(H,id){const m=ctx.getTransform();let y=-H+6;if(BAND&&Math.abs(m.b)<=0.01&&m.d>0){const st=(BAND-m.f)/m.d;y=Math.min(Math.max(-H+6,st),-26)}
  const stuck=y>-H+6.5;if(!stuck){delete stickT[id];return{y,a:1,sh:false}}if(stickT[id]==null)stickT[id]=T;return{y,a:Math.min(1,(T-stickT[id])/0.12),sh:true}}   // stuck: same plate + 1 pt shadow, fades in over 120 ms
-function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id],lp=lowPower(d),t=T+k*0.3;
+function floorAnim(d,f,k){if(d.upper)return;const H=d.slots===2?240:120;const s=SPR['f_'+d.id],lp=false,t=T+k*0.3;   // low power never freezes/jumps the ambient layers any more: the ONLY low-power visual is the eased 400 ms dim / _lowpower crossfade (LPS.k)
  if(s&&s.ready){drawLayers(ctx,s,t,lp,H)}else placeholderAnim(d,f,t,lp);
  tierLayers(d,f).forEach(o=>{const dt=(floorFx[d.id]||{}).tierDrop;
   if(dt&&dt.L===o.L&&T-dt.t<0.45){const q=Math.max(0,Math.min(1,(T-dt.t-0.15)/0.26));if(q>0){ctx.save();ctx.globalAlpha=q;ctx.translate(0,-24*(1-easeOutBack(q,1.7)));ctx.drawImage(o.s.base,0,-H,360,H);drawLayers(ctx,o.s,T,lp,H);ctx.restore()}}
   else drawLayers(ctx,o.s,T,lp,H)});
  if(d.id==='rover'&&s&&s.ready)roverBay(s,f,lp);
  if(f.lvl>=50&&ok('fx_gold_shimmer')&&d.id!=='oxy'){spr(ctx,'fx_gold_shimmer',fr('fx_gold_shimmer',T),0,0)}
- if(lp)spr(ctx,'floor_low_power',fr('floor_low_power',T),0,0);   // dim only; the single warning lives in the HUD pill
+ if((d.use||0)>0&&LPS.k>0){if(s&&s.lp){ctx.save();ctx.globalAlpha=LPS.k;ctx.drawImage(s.lp,0,-H,360,H);ctx.restore()}   // Art: normal lights drawn once, the floor's _lowpower layer crossfaded over it (alpha 0→1 / 1→0 over 400 ms), no texture swap
+  else{ctx.fillStyle=`rgba(4,6,12,${(0.4*LPS.k).toFixed(3)})`;ctx.fillRect(0,-H,360,H)}}   // floors without _lowpower art (Life Support): steady dim to 60%. The single warning lives in the HUD pill
  if(!f.workers&&!noCrew(d)){ctx.fillStyle='rgba(5,8,15,.45)';ctx.fillRect(0,-H,360,H);label(180,-60,(f.off?'No crew · tap, then + to assign':'Needs crew · tap to assign a resident'),'#ffb347',13)}
  const fx=floorFx[d.id]||{};if(fx.up!=null){const q=(T-fx.up)/0.25;if(q<1){ctx.globalAlpha=0.6*(1-q);ctx.fillStyle='#fff';ctx.fillRect(0,-H,360,H);ctx.globalAlpha=1}}
  (crew[d.id]||[]).forEach(a=>{const y=-120+104,role=(d.crew&&ok('walk_'+d.crew))?d.crew:'worker',key=(a.idle>0?'idle_':'walk_')+role;
@@ -512,11 +564,11 @@ function drawShaftStatic(c,bi,n){const top=floorBottom(n-1)-120;for(let k=0;k<n;
  if(ok('el_shaft_top'))c.drawImage(SPR.el_shaft_top.img,160,top-30,40,30)}
 // roof (penthouse): drawn on the highest floor once the building is full; bottom edge = that floor's top
 function roofSpr(bi,n){const b=BUILDINGS[bi];if(!b.roof||n<b.floors.length)return null;const s=SPR['roof_'+b.id];return s&&s.ready?s:null}
-function roofStatic(c,bi,n){const s=roofSpr(bi,n);if(!s)return;c.drawImage(E.power<0.999&&s.lp?s.lp:s.base,FX0,floorBottom(n)-180,360,180)}
+function roofStatic(c,bi,n){const s=roofSpr(bi,n);if(!s)return;c.drawImage(s.base,FX0,floorBottom(n)-180,360,180)}
 function launchTower(bi,n){const b=BUILDINGS[bi];if(!b.tower||n<b.floors.length||!ok('launch_tower'))return;ctx.save();ctx.translate(FX0,floorBottom(n));
  const away=S.ship.st!=='docked',f=away?Math.min(11,Math.floor((T-armT)*12)):0;   // arms swing away once (12f @12fps) when the cargo ship launches
  spr(ctx,'launch_tower_ship',0,0,0);spr(ctx,'launch_tower',0,0,0);spr(ctx,'launch_tower_crew_arm',f,0,0);spr(ctx,'launch_tower_fuel_arm',f,0,0);ctx.restore()}
-function roofAnim(bi,n){launchTower(bi,n);const s=roofSpr(bi,n);if(!s)return;ctx.save();ctx.translate(FX0,floorBottom(n));if(!(E.power<0.999&&s.lp))drawLayers(ctx,s,T,false,180);ctx.restore()}
+function roofAnim(bi,n){launchTower(bi,n);const s=roofSpr(bi,n);if(!s)return;ctx.save();ctx.translate(FX0,floorBottom(n));drawLayers(ctx,s,T,false,180);if(s.lp&&LPS.k>0){ctx.globalAlpha=LPS.k;ctx.drawImage(s.lp,0,-180,360,180);ctx.globalAlpha=1}ctx.restore()}
 function drawCar(bi,n){const e=elevState(bi),look=elevLook(bi);
  for(let k=0;k<n;k++)spr(ctx,'el_call_panel',Math.abs(e.pos-k)<0.05?1:0,162,floorBottom(k)-60);
  if(!ensureLook(look))return;const settle=e.phase==='settle'?2*Math.sin(Math.min(1,(T-e.t0)/0.16)*Math.PI)*(1-Math.min(1,(T-e.t0)/0.31)):0;
@@ -526,7 +578,7 @@ function drawCar(bi,n){const e=elevState(bi),look=elevLook(bi);
  spr(ctx,'car_'+look+'_doors',Math.round(e.doors*7),x,y)}
 // ----- tower cache (static footing + shaft + floor bases) -----
 const towerCache={};let cacheHits=0;
-function towerKey(bi,n){const fl=BUILDINGS[bi].floors;let k=[DPR,SC,TS,n,E.power<0.999,!!roofSpr(bi,n)].join('|');for(let i=0;i<n;i++){const d=fl[i],f=S.f[d.id];k+='|'+tierOf(f.lvl)+(SPR['f_'+d.id]&&SPR['f_'+d.id].ready?'a':'p')+tierLayers(d,f).length}return k}
+function towerKey(bi,n){const fl=BUILDINGS[bi].floors;let k=[DPR,SC,TS,n,!!roofSpr(bi,n)].join('|');for(let i=0;i<n;i++){const d=fl[i],f=S.f[d.id];k+='|'+tierOf(f.lvl)+(SPR['f_'+d.id]&&SPR['f_'+d.id].ready?'a':'p')+tierLayers(d,f).length}return k}
 function towerNeedsLive(bi,n){const fl=BUILDINGS[bi].floors;for(let i=0;i<n;i++){const fx=floorFx[fl[i].id]||{};if(fx.build!=null&&T-fx.build<0.7||fx.up!=null&&T-fx.up<0.45||fx.tap!=null&&T-fx.tap<0.2||fx.pop!=null&&T-fx.pop<0.35||fx.tierDrop&&T-fx.tierDrop.t<0.5)return true}return false}
 function getTowerCache(bi,n){const key=towerKey(bi,n);let c=towerCache[bi];if(c&&c.key===key)return c;
  const s=DPR*SC*TS,top=Math.floor((floorBottom(n-1)-320)*s)/s,w=420,h=Math.ceil((50-top)*s)/s;
@@ -546,7 +598,8 @@ function drawTower(bi,n,atRest){const fl=BUILDINGS[bi].floors,live=!atRest||towe
   const why=lockReason(IDX[nf.id]);pillBtn(FX0+180,yTop-66,`Build ${nf.name} · ${fmt(nf.cost)}`,!why);if(why)label(FX0+180,yTop-32,'🔒 '+why,'#ffb347',13)}}
 // ----- Mine foreground: ADIT-2 cave v3, rover, hopper. One ground line (y=0 here), scale 1 = same scale as the tower.
 // Cave sits fully on screen (right), hopper at left; rover rolls in from the Rover Bay (off-screen left).
-const FG={y:70,s:1,par:1.15,tunnel:-67,hopper:-160};
+// Foreground yard: cave sits to the right of the tower, closer (×1.18) so the road, conveyor and attendant read in front of the floors.
+const FG={y:78,s:1.18,par:1.12,tunnel:28,hopper:-160};
 const ease=q=>q<.5?2*q*q:1-2*(1-q)*(1-q);
 // outdoor half of the truck beat: in from the left, down the ADIT-2 ramp, mine, back up, out to the left (never crosses the portal)
 const rampPt=u=>({x:FG.tunnel+20+150*u,y:48*u});
@@ -575,7 +628,8 @@ function drawDust(dt){for(let i=dust.length-1;i>=0;i--){const d=dust[i];d.t+=dt;
 let fgLast=0;
 // ---- Truck cycle (MINE_SPEC Rover Bay v3). Two labelled trucks share an 8.4 s beat: one dumps in the bay while the other works the tunnel.
 const BEAT=8.4,truckKind=n=>n%2?'he3':'pt';
-function truckClock(){const sp=(E.power<0.999?0.5:1)*Math.min(1.6,1+(S.f.rover.lvl-1)*0.02),t=T*sp;return{n:Math.floor(t/BEAT),c:t%BEAT}}
+let TCK=0;const truckSpeed=()=>(1-0.5*LPS.k)*Math.min(1.6,1+(S.f.rover.lvl-1)*0.02);   // accumulated clock: a speed change never jumps the truck
+function truckClock(){const t=TCK;return{n:Math.floor(t/BEAT),c:t%BEAT}}
 const tintC=document.createElement('canvas'),tintX=tintC.getContext('2d');
 function sprTint(key,frame,x,y,tint){if(tint>=0.999){spr(ctx,key,frame,x,y);return}const S=SPR[key];if(!S||!S.ready)return;const k=DPR*SC,w=Math.ceil(S.w*k)+2,h=Math.ceil(S.h*k)+2;
  if(tintC.width<w||tintC.height<h){tintC.width=w;tintC.height=h}tintX.setTransform(1,0,0,1,0,0);tintX.clearRect(0,0,tintC.width,tintC.height);tintX.setTransform(k,0,0,k,0,0);smooth(tintX);spr(tintX,key,frame,S.px,S.py);
@@ -585,14 +639,34 @@ function roverBay(base,f,lp){const R=BAYROUTE;if(!R||S.f.rover.workers<=0)return
  const pours=n+(c>=4.9?1:0);spr(ctx,'bin_fill_ore',Math.min(4,pours%6),14,68-120);
  if(c>=7.9)return;const i=Math.min(R.frames.length-1,Math.floor(c*R.fps)),q=c*R.fps-i,a=R.frames[i],b=R.frames[Math.min(R.frames.length-1,i+1)],x=Math.max(R.stopX??92,a.x+(b.x-a.x)*q),bob=a.bob+(b.bob-a.bob)*q;
  const tint=x>330?0.45:x<220?1:1-0.55*(x-220)/110,y=FY-bob;
- let key,fr8;if(c>=2.7&&c<5.8){key='rover_bay_dump_'+kind;fr8=Math.min(15,Math.floor((c-2.7)/3.1*16))}else{key='truck_'+kind+'_drive';const rev=a.seg==='reverseIn',mv=Math.abs(b.x-a.x)>0.05;fr8=mv?(rev?7-Math.floor(c*12)%8:Math.floor(c*12)%8):0}
- if(lp&&key.startsWith('truck'))fr8=0;
+ let key,fr8;if(c>=2.7&&c<5.8){key='rover_bay_dump_'+kind;fr8=Math.min(15,Math.floor((c-2.7)/3.1*16));if(!SPR[key].ready){key='rover_bay_dump_still_'+kind;fr8=0}}else{key='truck_'+kind+'_drive';const rev=a.seg==='reverseIn',mv=Math.abs(b.x-a.x)>0.05;fr8=mv?(rev?7-Math.floor(c*12)%8:Math.floor(c*12)%8):0}
+ 
  ctx.save();ctx.globalAlpha=.35*tint;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(x+45,FY+0.5,46,3,0,0,7);ctx.fill();ctx.restore();
  sprTint(key,fr8,x,y,tint);
  if(x+90>292&&base.base){const kk=base.base.width/360;ctx.drawImage(base.base,292*kk,42*kk,10*kk,62*kk,292,42-120,10,62)}}   // right jamb over the truck
 
+function drawMineYard(){
+ // road strip along the loader path, conveyor up to the tower, attendant platform clear of the truck
+ const mouth=FG.tunnel+168;
+ ctx.fillStyle='#2c3038';ctx.fillRect(-70,-10,mouth+80,18);
+ ctx.fillStyle='#6d675c';ctx.fillRect(-70,-10,mouth+80,1.6);ctx.fillRect(-70,6.4,mouth+80,1.6);
+ ctx.fillStyle='#e0a24a';const dash=(T*22)%16;for(let x=-60+dash;x<mouth+10;x+=16)ctx.fillRect(x,-1.1,7,2.2);
+ const x0=FG.tunnel+36,y0=-2,x1=-120,y1=-92,len=Math.hypot(x1-x0,y1-y0),ang=Math.atan2(y1-y0,x1-x0);
+ ctx.strokeStyle='#4a5362';ctx.lineWidth=8;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+ ctx.strokeStyle='#9aa6b6';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(x0,y0-3.2);ctx.lineTo(x1,y1-3.2);ctx.stroke();
+ ctx.save();ctx.translate(x0,y0);ctx.rotate(ang);ctx.fillStyle='#d9893a';const off=(T*36)%14;for(let x=off;x<len;x+=14)ctx.fillRect(x,-1.3,6,2.6);ctx.restore();
+ const px=FG.tunnel-6;
+ ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(px+16,2,18,3,0,0,7);ctx.fill();
+ ctx.fillStyle='#3e4654';ctx.fillRect(px,-20,34,20);ctx.fillStyle='#c5ceda';ctx.fillRect(px,-20,34,2);ctx.fillRect(px+2,-20,2,20);ctx.fillRect(px+30,-20,2,20);
+ ctx.save();ctx.translate(px+16,0);ctx.scale(0.42,0.42);
+ if(ok('crew13_walk'))spr(ctx,'crew13_walk',0,0,0);else{ctx.fillStyle='#e7eef8';ctx.fillRect(-6,-28,12,22);ctx.fillStyle='#ffb347';ctx.beginPath();ctx.arc(0,-32,6,0,7);ctx.fill()}
+ ctx.restore();
+ const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
+ lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
+ ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
 function drawMineForeground(f){if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
  ctx.save();ctx.translate(par,FG.y);ctx.scale(FG.s,FG.s);
+ drawMineYard();
  softCave('tunnel_back');
  let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
  dustTick(r,dt);drawDust(dt);
@@ -624,13 +698,12 @@ function trackMan(){if(!trkLoading)trkLoading=tryJSON(ART+DOCK+'tracks/dock_trac
 function ensureTrack(t,L){const k=`dock_${t}_t${L}`;if(!trackMan())return null;const list=TRK.images[k];if(!list)return null;
  return list.map(e=>{let o=trkImg[e.file];if(!o){o=trkImg[e.file]={e,img:null};getImg(ART+DOCK+'tracks/'+e.file).then(bmp).then(im=>o.img=im)}return{e,o}})}
 function dockOverlays(list){list.forEach(t=>{for(let L=10;L<=dockLvl(t);L+=10){const ps=ensureTrack(t,L);if(ps)ps.forEach(({e,o})=>{if(o.img)ctx.drawImage(o.img,-380+e.x,-620+e.y,e.w,e.h)})}})}   // cumulative per track; every piece; missing art → base dock
-const dockCrew=[{a:430,b:470,k:'carry'},{a:120,b:220,k:'push'},{a:-30,b:40,k:'walk'},{a:500,b:560,k:'carry'}];
-// lift waits for the slide + pad tick-down + a 150 ms beat; ignition (0.4 s) is timed so the rise starts right after the beat. Visual only: trip timer and payout stay locked to the launch tap.
-// pad stacks: ONE constant. 4 tiers x 3 per stack = 12 per stack, 24 drawn in total; above that both stacks stay full and the counter shows the real Pad N/cap.
-const PAD_VIS={tiers:4,perTier:3,tierGap:40,get perStack(){return this.tiers*this.perTier},get total(){return 2*this.perStack}};
-function padSplit(pt,he){const m=PAD_VIS.perStack,tot=Math.min(pt+he,PAD_VIS.total);return[Math.min(pt,m),Math.min(he,m)]}   // each stack shows its own type only (never Pt drawn as He-3)
-const hatchAt=()=>padDip?padDip.end+0.3:0;   // hatch shuts in the 150 ms beat: 6 frames x 24 ms
-const liftDelay=()=>padDip&&T-padDip.t<5?padDip.end+0.3+0.15-0.4:0;
+const HANDLER_X=392;   // handler's mark on the deck. Other walkers route behind it and never cross it.
+const dockCrew=[{a:70,b:200,k:'push'},{a:230,b:340,k:'carry'},{a:470,b:575,k:'walk'}];
+// Launch closes the hatch, then lifts. Nothing slides in: the crane already put the hold aboard. Leftovers stay on the pad.
+const STOCK_VIS=12;
+const hatchAt=()=>0.02;
+const liftDelay=()=>shipAnim.mode==='launch'?0.32:0;
 // what the pad stacks show around a launch: loaded containers stay drawn until they leave. The animated 12 leave one by one (top first);
 // the rest of the load fades out over 200 ms after the slide, so the stack matches the pad count when the tick-down ends. Unloaded containers stay.
 function padVis(){const r={pt:padPt(),he:padHe(),spt:0,she:0,fpt:0,fhe:0,fa:1};if(!padDip||padDip.lp==null)return r;const dt=T-padDip.t,E0=padDip.end;if(dt>=E0+0.2)return r;
@@ -640,8 +713,48 @@ function padVis(){const r={pt:padPt(),he:padHe(),spt:0,she:0,fpt:0,fhe:0,fa:1};i
  r.fa=1-(dt-E0)/0.2;r.fpt=fp;r.fhe=fh;return r}
 function padSlide(deck,X,sy0){const dt=padDip?T-padDip.t:9;   // drawn over the hull so the slide into the hold reads
  if(padDip&&dt<padDip.end){const k=Math.min(padDip.n,12),he=Math.round(k*padDip.he/Math.max(1,padDip.n));for(let i=0;i<k;i++){const isHe=i<he,j=isHe?i:i-he,q=Math.max(0,Math.min(1,(dt-i*0.04)/0.4));if(q<=0||q>=1)continue;
-    const sx=X(isHe?540:440),sy=deck-(PAD_VIS.tiers-1)*PAD_VIS.tierGap+j*10,e=easeInOutCubic(q),bx=sx+(36-sx)*e,by=sy+(sy0-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
+    const sx=X(isHe?510:440),sy=deck-(PAD_VIS.tiers-1)*PAD_VIS.tierGap+j*10,e=easeInOutCubic(q),bx=sx+(36-sx)*e,by=sy+(sy0-240-sy)*e;ctx.save();ctx.globalAlpha=1-0.6*q;spr(ctx,isHe?'he3_canister_pulse':'loaded_box_pulse',0,bx,by);ctx.restore()}}
 }
+const CRANE_PHASES=[['slew',0.90],['lower',0.85],['latch',0.25],['raise',0.85],['traverse',1.15],['settle',0.90],['enter',0.70],['roller',0.40],['door',0.50],['return',1.10]];
+function cranePhaseAt(t){let u=Math.max(0,t||0);for(const [id,d] of CRANE_PHASES){if(u<=d)return{id,q:d?u/d:1};u-=d}return{id:'park',q:1}}
+function craneSwayDeg(ph){
+ if(ph.id==='traverse')return 6.2*Math.sin(ph.q*Math.PI*2);
+ if(ph.id==='settle')return 6.2*Math.exp(-5.2*ph.q)*Math.sin(ph.q*Math.PI*3);   // under 0.5° before bay entry
+ if(ph.id==='enter'||ph.id==='roller'||ph.id==='door')return 0.22*Math.sin(T*1.7);
+ return Math.sin(T*0.55)*0.7}
+function craneCarrying(ph){return ph.id==='latch'&&ph.q>0.5||ph.id==='raise'||ph.id==='traverse'||ph.id==='settle'||ph.id==='enter'}
+function drawStockpile(deck,X,skip){let pt=S.pt,he=S.he;if(skip==='he'&&he>0)he--;else if(skip==='pt'&&pt>0)pt--;
+ const extra=S.pt+S.he-STOCK_VIS,show=Math.min(STOCK_VIS,pt+he);let spt=Math.min(pt,show),she=Math.min(he,show-spt);
+ if(pt>0&&he>0&&she===0&&show>1){she=1;spt=show-1}
+ const zone=(cx,count,key)=>{for(let i=0;i<count;i++){const r=Math.floor(i/3),j=i%3;spr(ctx,key,fr(key,T+i*0.3),X(cx)-27+j*26,deck-r*22)}};
+ if(spt)zone(440,spt,'loaded_box_pulse');if(she)zone(508,she,'he3_canister_pulse');
+ if(extra>0){ctx.font='800 13px Rajdhani,Inter,system-ui,sans-serif';const txt='+'+extra,w=ctx.measureText(txt).width+12,bx=X(545),by=deck-18;
+  ctx.fillStyle='rgba(10,14,26,.85)';rr(ctx,bx,by,w,18,9);ctx.fill();ctx.fillStyle='#ffe2b0';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,bx+6,by+9)}}
+function drawCrane(deck,X){const sh=S.ship,busy=sh.st==='docked'&&(sh.craneT||0)>0.04,ph=busy?cranePhaseAt(sh.craneT):{id:'park',q:1};
+ const sway=craneSwayDeg(ph),carry=busy&&craneCarrying(ph),lerp=(a,b,q)=>a+(b-a)*Math.max(0,Math.min(1,q));
+ const stockX=458,bayX=156,parkX=360;let hx=parkX,hy=deck-170,roll=0;
+ if(ph.id==='slew'){hx=lerp(parkX,stockX,ph.q);hy=deck-176}
+ else if(ph.id==='lower'){hx=stockX;hy=lerp(deck-176,deck-34,ph.q)}
+ else if(ph.id==='latch'){hx=stockX;hy=deck-34}
+ else if(ph.id==='raise'){hx=stockX;hy=lerp(deck-34,deck-164,ph.q)}
+ else if(ph.id==='traverse'){hx=lerp(stockX,230,ph.q);hy=deck-164}
+ else if(ph.id==='settle'){hx=230;hy=deck-164}
+ else if(ph.id==='enter'){hx=lerp(230,bayX,ph.q);hy=lerp(deck-164,deck-148,ph.q)}
+ else if(ph.id==='roller'){hx=bayX;hy=deck-148;roll=ph.q}
+ else if(ph.id==='door'){hx=lerp(bayX,250,ph.q);hy=deck-168}
+ else if(ph.id==='return'){hx=lerp(250,parkX,ph.q);hy=deck-176}
+ hx+=sway*1.1;
+ spr(ctx,'crane_gantry',0,X(430),deck);const gtx=X(430)+Math.sin(T*0.35)*6,gty=deck-188;spr(ctx,'crane_trolley',0,gtx,gty);
+ ctx.strokeStyle='#2a2f3a';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(gtx,gty+6);ctx.lineTo(gtx,gty+26);ctx.stroke();
+ const mastX=X(515);ctx.save();ctx.translate(mastX,deck);ctx.scale(1.45,1.45);spr(ctx,'crane_jib_mast',0,0,0);
+  ctx.translate(0,-176);ctx.rotate((-16+sway)*Math.PI/180);ctx.scale(-1,1);spr(ctx,'crane_jib_boom',0,0,0);ctx.restore();
+ const tipX=mastX-Math.cos(sway*Math.PI/180)*168,tipY=deck-250+Math.sin((-16+sway)*Math.PI/180)*70;
+ ctx.strokeStyle='#1c212b';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(tipX,tipY);ctx.lineTo(X(hx),hy);ctx.stroke();
+ const he=craneWantsHe();
+ if(carry){spr(ctx,'crane_hook_empty',0,X(hx),hy);spr(ctx,he?'he3_canister_pulse':'loaded_box_pulse',0,X(hx),hy+16)}
+ else spr(ctx,'crane_hook_empty',0,X(hx),hy);
+ if(roll>0){const e=roll*roll*(3-2*roll);ctx.save();ctx.globalAlpha=1-e;spr(ctx,'loaded_box_pulse',0,X(lerp(bayX,78,e)),lerp(hy,deck-230,e));ctx.restore()}
+ return carry?(he?'he':'pt'):''}
 function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOPS[site].bi?dockPan:0)/TS,0);ctx.scale(k,k);
  if(!ok('dock_base')){spr(ctx,'site',fr('site',T),0,-6,1/k,1/k);label(0,-150,'Cargo Space Dock','#c9d3e6',22);label(0,-120,'Loading dock art…','#8fa3c4',18);ctx.restore();return}
  const X=x=>x-300,deck=-50;
@@ -650,17 +763,12 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  ctx.save();ctx.translate(X(65),deck);ctx.scale(-1,1);spr(ctx,'launch_tower4',0,0,0);ctx.restore();
  spr(ctx,'dock_base',0,0,0);
  dockOverlays(['crew','refuel','pad']);
- // staged containers in the LOADING zones (Pt in zone 1, He-3 in zone 2)
- const PT=PAD_VIS.tiers,PS=PAD_VIS.perTier,TG=PAD_VIS.tierGap;
- const zone=(cx,n,key,keyS)=>{n=Math.min(n,PT*PS);const full=Math.floor(n/PS);for(let i=0;i<full;i++)spr(ctx,keyS,fr(keyS,T+i*.3),X(cx),deck-i*TG);if(n%PS)for(let j=0;j<n%PS;j++)spr(ctx,key,fr(key,T+j*.4),X(cx)-15+j*30,deck-full*TG)};
- const v=padVis(),lay=[];if(v.fa<1)lay.push([padSplit(v.pt+v.fpt,v.he+v.fhe),v.fa]);lay.push([padSplit(v.pt+v.spt,v.he+v.she),1]);
- lay.forEach(([c,a])=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(440,c[0],'loaded_box_pulse','loaded_box_stack3');ctx.restore()});
- const heStack=()=>{const top=lay[lay.length-1][0][1];if(top>0){ctx.save();ctx.globalAlpha=.4;ctx.fillStyle='#000';ctx.filter='blur(2px)';ctx.beginPath();ctx.ellipse(X(540),deck+1,34,4,0,0,7);ctx.fill();ctx.restore()}   // contact shadow
-  lay.forEach(([c,a])=>{if(a<=0)return;ctx.save();ctx.globalAlpha*=a;zone(540,c[1],'he3_canister_pulse','he3_canister_stack3');ctx.restore()})};
- {const dt=padDip?T-padDip.t:9,dip=dt<(padDip?padDip.end:0.4)+1.2;   // launch: loaded containers slide up into the hold (400 ms, low-g ease, top of stack first), then the pad count ticks down by exactly that many
-  const E0=padDip?padDip.end:0.4,shown=dt<E0?padDip.from:dt<E0+0.3?padDip.from-Math.round(padDip.n*(dt-E0)/0.3):staged();
-  label(X(490),deck-330,`Pad ${Math.max(staged(),dt<E0+0.3?shown:0)}/${padCap()}`,dip?'#ff9b7a':'#bfe9ff',13);
-  if(dip&&dt>=E0){const q=Math.min(1,(dt-E0)/1.2);ctx.save();ctx.globalAlpha=1-q*q;label(X(490),deck-352-q*40,`−${padDip.n} loaded`,'#ff9b7a',16);ctx.restore()}}
+ // walkers stay on the back lane, clear of the handler's mark
+ const nCrew=Math.min(dockCrew.length,1+Math.floor(dockLvl('crew')/10));
+ for(let i=0;i<nCrew;i++){const c=dockCrew[i],per=(c.b-c.a)/28*2+1.2,q=((T+i*1.7)%per)/per,go=q<0.5,u=go?q*2:2-q*2;
+  let x=c.a+(c.b-c.a)*Math.min(1,Math.max(0,(u*1.1-0.05)));if(Math.abs(x-HANDLER_X)<36)x=HANDLER_X+(x<HANDLER_X?-36:36);
+  ctx.save();ctx.translate(X(x),deck-18);if(!go)ctx.scale(-1,1);spr(ctx,'crew13_'+c.k,fr('crew13_'+c.k,T),0,0);ctx.restore()}
+ const skip=(S.ship.st==='docked'&&(S.ship.craneT||0)>0.04&&craneCarrying(cranePhaseAt(S.ship.craneT)))?(craneWantsHe()?'he':'pt'):'';
  // ship
  const s=S.ship,a=shipAnim,t=T-a.t0;let y=deck,flame=0,glow=0,vis=s.st!=='trip';
  if(a.mode==='launch'){vis=true;const tl=t-liftDelay();if(tl<0){}else if(tl<0.4){flame=1;glow=1;if(!a.smoke){a.smoke=1;FX.push({type:'dock',key:'smoke_plume4',t:T})}}else if(tl<1.9){const q=(tl-0.4)/1.5;y=deck-1800*q*q;flame=1}else{a.mode=null;vis=false}}
@@ -668,34 +776,26 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  if(vis&&ok('ship4_hull')){const hx=0,top=y-480;
   if(flame>0){ctx.globalAlpha=Math.min(1,flame);spr(ctx,'ship4_flame',fr('ship4_flame',T),hx,top+432);ctx.globalAlpha=1}
   if(glow){ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_engine_glow',fr('ship4_engine_glow',T),hx,top+440);ctx.globalCompositeOperation='source-over'}
-  spr(ctx,'ship4_hull',0,hx,y);if(ok('ship4_hatch')){let hf=5;if(a.mode==='launch'){const tc=t-hatchAt();hf=tc<0?0:Math.min(5,Math.floor(tc/0.024))}else if(a.mode!=='land'&&(s.st==='docked'||s.st==='turn'))hf=0;spr(ctx,'ship4_hatch',hf,hx-160+SPR.ship4_hatch.px,top+SPR.ship4_hatch.py)}   // open while on the pad, shuts before lift, held shut in flight; not loaded yet = plain pause
+  spr(ctx,'ship4_hull',0,hx,y);if(ok('ship4_hatch')){let hf=5;if(a.mode==='launch'){const tc=t-hatchAt();hf=tc<0?0:Math.min(5,Math.floor(tc/0.05))}else if(a.mode!=='land'&&(s.st==='docked'||s.st==='turn'))hf=0;spr(ctx,'ship4_hatch',hf,hx-160+SPR.ship4_hatch.px,top+SPR.ship4_hatch.py)}
  ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_navlights',fr('ship4_navlights',T),hx-160+108,top+163);ctx.globalCompositeOperation='source-over'}
- padSlide(deck,X,deck);
- // cranes (6 s cycle: down 1.2, latch .3, up 1.2, traverse 1.5, release .5, return 1.3)
- const cs=1+CFG.dock.craneSpeed*(dockLvl('crane')-1),ct=(T*cs)%6;let drop=0,tx=0,load=false;
- if(ct<1.2)drop=ct/1.2;else if(ct<1.5)drop=1;else if(ct<2.7){drop=1-(ct-1.5)/1.2;load=true}else if(ct<4.2){tx=(ct-2.7)/1.5;load=true}else if(ct<4.7){tx=1;drop=(ct-4.2)/0.5*0.4;load=ct<4.5}else tx=1-(ct-4.7)/1.3;
- const gx=X(430)-30+tx*60,gy=deck-190,hy=gy+20+drop*130;spr(ctx,'crane_gantry',0,X(430),deck);
- ctx.strokeStyle='#2a2f3a';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(gx,gy+8);ctx.lineTo(gx,hy);ctx.stroke();spr(ctx,'crane_trolley',0,gx,gy);
- if(load&&staged()>0)spr(ctx,'crane_hook_box',fr('crane_hook_box',T),gx,hy);else spr(ctx,'crane_hook_empty',0,gx,hy);
- ctx.save();ctx.translate(X(515),deck);ctx.scale(1.45,1.45);spr(ctx,'crane_jib_mast',0,0,0);ctx.translate(0,-176);ctx.rotate(Math.sin(T*0.6*cs)*8*Math.PI/180);ctx.scale(-1,1);spr(ctx,'crane_jib_boom',0,0,0);ctx.restore();
+ drawStockpile(deck,X,skip);
+ drawCrane(deck,X);
  dockOverlays(['crane']);
- heStack();   // He-3 stack in front of the orange jib tower
- const pt=dockTier('pad'),sk=pt>=20&&ok('dock_sign_neon_pad_t20')?'pad_t20':pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';   // blue neon v2 at real 48pt; glow = one image + JSON flicker curve (additive)
- {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;ctx.save();ctx.translate(0,deck+38);ctx.rotate(-curStopA);spr(ctx,'dock_sign_neon_'+sk,0,0,0);spr(ctx,'dock_sign_glow_'+sk,gf,0,0);ctx.restore();   // sign always level (pad space, 0°)
+ // handler stands on the mark, in front. Nobody else is drawn here.
+ ctx.save();ctx.translate(X(HANDLER_X),deck);spr(ctx,'crew13_walk',0,0,0);ctx.restore();
+ const pt=dockTier('pad'),sk=pt>=20&&ok('dock_sign_neon_pad_t20')?'pad_t20':pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';
+ {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;ctx.save();ctx.translate(0,deck+38);ctx.rotate(-curStopA);spr(ctx,'dock_sign_neon_'+sk,0,0,0);spr(ctx,'dock_sign_glow_'+sk,gf,0,0);ctx.restore();
   if(ok('dock_sign_bloom_'+sk)){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.6+0.4*al;spr(ctx,'dock_sign_bloom_'+sk,0,0,deck);ctx.restore()}}
- // cargo mule hauling from the Mine
- const mt=(T*30)%1400,mx=mt<700?-700+mt:700-(mt-700);ctx.save();ctx.translate(X(mx<0?mx:Math.min(mx,440))-0,deck);if(mt>=700)ctx.scale(-1,1);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);ctx.restore();
- // crew (1.3× set), more with the crew track
- const nCrew=Math.min(dockCrew.length,2+Math.floor(dockLvl('crew')/10));for(let i=0;i<nCrew;i++){const c=dockCrew[i],per=(c.b-c.a)/28*2+1.2,q=((T+i*1.7)%per)/per,go=q<0.5,u=go?q*2:2-q*2;
-  const x=c.a+(c.b-c.a)*Math.min(1,Math.max(0,(u*1.1-0.05)));ctx.save();ctx.translate(X(x),deck);if(!go)ctx.scale(-1,1);spr(ctx,'crew13_'+c.k,fr('crew13_'+c.k,T),0,0);ctx.restore()}
+ const mt=(T*30)%1400,mx=mt<700?-700+mt:700-(mt-700),mxC=mx<0?mx:Math.min(mx,440);
+ if(Math.abs(mxC-HANDLER_X)>48){ctx.save();ctx.translate(X(mxC),deck-16);if(mt>=700)ctx.scale(-1,1);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);ctx.restore()}
  FX.filter(o=>o.type==='dock').forEach(o=>{const q=frOnce(o.key,T-o.t);if(SPR[o.key]&&q<SPR[o.key].n)spr(ctx,o.key,q,0,deck)});
  ctx.restore();
- // status + launch (screen-scale text)
- const L=shipLoad();
- if(s.st==='docked'&&a.mode!=='launch')pillBtn(0,-390,L?`🚀 Launch ${L} · ${fmt(shipValue(s))}`:'Loading… waiting for cargo',L>0);
- else if(s.st==='trip')label(0,-390,`🚀 To Earth: ${mmss((s.t/1000+tripSec(s)-gnow()/1000)/SPEED)} · ${fmt(shipValue(s))}`,'#eaf2ff',15);
- else if(s.st==='turn')label(0,-390,`🔧 Refuel & repair ${mmss((s.t/1000+turnSec()-gnow()/1000)/SPEED)}`,'#eaf2ff',15);
- label(0,-360,`Ship hold ${L}/${holdCap()} · on pad ${padPt()} Pt + ${padHe()} He-3${S.refPt+S.refHe?` (${S.refPt+S.refHe} refined)`:''}`,'#bfe9ff',12)}
+ const L=shipLoad(),pad=loose(),Y=L+pad;
+ if(s.st==='docked'&&a.mode!=='launch')pillBtn(0,-408,L?`🚀 ${L} of ${Y} loaded`:'Crane is loading…',L>0);
+ else if(s.st==='trip')label(0,-408,`🚀 To Earth: ${mmss((s.t/1000+tripSec(s)-gnow()/1000)/SPEED)} · ${fmt(shipValue(s))}`,'#eaf2ff',15);
+ else if(s.st==='turn')label(0,-408,`🔧 Refuel & repair ${mmss((s.t/1000+turnSec()-gnow()/1000)/SPEED)}`,'#eaf2ff',15);
+ label(0,-372,`In hold ${L}/${holdCap()}`,'#bfe9ff',14);
+ label(0,-352,`On pad ${pad}`,'#d5e6ff',14)}
 function easeOutBack(t,c1=1.70158){const c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)}
 const easeOutCubic=t=>1-Math.pow(1-t,3),easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 // =====================================================================
@@ -742,6 +842,7 @@ function tickMeter(k){const el=document.querySelector(`.m[data-k="${k}"]`)||(k==
 // =====================================================================
 // ACTIONS
 // =====================================================================
+function moneyPop(v){if(!(v>0))return;const r=$('#money').getBoundingClientRect(),d=document.createElement('div');d.textContent='+'+fmt(v);d.style.cssText=`position:fixed;left:${r.left+r.width/2}px;top:${r.bottom+4}px;transform:translateX(-50%);z-index:60;font:700 20px var(--num);color:#ffe2b0;text-shadow:0 2px 6px rgba(0,0,0,.6);pointer-events:none;transition:transform .9s cubic-bezier(.2,.9,.3,1),opacity .9s`;document.body.appendChild(d);requestAnimationFrame(()=>{d.style.transform='translate(-50%,-26px)';d.style.opacity='0'});setTimeout(()=>d.remove(),1000)}
 function bump(){const m=$('#money');m.classList.add('bump');setTimeout(()=>m.classList.remove('bump'),160)}
 function buyFloor(i){let d=F[i];const nc=noCrew(d);if(d.upper){i=IDX[d.upper];d=F[i]}if(lockReason(i))return false;if(d.slots===2){const u=S.f[d.id+'_up'];if(u){u.built=true;u.lvl=1}}S.money-=d.cost;if(d.pack)loadGroup(d.pack);const f=st(i);f.built=true;f.lvl=1;if(!nc&&idleResidents()>0)f.workers=1;
  ensureBuildingArt(d.b);(floorFx[d.id]=floorFx[d.id]||{}).build=T;const p=floorPt(d,0,120);FX.push({type:'sprite',key:'fx_floor_unlock',si:p.si,x:p.x,y:p.y,t:T});
@@ -814,11 +915,11 @@ function openElev(bi){const el=$('#sheet'),lv=elevLvl(bi),max=lv>=CFG.elevator.m
  $('#sx').onclick=closeSheet;$('#ub').onclick=()=>elevUpgrade(bi);el.classList.add('open');$('#shade').classList.add('on');sheetOpenedAt=performance.now()}
 function openDock(refresh){const el=$('#sheet');sheetFor={dock:1,k:refresh&&sheetFor?sheetFor.k:null};const sh=S.ship;
  const rows=DOCK_TRACKS.map(t=>{const lv=dockLvl(t.id),c=dockCost(t.id),max=lv>=CFG.dock.maxLevel,can=!max&&S.money>=c,nl=Math.ceil((lv+1)/10)*10;
-  const eff=t.id==='crane'?`Load ${num(CFG.ship.loadPerMin*tripMult(S.trips||0)*(1+CFG.dock.craneSpeed*(lv-1)))}/min`:t.id==='crew'?`${2+Math.floor(lv/10)} crew · +${Math.round(CFG.dock.crewSpeed*(lv-1)*100)}% load`:t.id==='pad'?`Hold ${holdCap()}`:`Turnaround ${mmss(turnSec())}`;
+  const eff=t.id==='crane'?`Load ${num(loadRate())}/min · ${(CRANE_CYCLE/craneSpeedMul()).toFixed(1)}s cycle`:t.id==='crew'?`${2+Math.floor(lv/10)} crew · +${Math.round(CFG.dock.crewSpeed*(lv-1)*100)}% load`:t.id==='pad'?`Hold ${holdCap()}`:`Turnaround ${mmss(turnSec())}`;
   return `<div class="drow"><img src="${ui(t.icon)}"><div class="dt"><b>${t.name} <span class="dl">LV ${lv}</span></b><small>${eff}</small>${max?'':`<small class="nl">Next look LV ${nl}: ${t.looks[nl]||''}</small>`}
    <div class="dbar"><i style="width:${lv/CFG.dock.maxLevel*100}%"></i></div></div>
    <button class="dup ${can?'glow':''}" data-t="${t.id}" ${can?'':'disabled'}>${max?'MAX':can?`<img src="${ui('ui_icon_coin')}">${fmt(c).slice(1)}`:`Need ${fmt(c-S.money)}`}</button></div>`}).join('');
- el.innerHTML=`<div class="grab"></div><div class="hdr"><div class="ico"><img src="${ART+DOCK}ui/ui_icon_dock_wrench.webp"></div><div><h2>Cargo Space Dock</h2><div class="sub">Ship hold ${shipLoad()}/${holdCap()} · waiting on pad ${padPt()} Pt + ${padHe()} He-3</div></div><button class="x" id="sx" style="margin-left:auto">✕</button></div>${rows}
+ el.innerHTML=`<div class="grab"></div><div class="hdr"><div class="ico"><img src="${ART+DOCK}ui/ui_icon_dock_wrench.webp"></div><div><h2>Cargo Space Dock</h2><div class="sub">In hold ${shipLoad()} · On pad ${loose()}</div></div><button class="x" id="sx" style="margin-left:auto">✕</button></div>${rows}
  <div class="desc">Pt crate ${fmt(CFG.econ.ptValue)} · He-3 canister ${fmt(CFG.econ.heValue)} (30% when packed, 70% on delivery) · refined ×${CFG.econ.refinedMult}. A new look every 10 levels.</div>`;
  $('#sx').onclick=closeSheet;el.querySelectorAll('.dup').forEach(b=>b.onclick=()=>dockUpgrade(b.dataset.t));
  if(!refresh){el.classList.add('open');$('#shade').classList.add('on');sheetOpenedAt=performance.now()}}
@@ -837,7 +938,7 @@ let sd=null;
 function sdStart(y,target){const el=$('#sheet');if(!el.classList.contains('open'))return;const onHandle=!!(target&&target.closest&&(target.closest('.grab')||target.closest('.hdr')));
  sd={y0:y,dy:0,h:el.offsetHeight||1,active:false,handle:onHandle,hist:[[performance.now(),y]]}}
 function sdMove(y,e){if(!sd)return false;const el=$('#sheet'),dy=y-sd.y0;sd.hist.push([performance.now(),y]);if(sd.hist.length>6)sd.hist.shift();
- if(!sd.active){if(dy>6&&(sd.handle||el.scrollTop<=0)){sd.active=true;sd.y0=y;el.style.transition='none';$('#shade').style.transition='none'}else{if(Math.abs(dy)>6&&!sd.handle)sd=null;return false}}
+ if(!sd.active){if(dy>6&&(sd.handle||el.scrollTop<=0)){sd.active=true;el.style.transition='none';$('#shade').style.transition='none'}else{if(Math.abs(dy)>6&&!sd.handle)sd=null;return false}}
  const d=Math.max(0,y-sd.y0);sd.dy=d;el.style.transform=`translateY(${d}px)`;$('#shade').style.opacity=(0.35*(1-Math.min(1,d/sd.h))).toFixed(3);if(e&&e.cancelable)e.preventDefault();return true}
 function sdEnd(){if(!sd)return;const g=sd;sd=null;if(!g.active)return;const el=$('#sheet'),sh=$('#shade'),b=g.hist[g.hist.length-1],a=g.hist.find(h=>b[0]-h[0]<=100)||b,v=(b[1]-a[1])/Math.max(16,b[0]-a[0]);   // px/ms
  if(g.dy>0.3*g.h||v>0.6){el.style.transition='transform .25s cubic-bezier(0,0,.58,1)';el.style.transform='translateY(100%)';sh.style.transition='opacity .25s ease-out';sh.style.opacity='0';sheetDragClosed=performance.now();setTimeout(()=>{if(!el.classList.contains('open'))return;closeSheet()},250)}
@@ -852,14 +953,19 @@ let sheetDragClosed=0;
  document.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&sd)sdMove(e.clientY,e)});
  document.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')sdEnd()})}
 $('#shade').onclick=()=>{if(performance.now()-sheetOpenedAt>400)closeSheet()};
-let tt=0,padDip=null;function placeToast(){const t=$('#toast'),lp=$('#lpw'),pr=lp&&lp.offsetParent&&lp.getBoundingClientRect(),g=$('#goal'),r=g&&g.getBoundingClientRect();   // never cover the low-power pill: sit just below it when it shows
- if(pr&&pr.height)t.style.top=Math.round(pr.bottom+18)+'px';else if(r&&r.height)t.style.top=Math.round(r.top+r.height/2-18)+'px'}
+let tt=0,padDip=null;
+// Toast: always >= 8 pt below the lowest HUD element showing (stats bar #meters, or the low-power pill #lpw → 18 pt below it, as Art spec'd).
+// Re-placed EVERY frame while visible: the pill can appear after the toast (power hysteresis), so a one-off placement could end up under it.
+function placeToast(){const t=$('#toast'),vis=e=>{if(!e||!e.offsetParent)return null;const r=e.getBoundingClientRect();return r.height?r:null};
+ const m=vis($('#meters')),pr=vis($('#lpw')),g=$('#goal'),gr=g&&+getComputedStyle(g).opacity>0.05?vis(g):null;const SLIDE=10;   // toast slides in from -10px: every clearance includes it so the gap is >=8pt during the slide too
+ let top=m?m.bottom+8+SLIDE:0;if(pr)top=Math.max(top,pr.bottom+8+SLIDE);if(gr)top=Math.max(top,gr.bottom+8+SLIDE);
+ const v=Math.round(top)+'px';if(t.style.top!==v)t.style.top=v}
 function toast(m,tap){const t=$('#toast');t.textContent=m;t.onclick=tap?()=>{t.classList.remove('on');tap()}:null;t.style.pointerEvents=tap?'auto':'';if(E){econ();lowPowerUI()}placeToast();t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>{t.classList.remove('on');t.style.pointerEvents='';t.onclick=null},2200)}
 // =====================================================================
 // HUD
 // =====================================================================
 let shownMoney=0;
-const powerShort=()=>!!E&&(E.power<0.999||(E.limit==='Energy'&&S.pop>=E.cap));   // short when floors are underpowered OR energy can't support the crew (miners about to leave)
+const powerShort=()=>!!E&&(LPS.on||(E.limit==='Energy'&&S.pop>=E.cap));   // short when floors are underpowered OR energy can't support the crew (miners about to leave)
 // next step the player can actually take toward more power, following the real unlock order (floor below first, then level reqs)
 function powerStep(){let i=IDX.nuke,guard=0;
  while(guard++<12){const d=F[i],f=S.f[d.id];
@@ -871,13 +977,14 @@ function powerStep(){let i=IDX.nuke,guard=0;
 function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=powerShort();el.style.display=low?'flex':'none';if(!low)return;
  const t='Low power: '+powerStep().text;if(el.dataset.t!==t){el.dataset.t=t;el.querySelector('span').textContent=t}}
 function goNuclear(){const p=powerStep(),d=F[p.i],si=STOPS.findIndex(s=>s.kind==='tower'&&s.bi===d.b);closeSheet();goSite(si);if(S.f[d.id].built)setTimeout(()=>openSheet(p.i),480)}   // opens that exact step: the floor's sheet if built, else its station with the build button
-function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money/20)+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
+function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money)+'|'+['crane','crew','pad','refuel'].map(dockCost).join(',')+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
  const lim=e.limit,low=e.power<0.999,m=[['people','ui_icon_people',`${num(S.pop)}/${num(e.cap)}`,lim==='Beds'],['oxygen','ui_icon_oxygen',num(e.oxygen),lim==='Oxygen'],['water','ui_icon_water',num(e.water),lim==='Water'],['energy','ui_icon_energy',`${num(e.energy)}/${num(e.demand)}`,lim==='Energy']];
  const box=$('#meters');if(!box.children.length)box.innerHTML=m.map(r=>`<div class="m glass" data-k="${r[0]}"><img src="${ui(r[1])}"><span></span></div>`).join('');
  m.forEach((r,j)=>{const el=box.children[j];el.querySelector('span').textContent=r[2];el.classList.toggle('lim',!!r[3]&&r[0]!=='energy');el.classList.toggle('low',r[0]==='energy'&&low)});
  goalTick();const s=STOPS[site];$('#sname').textContent=s.name.toUpperCase();
  const dots=$('#dots');if(dots.children.length!==STOPS.length){dots.innerHTML=STOPS.map(()=>'<i><b></b></i>').join('');dots.onclick=ev=>{ev.stopPropagation();if(sheetFor||$('#sheet').classList.contains('open'))closeSheet();const r=dots.children[0].getBoundingClientRect(),j=Math.floor((ev.clientX-r.left)/r.width);goSite(Math.max(0,Math.min(STOPS.length-1,j)))}}   /* fixed-width slots: tap maps to its slot; active pill centred in its slot */[...dots.children].forEach((d,j)=>d.classList.toggle('on',j===site));
- if(sheetFor&&sheetFor.i!=null&&!document.activeElement.closest?.('#sheet')){const k=JSON.stringify([S.money>=upCost(sheetFor.i),Math.floor(S.money/50),st(sheetFor.i).lvl,idleResidents()]);if(k!==sheetFor.k){sheetFor.k=k;openSheet(sheetFor.i,true)}}}
+ if(sheetFor&&sheetFor.elev!=null&&!document.activeElement.closest?.('#sheet')){const k=Math.floor(S.money)+'|'+elevCost(sheetFor.elev);if(k!==sheetFor.k){openElev(sheetFor.elev);sheetFor.k=k}}
+ if(sheetFor&&sheetFor.i!=null&&!document.activeElement.closest?.('#sheet')){const k=JSON.stringify([Math.floor(S.money),upCost(sheetFor.i),hireCost(sheetFor.i),st(sheetFor.i).lvl,st(sheetFor.i).workers,idleResidents(),mult]);if(k!==sheetFor.k){sheetFor.k=k;openSheet(sheetFor.i,true)}}}
 // =====================================================================
 // SWIPE HINT (one time)
 // =====================================================================
@@ -894,25 +1001,44 @@ function endHint(){hintOn=false;S.hint=1;$('#hint').style.display='none';save()}
 // INPUT: axis lock, edge guard, momentum vertical scroll, snap rotation
 // =====================================================================
 const toLogical=(cx,cy)=>({x:cx/SC-OX,y:cy/SC});
-function maxScroll(){const s=STOPS[site];if(s.kind!=='tower')return 0;const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);const topY=HOR+floorBottom(n-1)*TS-200*TS-70;return Math.max(0,-(topY+OY)+300)}
+// Vertical scroll on EVERY station: the topmost thing drawn (tower roof / dock status pill) must be able to clear the HUD.
+// hudClear = bottom of the goal card (CSS px include env(safe-area-inset-top)) + 14, converted to logical units.
+function hudClear(){const g=$('#goal'),r=g&&g.offsetParent&&g.getBoundingClientRect();const css=r&&r.height?r.bottom:(($('#hud')||{}).getBoundingClientRect?.().bottom||190);return css/SC+14}
+function stopTop(s){if(s.kind==='tower'){const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);return HOR+floorBottom(n-1)*TS-200*TS-70}if(s.kind==='dock')return HOR-412;return HOR-200}   // dock: status pill + ship nose
+function maxScroll(){const s=STOPS[site];const top=stopTop(s);let m=Math.max(0,hudClear()-(top+OY));if(s.kind==='tower')m=Math.max(m,-(top+OY)+300);return Math.max(m,60)}   // always at least a little travel so a vertical drag never feels dead
 let g0=null,dockPan=0;const PANMAX=60;   // dock stop: sideways pan over the 760-wide art (screen pts)
-cv.addEventListener('pointerdown',e=>{if(e.clientX<20||e.clientX>innerWidth-20){g0={edge:true};return}g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};cam.vy=0},{passive:true});
-$('#shade').addEventListener('pointerdown',e=>{g0={x:e.clientX,y:e.clientY,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}});
-addEventListener('pointermove',e=>{if(!g0||g0.edge)return;const dx=e.clientX-g0.x,dy=e.clientY-g0.y;
+// Gestures: one set of handlers fed by TOUCH events on touch devices (iOS Safari can cancel touch pointer streams, e.g. after a reload,
+// which left drags dead while dot taps still worked) and by POINTER events for mouse/pen only.
+let inputReady=false;
+function gStart(x,y,shade){if(!inputReady){g0=null;return}if(!shade&&(x<20||x>innerWidth-20)){g0={edge:true};return}g0=shade?{x,y,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],fromShade:true}:{x,y,t:performance.now(),rot0:cam.rot,y0:cam.y,axis:null,hist:[],pan0:dockPan,onDock:STOPS[site].kind==='dock'&&!cam.anim};if(!shade)cam.vy=0}
+function gMove(x,y){if(!g0||g0.edge)return;const dx=x-g0.x,dy=y-g0.y;
  if(!g0.axis&&Math.hypot(dx,dy)>9){g0.axis=Math.abs(dx)>Math.abs(dy)?'x':'y';if(g0.fromShade&&g0.axis==='x')closeSheet();if(g0.fromShade&&g0.axis==='y'){g0=null;return}if(g0.axis==='x'&&g0.onDock&&!((dx>0&&g0.pan0<=-PANMAX+0.5)||(dx<0&&g0.pan0>=PANMAX-0.5)))g0.axis='p';   // pan until the edge; only a NEW swipe from the edge changes station
   if(g0.axis==='x'){if(cam.anim){cam.anim=null;g0.rot0=cam.rot+dx/SC*CFG.rotPerSlot/SPAN}}if(g0.axis==='x'&&hintOn)endHint()}
- if(g0.axis==='p'){dockPan=Math.max(-PANMAX,Math.min(PANMAX,g0.pan0-dx/SC));return}
+ if(g0.axis==='p'){const want=g0.pan0-dx/SC;dockPan=Math.max(-PANMAX,Math.min(PANMAX,want));g0.over=want-dockPan;cam.rot=g0.rot0+g0.over*CFG.rotPerSlot/SPAN;return}   // pan the dock to its edge, then the SAME drag carries on into the station swipe (no dead swipes)
  if(g0.axis==='x'){cam.rot=g0.rot0-dx/SC*CFG.rotPerSlot/SPAN;   // straight pan, 1:1 with the finger
  cam.rot=Math.max(-0.06,Math.min((STOPS.length-1)*CFG.rotPerSlot+0.06,cam.rot))}
- if(g0.axis==='y'){cam.y=Math.max(-30,Math.min(maxScroll()+30,g0.y0+dy/SC));g0.hist.push([performance.now(),cam.y]);if(g0.hist.length>6)g0.hist.shift()}},{passive:true});
-addEventListener('pointercancel',()=>{g0=null});
-addEventListener('pointerup',e=>{if(!g0||g0.edge){g0=null;return}const g=g0;g0=null;if(g.axis==='p')return;
- if(g.axis==='x'){const dx=e.clientX-g.x,v=dx/(performance.now()-g.t);let tgt=Math.round(cam.rot/CFG.rotPerSlot);if((Math.abs(v)>0.3||Math.abs(dx)>0.2*innerWidth)&&tgt===site)tgt=site+(dx<0?1:-1);/* quick flick or ~20% width advances one station */goSite(tgt);return}
+ if(g0.axis==='y'){cam.y=Math.max(-30,Math.min(maxScroll()+30,g0.y0+dy/SC));g0.hist.push([performance.now(),cam.y]);if(g0.hist.length>6)g0.hist.shift()}}
+function gEnd(x,y,cancel){if(!g0||g0.edge){g0=null;return}const g=g0;g0=null;if(g.axis==='p'){if(!g.over)return;const ov=-g.over*SC;let tgt=Math.round(cam.rot/CFG.rotPerSlot);if(!cancel&&Math.abs(ov)>0.2*innerWidth&&tgt===site)tgt=site+(ov<0?1:-1);goSite(tgt);return}
+ if(g.axis==='x'){const dx=x-g.x,v=dx/(performance.now()-g.t);let tgt=Math.round(cam.rot/CFG.rotPerSlot);if(!cancel&&(Math.abs(v)>0.3||Math.abs(dx)>0.2*innerWidth)&&tgt===site)tgt=site+(dx<0?1:-1);/* quick flick or ~20% width advances one station */goSite(tgt);return}
  if(g.axis==='y'){const h=g.hist;if(h.length>1){const a=h[0],b=h[h.length-1];cam.vy=(b[1]-a[1])/Math.max(16,b[0]-a[0])*1000}return}
- if(!g.fromShade)tap(toLogical(e.clientX,e.clientY))});
+ if(!cancel&&!g.fromShade)tap(toLogical(x,y))}
+let tId=null,tLast=null;
+// never require touches.length===1: a stale/ghost touch left over from a reload or an interrupted gesture would otherwise block every drag.
+// Track the first finger; a second finger joining a live gesture is ignored; a tracked id no longer present is treated as gone.
+const tStart=shade=>e=>{if(tId!=null&&[...e.touches].some(q=>q.identifier===tId))return;const t=e.changedTouches[0];tId=t.identifier;tLast=t;gStart(t.clientX,t.clientY,shade)};
+cv.addEventListener('touchstart',tStart(false),{passive:true});$('#shade').addEventListener('touchstart',tStart(true),{passive:true});
+addEventListener('touchmove',e=>{if(tId==null)return;const t=[...e.changedTouches].find(q=>q.identifier===tId);if(!t)return;tLast=t;gMove(t.clientX,t.clientY);if(g0&&g0.axis&&e.cancelable)e.preventDefault()},{passive:false});
+addEventListener('touchend',e=>{if(tId==null)return;const t=[...e.changedTouches].find(q=>q.identifier===tId);if(!t)return;tId=null;gEnd(t.clientX,t.clientY)});
+addEventListener('touchcancel',()=>{if(tId==null)return;tId=null;gEnd(tLast?tLast.clientX:0,tLast?tLast.clientY:0,true)});   // snap to the nearest station, never stuck mid-pan
+const mouseLike=e=>e.pointerType!=='touch';
+cv.addEventListener('pointerdown',e=>{if(mouseLike(e))gStart(e.clientX,e.clientY,false)},{passive:true});
+$('#shade').addEventListener('pointerdown',e=>{if(mouseLike(e))gStart(e.clientX,e.clientY,true)});
+addEventListener('pointermove',e=>{if(mouseLike(e))gMove(e.clientX,e.clientY)},{passive:true});
+addEventListener('pointercancel',e=>{if(mouseLike(e))gEnd(e.clientX,e.clientY,true)});
+addEventListener('pointerup',e=>{if(mouseLike(e))gEnd(e.clientX,e.clientY)});
 function goSite(k,instant){k=Math.max(0,Math.min(STOPS.length-1,k));const from=cam.rot,to=k*CFG.rotPerSlot;cam.anim=instant?null:{from,to,t0:T,d:0.45};if(instant)cam.rot=to;if(k!==site)dockPan=0;if(k!==site){site=k;cam.y=0;cam.vy=0;const s=STOPS[k];if(siteOpen(s.bi))ensureBuildingArt(s.bi);if(k>=1&&k<=3)ensureBuildingArt(stopOfDock())}hud();wrenchUI()}
 function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind==='dock'?dockPan:0))/TS,ly=(p.y-(OY+cam.y)-f.y)/TS;
- if(s.kind==='dock'){if(Math.abs(ly+390)<24&&Math.abs(lx)<170&&S.ship.st==='docked'){if(launchShip()){shipAnim.mode='launch';shipAnim.t0=T;shipAnim.smoke=0;toast('🚀 Cargo away · '+fmt(shipValue(S.ship))+' · back in '+mmss(tripSec(S.ship)/SPEED))}else toast('Nothing loaded yet: the crane loads staged cargo')}else openDock();return}
+ if(s.kind==='dock'){if(Math.abs(ly+408)<28&&Math.abs(lx)<180&&S.ship.st==='docked'){const L=shipLoad(),Y=L+loose();if(launchShip()){shipAnim.mode='launch';shipAnim.t0=T;shipAnim.smoke=0;toast('🚀 Cargo away · '+L+' of '+Y+' loaded · '+fmt(shipValue(S.ship))+' · back in '+mmss(tripSec(S.ship)/SPEED))}else toast('Nothing in the hold yet. The crane is still loading.')}else openDock();return}
  const bi=s.bi,n=floorsBuilt(bi),fl=BUILDINGS[bi].floors;
  if(n===0){if(siteOpen(bi)&&Math.abs(ly-(emptyFloorSite(bi)?-60:-138))<24&&Math.abs(lx)<160){const nf=nextFloor(bi),i=IDX[nf.id],w=lockReason(i);if(w)toast('🔒 '+w);else buyFloor(i)}else if(!siteOpen(bi))toast(BUILDINGS[bi].soon?'Coming soon':'🔒 Build 3 Life Support floors first');return}
  const k=Math.floor((floorBottom(0)-ly)/120);
@@ -924,7 +1050,7 @@ function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind=
 // =====================================================================
 let last=performance.now(),saveAcc=0,hudAcc=0,fpsN=0,fpsT=0;
 let scrolledCls=false;
-function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;
+function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;NOW=now;stripTick(now);if($('#toast').classList.contains('on'))placeToast();lpTick(dt,now);if(!window.__freeze&&E)TCK+=dt*truckSpeed();
  if(!cam.anim&&!g0){const P=CFG.rotPerSlot,k=Math.max(0,Math.min(STOPS.length-1,Math.round(cam.rot/P)));if(Math.abs(cam.rot-k*P)>0.0004)goSite(k)}   // never rest half-turned
  if(cam.anim){const a=cam.anim,q=Math.min(1,(T-a.t0)/a.d);cam.rot=a.from+(a.to-a.from)*easeOutCubic(q);if(q>=1){cam.rot=a.to;cam.anim=null}}
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
@@ -936,23 +1062,38 @@ function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
  requestAnimationFrame(frame)}
 // offline catch-up
-function offline(){const now=Date.now(),away=Math.min(CFG.offlineCapSec,(now-S.rt)/1000*SPEED);let earned=0;const before=S.ship.st;
+// Welcome back: display:none unless showing (no invisible hit area ever); shown as the LAST body child on its own layer above the canvas/HUD;
+// COLLECT answers pointerup/touchend/click (first wins); dismiss removes pointer events at once and display after the fade.
+function showWelcome(){const m=$('#modal'),b=$('#wbok');document.body.appendChild(m);m.classList.add('show');m.offsetWidth;requestAnimationFrame(()=>m.classList.add('on'));
+ let done=false;const go=e=>{if(done)return;done=true;if(e&&e.cancelable)e.preventDefault();m.classList.remove('on');m.style.pointerEvents='none';setTimeout(()=>{m.classList.remove('show');m.style.pointerEvents=''},320);g0=null;tId=null;
+  const v=S.wbPend||0;S.wbPend=0;S.money+=v;save();hud();bump();moneyPop(v)};
+ b.onclick=go;b.onpointerup=go;b.ontouchend=go}
+const WB_MIN_SEC=60;
+function offline(){const now=Date.now(),rt0=S.rt,away=Math.min(CFG.offlineCapSec,(now-S.rt)/1000*SPEED);let earned=0;const before=S.ship.st,m0=S.money;
  if(away>5){let left=away;while(left>0){const ch=Math.min(10,left);earned+=step(ch,false,CFG.offlineRate);left-=ch}}
  S.gt=gnow();S.rt=now;const ev=shipTick(S.gt,false);ev.forEach(e=>{if(e.type==='landed'){earned+=e.v;FX.push({type:'dock',key:'dust_puff4',t:0})}});
- if(earned>=1&&away>30){$('#wbtext').textContent=`Your base ran for ${mmss(away/SPEED)} while you were away.`;$('#wbamt').textContent='+'+fmt(earned);$('#modal').classList.add('on');$('#wbok').onclick=()=>{$('#modal').classList.remove('on');bump()}}
+ // Welcome back: everything earned while away (production + cargo that landed) is HELD in S.wbPend and banked only on COLLECT.
+ // A pending amount from a reload before collecting is carried over (never lost, never double-paid).
+ // Shown only after >=60 real seconds away (wall clock, every mode incl. ?dev=1 / ?speed=N). Shorter gaps bank silently; a carried pending amount is banked too.
+ const realAway=(now-rt0)/1000,gained=Math.max(0,S.money-m0);
+ if(realAway<WB_MIN_SEC){if((S.wbPend||0)>=1&&!$('#modal').classList.contains('show')){const p=S.wbPend;S.wbPend=0;S.money+=p;moneyPop(p)}}
+ else if(gained>=1||(S.wbPend||0)>=1){S.money=m0;S.wbPend=(S.wbPend||0)+gained;$('#wbtext').textContent=`Your base ran for ${mmss(realAway)} while you were away.`;$('#wbamt').textContent='+'+fmt(S.wbPend);showWelcome()}
  save()}
 // boot: first screen = core + Life Support; then stream the Mine (preview → starter pack), Habitat, fx in the background
 let bgDone=false;
 (async function boot(){resize();document.querySelectorAll('img[data-ui]').forEach(im=>im.src=ui(im.dataset.ui));
  const bar=$('#lbar');await Promise.all([loadGroup('core',p=>bar.style.width=(p*80)+'%'),loadGroup('life',p=>{})]);bar.style.width='100%';
+ if(SPR.ground_strip&&SPR.ground_strip.ready){GSTRIP.p=1;GSTRIP.done=true;GSTRIP.t0=1}   // painted ground is on the first screen — don't flash the old gray ground
  ensureLook(elevLook(0));
  offline();econ();crewSync();hud();devUI();
- {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.opacity=0;setTimeout(()=>L.remove(),500);requestAnimationFrame(t=>{last=t;frame(t)});loadGroup('fx_later_upgrade_burst');document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
+ {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.pointerEvents='none';L.style.opacity=0;setTimeout(()=>{L.remove();inputReady=true},500);/* the fading loader no longer catches taps; touch input turns on when it is gone */requestAnimationFrame(t=>{last=t;frame(t)});document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
- await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('dock_later_hatch');loadGroup('floors_later_empty');bgDone=true;
+ await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('mine_later_dump');loadGroup('fx_later_upgrade_burst');loadGroup('floors_later_offscreen');tryJSON(ART+SPR.ground_strip.path+'.json').then(j=>{if(j){GSTRIP.tileWidth=j.tileWidth||GSTRIP.tileWidth;GSTRIP.groundLineY=j.groundLineY??GSTRIP.groundLineY;GSTRIP.h=(j.logicalSize&&j.logicalSize.h)||GSTRIP.h;IMG_SIZE.ground_strip=[GSTRIP.tileWidth,GSTRIP.h,0,0]}});loadGroup('ground_later_strip').then(()=>{const S=SPR.ground_strip;if(S.ready){S.w=GSTRIP.tileWidth;S.h=GSTRIP.h;const im=S.img;Promise.resolve(im&&im.decode?im.decode():null).catch(()=>{}).then(()=>{
+   // warm the GPU upload with an invisible draw, then start the 200 ms fade on the NEXT frame: no decode hitch mid-fade
+   try{const c=document.createElement('canvas').getContext('2d');c.drawImage(im,0,0,1,1)}catch(e){}requestAnimationFrame(t=>{GSTRIP.t0=t})})}});loadGroup('dock_later_hatch');loadGroup('floors_later_empty');bgDone=true;
  BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})})();
 // dev mode (?dev=1 on preview only): unlimited money + Max out
 function devUI(){if(!DEV)return;const b=document.createElement('button');b.id='devmax';b.textContent='DEV · Max out';b.onclick=maxOut;document.body.appendChild(b)}
 function maxOut(){BUILDINGS.forEach(b=>b.soon=false);S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=noCrew(d)?0:2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
  for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40,F.filter(d=>!d.upper).length*2);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
-window.__ps={cam,refineFx,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
+window.__ps={openSheet,openElev,toast,LPS,placeToast,offline,cam,refineFx,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};

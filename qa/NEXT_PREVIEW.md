@@ -173,3 +173,14 @@
 - Welcome back only after ≥60 s real (wall-clock) away in every mode incl. ?dev=1/?speed; shorter gaps bank silently.
 - Dev: [mine dim] alpha logged every frame + on-screen readout.
 - ADIT-2 halo fix: Art's tunnel_back / tunnel_front_lip (@3x/@2x) 13:05 re-export; mine_starter bytes +17,200 @3x / +9,442 @2x. No truck_wheel.
+
+## r17 (QA · 22:10) — mine yard + crane rulings
+- Mine yard (no v7g file in the repo): cave shifted right and drawn closer (×1.18), with a road strip, a moving conveyor up to the tower, an attendant platform, and a warm work light. The cutaway floor tower is unchanged. Side-by-side with Art's v7g still needs that file.
+- Crane phase 2, from the written rulings (the patch file was not in the repo): 7.6 s hammerhead cycle, sway under 0.5° before the hook enters the bay, 0.4 s roller, hatch closes on launch. One container moves into the hold at the roller. Launch takes only that hold ("X of Y loaded"). Leftovers stay on the pad. No slide-in.
+
+## r18 (23:54 PT) — preview link caught up
+- GitHub /preview/ was still the 08:07 page (gray code-drawn ground). This push copies the QA build there: painted ground on the first screen, flat moon, crane cycle, mine yard. Corner tag PREVIEW · 23:54.
+- Live root is not touched. Preview saves stay on planetstack-preview.
+
+- Dock reads "In hold X" and "On pad Y". Stockpile draws at most 12 containers plus a "+N" badge. The handler stands on a clear mark; other walkers and the mule stay behind it.
+- Needs Game Director sign-off: a full hold of 12 now loads in about 91 s (was about 120 s). Each crane tier (every 10 levels) is +10% speed, not the old +4% per level. Longer trips still speed the crane so a bigger hold fills in that same ~91 s.

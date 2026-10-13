@@ -128,3 +128,59 @@
 - Separator $500; Rover Bay upgrade base 20→12 for pacing; toast placed after econ() so it sits 18 px under the pill.
 - Pad cap constant PAD_VIS (4 tiers × 3 = 12/stack, 24 total); He-3 stack in front of the orange tower; Pt crate clears crossbar.
 - Rover stopX 92, truck x ≥ stopX; during truckdelay truck waits visible at the bin (x=92).
+
+## r13 (08:14 PT) — Art ground strip (local commit, not pushed)
+- ground_later_strip pack (art/moon/ground/@Nx/ground_strip.webp + json) loads after the first screen with the shared retry; code ground stays as the first-screen fallback, 200 ms crossfade to the strip.
+- Strip groundLineY (44) sits on HOR, so pads and walkway legs stand on Art's ground line; tiles every 1170 pt, device-pixel snapped with a 1 px overlap.
+
+## r13b (08:20 PT) — pack lists (local commit, not pushed)
+- mine_later_dump: rover_bay_dump_pt/he3; until loaded the Rover Bay shows rover_bay_dump_still_pt/he3 (mine_starter, 90x58, pivot 0,58).
+- floors_later_offscreen: Rover Bay floor (base, layers, low-power, t10–t50) + bin_fill_ore; placeholders until loaded. bin_fill_ore was previously never defined (its def sat inside a comment) — fixed.
+- Both packs are requested after the first screen; neither is in the first-screen wait.
+
+## r13c (08:21 PT) — upgrade burst later (local commit, not pushed)
+- fx_later_upgrade_burst (fx_upgrade_burst + _glow) now requested after the first screen, not in the first-screen wait. Until it loads, floor upgrades show the scale-pop and dock upgrades the toast only.
+
+## r13c (09:51 PT) — Playtester no-go fixes (deployed to /qa/ only)
+- Low power: one steady state with hysteresis (short <0.99 or <0.999 for 0.6 s; restore after ≥0.999 for 1.2 s). Normal lights drawn once, floor _lowpower layer crossfaded over it 400 ms each way (Life Support has no _lowpower art: steady 60% dim). The 12 fps floor_low_power flicker overlay and the per-frame E.power re-pick (tower cache key, roof, truck clock) are gone; truck clock accumulates so speed changes never jump it.
+- Pad: one visible tier = one row of 3 single crates (the stack3 sprite was 2 rows tall → ~8 rows). 4 rows per stack, 24 max; stageCap 60→72 so the label reads N/72.
+- Swipes: touch events drive gestures on touch devices (pointer only for mouse); ghost/stale touches can't block drags; touchcancel snaps; dock pan carries on into the station swipe.
+- Vertical scroll on every station; range lets the topmost item clear the HUD goal card (safe-area aware), min 60 pt.
+- /qa/ path with 'QA · HH:MM' tag; separate save key.
+
+## r14 (11:01 PT) — Playtester run-1 fixes (/qa/ only)
+- Welcome back: display:none unless shown, own top layer (z 200, last body child), COLLECT on pointerup/touchend/click, dismiss removes pointer events at once and the element after the fade.
+- Low-power dim + ground crossfade animate per rAF from the frame timestamp, eased (400 ms / 200 ms); power re-read every frame; restore buffer 0.6 s. Ground: code ground stays fully under the strip; strip fades 0→1 after img.decode() + warm-up draw; code ground removed after the fade.
+- Trip tiers: /qa/?dev=1 shared the preview dev save (trips already ≥1 → 5:00 first trip). Dev save key is now per build, and ?fresh clears this build's own save.
+
+## r14b (11:15 PT) — code ground brightened (/qa/)
+- Code-drawn ground gradient x1.21 (Art), same stops/shape, tinted to the strip's average surface hue (R 1.023 / G 1.000 / B 0.968). Strip unchanged.
+
+## r14c (11:17 PT) — code ground scale 1.21 → 1.13 (GD), hue tint kept
+
+## r15 (QA 12:15)
+- Toast is placed every frame at least 8pt below the stats bar and 18pt below the low-power pill. It no longer animates `top`.
+- Low-power dim/crossfade (mine floors and Life Support) uses the same eased 400ms fade each way from the rAF clock. Ambient layers and trucks no longer freeze; the truck slows smoothly with the fade.
+- The ground strip fade is advanced per frame. In dev it logs `[ground strip] alpha` to the console and an on-screen readout.
+- COLLECT and welcome-back payouts are held until tapped, then banked with a money pop.
+- Touch input is enabled only after the loader is gone. The loader is pointer-events:none while it fades.
+- mine_starter re-export: tunnel_back and tunnel_front_lip have feathered edges (@3x pack 1,169,428 B).
+
+## r16 (QA · 13:23) — fixes only (no new Mine)
+- Packing $6,400 → $1,800 (GD).
+- Price staleness audit: canvas Build pills + lock labels already read F[].cost live; upgrade sheet re-rendered only per $50 money bucket and dock sheet per $20, elevator sheet never → all three now re-render on every $1 / any cost change.
+- Toast clears stats bar, low-power pill and Goal card by ≥8 pt each, including the 10 px slide-in.
+- Welcome back only after ≥60 s real (wall-clock) away in every mode incl. ?dev=1/?speed; shorter gaps bank silently.
+- Dev: [mine dim] alpha logged every frame + on-screen readout.
+- ADIT-2 halo fix: Art's tunnel_back / tunnel_front_lip (@3x/@2x) 13:05 re-export; mine_starter bytes +17,200 @3x / +9,442 @2x. No truck_wheel.
+
+## r17 (QA · 22:10) — mine yard + crane rulings
+- Mine yard (no v7g file in the repo): cave shifted right and drawn closer (×1.18), with a road strip, a moving conveyor up to the tower, an attendant platform, and a warm work light. The cutaway floor tower is unchanged. Side-by-side with Art's v7g still needs that file.
+- Crane phase 2, from the written rulings (the patch file was not in the repo): 7.6 s hammerhead cycle, sway under 0.5° before the hook enters the bay, 0.4 s roller, hatch closes on launch. One container moves into the hold at the roller. Launch takes only that hold ("X of Y loaded"). Leftovers stay on the pad. No slide-in.
+
+## r18 (23:54 PT) — preview link caught up
+- GitHub /preview/ was still the 08:07 page (gray code-drawn ground). This push copies the QA build there: painted ground on the first screen, flat moon, crane cycle, mine yard. Corner tag PREVIEW · 23:54.
+- Live root is not touched. Preview saves stay on planetstack-preview.
+
+- Dock reads "In hold X" and "On pad Y". Stockpile draws at most 12 containers plus a "+N" badge. The handler stands on a clear mark; other walkers and the mule stay behind it.
+- Needs Game Director sign-off: a full hold of 12 now loads in about 91 s (was about 120 s). Each crane tier (every 10 levels) is +10% speed, not the old +4% per level. Longer trips still speed the crane so a bigger hold fills in that same ~91 s.

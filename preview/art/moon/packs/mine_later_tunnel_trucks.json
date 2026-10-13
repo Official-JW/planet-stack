@@ -9,7 +9,7 @@
     "@3x/rover/rover_tunnel_pt.json",
     "@3x/rover/rover_tunnel_pt.webp"
    ],
-   "bytes": 421356
+   "bytes": 585642
   },
   "@2x": {
    "files": [
@@ -18,7 +18,7 @@
     "@2x/rover/rover_tunnel_pt.json",
     "@2x/rover/rover_tunnel_pt.webp"
    ],
-   "bytes": 248230
+   "bytes": 331764
   }
  }
 }

@@ -1,0 +1,14 @@
+{
+ "image": "rover_bay_dump_still_pt.webp",
+ "scale": 3,
+ "logicalFrame": {
+  "w": 90,
+  "h": 58
+ },
+ "pivot": {
+  "x": 0,
+  "y": 58
+ },
+ "source": "rover_bay_dump_pt frame 7 (mid-pour)",
+ "note": "static stand-in until pack mine_later_dump loads; place at stopX per rover_bay_route.json"
+}
