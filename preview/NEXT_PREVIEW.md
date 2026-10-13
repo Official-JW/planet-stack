@@ -204,6 +204,11 @@
 - Swipe order is now Life Support, Mine, Takeoff & Landing, Cargo Space Dock, Habitat, Shipyard, Engineering.
 - The ship, fuel tanks, and launch button sit on Takeoff & Landing. A mule wheels a crate off that pad toward the Cargo Dock. The crane stays on the dock. No price changes. Saves are unchanged.
 
+## r25 (11:05 PT) — the road dump truck, not the old rover
+- The 3D rover is gone from the mine road and from inside the Rover Bay.
+- The dump truck from the yard sheet drives along the road into the cave, disappears, comes back out, and pulls into the Rover Bay. About 12 seconds. No price changes.
+
+
 
 
 
