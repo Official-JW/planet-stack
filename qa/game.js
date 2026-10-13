@@ -346,10 +346,10 @@ function goalTick(){let g=GOALS[S.step];if(!g){S.step=GOALS.length-1;g=GOALS[S.s
 // =====================================================================
 // RENDER
 // =====================================================================
-const cv=$('#cv'),ctx=cv.getContext('2d',{alpha:false});
+const cv=$('#cv'),ctx=cv.getContext('2d');
 let W=390,H=844,DPR=DEV_DPR,SC=1,OY=0,OX=0,TS=0.93;
 const snap=v=>Math.round(v*DPR*SC)/(DPR*SC);
-function smooth(c){c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high'}
+function smooth(c){c.imageSmoothingEnabled=true;try{c.imageSmoothingQuality='high'}catch(e){}}
 const HOR=560,C={x:195,y:HOR},FOOT_MID=13.67,FX0=-200,SPAN=500;   // flat Moon (no globe): ground line at HOR; stations sit SPAN pt apart on one straight pan
 function resize(){DPR=DEV_DPR;W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);   // never lowered
  SC=Math.max(0.5,Math.round(W/390*DPR*4)/(4*DPR));if(390*SC>W)SC=Math.floor(W/390*DPR*4)/(4*DPR);
@@ -1069,7 +1069,7 @@ function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind=
 // =====================================================================
 let last=performance.now(),saveAcc=0,hudAcc=0,fpsN=0,fpsT=0;
 let scrolledCls=false;
-function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;NOW=now;stripTick(now);if($('#toast').classList.contains('on'))placeToast();lpTick(dt,now);if(!window.__freeze&&E)TCK+=dt*truckSpeed();
+function frame(now){requestAnimationFrame(frame);try{{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r.height?(r.bottom+6)*(cv.width/(cv.clientWidth||1)):0}{const sc=cam.y>60;if(sc!==scrolledCls){scrolledCls=sc;document.body.classList.toggle('scrolled',sc)}}const dt=Math.max(0,Math.min(0.1,(now-last)/1000));last=now;T+=window.__freeze?0:dt;NOW=now;stripTick(now);if($('#toast').classList.contains('on'))placeToast();lpTick(dt,now);if(!window.__freeze&&E)TCK+=dt*truckSpeed();
  if(!cam.anim&&!g0){const P=CFG.rotPerSlot,k=Math.max(0,Math.min(STOPS.length-1,Math.round(cam.rot/P)));if(Math.abs(cam.rot-k*P)>0.0004)goSite(k)}   // never rest half-turned
  if(cam.anim){const a=cam.anim,q=Math.min(1,(T-a.t0)/a.d);cam.rot=a.from+(a.to-a.from)*easeOutCubic(q);if(q>=1){cam.rot=a.to;cam.anim=null}}
  if(!g0&&cam.vy){cam.y+=cam.vy*dt;cam.vy*=Math.pow(0.04,dt);if(Math.abs(cam.vy)<5)cam.vy=0}
@@ -1079,7 +1079,7 @@ function frame(now){{const g=$('#goal'),r=g&&g.getBoundingClientRect();BAND=r&&r
  crewTick(dt);STOPS.forEach((s,si)=>{if(s.kind==='tower'){const n=floorsBuilt(s.bi);if(n&&Math.abs(stopFrame(si).a)<0.36)elevTick(s.bi,n,dt)}});
  render();hintDraw();hudAcc+=dt;if(hudAcc>0.25){hudAcc=0;hud();hintTick();if(bgDone)BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})}saveAcc+=dt;if(saveAcc>5){saveAcc=0;save()}
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
- requestAnimationFrame(frame)}
+ }catch(e){const t=document.getElementById('pvtag');if(t&&!t.dataset.err){t.dataset.err=1;t.textContent='ERR '+(e&&e.message||e)}}}
 // offline catch-up
 // Welcome back: display:none unless showing (no invisible hit area ever); shown as the LAST body child on its own layer above the canvas/HUD;
 // COLLECT answers pointerup/touchend/click (first wins); dismiss removes pointer events at once and display after the fade.
