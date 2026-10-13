@@ -465,7 +465,7 @@ function drawStop(o){const {s,f}=o;curStopA=0;ctx.save();
  ctx.scale(TS,TS);const atRest=s.kind==='dock'?Math.abs(f.a)<0.0004:true;   // no rotation: the static tower cache is valid while panning too
  if(BUILDINGS[s.bi].id==='mine')drawApprovedYard(f);   // behind the tower so the floor stays clear
  if(s.kind!=='dock')foundation();else dockPlinth();
- if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine'&&!(YARD.complete&&YARD.naturalWidth))drawMineForeground(f)}
+ if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine')drawYardTruck()}
  ctx.restore()}
 function label(x,y,txt,col,size){ctx.font=`700 ${size}px Inter,system-ui,-apple-system,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(txt,x,y+1);ctx.fillStyle=col;ctx.fillText(txt,x,y)}
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
@@ -665,13 +665,26 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=0015';
+const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=1032';
+function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
  ctx.save();ctx.translate(par,0);
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
- ctx.drawImage(YARD,-300,6,w,h);   // cave left, truck and lamps on the ground, under the floor
+ ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
+// One truck: leaves the Rover Bay door, drives down into the cave, vanishes, comes back out, drives into the bay.
+function drawYardTruck(){if(!S.f.rover||!S.f.rover.built||!ok('truck_pt_drive'))return;
+ const {n,c}=truckClock(),kind=truckKind(n),M=yardPt(240,360),D={x:72,y:-2};
+ let x,y,sc,al,flip,frn,key;
+ if(c<2.6){const t=easeInOutCubic(c/2.6);x=D.x+(M.x-D.x)*t;y=D.y+(M.y-D.y)*t;sc=0.62+(1-0.62)*t;al=1;flip=1;key='truck_'+kind+'_drive';frn=Math.floor(c*12)%8}
+ else if(c<3.6){const t=c-2.6;x=M.x+6*t;y=M.y+12*t;sc=1-0.65*t;al=1-t;flip=1;key=ok('rover_tunnel_'+kind)?'rover_tunnel_'+kind:'truck_'+kind+'_drive';frn=ok('rover_tunnel_'+kind)?Math.min(7,Math.floor(t*8)):Math.floor(c*12)%8}
+ else if(c<5.0)return;
+ else if(c<6.1){const t=(c-5)/1.1;x=M.x+6*(1-t);y=M.y+12*(1-t);sc=0.35+0.65*t;al=Math.min(1,t*1.4);flip=0;key=ok('rover_tunnel_'+kind)?'rover_tunnel_'+kind:'truck_'+kind+'_drive';frn=ok('rover_tunnel_'+kind)?8+Math.min(7,Math.floor(t*8)):Math.floor(c*12)%8}
+ else{const t=easeInOutCubic(Math.min(1,(c-6.1)/2.1));x=M.x+(D.x-M.x)*t;y=M.y+(D.y-M.y)*t;sc=1-(1-0.62)*t;al=t>0.9?Math.max(0,1-(t-0.9)/0.1):1;flip=0;key='truck_'+kind+'_drive';frn=Math.floor(c*12)%8}
+ ctx.save();ctx.translate(x,y);ctx.scale((flip?-1:1)*sc,sc);ctx.globalAlpha=Math.max(0,al);
+ ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(flip?-40:46,2,28,3.2,0,0,7);ctx.fill();
+ spr(ctx,key,frn,0,0);ctx.restore()}
 function drawMineForeground(f){if(YARD.complete&&YARD.naturalWidth)return;if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
  ctx.save();ctx.translate(par,FG.y);ctx.scale(FG.s,FG.s);
  let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();

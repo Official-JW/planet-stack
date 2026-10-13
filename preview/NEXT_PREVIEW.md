@@ -197,6 +197,10 @@
 - The ship side of the pad is labeled TAKEOFF & LANDING. That is the old tank farm. It is not a new station and it does not change save data or prices.
 - A mule wheels a crate from that platform across to the CARGO DOCK. The crane still loads only what is on the pad.
 
+## r23 (10:40 PT) — mining truck drives the cave
+- The still truck is off the yard sheet. The 3D truck leaves the Rover Bay, drives down into the cave, disappears, comes back out, and drives into the bay. About an 8 second loop. No price changes.
+
+
 
 
 
