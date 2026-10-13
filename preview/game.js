@@ -74,7 +74,7 @@ const F=[];BUILDINGS.forEach((b,bi)=>b.floors.forEach((d,k)=>{d.b=bi;d.k=k;d.rol
 const IDX={};F.forEach((d,i)=>IDX[d.id]=i);
 F.forEach(d=>{d.tierInfo={};CFG.tierLevels.forEach(L=>{const t=Object.assign({},TIER_DEFAULTS[L],(FLOOR_TIERS[d.id]||{})[L]);if(d.role==='shop'){if(t.shopName)t.name=t.shopName;if(t.shopEffect)t.effect=t.shopEffect}d.tierInfo[L]=t})});
 const $=s=>document.querySelector(s);
-setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#demo');if(d)d.remove()},800);
+setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#demo');if(d)d.remove();const t=document.getElementById('pvtag');if(!t)return;const keys=Object.keys(SPR),miss=keys.filter(k=>SPR[k].missing),ready=keys.filter(k=>SPR[k].ready).length;if(miss.length)t.textContent='ART '+ready+'/'+keys.length+' '+miss.slice(0,3).join(',')},4000);
 // =====================================================================
 // ART: @3x or @2x WebP set by DPR; lazy groups per building
 // =====================================================================
@@ -131,7 +131,8 @@ const groupState={};
 async function tryJSON(p){try{const r=await fetch(p);if(r.ok)return await r.json()}catch(e){}return null}
 function getImg1(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src})}
 async function getImg(src){for(let a=0;a<4;a++){const im=await getImg1(a?src+(src.includes('?')?'&':'?')+'retry='+a:src);if(im)return im;if(a<3)await new Promise(r=>setTimeout(r,400*(a+1)))}return null}   // a failed load (e.g. a 503) is retried 3 times
-const bmp=async im=>{if(!im)return null;try{return await createImageBitmap(im)}catch(e){return im}};
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+const bmp=async im=>{if(!im)return null;if(IOS)return im;try{return await createImageBitmap(im)}catch(e){return im}};
 let loadedBytes=0;
 async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.loading;
  s.loading=(async()=>{
@@ -371,7 +372,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
+function render(){try{ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';smooth(ctx);
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  ctx.drawImage(skyLayer(),-OX,0,W/SC,H/SC);
@@ -387,8 +388,7 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);smooth(ctx);
  vis.forEach(drawStop);
  drawWalkways(true);
  drawFX();ctx.restore();
- // (old mine_preview overlay removed: while mine_starter loads, the real Mine layout draws with placeholder floors, so nothing snaps)
-}
+}catch(e){const t=document.getElementById('pvtag');if(t&&!t.dataset.err){t.dataset.err=1;t.textContent='DRAW '+(e&&e.message||e)}}}
 let curStopA=0,armT=-99;
 // ----- flat regolith ground (procedural, opaque): tile TW pt wide, repeats while panning. Depth gradient, craters and boulders with hard shadows, strata at the bottom.
 const GTW=1000,GTH=330,gC=document.createElement('canvas'),gX=gC.getContext('2d');let gK=0;
