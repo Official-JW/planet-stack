@@ -659,7 +659,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=1032';
+const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=1118';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -667,11 +667,11 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1112';
+const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1118';
 // Flat dump truck from the yard art. Never mirrored, so the bed lettering stays readable.
 function drawYardTruck(){if(!S.f.rover||!S.f.rover.built||!(DUMP.complete&&DUMP.naturalWidth))return;
  const sc=560/1500,tw=DUMP.naturalWidth*sc,th=DUMP.naturalHeight*sc;
- const mouth=yardPt(460,372),deep=yardPt(360,376),end=yardPt(1000,372),door={x:124,y:10};
+ const mouth=yardPt(470,400),deep=yardPt(370,404),end=yardPt(980,400),door={x:124,y:10};
  const C=11,u=T%C,slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  let p,al=1;
  if(u<3.6)p=slide(end,mouth,u/3.6);
@@ -683,7 +683,8 @@ function drawYardTruck(){if(!S.f.rover||!S.f.rover.built||!(DUMP.complete&&DUMP.
  ctx.save();ctx.translate(p.x,p.y);ctx.globalAlpha=Math.max(0,Math.min(1,al));
  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,1,tw*0.36,2.4,0,0,7);ctx.fill();
  ctx.drawImage(DUMP,-tw/2,-th,tw,th);ctx.restore()}
-function softCaveLip(){const s=SPR.tunnel_front_lip,k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
+const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
+function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
   let g=c.createLinearGradient(0,0,260,0);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.07,'#000');g.addColorStop(0.95,'#000');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,260,130);
   g=c.createLinearGradient(0,96,0,130);g.addColorStop(0,'#000');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,260,130);c.globalCompositeOperation='source-over';lipC._ok=1}
