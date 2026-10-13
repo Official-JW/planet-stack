@@ -659,7 +659,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=1118';
+const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=1122';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -667,11 +667,11 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1118';
+const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1122';
 // Flat dump truck from the yard art. Never mirrored, so the bed lettering stays readable.
 function drawYardTruck(){if(!S.f.rover||!S.f.rover.built||!(DUMP.complete&&DUMP.naturalWidth))return;
  const sc=560/1500,tw=DUMP.naturalWidth*sc,th=DUMP.naturalHeight*sc;
- const mouth=yardPt(470,400),deep=yardPt(370,404),end=yardPt(980,400),door={x:124,y:10};
+ const mouth=yardPt(500,356),deep=yardPt(390,358),end=yardPt(885,356),door={x:124,y:10};
  const C=11,u=T%C,slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  let p,al=1;
  if(u<3.6)p=slide(end,mouth,u/3.6);

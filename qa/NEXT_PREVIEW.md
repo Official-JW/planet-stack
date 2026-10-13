@@ -206,7 +206,8 @@
 
 ## r25 (11:05 PT) — the road dump truck, not the old rover
 - The 3D rover is gone from the mine road and from inside the Rover Bay.
-- The still truck is painted out of the yard. One whole dump truck drives the road. The bed does not slide off a truck that stays put, and the lettering is not flipped.
+- The still truck is gone from the road. The moving piece is the whole truck, paint and body together, not a highlight sliding off. It is not mirrored. No price changes.
+
 
 
 
