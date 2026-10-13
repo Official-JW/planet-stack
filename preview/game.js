@@ -1124,13 +1124,14 @@ function demoArt(kind){
  if(kind==='flow')return '<div class="flow"><span>ROVER</span>→<span>SHIP</span>→<span>PAY</span></div>';
  return '<div class="stack"><i></i><i></i><i></i></div>';
 }
-function startDemo(){if(!IS_PREVIEW){$('#gems').style.display='none';return}
+function startDemo(){try{if(!IS_PREVIEW){const g=$('#gems');if(g)g.style.display='none';return}
  const el=$('#demo');if(!el)return;let i=0;
  const show=()=>{const s=DEMO[i];$('#demok').textContent=s.k;$('#demoh').textContent=s.h;$('#demop').textContent=s.p;$('#demoart').innerHTML=demoArt(s.art);
   $('#demodots').innerHTML=DEMO.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('');
   $('#demonext').textContent=i===DEMO.length-1?'START':'NEXT'};
- $('#demonext').onclick=()=>{if(i<DEMO.length-1){i++;show()}else{el.classList.remove('on');el.style.display='none'}};
- show();el.classList.add('on');el.style.display='flex'}
+ const next=e=>{if(e){e.preventDefault();e.stopPropagation()}if(i<DEMO.length-1){i++;show()}else{el.classList.remove('on');el.style.display='none'}};
+ const btn=$('#demonext');btn.onclick=next;btn.ontouchend=next;btn.onpointerup=next;
+ show();el.classList.add('on');el.style.display='flex'}catch(e){}}
 function maxOut(){BUILDINGS.forEach(b=>b.soon=false);S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=noCrew(d)?0:2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
  for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40,F.filter(d=>!d.upper).length*2);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
 window.__ps={openSheet,openElev,toast,LPS,placeToast,offline,cam,refineFx,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
