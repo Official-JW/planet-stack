@@ -769,6 +769,9 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  ctx.save();ctx.translate(X(65),deck);ctx.scale(-1,1);spr(ctx,'launch_tower4',0,0,0);ctx.restore();
  spr(ctx,'dock_base',0,0,0);
  dockOverlays(['crew','refuel','pad']);
+ // Takeoff & Landing is the ship side (the old tank-farm pad). Crates wheel across to the cargo dock.
+ ctx.save();ctx.strokeStyle='rgba(255,179,71,.9)';ctx.lineWidth=3;ctx.setLineDash([7,7]);ctx.lineDashOffset=-(T*28)%14;
+ ctx.beginPath();ctx.moveTo(X(150),deck+18);ctx.lineTo(X(560),deck+18);ctx.stroke();ctx.restore();
  // walkers stay on the back lane, clear of the handler's mark
  const nCrew=Math.min(dockCrew.length,1+Math.floor(dockLvl('crew')/10));
  for(let i=0;i<nCrew;i++){const c=dockCrew[i],per=(c.b-c.a)/28*2+1.2,q=((T+i*1.7)%per)/per,go=q<0.5,u=go?q*2:2-q*2;
@@ -792,8 +795,9 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  const pt=dockTier('pad'),sk=pt>=20&&ok('dock_sign_neon_pad_t20')?'pad_t20':pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';
  {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;ctx.save();ctx.translate(0,deck+38);ctx.rotate(-curStopA);spr(ctx,'dock_sign_neon_'+sk,0,0,0);spr(ctx,'dock_sign_glow_'+sk,gf,0,0);ctx.restore();
   if(ok('dock_sign_bloom_'+sk)){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.6+0.4*al;spr(ctx,'dock_sign_bloom_'+sk,0,0,deck);ctx.restore()}}
- const mt=(T*30)%1400,mx=mt<700?-700+mt:700-(mt-700),mxC=mx<0?mx:Math.min(mx,440);
- if(Math.abs(mxC-HANDLER_X)>48){ctx.save();ctx.translate(X(mxC),deck-16);if(mt>=700)ctx.scale(-1,1);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);ctx.restore()}
+ const mt=(T%(14))/7,going=mt<1,q=going?mt:mt-1,e=q*q*(3-2*q),mx=going?150+(560-150)*e:560-(560-150)*e;
+ ctx.save();ctx.translate(X(mx),deck+14);if(!going)ctx.scale(-1,1);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);
+ if(going&&ok('loaded_box_pulse'))spr(ctx,'loaded_box_pulse',0,6,-20);ctx.restore();
  FX.filter(o=>o.type==='dock').forEach(o=>{const q=frOnce(o.key,T-o.t);if(SPR[o.key]&&q<SPR[o.key].n)spr(ctx,o.key,q,0,deck)});
  ctx.restore();
  const L=shipLoad(),pad=loose(),Y=L+pad;
@@ -801,7 +805,9 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  else if(s.st==='trip')label(0,-408,`🚀 To Earth: ${mmss((s.t/1000+tripSec(s)-gnow()/1000)/SPEED)} · ${fmt(shipValue(s))}`,'#eaf2ff',15);
  else if(s.st==='turn')label(0,-408,`🔧 Refuel & repair ${mmss((s.t/1000+turnSec()-gnow()/1000)/SPEED)}`,'#eaf2ff',15);
  label(0,-372,`In hold ${L}/${holdCap()}`,'#bfe9ff',14);
- label(0,-352,`On pad ${pad}`,'#d5e6ff',14)}
+ label(0,-352,`On pad ${pad}`,'#d5e6ff',14);
+ label(-150,36,'TAKEOFF & LANDING','#ffb347',12);
+ label(190,36,'CARGO DOCK','#9fd6ff',12)}
 function easeOutBack(t,c1=1.70158){const c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)}
 const easeOutCubic=t=>1-Math.pow(1-t,3),easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 // =====================================================================
@@ -925,8 +931,8 @@ function openDock(refresh){const el=$('#sheet');sheetFor={dock:1,k:refresh&&shee
   return `<div class="drow"><img src="${ui(t.icon)}"><div class="dt"><b>${t.name} <span class="dl">LV ${lv}</span></b><small>${eff}</small>${max?'':`<small class="nl">Next look LV ${nl}: ${t.looks[nl]||''}</small>`}
    <div class="dbar"><i style="width:${lv/CFG.dock.maxLevel*100}%"></i></div></div>
    <button class="dup ${can?'glow':''}" data-t="${t.id}" ${can?'':'disabled'}>${max?'MAX':can?`<img src="${ui('ui_icon_coin')}">${fmt(c).slice(1)}`:`Need ${fmt(c-S.money)}`}</button></div>`}).join('');
- el.innerHTML=`<div class="grab"></div><div class="hdr"><div class="ico"><img src="${ART+DOCK}ui/ui_icon_dock_wrench.webp"></div><div><h2>Cargo Space Dock</h2><div class="sub">In hold ${shipLoad()} · On pad ${loose()}</div></div><button class="x" id="sx" style="margin-left:auto">✕</button></div>${rows}
- <div class="desc">Pt crate ${fmt(CFG.econ.ptValue)} · He-3 canister ${fmt(CFG.econ.heValue)} (30% when packed, 70% on delivery) · refined ×${CFG.econ.refinedMult}. A new look every 10 levels.</div>`;
+ el.innerHTML=`<div class="grab"></div><div class="hdr"><div class="ico"><img src="${ART+DOCK}ui/ui_icon_dock_wrench.webp"></div><div><h2>Cargo Space Dock</h2><div class="sub">Ship is on Takeoff & Landing · wheeled over · hold ${shipLoad()} · pad ${loose()}</div></div><button class="x" id="sx" style="margin-left:auto">✕</button></div>${rows}
+ <div class="desc">The ship lands on the Takeoff & Landing platform (this used to be the tank farm). Crates are wheeled over to this dock, then the crane loads only what is on the pad. Pt crate ${fmt(CFG.econ.ptValue)} · He-3 canister ${fmt(CFG.econ.heValue)} (30% when packed, 70% on delivery) · refined ×${CFG.econ.refinedMult}. A new look every 10 levels.</div>`;
  $('#sx').onclick=closeSheet;el.querySelectorAll('.dup').forEach(b=>b.onclick=()=>dockUpgrade(b.dataset.t));
  if(!refresh){el.classList.add('open');$('#shade').classList.add('on');sheetOpenedAt=performance.now()}}
 function wrenchUI(){let b=$('#wrench');const show=STOPS[site].kind==='dock';

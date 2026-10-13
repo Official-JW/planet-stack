@@ -193,6 +193,11 @@
 ## r21 (00:16 PT) — yard sits under the floor
 - The cave, road, truck, and lamps draw behind the tower. Rover Bay stays visible.
 
+## r22 (00:30 PT) — dock: Takeoff & Landing, then wheeled to the cargo dock
+- The ship side of the pad is labeled TAKEOFF & LANDING. That is the old tank farm. It is not a new station and it does not change save data or prices.
+- A mule wheels a crate from that platform across to the CARGO DOCK. The crane still loads only what is on the pad.
+
+
 
 
 
