@@ -182,5 +182,10 @@
 - GitHub /preview/ was still the 08:07 page (gray code-drawn ground). This push copies the QA build there: painted ground on the first screen, flat moon, crane cycle, mine yard. Corner tag PREVIEW · 23:54.
 - Live root is not touched. Preview saves stay on planetstack-preview.
 
+## r19 (00:05 PT) — stop the fake mine yard
+- Removed the stand-in road, conveyor, stick attendant, and orange blob. They were covering the real cave and are not the approved sheets.
+- Still missing from the repo, so not drawn: scene sheets, attendant_marshal, road_light, lamp_post. The live mine is the older ADIT-2 cave plus Rover Bay until those files land.
+
+
 - Dock reads "In hold X" and "On pad Y". Stockpile draws at most 12 containers plus a "+N" badge. The handler stands on a clear mark; other walkers and the mule stay behind it.
 - Needs Game Director sign-off: a full hold of 12 now loads in about 91 s (was about 120 s). Each crane tier (every 10 levels) is +10% speed, not the old +4% per level. Longer trips still speed the crane so a bigger hold fills in that same ~91 s.

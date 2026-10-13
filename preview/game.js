@@ -666,7 +666,8 @@ function drawMineYard(){
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
 function drawMineForeground(f){if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
  ctx.save();ctx.translate(par,FG.y);ctx.scale(FG.s,FG.s);
- drawMineYard();
+ // No stand-in road, conveyor, or stick attendant. Those covered Art's cave.
+ // attendant_marshal, road_light, and lamp_post are not in the repo yet.
  softCave('tunnel_back');
  let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
  dustTick(r,dt);drawDust(dt);
