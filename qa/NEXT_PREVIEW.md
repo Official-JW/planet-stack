@@ -206,7 +206,8 @@
 
 ## r25 (11:05 PT) — the road dump truck, not the old rover
 - The 3D rover is gone from the mine road and from inside the Rover Bay.
-- The dump truck from the yard sheet drives along the road into the cave, disappears, comes back out, and pulls into the Rover Bay. About 12 seconds. No price changes.
+- The dump truck from the yard sheet drives along the road into the cave, disappears, comes back out, and pulls into the Rover Bay. The whole truck is drawn, it is not mirrored, and the bed lettering stays readable. About 11 seconds. No price changes.
+
 
 
 

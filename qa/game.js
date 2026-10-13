@@ -667,39 +667,22 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1105';
-// The flat dump truck from the yard sheet. It stays on the road: into the cave, back out, then up into the Rover Bay.
+const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1112';
+// Flat dump truck from the yard art. Never mirrored, so the bed lettering stays readable.
 function drawYardTruck(){if(!S.f.rover||!S.f.rover.built||!(DUMP.complete&&DUMP.naturalWidth))return;
  const sc=560/1500,tw=DUMP.naturalWidth*sc,th=DUMP.naturalHeight*sc;
- const road=yardPt(800,348),mouth=yardPt(430,348),deep=yardPt(340,356),end=yardPt(1020,348),door={x:118,y:6};
- const C=12,u=T%C;
- let x,y,al=1,flip=0,sc2=1;
- const slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
- if(u<3.4){const p=slide(end,mouth,u/3.4);x=p.x;y=p.y;flip=0}          // faces the cave, drives left along the road
- else if(u<4.4){const t=(u-3.4)/1;const p=slide(mouth,deep,t);x=p.x;y=p.y;al=1-t;sc2=1-0.12*t;flip=0}
- else if(u<5.8)return;
- else if(u<6.8){const t=(u-5.8);const p=slide(deep,mouth,t);x=p.x;y=p.y;al=Math.min(1,t*1.3);sc2=0.88+0.12*Math.min(1,t);flip=1}
- else if(u<10.2){const p=slide(mouth,end,(u-6.8)/3.4);x=p.x;y=p.y;flip=1} // back along the road, cab toward the bay
- else{const t=(u-10.2)/1.8;const e=t*t*(3-2*t);const p=slide(end,door,e);x=p.x;y=p.y;flip=1;al=t>0.72?Math.max(0,1-(t-0.72)/0.28):1;sc2=1-0.18*e}
- ctx.save();ctx.translate(x,y);ctx.scale((flip?-1:1)*sc2,sc2);ctx.globalAlpha=Math.max(0,Math.min(1,al));
- ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,1,tw*0.42,2.2,0,0,7);ctx.fill();
+ const mouth=yardPt(460,372),deep=yardPt(360,376),end=yardPt(1000,372),door={x:124,y:10};
+ const C=11,u=T%C,slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+ let p,al=1;
+ if(u<3.6)p=slide(end,mouth,u/3.6);
+ else if(u<4.5){const t=(u-3.6)/0.9;p=slide(mouth,deep,t);al=t<0.45?1:1-(t-0.45)/0.55}
+ else if(u<5.7)return;
+ else if(u<6.5){const t=(u-5.7)/0.8;p=slide(deep,mouth,t);al=Math.min(1,t/0.4)}
+ else if(u<10.1)p=slide(mouth,end,(u-6.5)/3.6);
+ else{const t=Math.min(1,(u-10.1)/0.9);p=slide(end,door,t);al=t<0.65?1:1-(t-0.65)/0.35}
+ ctx.save();ctx.translate(p.x,p.y);ctx.globalAlpha=Math.max(0,Math.min(1,al));
+ ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,1,tw*0.36,2.4,0,0,7);ctx.fill();
  ctx.drawImage(DUMP,-tw/2,-th,tw,th);ctx.restore()}
-function drawMineForeground(f){if(YARD.complete&&YARD.naturalWidth)return;if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
- ctx.save();ctx.translate(par,FG.y);ctx.scale(FG.s,FG.s);
- let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
- dustTick(r,dt);drawDust(dt);
- 
- if(r){const ramp=r.ramp!=null;
-  if(!ramp||r.ramp<0.35)shadow(r.piv?r.x:r.x+45,(r.piv?r.y:r.y-Math.min(0,0))+0.5,90,.45*(ramp?1-r.ramp/0.35:1));
-  ctx.save();
-  // never draw over the portal: clip off the header/arch (x>=146,y<70 local) and everything right of the mouth (x>=228)
-  if(ramp){const L=FG.tunnel;ctx.beginPath();ctx.moveTo(-600,-300);ctx.lineTo(L+146,-300);ctx.lineTo(L+146,0+2);ctx.lineTo(L+226,2);ctx.lineTo(L+226,300);ctx.lineTo(-600,300);ctx.closePath();ctx.clip();
-   ctx.globalAlpha=Math.max(0,Math.min(1,(1-r.ramp)/0.25))}   // fade into the dark mouth
-  if(r.piv){ctx.translate(r.x,r.y);spr(ctx,r.k,r.f,0,0)}else{ctx.translate(r.x+45,r.y);if(r.ang)ctx.rotate(r.ang);if(r.flip)ctx.scale(-1,1);spr(ctx,r.k,r.f,-45,0)}ctx.restore()}
- if(ok('tunnel_front_lip'))softCaveLip();
- if(ok('tunnel_haze')){ctx.globalAlpha=0.75+0.25*Math.sin(T*0.9);spr(ctx,'tunnel_haze',0,FG.tunnel+Math.sin(T*0.35)*3,0);ctx.globalAlpha=1}
- ctx.restore()}
-const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip,k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
   let g=c.createLinearGradient(0,0,260,0);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.07,'#000');g.addColorStop(0.95,'#000');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,260,130);
