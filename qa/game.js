@@ -74,6 +74,7 @@ const F=[];BUILDINGS.forEach((b,bi)=>b.floors.forEach((d,k)=>{d.b=bi;d.k=k;d.rol
 const IDX={};F.forEach((d,i)=>IDX[d.id]=i);
 F.forEach(d=>{d.tierInfo={};CFG.tierLevels.forEach(L=>{const t=Object.assign({},TIER_DEFAULTS[L],(FLOOR_TIERS[d.id]||{})[L]);if(d.role==='shop'){if(t.shopName)t.name=t.shopName;if(t.shopEffect)t.effect=t.shopEffect}d.tierInfo[L]=t})});
 const $=s=>document.querySelector(s);
+setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#demo');if(d)d.remove()},800);
 // =====================================================================
 // ART: @3x or @2x WebP set by DPR; lazy groups per building
 // =====================================================================
@@ -1104,7 +1105,7 @@ let bgDone=false;
  if(SPR.ground_strip&&SPR.ground_strip.ready){GSTRIP.p=1;GSTRIP.done=true;GSTRIP.t0=1}   // painted ground is on the first screen — don't flash the old gray ground
  ensureLook(elevLook(0));
  offline();econ();crewSync();hud();devUI();
- {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.pointerEvents='none';L.style.opacity=0;setTimeout(()=>{L.remove();inputReady=true;startDemo()},500);/* the fading loader no longer catches taps; touch input turns on when it is gone */requestAnimationFrame(t=>{last=t;frame(t)});document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
+ {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.pointerEvents='none';L.style.opacity=0;setTimeout(()=>{L.remove();inputReady=true},500);/* the fading loader no longer catches taps; touch input turns on when it is gone */requestAnimationFrame(t=>{last=t;frame(t)});document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
  await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('mine_later_dump');loadGroup('fx_later_upgrade_burst');loadGroup('floors_later_offscreen');tryJSON(ART+SPR.ground_strip.path+'.json').then(j=>{if(j){GSTRIP.tileWidth=j.tileWidth||GSTRIP.tileWidth;GSTRIP.groundLineY=j.groundLineY??GSTRIP.groundLineY;GSTRIP.h=(j.logicalSize&&j.logicalSize.h)||GSTRIP.h;IMG_SIZE.ground_strip=[GSTRIP.tileWidth,GSTRIP.h,0,0]}});loadGroup('ground_later_strip').then(()=>{const S=SPR.ground_strip;if(S.ready){S.w=GSTRIP.tileWidth;S.h=GSTRIP.h;const im=S.img;Promise.resolve(im&&im.decode?im.decode():null).catch(()=>{}).then(()=>{
    // warm the GPU upload with an invisible draw, then start the 200 ms fade on the NEXT frame: no decode hitch mid-fade
@@ -1124,14 +1125,7 @@ function demoArt(kind){
  if(kind==='flow')return '<div class="flow"><span>ROVER</span>→<span>SHIP</span>→<span>PAY</span></div>';
  return '<div class="stack"><i></i><i></i><i></i></div>';
 }
-function startDemo(){try{if(!IS_PREVIEW){const g=$('#gems');if(g)g.style.display='none';return}
- const el=$('#demo');if(!el)return;let i=0;
- const show=()=>{const s=DEMO[i];$('#demok').textContent=s.k;$('#demoh').textContent=s.h;$('#demop').textContent=s.p;$('#demoart').innerHTML=demoArt(s.art);
-  $('#demodots').innerHTML=DEMO.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('');
-  $('#demonext').textContent=i===DEMO.length-1?'START':'NEXT'};
- const next=e=>{if(e){e.preventDefault();e.stopPropagation()}if(i<DEMO.length-1){i++;show()}else{el.classList.remove('on');el.style.display='none'}};
- const btn=$('#demonext');btn.onclick=next;btn.ontouchend=next;btn.onpointerup=next;
- show();el.classList.add('on');el.style.display='flex'}catch(e){}}
+function startDemo(){}
 function maxOut(){BUILDINGS.forEach(b=>b.soon=false);S.tapped=1;S.firstReturn=1;S.step=GOALS.length-1;F.forEach(d=>{const f=S.f[d.id];if(BUILDINGS[d.b].soon)return;f.built=true;f.lvl=CFG.maxLevel;f.workers=noCrew(d)?0:2});BUILDINGS.forEach(b=>S.elev[b.id]=CFG.elevator.maxLevel);
  for(const t in S.dock)S.dock[t]=CFG.dock.maxLevel;S.pop=Math.max(S.pop,40,F.filter(d=>!d.upper).length*2);for(const k in towerCache)delete towerCache[k];BUILDINGS.forEach((b,bi)=>{if(!b.soon)ensureBuildingArt(bi)});crewSync();save();hud();toast('DEV: everything maxed')}
 window.__ps={openSheet,openElev,toast,LPS,placeToast,offline,cam,refineFx,setT:v=>{T=v},sp:()=>truckClock(),pan:v=>{dockPan=v},maxScroll,S,F,E:()=>E,maxOut,openDock:()=>openDock(),econ,step,CFG,goSite,STOPS,SPR,launchShip,buyFloor,doUpgrade,save,cacheHits:()=>cacheHits,elevUpgrade};
