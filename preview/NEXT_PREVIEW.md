@@ -190,6 +190,10 @@
 - The foreground is the flat cave, road, platinum truck, and lamp posts from the approved yard sheet. The old rocky ADIT-2 cave is not drawn when that sheet is loaded.
 - The "3 REVERSE INTO BAY" callout is painted out. Fresh saves still only have Rover Bay built; Crusher, Separator, and Packing show when built.
 
+## r21 (00:16 PT) — yard sits under the floor
+- The cave, road, truck, and lamps draw behind the tower. Rover Bay stays visible.
+
+
 
 
 - Dock reads "In hold X" and "On pad Y". Stockpile draws at most 12 containers plus a "+N" badge. The handler stands on a clear mark; other walkers and the mule stay behind it.

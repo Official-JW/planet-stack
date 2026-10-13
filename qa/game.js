@@ -463,8 +463,9 @@ function drawWalkways(capsPass){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('
 function drawStop(o){const {s,f}=o;curStopA=0;ctx.save();
  ctx.translate(snap(f.x),snap(f.y));   // upright, always
  ctx.scale(TS,TS);const atRest=s.kind==='dock'?Math.abs(f.a)<0.0004:true;   // no rotation: the static tower cache is valid while panning too
+ if(BUILDINGS[s.bi].id==='mine')drawApprovedYard(f);   // behind the tower so the floor stays clear
  if(s.kind!=='dock')foundation();else dockPlinth();
- if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine')drawMineForeground(f)}
+ if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine'&&!(YARD.complete&&YARD.naturalWidth))drawMineForeground(f)}
  ctx.restore()}
 function label(x,y,txt,col,size){ctx.font=`700 ${size}px Inter,system-ui,-apple-system,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(txt,x,y+1);ctx.fillStyle=col;ctx.fillText(txt,x,y)}
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
@@ -664,15 +665,15 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png';
-function drawMineForeground(f){const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
+const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=0015';
+function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
+ const par=(f.x-195)*(FG.par-1)/TS;
+ ctx.save();ctx.translate(par,0);
+ const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
+ ctx.drawImage(YARD,-300,6,w,h);   // cave left, truck and lamps on the ground, under the floor
+ ctx.restore()}
+function drawMineForeground(f){if(YARD.complete&&YARD.naturalWidth)return;if(!ok('tunnel_back'))return;const par=(f.x-195)*(FG.par-1)/TS,dt=Math.min(0.1,Math.max(0,T-fgLast));fgLast=T;
  ctx.save();ctx.translate(par,FG.y);ctx.scale(FG.s,FG.s);
- if(YARD.complete&&YARD.naturalWidth){
-  // Approved yard sheet: flat cave on the left, road, platinum truck, lamp posts. Not the old rocky ADIT-2.
-  const w=470,h=w*YARD.naturalHeight/YARD.naturalWidth;
-  ctx.drawImage(YARD,-250,-155,w,h);
-  ctx.restore();return}
- if(!ok('tunnel_back')){ctx.restore();return}
  let r=null;if(S.f.rover.workers>0&&BAYROUTE)r=roverState();
  dustTick(r,dt);drawDust(dt);
  
