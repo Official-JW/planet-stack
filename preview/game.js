@@ -74,7 +74,7 @@ const F=[];BUILDINGS.forEach((b,bi)=>b.floors.forEach((d,k)=>{d.b=bi;d.k=k;d.rol
 const IDX={};F.forEach((d,i)=>IDX[d.id]=i);
 F.forEach(d=>{d.tierInfo={};CFG.tierLevels.forEach(L=>{const t=Object.assign({},TIER_DEFAULTS[L],(FLOOR_TIERS[d.id]||{})[L]);if(d.role==='shop'){if(t.shopName)t.name=t.shopName;if(t.shopEffect)t.effect=t.shopEffect}d.tierInfo[L]=t})});
 const $=s=>document.querySelector(s);
-setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#demo');if(d)d.remove();const t=document.getElementById('pvtag');if(!t)return;const keys=Object.keys(SPR),miss=keys.filter(k=>SPR[k].missing),ready=keys.filter(k=>SPR[k].ready).length;if(miss.length)t.textContent='ART '+ready+'/'+keys.length+' '+miss.slice(0,3).join(',')},4000);
+setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#demo');if(d)d.remove()},800);
 // =====================================================================
 // ART: @3x or @2x WebP set by DPR; lazy groups per building
 // =====================================================================
@@ -131,8 +131,9 @@ const groupState={};
 async function tryJSON(p){try{const r=await fetch(p);if(r.ok)return await r.json()}catch(e){}return null}
 function getImg1(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src})}
 async function getImg(src){for(let a=0;a<4;a++){const im=await getImg1(a?src+(src.includes('?')?'&':'?')+'retry='+a:src);if(im)return im;if(a<3)await new Promise(r=>setTimeout(r,400*(a+1)))}return null}   // a failed load (e.g. a 503) is retried 3 times
-const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
-const bmp=async im=>{if(!im)return null;if(IOS)return im;try{return await createImageBitmap(im)}catch(e){return im}};
+const bmp=async im=>{if(!im)return null;try{const b=await createImageBitmap(im);if(b&&b.width)return b}catch(e){}
+ try{if(im.src){const b=await createImageBitmap(await (await fetch(im.src)).blob());if(b&&b.width)return b}}catch(e){}
+ const w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;if(!w||!h)return null;const c=document.createElement('canvas');c.width=w;c.height=h;try{c.getContext('2d').drawImage(im,0,0)}catch(e){}return c};
 let loadedBytes=0;
 async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.loading;
  s.loading=(async()=>{
@@ -162,9 +163,9 @@ function ensureTier(d,L){const k=tierKey(d,L);if(!SPR[k]){if(d.pack==='floors_la
  def(k,`${d.tierBase}_t${L}`,'tier','floor');loadSprite(k)}return SPR[k]}
 function ensureLook(look){const kb='car_'+look+'_back',kd='car_'+look+'_doors';if(!SPR[kb]){def(kb,'elevator/'+kb,'look','img');def(kd,'elevator/'+kd,'look');loadSprite(kb);loadSprite(kd)}return SPR[kb].ready&&SPR[kd].ready}
 const ok=k=>SPR[k]&&SPR[k].ready;
-function spr(c,key,frame,x,y,sx=1,sy=1){const S=SPR[key];if(!S||!S.ready)return;if(!S.frames){c.drawImage(S.img,x-(S.px||0)*sx,y-(S.py||0)*sy,S.w*sx,S.h*sy);return}
+function spr(c,key,frame,x,y,sx=1,sy=1){const S=SPR[key];if(!S||!S.ready)return;try{if(!S.frames){c.drawImage(S.img,x-(S.px||0)*sx,y-(S.py||0)*sy,S.w*sx,S.h*sy);return}
  const fi=((frame|0)%S.n+S.n)%S.n,f=S.frames[fi];if(S.alpha){c.save();c.globalAlpha*=S.alpha[fi];if(S.add)c.globalCompositeOperation='lighter';c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy);c.restore();return}if(f.layers){for(const L of f.layers){const k=L.ds/S.sc;c.save();c.globalCompositeOperation='source-over';if(L.lin){c.imageSmoothingEnabled=true;c.imageSmoothingQuality='low'}c.drawImage(S.pages[L.page],L.x,L.y,L.w,L.h,x-S.px*sx+L.ox*k*sx,y-S.py*sy+L.oy*k*sy,L.w*k*sx,L.h*k*sy);c.restore()}return}
- if(f.ox!=null){const k=1/S.sc;c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx+f.ox*k*sx,y-S.py*sy+f.oy*k*sy,f.w*k*sx,f.h*k*sy);return}c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}
+ if(f.ox!=null){const k=1/S.sc;c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx+f.ox*k*sx,y-S.py*sy+f.oy*k*sy,f.w*k*sx,f.h*k*sy);return}c.drawImage(S.pages[f.page],f.x,f.y,f.w,f.h,x-S.px*sx,y-S.py*sy,S.w*sx,S.h*sy)}catch(e){}}
 const fr=(k,t)=>SPR[k]&&SPR[k].ready?Math.floor(t*SPR[k].fps)%SPR[k].n:0;
 const frOnce=(k,t)=>SPR[k]&&SPR[k].ready?Math.floor(t*SPR[k].fps):99;
 function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const gf=paused?0:Math.floor(t*s.fps);
@@ -372,7 +373,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){try{ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';smooth(ctx);
+function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';smooth(ctx);
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  ctx.drawImage(skyLayer(),-OX,0,W/SC,H/SC);
@@ -387,8 +388,7 @@ function render(){try{ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.gl
  drawWalkways();   // after the ground so footings sit on it, before every tower so the joints hide behind the walls
  vis.forEach(drawStop);
  drawWalkways(true);
- drawFX();ctx.restore();
-}catch(e){const t=document.getElementById('pvtag');if(t&&!t.dataset.err){t.dataset.err=1;t.textContent='DRAW '+(e&&e.message||e)}}}
+ drawFX();ctx.restore()}
 let curStopA=0,armT=-99;
 // ----- flat regolith ground (procedural, opaque): tile TW pt wide, repeats while panning. Depth gradient, craters and boulders with hard shadows, strata at the bottom.
 const GTW=1000,GTH=330,gC=document.createElement('canvas'),gX=gC.getContext('2d');let gK=0;
