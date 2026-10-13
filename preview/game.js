@@ -38,6 +38,7 @@ const BUILDINGS=[
   {id:'crusher',name:'Crusher',art:'mine_crusher',pack:'mine_later_crusher',role:'mine',cost:250,out:1,use:1,up:120,ph:'#4a4a5a',desc:'Crushes ore: more crates from every rover load.'},
   {id:'separator',name:'Separator',art:'mine_separator',pack:'mine_later_separator',role:'mine',cost:500,out:1,use:3,up:450,ph:'#2f4a5a',crew:'engineer',desc:'Separates Helium-3 and platinum. Uses a lot of energy.'},
   {id:'packing',name:'Packing',art:'mine_packing',pack:'mine_later_packing',role:'mine',cost:1800,out:1,use:1,up:1600,ph:'#4a3f2a',desc:'Packs Pt crates and He-3 canisters faster.'}]},
+ {id:'pad',name:'Takeoff & Landing',pad:true,floors:[]},
  {id:'dock',name:'Cargo Space Dock',dock:true,floors:[]},
  {id:'hab',name:'Habitat',art:'hab',roof:'roof_habitat',floors:[
   {id:'living',name:'Living Quarters',art:'living_quarters',tiers:1,role:'housing',cost:0,out:2,use:2,up:40,desc:'Beds for miners. Sets the population cap.'},
@@ -59,9 +60,8 @@ const BUILDINGS=[
   {id:'prop',tiers:1,name:'Prop',art:'eng_prop',pack:'engineering_rooms',role:'boost',cost:58000,out:1,use:3,up:15000,desc:'Propulsion lab.'}]},
 ];
 BUILDINGS.forEach(b=>{if(b.floors.length>CFG.maxFloors)throw new Error(b.name+': max 10 floors')});
-// camera stops: each building, plus the Mine's starter launch pad between Mine and Habitat
-// 6 stops, 60° apart: Life Support, Mine, Cargo Space Dock, Habitat, Shipyard, Engineering
-const STOPS=BUILDINGS.map((b,bi)=>({kind:b.dock?'dock':'tower',bi,name:b.full||b.name}));
+// Flat stops: Life Support, Mine, Takeoff & Landing, Cargo Space Dock, Habitat, Shipyard, Engineering
+const STOPS=BUILDINGS.map((b,bi)=>({kind:b.pad?'pad':b.dock?'dock':'tower',bi,name:b.full||b.name}));
 const RES={oxygen:{label:'Oxygen',pick:'pickup_o2'},water:{label:'Water',pick:'pickup_water'},energy:{label:'Energy',pick:'pickup_energy'}};
 const TIER_DEFAULTS={
  10:{name:'Upgraded',effect:'Second crew station',art:'Upgraded fit-out'},
@@ -151,7 +151,7 @@ if(!firstScreenDone&&/^(mine_later_|dock_later_hatch$|floors_later_empty$)/.test
 const keys=Object.keys(SPR).filter(k=>SPR[k].group===g);let done=0;
  return groupState[g]=Promise.all(keys.map(k=>loadSprite(k).then(()=>{done++;onTick&&onTick(done/keys.length)})))}
 // art for a station: its building group plus the pack of every built floor; Mine starter/preview first
-function ensureBuildingArt(bi){const b=BUILDINGS[bi];if(b.dock){loadGroup('dock');return}
+function ensureBuildingArt(bi){const b=BUILDINGS[bi];if(b.dock||b.pad){loadGroup('dock');return}
  if(b.id==='mine'){loadGroup('mine_starter').then(()=>loadGroup('mine_later_tunnel_trucks'))}else if(b.art)loadGroup(b.art);
  b.floors.forEach(d=>{if(d.pack&&S.f[d.id].built)loadGroup(d.pack)});if(b.roof&&floorsBuilt(bi)===b.floors.length)loadGroup(b.id==='mine'?'mine_later_penthouse':'roofs');if(b.tower&&floorsBuilt(bi)===b.floors.length)loadGroup('roofs')}
 // tier layers (cumulative): floors/tiers/floor_<art>_t<L>
@@ -448,7 +448,7 @@ const wkWall=si=>(STOPS[si].kind==='dock'?195:206)*TS;
 function leg(x,top,gnd){if(gnd-top<3)return;shadow(x+3,gnd,14,.4);const g=ctx.createLinearGradient(x,0,x+6,0);g.addColorStop(0,'#5b6577');g.addColorStop(.45,'#9aa4b5');g.addColorStop(1,'#4a5364');ctx.fillStyle=g;ctx.fillRect(x,top,6,gnd-top-2);
  ctx.fillStyle='rgba(30,36,48,.55)';for(let y=top+8;y<gnd-6;y+=12)ctx.fillRect(x,y,6,1.5);ctx.fillStyle='#6b7486';ctx.fillRect(x-3,gnd-3,12,3);ctx.fillStyle='#3d4555';ctx.fillRect(x-3,gnd-1,12,1)}
 function drawWalkways(capsPass){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('walkway_cap_R'))return;
- for(let i=0;i<STOPS.length-1;i++){const fa=stopFrame(i),fb=stopFrame(i+1),ax=fa.x+wkWall(i),bx=fb.x-wkWall(i+1);if(bx<-60||ax>450)continue;
+ for(let i=0;i<STOPS.length-1;i++){if(STOPS[i].kind==='pad'||STOPS[i+1].kind==='pad')continue;const fa=stopFrame(i),fb=stopFrame(i+1),ax=fa.x+wkWall(i),bx=fb.x-wkWall(i+1);if(bx<-60||ax>450)continue;
   const ea=wkEnd(i,1),eb=wkEnd(i+1,-1),dk=STOPS[i].kind==='dock'||STOPS[i+1].kind==='dock',lift=Math.min(ea,eb)<-60;
   const yy=HOR+(lift?Math.min(ea,eb):dk?DOCK_CAP_DY:-52),ay=yy,by=yy,G=bx-ax,ang=0,IN=10;   // tubes stay level; caps upright
   const x0=-G/2-IN,x1=G/2+IN,span=x1-x0-60,N=Math.max(1,Math.ceil(span/48)),sx=span/(48*N);
@@ -464,6 +464,7 @@ function drawStop(o){const {s,f}=o;curStopA=0;ctx.save();
  ctx.translate(snap(f.x),snap(f.y));   // upright, always
  ctx.scale(TS,TS);const atRest=s.kind==='dock'?Math.abs(f.a)<0.0004:true;   // no rotation: the static tower cache is valid while panning too
  if(BUILDINGS[s.bi].id==='mine')drawApprovedYard(f);   // behind the tower so the floor stays clear
+ if(s.kind==='pad'){drawLaunchPad();ctx.restore();return}
  if(s.kind!=='dock')foundation();else dockPlinth();
  if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest);if(BUILDINGS[s.bi].id==='mine')drawYardTruck()}
  ctx.restore()}
@@ -791,15 +792,6 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
   let x=c.a+(c.b-c.a)*Math.min(1,Math.max(0,(u*1.1-0.05)));if(Math.abs(x-HANDLER_X)<36)x=HANDLER_X+(x<HANDLER_X?-36:36);
   ctx.save();ctx.translate(X(x),deck-18);if(!go)ctx.scale(-1,1);spr(ctx,'crew13_'+c.k,fr('crew13_'+c.k,T),0,0);ctx.restore()}
  const skip=(S.ship.st==='docked'&&(S.ship.craneT||0)>0.04&&craneCarrying(cranePhaseAt(S.ship.craneT)))?(craneWantsHe()?'he':'pt'):'';
- // ship
- const s=S.ship,a=shipAnim,t=T-a.t0;let y=deck,flame=0,glow=0,vis=s.st!=='trip';
- if(a.mode==='launch'){vis=true;const tl=t-liftDelay();if(tl<0){}else if(tl<0.4){flame=1;glow=1;if(!a.smoke){a.smoke=1;FX.push({type:'dock',key:'smoke_plume4',t:T})}}else if(tl<1.9){const q=(tl-0.4)/1.5;y=deck-1800*q*q;flame=1}else{a.mode=null;vis=false}}
- if(a.mode==='land'){vis=true;if(t<1.8){const q=t/1.8;y=deck-1800*(1-easeOutCubic(q));flame=t>1.5?(1.8-t)/0.3:1;glow=t>1.3?1:0}else if(t<2.1){y=deck-4*Math.sin((t-1.8)/0.3*Math.PI);if(!a.dust){a.dust=1;FX.push({type:'dock',key:'dust_puff4',t:T})}}else a.mode=null}
- if(vis&&ok('ship4_hull')){const hx=0,top=y-480;
-  if(flame>0){ctx.globalAlpha=Math.min(1,flame);spr(ctx,'ship4_flame',fr('ship4_flame',T),hx,top+432);ctx.globalAlpha=1}
-  if(glow){ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_engine_glow',fr('ship4_engine_glow',T),hx,top+440);ctx.globalCompositeOperation='source-over'}
-  spr(ctx,'ship4_hull',0,hx,y);if(ok('ship4_hatch')){let hf=5;if(a.mode==='launch'){const tc=t-hatchAt();hf=tc<0?0:Math.min(5,Math.floor(tc/0.05))}else if(a.mode!=='land'&&(s.st==='docked'||s.st==='turn'))hf=0;spr(ctx,'ship4_hatch',hf,hx-160+SPR.ship4_hatch.px,top+SPR.ship4_hatch.py)}
- ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_navlights',fr('ship4_navlights',T),hx-160+108,top+163);ctx.globalCompositeOperation='source-over'}
  drawStockpile(deck,X,skip);
  drawCrane(deck,X);
  dockOverlays(['crane']);
@@ -811,16 +803,35 @@ function drawDock(bi,atRest){const k=DSC/TS;ctx.save();ctx.translate(-(bi===STOP
  const mt=(T%(14))/7,going=mt<1,q=going?mt:mt-1,e=q*q*(3-2*q),mx=going?150+(560-150)*e:560-(560-150)*e;
  ctx.save();ctx.translate(X(mx),deck+14);if(!going)ctx.scale(-1,1);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);
  if(going&&ok('loaded_box_pulse'))spr(ctx,'loaded_box_pulse',0,6,-20);ctx.restore();
- FX.filter(o=>o.type==='dock').forEach(o=>{const q=frOnce(o.key,T-o.t);if(SPR[o.key]&&q<SPR[o.key].n)spr(ctx,o.key,q,0,deck)});
  ctx.restore();
- const L=shipLoad(),pad=loose(),Y=L+pad;
- if(s.st==='docked'&&a.mode!=='launch')pillBtn(0,-408,L?`🚀 ${L} of ${Y} loaded`:'Crane is loading…',L>0);
- else if(s.st==='trip')label(0,-408,`🚀 To Earth: ${mmss((s.t/1000+tripSec(s)-gnow()/1000)/SPEED)} · ${fmt(shipValue(s))}`,'#eaf2ff',15);
- else if(s.st==='turn')label(0,-408,`🔧 Refuel & repair ${mmss((s.t/1000+turnSec()-gnow()/1000)/SPEED)}`,'#eaf2ff',15);
- label(0,-372,`In hold ${L}/${holdCap()}`,'#bfe9ff',14);
- label(0,-352,`On pad ${pad}`,'#d5e6ff',14);
- label(-150,36,'TAKEOFF & LANDING','#ffb347',12);
- label(190,36,'CARGO DOCK','#9fd6ff',12)}
+ label(0,-90,`In hold ${shipLoad()}/${holdCap()}`,'#bfe9ff',14);
+ label(0,-70,`On the dock ${loose()}`,'#d5e6ff',14)}
+function drawLaunchPad(){
+ const k=DSC/TS,deck=8;
+ ctx.save();ctx.scale(k,k);
+ ctx.fillStyle='#2a2e36';ctx.fillRect(-270,deck,540,26);ctx.fillStyle='#6a7382';ctx.fillRect(-270,deck,540,3);
+ [[-168,deck],[-124,deck]].forEach(([x,y])=>{ctx.fillStyle='#9aa3b2';ctx.fillRect(x,y-78,30,78);ctx.fillStyle='#d5dde8';ctx.beginPath();ctx.ellipse(x+15,y-78,15,6,0,0,7);ctx.fill();ctx.fillStyle='#ffb347';ctx.fillRect(x+5,y-30,20,5)});
+ if(ok('launch_tower4')){ctx.save();ctx.translate(-230,deck);ctx.scale(-0.62,0.62);spr(ctx,'launch_tower4',0,0,0);ctx.restore()}
+ if(ok('floodlight_mast')){[230,-250].forEach(x=>spr(ctx,'floodlight_mast',0,x,deck))}
+ const s=S.ship,a=shipAnim,t=T-a.t0;let y=deck,flame=0,glow=0,vis=s.st!=='trip';
+ if(a.mode==='launch'){vis=true;const tl=t-liftDelay();if(tl<0){}else if(tl<0.4){flame=1;glow=1;if(!a.smoke){a.smoke=1;FX.push({type:'dock',key:'smoke_plume4',t:T})}}else if(tl<1.9){const q=(tl-0.4)/1.5;y=deck-1800*q*q;flame=1}else{a.mode=null;vis=false}}
+ if(a.mode==='land'){vis=true;if(t<1.8){const q=t/1.8;y=deck-1800*(1-easeOutCubic(q));flame=t>1.5?(1.8-t)/0.3:1;glow=t>1.3?1:0}else if(t<2.1){y=deck-4*Math.sin((t-1.8)/0.3*Math.PI);if(!a.dust){a.dust=1;FX.push({type:'dock',key:'dust_puff4',t:T})}}else a.mode=null}
+ if(vis&&ok('ship4_hull')){const hx=20,top=y-480;
+  if(flame>0){ctx.globalAlpha=Math.min(1,flame);spr(ctx,'ship4_flame',fr('ship4_flame',T),hx,top+432);ctx.globalAlpha=1}
+  if(glow){ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_engine_glow',fr('ship4_engine_glow',T),hx,top+440);ctx.globalCompositeOperation='source-over'}
+  spr(ctx,'ship4_hull',0,hx,y);if(ok('ship4_hatch')){let hf=5;if(a.mode==='launch'){const tc=t-hatchAt();hf=tc<0?0:Math.min(5,Math.floor(tc/0.05))}else if(a.mode!=='land'&&(s.st==='docked'||s.st==='turn'))hf=0;spr(ctx,'ship4_hatch',hf,hx-160+SPR.ship4_hatch.px,top+SPR.ship4_hatch.py)}
+  ctx.globalCompositeOperation='lighter';spr(ctx,'ship4_navlights',fr('ship4_navlights',T),hx-160+108,top+163);ctx.globalCompositeOperation='source-over'}
+ ctx.save();ctx.strokeStyle='rgba(255,179,71,.95)';ctx.lineWidth=3;ctx.setLineDash([8,8]);ctx.lineDashOffset=-(T*36)%16;
+ ctx.beginPath();ctx.moveTo(150,deck+20);ctx.lineTo(460,deck+20);ctx.stroke();ctx.restore();
+ if(ok('cargo_mule')){const u=(T%6)/6;ctx.save();ctx.translate(160+260*u,deck+8);spr(ctx,'cargo_mule',fr('cargo_mule',T),0,0);if(ok('loaded_box_pulse'))spr(ctx,'loaded_box_pulse',0,6,-20);ctx.restore()}
+ FX.filter(o=>o.type==='dock').forEach(o=>{const q=frOnce(o.key,T-o.t);if(SPR[o.key]&&q<SPR[o.key].n)spr(ctx,o.key,q,20,deck)});
+ ctx.restore();
+ label(150,40,'TO CARGO DOCK','#ffb347',12);
+ const L=shipLoad(),Y=L+loose();
+ if(s.st==='docked'&&a.mode!=='launch')pillBtn(0,-360,L?`🚀 ${L} of ${Y} loaded`:'Crane is loading…',L>0);
+ else if(s.st==='trip')label(0,-360,`🚀 To Earth: ${mmss((s.t/1000+tripSec(s)-gnow()/1000)/SPEED)}`,'#eaf2ff',15);
+ else if(s.st==='turn')label(0,-360,`🔧 On the pad ${mmss((s.t/1000+turnSec()-gnow()/1000)/SPEED)}`,'#eaf2ff',15);
+}
 function easeOutBack(t,c1=1.70158){const c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)}
 const easeOutCubic=t=>1-Math.pow(1-t,3),easeInOutCubic=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 // =====================================================================
@@ -1029,7 +1040,7 @@ const toLogical=(cx,cy)=>({x:cx/SC-OX,y:cy/SC});
 // Vertical scroll on EVERY station: the topmost thing drawn (tower roof / dock status pill) must be able to clear the HUD.
 // hudClear = bottom of the goal card (CSS px include env(safe-area-inset-top)) + 14, converted to logical units.
 function hudClear(){const g=$('#goal'),r=g&&g.offsetParent&&g.getBoundingClientRect();const css=r&&r.height?r.bottom:(($('#hud')||{}).getBoundingClientRect?.().bottom||190);return css/SC+14}
-function stopTop(s){if(s.kind==='tower'){const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);return HOR+floorBottom(n-1)*TS-200*TS-70}if(s.kind==='dock')return HOR-412;return HOR-200}   // dock: status pill + ship nose
+function stopTop(s){if(s.kind==='pad')return HOR-400;if(s.kind==='tower'){const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);return HOR+floorBottom(n-1)*TS-200*TS-70}if(s.kind==='dock')return HOR-220;return HOR-200}
 function maxScroll(){const s=STOPS[site];const top=stopTop(s);let m=Math.max(0,hudClear()-(top+OY));if(s.kind==='tower')m=Math.max(m,-(top+OY)+300);return Math.max(m,60)}   // always at least a little travel so a vertical drag never feels dead
 let g0=null,dockPan=0;const PANMAX=60;   // dock stop: sideways pan over the 760-wide art (screen pts)
 // Gestures: one set of handlers fed by TOUCH events on touch devices (iOS Safari can cancel touch pointer streams, e.g. after a reload,
@@ -1063,7 +1074,8 @@ addEventListener('pointercancel',e=>{if(mouseLike(e))gEnd(e.clientX,e.clientY,tr
 addEventListener('pointerup',e=>{if(mouseLike(e))gEnd(e.clientX,e.clientY)});
 function goSite(k,instant){k=Math.max(0,Math.min(STOPS.length-1,k));const from=cam.rot,to=k*CFG.rotPerSlot;cam.anim=instant?null:{from,to,t0:T,d:0.45};if(instant)cam.rot=to;if(k!==site)dockPan=0;if(k!==site){site=k;cam.y=0;cam.vy=0;const s=STOPS[k];if(siteOpen(s.bi))ensureBuildingArt(s.bi);if(k>=1&&k<=3)ensureBuildingArt(stopOfDock())}hud();wrenchUI()}
 function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind==='dock'?dockPan:0))/TS,ly=(p.y-(OY+cam.y)-f.y)/TS;
- if(s.kind==='dock'){if(Math.abs(ly+408)<28&&Math.abs(lx)<180&&S.ship.st==='docked'){const L=shipLoad(),Y=L+loose();if(launchShip()){shipAnim.mode='launch';shipAnim.t0=T;shipAnim.smoke=0;toast('🚀 Cargo away · '+L+' of '+Y+' loaded · '+fmt(shipValue(S.ship))+' · back in '+mmss(tripSec(S.ship)/SPEED))}else toast('Nothing in the hold yet. The crane is still loading.')}else openDock();return}
+ if(s.kind==='pad'){if(Math.abs(ly+360)<28&&Math.abs(lx)<180&&S.ship.st==='docked'){const L=shipLoad(),Y=L+loose();if(launchShip()){shipAnim.mode='launch';shipAnim.t0=T;shipAnim.smoke=0;toast('🚀 Cargo away · '+L+' of '+Y+' loaded · '+fmt(shipValue(S.ship))+' · back in '+mmss(tripSec(S.ship)/SPEED))}else toast('Nothing in the hold yet. The crane is still loading at the Cargo Dock.')}return}
+ if(s.kind==='dock'){openDock();return}
  const bi=s.bi,n=floorsBuilt(bi),fl=BUILDINGS[bi].floors;
  if(n===0){if(siteOpen(bi)&&Math.abs(ly-(emptyFloorSite(bi)?-60:-138))<24&&Math.abs(lx)<160){const nf=nextFloor(bi),i=IDX[nf.id],w=lockReason(i);if(w)toast('🔒 '+w);else buyFloor(i)}else if(!siteOpen(bi))toast(BUILDINGS[bi].soon?'Coming soon':'🔒 Build 3 Life Support floors first');return}
  const k=Math.floor((floorBottom(0)-ly)/120);

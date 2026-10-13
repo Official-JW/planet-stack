@@ -200,6 +200,11 @@
 ## r23 (10:40 PT) — mining truck drives the cave
 - The still truck is off the yard sheet. The 3D truck leaves the Rover Bay, drives down into the cave, disappears, comes back out, and drives into the bay. About an 8 second loop. No price changes.
 
+## r24 (10:45 PT) — Takeoff & Landing is its own stop
+- Swipe order is now Life Support, Mine, Takeoff & Landing, Cargo Space Dock, Habitat, Shipyard, Engineering.
+- The ship, fuel tanks, and launch button sit on Takeoff & Landing. A mule wheels a crate off that pad toward the Cargo Dock. The crane stays on the dock. No price changes. Saves are unchanged.
+
+
 
 
 
