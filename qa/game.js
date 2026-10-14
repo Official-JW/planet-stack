@@ -74,7 +74,7 @@ const F=[];BUILDINGS.forEach((b,bi)=>b.floors.forEach((d,k)=>{d.b=bi;d.k=k;d.rol
 const IDX={};F.forEach((d,i)=>IDX[d.id]=i);
 F.forEach(d=>{d.tierInfo={};CFG.tierLevels.forEach(L=>{const t=Object.assign({},TIER_DEFAULTS[L],(FLOOR_TIERS[d.id]||{})[L]);if(d.role==='shop'){if(t.shopName)t.name=t.shopName;if(t.shopEffect)t.effect=t.shopEffect}d.tierInfo[L]=t})});
 const $=s=>document.querySelector(s);
-setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#demo');if(d)d.remove()},800);
+setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#demo');if(d)d.remove();startLoop()},800);
 // =====================================================================
 // ART: @3x or @2x WebP set by DPR; lazy groups per building
 // =====================================================================
@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:14 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:20 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -1082,6 +1082,7 @@ function frame(now){requestAnimationFrame(frame);try{{const g=$('#goal'),r=g&&g.
  render();hintDraw();hudAcc+=dt;if(hudAcc>0.25){hudAcc=0;hud();hintTick();if(bgDone)BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})}saveAcc+=dt;if(saveAcc>5){saveAcc=0;save()}
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
  }catch(e){const t=document.getElementById('pvtag');if(t&&!t.dataset.err){t.dataset.err=1;t.textContent='ERR '+(e&&e.message||e)}}}
+function startLoop(){if(startLoop.on)return;startLoop.on=1;requestAnimationFrame(t=>{last=t;frame(t)})}
 // offline catch-up
 // Welcome back: display:none unless showing (no invisible hit area ever); shown as the LAST body child on its own layer above the canvas/HUD;
 // COLLECT answers pointerup/touchend/click (first wins); dismiss removes pointer events at once and display after the fade.
@@ -1103,11 +1104,11 @@ function offline(){const now=Date.now(),rt0=S.rt,away=Math.min(CFG.offlineCapSec
 // boot: first screen = core + Life Support; then stream the Mine (preview → starter pack), Habitat, fx in the background
 let bgDone=false;
 (async function boot(){resize();document.querySelectorAll('img[data-ui]').forEach(im=>im.src=ui(im.dataset.ui));
- const bar=$('#lbar');await Promise.all([loadGroup('core',p=>bar.style.width=(p*80)+'%'),loadGroup('life',p=>{})]);bar.style.width='100%';
+ const bar=$('#lbar');await Promise.all([loadGroup('core',p=>{if(bar)bar.style.width=(p*80)+'%'}),loadGroup('life',p=>{})]);if(bar)bar.style.width='100%';
  if(SPR.ground_strip&&SPR.ground_strip.ready){GSTRIP.p=1;GSTRIP.done=true;GSTRIP.t0=1}   // painted ground is on the first screen — don't flash the old gray ground
  ensureLook(elevLook(0));
  offline();econ();crewSync();hud();devUI();
- {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');L.style.pointerEvents='none';L.style.opacity=0;setTimeout(()=>{L.remove();inputReady=true},500);/* the fading loader no longer catches taps; touch input turns on when it is gone */requestAnimationFrame(t=>{last=t;frame(t)});document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
+ {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');if(L){L.style.pointerEvents='none';L.style.opacity=0;setTimeout(()=>{if(L.parentNode)L.remove();inputReady=true},500)}startLoop();document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
  await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('mine_later_dump');loadGroup('fx_later_upgrade_burst');loadGroup('floors_later_offscreen');tryJSON(ART+SPR.ground_strip.path+'.json').then(j=>{if(j){GSTRIP.tileWidth=j.tileWidth||GSTRIP.tileWidth;GSTRIP.groundLineY=j.groundLineY??GSTRIP.groundLineY;GSTRIP.h=(j.logicalSize&&j.logicalSize.h)||GSTRIP.h;IMG_SIZE.ground_strip=[GSTRIP.tileWidth,GSTRIP.h,0,0]}});loadGroup('ground_later_strip').then(()=>{const S=SPR.ground_strip;if(S.ready){S.w=GSTRIP.tileWidth;S.h=GSTRIP.h;const im=S.img;Promise.resolve(im&&im.decode?im.decode():null).catch(()=>{}).then(()=>{
    // warm the GPU upload with an invisible draw, then start the 200 ms fade on the NEXT frame: no decode hitch mid-fade
