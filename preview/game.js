@@ -374,8 +374,8 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 1:46 · ON'}
- if(window.__truckEl)window.__truckEl.style.visibility='hidden';
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 2:41 · ON'}
+ truckOn=false;
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -390,7 +390,7 @@ function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&
  drawWalkways();   // after the ground so footings sit on it, before every tower so the joints hide behind the walls
  vis.forEach(drawStop);
  drawWalkways(true);
- drawFX();ctx.restore()}
+ drawFX();ctx.restore();if(!truckOn&&window.__truckEl)window.__truckEl.style.visibility='hidden'}
 let curStopA=0,armT=-99;
 // ----- flat regolith ground (procedural, opaque): tile TW pt wide, repeats while panning. Depth gradient, craters and boulders with hard shadows, strata at the bottom.
 const GTW=1000,GTH=330,gC=document.createElement('canvas'),gX=gC.getContext('2d');let gK=0;
@@ -672,24 +672,26 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
 const TRUCK=document.createElement('img');
-TRUCK.src='art/moon/mine/scene/truck-real.png?v=1346';
+TRUCK.src='art/moon/mine/scene/truck-real.png?v=1441';
 TRUCK.alt='';
-TRUCK.style.cssText='position:fixed;z-index:4;pointer-events:none;visibility:hidden';
+TRUCK.style.cssText='position:fixed;left:0;top:0;z-index:4;pointer-events:none;visibility:hidden;will-change:transform';
 document.body.appendChild(TRUCK);window.__truckEl=TRUCK;
-// The truck is a real page image, not a canvas drawing, so the whole picture moves.
+let truckOn=false;
+// Whole truck. Moved with translate3d so the phone repaints it. Not hidden and shown every frame.
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- const nw=TRUCK.naturalWidth||217,nh=TRUCK.naturalHeight||49,sc=560/1500,tw=nw*sc,th=nh*sc;
+ const nw=TRUCK.naturalWidth||280,nh=TRUCK.naturalHeight||96,sc=560/1500,tw=nw*sc,th=nh*sc;
  const ease=t=>t*t*(3-2*t),park=yardPt(900,348),cave=yardPt(250,330);
- const u=T%12,k=u<6?ease(u/6):ease(1-(u-6)/6);
+ const u=T%10,k=u<5?ease(u/5):ease(1-(u-5)/5);
  const p={x:park.x+(cave.x-park.x)*k,y:park.y+(cave.y-park.y)*k};
  const par=f?(f.x-195)*(FG.par-1)/TS:0;
  const wx=snap(f.x)+(par+p.x-tw/2)*TS,wy=snap(OY+cam.y)+snap(f.y)+(p.y-th)*TS;
  const bw=cv.width||1,bh=cv.height||1,sx=(cv.clientWidth||bw)/bw,sy=(cv.clientHeight||bh)/bh;
+ const x=DPR*SC*(OX+wx)*sx,y=DPR*SC*wy*sy,w=tw*TS*DPR*SC*sx,h=th*TS*DPR*SC*sy;
+ truckOn=true;
  TRUCK.style.visibility='visible';
- TRUCK.style.left=(DPR*SC*(OX+wx)*sx)+'px';
- TRUCK.style.top=(DPR*SC*wy*sy)+'px';
- TRUCK.style.width=(tw*TS*DPR*SC*sx)+'px';
- TRUCK.style.height=(th*TS*DPR*SC*sy)+'px'}
+ TRUCK.style.width=w+'px';
+ TRUCK.style.height=h+'px';
+ TRUCK.style.transform='translate3d('+x+'px,'+y+'px,0)';}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
