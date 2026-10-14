@@ -131,7 +131,7 @@ const groupState={};
 async function tryJSON(p){try{const r=await fetch(p);if(r.ok)return await r.json()}catch(e){}return null}
 function getImg1(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src})}
 async function getImg(src){for(let a=0;a<4;a++){const im=await getImg1(a?src+(src.includes('?')?'&':'?')+'retry='+a:src);if(im)return im;if(a<3)await new Promise(r=>setTimeout(r,400*(a+1)))}return null}   // a failed load (e.g. a 503) is retried 3 times
-const bmp=async im=>{if(!im)return null;const w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;if(!w||!h)return null;const MAX=2048;if(w<=MAX&&h<=MAX)return im;const s=Math.min(MAX/w,MAX/h),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*s));c.height=Math.max(1,Math.round(h*s));c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c};
+const bmp=async im=>{if(!im)return null;let src=im;const w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;if(!w||!h)return null;const MAX=2048;if(w>MAX||h>MAX){const s=Math.min(MAX/w,MAX/h),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*s));c.height=Math.max(1,Math.round(h*s));c.getContext('2d').drawImage(im,0,0,c.width,c.height);src=c}try{const b=await createImageBitmap(src);if(b&&b.width)return b}catch(e){}return src};
 let loadedBytes=0;
 async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.loading;
  s.loading=(async()=>{
@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:10 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:14 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
