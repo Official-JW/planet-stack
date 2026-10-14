@@ -131,9 +131,7 @@ const groupState={};
 async function tryJSON(p){try{const r=await fetch(p);if(r.ok)return await r.json()}catch(e){}return null}
 function getImg1(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src})}
 async function getImg(src){for(let a=0;a<4;a++){const im=await getImg1(a?src+(src.includes('?')?'&':'?')+'retry='+a:src);if(im)return im;if(a<3)await new Promise(r=>setTimeout(r,400*(a+1)))}return null}   // a failed load (e.g. a 503) is retried 3 times
-const bmp=async im=>{if(!im)return null;try{const b=await createImageBitmap(im);if(b&&b.width)return b}catch(e){}
- try{if(im.src){const b=await createImageBitmap(await (await fetch(im.src)).blob());if(b&&b.width)return b}}catch(e){}
- const w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;if(!w||!h)return null;const c=document.createElement('canvas');c.width=w;c.height=h;try{c.getContext('2d').drawImage(im,0,0)}catch(e){}return c};
+const bmp=async im=>{if(!im)return null;const w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;if(!w||!h)return null;const MAX=2048;if(w<=MAX&&h<=MAX)return im;const s=Math.min(MAX/w,MAX/h),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*s));c.height=Math.max(1,Math.round(h*s));c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c};
 let loadedBytes=0;
 async function loadSprite(key){const s=SPR[key];if(s.ready||s.loading)return s.loading;
  s.loading=(async()=>{
@@ -376,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 7:55 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:10 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -432,10 +430,10 @@ let gsLast=0;function stripTick(now){if(!GSTRIP.t0||GSTRIP.done)return;const dt=
 function drawGround(rx){const S=SPR.ground_strip,fa=GSTRIP.t0?easeIO(GSTRIP.p||0):0,bottom=H/SC-(OY+cam.y)+40,strip=fa>0&&S&&S.img;
  if(!strip||fa<1){buildGround();ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
   const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
- if(strip){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h;ctx.save();ctx.globalAlpha=fa;
+ if(strip){try{const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h;ctx.save();ctx.globalAlpha=fa;
   ctx.fillStyle='#2e2c2a';ctx.fillRect(-OX-2,top+GH-1,W/SC+4,Math.max(0,bottom-top-GH+1));   // below the strip: same dark rock as its strata edge
   const ox=-(((rx%TW)+TW)%TW);for(let x=ox-OX-TW;x<W/SC-OX+TW;x+=TW){const dx=Math.round(x*SC*DPR)/(SC*DPR);ctx.drawImage(S.img,0,0,S.img.width,S.img.height,dx,top,TW+1/(SC*DPR),GH)}   // device-pixel-snapped, 1 device px overlap: no hairline seams
-  ctx.restore()}}
+  ctx.restore()}catch(e){try{ctx.restore()}catch(x){}}}}
 // every building stands on a flat foundation pad with a contact shadow (replaces the curved globe base)
 function dockPlinth(){const w=420;ctx.save();ctx.globalAlpha=.35;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,5,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
  const g=ctx.createLinearGradient(0,-26,0,6);g.addColorStop(0,'#5a5f69');g.addColorStop(1,'#3a3d44');ctx.fillStyle=g;ctx.fillRect(-w/2,-26,w,32);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(-w/2,5,w,1)}   // solid plinth under the dock deck: nothing see-through
@@ -1024,7 +1022,8 @@ function endHint(){hintOn=false;S.hint=1;$('#hint').style.display='none';save()}
 const toLogical=(cx,cy)=>({x:cx/SC-OX,y:cy/SC});
 // Vertical scroll on EVERY station: the topmost thing drawn (tower roof / dock status pill) must be able to clear the HUD.
 // hudClear = bottom of the goal card (CSS px include env(safe-area-inset-top)) + 14, converted to logical units.
-function hudClear(){const g=$('#goal'),r=g&&g.offsetParent&&g.getBoundingClientRect();const css=r&&r.height?r.bottom:(($('#hud')||{}).getBoundingClientRect?.().bottom||190);return css/SC+14}
+let hudCss=190,hudAt=0;
+function hudClear(){const now=performance.now();if(now-hudAt>500){hudAt=now;const g=$('#goal'),r=g&&g.getBoundingClientRect();hudCss=r&&r.height?r.bottom:190}return hudCss/SC+14}
 function stopTop(s){if(s.kind==='pad')return HOR-400;if(s.kind==='tower'){const n=Math.min(CFG.maxFloors,floorsBuilt(s.bi)+1);return HOR+floorBottom(n-1)*TS-200*TS-70}if(s.kind==='dock')return HOR-220;return HOR-200}
 function maxScroll(){const s=STOPS[site];const top=stopTop(s);let m=Math.max(0,hudClear()-(top+OY));if(s.kind==='tower')m=Math.max(m,-(top+OY)+300);return Math.max(m,60)}   // always at least a little travel so a vertical drag never feels dead
 let g0=null,dockPan=0;const PANMAX=60;   // dock stop: sideways pan over the 760-wide art (screen pts)
