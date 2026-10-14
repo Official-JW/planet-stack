@@ -78,7 +78,7 @@ setTimeout(()=>{const L=$('#load');if(L)L.remove();inputReady=true;const d=$('#d
 // =====================================================================
 // ART: @3x or @2x WebP set by DPR; lazy groups per building
 // =====================================================================
-const DEV_DPR=Math.min(3,window.devicePixelRatio||1);
+const DEV_DPR=Math.min(2,window.devicePixelRatio||1);
 const ART=`art/moon/${DEV_DPR>2?'@3x':'@2x'}/`;
 const SPR={};   // key → {path, group, atlas?|floor?} ; filled when loaded
 function def(key,path,group,kind){SPR[key]={path,group,kind:kind||'atlas'}}
@@ -377,9 +377,9 @@ function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew
 function render(){const box=viewBox();if(box.w>20&&(cv.width<20||Math.abs(cv.width-Math.round(box.w*DPR))>2||Math.abs(cv.height-Math.round(box.h*DPR))>2))resize();if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#071428';ctx.fillRect(0,0,cv.width,cv.height);smooth(ctx);
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
- try{if(ok('sky'))ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
- try{ctx.save();ctx.translate(0,syy);if(ok('stars')){ctx.drawImage(SPR.stars.img,sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars.img,sx-390,0,390,844)}
- if(ok('stars_twinkle')){const tw=0.675+0.325*Math.sin(T*Math.PI*2/2.4);ctx.globalAlpha=Math.max(0,Math.min(1,tw));ctx.drawImage(SPR.stars_twinkle.img,sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars_twinkle.img,sx-390,0,390,844);
+ try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
+ try{ctx.save();ctx.translate(0,syy);if(ok('stars')&&SPR.stars.img.height<=2048){ctx.drawImage(SPR.stars.img,sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars.img,sx-390,0,390,844)}
+ if(ok('stars_twinkle')&&SPR.stars_twinkle.img.height<=2048){const tw=0.675+0.325*Math.sin(T*Math.PI*2/2.4);ctx.globalAlpha=Math.max(0,Math.min(1,tw));ctx.drawImage(SPR.stars_twinkle.img,sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars_twinkle.img,sx-390,0,390,844);
   ctx.globalAlpha=Math.max(0,Math.min(1,1.35-tw));ctx.scale(-1,1);ctx.drawImage(SPR.stars_twinkle.img,-390-sx,0,390,844);if(sx>0.5)ctx.drawImage(SPR.stars_twinkle.img,-sx,0,390,844)}
  ctx.restore()}catch(e){try{ctx.restore()}catch(x){}}ctx.globalAlpha=1;
  try{if(ok('earth'))ctx.drawImage(SPR.earth.img,40-rx*0.1,90+OY*0.4+cam.y*0.1+Math.sin(T*Math.PI*2/20)*2,120,120)}catch(e){}
@@ -430,14 +430,14 @@ let gsLast=0;function stripTick(now){if(!GSTRIP.t0||GSTRIP.done)return;const dt=
 function drawGround(rx){const S=SPR.ground_strip,fa=GSTRIP.t0?easeIO(GSTRIP.p||0):0,bottom=H/SC-(OY+cam.y)+40;
  if(fa<1){buildGround();ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
   const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
- if(fa>0){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h,sc=S.img.width/TW;ctx.save();ctx.globalAlpha=fa;
+ if(fa>0&&S&&S.img&&S.img.width<=2048&&S.img.height<=2048){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h,sc=S.img.width/TW;ctx.save();ctx.globalAlpha=fa;
   ctx.fillStyle='#2e2c2a';ctx.fillRect(-OX-2,top+GH-1,W/SC+4,Math.max(0,bottom-top-GH+1));   // below the strip: same dark rock as its strata edge
   const ox=-(((rx%TW)+TW)%TW);for(let x=ox-OX-TW;x<W/SC-OX+TW;x+=TW){const dx=Math.round(x*SC*DPR)/(SC*DPR);ctx.drawImage(S.img,0,0,S.img.width,S.img.height,dx,top,TW+1/(SC*DPR),GH)}   // device-pixel-snapped, 1 device px overlap: no hairline seams
   ctx.restore()}}
 // every building stands on a flat foundation pad with a contact shadow (replaces the curved globe base)
-function dockPlinth(){const w=420;ctx.save();ctx.globalAlpha=.5;ctx.fillStyle='#000';ctx.filter='blur(3px)';ctx.beginPath();ctx.ellipse(0,5,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
+function dockPlinth(){const w=420;ctx.save();ctx.globalAlpha=.5;ctx.fillStyle='#000';try{ctx.filter='blur(3px)'}catch(e){}ctx.beginPath();ctx.ellipse(0,5,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
  const g=ctx.createLinearGradient(0,-26,0,6);g.addColorStop(0,'#5a5f69');g.addColorStop(1,'#3a3d44');ctx.fillStyle=g;ctx.fillRect(-w/2,-26,w,32);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(-w/2,5,w,1)}   // solid plinth under the dock deck: nothing see-through
-function foundation(){const w=440,h=10;ctx.save();ctx.globalAlpha=.55;ctx.fillStyle='#000';ctx.filter='blur(3px)';ctx.beginPath();ctx.ellipse(0,h-1,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
+function foundation(){const w=440,h=10;ctx.save();ctx.globalAlpha=.55;ctx.fillStyle='#000';try{ctx.filter='blur(3px)'}catch(e){}ctx.beginPath();ctx.ellipse(0,h-1,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
  const g=ctx.createLinearGradient(0,-4,0,h);g.addColorStop(0,'#a3a6ad');g.addColorStop(0.35,'#7d8088');g.addColorStop(1,'#4c4e55');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-w/2,h);ctx.lineTo(-w/2+6,-4);ctx.lineTo(w/2-6,-4);ctx.lineTo(w/2,h);ctx.closePath();ctx.fill();
  ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(-w/2+6,-4,w-12,1);ctx.fillStyle='rgba(0,0,0,.25)';for(let x=-w/2+40;x<w/2-20;x+=60)ctx.fillRect(x,-3,1,h+2)}
 // flat steel base band under the tower (top strip of tower_base_400; the old curved underside is gone)
