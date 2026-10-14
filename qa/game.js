@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:35 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:42 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -465,7 +465,7 @@ function drawWalkways(capsPass){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('
 function drawStop(o){const {s,f}=o;curStopA=0;ctx.save();
  ctx.translate(snap(f.x),snap(f.y));   // upright, always
  ctx.scale(TS,TS);const atRest=s.kind==='dock'?Math.abs(f.a)<0.0004:true;   // no rotation: the static tower cache is valid while panning too
- if(BUILDINGS[s.bi].id==='mine'){drawApprovedYard(f);drawYardTruck()}   // truck is behind the tower so the bay hides it as it pulls in
+ if(BUILDINGS[s.bi].id==='mine'){drawApprovedYard(f);drawYardTruck(f)}   // truck is behind the tower so the bay hides it as it pulls in
  if(s.kind==='pad'){drawLaunchPad();ctx.restore();return}
  if(s.kind!=='dock')foundation();else dockPlinth();
  if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest)}
@@ -669,21 +669,22 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=0935';
-// Whole truck, transparent around it, never flipped. It drives the road into the cave, then across to the rover bay.
-function drawYardTruck(){if(!S.f.rover||!S.f.rover.built||!(DUMP.complete&&DUMP.naturalWidth))return;
- const sc=560/1500,tw=DUMP.naturalWidth*sc,th=DUMP.naturalHeight*sc;
- const park=yardPt(880,360),mouth=yardPt(360,352),deep=yardPt(250,348),bay=yardPt(1180,358);
- const C=12,u=T%C,slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
- let p,al=1;
- if(u<3.4)p=slide(park,mouth,u/3.4);
- else if(u<4.3){const t=(u-3.4)/0.9;p=slide(mouth,deep,t);al=t<0.35?1:1-(t-0.35)/0.65}
- else if(u<5.5)return;
- else if(u<6.4){const t=(u-5.5)/0.9;p=slide(deep,mouth,t);al=Math.min(1,t/0.35)}
- else if(u<9.8)p=slide(mouth,park,(u-6.4)/3.4);
- else{const t=Math.min(1,(u-9.8)/2.2);p=slide(park,bay,t);al=t<0.72?1:1-(t-0.72)/0.28}
- ctx.save();ctx.translate(p.x,p.y);ctx.globalAlpha=Math.max(0,Math.min(1,al));
- ctx.drawImage(DUMP,-tw/2,-th,tw,th);ctx.restore()}
+const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=0942';
+// Side view, never flipped. Drives to the cave, shrinks as it goes down the tunnel, comes back out full size, then into the rover bay.
+function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built||!(DUMP.complete&&DUMP.naturalWidth))return;
+ const sc0=560/1500,tw=DUMP.naturalWidth*sc0,th=DUMP.naturalHeight*sc0;
+ const park=yardPt(880,362),mouth=yardPt(500,358),hole=yardPt(300,292),door=yardPt(1040,356),inside=yardPt(1140,330);
+ const ease=t=>t*t*(3-2*t),slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+ const C=14,u=T%C;let p,s=1,al=1;
+ if(u<3)p=slide(park,mouth,ease(u/3));
+ else if(u<5.6){const t=ease((u-3)/2.6);p=slide(mouth,hole,t);s=1-t*0.82;al=t<0.72?1:1-(t-0.72)/0.28}
+ else if(u<6.8)return;
+ else if(u<9.2){const t=ease((u-6.8)/2.4);p=slide(hole,mouth,t);s=0.18+t*0.82;al=Math.min(1,t/0.28)}
+ else if(u<12)p=slide(mouth,door,ease((u-9.2)/2.8));
+ else{const t=ease(Math.min(1,(u-12)/2));p=slide(door,inside,t);s=1-t*0.5;al=t<0.45?1:1-(t-0.45)/0.55}
+ const par=f?(f.x-195)*(FG.par-1)/TS:0;
+ ctx.save();ctx.translate(par+p.x,p.y);ctx.globalAlpha=Math.max(0,Math.min(1,al));
+ ctx.drawImage(DUMP,-tw*s/2,-th*s,tw*s,th*s);ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
