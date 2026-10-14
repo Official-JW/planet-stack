@@ -24,7 +24,7 @@ const CFG={
   craneSpeed:0.04,crewSpeed:0.03,padHoldPer2:1,refuelPerLvl:0.015,refuelMin:0.3},
 };
 const QS=new URLSearchParams(location.search);
-const IS_QA=location.pathname.includes('/qa/')||location.port==='8080',IS_PREVIEW=location.pathname.includes('/preview/')||IS_QA||location.port==='8765';   // /qa/ or the local preview = Playtester build   // dev server counts as preview
+const IS_QA=location.pathname.includes('/qa/')||location.port==='8080',IS_PREVIEW=location.pathname.includes('/preview/')||IS_QA||location.port==='8765'||!!window.__DEVBUILD;   // this file is the preview build even when the phone opens it through a proxy
 const DEV=IS_PREVIEW&&QS.get('dev')==='1';   // ?dev=1 is ignored on the live root
 const SPEED=Math.max(0.1,+QS.get('speed')||1),DBG=QS.has('dbg');
 // ----- buildings (order on the Moon). Max 10 floors each. -----
@@ -347,6 +347,8 @@ function goalTick(){let g=GOALS[S.step];if(!g){S.step=GOALS.length-1;g=GOALS[S.s
 // RENDER
 // =====================================================================
 const cv=$('#cv'),ctx=cv.getContext('2d');
+cv.addEventListener('contextlost',e=>e.preventDefault());
+cv.addEventListener('contextrestored',()=>{skyC=null});
 let W=390,H=844,DPR=DEV_DPR,SC=1,OY=0,OX=0,TS=0.93;
 const snap=v=>Math.round(v*DPR*SC)/(DPR*SC);
 function smooth(c){c.imageSmoothingEnabled=true;try{c.imageSmoothingQuality='high'}catch(e){}}
@@ -374,7 +376,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){const box=viewBox();if(box.w>20&&(cv.width<20||Math.abs(cv.width-Math.round(box.w*DPR))>2||Math.abs(cv.height-Math.round(box.h*DPR))>2))resize();if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#071428';ctx.fillRect(0,0,cv.width,cv.height);smooth(ctx);
+function render(){const box=viewBox();if(box.w>20&&(cv.width<20||Math.abs(cv.width-Math.round(box.w*DPR))>2||Math.abs(cv.height-Math.round(box.h*DPR))>2))resize();if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 7:50 · ON'}smooth(ctx);
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -1081,6 +1083,7 @@ function frame(now){requestAnimationFrame(frame);try{{const g=$('#goal'),r=g&&g.
  render();hintDraw();hudAcc+=dt;if(hudAcc>0.25){hudAcc=0;hud();hintTick();if(bgDone)BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})}saveAcc+=dt;if(saveAcc>5){saveAcc=0;save()}
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
  }catch(e){const t=document.getElementById('pvtag');if(t&&!t.dataset.err){t.dataset.err=1;t.textContent='ERR '+(e&&e.message||e)}}}
+setInterval(()=>{if(performance.now()-last<800)return;try{render()}catch(e){}},500);
 // offline catch-up
 // Welcome back: display:none unless showing (no invisible hit area ever); shown as the LAST body child on its own layer above the canvas/HUD;
 // COLLECT answers pointerup/touchend/click (first wins); dismiss removes pointer events at once and display after the fade.
