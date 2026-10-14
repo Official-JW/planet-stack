@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 11:55 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 12:05 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -662,7 +662,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/mine_road.png?v=1052';
+const YARD=new Image();YARD.src='art/moon/mine/scene/mine_road.png?v=1205';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -670,22 +670,16 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1052';
-// The parked truck, drawn whole. rot pivots that whole truck as it turns into the mine.
-function drawRig(faceRight,rot){if(!DUMP.complete||!DUMP.naturalWidth)return;const sc=560/1500,tw=DUMP.naturalWidth*sc,th=DUMP.naturalHeight*sc;
- ctx.save();if(faceRight)ctx.scale(-1,1);ctx.rotate(rot);ctx.drawImage(DUMP,-tw/2,-th,tw,th);ctx.restore()}
-function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
+const DUMP=new Image();DUMP.src='art/moon/mine/scene/dump_truck.png?v=1205';
+// One picture of the parked truck. It only slides. No spin, no fade, no separate bed.
+function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built||!(DUMP.complete&&DUMP.naturalWidth))return;
+ const sc=560/1500,tw=DUMP.naturalWidth*sc,th=DUMP.naturalHeight*sc;
  const ease=t=>t*t*(3-2*t),slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
- const park=yardPt(880,345),mouth=yardPt(430,342),hole=yardPt(240,300);
- const C=16,u=T%C;let p,face=false,rot=0,s=1,al=1;
- if(u<4.5)p=slide(park,mouth,ease(u/4.5));
- else if(u<8){const t=ease((u-4.5)/3.5);p=slide(mouth,hole,t);rot=-t*0.85;s=1-t*0.28;al=t<0.75?1:1-(t-0.75)/0.25}
- else if(u<9.2)return;
- else if(u<12.2){const t=ease((u-9.2)/3);face=true;p=slide(hole,mouth,t);rot=-(1-t)*0.85;s=0.72+t*0.28;al=Math.min(1,0.15+t)}
- else{face=true;p=slide(mouth,park,ease(Math.min(1,(u-12.2)/3.5)))}
+ const park=yardPt(880,348),cave=yardPt(280,330);
+ const C=14,u=T%C,t=u<7?ease(u/7):ease(Math.max(0,(14-u)/7));
+ const p=slide(park,cave,t);
  const par=f?(f.x-195)*(FG.par-1)/TS:0;
- ctx.save();ctx.translate(par+p.x,p.y);ctx.globalAlpha=Math.max(0,Math.min(1,al));ctx.scale(s,s);
- drawRig(face,rot);ctx.restore()}
+ ctx.save();ctx.translate(par+p.x,p.y);ctx.drawImage(DUMP,-tw/2,-th,tw,th);ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
