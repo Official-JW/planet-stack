@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 10:06 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 10:10 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -670,15 +670,15 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const EMPTY=new Image();EMPTY.src='art/moon/mine/scene/dump_truck.png?v=1006';
-const FULL=new Image();FULL.src='art/moon/mine/scene/dump_truck_full.png?v=1006';
-// Sprite faces left (cab on the left). faceRight mirrors the whole truck. tip 0..1 lifts the bed.
-function drawRig(img,faceRight,tip){if(!img.complete||!img.naturalWidth)return;const sc=560/1500*1.35,tw=img.naturalWidth*sc,th=img.naturalHeight*sc,cut=0.72;
+const EMPTY=new Image();EMPTY.src='art/moon/mine/scene/dump_truck.png?v=1010';
+const FULL=new Image();FULL.src='art/moon/mine/scene/dump_truck_full.png?v=1010';
+// Whole truck. Cab is on the left. faceRight turns the entire truck around. tip lifts only the bed.
+function drawRig(img,faceRight,tip){if(!img.complete||!img.naturalWidth)return;const tw=130,th=tw*img.naturalHeight/img.naturalWidth;
  ctx.save();ctx.scale(faceRight?-1:1,1);
- if(tip<0.04)ctx.drawImage(img,-tw/2,-th,tw,th);
- else{const hw=img.naturalWidth*cut;ctx.drawImage(img,0,0,hw,img.naturalHeight,-tw/2,-th,tw*cut,th);
-  const bx=-tw/2+tw*cut,by=-th,hx=bx,hy=by+th*0.3;ctx.translate(hx,hy);ctx.rotate(-tip*1.15);
-  ctx.drawImage(img,hw,0,img.naturalWidth-hw,img.naturalHeight,0,by-hy,tw*(1-cut),th)}
+ if(tip<0.05)ctx.drawImage(img,-tw/2,-th,tw,th);
+ else{const cut=0.52,hw=img.naturalWidth*cut;ctx.drawImage(img,0,0,hw,img.naturalHeight,-tw/2,-th,tw*cut,th);
+  const bx=-tw/2+tw*cut,by=-th;ctx.save();ctx.translate(bx,by+th*0.42);ctx.rotate(-tip*0.95);
+  ctx.drawImage(img,hw,0,img.naturalWidth-hw,img.naturalHeight,0,-th*0.42,tw*(1-cut),th);ctx.restore()}
  ctx.restore()}
 // Empty and facing the cave on the way in. Comes out full, cab pointing away from the cave, drives to the back of the bay, backs in, and dumps.
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
@@ -686,9 +686,9 @@ function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
  const park=yardPt(1100,364),mouth=yardPt(500,360),hole=yardPt(360,318),back=yardPt(1120,364),dumpAt=yardPt(960,362);
  const C=18,u=T%C;let p,face=false,full=false,tip=0,s=1,al=1;
  if(u<3)p=slide(park,mouth,ease(u/3));
- else if(u<5.2){const t=ease((u-3)/2.2);p=slide(mouth,hole,t);s=1-t*0.82;al=t<0.68?1:1-(t-0.68)/0.32}
+ else if(u<5.2){const t=ease((u-3)/2.2);p=slide(mouth,hole,t);s=1-t*0.2;al=t<0.5?1:1-(t-0.5)/0.5}
  else if(u<6.2)return;
- else if(u<8.4){const t=ease((u-6.2)/2.2);face=true;full=true;p=slide(hole,mouth,t);s=0.18+t*0.82;al=Math.min(1,t/0.28)}
+ else if(u<8.4){const t=ease((u-6.2)/2.2);face=true;full=true;p=slide(hole,mouth,t);s=0.8+t*0.2;al=Math.min(1,t/0.25)}
  else if(u<11.2){face=true;full=true;p=slide(mouth,back,ease((u-8.4)/2.8))}
  else if(u<13.4){face=true;full=true;p=slide(back,dumpAt,ease((u-11.2)/2.2))}
  else if(u<15.6){face=true;full=true;p=dumpAt;tip=ease((u-13.4)/2.2)}
