@@ -351,15 +351,15 @@ cv.addEventListener('contextlost',e=>e.preventDefault());
 cv.addEventListener('contextrestored',()=>{skyC=null});
 let W=390,H=844,DPR=DEV_DPR,SC=1,OY=0,OX=0,TS=0.93;
 const snap=v=>Math.round(v*DPR*SC)/(DPR*SC);
-function smooth(c){c.imageSmoothingEnabled=true;try{c.imageSmoothingQuality='high'}catch(e){}}
+function smooth(c){c.imageSmoothingEnabled=true}
 const HOR=560,C={x:195,y:HOR},FOOT_MID=13.67,FX0=-200,SPAN=500;   // flat Moon (no globe): ground line at HOR; stations sit SPAN pt apart on one straight pan
 function viewBox(){const vv=window.visualViewport;return{w:Math.round((vv&&vv.width)||innerWidth||0),h:Math.round((vv&&vv.height)||innerHeight||0)}}
-function resize(){const box=viewBox();if(box.w<20||box.h<20)return false;DPR=DEV_DPR;W=box.w;H=box.h;const cw=Math.round(W*DPR),ch=Math.round(H*DPR);if(cv.width!==cw||cv.height!==ch){cv.width=cw;cv.height=ch}   // never lowered, and never a 0-size canvas (that is the black screen)
+function resize(){const box=viewBox();if(box.w<20||box.h<20)return false;const cw=Math.round(box.w*DEV_DPR),ch=Math.round(box.h*DEV_DPR);if(cv.width===cw&&cv.height===ch&&W===box.w&&H===box.h)return false;DPR=DEV_DPR;W=box.w;H=box.h;cv.width=cw;cv.height=ch;
  SC=Math.max(0.5,Math.round(W/390*DPR*4)/(4*DPR));if(390*SC>W)SC=Math.floor(W/390*DPR*4)/(4*DPR);if(!(SC>0))SC=1;
  OX=snap((W/SC-390)/2);OY=snap(H/SC-844);
  TS=Math.round(Math.min(CFG.towerScale,(W/SC-6)/412)*DPR*SC*4)/(4*DPR*SC);   // tower group fits 390 and lands on a clean device-pixel ratio
  smooth(ctx);skyC=null;gK=0;for(const k in towerCache)delete towerCache[k];dbgText();return true}
-addEventListener('resize',resize);if(window.visualViewport)visualViewport.addEventListener('resize',resize);
+addEventListener('resize',resize);
 function dbgText(fps){if(!DBG)return;let el=$('#dbg');if(!el){el=document.createElement('div');el.id='dbg';document.body.appendChild(el)}
  el.textContent=`devicePixelRatio ${window.devicePixelRatio}\nDPR used ${DPR}\ncanvas ${cv.width}×${cv.height} (${(cv.width/innerWidth).toFixed(2)}×)\nSC ${SC}  tower ${TS.toFixed(4)}\nart ${ART}${fps?`\nfps ${fps}`:''}`}
 const cam={rot:0,y:0,vy:0,anim:null};
@@ -376,7 +376,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){const box=viewBox();if(box.w>20&&(cv.width<20||Math.abs(cv.width-Math.round(box.w*DPR))>2||Math.abs(cv.height-Math.round(box.h*DPR))>2))resize();if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 7:50 · ON'}smooth(ctx);
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 7:55 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -429,17 +429,17 @@ let gsLast=0;function stripTick(now){if(!GSTRIP.t0||GSTRIP.done)return;const dt=
  if(DEV){(GSTRIP.log=GSTRIP.log||[]).push([Math.round(now),+a.toFixed(3)]);console.log(`[ground strip] t=${Math.round(now-GSTRIP.t0)}ms alpha=${a.toFixed(3)}`);let el=$('#gsa');if(!el){el=document.createElement('div');el.id='gsa';el.style.cssText='position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 230px);z-index:20;font:11px ui-monospace,Menlo,monospace;color:#9ff0ff;background:rgba(0,0,0,.6);padding:4px 6px;border-radius:6px;pointer-events:none;white-space:pre';document.body.appendChild(el)}
   el.textContent='strip α '+GSTRIP.log.slice(-8).map(x=>x[1].toFixed(2)).join(' ');if(GSTRIP.p>=1)setTimeout(()=>el.remove(),3000)}
  if(GSTRIP.p>=1)GSTRIP.done=true}
-function drawGround(rx){const S=SPR.ground_strip,fa=GSTRIP.t0?easeIO(GSTRIP.p||0):0,bottom=H/SC-(OY+cam.y)+40;
- if(fa<1){buildGround();ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
+function drawGround(rx){const S=SPR.ground_strip,fa=GSTRIP.t0?easeIO(GSTRIP.p||0):0,bottom=H/SC-(OY+cam.y)+40,strip=fa>0&&S&&S.img;
+ if(!strip||fa<1){buildGround();ctx.fillStyle='#2f2d2b';ctx.fillRect(-OX-2,HOR+GTH-1,W/SC+4,Math.max(0,bottom-HOR-GTH+1));   // solid rock below the tile
   const ox=-(((rx%GTW)+GTW)%GTW);for(let x=ox-OX;x<W/SC-OX+GTW;x+=GTW){ctx.drawImage(gC,0,0,gC.width,gC.height,Math.floor(x),HOR,GTW+0.5,GTH)}}
- if(fa>0&&S&&S.img&&S.img.width<=2048&&S.img.height<=2048){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h,sc=S.img.width/TW;ctx.save();ctx.globalAlpha=fa;
+ if(strip){const TW=GSTRIP.tileWidth,top=HOR-GSTRIP.groundLineY,GH=GSTRIP.h;ctx.save();ctx.globalAlpha=fa;
   ctx.fillStyle='#2e2c2a';ctx.fillRect(-OX-2,top+GH-1,W/SC+4,Math.max(0,bottom-top-GH+1));   // below the strip: same dark rock as its strata edge
   const ox=-(((rx%TW)+TW)%TW);for(let x=ox-OX-TW;x<W/SC-OX+TW;x+=TW){const dx=Math.round(x*SC*DPR)/(SC*DPR);ctx.drawImage(S.img,0,0,S.img.width,S.img.height,dx,top,TW+1/(SC*DPR),GH)}   // device-pixel-snapped, 1 device px overlap: no hairline seams
   ctx.restore()}}
 // every building stands on a flat foundation pad with a contact shadow (replaces the curved globe base)
-function dockPlinth(){const w=420;ctx.save();ctx.globalAlpha=.5;ctx.fillStyle='#000';try{ctx.filter='blur(3px)'}catch(e){}ctx.beginPath();ctx.ellipse(0,5,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
+function dockPlinth(){const w=420;ctx.save();ctx.globalAlpha=.35;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,5,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
  const g=ctx.createLinearGradient(0,-26,0,6);g.addColorStop(0,'#5a5f69');g.addColorStop(1,'#3a3d44');ctx.fillStyle=g;ctx.fillRect(-w/2,-26,w,32);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(-w/2,5,w,1)}   // solid plinth under the dock deck: nothing see-through
-function foundation(){const w=440,h=10;ctx.save();ctx.globalAlpha=.55;ctx.fillStyle='#000';try{ctx.filter='blur(3px)'}catch(e){}ctx.beginPath();ctx.ellipse(0,h-1,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
+function foundation(){const w=440,h=10;ctx.save();ctx.globalAlpha=.4;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,h-1,w*0.54,7,0,0,7);ctx.fill();ctx.restore();
  const g=ctx.createLinearGradient(0,-4,0,h);g.addColorStop(0,'#a3a6ad');g.addColorStop(0.35,'#7d8088');g.addColorStop(1,'#4c4e55');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-w/2,h);ctx.lineTo(-w/2+6,-4);ctx.lineTo(w/2-6,-4);ctx.lineTo(w/2,h);ctx.closePath();ctx.fill();
  ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(-w/2+6,-4,w-12,1);ctx.fillStyle='rgba(0,0,0,.25)';for(let x=-w/2+40;x<w/2-20;x+=60)ctx.fillRect(x,-3,1,h+2)}
 // flat steel base band under the tower (top strip of tower_base_400; the old curved underside is gone)
@@ -1083,7 +1083,6 @@ function frame(now){requestAnimationFrame(frame);try{{const g=$('#goal'),r=g&&g.
  render();hintDraw();hudAcc+=dt;if(hudAcc>0.25){hudAcc=0;hud();hintTick();if(bgDone)BUILDINGS.forEach((b,bi)=>{if(siteOpen(bi)&&!b.dock)ensureBuildingArt(bi)})}saveAcc+=dt;if(saveAcc>5){saveAcc=0;save()}
  fpsN++;fpsT+=dt;if(fpsT>1){dbgText(Math.round(fpsN/fpsT));fpsN=0;fpsT=0}
  }catch(e){const t=document.getElementById('pvtag');if(t&&!t.dataset.err){t.dataset.err=1;t.textContent='ERR '+(e&&e.message||e)}}}
-setInterval(()=>{if(performance.now()-last<800)return;try{render()}catch(e){}},500);
 // offline catch-up
 // Welcome back: display:none unless showing (no invisible hit area ever); shown as the LAST body child on its own layer above the canvas/HUD;
 // COLLECT answers pointerup/touchend/click (first wins); dismiss removes pointer events at once and display after the fade.
