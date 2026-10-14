@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:53 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 10:02 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -465,10 +465,11 @@ function drawWalkways(capsPass){if(!ok('walkway_mid')||!ok('walkway_cap')||!ok('
 function drawStop(o){const {s,f}=o;curStopA=0;ctx.save();
  ctx.translate(snap(f.x),snap(f.y));   // upright, always
  ctx.scale(TS,TS);const atRest=s.kind==='dock'?Math.abs(f.a)<0.0004:true;   // no rotation: the static tower cache is valid while panning too
- if(BUILDINGS[s.bi].id==='mine'){drawApprovedYard(f);drawYardTruck(f)}   // truck is behind the tower so the bay hides it as it pulls in
+ if(BUILDINGS[s.bi].id==='mine')drawApprovedYard(f);
  if(s.kind==='pad'){drawLaunchPad();ctx.restore();return}
  if(s.kind!=='dock')foundation();else dockPlinth();
  if(s.kind==='dock')drawDock(s.bi,atRest);else{const n=floorsBuilt(s.bi);if(n===0)drawSite(s.bi);else drawTower(s.bi,n,atRest)}
+ if(BUILDINGS[s.bi].id==='mine')drawYardTruck(f);   // on the road, in front of the floors, so it is not hidden on the way to the bay
  ctx.restore()}
 function label(x,y,txt,col,size){ctx.font=`700 ${size}px Inter,system-ui,-apple-system,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(txt,x,y+1);ctx.fillStyle=col;ctx.fillText(txt,x,y)}
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
@@ -661,7 +662,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=0935';
+const YARD=new Image();YARD.src='art/moon/mine/scene/mine_yard.png?v=1000';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -682,7 +683,7 @@ function drawRig(img,faceRight,tip){if(!img.complete||!img.naturalWidth)return;c
 // Empty and facing the cave on the way in. Comes out full, cab pointing away from the cave, drives to the back of the bay, backs in, and dumps.
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
  const ease=t=>t*t*(3-2*t),slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
- const park=yardPt(560,362),mouth=yardPt(470,358),hole=yardPt(300,292),back=yardPt(1340,358),dumpAt=yardPt(980,356);
+ const park=yardPt(1180,364),mouth=yardPt(430,358),hole=yardPt(280,300),back=yardPt(1320,362),dumpAt=yardPt(1040,360);
  const C=18,u=T%C;let p,face=false,full=false,tip=0,s=1,al=1;
  if(u<3)p=slide(park,mouth,ease(u/3));
  else if(u<5.2){const t=ease((u-3)/2.2);p=slide(mouth,hole,t);s=1-t*0.82;al=t<0.68?1:1-(t-0.68)/0.32}
