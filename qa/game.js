@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:05 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:15 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -673,6 +673,10 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
 const BODY=new Image();BODY.src='art/moon/mine/scene/truck-body.png?v=2105';
 const WHEELS=new Image();WHEELS.src='art/moon/mine/scene/truck-wheels.png?v=2105';
 const AXLES=[[27,154,51,20],[108,154,51,20],[189,154,51,20]];
+const SUS=[{x:0,v:0},{x:0,v:0},{x:0,v:0}];
+let susT=0,susOdo=0;
+function susBump(s){let h=0;const rocks=[[1.4,.28,.7],[3.1,.22,1],[4.6,.36,.55],[6.8,.2,.9],[8.3,.3,.65],[10.4,.24,1],[12.2,.34,.5],[14.1,.22,.85],[16.5,.3,.6]];
+ for(let i=0;i<rocks.length;i++){const d=s-rocks[i][0],w=rocks[i][1];if(d>-w&&d<w){const u=1-Math.abs(d)/w;h+=u*u*rocks[i][2]}}return h}
 function roadBez(t,P){const u=1-t;return{
  x:u*u*u*P[0][0]+3*u*u*t*P[1][0]+3*u*t*t*P[2][0]+t*t*t*P[3][0],
  y:u*u*u*P[0][1]+3*u*u*t*P[1][1]+3*u*t*t*P[2][1]+t*t*t*P[3][1]};}
@@ -693,10 +697,13 @@ function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
  if(faceLeft)ctx.scale(-1,1);
  ctx.globalAlpha=Math.max(0,Math.min(1,al));
  ctx.drawImage(BODY,0,0,270,174,-tw/2,-th,tw,th);
- const sx=tw/270,sy=th/174;
- for(let i=0;i<AXLES.length;i++){const r=AXLES[i];
-  const comp=Math.max(0,Math.sin(T*8+i*2.2))*6;
-  ctx.drawImage(WHEELS,r[0],r[1],r[2],r[3],-tw/2+r[0]*sx,-th+(r[1]-comp)*sy,r[2]*sx,r[3]*sy);}
+ const sx=tw/270,sy=th/174,dt=Math.max(0,Math.min(0.05,T-susT));susT=T;
+ if(al>0.45)susOdo+=dt*(0.85+sc*0.4);
+ const lead=faceLeft?0:2;
+ for(let i=0;i<AXLES.length;i++){const r=AXLES[i],st=SUS[i];
+  const target=susBump(susOdo-Math.abs(i-lead)*0.16)*16;
+  const F=160*(target-st.x)-18*st.v;st.v+=F*dt;st.x+=st.v*dt;if(st.x<0){st.x=0;st.v*=0.4}if(st.x>12){st.x=12;st.v=0}
+  ctx.drawImage(WHEELS,r[0],r[1],r[2],r[3],-tw/2+r[0]*sx,-th+(r[1]-st.x)*sy,r[2]*sx,r[3]*sy);}
  ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
