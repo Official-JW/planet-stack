@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:30 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:40 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -670,29 +670,27 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const SIDE=new Image();SIDE.src='art/moon/mine/scene/dump_truck.png?v=2130';
-const REAR=new Image();REAR.src='art/moon/mine/scene/truck-rear.png?v=2130';
-const FRONT=new Image();FRONT.src='art/moon/mine/scene/truck-front.png?v=2130';
+const EMPTY=new Image();EMPTY.src='art/moon/mine/scene/dump_truck.png?v=2140';
+const FULL=new Image();FULL.src='art/moon/mine/scene/dump_truck_full.png?v=2140';
 function roadBez(t,P){const u=1-t;return{
  x:u*u*u*P[0][0]+3*u*u*t*P[1][0]+3*u*t*t*P[2][0]+t*t*t*P[3][0],
  y:u*u*u*P[0][1]+3*u*u*t*P[1][1]+3*u*t*t*P[2][1]+t*t*t*P[3][1]};}
-function drawRig(img,p,par,tw,th,al,flip){if(!(img.complete&&img.naturalWidth)||al<=0.02)return;
+function drawRig(img,p,par,tw,al,flip){if(!(img.complete&&img.naturalWidth)||al<=0.02)return;
+ const th=tw*img.naturalHeight/img.naturalWidth;
  ctx.save();ctx.translate(par+p.x,p.y);ctx.globalAlpha=Math.max(0,Math.min(1,al));
- ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,2,tw*0.36,3.4,0,0,7);ctx.fill();
+ ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,1,tw*0.34,2.4,0,0,7);ctx.fill();
  if(flip)ctx.scale(-1,1);
- const r=img.naturalHeight/img.naturalWidth;ctx.drawImage(img,-tw/2,-tw*r,tw,tw*r);ctx.restore()}
+ ctx.drawImage(img,-tw/2,-th,tw,th);ctx.restore()}
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- const ease=t=>t*t*(3-2*t),u=T%16,par=f?(f.x-195)*(FG.par-1)/TS:0;
- if(u<5.2){const e=ease(u/5.2);const ip=roadBez(e,[[1040,358],[820,348],[600,344],[430,340]]);
-  drawRig(SIDE,yardPt(ip.x,ip.y),par,118,40,1,true);return}
- if(u<8.2){const e=ease((u-5.2)/3);const mouth=roadBez(1,[[1040,358],[820,348],[600,344],[430,340]]);
-  const ip={x:mouth.x-90*e,y:mouth.y-24*e};const p=yardPt(ip.x,ip.y);
-  drawRig(SIDE,p,par,118*(1-e*0.35),40,1-e,true);
-  drawRig(REAR,p,par,150*(1-e*0.62),80,e*(1-e*0.35),false);return}
- if(u<9.1)return;
- const e=ease(Math.min(1,(u-9.1)/5.4));
- const ip=roadBez(e,[[390,346],[470,378],[530,408],[575,436]]);
- drawRig(FRONT,yardPt(ip.x,ip.y),par,42+e*64,70,Math.min(1,0.3+e),false)}
+ const ease=t=>t*t*(3-2*t),u=T%14,par=f?(f.x-195)*(FG.par-1)/TS:0;
+ if(u<6){const e=ease(u/6);const ip=roadBez(e,[[1020,362],[800,354],[600,348],[450,344]]);
+  drawRig(EMPTY,yardPt(ip.x,ip.y),par,86,1,true);return}
+ if(u<8){const e=ease((u-6)/2);const ip={x:450-80*e,y:344-22*e};
+  drawRig(EMPTY,yardPt(ip.x,ip.y),par,86*(1-e*0.6),1-e,true);return}
+ if(u<8.8)return;
+ const e=ease(Math.min(1,(u-8.8)/5));
+ const ip=roadBez(e,[[390,340],[560,352],[760,360],[1000,366]]);
+ drawRig(FULL,yardPt(ip.x,ip.y),par,36+e*58,Math.min(1,0.25+e),false)}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
