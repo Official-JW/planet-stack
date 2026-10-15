@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:15 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:30 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -662,7 +662,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/road-2050.png?v=2050';
+const YARD=new Image();YARD.src='art/moon/mine/scene/road-2130.png?v=2130';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -670,41 +670,29 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const BODY=new Image();BODY.src='art/moon/mine/scene/truck-body.png?v=2105';
-const WHEELS=new Image();WHEELS.src='art/moon/mine/scene/truck-wheels.png?v=2105';
-const AXLES=[[27,154,51,20],[108,154,51,20],[189,154,51,20]];
-const SUS=[{x:0,v:0},{x:0,v:0},{x:0,v:0}];
-let susT=0,susOdo=0;
-function susBump(s){let h=0;const rocks=[[1.4,.28,.7],[3.1,.22,1],[4.6,.36,.55],[6.8,.2,.9],[8.3,.3,.65],[10.4,.24,1],[12.2,.34,.5],[14.1,.22,.85],[16.5,.3,.6]];
- for(let i=0;i<rocks.length;i++){const d=s-rocks[i][0],w=rocks[i][1];if(d>-w&&d<w){const u=1-Math.abs(d)/w;h+=u*u*rocks[i][2]}}return h}
+const SIDE=new Image();SIDE.src='art/moon/mine/scene/dump_truck.png?v=2130';
+const REAR=new Image();REAR.src='art/moon/mine/scene/truck-rear.png?v=2130';
+const FRONT=new Image();FRONT.src='art/moon/mine/scene/truck-front.png?v=2130';
 function roadBez(t,P){const u=1-t;return{
  x:u*u*u*P[0][0]+3*u*u*t*P[1][0]+3*u*t*t*P[2][0]+t*t*t*P[3][0],
  y:u*u*u*P[0][1]+3*u*u*t*P[1][1]+3*u*t*t*P[2][1]+t*t*t*P[3][1]};}
+function drawRig(img,p,par,tw,th,al,flip){if(!(img.complete&&img.naturalWidth)||al<=0.02)return;
+ ctx.save();ctx.translate(par+p.x,p.y);ctx.globalAlpha=Math.max(0,Math.min(1,al));
+ ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,2,tw*0.36,3.4,0,0,7);ctx.fill();
+ if(flip)ctx.scale(-1,1);
+ const r=img.naturalHeight/img.naturalWidth;ctx.drawImage(img,-tw/2,-tw*r,tw,tw*r);ctx.restore()}
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- if(!(BODY.complete&&BODY.naturalWidth&&WHEELS.complete&&WHEELS.naturalWidth))return;
- const hill=[[340,355],[560,330],[820,250],[1080,175]];
- const spur=[[340,350],[430,395],[540,435],[680,468]];
- const ease=t=>t*t*(3-2*t),u=T%18;
- let ip,faceLeft,sc,al;
- if(u<7){const e=ease(u/7);ip=roadBez(0.86-e*0.78,hill);faceLeft=true;sc=0.58+e*0.5;al=1;}
- else if(u<9){const e=ease((u-7)/2);const m=roadBez(0.06,hill);ip={x:m.x-80*e,y:m.y-16*e};faceLeft=true;sc=1.05-e*0.55;al=1-e;}
- else if(u<10.2)return;
- else{const e=ease(Math.min(1,(u-10.2)/5.6));ip=roadBez(e*0.95,spur);faceLeft=false;sc=0.5+e*0.75;al=Math.min(1,0.2+e);}
- const p=yardPt(ip.x,ip.y),par=f?(f.x-195)*(FG.par-1)/TS:0;
- const tw=156*sc,th=tw*174/270;
- ctx.save();ctx.translate(par+p.x,p.y);
- ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,4,tw*0.32,3.2*sc,0,0,7);ctx.fill();
- if(faceLeft)ctx.scale(-1,1);
- ctx.globalAlpha=Math.max(0,Math.min(1,al));
- ctx.drawImage(BODY,0,0,270,174,-tw/2,-th,tw,th);
- const sx=tw/270,sy=th/174,dt=Math.max(0,Math.min(0.05,T-susT));susT=T;
- if(al>0.45)susOdo+=dt*(0.85+sc*0.4);
- const lead=faceLeft?0:2;
- for(let i=0;i<AXLES.length;i++){const r=AXLES[i],st=SUS[i];
-  const target=susBump(susOdo-Math.abs(i-lead)*0.16)*16;
-  const F=160*(target-st.x)-18*st.v;st.v+=F*dt;st.x+=st.v*dt;if(st.x<0){st.x=0;st.v*=0.4}if(st.x>12){st.x=12;st.v=0}
-  ctx.drawImage(WHEELS,r[0],r[1],r[2],r[3],-tw/2+r[0]*sx,-th+(r[1]-st.x)*sy,r[2]*sx,r[3]*sy);}
- ctx.restore()}
+ const ease=t=>t*t*(3-2*t),u=T%16,par=f?(f.x-195)*(FG.par-1)/TS:0;
+ if(u<5.2){const e=ease(u/5.2);const ip=roadBez(e,[[1040,358],[820,348],[600,344],[430,340]]);
+  drawRig(SIDE,yardPt(ip.x,ip.y),par,118,40,1,true);return}
+ if(u<8.2){const e=ease((u-5.2)/3);const mouth=roadBez(1,[[1040,358],[820,348],[600,344],[430,340]]);
+  const ip={x:mouth.x-90*e,y:mouth.y-24*e};const p=yardPt(ip.x,ip.y);
+  drawRig(SIDE,p,par,118*(1-e*0.35),40,1-e,true);
+  drawRig(REAR,p,par,150*(1-e*0.62),80,e*(1-e*0.35),false);return}
+ if(u<9.1)return;
+ const e=ease(Math.min(1,(u-9.1)/5.4));
+ const ip=roadBez(e,[[390,346],[470,378],[530,408],[575,436]]);
+ drawRig(FRONT,yardPt(ip.x,ip.y),par,42+e*64,70,Math.min(1,0.3+e),false)}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
