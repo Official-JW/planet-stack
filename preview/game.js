@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 11:15 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 11:25 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -662,7 +662,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/road-1130.png?v=1130';
+const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=1125';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -722,6 +722,12 @@ function drawRover3D(yaw,dist,al,depth){
  roverBox(faces,0.98,1.38,-0.18,0.08,0.07,0.08,0xffd56a);
  roverBox(faces,1.6,0.58,0.3,0.05,0.1,0.16,0xffe7a0);
  roverBox(faces,1.6,0.58,-0.3,0.05,0.1,0.16,0xffe7a0);
+ roverBox(faces,1.62,0.42,0,1.05,0.1,1.15,0x2a313c);
+ roverBox(faces,1.15,1.05,0.58,0.16,0.08,0.1,0xd7e0e6);
+ roverBox(faces,1.15,1.05,-0.58,0.16,0.08,0.1,0xd7e0e6);
+ roverBox(faces,-0.9,0.7,0.62,0.08,0.55,0.04,0x5c656e);
+ roverBox(faces,-0.2,1.28,0,0.5,0.05,0.08,0xc5ced4);
+ roverBox(faces,0.4,1.05,0,0.06,0.4,0.06,0x4a525c);
  roverBox(faces,-1.28,0.7,0.32,0.05,0.08,0.1,0xd04538);
  roverBox(faces,-1.28,0.7,-0.32,0.05,0.08,0.1,0xd04538);
  roverBox(faces,1.05,1.05,0,0.05,0.34,0.05,0x5c656e);
@@ -764,23 +770,26 @@ function drawRover3D(yaw,dist,al,depth){
 }
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
  const ease=t=>t*t*(3-2*t),u=T%44,par=f?(f.x-195)*(FG.par-1)/TS:0;
- const bay=[1280,70], out=[980,200], mouth=[300,368], deep=[145,335];
- let ip,yaw,depth=0,clip=false;
- if(u<8){ip=roadBez(ease(u/8),[bay,[1160,110],[1080,150],out]);yaw=Math.PI;}
- else if(u<16){ip=roadBez(ease((u-8)/8),[out,[760,260],[500,330],mouth]);yaw=Math.PI;}
- else if(u<20){const e=ease((u-16)/4);ip={x:mouth[0],y:mouth[1]};yaw=Math.PI-e*Math.PI/2;}
- else if(u<28){const e=ease((u-20)/8);ip={x:mouth[0]+(deep[0]-mouth[0])*e,y:mouth[1]+(deep[1]-mouth[1])*e};yaw=Math.PI/2;depth=e;clip=e>0.12;}
+ const road=[[1160,16],[1060,70],[940,140],[780,230],[600,310],[430,370],[320,400]];
+ const door={x:150,y:385};
+ function along(t){const n=road.length-1,x=Math.max(0,Math.min(0.999,t))*n,i=x|0,k=x-i,a=road[i],b=road[i+1];
+  return {x:a[0]+(b[0]-a[0])*k,y:a[1]+(b[1]-a[1])*k,dx:b[0]-a[0],dy:b[1]-a[1]};}
+ let ip,dx,dy,yaw=0,depth=0,clip=false;
+ if(u<14){const s=along(ease(u/14));ip=s;dx=s.dx;dy=s.dy;}
+ else if(u<17){const e=ease((u-14)/3);ip={x:320+(door.x-320)*e*0.35,y:400+(door.y-400)*e*0.35};dx=door.x-320;dy=door.y-400;yaw=e*Math.PI/2;}
+ else if(u<26){const e=ease((u-17)/9);ip={x:250+(door.x-250)*e,y:398+(door.y-398)*e};dx=door.x-320;dy=0;yaw=Math.PI/2;depth=e;clip=e>0.08;}
  else if(u<30)return;
- else if(u<36){const e=ease((u-30)/6);ip={x:deep[0]+(mouth[0]-deep[0])*e,y:deep[1]+(mouth[1]-deep[1])*e};yaw=-Math.PI/2;depth=1-e;clip=e<0.88;}
- else if(u<40){const e=ease((u-36)/4);ip={x:mouth[0],y:mouth[1]};yaw=-Math.PI/2+e*Math.PI/2;}
- else{ip=roadBez(ease((u-40)/4),[mouth,[640,300],[1000,180],bay]);yaw=0;}
- const p=yardPt(ip.x,ip.y);
+ else if(u<36){const e=ease((u-30)/6);ip={x:door.x+(320-door.x)*e,y:door.y+(400-door.y)*e};dx=320-door.x;dy=400-door.y;yaw=-Math.PI/2*(1-e);depth=1-e;clip=e<0.9;}
+ else{const s=along(1-ease((u-36)/8));ip=s;dx=-s.dx;dy=-s.dy;}
+ const p=yardPt(ip.x,ip.y),q=yardPt(ip.x+dx,ip.y+dy);
+ const ang=Math.atan2(q.y-p.y,q.x-p.x);
+ const sc=(0.4+Math.max(0,Math.min(1,(ip.y-10)/390))*0.95)*(1-depth*0.72);
  ctx.save();
- if(clip){const c=yardPt(190,365);ctx.beginPath();ctx.rect(c.x-100,c.y-90,210,170);ctx.clip();}
+ if(clip){const c=yardPt(door.x,door.y);ctx.beginPath();ctx.rect(c.x-80,c.y-70,170,140);ctx.clip();}
  ctx.translate(par+p.x,p.y);
- ctx.fillStyle='rgba(0,0,0,'+(0.3*(1-depth*0.6))+')';ctx.beginPath();ctx.ellipse(0,6,36*(1-depth*0.55),3.4,0,0,7);ctx.fill();
- ctx.translate(0,6);
- drawRover3D(yaw,u*1.3,1,depth);
+ ctx.fillStyle='rgba(0,0,0,'+(0.28*(1-depth*0.5))+')';ctx.beginPath();ctx.ellipse(0,8,40*sc,4*sc,ang,0,7);ctx.fill();
+ ctx.rotate(ang);ctx.scale(sc,sc);ctx.translate(0,6);
+ drawRover3D(yaw,u*1.3,1,depth*0.35);
  ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
