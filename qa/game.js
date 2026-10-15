@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:55 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 9:05 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -670,30 +670,33 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const TRUCK=new Image();TRUCK.src='art/moon/mine/@3x/rover/truck_pt_drive.webp?v=2050';
-// Dump truck only. Wheel frames carry the suspension. The body is not shaken.
+const BODY=new Image();BODY.src='art/moon/mine/scene/truck-body.png?v=2105';
+const WHEELS=new Image();WHEELS.src='art/moon/mine/scene/truck-wheels.png?v=2105';
+const AXLES=[[27,154,51,20],[108,154,51,20],[189,154,51,20]];
 function roadBez(t,P){const u=1-t;return{
  x:u*u*u*P[0][0]+3*u*u*t*P[1][0]+3*u*t*t*P[2][0]+t*t*t*P[3][0],
  y:u*u*u*P[0][1]+3*u*u*t*P[1][1]+3*u*t*t*P[2][1]+t*t*t*P[3][1]};}
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- if(!(TRUCK.complete&&TRUCK.naturalWidth))return;
+ if(!(BODY.complete&&BODY.naturalWidth&&WHEELS.complete&&WHEELS.naturalWidth))return;
  const hill=[[340,355],[560,330],[820,250],[1080,175]];
  const spur=[[340,350],[430,395],[540,435],[680,468]];
  const ease=t=>t*t*(3-2*t),u=T%18;
- let ip,faceLeft,sc,al,nose;
- if(u<7){const e=ease(u/7);ip=roadBez(0.86-e*0.78,hill);faceLeft=true;sc=0.58+e*0.5;al=1;nose=0;}
- else if(u<9){const e=ease((u-7)/2);const m=roadBez(0.06,hill);ip={x:m.x-80*e,y:m.y-16*e};faceLeft=true;sc=1.05-e*0.55;al=1-e;nose=-0.22*e;}
+ let ip,faceLeft,sc,al;
+ if(u<7){const e=ease(u/7);ip=roadBez(0.86-e*0.78,hill);faceLeft=true;sc=0.58+e*0.5;al=1;}
+ else if(u<9){const e=ease((u-7)/2);const m=roadBez(0.06,hill);ip={x:m.x-80*e,y:m.y-16*e};faceLeft=true;sc=1.05-e*0.55;al=1-e;}
  else if(u<10.2)return;
- else{const e=ease(Math.min(1,(u-10.2)/5.6));ip=roadBez(e*0.95,spur);faceLeft=false;sc=0.5+e*0.75;al=Math.min(1,0.2+e);nose=0.1*(1-e);}
+ else{const e=ease(Math.min(1,(u-10.2)/5.6));ip=roadBez(e*0.95,spur);faceLeft=false;sc=0.5+e*0.75;al=Math.min(1,0.2+e);}
  const p=yardPt(ip.x,ip.y),par=f?(f.x-195)*(FG.par-1)/TS:0;
- const fr=Math.floor(T*12)%8,fw=270,fh=174,col=fr%7,row=(fr/7)|0;
- const tw=156*sc,th=tw*fh/fw;
+ const tw=156*sc,th=tw*174/270;
  ctx.save();ctx.translate(par+p.x,p.y);
  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,4,tw*0.32,3.2*sc,0,0,7);ctx.fill();
- if(nose)ctx.rotate(nose);
  if(faceLeft)ctx.scale(-1,1);
  ctx.globalAlpha=Math.max(0,Math.min(1,al));
- ctx.drawImage(TRUCK,col*fw,row*fh,fw,fh,-tw/2,-th,tw,th);
+ ctx.drawImage(BODY,0,0,270,174,-tw/2,-th,tw,th);
+ const sx=tw/270,sy=th/174;
+ for(let i=0;i<AXLES.length;i++){const r=AXLES[i];
+  const comp=Math.max(0,Math.sin(T*8+i*2.2))*6;
+  ctx.drawImage(WHEELS,r[0],r[1],r[2],r[3],-tw/2+r[0]*sx,-th+(r[1]-comp)*sy,r[2]*sx,r[3]*sy);}
  ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
