@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 6:12 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:55 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -662,7 +662,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/road-1812.png?v=1812';
+const YARD=new Image();YARD.src='art/moon/mine/scene/road-2050.png?v=2050';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -670,31 +670,30 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const EMPTY=new Image();EMPTY.src='art/moon/mine/@3x/rover/rover_drive.webp?v=1718';
-const FULL=new Image();FULL.src='art/moon/mine/@3x/rover/truck_pt_drive.webp?v=1718';
-// Empty truck drives into the cave (cab first). Full truck drives back out, cab toward the bay.
-// Wheel frames plus a bump bob, so it rides the road instead of sliding as a flat picture.
+const TRUCK=new Image();TRUCK.src='art/moon/mine/@3x/rover/truck_pt_drive.webp?v=2050';
+// Dump truck only. Wheel frames carry the suspension. The body is not shaken.
+function roadBez(t,P){const u=1-t;return{
+ x:u*u*u*P[0][0]+3*u*u*t*P[1][0]+3*u*t*t*P[2][0]+t*t*t*P[3][0],
+ y:u*u*u*P[0][1]+3*u*u*t*P[1][1]+3*u*t*t*P[2][1]+t*t*t*P[3][1]};}
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- const ease=t=>t*t*(3-2*t),slide=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
- const park=yardPt(1020,356),mouth=yardPt(430,350),hole=yardPt(250,312);
- const u=T%16;let p,faceLeft=true,full=false,s=1,al=1,go=1;
- if(u<5){p=slide(park,mouth,ease(u/5));}
- else if(u<7){const t=ease((u-5)/2);p=slide(mouth,hole,t);s=1-t*0.45;al=t<0.72?1:1-(t-0.72)/0.28;go=1-t*0.4;}
- else if(u<8.2)return;
- else if(u<10){const t=ease((u-8.2)/1.8);faceLeft=false;full=true;p=slide(hole,mouth,t);s=0.55+t*0.45;al=Math.min(1,0.2+t);go=0.6+t*0.4;}
- else{faceLeft=false;full=true;p=slide(mouth,park,ease(Math.min(1,(u-10)/5)));}
- const img=full?FULL:EMPTY;if(!(img.complete&&img.naturalWidth))return;
- const fw=270,fh=full?174:150,cols=7,n=full?8:14;
- const fr=Math.floor(T*(go>0.2?12:2))%n,col=fr%cols,row=Math.floor(fr/cols);
- const tw=138*s,th=tw*fh/fw;
- const bob=go>0.15?Math.sin(T*15)*2.1+Math.sin(T*29)*0.55:Math.sin(T*2.2)*0.35;
- const rock=(go>0.15?Math.sin(T*15)*0.045:0)*(faceLeft?1:-1);
- const par=f?(f.x-195)*(FG.par-1)/TS:0;
- ctx.save();ctx.translate(par+p.x,p.y+bob);ctx.rotate(rock);
- ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,2,tw*0.38,3.2,0,0,7);ctx.fill();
+ if(!(TRUCK.complete&&TRUCK.naturalWidth))return;
+ const hill=[[340,355],[560,330],[820,250],[1080,175]];
+ const spur=[[340,350],[430,395],[540,435],[680,468]];
+ const ease=t=>t*t*(3-2*t),u=T%18;
+ let ip,faceLeft,sc,al,nose;
+ if(u<7){const e=ease(u/7);ip=roadBez(0.86-e*0.78,hill);faceLeft=true;sc=0.58+e*0.5;al=1;nose=0;}
+ else if(u<9){const e=ease((u-7)/2);const m=roadBez(0.06,hill);ip={x:m.x-80*e,y:m.y-16*e};faceLeft=true;sc=1.05-e*0.55;al=1-e;nose=-0.22*e;}
+ else if(u<10.2)return;
+ else{const e=ease(Math.min(1,(u-10.2)/5.6));ip=roadBez(e*0.95,spur);faceLeft=false;sc=0.5+e*0.75;al=Math.min(1,0.2+e);nose=0.1*(1-e);}
+ const p=yardPt(ip.x,ip.y),par=f?(f.x-195)*(FG.par-1)/TS:0;
+ const fr=Math.floor(T*12)%8,fw=270,fh=174,col=fr%7,row=(fr/7)|0;
+ const tw=156*sc,th=tw*fh/fw;
+ ctx.save();ctx.translate(par+p.x,p.y);
+ ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,4,tw*0.32,3.2*sc,0,0,7);ctx.fill();
+ if(nose)ctx.rotate(nose);
  if(faceLeft)ctx.scale(-1,1);
  ctx.globalAlpha=Math.max(0,Math.min(1,al));
- ctx.drawImage(img,col*fw,row*fh,fw,fh,-tw/2,-th,tw,th);
+ ctx.drawImage(TRUCK,col*fw,row*fh,fw,fh,-tw/2,-th,tw,th);
  ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
