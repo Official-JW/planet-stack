@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 10:45 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 10:55 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -662,7 +662,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/road-1206.png?v=0810';
+const YARD=new Image();YARD.src='art/moon/mine/scene/road-1055.png?v=1055';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -691,15 +691,12 @@ function roverQuad(out,a,b,c,d,hex){
  out.push({p:[a,b,c,d],n:[uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx],hex});
 }
 function roverWheel(out,x,y,z,spin,lift){
- const R=0.38,W=0.2,N=10,cy=y+lift;
+ const R=0.38,W=0.16,N=12,cy=y+lift;
  for(let i=0;i<N;i++){const a0=spin+i/N*6.2832,a1=spin+(i+1)/N*6.2832;
   const c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
-  out.push({p:[[x-W,cy+R*s0,z+R*c0],[x+W,cy+R*s0,z+R*c0],[x+W,cy+R*s1,z+R*c1],[x-W,cy+R*s1,z+R*c1]],n:[0,s0+s1,c0+c1],hex:i%2?0x12161c:0x2a3038});
- }
- const r=0.15,w=0.22;
- for(let i=0;i<N;i++){const a0=spin+i/N*6.2832,a1=spin+(i+1)/N*6.2832;
-  const c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
-  out.push({p:[[x-w,cy+r*s0,z+r*c0],[x+w,cy+r*s0,z+r*c0],[x+w,cy+r*s1,z+r*c1],[x-w,cy+r*s1,z+r*c1]],n:[0,s0+s1,c0+c1],hex:0xc5ced6});
+  out.push({p:[[x+R*c0,cy+R*s0,z-W],[x+R*c1,cy+R*s1,z-W],[x+R*c1,cy+R*s1,z+W],[x+R*c0,cy+R*s0,z+W]],n:[c0+c1,s0+s1,0],hex:i%2?0x12161c:0x2c323a});
+  out.push({p:[[x,cy,z+W],[x+R*c0,cy+R*s0,z+W],[x+R*c1,cy+R*s1,z+W],[x,cy,z+W]],n:[0,0,1],hex:0xd5dde4});
+  out.push({p:[[x,cy,z-W],[x+R*c1,cy+R*s1,z-W],[x+R*c0,cy+R*s0,z-W],[x,cy,z-W]],n:[0,0,-1],hex:0xd5dde4});
  }
 }
 function drawRover3D(yaw,dist,al){
@@ -714,7 +711,9 @@ function drawRover3D(yaw,dist,al){
  roverBox(faces,-0.32,0.86,0.62,1.7,0.1,0.04,0xf0a030);
  roverBox(faces,-0.32,0.86,-0.62,1.7,0.1,0.04,0xf0a030);
  roverBox(faces,1.12,0.82,0,0.95,0.78,1.02,0xf4f7f8);
- roverQuad(faces,[1.6,0.52,0.44],[1.6,0.52,-0.44],[1.22,1.18,-0.4],[1.22,1.18,0.4],0x173044);
+ roverQuad(faces,[1.62,0.48,0.46],[1.62,0.48,-0.46],[1.18,1.2,-0.42],[1.18,1.2,0.42],0x8fd4ea);
+ roverBox(faces,1.05,0.98,0.54,0.62,0.32,0.05,0x7ec8e0);
+ roverBox(faces,1.05,0.98,-0.54,0.62,0.32,0.05,0x7ec8e0);
  roverBox(faces,0.98,1.22,0,0.78,0.08,0.92,0xd5dee6);
  roverBox(faces,0.98,1.32,0,0.46,0.06,0.58,0x1b2128);
  roverBox(faces,0.98,1.38,0.18,0.08,0.07,0.08,0xffd56a);
