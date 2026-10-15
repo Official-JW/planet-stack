@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 10:55 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 11:20 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -662,7 +662,7 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/road-1055.png?v=1055';
+const YARD=new Image();YARD.src='art/moon/mine/scene/road-1120.png?v=1120';
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -673,8 +673,8 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
 function roadBez(t,P){const u=1-t;return{
  x:u*u*u*P[0][0]+3*u*u*t*P[1][0]+3*u*t*t*P[2][0]+t*t*t*P[3][0],
  y:u*u*u*P[0][1]+3*u*u*t*P[1][1]+3*u*t*t*P[2][1]+t*t*t*P[3][1]};}
-function roverShade(hex,k){const r=(hex>>16)&255,g=(hex>>8)&255,b=hex&255,s=Math.max(0.15,Math.min(1,k));
- return 'rgb('+(r*s|0)+','+(g*s|0)+','+(b*s|0)+')'}
+function roverShade(hex,k){const r=(hex>>16)&255,g=(hex>>8)&255,b=hex&255,s=Math.max(0.12,Math.min(1.3,k));
+ return 'rgb('+(Math.min(255,r*s)|0)+','+(Math.min(255,g*s)|0)+','+(Math.min(255,b*s)|0)+')'}
 function roverBox(out,x,y,z,w,h,d,hex){
  const x0=x-w/2,x1=x+w/2,y0=y-h/2,y1=y+h/2,z0=z-d/2,z1=z+d/2;
  const F=[
@@ -699,7 +699,7 @@ function roverWheel(out,x,y,z,spin,lift){
   out.push({p:[[x,cy,z-W],[x+R*c1,cy+R*s1,z-W],[x+R*c0,cy+R*s0,z-W],[x,cy,z-W]],n:[0,0,-1],hex:0xd5dde4});
  }
 }
-function drawRover3D(yaw,dist,al){
+function drawRover3D(yaw,dist,al,depth){
  const faces=[];
  roverBox(faces,0,0.3,0,3.4,0.22,1.2,0x2a313c);
  roverBox(faces,0,0.42,0.62,2.7,0.1,0.07,0x3c4654);
@@ -710,6 +710,8 @@ function drawRover3D(yaw,dist,al){
  roverBox(faces,-1.24,0.98,0,0.08,0.62,1.05,0xd5dee6);
  roverBox(faces,-0.32,0.86,0.62,1.7,0.1,0.04,0xf0a030);
  roverBox(faces,-0.32,0.86,-0.62,1.7,0.1,0.04,0xf0a030);
+ roverBox(faces,-0.32,1.22,0.6,1.55,0.035,0.02,0x8e9aa4);
+ roverBox(faces,-0.32,0.7,0.6,1.55,0.03,0.02,0x8e9aa4);
  roverBox(faces,1.12,0.82,0,0.95,0.78,1.02,0xf4f7f8);
  roverQuad(faces,[1.62,0.48,0.46],[1.62,0.48,-0.46],[1.18,1.2,-0.42],[1.18,1.2,0.42],0x8fd4ea);
  roverBox(faces,1.05,0.98,0.54,0.62,0.32,0.05,0x7ec8e0);
@@ -730,7 +732,7 @@ function drawRover3D(yaw,dist,al){
   roverBox(faces,ax[i][0],0.72,ax[i][1]>0?0.5:-0.5,0.55,0.08,0.16,0xd7e0e6);
   roverWheel(faces,ax[i][0],0.36,ax[i][1],spin,up);
  }
- const sy=Math.sin(yaw),cy=Math.cos(yaw),pitch=0.52,cp=Math.cos(pitch),sp=Math.sin(pitch),camZ=6.6,light=[0.3,0.86,0.4];
+ const sy=Math.sin(yaw),cy=Math.cos(yaw),pitch=0.52,cp=Math.cos(pitch),sp=Math.sin(pitch),camZ=6.4+depth*8,light=[0.25,0.9,0.35];
  const ln=Math.hypot(light[0],light[1],light[2]);
  const draw=[];
  for(let i=0;i<faces.length;i++){const f=faces[i],q=[],n=f.n;
@@ -745,7 +747,11 @@ function drawRover3D(yaw,dist,al){
    const cz=camZ-z2;if(cz<0.35){zsum=-99;break}
    const s=230/cz;q.push({x:x*s,y:-y2*s});zsum+=cz}
   if(zsum<0)continue;
-  const shade=0.38+0.7*Math.max(0,(nx*light[0]+ny*light[1]+nz*light[2])/ln);
+  let ay=0; for(let k=0;k<4;k++)ay+=f.p[k][1]; ay/=4;
+  const nd=Math.max(0,(nx*light[0]+ny*light[1]+nz*light[2])/ln);
+  let shade=0.26+0.5*nd+0.34*Math.max(0,ny);
+  if(ay<0.45)shade*=0.7;
+  if(ay>1.05)shade+=0.1;
   draw.push({q,z:zsum/4,col:roverShade(f.hex,shade)});
  }
  draw.sort((a,b)=>b.z-a.z);
@@ -757,18 +763,24 @@ function drawRover3D(yaw,dist,al){
  ctx.globalAlpha=1;
 }
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- const ease=t=>t*t*(3-2*t),u=T%14,par=f?(f.x-195)*(FG.par-1)/TS:0;
- const mouth={x:470,y:338};
- let ip=mouth,yaw=Math.PI,into=0,al=1,dist=u*1.4;
- if(u<4){ip=roadBez(ease(u/4),[[980,360],[800,350],[640,344],[470,338]]);yaw=Math.PI;}
- else if(u<6.6){yaw=Math.PI-ease((u-4)/2.6)*Math.PI/2;}
- else if(u<10.4){yaw=Math.PI/2;into=ease((u-6.6)/3.8);ip={x:mouth.x-160*into,y:mouth.y-40*into};al=into<0.8?1:1-(into-0.8)/0.2;dist+=into*2}
- else return;
+ const ease=t=>t*t*(3-2*t),u=T%44,par=f?(f.x-195)*(FG.par-1)/TS:0;
+ const bay=[1280,70], out=[980,200], mouth=[300,368], deep=[145,335];
+ let ip,yaw,depth=0,clip=false;
+ if(u<8){ip=roadBez(ease(u/8),[bay,[1160,110],[1080,150],out]);yaw=Math.PI;}
+ else if(u<16){ip=roadBez(ease((u-8)/8),[out,[760,260],[500,330],mouth]);yaw=Math.PI;}
+ else if(u<20){const e=ease((u-16)/4);ip={x:mouth[0],y:mouth[1]};yaw=Math.PI-e*Math.PI/2;}
+ else if(u<28){const e=ease((u-20)/8);ip={x:mouth[0]+(deep[0]-mouth[0])*e,y:mouth[1]+(deep[1]-mouth[1])*e};yaw=Math.PI/2;depth=e;clip=e>0.12;}
+ else if(u<30)return;
+ else if(u<36){const e=ease((u-30)/6);ip={x:deep[0]+(mouth[0]-deep[0])*e,y:deep[1]+(mouth[1]-deep[1])*e};yaw=-Math.PI/2;depth=1-e;clip=e<0.88;}
+ else if(u<40){const e=ease((u-36)/4);ip={x:mouth[0],y:mouth[1]};yaw=-Math.PI/2+e*Math.PI/2;}
+ else{ip=roadBez(ease((u-40)/4),[mouth,[640,300],[1000,180],bay]);yaw=0;}
  const p=yardPt(ip.x,ip.y);
- ctx.save();ctx.translate(par+p.x,p.y);
- ctx.fillStyle='rgba(0,0,0,'+(0.32*al)+')';ctx.beginPath();ctx.ellipse(0,6,34*(1-into*0.4),3.2,0,0,7);ctx.fill();
+ ctx.save();
+ if(clip){const c=yardPt(190,365);ctx.beginPath();ctx.rect(c.x-100,c.y-90,210,170);ctx.clip();}
+ ctx.translate(par+p.x,p.y);
+ ctx.fillStyle='rgba(0,0,0,'+(0.3*(1-depth*0.6))+')';ctx.beginPath();ctx.ellipse(0,6,36*(1-depth*0.55),3.4,0,0,7);ctx.fill();
  ctx.translate(0,6);
- drawRover3D(yaw,dist,al);
+ drawRover3D(yaw,u*1.3,1,depth);
  ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
