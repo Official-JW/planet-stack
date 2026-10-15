@@ -374,7 +374,7 @@ const floorFx={},crew={},elev={};
 function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
 function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
-function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:10 · ON'}
+function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');if(tag&&!tag.dataset.ok){tag.dataset.ok='1';tag.textContent='PREVIEW · 8:15 · ON'}
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
  try{if(ok('sky')&&SPR.sky.img.height<=2048)ctx.drawImage(SPR.sky.img,-OX,0,W/SC,H/SC)}catch(e){}
@@ -670,32 +670,78 @@ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const w=560,h=w*YARD.naturalHeight/YARD.naturalWidth;
  ctx.drawImage(YARD,-300,6,w,h);   // cave left, lamps on the ground, under the floor. The truck is animated, not baked in.
  ctx.restore()}
-const SIDE=new Image();SIDE.src='art/moon/mine/@3x/rover/truck_pt_drive.webp?v=0810';
-const REAR=new Image();REAR.src='art/moon/mine/scene/rover-rear.png?v=0810';
 function roadBez(t,P){const u=1-t;return{
  x:u*u*u*P[0][0]+3*u*u*t*P[1][0]+3*u*t*t*P[2][0]+t*t*t*P[3][0],
  y:u*u*u*P[0][1]+3*u*u*t*P[1][1]+3*u*t*t*P[2][1]+t*t*t*P[3][1]};}
+function roverShade(hex,k){const r=(hex>>16)&255,g=(hex>>8)&255,b=hex&255,s=Math.max(0.15,Math.min(1,k));
+ return 'rgb('+(r*s|0)+','+(g*s|0)+','+(b*s|0)+')'}
+function roverBox(out,x,y,z,w,h,d,hex){
+ const x0=x-w/2,x1=x+w/2,y0=y-h/2,y1=y+h/2,z0=z-d/2,z1=z+d/2;
+ const F=[
+  [[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],0,0,1],
+  [[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],0,0,-1],
+  [[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],1,0,0],
+  [[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],-1,0,0],
+  [[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0],0,1,0],
+  [[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],0,-1,0]];
+ for(let i=0;i<F.length;i++)out.push({p:F[i],n:[F[i][4],F[i][5],F[i][6]],hex});
+}
+function roverWheel(out,x,y,z,spin,lift){
+ const R=0.30,W=0.16,N=8,cy=y+lift;
+ for(let i=0;i<N;i++){const a0=spin+i/N*6.2832,a1=spin+(i+1)/N*6.2832;
+  const c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+  out.push({p:[[x-W,cy+R*s0,z+R*c0],[x+W,cy+R*s0,z+R*c0],[x+W,cy+R*s1,z+R*c1],[x-W,cy+R*s1,z+R*c1]],n:[0,s0+s1,c0+c1],hex:i%2?0x2a3038:0x14181e});
+ }
+}
+function drawRover3D(yaw,dist,al){
+ const faces=[];
+ roverBox(faces,0,0.34,0,2.5,0.28,1.05,0x3a4452);
+ roverBox(faces,-0.28,0.78,0,1.45,0.62,0.92,0xd5dde4);
+ roverBox(faces,0.78,0.82,0,0.72,0.58,0.84,0xe7eef3);
+ roverBox(faces,0.78,0.95,0.01,0.34,0.22,0.7,0x243040);
+ roverBox(faces,-0.15,0.78,0.48,1.15,0.16,0.06,0xe89430);
+ roverBox(faces,-0.15,0.78,-0.48,1.15,0.16,0.06,0xe89430);
+ roverBox(faces,0.78,1.28,0,0.06,0.28,0.06,0x5c656e);
+ roverBox(faces,0.9,1.46,0,0.22,0.08,0.16,0xc5ced4);
+ const spin=dist*2.4;
+ const ax=[[0.78,0.55],[0.78,-0.55],[-0.78,0.55],[-0.78,-0.55]];
+ for(let i=0;i<4;i++){const up=Math.max(0,Math.sin(dist*3.2+i*1.6))*0.07;roverWheel(faces,ax[i][0],0.28,ax[i][1],spin+i,up)}
+ const sy=Math.sin(yaw),cy=Math.cos(yaw),camZ=5.4,light=[0.35,0.82,0.45];
+ const ln=Math.hypot(light[0],light[1],light[2]);
+ const draw=[];
+ for(let i=0;i<faces.length;i++){const f=faces[i],q=[],n=f.n;
+  let nx=n[0]*cy+n[2]*sy,ny=n[1],nz=-n[0]*sy+n[2]*cy;
+  const nl=Math.hypot(nx,ny,nz)||1;nx/=nl;ny/=nl;nz/=nl;
+  if(nz<0.02)continue;
+  let zsum=0;
+  for(let k=0;k<4;k++){const v=f.p[k];
+   const x=v[0]*cy+v[2]*sy,y=v[1],z=-v[0]*sy+v[2]*cy;
+   const cz=camZ-z;if(cz<0.3){zsum=-99;break}
+   const s=260/cz;q.push({x:x*s,y:-y*s,z:cz});zsum+=cz}
+  if(zsum<0)continue;
+  const shade=0.32+0.72*Math.max(0,(nx*light[0]+ny*light[1]+nz*light[2])/ln);
+  draw.push({q,z:zsum/4,col:roverShade(f.hex,shade)});
+ }
+ draw.sort((a,b)=>b.z-a.z);
+ ctx.globalAlpha=al;
+ for(let i=0;i<draw.length;i++){const q=draw[i].q;ctx.beginPath();ctx.moveTo(q[0].x,q[0].y);
+  ctx.lineTo(q[1].x,q[1].y);ctx.lineTo(q[2].x,q[2].y);ctx.lineTo(q[3].x,q[3].y);ctx.closePath();
+  ctx.fillStyle=draw[i].col;ctx.fill()}
+ ctx.globalAlpha=1;
+}
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- if(!(SIDE.complete&&SIDE.naturalWidth&&REAR.complete&&REAR.naturalWidth))return;
  const ease=t=>t*t*(3-2*t),u=T%14,par=f?(f.x-195)*(FG.par-1)/TS:0;
  const mouth={x:470,y:338};
- let ip=mouth,yaw=0,into=0,al=1;
- if(u<4){ip=roadBez(ease(u/4),[[980,360],[800,350],[640,344],[470,338]]);}
- else if(u<6.4){yaw=ease((u-4)/2.4)*Math.PI/2;}
- else if(u<10.2){yaw=Math.PI/2;into=ease((u-6.4)/3.8);ip={x:mouth.x-150*into,y:mouth.y-36*into};al=into<0.82?1:1-(into-0.82)/0.18;}
+ let ip=mouth,yaw=Math.PI,into=0,al=1,dist=u*1.4;
+ if(u<4){ip=roadBez(ease(u/4),[[980,360],[800,350],[640,344],[470,338]]);yaw=Math.PI;}
+ else if(u<6.6){yaw=Math.PI-ease((u-4)/2.6)*Math.PI/2;}
+ else if(u<10.4){yaw=Math.PI/2;into=ease((u-6.6)/3.8);ip={x:mouth.x-160*into,y:mouth.y-40*into};al=into<0.8?1:1-(into-0.8)/0.2;dist+=into*2}
  else return;
  const p=yardPt(ip.x,ip.y);
- const sc=1-into*0.62;
- const turn=yaw/(Math.PI/2);
- const squeeze=Math.max(0.08,1-Math.min(1,turn/0.72)*0.92);
- const sideA=turn<0.5?1:Math.max(0,1-(turn-0.5)/0.22);
- const rearA=turn<0.58?0:Math.min(1,(turn-0.58)/0.28);
  ctx.save();ctx.translate(par+p.x,p.y);
- ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,4,46*sc,3.2*sc,0,0,7);ctx.fill();
- if(sideA>0.04){ctx.save();ctx.globalAlpha=al*sideA;ctx.scale(-squeeze,1);
-  const tw=132*sc,th=tw*174/270;ctx.drawImage(SIDE,0,0,270,174,-tw/2,-th,tw,th);ctx.restore()}
- if(rearA>0.04){ctx.save();ctx.globalAlpha=al*rearA;
-  const tw=86*sc,th=tw*REAR.naturalHeight/REAR.naturalWidth;ctx.drawImage(REAR,-tw/2,-th,tw,th);ctx.restore()}
+ ctx.fillStyle='rgba(0,0,0,'+(0.32*al)+')';ctx.beginPath();ctx.ellipse(0,6,34*(1-into*0.4),3.2,0,0,7);ctx.fill();
+ ctx.translate(0,6);
+ drawRover3D(yaw,dist,al);
  ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
