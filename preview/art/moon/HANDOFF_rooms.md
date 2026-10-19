@@ -30,7 +30,8 @@
 | **Total** | **1,788,453** |
 
 - Sheets: `art/moon/shipyard_rooms.png`, `art/moon/engineering_rooms.png`.
-- None of these ids are referenced in game.js yet.
+- In `game-1215.js` (PREVIEW · 12:15) these ARE wired: `ship_assembly`, `eng_cnc` (and the other `eng_*` rooms), `roof_habitat`, `roof_engineering`, `refinery`, plus packs `shipyard_rooms` / `engineering_rooms`.
+- Still unwired as art-only: Launch Tower and Engineering Penthouse (not in this batch).
 
 ## Shelved
 - `hab_quarters` is shelved in `art/moon/_shelved/hab_quarters/`. Do not ship it.
