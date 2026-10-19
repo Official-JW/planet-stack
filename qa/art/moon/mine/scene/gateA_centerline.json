@@ -58,5 +58,11 @@
     "w": 100,
     "h": 95
   },
-  "notes": "Bay door left (clean lit doorway); packed-dirt road with ~90\u00b0 curve on Moon ground; cave portal in rock hillside on right at ground level; continuous horizontal strata."
+  "notes": "Bay door left with intentional ORE BIN at dump stop (rear of bay, bed tip). Packed-dirt road on ground with ~90\u00b0 curve to cave in rock hillside. Road top-edge blur band cleaned. No baked truck.",
+  "ore_bin_rect_px": {
+    "x": 276,
+    "y": 336,
+    "w": 68,
+    "h": 56
+  }
 }
