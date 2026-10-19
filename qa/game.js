@@ -662,19 +662,22 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=gateA';
+const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=d11cbaf9';
 // Gate A: Art centerline (image px → scene via yardPt). Do not invent a road.
 const GATEA={ready:0,pts:null,cave:null,bay:null};
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function gateABuild(j){if(!j||!j.centerline_px||j.centerline_px.length<2)return;
- // Art ordered bay → far road end. t=0 = bay door (305,385), t=1 = far end (1058,40). No reverse.
- // Cave mouth is on the left (cave_mouth_rect); use that rect only for enter/exit clip + mouth position.
- const raw=j.centerline_px.map(p=>yardPt(p.x,p.y));
- GATEA.pts=raw;
- const c=j.cave_mouth_rect_px,b=j.bay_door_rect_px;
- if(c){const a=yardPt(c.x,c.y),z=yardPt(c.x+c.w,c.y+c.h);GATEA.cave={x:a.x,y:a.y,w:z.x-a.x,h:z.y-a.y}}
- if(b){const a=yardPt(b.x,b.y),z=yardPt(b.x+b.w,b.y+b.h);GATEA.bay={x:a.x,y:a.y,w:z.x-a.x,h:z.y-a.y}}
- GATEA.ready=1}
+ // Gate A (Director-approved geometry, 9a09791): centerline is ordered bay(P0) → cave(P10). Never re-ordered.
+ // Pixel copies kept for arc length / perspective; scene points via yardPt at draw time.
+ const px=j.centerline_px.map(p=>({x:p.x,y:p.y}));const cum=[0];
+ for(let i=1;i<px.length;i++)cum.push(cum[i-1]+Math.hypot(px[i].x-px[i-1].x,px[i].y-px[i-1].y));
+ GATEA.px=px;GATEA.cum=cum;GATEA.len=cum[cum.length-1];
+ GATEA.pts=px.map(p=>yardPt(p.x,p.y));
+ GATEA.caveI=j.cave_mouth_rect_px||null;GATEA.bayI=j.bay_door_rect_px||null;GATEA.binI=j.ore_bin_rect_px||null;
+ GATEA.dump=j.dump_stop_px?{x:j.dump_stop_px.x,y:j.dump_stop_px.y}:null;
+ const R=r=>{if(!r)return null;const a=yardPt(r.x,r.y),z=yardPt(r.x+r.w,r.y+r.h);return{x:a.x,y:a.y,w:z.x-a.x,h:z.y-a.y}};
+ GATEA.cave=R(j.cave_mouth_rect_px);GATEA.bay=R(j.bay_door_rect_px);GATEA.bin=R(j.ore_bin_rect_px);
+ GATEA.ready=!!GATEA.dump&&!!GATEA.binI&&!!GATEA.caveI}
 tryJSON('art/moon/mine/scene/gateA_centerline.json').then(gateABuild);
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
  const par=(f.x-195)*(FG.par-1)/TS;
@@ -711,8 +714,8 @@ function roverWheel(out,x,y,z,spin,lift){
   out.push({p:[[x,cy,z-W],[x+R*c1,cy+R*s1,z-W],[x+R*c0,cy+R*s0,z-W],[x,cy,z-W]],n:[0,0,-1],hex:0xd5dde4});
  }
 }
-function drawRover3D(yaw,dist,al,depth,dump){
- const faces=[];
+function drawRover3D(yaw,dist,al,depth,dump,load,roll){
+ const faces=[];load=load||0;roll=roll||0;
  roverBox(faces,0,0.3,0,3.4,0.22,1.2,0x2a313c);
  roverBox(faces,0,0.42,0.62,2.7,0.1,0.07,0x3c4654);
  roverBox(faces,0,0.42,-0.62,2.7,0.1,0.07,0x3c4654);
@@ -744,23 +747,28 @@ function drawRover3D(yaw,dist,al,depth,dump){
  roverBox(faces,-1.28,0.7,-0.32,0.05,0.08,0.1,0xd04538);
  roverBox(faces,1.05,1.05,0,0.05,0.34,0.05,0x5c656e);
  roverBox(faces,1.12,1.24,0,0.2,0.05,0.14,0xc5ced4);
+ if(load>0.02){   // ore heap is part of the bed (x<0.3, y>0.48) so it tips with the bed
+  roverBox(faces,-0.45,0.66+0.15*load,0,1.4,0.3*load,0.86,0xa8906a);
+  roverBox(faces,-0.5,0.82+0.2*load,0,0.95,0.16*load,0.6,0x9a8260)}
  const spin=dist*2.2;
  const ax=[[1.15,0.7],[1.15,-0.7],[-0.05,0.7],[-0.05,-0.7],[-1.05,0.7],[-1.05,-0.7]];
  for(let i=0;i<ax.length;i++){const up=Math.max(0,Math.sin(dist*3.1+i))*0.05;
   roverBox(faces,ax[i][0],0.72,ax[i][1]>0?0.5:-0.5,0.55,0.08,0.16,0xd7e0e6);
   roverWheel(faces,ax[i][0],0.36,ax[i][1],spin,up);
  }
+ const cr=Math.cos(roll),sr=Math.sin(roll);
  const sy=Math.sin(yaw),cy=Math.cos(yaw),pitch=0.52,cp=Math.cos(pitch),sp=Math.sin(pitch),camZ=6.4+depth*8,light=[0.25,0.9,0.35];
  const ln=Math.hypot(light[0],light[1],light[2]);
  const draw=[];
  for(let i=0;i<faces.length;i++){const f=faces[i],q=[],n=f.n;
-  let nx=n[0]*cy+n[2]*sy,ny=n[1],nz=-n[0]*sy+n[2]*cy;
+  const rn1=n[1]*cr-n[2]*sr,rn2=n[1]*sr+n[2]*cr;let nx=n[0]*cy+rn2*sy,ny=rn1,nz=-n[0]*sy+rn2*cy;
   const ny2=ny*cp-nz*sp,nz2=ny*sp+nz*cp;ny=ny2;nz=nz2;
   const nl=Math.hypot(nx,ny,nz)||1;nx/=nl;ny/=nl;nz/=nl;
   if(nz<0.02)continue;
   let zsum=0;
   for(let k=0;k<4;k++){let v=f.p[k];
    if(dump>0.01&&v[0]<0.3&&v[1]>0.48){const px=-1.05,py=0.58,c=Math.cos(dump),s=Math.sin(dump),x=v[0]-px,y=v[1]-py;v=[px+x*c-y*s,py+x*s+y*c,v[2]]}
+   if(roll)v=[v[0],v[1]*cr-v[2]*sr,v[1]*sr+v[2]*cr];   // body lean (≤ ±12°, set by caller)
    const x=v[0]*cy+v[2]*sy,y=v[1],z=-v[0]*sy+v[2]*cy;
    const y2=y*cp-z*sp,z2=y*sp+z*cp;
    const cz=camZ-z2;if(cz<0.35){zsum=-99;break}
@@ -781,64 +789,88 @@ function drawRover3D(yaw,dist,al,depth,dump){
   ctx.strokeStyle='rgba(8,12,18,.35)';ctx.lineWidth=1;ctx.stroke()}
  ctx.globalAlpha=1;
 }
+// Gate A bay-return parameters (image px, approved road-1125 / gateA_centerline.json space)
+const HOME_SWING_S=40;              // forward swing leaves the centerline this many px before P0 (on the P0–P1 segment)
+const HOME_SWING_W={x:378,y:348};   // stop point past P0, ~33 px beyond it into the bay apron (open floor right of the bin)
+const HOME_SWING_K=[20,18];         // forward cubic handles: [along road tangent at leave point, below W (arrive heading up-screen)]
+const HOME_BACK_K=[18,20];          // reverse cubic handles: [below W (leave rear-first, down-screen), out along the bay leg from dump_stop]
+const GTK={odo:0,lx:null,ly:null,lt:-1,yaw:0,lean:0};   // Gate A truck motion state (continuous tracks + lean filter)
+function gateAProj(yaw,roll,dump,v){   // model point → pre-scale screen offset (same math as drawRover3D, depth 0)
+ if(dump>0.01&&v[0]<0.3&&v[1]>0.48){const px=-1.05,py=0.58,c=Math.cos(dump),s=Math.sin(dump),x=v[0]-px,y=v[1]-py;v=[px+x*c-y*s,py+x*s+y*c,v[2]]}
+ const cr=Math.cos(roll),sr=Math.sin(roll);v=[v[0],v[1]*cr-v[2]*sr,v[1]*sr+v[2]*cr];
+ const sy=Math.sin(yaw),cy=Math.cos(yaw),cp=Math.cos(0.52),sp=Math.sin(0.52);
+ const x=v[0]*cy+v[2]*sy,y=v[1],z=-v[0]*sy+v[2]*cy,y2=y*cp-z*sp,z2=y*sp+z*cp,s=230/(6.4-z2);return{x:x*s,y:-y2*s}}
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- // Gate A ~52 s on Art's centerline (bay→far, no reverse). One 3D truck. Cave enter/exit uses cave_mouth_rect only.
- if(!GATEA.ready||!GATEA.pts)return;
- const ease=t=>t*t*(3-2*t),u=T%52,par=f?(f.x-195)*(FG.par-1)/TS:0;
- const FB=-FOOT_MID+4,bin={x:FX0+48,y:FB-58},door={x:FX0+292,y:FB-28};
- const P=GATEA.pts,caveR=GATEA.cave,n=P.length-1;
- function bez(t){const x=Math.max(0,Math.min(0.999,t))*n,i=x|0,k=x-i,a=P[i],b=P[Math.min(n,i+1)];
-  return{x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k,dx:b.x-a.x,dy:b.y-a.y}}
- // Mouth ground point from Art's cave_mouth_rect — not the far polyline end.
- function cavePt(){if(!caveR)return bez(0);return{x:caveR.x+caveR.w*0.45,y:caveR.y+caveR.h*0.78}}
- function caveDeep(e){const c=cavePt();if(!caveR)return c;
-  const dx=caveR.x+caveR.w*0.22,dy=caveR.y+caveR.h*0.55;return{x:c.x+(dx-c.x)*e,y:c.y+(dy-c.y)*e}}
- // 3D yaw only (cardinal). Never rotate() the canvas by the road angle.
- function face(dx,dy){const ax=Math.abs(dx),ay=Math.abs(dy);
-  if(ay>ax*0.65)return dy>0?-Math.PI/2:Math.PI/2;
-  return dx<0?Math.PI:0}
+ // Gate A, ~52 s loop, one 3D truck, Director-approved geometry only (gateA_centerline.json):
+ //  A  dump_stop: rear over ore_bin_rect, bed tips → pours into the bin → bed down, empty
+ //  B  drive FORWARD out the bay door along the short bay leg dump_stop → P0
+ //  C  follow Art centerline P0 → P10 (polyline order kept), nose = travel, body quiet, lean ≤ ±12°
+ //  D  into cave_mouth_rect NOSE-FIRST (player sees rear because heading away); shrink, fade — no open-road yaw turn
+ //  E  hold inside tunnel: 180° turnaround out of sight only
+ //  F  emerge nose-first toward camera (homebound yaw), grow, bed FULL
+ //  G  centerline back P10 → HOME_SWING_S px before P0, nose = travel; then (same eased move, no stop) a forward
+ //     cubic swing that carries on PAST P0 into the bay apron and stops at HOME_SWING_W, nose turned toward the back wall
+ //  H  short stop at W (cusp; tracks still)
+ //  I  BACK along a smooth cubic arc W → dump_stop, rear swinging round to the bin (Director: the only reversing)
+ //  J  settle, then loop to A. Never tips outside the door: tip only at dump_stop. No spin in place anywhere.
+ const G=GATEA;if(!G.ready||!G.px||!(YARD.complete&&YARD.naturalWidth))return;
+ const ease=t=>t*t*(3-2*t),cl=(v,a,b)=>Math.max(a,Math.min(b,v)),u=T%52,par=f?(f.x-195)*(FG.par-1)/TS:0;
+ const SP=Math.sin(0.52),yawOf=(dx,dy)=>Math.atan2(-dy/SP,dx);           // screen direction → 3D yaw (camera pitch 0.52)
+ const scAt=iy=>cl(0.2+(iy-378)*0.0015,0.14,0.32);                         // bigger toward the foreground (road widens)
+ const lerpA=(a,b,e)=>{let d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d+=6.2832;return a+d*e};
+ const PX=G.px,CUM=G.cum,L=G.len,N=PX.length-1;
+ function at(s){s=cl(s,0,L);let i=1;while(i<N&&CUM[i]<s)i++;const a=PX[i-1],b=PX[i],k=(s-CUM[i-1])/((CUM[i]-CUM[i-1])||1);return{x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k}}
+ function tan(s){const a=at(s-14),b=at(s+14);return yawOf(b.x-a.x,b.y-a.y)}
+ const D=G.dump,P0=PX[0],PN=PX[N],legYaw=yawOf(P0.x-D.x,P0.y-D.y);      // nose toward the road while on the bay leg
+ const bez=(a,b,c,d,t)=>{const v=1-t;return{x:v*v*v*a.x+3*v*v*t*b.x+3*v*t*t*c.x+t*t*t*d.x,y:v*v*v*a.y+3*v*v*t*b.y+3*v*t*t*c.y+t*t*t*d.y}};
+ const W=HOME_SWING_W,hd=(()=>{const dx=P0.x-PX[1].x,dy=P0.y-PX[1].y,l=Math.hypot(dx,dy);return{x:dx/l,y:dy/l}})();   // homebound unit dir at P0
+ if(!G.home){   // built once from the approved centerline + dump_stop; nothing invented on the open road
+  const pts=[];for(let s=L;s>HOME_SWING_S;s-=2)pts.push(at(s));
+  const F0=at(HOME_SWING_S),F1={x:F0.x+hd.x*HOME_SWING_K[0],y:F0.y+hd.y*HOME_SWING_K[0]},F2={x:W.x,y:W.y+HOME_SWING_K[1]};   // leaves road tangent, arrives at W heading up-screen (away)
+  for(let i=0;i<=40;i++)pts.push(bez(F0,F1,F2,W,i/40));
+  const ud=(()=>{const dx=P0.x-D.x,dy=P0.y-D.y,l=Math.hypot(dx,dy);return{x:dx/l,y:dy/l}})();
+  const R1={x:W.x,y:W.y+HOME_BACK_K[0]},R2={x:D.x+ud.x*HOME_BACK_K[1],y:D.y+ud.y*HOME_BACK_K[1]};   // leaves W rear-first (down-screen), arrives at dump_stop moving along the bay leg (rear to bin)
+  const rp=[];for(let i=0;i<=40;i++)rp.push(bez(W,R1,R2,D,i/40));
+  const mk=a=>{const c=[0];for(let i=1;i<a.length;i++)c.push(c[i-1]+Math.hypot(a[i].x-a[i-1].x,a[i].y-a[i-1].y));return{p:a,c,l:c[c.length-1]}};
+  G.home=mk(pts);G.back=mk(rp)}
+ const pAt=(P,s)=>{s=cl(s,0,P.l);let i=1;while(i<P.p.length-1&&P.c[i]<s)i++;const a=P.p[i-1],b=P.p[i],k=(s-P.c[i-1])/((P.c[i]-P.c[i-1])||1);return{x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k}};
+ const pDir=(P,s,w)=>{const a=pAt(P,s-w),b=pAt(P,s+w);return yawOf(b.x-a.x,b.y-a.y)};   // direction of travel along P
+ const cv=G.caveI,K={x:cv.x+cv.w*0.5,y:cv.y+cv.h*0.42};                 // deep point inside cave_mouth_rect
+ const outYaw=tan(0),homeYaw=tan(0)+Math.PI,endOut=tan(L),endHome=tan(L)+Math.PI;  // endOut=nose into cave; endHome=nose toward camera (set during E)
+ let p,yaw,load=0,dump=0,al=1,shrink=1,clip=null,road=0;
+ if(u<5.5){ // A tip at dump_stop into ore_bin_rect
+  const tip=u<2.2?ease(u/2.2):u<3.6?1:1-ease((u-3.6)/1.9);
+  p=D;yaw=legYaw;dump=tip*0.95;load=1-ease(cl((u-0.9)/2.5,0,1))}
+ else if(u<7.5){const e=ease((u-5.5)/2);p={x:D.x+(P0.x-D.x)*e,y:D.y+(P0.y-D.y)*e};yaw=lerpA(legYaw,outYaw,e)}       // B forward out the door
+ else if(u<22){const e=ease((u-7.5)/14.5),s=e*L;p=at(s);yaw=tan(s);road=1}                                           // C road out
+ else if(u<25){const e=ease((u-22)/3),mv=yawOf(K.x-PN.x,K.y-PN.y);p={x:PN.x+(K.x-PN.x)*e,y:PN.y+(K.y-PN.y)*e};yaw=lerpA(endOut,mv,ease(cl(e/0.45,0,1)));shrink=1-0.55*e;al=1-0.9*cl((e-0.35)/0.65,0,1);clip=G.cave}   // D keeps driving forward, gently yawing to face into the mouth (rear to camera = heading away)
+ else if(u<27.5){GTK.lt=-1;return}                                                                                    // E hold: 180° turnaround out of sight only
+ else if(u<30.5){const e=ease((u-27.5)/3),mv=yawOf(PN.x-K.x,PN.y-K.y);p={x:K.x+(PN.x-K.x)*e,y:K.y+(PN.y-K.y)*e};yaw=lerpA(mv,endHome,ease(cl((e-0.55)/0.45,0,1)));shrink=0.45+0.55*e;al=0.1+0.9*cl(e/0.6,0,1);load=1;if(e<0.9)clip=G.cave}   // F emerge nose-first toward camera, full
+ else if(u<47.5){const P=G.home,s=ease((u-30.5)/17)*P.l;p=pAt(P,s);yaw=pDir(P,s,14);load=1;road=1}                  // G road home + forward swing past P0 to W (one move, nose = travel)
+ else if(u<48.3){p=W;yaw=pDir(G.home,G.home.l,14);load=1}                                                            // H stop at W (cusp): parked, no yaw change
+ else if(u<51){const P=G.back,e=(u-48.3)/2.7,s=ease(e)*P.l,yb=v=>pDir(P,v,6)+Math.PI,o0=lerpA(yb(0),pDir(G.home,G.home.l,14),1)-yb(0),o1=lerpA(yb(P.l),legYaw,1)-yb(P.l);
+  p=pAt(P,s);yaw=yb(s)+o0+(o1-o0)*(s/P.l);load=1}                                                                    // I BACK the arc W → dump_stop: nose = opposite of travel, endpoints matched to H and legYaw
+ else{p=D;yaw=legYaw;load=1}                                                                                         // J settle at dump_stop, rear to bin
+ // tracks roll only with real travel along the nose axis: forward when driving, backward when reversing; nothing rotates on the spot
+ const sc=scAt(p.y)*shrink,sp=yardPt(p.x,p.y);
+ if(GTK.lt>=0&&T>GTK.lt&&T-GTK.lt<0.25&&GTK.lx!=null){const dx=p.x-GTK.lx,dy=p.y-GTK.ly,d=Math.hypot(dx,dy)/(36*Math.max(0.05,sc)/0.3733);
+  const fw=Math.cos(yaw)*dx+(-Math.sin(yaw)*SP)*dy;let dyaw=yaw-GTK.yaw;while(dyaw>Math.PI)dyaw-=6.2832;while(dyaw<-Math.PI)dyaw+=6.2832;
+  GTK.odo+=(fw<0?-d:d);
+  const want=road?cl(-dyaw/(T-GTK.lt)*0.18,-0.21,0.21):0;GTK.lean+=(want-GTK.lean)*Math.min(1,(T-GTK.lt)*4)}
+ else GTK.lean*=0.5;
+ GTK.lx=p.x;GTK.ly=p.y;GTK.yaw=yaw;GTK.lt=T;
+ const lean=cl(GTK.lean,-0.21,0.21);                                         // max ±12°
  ctx.save();ctx.translate(par,0);
- let ip,yaw=0,depth=0,dump=0,clip=null,sc=0.7,full=0;
- if(u<5){ // dump at ore bin: tip, pour, settle — empty after
-  const tip=u<2.4?ease(u/2.4):(1-ease((u-2.4)/2.6));
-  ip={x:bin.x,y:bin.y};yaw=Math.PI;dump=tip*0.95;sc=0.36;full=0}
- else if(u<9){ // out the door, nose first
-  const e=ease((u-5)/4);ip={x:bin.x+(door.x-bin.x)*e,y:bin.y+(door.y-bin.y)*e};yaw=0;sc=0.36+e*0.1;full=0}
- else if(u<11){ // door → Art road start (bay junction, t=0)
-  const e=ease((u-9)/2),s=bez(0);ip={x:door.x+(s.x-door.x)*e,y:door.y+(s.y-door.y)*e};yaw=face(s.x-door.x,s.y-door.y);sc=0.46+e*0.08;full=0}
- else if(u<20){ // follow Art curve bay → far; nose matches travel
-  const e=ease((u-11)/9),s=bez(e);ip=s;yaw=face(s.dx,s.dy);sc=0.54+e*0.42;full=0}
- else if(u<22){ // turn at far road end for return
-  const e=ease((u-20)/2),s=bez(1);ip={x:s.x,y:s.y};yaw=face(s.dx,s.dy)*(1-e)+face(-s.dx,-s.dy)*e;sc=0.96;full=0}
- else if(u<31){ // return along Art road toward bay (still empty)
-  const e=ease((u-22)/9),s=bez(1-e);ip=s;yaw=face(-s.dx,-s.dy);sc=0.54+(1-e)*0.42;full=0}
- else if(u<34){ // bay junction → cave mouth; turn to show rear
-  const e=ease((u-31)/3),s=bez(0),c=cavePt();
-  ip={x:s.x+(c.x-s.x)*e,y:s.y+(c.y-s.y)*e};
-  yaw=face(c.x-s.x,c.y-s.y)*(1-e)+Math.PI*1.5*e;sc=0.54+e*0.42;full=0}
- else if(u<40){ // drive into mouth, get smaller, stay inside cave_mouth_rect
-  const e=ease((u-34)/6);ip=caveDeep(e);yaw=Math.PI*1.5;depth=e;sc=0.96*(1-e*0.72);
-  if(caveR)clip={x:caveR.x,y:caveR.y,w:caveR.w,h:caveR.h};full=0}
- else if(u<42){ctx.restore();return} // hold inside
- else if(u<48){ // come out small → grow; bed full; clip to cave_mouth_rect
-  const e=ease((u-42)/6),c=caveDeep(1-e),s=bez(0);
-  ip={x:c.x+(s.x-c.x)*e,y:c.y+(s.y-c.y)*e};yaw=-Math.PI/2;depth=1-e;sc=0.96*(1-(1-e)*0.72);
-  if(e<0.85&&caveR)clip={x:caveR.x,y:caveR.y,w:caveR.w,h:caveR.h};full=1}
- else if(u<50){ // road/bay junction → door
-  const e=ease((u-48)/2),s=bez(0);ip={x:s.x+(door.x-s.x)*e,y:s.y+(door.y-s.y)*e};yaw=Math.PI;sc=0.54-e*0.08;full=1}
- else{ // back into bay toward bin
-  const e=ease((u-50)/2);ip={x:door.x+(bin.x-door.x)*e,y:door.y+(bin.y-door.y)*e};yaw=Math.PI;sc=0.46-e*0.1;
-  dump=e>0.55?(e-0.55)/0.45*0.95:0;full=dump>0.2?0:1}
- if(ip.y<FB-4)clip={x:FX0+6,y:FB-116,w:348,h:112};
- ctx.save();
  if(clip){ctx.beginPath();ctx.rect(clip.x,clip.y,clip.w,clip.h);ctx.clip()}
- ctx.translate(ip.x,ip.y);
- ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,10,28*sc,3.2*sc,0,0,7);ctx.fill();
- ctx.scale(sc,sc);ctx.translate(0,8);
- drawRover3D(yaw,u*1.4,1,depth*0.35,dump||0);
- if(full&&dump<0.15){ctx.fillStyle='#a8906a';for(let i=0;i<4;i++){ctx.beginPath();ctx.ellipse(-8-i*5,-18-i,9-i,4,0,0,7);ctx.fill()}}
- if(dump>0.3){ctx.fillStyle='#b9a07a';for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(-36-i*7,-16-dump*42-i*3,3.2,0,7);ctx.fill()}}
- ctx.restore();ctx.restore()}
+ ctx.save();ctx.translate(sp.x,sp.y);
+ ctx.globalAlpha=0.3*al;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,0,50*sc,12*sc,0,0,7);ctx.fill();ctx.globalAlpha=1;
+ ctx.scale(sc,sc);
+ drawRover3D(yaw,GTK.odo,al,0,dump,load,lean);
+ ctx.restore();
+ if(dump>0.25&&load<0.98&&load>0.02){   // pour from the rear lip down into ore_bin_rect
+  const lip=gateAProj(yaw,lean,dump,[-1.3,0.66,0]),lx=sp.x+lip.x*sc,ly=sp.y+lip.y*sc,B=G.bin,by=B.y+B.h*0.55,bx=cl(lx,B.x+3,B.x+B.w-3);
+  ctx.fillStyle='#b9a07a';for(let i=0;i<7;i++){const q=((T*2.4+i/7)%1);ctx.globalAlpha=0.9-0.4*q;ctx.beginPath();ctx.arc(lx+(bx-lx)*q+Math.sin(i*2.1)*1.2,ly+(by-ly)*q*q,1.3+0.5*(i%2),0,7);ctx.fill()}ctx.globalAlpha=1}
+ ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
  if(!lipC._ok){const c=lipX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);c.setTransform(k,0,0,k,0,0);smooth(c);c.drawImage(s.img,0,0,260,130);c.globalCompositeOperation='destination-in';
