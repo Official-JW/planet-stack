@@ -72,5 +72,5 @@
     "x": 340,
     "y": 370
   },
-  "notes": "Point 0 beside ORE BIN (not overlapping); dump_stop_px is bed tip into hopper. ~90\u00b0 curve: bay out toward foreground/wider, then turn to cave in grounded rock hillside. Sky alpha forced to 0 (no soft ghosts). Road lamps on soft edges (alternating sides), not on centerline \u2014 truck does not drive over them. Motion: road travel forward nose-first; bay reverse-in only from P0 through bay door to dump_stop, tip, then out forward (Director 2026-10-19)."
+  "notes": "Point 0 beside ORE BIN (not overlapping); dump_stop_px is bed tip into hopper. ~90\u00b0 curve: bay out toward foreground/wider, then turn to cave in grounded rock hillside. Sky alpha forced to 0 (no soft ghosts). Old mid-road orange lamp blobs removed completely (2026-10-19); road lamps are edge lamps only, on soft edges (alternating sides), none on the centerline \u2014 truck does not drive over them. Motion per Director locked cycle (2026-10-19): start parked at dump_stop_px rear to the bin, tip, drive out the bay door nose-first; follow road nose-first to the cave, go in rear-first, come out nose-first; home nose-first to point 0, then back the short leg to dump_stop_px. That short bay leg is the only reversing; cycle repeats from the tip."
 }
