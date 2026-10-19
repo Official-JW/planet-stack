@@ -667,10 +667,10 @@ const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=gateA';
 const GATEA={ready:0,pts:null,cave:null,bay:null};
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
 function gateABuild(j){if(!j||!j.centerline_px||j.centerline_px.length<2)return;
- // Art ordered pts from the left opening outward. Floor bay door (~FX0+292) sits at the far end of that polyline,
- // so reverse for drive order: t=0 at bay/door junction, t=1 at cave mouth (left opening).
+ // Art ordered bay → far road end. t=0 = bay door (305,385), t=1 = far end (1058,40). No reverse.
+ // Cave mouth is on the left (cave_mouth_rect); use that rect only for enter/exit clip + mouth position.
  const raw=j.centerline_px.map(p=>yardPt(p.x,p.y));
- GATEA.pts=raw.slice().reverse();
+ GATEA.pts=raw;
  const c=j.cave_mouth_rect_px,b=j.bay_door_rect_px;
  if(c){const a=yardPt(c.x,c.y),z=yardPt(c.x+c.w,c.y+c.h);GATEA.cave={x:a.x,y:a.y,w:z.x-a.x,h:z.y-a.y}}
  if(b){const a=yardPt(b.x,b.y),z=yardPt(b.x+b.w,b.y+b.h);GATEA.bay={x:a.x,y:a.y,w:z.x-a.x,h:z.y-a.y}}
@@ -782,13 +782,17 @@ function drawRover3D(yaw,dist,al,depth,dump){
  ctx.globalAlpha=1;
 }
 function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
- // Gate A ~52 s on Art's centerline. One 3D truck. No gray ribbon. No canvas rotate() by full atan2.
+ // Gate A ~52 s on Art's centerline (bay→far, no reverse). One 3D truck. Cave enter/exit uses cave_mouth_rect only.
  if(!GATEA.ready||!GATEA.pts)return;
  const ease=t=>t*t*(3-2*t),u=T%52,par=f?(f.x-195)*(FG.par-1)/TS:0;
  const FB=-FOOT_MID+4,bin={x:FX0+48,y:FB-58},door={x:FX0+292,y:FB-28};
  const P=GATEA.pts,caveR=GATEA.cave,n=P.length-1;
  function bez(t){const x=Math.max(0,Math.min(0.999,t))*n,i=x|0,k=x-i,a=P[i],b=P[Math.min(n,i+1)];
   return{x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k,dx:b.x-a.x,dy:b.y-a.y}}
+ // Mouth ground point from Art's cave_mouth_rect — not the far polyline end.
+ function cavePt(){if(!caveR)return bez(0);return{x:caveR.x+caveR.w*0.45,y:caveR.y+caveR.h*0.78}}
+ function caveDeep(e){const c=cavePt();if(!caveR)return c;
+  const dx=caveR.x+caveR.w*0.22,dy=caveR.y+caveR.h*0.55;return{x:c.x+(dx-c.x)*e,y:c.y+(dy-c.y)*e}}
  // 3D yaw only (cardinal). Never rotate() the canvas by the road angle.
  function face(dx,dy){const ax=Math.abs(dx),ay=Math.abs(dy);
   if(ay>ax*0.65)return dy>0?-Math.PI/2:Math.PI/2;
@@ -800,22 +804,27 @@ function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
   ip={x:bin.x,y:bin.y};yaw=Math.PI;dump=tip*0.95;sc=0.36;full=0}
  else if(u<9){ // out the door, nose first
   const e=ease((u-5)/4);ip={x:bin.x+(door.x-bin.x)*e,y:bin.y+(door.y-bin.y)*e};yaw=0;sc=0.36+e*0.1;full=0}
- else if(u<11){ // door → Art road start (bay junction)
+ else if(u<11){ // door → Art road start (bay junction, t=0)
   const e=ease((u-9)/2),s=bez(0);ip={x:door.x+(s.x-door.x)*e,y:door.y+(s.y-door.y)*e};yaw=face(s.x-door.x,s.y-door.y);sc=0.46+e*0.08;full=0}
- else if(u<22){ // follow Art curve toward cave; nose matches travel
-  const e=ease((u-11)/11),s=bez(e);ip=s;yaw=face(s.dx,s.dy);sc=0.54+e*0.42;full=0}
- else if(u<25){ // at cave: turn to show rear
-  const e=ease((u-22)/3),s=bez(1);ip={x:s.x,y:s.y};yaw=face(s.dx,s.dy)*(1-e)+Math.PI*1.5*e;sc=0.96;full=0}
- else if(u<33){ // drive into mouth, get smaller, stay inside opening
-  const e=ease((u-25)/8),s=bez(1-e*0.12);ip={x:s.x,y:s.y};yaw=Math.PI*1.5;depth=e;sc=0.96*(1-e*0.72);
+ else if(u<20){ // follow Art curve bay → far; nose matches travel
+  const e=ease((u-11)/9),s=bez(e);ip=s;yaw=face(s.dx,s.dy);sc=0.54+e*0.42;full=0}
+ else if(u<22){ // turn at far road end for return
+  const e=ease((u-20)/2),s=bez(1);ip={x:s.x,y:s.y};yaw=face(s.dx,s.dy)*(1-e)+face(-s.dx,-s.dy)*e;sc=0.96;full=0}
+ else if(u<31){ // return along Art road toward bay (still empty)
+  const e=ease((u-22)/9),s=bez(1-e);ip=s;yaw=face(-s.dx,-s.dy);sc=0.54+(1-e)*0.42;full=0}
+ else if(u<34){ // bay junction → cave mouth; turn to show rear
+  const e=ease((u-31)/3),s=bez(0),c=cavePt();
+  ip={x:s.x+(c.x-s.x)*e,y:s.y+(c.y-s.y)*e};
+  yaw=face(c.x-s.x,c.y-s.y)*(1-e)+Math.PI*1.5*e;sc=0.54+e*0.42;full=0}
+ else if(u<40){ // drive into mouth, get smaller, stay inside cave_mouth_rect
+  const e=ease((u-34)/6);ip=caveDeep(e);yaw=Math.PI*1.5;depth=e;sc=0.96*(1-e*0.72);
   if(caveR)clip={x:caveR.x,y:caveR.y,w:caveR.w,h:caveR.h};full=0}
- else if(u<36){ctx.restore();return} // hold inside
- else if(u<42){ // come out small → grow; bed full
-  const e=ease((u-36)/6),s=bez(1-e*0.12);ip={x:s.x,y:s.y};yaw=-Math.PI/2;depth=1-e;sc=0.96*(1-(1-e)*0.72);
+ else if(u<42){ctx.restore();return} // hold inside
+ else if(u<48){ // come out small → grow; bed full; clip to cave_mouth_rect
+  const e=ease((u-42)/6),c=caveDeep(1-e),s=bez(0);
+  ip={x:c.x+(s.x-c.x)*e,y:c.y+(s.y-c.y)*e};yaw=-Math.PI/2;depth=1-e;sc=0.96*(1-(1-e)*0.72);
   if(e<0.85&&caveR)clip={x:caveR.x,y:caveR.y,w:caveR.w,h:caveR.h};full=1}
- else if(u<48){ // return along Art road to bay
-  const e=ease((u-42)/6),s=bez(1-e);ip=s;yaw=face(-s.dx,-s.dy);sc=0.54+(1-e)*0.42;full=1}
- else if(u<50){ // road → door
+ else if(u<50){ // road/bay junction → door
   const e=ease((u-48)/2),s=bez(0);ip={x:s.x+(door.x-s.x)*e,y:s.y+(door.y-s.y)*e};yaw=Math.PI;sc=0.54-e*0.08;full=1}
  else{ // back into bay toward bin
   const e=ease((u-50)/2);ip={x:door.x+(bin.x-door.x)*e,y:door.y+(bin.y-door.y)*e};yaw=Math.PI;sc=0.46-e*0.1;
