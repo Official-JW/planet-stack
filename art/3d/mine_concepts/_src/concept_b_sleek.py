@@ -1,4 +1,4 @@
-"""Concept B - SLEEK HIGH-TECH Mine A. blender -b -P concept_b_sleek.py -- --out DIR [--quick 1] [--only glb,blend,turn,hero]"""
+"""Concept B - SLEEK HIGH-TECH Mine A. blender -b -P concept_b_sleek.py -- --out DIR [--quick 1] [--only glb,blend,turn,hero,dumpshot,scoopshot] [--pose dump|scoop]"""
 import sys, os, math, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy, bmesh
@@ -194,9 +194,18 @@ for k in range(3):
 # ================= HAUL TRUCK LAYOUT (Jacob: B + dump truck) =================
 # drill -> sealed tube -> pod hopper -> underglow conveyor -> HT-04 dump truck bed -> road loop -> raised dump hopper -> lift tube -> ore silo
 ARM_POSE = A.get('arm', 'stow')          # 'stow' (hero/master) or 'reach' (truck close-up)
+POSE = A.get('pose', '')                  # '' = parked under the conveyor; 'dump' = backed onto DUMP 01, bed up; 'scoop' = beside Dep_01
+if POSE == 'dump': ARM_POSE = 'park'      # arm lifted clear of the tipping bed
+if POSE == 'scoop': ARM_POSE = 'dep01'    # arm reaching into the main He-3 seam (Dep_01)
 TX, TY = 4.7, -4.5                        # truck centre on the ground, heading +X (cab toward the silo side of the loop)
 def T(x, y, z): return Vector((TX + x, TY + y, z))
 BED_C = T(-1.6, 0, 0)                     # dump-bed centre (discharge lands here)
+# alternate parking spots: (world centre x, y, yaw). 'dump' = rear backed to DUMP 01's south wall; 'scoop' = beside Dep_01, cab east
+POSES = {'': (TX, TY, 0.0), 'dump': (5.8, 1.2 - 3.64, -math.pi / 2), 'scoop': (11.25, -4.35, 0.0)}
+PCX, PCY, PYAW = POSES[POSE]
+XF = Matrix.Translation((PCX, PCY, 0)) @ Matrix.Rotation(PYAW, 4, 'Z') @ Matrix.Translation((-TX, -TY, 0))   # parked truck frame -> world
+DEP_TARGET = Vector((11.25, -7.45, 1.38))                         # wrist point ~0.35 m above the Dep_01 seam surface
+DEP_WRIST_LOCAL = XF.inverted() @ DEP_TARGET
 
 # ================= UNDERGLOW CONVEYOR (hopper -> truck bed) =================
 BIN_X, BIN_Y = 10.0, 4.5
@@ -385,8 +394,26 @@ for sy in (-1, 1):
     box('bed_subframe', (bl - 0.2, 0.22, 0.1), tuple(T(bx, sy * 0.55, BZ - 0.13)), GRAPH_S, bevel=0.02)
     cyl('bed_hinge', 0.11, 0.42, tuple(T(BX0 + 0.2, sy * 0.55, 1.72)), SATIN, rot=(math.pi / 2, 0, 0), segs=20)
     box('bed_hinge_lug', (0.26, 0.08, 0.36), tuple(T(BX0 + 0.2, sy * 0.78, 1.72)), GRAPH, bevel=0.02)
-piston('hoist', T(0.72, 0.55, 1.55), T(0.42, 0.55, 3.05), 0.13, GRAPH_S, SATIN, ext=0.5)
-box('hoist_bracket', (0.18, 0.4, 0.3), tuple(T(0.38, 0.55, 3.05)), GRAPH, bevel=0.03)
+# twin telescoping hoist rams under the front of the bed: base clevis on the frame rails, rod eye on a bed-floor lug.
+# Bed hinges at HINGE (rear); rams are posed per frame by the truck_dump action (0 -> 50 deg -> 0 over 3 s).
+HINGE = T(BX0 + 0.2, 0, 1.72)
+RAM_Y, RAM_STAGE = 0.86, 1.0
+RAM_B = {sy: T(-1.0, sy * RAM_Y, 1.42) for sy in (-1, 1)}            # chassis-side pivot
+RAM_T = {sy: T(0.05, sy * RAM_Y, 1.74) for sy in (-1, 1)}            # bed-side pivot (rest)
+def _tube(name, r, length, mat, segs=28):
+    bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=segs, radius1=r, radius2=r, depth=length)
+    bmesh.ops.translate(bm, vec=(0, 0, length / 2), verts=bm.verts)
+    ob = _obj(bm, name, mat, bevel=0.012, segs=2, angle=40); ob.rotation_mode = 'QUATERNION'; return ob
+RAMS = {}
+for sy in (-1, 1):
+    side = 'L' if sy < 0 else 'R'
+    RAMS[sy] = [_tube('Ram%s_Barrel' % side, 0.115, RAM_STAGE, GRAPH_S), _tube('Ram%s_Stage2' % side, 0.088, RAM_STAGE, SATIN),
+                _tube('Ram%s_Rod' % side, 0.062, RAM_STAGE, SATIN)]
+    RAMS[sy].append(_tube('Ram%s_BarrelGlow' % side, 0.118, 0.04, CYANS, segs=28))   # cyan collar on the barrel
+    box('ram_base_clevis', (0.34, 0.3, 0.26), tuple(T(-1.0, sy * (RAM_Y - 0.07), 1.42)), GRAPH, bevel=0.03)
+    cyl('ram_base_pin', 0.075, 0.36, tuple(RAM_B[sy]), SATIN, rot=(math.pi / 2, 0, 0), segs=20)
+    box('bed_ram_lug', (0.3, 0.26, 0.2), tuple(T(0.05, sy * RAM_Y, 1.8)), GRAPH, bevel=0.03)        # rides with the bed
+    cyl('bed_ram_pin', 0.065, 0.34, tuple(RAM_T[sy]), SATIN, rot=(math.pi / 2, 0, 0), segs=20)
 text('decal_bed', 'HT-04', (TX - 2.0, TY - BW - 0.006, 2.55), (math.pi / 2, 0, 0), 0.62, INK, extrude=0.005)
 text('decal_bed_s', 'He-3  ORE HAULER', (TX - 2.0, TY - BW - 0.004, 2.12), (math.pi / 2, 0, 0), 0.15, CYAN, extrude=0.003)
 text('decal_bed_r', 'HT-04', (TX - 2.0, TY + BW + 0.006, 2.55), (math.pi / 2, 0, math.pi), 0.62, INK, extrude=0.005)
@@ -411,6 +438,10 @@ def ik(S, Tg, l1, l2, upv=Vector((0, 0, 1))):
 if ARM_POSE == 'reach':
     EL = SH + Vector((0.55, -0.45, 0.7)).normalized() * L1          # shoulder raised, swung out over the cab corner
     WRp = EL + Vector((0.38, -0.51, -0.77)).normalized() * L2      # forearm angled down toward the tap deposit
+elif ARM_POSE == 'park':   # lifted forward over the cab corner so the bed can tip
+    EL, WRp = ik(SH, T(2.15, -1.05, 4.35), L1, L2)
+elif ARM_POSE == 'dep01':  # reaching down into the Dep_01 seam (target given in the parked-truck frame, see POSES)
+    EL, WRp = ik(SH, DEP_WRIST_LOCAL, L1, L2)
 else:   # stowed: folded back along the bed's left rim, scoop parked on the rim
     EL, WRp = ik(SH, T(-1.75, -1.12, 3.6), L1, L2)
 sphere('arm_shoulder', 0.25, tuple(SH), WHITE_S, sub=3)
@@ -428,7 +459,7 @@ cable('arm_hose', SH - yax * 0.22, EL - yax * 0.2, 0.03, GRAPH_S, sag=0.1)
 cable('arm_hose', EL - yax * 0.18, WRp - yax * 0.15, 0.025, GRAPH_S, sag=0.08)
 # scoop: opens along the forearm direction, mouth tilted down
 fdir = (WRp - EL).normalized()
-sdir = (fdir + Vector((0, 0, -0.9 if ARM_POSE == 'reach' else -0.25))).normalized()
+sdir = (fdir + Vector((0, 0, -0.9 if ARM_POSE in ('reach', 'dep01') else -0.25))).normalized()
 _, _, _, Rs = frame_from(WRp, WRp + sdir); Ms = Matrix.Translation(WRp) @ Rs.to_4x4()
 def S_(lx, ly, lz): return Ms @ Matrix.Translation((lx, ly, lz))
 boxm('scoop_back', (0.06, 0.62, 0.42), S_(0.06, 0, 0.02), WHITE_S, bevel=0.02)
@@ -438,7 +469,7 @@ for sy in (-1, 1):
     boxm('scoop_side_glow', (0.42, 0.012, 0.03), S_(0.33, sy * 0.337, 0.06), CYAN, bevel=0)
 for k in range(5):
     boxm('scoop_tooth', (0.12, 0.06, 0.04), S_(0.7, -0.24 + k * 0.12, -0.18), SATIN, bevel=0.01)
-if ARM_POSE == 'reach':
+if ARM_POSE in ('reach', 'dep01'):
     for k in range(5):
         pp = Ms @ Vector((0.3 + 0.07 * k, -0.15 + 0.08 * k, -0.1))
         ore_chunks('scoop_ore', (pp.x, pp.y, pp.z), 0.01, 1, [(HE3, 1, 'he3')] if k % 2 == 0 else [(ROCK, 1, 'rock')], size=(0.1, 0.18), seed=900 + k)
@@ -475,9 +506,82 @@ def _cool(mname, k=(0.93, 0.99, 1.10), gain=0.97):
     m.diffuse_color = c(m.diffuse_color)
 for _m in ('M_Regolith', 'M_Boulder', 'B_OreRock'): _cool(_m)
 # seat the truck on the regolith (tyres sink ~2 cm)
-gz = min(height(TX + x, TY + sy * 1.5) for x in AXLES for sy in (-1, 1)) - 0.02
-for o in TRUCK_OBJS:
-    if o.parent is None: o.location.z += gz
+TROOT = bpy.data.objects.new('Truck_HT04', None); coll('Mine').objects.link(TROOT); TROOT.location = T(0, 0, 0)
+BEDP = bpy.data.objects.new('Bed_Pivot', None); coll('Mine').objects.link(BEDP); BEDP.location = HINGE
+BEDP.empty_display_type = 'ARROWS'; BEDP.empty_display_size = 0.6
+bpy.context.view_layer.update()
+_BED_PARTS = ('bed_floor', 'bed_wall', 'bed_rim', 'bed_rim_glow', 'bed_rib', 'bed_skirt', 'bed_liner', 'bed_front', 'bed_front_cap',
+              'bed_front_glow', 'bed_tail', 'bed_subframe', 'decal_bed', 'decal_bed_s', 'decal_bed_r', 'bed_heap', 'bed_ram_lug', 'bed_ram_pin')
+def _par(o, p):
+    mw = o.matrix_world.copy(); o.parent = p; o.matrix_parent_inverse = p.matrix_world.inverted(); o.matrix_world = mw
+for o in TRUCK_OBJS + [o for o in bpy.data.objects if o.name.split('.')[0].startswith(('Ram', 'ram_', 'bed_ram'))]:
+    if o.parent is not None or o in (TROOT, BEDP): continue
+    nm = o.name.split('.')[0]
+    _par(o, BEDP if (nm in _BED_PARTS or nm.startswith('bed_ore')) else TROOT)
+_par(BEDP, TROOT)
+# ---- truck_dump action: bed 0 -> 50 deg -> 0 over 3 s (frames 1..73 @ 24 fps), smoothstep ease in-out; rams baked per frame
+DUMP_DEG, F0, FM, F1 = 50.0, 1, 37, 73
+sc_ = bpy.context.scene; sc_.render.fps = 24; sc_.frame_start, sc_.frame_end = F0, F1
+def _ease(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
+def dump_angle(f): return math.radians(DUMP_DEG) * (_ease((f - F0) / (FM - F0)) if f <= FM else _ease((F1 - f) / (F1 - FM)))
+def _bed_pt(p, ang):   # rest-frame point carried by the bed, tipped by ang (front up, about the rear hinge)
+    return HINGE + Matrix.Rotation(-ang, 3, 'Y') @ (Vector(p) - HINGE)
+def pose_rams(ang, f=None):
+    for sy in (-1, 1):
+        b, t = RAM_B[sy], _bed_pt(RAM_T[sy], ang); d = t - b; Lr = d.length; u = d.normalized(); q = u.to_track_quat('Z', 'Y')
+        ext = Lr - RAM_STAGE                                   # rod tip always lands on the bed pin
+        offs = (0.0, max(0.04, ext * 0.5), ext, 0.62)          # barrel, stage 2, rod, barrel collar
+        for ob, o_ in zip(RAMS[sy], offs):
+            ob.location = b + u * o_; ob.rotation_quaternion = q
+            if f is not None: ob.keyframe_insert('location', frame=f); ob.keyframe_insert('rotation_quaternion', frame=f)
+for f in range(F0, F1 + 1):
+    a_ = dump_angle(f); BEDP.rotation_euler = (0, -a_, 0); BEDP.keyframe_insert('rotation_euler', frame=f); pose_rams(a_, f)
+BEDP.animation_data.action.name = 'truck_dump'
+for sy in (-1, 1):
+    for ob in RAMS[sy]: ob.animation_data.action.name = 'truck_dump_' + ob.name
+for ob in [BEDP] + RAMS[-1] + RAMS[1]:
+    for fc in ob.animation_data.action.fcurves:
+        for kp in fc.keyframe_points: kp.interpolation = 'LINEAR'
+BEDP['action'] = 'truck_dump'; BEDP['note'] = 'bed tip 0->50->0 deg, frames 1-73 @24fps; rams Ram*_ baked to match'
+FRAME_POSE = FM if POSE == 'dump' else F0
+sc_.frame_set(FRAME_POSE)
+# seat the parked truck on the regolith (tyres sink ~2 cm)
+_R = Matrix.Rotation(PYAW, 3, 'Z')
+gz = min(height(*(Vector((PCX, PCY, 0)) + _R @ Vector((x, sy * 1.5, 0)))[:2]) for x in AXLES for sy in (-1, 1)) - 0.02
+TROOT.matrix_world = Matrix.Translation((PCX, PCY, gz)) @ Matrix.Rotation(PYAW, 4, 'Z')
+bpy.context.view_layer.update()
+if POSE:   # truck away from the loading bay: conveyor idle (no falling ore stream over the empty bay)
+    for o in bpy.data.objects:
+        if o.name.startswith('fall_ore'): o.hide_render = True; o.hide_viewport = True
+def TW(p, ang=None):   # parked-truck-frame point -> world (optionally carried by the tipped bed)
+    q = _bed_pt(p, ang) if ang is not None else Vector(p)
+    return TROOT.matrix_world @ (q - T(0, 0, 0))
+if POSE == 'dump':
+    # load has slid aft: hide the heaped load, put a thin sliding layer in the lower bed, a cascade off the tail, and a pile in DUMP 01
+    for o in bpy.data.objects:
+        if o.name.startswith(('bed_heap', 'bed_ore')): o.hide_render = True
+    A_ = math.radians(DUMP_DEG); rs = random.Random(77)
+    for i in range(70):   # sliding layer on the tipped floor, thicker toward the tail
+        lx = BX0 + 0.15 + (bl * 0.75) * rs.random() ** 1.8; ly = rs.uniform(-BW + 0.25, BW - 0.25)
+        th = 0.05 + 0.5 * max(0.0, 1 - (lx - BX0) / (bl * 0.7))
+        p = TW(T(lx, ly, BZ + 0.1 + rs.uniform(0, th)), A_)
+        kind = rs.choices(['he3', 'pt', 'rock'], [4, 2, 5])[0]; m = {'he3': HE3, 'pt': PT, 'rock': ROCK}[kind]
+        ore_chunks('dump_slide', (p.x, p.y, p.z), 0.01, 1, [(m, 1, kind)], size=(0.12, 0.28), seed=1200 + i)
+    lip = _bed_pt(T(BX0 - 0.02, 0, BZ + 0.05), A_)                # tail lip (parked frame)
+    for i in range(46):   # cascade: off the lip, falling back + down onto the grate
+        s_ = rs.random(); ly = rs.uniform(-BW + 0.35, BW - 0.35) * (1 - 0.35 * s_)
+        q = Vector((lip.x - 0.25 * s_ - 0.55 * s_ * s_, TY + ly, lip.z + 0.25 - 0.9 * s_ * s_ - 0.12 * s_))
+        p = TW(q); kind = rs.choices(['he3', 'pt', 'rock'], [5, 2, 4])[0]; m = {'he3': HE3, 'pt': PT, 'rock': ROCK}[kind]
+        ore_chunks('dump_fall', (p.x, p.y, p.z), 0.01, 1, [(m, 1, kind)], size=(0.1, 0.24), seed=1400 + i)
+    pc = TW(T(BX0 - 0.95, 0, 0)); heap('dump_pile', (pc.x, pc.y, 1.47), 0.95, 0.42, ROCK, seed=29)
+    ore_chunks('dump_pile_ore', (pc.x, pc.y, 1.47), 0.9, 34, ORE_MIX, size=(0.1, 0.24), heap=0.42, seed=1600)
+if POSE == 'scoop':   # glowing seam crystals around the bucket so it reads as digging into the He-3
+    rs = random.Random(91); Ms_w = TW(WRp)
+    for i in range(10):
+        a_ = rs.uniform(0, TAU); d_ = rs.uniform(0.35, 1.0); x_, y_ = DEP_TARGET.x + d_ * math.cos(a_), DEP_TARGET.y - 0.3 + d_ * math.sin(a_)
+        r_ = math.hypot(x_ - DX, y_ - DY); h_ = 1.4 * max(0, 1 - (r_ / 2.6) ** 2)
+        sphere('seam_crystal_d', rs.uniform(0.12, 0.26), (x_, y_, h_ + 0.06), HE3, scale=(0.5, 0.5, 1.8), sub=1, jitter=0.2, smooth=False,
+               seed=300 + i, rot=(rs.uniform(-0.6, 0.6), rs.uniform(-0.6, 0.6), 0))
 
 # ---- compacted haul road: loop conveyor bay -> dump hopper/silo, with a spur to the deposits (Stage decal, not in GLB)
 def M_road():
@@ -562,6 +666,12 @@ if 'top' in ONLY:
     shoot(cam, os.path.join(OUT, 'top.png'), (4.0, -1.0, 0.0), (4.0, -1.01, 40.0), 1000, 1000, lens=35, samples=24)
 if 'bedcrop' in ONLY:
     shoot(cam, os.path.join(OUT, 'bedcrop.png'), tuple(T(-1.6, -1.4, 2.6)), tuple(T(-1.0, -6.5, 3.0)), 800, 450, lens=35, samples=24)
+for key, fname, dflt in (('dumpshot', 'b_dump_truck_dump_3840x2160.png', [5.5, -0.4, 1.9, 1.2, 5.4, 4.4, 24]),
+                          ('scoopshot', 'b_dump_truck_scoop_3840x2160.png', [11.2, -6.6, 1.7, 14.6, -13.4, 5.4, 28])):
+    if key in ONLY:   # world-space target xyz, camera xyz, lens (override with --cv)
+        w, h = (3840, 2160) if not QUICK else (960, 540)
+        cv = [float(v) for v in A['cv'].split(',')] if 'cv' in A else dflt
+        shoot(cam, os.path.join(OUT, fname), tuple(cv[0:3]), tuple(cv[3:6]), w, h, lens=cv[6], samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'hero' in ONLY:
     w, h = (3840, 2160) if not QUICK else (960, 540)
     shoot(cam, os.path.join(OUT, 'hero.png'), (0.0, 1.5, 6.6), (10.0, -31.0, 5.0), w, h, lens=24, samples=int(A.get('hs', 64)) if not QUICK else 16)
