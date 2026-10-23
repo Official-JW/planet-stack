@@ -877,6 +877,17 @@ if 'phone' in ONLY:
     # in-game phone camera (Game Coder spec): aimed at Cam_Target, 38 deg vertical FOV (sensor_fit VERTICAL), 18 deg down, from -Y;
     # d = (W/2) / (tan(19 deg) * w/h) ~= 3.148 * W.  W = 34: whole station in y 316-570 of 852, every tier <= 34 m from Cam_Target
     sc = bpy.context.scene
+    if A.get('tiers') != '1':   # default tier state (as in the game): hide the 5 upgrade tiers, same name rules as build_game_glb_tiered.group_of
+        def _bc(o):
+            bb = [o.matrix_world @ Vector(c) for c in o.bound_box]; return Vector([(min(v[i] for v in bb) + max(v[i] for v in bb)) / 2 for i in range(3)])
+        def _tier(o):
+            n, c = o.name, _bc(o)
+            return (n.startswith('rad2_') or (n.startswith('o2_tank') and math.hypot(c.x + 3.3, c.y - 28.6) < 1.8)
+                    or (n.startswith(('co2_bed', 'co2_actuator', 'co2_valve')) and c.x > 4.55)
+                    or (n.startswith('h2o_tank') and math.hypot(c.x - 7.4, c.y - 23.4) < 1.3) or n.startswith('solar_'))
+        _hid = [o for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT') and _tier(o)]
+        for o in _hid: o.hide_render = True
+        print('PHONE tiers hidden', len(_hid), flush=True)
     w, h = (1179, 2556) if not QUICK else (393, 852)
     if A.get('pres'): w, h = [int(v) for v in A['pres'].split('x')]
     half = math.radians(PHONE_CAM['fov_y'] / 2); d = (PHONE_CAM['frame_w'] / 2) / (math.tan(half) * w / h)

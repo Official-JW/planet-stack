@@ -9,8 +9,8 @@ Everything is original. There are no real logos, only invented stencils (LS-01, 
 |---|---|
 | Triangles (master, `Mine` collection) | **264,277** (1,125 objects) |
 | Master GLB | `life_support_master.glb`, 1.49 MB, meshopt + quantization (`gltfpack -cc -kn -km`), **no Draco**, one node per part. Review asset only: it keeps the master's clearcoat/transmission/ior material extensions. |
-| **Game GLB** | `life_support_game.glb`, **197,744 B (0.19 MB)**, **23,795 triangles and 11 draw calls with every tier visible** (base 17,999 tris / 4 draws). Materials `SHM_Paint`, `SHM_Metal`, `SHM_GlowCyan`, `SHM_GlowWhite` from `../_shared/shared_materials.json`. Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. Plain metallic/roughness, no transmission/clearcoat/ior, no textures. Colour comes from `COLOR_0` vertex colours. Single-sided. No astronaut. Tier nodes, moving parts and markers: see *Game GLB nodes* below. md5 `eac16d1bf6f782267f46be455d5ce5d1` |
-| Units / axes / origin | 1 m, Y up. The front (airlock) faces +Z. The **origin is the station focus**: on the ground, on the PM-1 / airlock axis. The game camera looks at this point. The bbox is not centred because the plants sit behind the modules. |
+| **Game GLB** | `life_support_game.glb`, **197,880 B (0.19 MB)**, **23,795 triangles and 11 draw calls with every tier visible** (base 17,999 tris / 4 draws). Materials `SHM_Paint`, `SHM_Metal`, `SHM_GlowCyan`, `SHM_GlowWhite` from `../_shared/shared_materials.json`. Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. Plain metallic/roughness, no transmission/clearcoat/ior, no textures. Colour comes from `COLOR_0` vertex colours. Single-sided. No astronaut. Tier nodes, moving parts and markers: see *Game GLB nodes* below. md5 `e8427ec46e93fa04b4d1a7468644d992` |
+| Units / axes / origin | 1 m, Y up. The front (airlock) faces +Z. The **origin is the station focus**: on the ground, on the PM-1 / airlock axis. The game camera aims at `Cam_Target` (see markers). The bbox is not centred because the plants sit behind the modules. |
 | Footprint | X −10.7…10.5 m (21 m wide), depth from 11.9 m in front of the origin to 42.3 m behind it (solar masts). Mast tops are at 15.5 m. |
 | Scale | astronaut = 1.8 m (review renders only; it is in the Stage collection and is never exported) |
 
@@ -20,7 +20,7 @@ The in-game station camera (`qa3d/main.js`: fov 38° vertical, 18° down, look-a
 - **O2 and H2O lines frame the modules.** White-jacketed lines with wide colour bands (green O2, blue H2O) run forward down a central pipe spine. They split behind PM-2 and ride T-post racks at 3 m along both flanks into PM-1's end caps (tags "O2" and "H2O").
 - **Pushed back:** the O2 plant (left) and water plant (right) start about 9 m behind PM-2, and their tall parts (reactor tower, tanks, RAD-1 and RAD-2) show above the hulls. The solar masts are 40 m back, and FPU-1 and its berm are far off-frame.
 - **Simplified for phone size:** the hull labels are re-spaced between seam rings, the vent stacks are shortened, and the guy footprints are tightened. RAD-0 is lowered. The power trays are graphite-only, so they don't read as a red line.
-- The ground and hills use cool grey rock (the starter ship's `M_ground_grey` recipe), and the boulders and dust are re-toned to grey. There is no tan.
+- The ground and hills use the shared `M_ground` (`M_Regolith`) from `mine_concepts/_src/mc_common.py` (imported read-only; the build asserts it). The boulders and dust are re-toned to grey. There is no tan.
 
 ## Systems (left to right in the hero)
 - **Power hookup:** the reactor feeder (cable tray on stanchions) comes from fission unit **FPU-1**. FPU-1 sits behind its own ring berm with
@@ -52,7 +52,7 @@ The in-game station camera (`qa3d/main.js`: fov 38° vertical, 18° down, look-a
   `blender -b life_support_master.blend -P _src/build_game_glb.py -- --out raw.glb`, then `gltfpack -i raw.glb -o life_support_game.glb -cc`
 - `_src/make_sheet.py`: builds the contact sheet (`python3 make_sheet.py turntable life_support_turntable_sheet.png TITLE SUB hero.png`)
 - `life_support_master.blend`: full scene (procedural shading, stage, lights, cameras)
-- `life_support_phone_1179x2556.png` and `life_support_phone_393x852.png`: in-game station camera view (3× master, and its Lanczos downscale)
+- `life_support_phone_1179x2556.png` and `life_support_phone_393x852.png`: in-game camera view (aimed at `Cam_Target`, frame_w 34, 3× master and its Lanczos downscale), default tier state
 - `life_support_game_preview_393x852.png`: the game GLB itself (all tiers visible) from the same camera (flat preview render, plain grey ground)
 - `life_support_hero_3840x2160.png`: hero render (Cycles, OIDN, AgX Punchy)
 - `turntable/turn_000..315.png` and `life_support_turntable_sheet.png`: 8 angles at 45° steps, plus the contact sheet
@@ -73,7 +73,7 @@ All under the root `LifeSupport`. Glows on tier parts are folded into `SHM_Paint
 
 Tier nodes carry `extras` `{"tier": N, "hidden_by_default": true}` (three.js: `userData`). glTF has no hidden flag, so the loader must set `visible = false` on load.
 Clips: `Fan_Scrubber_Spin` (1.0 s loop, 1 rev/s, quaternion), `Beacon_Lights_Blink` (1.5 s loop: 0.3 s on, then scale 0.001 for 1.2 s).
-Markers (empty nodes): `Airlock_Door` (0, 1.70, 7.86, centre of the hatch's outer face, facing +Z), `Crew_Path_01..05` from the hatch out over the dust mat and ramp to open ground (z 8.4, 9.6, 11.4, 13.2, 15.5 on x = 0), `Pipe_TankFarm` (6.60, 0.60, 11.80, open flange at the end of the CO2 transfer line, facing +Z).
+Markers (empty nodes): `Airlock_Door` (0, 1.70, 7.86, centre of the hatch's outer face, facing +Z), `Crew_Path_01..05` from the hatch out over the dust mat and ramp to open ground (z 8.4, 9.6, 11.4, 13.2, 15.5 on x = 0), `Pipe_TankFarm` (6.60, 0.60, 11.80, open flange at the end of the CO2 transfer line, facing +Z), `Cam_Target` (0, 2.50, -12.50; empty only, extras `{"frame_w": 34}`): the in-game camera aims here from -Z+up at 18 deg pitch, 38 deg vertical FOV, distance (W/2)/(tan 19 deg x 393/852) = 107.03 m. Every tier is within 34 m (3D) of it.
 
 ## Validation (game GLB)
 Loaded in Node with three.js `GLTFLoader` plus `MeshoptDecoder` (three r17x from npm). Result: 11 meshes / 11 draw calls, 23,795 triangles, 30,318 vertices (all tiers visible), materials SHM_GlowCyan/GlowWhite/Metal/Paint, extensionsUsed = [KHR_mesh_quantization, EXT_meshopt_compression], no images or textures.
