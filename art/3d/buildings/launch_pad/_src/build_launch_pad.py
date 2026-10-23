@@ -37,6 +37,15 @@ QUICK = A.get('quick') == '1'
 reset(); rr = random.Random(101)
 TAU = math.tau
 NAME = 'launch_pad'
+# ---- game-GLB node / clip / marker names: ONE mapping (matches the Life Support export) - rename here only
+GAME_NAMES = {
+    'base': 'launch_pad_base',
+    'arms': {'Arm_Crew': 'Arm_Crew', 'Arm_Cargo': 'Arm_Cargo', 'Arm_Fuel': 'Arm_Fuel'},
+    'clips': {'Arm_Crew': 'arm_crew_in', 'Arm_Cargo': 'arm_cargo_in', 'Arm_Fuel': 'arm_fuel_in'},
+    'tiers': {'Tier_03': ('Tier_03', 3), 'Tier_05': ('Tier_05', 5), 'Tier_08': ('Tier_08', 8), 'Tier_12': ('Tier_12', 12), 'Tier_20': ('Tier_20', 20)},
+    'markers': {'Ship_Center': 'Ship_Center', 'Road_Entry': 'Road_Entry', 'Ramp_Foot': 'Ramp_Foot', 'Crate_Drop': 'Crate_Drop', 'Fuel_Hookup': 'Fuel_Hookup'},
+    'crew_path': 'Crew_Path_%02d',
+}
 
 # ====================================================================== materials
 def add_dust(m, top=1.2, amt=0.8, col='#8a8d91', upamt=0.3):
@@ -789,7 +798,8 @@ if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette,
         for o in obs: o.select_set(True)
         bpy.context.view_layer.objects.active = obs[0]
         if len(obs) > 1: bpy.ops.object.join()
-        G = bpy.context.active_object; G.name = 'launch_pad_base' if g == 'Base' else g
+        G = bpy.context.active_object
+        G.name = GAME_NAMES['base'] if g == 'Base' else (GAME_NAMES['arms'].get(g) or GAME_NAMES['tiers'][g][0])
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.001); bpy.ops.object.mode_set(mode='OBJECT')
         names = [sl.material.name for sl in G.material_slots]; uniq = sorted(set(names), key=names.index)
@@ -820,28 +830,29 @@ if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette,
     for g, a0 in HINGE.items():
         G = nodes[g]; h = Vector(a0) + tang * (TW / 2 - 0.1); h.z = a0.z
         G.data.transform(Matrix.Translation(-h)); G.location = h
-        G.animation_data_create(); act = bpy.data.actions.new(g.lower() + '_in'); G.animation_data.action = act
+        G.animation_data_create(); act = bpy.data.actions.new(GAME_NAMES['clips'][g]); G.animation_data.action = act
         G.rotation_euler = (0, 0, RETRACT); G.keyframe_insert('rotation_euler', index=2, frame=0)
         G.rotation_euler = (0, 0, 0.0); G.keyframe_insert('rotation_euler', index=2, frame=F1)
         for fc in act.fcurves:
             for kp in fc.keyframe_points: kp.interpolation = 'BEZIER'; kp.easing = 'EASE_IN_OUT'; kp.handle_left_type = kp.handle_right_type = 'AUTO_CLAMPED'
         G.rotation_euler = (0, 0, RETRACT)
-        G['retracted_rad'] = RETRACT; G['clip'] = act.name; G['clip_s'] = 1.2
         tr = G.animation_data.nla_tracks.new(); tr.name = act.name; tr.strips.new(act.name, 0, act); G.animation_data.action = None
     for g, G in nodes.items():
-        if g.startswith('Tier_'): G['hidden'] = True; G['tier'] = int(g[5:])
+        if 'grp' in G: del G['grp']
+        if g in GAME_NAMES['tiers']: G['tier'] = GAME_NAMES['tiers'][g][1]; G['hidden_by_default'] = True
     sc.frame_set(0)
     # empty markers (game logic anchors)
     def mark(n, p):
         e = bpy.data.objects.new(n, None); e.empty_display_size = 0.5; e.location = tuple(p); coll('Mine').objects.link(e); return e
     rp = ROAD_U * (B_OUT + 1.0); ramp = Vector((0, -14.1, TOP)); st = Vector((s1.x, s1.y - 0.7, s1.z + 0.1))
-    mk = [mark('Ship_Center', (0, 0, TOP)), mark('Road_Entry', (rp.x, rp.y, gz(rp.x, rp.y) + 0.1)), mark('Ramp_Foot', ramp),
-          mark('Crate_Drop', (CX, CY, 0.33)), mark('Fuel_Hookup', tuple(f1))]
+    MN = GAME_NAMES['markers']
+    mk = [mark(MN['Ship_Center'], (0, 0, TOP)), mark(MN['Road_Entry'], (rp.x, rp.y, gz(rp.x, rp.y) + 0.1)), mark(MN['Ramp_Foot'], ramp),
+          mark(MN['Crate_Drop'], (CX, CY, 0.33)), mark(MN['Fuel_Hookup'], tuple(f1))]
     path = [ramp, Vector((-3.0, -18.0, TOP))] + [Vector((ROAD_U.x * r, ROAD_U.y * r, 0)) for r in (23.5, 29.0, 34.0, 38.0)] + [Vector((-26.0, -40.5, 0)), Vector((st.x, st.y - 1.5, 0)), st]
     for i, p in enumerate(path):
         z = p.z if p.z > 0 else gz(p.x, p.y) + 0.1
         if Vector((p.x, p.y, 0)).length < PAD_R: z = TOP
-        mk.append(mark('Crew_Path_%02d' % (i + 1), (p.x, p.y, z)))
+        mk.append(mark(GAME_NAMES['crew_path'] % (i + 1), (p.x, p.y, z)))
     bpy.ops.object.select_all(action='DESELECT')
     for o in list(nodes.values()) + mk: o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_game_raw.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
