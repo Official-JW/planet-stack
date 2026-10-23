@@ -22,7 +22,7 @@ TORG = Vector((ML.TX, ML.TY, GZ))          # truck-local origin in world
 
 # ---------------------------------------------------------------- camera (Game Coder spec)
 FOV_Y, PITCH, PW, PH = 38.0, 18.0, 393, 852
-CY = float(A.get('cy', 460))     # focus-box centre on 393x852: Director wants the station at y~280-640 (sheet covers from 674)
+CY = float(A.get('cy', 380))     # focus-box centre on 393x852 (Mine + Refinery footprint; 380 keeps Mine Tier_20 on top and the Refinery front above y 650)
 TAN_H = math.tan(math.radians(FOV_Y / 2)) * PW / PH
 def cam_pose(tgt, W):
     d = (W / 2) / TAN_H; p = math.radians(PITCH)
@@ -41,6 +41,10 @@ def focus_points():
     for dx in (-1.6, 1.6):
         for dy in (-1.6, 1.6):
             for z in (0, 3.0): P.append(Vector((rx + dx, ry + dy, z)))
+    # Refinery (Director ruling 10/23: the station camera frames the rig and the Refinery together, every tier in frame).
+    # Convex-hull points of refinery_game.glb (all tiers), refinery-local Blender coords, placed at REFINERY_ANCHOR (+90 deg about Z).
+    RHULL = [(-2.6, 1.26, -0.1), (2.3, 1.26, -0.1), (2.3, -1.24, -0.1), (-8.5, 0.71, -0.1), (-29.99, -2.07, 0.06), (-29.9, -24.43, 0.06), (-19.15, -24.64, -0.08), (-19.15, -0.58, 0.06), (-11.84, -24.73, 0.18), (-1.92, 1.48, 1.39), (2.1, -1.02, 4.01), (-2.02, 1.49, 3.79), (2.02, 1.49, 4.01), (-8.25, -1.04, 8.35), (-6.95, -2.04, 8.35), (-27.77, -2.62, 2.85), (-33.2, -12.24, -0), (-26.56, -2.26, 3.86), (-7.04, 1.03, 0.56), (-19.25, -14.34, -0.1), (-22.65, -14.34, -0.1), (-22.65, -4.24, -0.1), (-21.03, -25.44, 8.6), (-29.28, -25.06, 2.15), (-24.8, -22.76, 14.09), (-12.98, -24.08, 5.1), (-13.67, -23.34, 6.67)]
+    for hx, hy, hz in RHULL: P.append(Vector((rx - hy, ry + hx, hz)))
     for x, y in ((9.0 + 4.5 + ML.ROAD_W / 2, -9.0), (9.0, -13.5 - ML.BERM_OUT), (-5.0, -13.5 - ML.BERM_OUT), (13.0, -4.0)):
         P.append(Vector((x, y, 0.0)))   # haul loop: graded edge at the east apex (the berm is open there: access road), south berm toes
     for o in bpy.data.objects:                       # silo + beacon tops stay in frame

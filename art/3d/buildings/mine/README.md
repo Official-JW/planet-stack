@@ -4,7 +4,7 @@ The in-game **Mine** for Planet Stack, built from the approved **concept B (slee
 
 | | |
 |---|---|
-| **Game GLB** | `mine_game.glb`, **179,192 B (0.18 MB)**, md5 `0dcb9ef5048f828a2b43223bde1ee646` |
+| **Game GLB** | `mine_game.glb`, **179,192 B (0.18 MB)**, md5 `ec8b9c4fcc82b6e815965a5d1b6671ef` |
 | Triangles / draws | **24,132 triangles, 11 draw calls with every tier visible** (11 meshes × 1 primitive) |
 | Format | meshopt + quantization (`gltfpack -cc -kn -ke`). Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. **No Draco.** |
 | Materials | `SHM_Paint` and `SHM_GlowCyan` (`../_shared/shared_materials.json`). Plain metallic/roughness plus emissiveFactor. No transmission, clearcoat or ior. Colour is in `COLOR_0` vertex colours. **No images or textures** and no TEXCOORD. |
@@ -15,7 +15,7 @@ The in-game **Mine** for Planet Stack, built from the approved **concept B (slee
 
 ## Files
 - `mine_game.glb`: the game asset.
-- `mine_phone_1179x2556.png` (Cycles master) and `mine_phone_393x852.png` (its Lanczos downscale): the station camera view. The ground uses the shared cool-grey `M_ground` (material unchanged; only the render terrain under the road is cut ≤ a few cm so it never pokes through). The renders show the full concept-B shading. The refinery is not in these renders; the anchor area west of the rig is empty ground.
+- `mine_phone_1179x2556.png` (Cycles master, 40 samples) and `mine_phone_393x852.png` (its Lanczos downscale): the station camera view. The ground uses the shared cool-grey `M_ground` (material unchanged; only the render terrain under the road is cut ≤ a few cm so it never pokes through). The renders show the full concept-B shading. The refinery is not in these renders; the anchor area west of the rig is empty ground.
 - `mine_tiers_393x852.png`: tier check, the same station camera with **every tier visible** (Cycles, 24 samples, rendered at 393×852). Made with `--mode tiers --mout DIR`, which also writes `tier_boxes.json`.
 - `_src/mine_layout.py`: the station re-layout applied on top of the concept-B scene (see Layout changes), including the graded haul road (`graded_roads`, `M_road_graded`).
 - `_src/build_mine.py`: does the camera fit, renders the phone shots, and builds the game GLB. That covers the material remap, tiers, culling, the per-group bake and decimation to budget, the truck armature and skin, the arm poses, the clearance checks, the clips, the markers and the export.
@@ -37,7 +37,8 @@ python3 $S/phone_downscale.py art/3d/buildings/mine
 Perspective, **38° vertical FOV, tilted down 18°, aimed at `Cam_Target`**.
 - **W = 37 m**: `Cam_Target` carries `extras {"frame_w": 37, "fov_y_deg": 38, "pitch_down_deg": 18, "distance_m": 116.48}`.
 - **Distance** d = (W/2) / (tan 19° · 393/852) = **116.48 m**. The same value holds for 393×852 and for the 1179×2556 master, because the aspect ratio is the same.
-- **`Cam_Target`** sits at glTF **(0.09, 10.36, 1.00)**, which is Blender (0.09, −1.0, 10.36). It is high above the pad on purpose: with W and d fixed, raising the aim point is what moves the station *down* the screen (it was (−0.11, 2.65, 1.00), which put the station at y 242–508).
+- **`Cam_Target`** sits at glTF **(0.06, −2.36, 1.00)**, which is Blender (0.06, −1.0, −2.36). It is a look-at point only, so it may sit below ground: with W and d fixed, lowering the aim point moves the station *up* the screen. It was (0.09, 10.36, 1.00) before the Refinery joined the frame (Mine-only box y 322–598), and (−0.11, 2.65, 1.00) before that.
+- **Mine + Refinery (Director ruling 10/23):** the camera fit now also holds the convex hull of `refinery_game.glb` (all tiers) placed at `REFINERY_ANCHOR`, and the focus box is centred at `--cy` **380** (was 460). The Refinery stands south of the haul loop on the camera side; with the old target its front reached y 743. `REFINERY_ANCHOR` and `Path_Dump` did not move.
 - **Fit:** W is fixed at 37. The target is solved so the focus box is centred at y 460 on 393×852 and centred in x. The focus box holds:
   - the rig
   - the conveyor head
@@ -46,7 +47,7 @@ Perspective, **38° vertical FOV, tilted down 18°, aimed at `Cam_Target`**.
   - the haul loop to its graded edge at the east apex (the berm is open there for the access road) and to the south berm toes
   - a 3.2 × 3.2 × 3 m refinery intake-bin envelope at `REFINERY_ANCHOR`
 
-  The fitted box is **x 26…367, y 322…598 px** (x margin check 4–96 %, y 100–650). **Director asked for y≈280–640, but at W = 37 the distance is fixed (116.48 m), so the station's on-screen height is fixed at ~276 px and cannot stretch to 360 px; moving `Cam_Target` only slides it.** 322–598 is that span centred in the 280–640 band (42 px short at each end). Reaching 280–640 would need W ≈ 28, which cuts off the Refinery and the east hairpin.
+  The fitted box (Mine focus + Refinery hull) is **x 20…373, y 188…572 px** (x margin check 4–96 %, y 100–650). **Director asked for y≈280–640, but at W = 37 the distance is fixed (116.48 m), so the station's on-screen height is fixed at ~276 px and cannot stretch to 360 px; moving `Cam_Target` only slides it.** 322–598 is that span centred in the 280–640 band (42 px short at each end). Reaching 280–640 would need W ≈ 28, which cuts off the Refinery and the east hairpin.
 
 ## Game GLB nodes
 Everything sits under the root `Mine`. gltfpack puts each mesh on an **unnamed child node** of its named node; that child carries the quantization offset and scale. Find meshes under the named node with `traverse`. The names, pivots and extras are on the named nodes.
@@ -94,11 +95,11 @@ Everything sits under the root `Mine`. gltfpack puts each mesh on an **unnamed c
 
 | Tier | x px | y px | In frame (y 100–650) |
 |---|---|---|---|
-| `Tier_03` | 181–228 | 472–486 | yes |
-| `Tier_05` | 194–269 | 432–516 | yes |
-| `Tier_08` | 44–111 | 423–494 | yes |
-| `Tier_12` | 267–326 | 405–498 | yes |
-| `Tier_20` | 82–153 | 295–381 | yes |
+| `Tier_03` | 181–230 | 339–362 | yes |
+| `Tier_05` | 195–272 | 308–393 | yes |
+| `Tier_08` | 39–108 | 302–375 | yes |
+| `Tier_12` | 269–330 | 284–379 | yes |
+| `Tier_20` | 79–152 | 159–250 | yes |
 
 Every tier node has `extras {"tier": N, "hidden_by_default": true}` (three.js `userData`). glTF has no hidden flag, so the loader must set `visible = false` on load. Each tier is one draw.
 
@@ -150,7 +151,7 @@ Base 13,888 + moving 7,424 + tiers 2,820 = 24,132 tris.
   - **`Path_Spur_02`** (−1.0, 0, 13.5), yaw 180, for **`Dep_02`** (−1.2, −0.01, 10.4): the tap deposit, r 1.05 m.
 - **`Road_Entry`** (13.5, 0, 9.0), yaw −90 (heading +Z): the east apex of the loop, where the graded **access road** joins. The road leaves heading +Z (toward the camera), bends east between two craters and runs off the right edge of the phone frame (it ends at about glTF x 22, z 16.4). Position unchanged.
 - **`Crew_Path_01..07`**: (−9.4, 0.64, 0.2) at the rig operator pod deck → (−9.0, −0.01, 1.9) → (−5.6, 0, 2.7) → (−2.2, 0, 2.3) → (1.6, 0, −0.2) → (5.6, 0, −1.0) → (8.6, 0, −1.4) at the silo.
-- **`Cam_Target`** (0.09, 10.36, 1.00), `frame_w` 37. See Station camera. **This is the only marker that moved.**
+- **`Cam_Target`** (0.06, −2.36, 1.00), `frame_w` 37. See Station camera. **This is the only marker that moved** (re-centred on the Mine + Refinery).
 
 ## Layout changes vs the concept-B master
 These live in `_src/mine_layout.py`. The B look, palette and parts are otherwise unchanged.
