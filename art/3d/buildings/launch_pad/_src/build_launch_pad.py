@@ -1,7 +1,7 @@
 """Planet Stack - LAUNCH PAD (PAD-01), high-detail concept master (Blender 4.2 LTS, headless, Cycles).
 
 blender -b -P build_launch_pad.py -- --out .. [--quick 1] [--only glb,game,blend,hero,turn,close] [--dec 0.7]
-       [--hs 64] [--ts 48] [--hc x,y,z,tx,ty,tz] [--lens 28]
+       [--hs 64] [--ts 48] [--pd 92 --plens 30] [--hc x,y,z,tx,ty,tz] [--lens 28]
 
 Blender coords: Z up, metres, front = -Y (toward the camera). Exported GLB: Y up, front +Z, origin = pad centre on the ground.
 Style: Mine concept B (sleek high-tech): glossy white + graphite panels, satin metal, cyan light strips, weathered + dusty.
@@ -11,7 +11,8 @@ True scale: 1.8 m astronauts, 40 m starter ship (appended read-only from art/3d/
 Systems (collection 'Mine' = exported building):
   * sintered regolith landing pad, r 21 m (fused glassy-grey slab tiles, scorched centre), painted landing target,
     PAD-01 stencils, 48 recessed edge lights + cyan perimeter strip, 4 flame-trench grates
-  * blast berm r 27.5-36 m, 4.6 m high, with precast sintered retaining blocks, open toward the control station
+  * blast berm r 27.5-36 m, 4.6 m high, with precast sintered retaining blocks; 52 deg gap with graded access road R-1
+    (7 m running surface, wheel tracks, windrow shoulders, delineator posts, entry sign) for crew, crates and the haul truck
   * service tower ST-01 (44 m lattice, decks, stairs, elevator) with crew (28 m), cargo (20 m) and fuel (7 m) access arms
     reaching the ship hull; pump skid with white radiators, LOX / CH4 lines in a covered trench through the berm
   * cargo handling: 3 cargo pods on a pallet + a pad-edge cargo lift (raises ship cargo capacity)
@@ -38,7 +39,7 @@ TAU = math.tau
 NAME = 'launch_pad'
 
 # ====================================================================== materials
-def add_dust(m, top=1.2, amt=0.8, col='#8e8982', upamt=0.3):
+def add_dust(m, top=1.2, amt=0.8, col='#8a8d91', upamt=0.3):
     nt = m.node_tree; b = nt.nodes['Principled BSDF']; inp = b.inputs['Base Color']
     if inp.links: src = inp.links[0].from_socket
     else:
@@ -66,15 +67,15 @@ def P_(name, color, dust=True, **kw):
     m = M_paint(name, color, **kw)
     return add_dust(m) if dust else m
 
-WHITE   = P_('LP_White', '#eceff2', rough=0.22, metal=0.0, coat=0.8, grime=0.22, grime_col='#a59f97', wear=0.12, wear_col='#9aa3ad', panel=0.8, bevel=0.03, dirt_scale=1.4)
-WHITE_S = P_('LP_WhiteSmooth', '#eef1f4', rough=0.2, metal=0.0, coat=0.9, grime=0.16, grime_col='#a59f97', wear=0.1, wear_col='#9aa3ad', bevel=0.03)
-RAD     = P_('LP_Radiator', '#f2f4f7', rough=0.3, metal=0.0, coat=0.4, grime=0.14, grime_col='#a59f97', panel=4.0, bevel=0.01)
-GRAPH   = P_('LP_Graphite', '#2c3137', rough=0.3, metal=0.55, coat=0.5, grime=0.16, grime_col='#6b665f', wear=0.2, wear_col='#9aa0a6', panel=1.4, bevel=0.02)
-GRAPH_S = P_('LP_GraphiteSmooth', '#30353c', rough=0.28, metal=0.6, coat=0.5, grime=0.16, grime_col='#6b665f', wear=0.18, wear_col='#9aa0a6', bevel=0.02)
-SATIN   = P_('LP_Satin', '#9aa3ad', rough=0.25, metal=1.0, grime=0.2, grime_col='#5a5650', wear=0.1, wear_col='#d0d5db', bevel=0.01)
-RUBBER  = P_('LP_Rubber', '#1d2024', rough=0.8, metal=0.0, grime=0.3, grime_col='#6e6a64', bump_noise=0.3)
-FOIL    = P_('LP_MLI', '#c9ced6', rough=0.3, metal=0.9, grime=0.2, grime_col='#5b5650', bump_noise=0.5, bevel=0.01)
-PAINT   = P_('LP_PadPaint', '#e9ecef', rough=0.55, metal=0.0, grime=0.45, grime_col='#5e5b58', dirt_scale=0.6, upamt=0.0) if False else None
+WHITE   = P_('LP_White', '#eceff2', rough=0.22, metal=0.0, coat=0.8, grime=0.22, grime_col='#9ea2a7', wear=0.12, wear_col='#9aa3ad', panel=0.8, bevel=0.03, dirt_scale=1.4)
+WHITE_S = P_('LP_WhiteSmooth', '#eef1f4', rough=0.2, metal=0.0, coat=0.9, grime=0.16, grime_col='#9ea2a7', wear=0.1, wear_col='#9aa3ad', bevel=0.03)
+RAD     = P_('LP_Radiator', '#f2f4f7', rough=0.3, metal=0.0, coat=0.4, grime=0.14, grime_col='#9ea2a7', panel=4.0, bevel=0.01)
+GRAPH   = P_('LP_Graphite', '#2c3137', rough=0.3, metal=0.55, coat=0.5, grime=0.16, grime_col='#63676c', wear=0.2, wear_col='#9aa0a6', panel=1.4, bevel=0.02)
+GRAPH_S = P_('LP_GraphiteSmooth', '#30353c', rough=0.28, metal=0.6, coat=0.5, grime=0.16, grime_col='#63676c', wear=0.18, wear_col='#9aa0a6', bevel=0.02)
+SATIN   = P_('LP_Satin', '#9aa3ad', rough=0.25, metal=1.0, grime=0.2, grime_col='#55595e', wear=0.1, wear_col='#d0d5db', bevel=0.01)
+RUBBER  = P_('LP_Rubber', '#1d2024', rough=0.8, metal=0.0, grime=0.3, grime_col='#676b70', bump_noise=0.3)
+FOIL    = P_('LP_MLI', '#c9ced6', rough=0.3, metal=0.9, grime=0.2, grime_col='#565a5f', bump_noise=0.5, bevel=0.01)
+PAINT   = P_('LP_PadPaint', '#e9ecef', rough=0.55, metal=0.0, grime=0.45, grime_col='#5a5e62', dirt_scale=0.6, upamt=0.0) if False else None
 INK     = M_paint('LP_Ink', '#1f2329', rough=0.5, metal=0.0)
 INKW    = M_paint('LP_InkWhite', '#f4f7fa', rough=0.4, metal=0.0)
 LOXB    = P_('LP_LoxBand', '#2f7fe0', rough=0.3, metal=0.1, coat=0.5, grime=0.15)
@@ -84,7 +85,7 @@ CYANS   = M_glow('LP_CyanSoft', '#2fe3ff', 5)
 LAMP    = M_glow('LP_Lamp', '#f2fbff', 25)
 AMBERG  = M_glow('LP_AmberLamp', '#ffb020', 14)
 GLASS   = M_glass('LP_Lens', '#1b2a36', 0.04)
-REGO    = M_rock('LP_Regolith', '#6f6c69', '#958f89')
+REGO    = M_rock('LP_Regolith', '#63666a', '#8b8f93')
 
 def M_pad_paint():
     m = bpy.data.materials.new('LP_PadPaint'); nt, b = _nodes(m)
@@ -92,7 +93,7 @@ def M_pad_paint():
     nz = nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 1.6; nz.inputs['Detail'].default_value = 9
     link(nt, tc.outputs['Object'], nz.inputs['Vector'])
     rp = nt.nodes.new('ShaderNodeValToRGB'); rp.color_ramp.elements[0].position = 0.42; rp.color_ramp.elements[1].position = 0.62
-    rp.color_ramp.elements[0].color = hexc('#9c9893'); rp.color_ramp.elements[1].color = hexc('#e6e8ea')
+    rp.color_ramp.elements[0].color = hexc('#979a9e'); rp.color_ramp.elements[1].color = hexc('#e6e8ea')
     link(nt, nz.outputs['Fac'], rp.inputs['Fac']); link(nt, rp.outputs['Color'], b.inputs['Base Color'])
     b.inputs['Roughness'].default_value = 0.6
     m.diffuse_color = hexc('#e6e8ea'); return m
@@ -135,7 +136,7 @@ def M_sinter(name='LP_Sintered'):
     dnr.inputs['To Min'].default_value = 0.25; link(nt, dn.outputs['Fac'], dnr.inputs['Value'])
     dm = nt.nodes.new('ShaderNodeMath'); dm.operation = 'MULTIPLY'; link(nt, dr.outputs[0], dm.inputs[0]); link(nt, dnr.outputs[0], dm.inputs[1])
     m3 = nt.nodes.new('ShaderNodeMix'); m3.data_type = 'RGBA'; link(nt, dm.outputs[0], m3.inputs['Factor'])
-    link(nt, m2.outputs[2], m3.inputs[6]); m3.inputs[7].default_value = hexc('#8a8782')
+    link(nt, m2.outputs[2], m3.inputs[6]); m3.inputs[7].default_value = hexc('#86898e')
     link(nt, m3.outputs[2], b.inputs['Base Color'])
     rg = nt.nodes.new('ShaderNodeMapRange'); rg.inputs['To Min'].default_value = 0.16; rg.inputs['To Max'].default_value = 0.5
     link(nt, nz.outputs['Fac'], rg.inputs['Value'])
@@ -146,7 +147,7 @@ def M_sinter(name='LP_Sintered'):
     bump.invert = True; link(nt, cr.outputs[0], bump.inputs['Height']); link(nt, bump.outputs['Normal'], b.inputs['Normal'])
     m.diffuse_color = hexc('#505055'); return m
 SINTER = M_sinter()
-BLOCK = P_('LP_SinterBlock', '#5c5b5d', rough=0.5, metal=0.0, grime=0.35, grime_col='#8a8782', bump_noise=0.4, bevel=0.03, dirt_scale=1.0)
+BLOCK = P_('LP_SinterBlock', '#5c5b5d', rough=0.5, metal=0.0, grime=0.35, grime_col='#86898e', bump_noise=0.4, bevel=0.03, dirt_scale=1.0)
 
 # ====================================================================== helpers
 def lathe(name, prof, loc, mat, segs=48, bevel=0.0, smooth=True, c='Mine', a0=0.0, a1=None):
@@ -236,8 +237,63 @@ def lin(a, b): return Vector(a).lerp(Vector(b), 0.5)
 # ====================================================================== STAGE FIRST (so legs / feet can follow the ground)
 SX, SY = -36.0, -31.0            # crew / pad-control station centre (above ground)
 RXr, RYr = -82.0, 52.0           # distant fission plant
-height = build_stage(keep_flat=((0, 0, 54), (0, 0, 54), (SX, SY, 22), (SX, SY, 22), (RXr, RYr, 24), (RXr, RYr, 24)))
+ROAD_A, ROAD_R0, ROAD_R1, ROAD_W = math.radians(-118), 22.4, 80.0, 7.0     # graded access road through the berm gap
+ROAD_U = Vector((math.cos(ROAD_A), math.sin(ROAD_A), 0)); ROAD_N = Vector((-ROAD_U.y, ROAD_U.x, 0))
+road_flat = tuple((ROAD_U.x * r, ROAD_U.y * r, 9.0) for r in range(24, 84, 6))
+height = build_stage(keep_flat=((0, 0, 54), (0, 0, 54), (SX, SY, 22), (SX, SY, 22), (RXr, RYr, 24), (RXr, RYr, 24)) + road_flat + road_flat)
 def gz(x, y): return height(x, y)
+
+# ---------------------------------------------------------------------- cool-grey ground + irregular far ridges (no tan, no even bands)
+def _ridge(x, y, o):
+    return (1 - abs(noise.noise(Vector((x, y, o))))) ** 2
+def hill_disp(x, y, z):
+    """break up the shared stage's benches: irregular ridges / spurs / gullies on the far hills only."""
+    if y < 48 or z < 0.2: return 0.0
+    w = min(1.0, z / 3.5) * min(1.0, (y - 48) / 10)
+    d = 3.2 * (_ridge(x * 0.028, y * 0.05, 7.3) - 0.3) + 1.6 * noise.noise(Vector((x * 0.07, y * 0.09, 3.1)))
+    d += 0.9 * _ridge(x * 0.11, y * 0.16, 9.7) - 0.7 * _ridge(x * 0.19 + 0.3 * y * 0.02, y * 0.045, 12.2)
+    return w * d
+def M_cool_ground():
+    m = bpy.data.materials.new('LP_Ground'); nt, b = _nodes(m)
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    nz = nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 0.08; nz.inputs['Detail'].default_value = 12
+    link(nt, tc.outputs['Object'], nz.inputs['Vector'])
+    ramp = nt.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.elements[0].color = hexc('#5f6266'); ramp.color_ramp.elements[1].color = hexc('#8d9094')
+    link(nt, nz.outputs['Fac'], ramp.inputs['Fac'])
+    # exposed rock on steep faces: blotchy voronoi + noise (no wave bands), darker and cooler
+    vo = nt.nodes.new('ShaderNodeTexVoronoi'); vo.inputs['Scale'].default_value = 0.22; vo.inputs['Randomness'].default_value = 1.0
+    wp = nt.nodes.new('ShaderNodeTexNoise'); wp.inputs['Scale'].default_value = 0.06; wp.inputs['Detail'].default_value = 4
+    link(nt, tc.outputs['Object'], wp.inputs['Vector'])
+    vm = nt.nodes.new('ShaderNodeVectorMath'); vm.operation = 'MULTIPLY_ADD'; vm.inputs[1].default_value = (14.0, 14.0, 14.0)
+    link(nt, wp.outputs['Color'], vm.inputs[0]); link(nt, tc.outputs['Object'], vm.inputs[2]); link(nt, vm.outputs[0], vo.inputs['Vector'])
+    sr = nt.nodes.new('ShaderNodeValToRGB'); sr.color_ramp.elements[0].color = hexc('#4a4d51'); sr.color_ramp.elements[1].color = hexc('#7f8286')
+    sr.color_ramp.elements.new(0.55).color = hexc('#66696d')
+    n3 = nt.nodes.new('ShaderNodeTexNoise'); n3.inputs['Scale'].default_value = 0.9; n3.inputs['Detail'].default_value = 8
+    link(nt, tc.outputs['Object'], n3.inputs['Vector'])
+    mixr = nt.nodes.new('ShaderNodeMath'); mixr.operation = 'MULTIPLY_ADD'; mixr.inputs[1].default_value = 0.6
+    link(nt, vo.outputs['Distance'], mixr.inputs[0]); link(nt, n3.outputs['Fac'], mixr.inputs[2]); link(nt, mixr.outputs[0], sr.inputs['Fac'])
+    geo = nt.nodes.new('ShaderNodeNewGeometry'); sn = nt.nodes.new('ShaderNodeSeparateXYZ'); link(nt, geo.outputs['Normal'], sn.inputs['Vector'])
+    hm = nt.nodes.new('ShaderNodeMapRange'); hm.inputs['From Min'].default_value = 0.95; hm.inputs['From Max'].default_value = 0.78
+    link(nt, sn.outputs['Z'], hm.inputs['Value'])
+    mk = nt.nodes.new('ShaderNodeMath'); mk.operation = 'MULTIPLY'; mk.inputs[1].default_value = 0.8; link(nt, hm.outputs[0], mk.inputs[0])
+    mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'
+    link(nt, mk.outputs[0], mx.inputs['Factor']); link(nt, ramp.outputs['Color'], mx.inputs[6]); link(nt, sr.outputs['Color'], mx.inputs[7])
+    link(nt, mx.outputs[2], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.97
+    bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.35; bump.inputs['Distance'].default_value = 0.05
+    n2 = nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value = 3.0; n2.inputs['Detail'].default_value = 14
+    link(nt, tc.outputs['Object'], n2.inputs['Vector']); link(nt, n2.outputs['Fac'], bump.inputs['Height']); link(nt, bump.outputs['Normal'], b.inputs['Normal'])
+    m.diffuse_color = hexc('#75787c'); return m
+_g = bpy.data.objects['Ground']
+for v in _g.data.vertices: v.co.z += hill_disp(v.co.x, v.co.y, v.co.z)
+_g.data.update(); _g.data.materials.clear(); _g.data.materials.append(M_cool_ground())
+for ob in coll('Stage').objects:
+    if ob.name.startswith('slope_boulder'):
+        t = ob.matrix_world.translation; ob.location.z += hill_disp(t.x, t.y, t.z)
+_bm = bpy.data.materials.get('M_Boulder')
+if _bm:
+    for nd in _bm.node_tree.nodes:
+        if nd.type == 'VALTORGB': nd.color_ramp.elements[0].color = hexc('#5c5f63'); nd.color_ramp.elements[1].color = hexc('#85888c')
+    _bm.diffuse_color = hexc('#5c5f63')
 
 # ====================================================================== PAD (sized for a ~40 m ship)
 PAD_R = 21.0; TOP = 0.25; S = PAD_R / 10.8
@@ -284,6 +340,67 @@ for a in (BA0 + 0.22, BA1 - 0.22):
     rbox('berm_endpost', (1.2, 1.2, 4.2), (x, y, 2.1), WHITE, rot=(0, 0, a), r=0.22, segs=3)
     box('berm_endstrip', (1.22, 1.22, 0.1), (x, y, 3.4), CYAN, rot=(0, 0, a), bevel=0)
     sphere('berm_beacon', 0.18, (x, y, 4.35), AMBERG, sub=2)
+
+# ====================================================================== GRADED ACCESS ROAD R-1 (crew, crates, haul truck) through the berm gap
+def M_road():
+    m = bpy.data.materials.new('LP_RoadGraded'); nt, b = _nodes(m)
+    uv = nt.nodes.new('ShaderNodeUVMap'); tc = nt.nodes.new('ShaderNodeTexCoord')
+    sx = nt.nodes.new('ShaderNodeSeparateXYZ'); link(nt, uv.outputs['UV'], sx.inputs['Vector'])
+    ab = nt.nodes.new('ShaderNodeMath'); ab.operation = 'ABSOLUTE'; link(nt, sx.outputs['X'], ab.inputs[0])
+    tr = nt.nodes.new('ShaderNodeMath'); tr.operation = 'SUBTRACT'; tr.inputs[1].default_value = 1.35; link(nt, ab.outputs[0], tr.inputs[0])
+    ta = nt.nodes.new('ShaderNodeMath'); ta.operation = 'ABSOLUTE'; link(nt, tr.outputs[0], ta.inputs[0])
+    tm = nt.nodes.new('ShaderNodeMapRange'); tm.inputs['From Min'].default_value = 0.42; tm.inputs['From Max'].default_value = 0.18
+    tm.inputs['To Max'].default_value = 0.7; link(nt, ta.outputs[0], tm.inputs['Value'])
+    nz = nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 0.5; nz.inputs['Detail'].default_value = 8
+    link(nt, tc.outputs['Object'], nz.inputs['Vector'])
+    rp = nt.nodes.new('ShaderNodeValToRGB'); rp.color_ramp.elements[0].color = hexc('#6f7276'); rp.color_ramp.elements[1].color = hexc('#8f9296')
+    link(nt, nz.outputs['Fac'], rp.inputs['Fac'])
+    mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'; link(nt, tm.outputs[0], mx.inputs['Factor'])
+    link(nt, rp.outputs['Color'], mx.inputs[6]); mx.inputs[7].default_value = hexc('#55585c')
+    link(nt, mx.outputs[2], b.inputs['Base Color'])
+    rr_ = nt.nodes.new('ShaderNodeMapRange'); rr_.inputs['To Min'].default_value = 0.92; rr_.inputs['To Max'].default_value = 0.7
+    link(nt, tm.outputs[0], rr_.inputs['Value']); link(nt, rr_.outputs[0], b.inputs['Roughness'])
+    bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.25; bump.inputs['Distance'].default_value = 0.03
+    n2 = nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value = 4.0; n2.inputs['Detail'].default_value = 10
+    link(nt, tc.outputs['Object'], n2.inputs['Vector']); link(nt, n2.outputs['Fac'], bump.inputs['Height']); link(nt, bump.outputs['Normal'], b.inputs['Normal'])
+    m.diffuse_color = hexc('#7f8286'); return m
+ROAD = M_road()
+def road():
+    prof = [(-6.2, -0.08), (-4.8, 0.42), (-4.0, 0.12), (-3.5, 0.07), (0.0, 0.1), (3.5, 0.07), (4.0, 0.12), (4.8, 0.42), (6.2, -0.08)]
+    n = int(ROAD_R1 - ROAD_R0); bm = bmesh.new(); uvl = bm.loops.layers.uv.new(); rows = []
+    for i in range(n + 1):
+        r = ROAD_R0 + (ROAD_R1 - ROAD_R0) * i / n; c = ROAD_U * r
+        gc = sum(gz(c.x + ROAD_U.x * k, c.y + ROAD_U.y * k) for k in (-3, 0, 3)) / 3.0     # graded: smoothed along the run
+        row = []
+        for (u, dz) in prof:
+            p = c + ROAD_N * u; g = gc if abs(u) <= 4.0 else max(gc, gz(p.x, p.y)) if abs(u) < 6 else gz(p.x, p.y)
+            if r < 24.6: g = min(g, 0.0)
+            row.append(bm.verts.new((p.x, p.y, g + dz)))
+        rows.append((row, r))
+    for (ra, r0), (rb, r1) in zip(rows, rows[1:]):
+        for j in range(len(prof) - 1):
+            f = bm.faces.new((ra[j], ra[j + 1], rb[j + 1], rb[j]))
+            for lp, (uu, vv) in zip(f.loops, ((prof[j][0], r0), (prof[j + 1][0], r0), (prof[j + 1][0], r1), (prof[j][0], r1))): lp[uvl].uv = (uu, vv)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if f.normal.z < 0: f.normal_flip()
+    return _obj(bm, 'road_r1', ROAD, 'Mine', smooth=True, angle=40)
+road()
+rot_r = math.atan2(ROAD_U.y, ROAD_U.x)
+for k, r in enumerate(range(26, 80, 7)):   # delineator posts both sides (reflective tips)
+    for s in (-1, 1):
+        p = ROAD_U * r + ROAD_N * 5.6 * s; g = gz(p.x, p.y)
+        rbox('road_post', (0.16, 0.16, 1.3), (p.x, p.y, g + 0.6), GRAPH_S, rot=(0, 0, rot_r), r=0.03, segs=1)
+        box('road_post_tip', (0.17, 0.17, 0.22), (p.x, p.y, g + 1.15), AMBERG if s > 0 else CYANS, rot=(0, 0, rot_r), bevel=0)
+# entry sign at the berm gap
+sp_ = ROAD_U * 31.5 + ROAD_N * 7.2; g = gz(sp_.x, sp_.y)
+for s in (-1, 1):
+    q = sp_ + ROAD_U * 1.1 * s; rod('road_sign_post', (q.x, q.y, g - 0.05), (q.x, q.y, g + 2.6), 0.06, SATIN, segs=10)
+rbox('road_sign', (0.1, 2.8, 1.1), (sp_.x, sp_.y, g + 2.3), WHITE, rot=(0, 0, rot_r + math.pi / 2 + math.pi / 2), r=0.04, segs=2)
+text('decal_road', 'R-1 · PAD-01 ACCESS', tuple(sp_ - Vector((math.cos(rot_r + math.pi / 2) * 0, 0, 0)) + ROAD_N * -0.06 + Vector((0, 0, 2.42))), (math.pi / 2, 0, rot_r), 0.2, INK, extrude=0.003)
+text('decal_road2', 'HAUL + CREW · 10 KM/H', tuple(sp_ + ROAD_N * -0.06 + Vector((0, 0, 2.08))), (math.pi / 2, 0, rot_r), 0.15, INK, extrude=0.003)
+# road stencil on the surface at the pad end
+text('stencil_road', 'R-1', tuple(ROAD_U * 27.0 + Vector((0, 0, gz(ROAD_U.x * 27, ROAD_U.y * 27) * 0 + 0.115))), (0, 0, rot_r - math.pi / 2), 1.4, PAINT, extrude=0.002)
 
 # ====================================================================== STARTER SHIP (real model, appended read-only from art/3d/ship/starter_ship) - Stage
 SR = 4.0; SC = 'Stage'   # hull radius of the real ship (8 m dia, 40 m tall, 6 legs at 0/60/.., ramp toward -Y)
@@ -581,7 +698,7 @@ cable('sol_feed1', (-54.0, -20.45, gz(-54, -20) + 0.5), (JX - 0.7, JY - 0.3, gz(
 cable('sol_feed2', (-50.0, -3.45, gz(-50, -3) + 0.5), (-52.0, -10.0, gz(-52, -10) + 0.9), 0.04, RUBBER, sag=0.3)
 
 # ====================================================================== STAGE cleanup + lights + crew
-EXCL = [((0, 0), 40.0), ((SX, SY), 16.0), ((SX + 3.8, SY - 9), 5.0)] + [((x, y), 3.5) for x, y, _, _ in SOL] + [((RXr, RYr), 18.0)]
+EXCL = [((ROAD_U.x * r, ROAD_U.y * r), 7.5) for r in range(22, 86, 4)] + [((0, 0), 40.0), ((SX, SY), 16.0), ((SX + 3.8, SY - 9), 5.0)] + [((x, y), 3.5) for x, y, _, _ in SOL] + [((RXr, RYr), 18.0)]
 for ob in list(coll('Stage').objects):
     if ob.name.split('.')[0] in ('boulder', 'pebble', 'slope_boulder'):
         x, y = ob.matrix_world.translation.x, ob.matrix_world.translation.y
@@ -591,20 +708,21 @@ for ob in list(coll('Stage').objects):
             if (a + ab * t - Vector((x, y, 0))).length < 2.0: bpy.data.objects.remove(ob); break
 for k in range(60):
     a = rr.uniform(0, TAU); dd = rr.uniform(PAD_R + 3.4, B_IN - 0.4); s = rr.uniform(0.05, 0.16)
-    if abs(((a - GAP_C + math.pi) % TAU) - math.pi) < GAP_W + 0.1: continue
+    if abs(((a - GAP_C + math.pi) % TAU) - math.pi) < GAP_W + 0.1 or abs(((a - ROAD_A + math.pi) % TAU) - math.pi) < 0.3: continue
     sphere('ejecta_pebble', s, (dd * math.cos(a), dd * math.sin(a), 0.0), REGO, scale=(1.2, 1, 0.6), sub=1, jitter=0.4, smooth=False, seed=k, c='Stage')
 world_and_sun((-0.55, -0.6, 0.58), 5.5)
 astronaut((AX + 0.2, AYa - 0.05, PZ), rot_z=-0.3)                        # in the dust-off arch
 astronaut((CX + 2.6, CY - 1.6, 0.0), rot_z=0.5)                         # pad edge, beside the cargo pods
-astronaut((s1.x + 1.8, s1.y - 1.2, s1.z - 0.05), rot_z=-0.8)             # foot of the station stair
+astronaut((s1.x + 1.8, s1.y - 1.2, s1.z - 0.05), rot_z=-0.8)
+_ra = ROAD_U * 34.0 + ROAD_N * 1.6; astronaut((_ra.x, _ra.y, gz(_ra.x, _ra.y) + 0.1), rot_z=rot_r + math.pi / 2)   # walking in on road R-1             # foot of the station stair
 astronaut(tuple(g0.lerp(g1, 0.55) + Vector((0, 0, 0.6))), rot_z=rot_u)    # on the cargo access arm (20 m up)
 cam = setup_render(64 if not QUICK else 16)
 
-ONLY = A.get('only', 'hero')
+ONLY = A.get('only', 'hero').split(',')
 if 'glb' in ONLY: export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
 if 'blend' in ONLY:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f'{NAME}_master.blend'), compress=True)
-assert not ('game' in ONLY and set(ONLY) & {'hero', 'turn', 'close'}), 'game step is destructive: run it without render modes'
+assert not ('game' in ONLY and set(ONLY) & {'hero', 'turn', 'close', 'portrait'}), 'game step is destructive: run it without render modes'
 if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette, merge by material, <=30k tris, no textures,
     # no Draco (meshopt + quantization via gltfpack -cc afterwards, see _src/pack_game_glb.sh); ship + astronauts live in Stage -> excluded
     import json
@@ -618,7 +736,7 @@ if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette,
         return m
     RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowWhite'), ('amber', 'SH_GlowRed'), ('glass', 'SH_Glass'), ('lens', 'SH_Glass'),
              ('solar', 'SH_Solar'), ('pv', 'SH_Solar'), ('rad', 'SH_Radiator'), ('foil', 'SH_Foil'), ('mli', 'SH_Foil'), ('lox', 'SH_PipeH2O'), ('ch4', 'SH_Red'),
-             ('sinter', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
+             ('sinter', 'SH_Rock'), ('road', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
              ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
     def remap(m):
         n = (m.name if m else '').lower()
@@ -650,7 +768,7 @@ if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette,
     for p, i in zip(G.data.polygons, pidx): p.material_index = i
     print('MERGED', uniq, _c.Counter(p.material_index for p in G.data.polygons), flush=True)
     tri = lambda: sum(len(p.vertices) - 2 for p in G.data.polygons)
-    T0 = tri(); TGT = int(A.get('tris', 28000))
+    T0 = tri(); TGT = int(A.get('tris', 18000))
     for it in range(6):
         t = tri()
         if t <= TGT: break
@@ -668,6 +786,11 @@ if 'hero' in ONLY:
     tgt = (-12.0, -6.0, 15.0); pos = (8.0, -108.0, 20.0)
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
     shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 28)), samples=int(A.get('hs', 64)) if not QUICK else 16)
+if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 master (393x852 downscale made with PIL)
+    pt = Vector((-2.0, -3.0, 13.0)); az = math.radians(-104); el = math.radians(18); dd = float(A.get('pd', 92))
+    pp = pt + Vector((math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))) * dd
+    pw, ph = (1179, 2556) if not QUICK else (393, 852)
+    shoot(cam, os.path.join(OUT, 'portrait.png'), tuple(pt), tuple(pp), pw, ph, lens=float(A.get('plens', 30)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'turn' in ONLY:
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
     turntable(cam, os.path.join(OUT, 'turntable'), (-10.0, -8.0, 14.0), 150, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)
