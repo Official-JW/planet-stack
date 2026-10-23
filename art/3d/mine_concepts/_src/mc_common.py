@@ -128,7 +128,7 @@ def M_he3(name='M_He3'):
     b.inputs['Transmission Weight'].default_value = 0.3
     m.diffuse_color = hexc('#3ad0ff'); return m
 
-def M_rock(name, c1='#6d6a66', c2='#8e8b86', vein=None):
+def M_rock(name, c1='#686a6d', c2='#8c8e91', vein=None):
     m = bpy.data.materials.new(name); nt, b = _nodes(m)
     tc = nt.nodes.new('ShaderNodeTexCoord')
     nz = nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 3; nz.inputs['Detail'].default_value = 10
@@ -159,37 +159,76 @@ def M_rock(name, c1='#6d6a66', c2='#8e8b86', vein=None):
     m.diffuse_color = hexc(c1); return m
 
 def M_ground():
-    m = bpy.data.materials.new('M_Regolith'); nt, b = _nodes(m)
-    tc = nt.nodes.new('ShaderNodeTexCoord')
-    nz = nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 0.08; nz.inputs['Detail'].default_value = 12
-    link(nt, tc.outputs['Object'], nz.inputs['Vector'])
-    ramp = nt.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.elements[0].color = hexc('#6f6c69'); ramp.color_ramp.elements[1].color = hexc('#9a9792')
-    link(nt, nz.outputs['Fac'], ramp.inputs['Fac'])
-    # subtle strata only on steep faces, warped + patchy (no uniform repeating bands)
-    warp = nt.nodes.new('ShaderNodeTexNoise'); warp.inputs['Scale'].default_value = 0.035; warp.inputs['Detail'].default_value = 3
-    link(nt, tc.outputs['Object'], warp.inputs['Vector'])
-    vm = nt.nodes.new('ShaderNodeVectorMath'); vm.operation = 'MULTIPLY_ADD'; vm.inputs[1].default_value = (9.0, 9.0, 3.5)
-    link(nt, warp.outputs['Color'], vm.inputs[0]); link(nt, tc.outputs['Object'], vm.inputs[2])
-    wv = nt.nodes.new('ShaderNodeTexWave'); wv.wave_type = 'BANDS'; wv.bands_direction = 'Z'; wv.inputs['Scale'].default_value = 0.09
-    wv.inputs['Distortion'].default_value = 6.0; wv.inputs['Detail'].default_value = 6; wv.inputs['Detail Roughness'].default_value = 0.7
-    link(nt, vm.outputs[0], wv.inputs['Vector'])
-    sr = nt.nodes.new('ShaderNodeValToRGB'); sr.color_ramp.elements[0].color = hexc('#66625e'); sr.color_ramp.elements[1].color = hexc('#9a958f')
-    sr.color_ramp.elements.new(0.5).color = hexc('#807a74')
-    link(nt, wv.outputs['Fac'], sr.inputs['Fac'])
-    geo = nt.nodes.new('ShaderNodeNewGeometry'); sn = nt.nodes.new('ShaderNodeSeparateXYZ'); link(nt, geo.outputs['Normal'], sn.inputs['Vector'])
-    hm = nt.nodes.new('ShaderNodeMapRange'); hm.inputs['From Min'].default_value = 0.95; hm.inputs['From Max'].default_value = 0.8
-    link(nt, sn.outputs['Z'], hm.inputs['Value'])
-    pm = nt.nodes.new('ShaderNodeTexNoise'); pm.inputs['Scale'].default_value = 0.05; pm.inputs['Detail'].default_value = 2
-    link(nt, tc.outputs['Object'], pm.inputs['Vector'])
-    pr = nt.nodes.new('ShaderNodeMapRange'); pr.inputs['From Min'].default_value = 0.42; pr.inputs['From Max'].default_value = 0.62; pr.inputs['To Max'].default_value = 0.85
-    link(nt, pm.outputs['Fac'], pr.inputs['Value'])
-    mk = nt.nodes.new('ShaderNodeMath'); mk.operation = 'MULTIPLY'; link(nt, hm.outputs[0], mk.inputs[0]); link(nt, pr.outputs[0], mk.inputs[1])
-    mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'
-    link(nt, mk.outputs[0], mx.inputs['Factor']); link(nt, ramp.outputs['Color'], mx.inputs[6]); link(nt, sr.outputs['Color'], mx.inputs[7])
-    link(nt, mx.outputs[2], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.97
-    bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.35; bump.inputs['Distance'].default_value = 0.05
-    n2 = nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value = 3.0; n2.inputs['Detail'].default_value = 14
-    link(nt, tc.outputs['Object'], n2.inputs['Vector']); link(nt, n2.outputs['Fac'], bump.inputs['Height']); link(nt, bump.outputs['Normal'], b.inputs['Normal'])
+    """cool grey lunar regolith/rock. Flat ground = fine regolith; slopes = fractured rock with faint, BROKEN strata.
+    (The old version drove a Wave BANDS texture straight up Z: one sine frequency -> evenly spaced horizontal stripes.
+    Now the strata are an fbm sampled along a domain-warped height, with uneven bed thickness, beds that pinch out
+    along the ridge, patchy masking, and voronoi rock fractures on top.)"""
+    m = bpy.data.materials.new('M_Regolith'); nt, b = _nodes(m); N = nt.nodes
+    tc = N.new('ShaderNodeTexCoord'); P = tc.outputs['Object']
+    def nz(vec, scale, detail=4, rough=0.5, out='Fac'):
+        n = N.new('ShaderNodeTexNoise'); n.inputs['Scale'].default_value = scale; n.inputs['Detail'].default_value = detail
+        n.inputs['Roughness'].default_value = rough; link(nt, vec, n.inputs['Vector']); return n.outputs[out]
+    def mr(v, a, b_, c0=0.0, c1=1.0, clamp=True):
+        r = N.new('ShaderNodeMapRange'); r.clamp = clamp
+        r.inputs['From Min'].default_value = a; r.inputs['From Max'].default_value = b_
+        r.inputs['To Min'].default_value = c0; r.inputs['To Max'].default_value = c1; link(nt, v, r.inputs['Value']); return r.outputs[0]
+    def math_(op, x, y, clamp=False):
+        n = N.new('ShaderNodeMath'); n.operation = op; n.use_clamp = clamp
+        for i, v in enumerate((x, y)):
+            if isinstance(v, (int, float)): n.inputs[i].default_value = v
+            else: link(nt, v, n.inputs[i])
+        return n.outputs[0]
+    def ramp(fac, stops, interp='EASE'):
+        r = N.new('ShaderNodeValToRGB'); r.color_ramp.interpolation = interp; el = r.color_ramp.elements
+        el[0].position, el[0].color = stops[0][0], hexc(stops[0][1]); el[1].position, el[1].color = stops[-1][0], hexc(stops[-1][1])
+        for pos, c_ in stops[1:-1]: el.new(pos).color = hexc(c_)
+        link(nt, fac, r.inputs['Fac']); return r.outputs['Color']
+    def mix(f, c0, c1, blend='MIX'):
+        x = N.new('ShaderNodeMix'); x.data_type = 'RGBA'; x.blend_type = blend
+        for sock, v in ((x.inputs['Factor'], f), (x.inputs[6], c0), (x.inputs[7], c1)):
+            if isinstance(v, (int, float)): sock.default_value = v
+            elif isinstance(v, str): sock.default_value = hexc(v)
+            else: link(nt, v, sock)
+        return x.outputs[2]
+    sp = N.new('ShaderNodeSeparateXYZ'); link(nt, P, sp.inputs[0])
+    geo = N.new('ShaderNodeNewGeometry'); sn = N.new('ShaderNodeSeparateXYZ'); link(nt, geo.outputs['Normal'], sn.inputs[0])
+    # base regolith: cool neutral grey, large soft patches + mid-scale mottling
+    base = ramp(nz(P, 0.08, 12, 0.6), ((0.3, '#646770'), (0.7, '#9a9da2')))
+    patch_big = mr(nz(P, 0.012, 3, 0.5), 0.35, 0.65)
+    base = mix(math_('MULTIPLY', patch_big, 0.35), base, '#7c7f84')
+    # strata: domain-warped height (two octaves of warp) -> 1-D fbm => beds of uneven thickness/spacing
+    w1 = mr(nz(P, 0.02, 3), 0.0, 1.0, -4.0, 4.0, clamp=False)
+    w2 = mr(nz(P, 0.07, 4), 0.0, 1.0, -1.6, 1.6, clamp=False)
+    dip = math_('MULTIPLY', sp.outputs['X'], 0.035)                               # gentle dip so beds aren't level
+    zz = math_('ADD', math_('ADD', math_('ADD', sp.outputs['Z'], w1), w2), dip)
+    cz = N.new('ShaderNodeCombineXYZ'); link(nt, math_('MULTIPLY', zz, 0.23), cz.inputs['Z']); link(nt, math_('MULTIPLY', sp.outputs['X'], 0.045), cz.inputs['X'])   # beds break up laterally every ~20 m
+    link(nt, math_('ADD', math_('MULTIPLY', sp.outputs['Y'], 0.045), mr(nz(P, 0.015, 2), 0.0, 1.0, 0.0, 2.2)), cz.inputs['Y'])   # + drift: beds pinch out
+    beds = nz(cz.outputs[0], 1.0, 5, 0.6)
+    strata = ramp(beds, ((0.28, '#45484d'), (0.4, '#6c6f74'), (0.46, '#55585d'), (0.55, '#8b8e93'), (0.62, '#5e6166'), (0.74, '#a0a3a8')))
+    # fractured rock: voronoi cells (tone) + cracks (dark edges), warped so cells aren't round
+    wv = N.new('ShaderNodeVectorMath'); wv.operation = 'MULTIPLY_ADD'; wv.inputs[1].default_value = (3.5, 3.5, 1.6)
+    link(nt, nz(P, 0.18, 3, out='Color'), wv.inputs[0]); link(nt, P, wv.inputs[2])
+    vc = N.new('ShaderNodeTexVoronoi'); vc.inputs['Scale'].default_value = 0.32; link(nt, wv.outputs[0], vc.inputs['Vector'])
+    ve = N.new('ShaderNodeTexVoronoi'); ve.feature = 'DISTANCE_TO_EDGE'; ve.inputs['Scale'].default_value = 0.32; link(nt, wv.outputs[0], ve.inputs['Vector'])
+    crack = math_('MULTIPLY', mr(ve.outputs['Distance'], 0.0, 0.03, 1.0, 0.0), mr(nz(P, 0.07, 3), 0.5, 0.66))   # sparse, broken fractures
+    cell = mr(vc.outputs['Distance'], 0.0, 1.0, 0.86, 1.08)
+    # where the rock shows: steep faces and higher ground, patchy (bare regolith drapes between outcrops)
+    steep = mr(sn.outputs['Z'], 0.97, 0.80)
+    high = mr(sp.outputs['Z'], 1.0, 6.0, 0.0, 0.5)
+    patch = mr(nz(P, 0.035, 3), 0.36, 0.58, 0.25, 1.0)
+    rock = math_('MULTIPLY', math_('MAXIMUM', steep, high), patch, clamp=True)
+    smask = mr(nz(P, 0.028, 3), 0.42, 0.62)                                        # strata only show in broken patches
+    face = mix(math_('MULTIPLY', math_('MULTIPLY', rock, smask), 0.6), base, strata)   # subtle (max ~60%)
+    cc = N.new('ShaderNodeCombineColor')
+    for i in range(3): link(nt, cell, cc.inputs[i])
+    face = mix(rock, face, cc.outputs[0], 'MULTIPLY')
+    face = mix(math_('MULTIPLY', crack, math_('MULTIPLY', rock, 0.35)), face, '#3a3c40')
+    link(nt, face, b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.97
+    # bump: fine regolith grain everywhere + crack grooves and bed ledges on the rock faces (hard sun shadows)
+    h = math_('ADD', nz(P, 3.0, 14, 0.6), math_('MULTIPLY', math_('SUBTRACT', math_('MULTIPLY', beds, 0.8), math_('MULTIPLY', crack, 0.9)), rock))
+    bump = N.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.4; bump.inputs['Distance'].default_value = 0.08
+    link(nt, h, bump.inputs['Height']); link(nt, bump.outputs['Normal'], b.inputs['Normal'])
+    m.diffuse_color = hexc('#7c7f84')
     return m
 
 # ------------------------------------------------------------------ mesh helpers
@@ -404,8 +443,8 @@ def build_stage(keep_flat=((0, 0, 16),), seed=5):
         t = min(max(t, 0.0), 1.6)
         rise = smooth01(min(t, 1.0), 0.5)
         # one or two irregular benches where the slope breaks (not evenly spaced)
-        b1 = 0.35 + 0.12 * noise.noise(Vector((x * 0.03, 61, 0)))
-        rise += 0.09 * math.tanh((t - b1) * 14) * (0.6 + 0.4 * noise.noise(Vector((x * 0.05, 71, 0))))
+        b1 = 0.35 + 0.16 * noise.noise(Vector((x * 0.03, 61, 0)))
+        rise += 0.09 * math.tanh((t - b1) * 14) * max(0.0, 0.3 + 0.7 * noise.noise(Vector((x * 0.05, 71, 0))))  # bench fades in/out
         z = peak * max(rise, 0.0)
         # rolling secondary ridges beyond the crest
         if t > 0.8:
@@ -414,6 +453,8 @@ def build_stage(keep_flat=((0, 0, 16),), seed=5):
         g = ridged(x * 0.22, y * 0.035, 101) * math.sin(math.pi * min(t, 1.0))
         z -= 1.1 * g
         z += 0.5 * fbm(x * 0.12, y * 0.12, 3, 111) * min(t, 1.0)
+        # rocky buttresses / outcrops so the face isn't a smooth curtain
+        z += 1.2 * ridged(x * 0.08, y * 0.05, 121) * math.sin(math.pi * min(t, 1.0)) * (0.5 + 0.5 * noise.noise(Vector((x * 0.02, 131, 0))))
         return max(z, 0.0) if ys > -4 else 0.0
     def height(x, y):
         z = 0.35 * noise.noise(Vector((x * 0.03, y * 0.03, 0.5))) + 0.08 * noise.noise(Vector((x * 0.2, y * 0.2, 1.5)))
