@@ -6,13 +6,13 @@ blender -b -P build_launch_pad.py -- --out .. [--quick 1] [--only glb,game,blend
 Blender coords: Z up, metres, front = -Y (toward the camera). Exported GLB: Y up, front +Z, origin = pad centre on the ground.
 Style: Mine concept B (sleek high-tech): glossy white + graphite panels, satin metal, cyan light strips, weathered + dusty.
 Reuses the shared helpers in art/3d/mine_concepts/_src/mc_common.py by import (not modified).
-True scale: 1.8 m astronauts, ~40 m ship (stand-in, Stage collection, not exported), 44 m service tower.
+True scale: 1.8 m astronauts, 40 m starter ship (appended read-only from art/3d/ship/starter_ship, Stage, not exported), 44 m service tower.
 
 Systems (collection 'Mine' = exported building):
   * sintered regolith landing pad, r 21 m (fused glassy-grey slab tiles, scorched centre), painted landing target,
     PAD-01 stencils, 48 recessed edge lights + cyan perimeter strip, 4 flame-trench grates
   * blast berm r 27.5-36 m, 4.6 m high, with precast sintered retaining blocks, open toward the control station
-  * service tower ST-01 (44 m lattice, decks, stairs, elevator) with crew (31 m), cargo (22 m) and fuel (7 m) access arms
+  * service tower ST-01 (44 m lattice, decks, stairs, elevator) with crew (28 m), cargo (20 m) and fuel (7 m) access arms
     reaching the ship hull; pump skid with white radiators, LOX / CH4 lines in a covered trench through the berm
   * cargo handling: 3 cargo pods on a pallet + a pad-edge cargo lift (raises ship cargo capacity)
   * pad control station: ABOVE GROUND on 8 legs (2.4 m deck), two thick white shielded modules (HAB-1, OPS-1) with
@@ -285,45 +285,16 @@ for a in (BA0 + 0.22, BA1 - 0.22):
     box('berm_endstrip', (1.22, 1.22, 0.1), (x, y, 3.4), CYAN, rot=(0, 0, a), bevel=0)
     sphere('berm_beacon', 0.18, (x, y, 4.35), AMBERG, sub=2)
 
-# ====================================================================== STARTER SHIP stand-in (~40 m, B-style) - scale reference only (Stage)
-SR = 4.6; SC = 'Stage'
-lathe('ship_hull', [(0, 3.2), (SR * 0.86, 3.2), (SR, 4.4), (SR, 29.0), (SR * 0.93, 32.0), (SR * 0.76, 35.0), (SR * 0.5, 37.6), (SR * 0.22, 39.3), (0, 40.0)],
-      (0, 0, 0), WHITE, segs=96, c=SC)
-for z in (6.0, 12.5, 19.0, 25.5, 29.0):
-    ring('ship_band', SR + 0.02, (0, 0, z), 0.32, GRAPH, w=0.08, segs=128, c=SC)
-for z in (12.0, 25.0):
-    ring('ship_glow', SR + 0.03, (0, 0, z), 0.1, CYAN, w=0.04, segs=128, c=SC)
-for k in range(10):   # crew deck port row (windows on the crew deck)
-    a = math.radians(-90 - 60 + k * 13.3)
-    box('ship_port', (0.7, 0.12, 0.42), (SR * math.cos(a), SR * math.sin(a), 30.4), GLASS, rot=(0, 0, a + math.pi / 2), bevel=0.06, c=SC) if False else None
-for k in range(8):
-    a = math.radians(-90 - 46 + k * 13)
-    p = Vector((SR * 0.985 * math.cos(a), SR * 0.985 * math.sin(a), 30.6))
-    rbox('ship_port_frame', (0.9, 0.2, 0.6), tuple(p), GRAPH_S, rot=(0, 0, a + math.pi / 2), r=0.08, segs=2, c=SC)
-    rbox('ship_port', (0.7, 0.22, 0.4), tuple(p + Vector((math.cos(a), math.sin(a), 0)) * 0.02), GLASS, rot=(0, 0, a + math.pi / 2), r=0.06, segs=2, c=SC)
-text('ship_stencil', 'PS-1', (SR * math.cos(-1.9) * 1.004, SR * math.sin(-1.9) * 1.004, 21.5), (math.pi / 2, 0, -1.9 + math.pi / 2), 1.6, INK, extrude=0.01, c=SC)
-# cargo door + crew hatch on the tower side
-UA = math.radians(40)
-for (z, w, h) in ((22.0, 3.0, 3.6), (31.0, 1.2, 2.0)):
-    p = Vector((math.cos(UA), math.sin(UA), 0)) * (SR + 0.02) + Vector((0, 0, z))
-    rbox('ship_door', (w, 0.16, h), tuple(p), GRAPH_S, rot=(0, 0, UA + math.pi / 2), r=0.12, segs=2, c=SC)
-# skirt, engines, landing legs
-lathe('ship_skirt', [(SR * 0.86, 3.22), (SR * 0.95, 1.9), (SR * 0.9, 1.9), (SR * 0.8, 3.2)], (0, 0, 0), GRAPH, segs=96, c=SC)
-for k in range(4):
-    a = TAU * k / 4 + math.pi / 4; c = Vector((1.9 * math.cos(a), 1.9 * math.sin(a), 0))
-    lathe('ship_bell', [(0.6, 3.2), (0.75, 2.6), (1.15, 1.25), (1.1, 1.2), (0.55, 2.7), (0.5, 3.2)], tuple(c), GRAPH_S, segs=40, c=SC)
-for k in range(4):
-    a = TAU * k / 4
-    u = Vector((math.cos(a), math.sin(a), 0)); foot = u * 9.2 + Vector((0, 0, TOP + 0.35))
-    top = u * (SR - 0.2) + Vector((0, 0, 9.5)); kn = u * (SR + 0.2) + Vector((0, 0, 3.6))
-    beam('ship_leg', top, foot, 0.9, 0.7, WHITE, bevel=0.2, c=SC)
-    rod('ship_strut', kn, foot + Vector((0, 0, 0.3)), 0.28, SATIN, c=SC)
-    lathe('ship_foot', [(0, 0), (1.5, 0), (1.5, 0.2), (1.0, 0.55), (0, 0.6)], (foot.x, foot.y, TOP), GRAPH, segs=40, c=SC)
-    beam('ship_leg_strip', top + Vector((0, 0, -0.5)) + u.cross(Vector((0, 0, 1))) * 0.46, foot + Vector((0, 0, 1.0)) + u.cross(Vector((0, 0, 1))) * 0.46, 0.04, 0.12, CYAN, bevel=0, c=SC)
-for k in range(4):   # RCS pods near the nose
-    a = TAU * k / 4 + math.pi / 4
-    rbox('ship_rcs', (0.9, 0.9, 1.2), (SR * 0.86 * math.cos(a), SR * 0.86 * math.sin(a), 33.0), GRAPH_S, rot=(0, 0, a), r=0.2, segs=3, c=SC)
-sphere('ship_beacon', 0.3, (0, 0, 40.05), AMBERG, sub=2, c=SC)
+# ====================================================================== STARTER SHIP (real model, appended read-only from art/3d/ship/starter_ship) - Stage
+SR = 4.0; SC = 'Stage'   # hull radius of the real ship (8 m dia, 40 m tall, 6 legs at 0/60/.., ramp toward -Y)
+SHIP_BLEND = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'ship', 'starter_ship', 'starter_ship_master.blend'))
+with bpy.data.libraries.load(SHIP_BLEND, link=False) as (src, dst):
+    dst.collections = [n for n in src.collections if n == 'Mine']
+ship_c = dst.collections[0]; ship_c.name = 'StarterShip'
+coll(SC).children.link(ship_c)
+for ob in ship_c.all_objects:
+    if ob.parent is None: ob.location.z += TOP        # stand on the sintered pad top
+UA = math.radians(30)    # tower azimuth: midway between the ship legs at 0 deg and 60 deg
 
 # ====================================================================== SERVICE TOWER (~44 m) with access arms
 TD = 13.5
@@ -382,13 +353,13 @@ def arm(z, w, h, label, mat=WHITE, tunnel=False):
     q = a0.lerp(a1, 0.35)
     beam('arm_kneebrace', Vector((TX, TY, z - 4.0)) + inward * (TW / 2), q + Vector((0, 0, -h / 2)), 0.35, 0.35, GRAPH_S, bevel=0.05)
     return a0, a1
-c0, c1 = arm(31.0, 2.4, 2.6, 'crew', tunnel=True)
+c0, c1 = arm(28.0, 2.4, 2.6, 'crew', tunnel=True)
 rbox('crew_seal', (1.0, 3.0, 3.0), tuple(c1), GRAPH_S, rot=(0, 0, rot_u), r=0.3, segs=3)
 for k in range(3):
     p = c0.lerp(c1, 0.25 + k * 0.25) + tang * 1.21
     rbox('crew_arm_port', (0.9, 0.06, 0.5), tuple(p + Vector((0, 0, 0.3))), GLASS, rot=(0, 0, rot_u), r=0.08, segs=2)
 text('decal_crew', 'CREW ACCESS', tuple(c0.lerp(c1, 0.5) - tang * 1.21 + Vector((0, 0, 0.6))), (math.pi / 2, 0, rot_u + math.pi), 0.32, INK, extrude=0.004)
-g0, g1 = arm(22.0, 1.4, 1.2, 'cargo', mat=WHITE)
+g0, g1 = arm(20.0, 1.4, 1.2, 'cargo', mat=WHITE)
 for s in (-1, 1): handrail(g0 + tang * 0.65 * s + Vector((0, 0, 0.6)), g1 + tang * 0.65 * s + Vector((0, 0, 0.6)) - inward * 0.4, h=1.0, n=4)
 rbox('cargo_hoist', (1.0, 1.2, 1.0), tuple(g1 - inward * 0.6 + Vector((0, 0, -1.0))), GRAPH_S, rot=(0, 0, rot_u), r=0.12, segs=2)
 f0, f1 = arm(7.0, 1.2, 1.0, 'fuel', mat=WHITE)
@@ -626,7 +597,7 @@ world_and_sun((-0.55, -0.6, 0.58), 5.5)
 astronaut((AX + 0.2, AYa - 0.05, PZ), rot_z=-0.3)                        # in the dust-off arch
 astronaut((CX + 2.6, CY - 1.6, 0.0), rot_z=0.5)                         # pad edge, beside the cargo pods
 astronaut((s1.x + 1.8, s1.y - 1.2, s1.z - 0.05), rot_z=-0.8)             # foot of the station stair
-astronaut(tuple(g0.lerp(g1, 0.55) + Vector((0, 0, 0.6))), rot_z=rot_u)    # on the cargo access arm (22 m up)
+astronaut(tuple(g0.lerp(g1, 0.55) + Vector((0, 0, 0.6))), rot_z=rot_u)    # on the cargo access arm (20 m up)
 cam = setup_render(64 if not QUICK else 16)
 
 ONLY = A.get('only', 'hero')
