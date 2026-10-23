@@ -11,8 +11,9 @@ Blender coords: Z up, metres, front = -Y (toward the camera). Exported GLB: Y up
 ORIGIN = Path_Dump = the HT-04 truck's centre at the dump spot. The truck reverses in along +X (cab toward -X) until its rear tyres
 touch the wheel stop; its tail lip tips over the -X rim of the intake bin RB-1 (x 3.7..7.4).
 
-Process (left = He-3 line at y -7.5, cyan; right = fuel line at y +7.5, orange heat / LOX frost):
-  intake bin RB-1 (grizzly, dust skirt) -> belt feeder BF-1 -> vibrating grizzly VG-1 -> splitter SP-1 -> two cleated covered conveyors
+Process (rows built in line coords, then placed by the compact relayout _rowM: He-3 row in front, fuel row behind, RS 0.85):
+  intake bin RB-1 (grizzly, dust skirt) -> belt feeder BF-1 -> splitter SP-1 (VG-1 dropped) -> fuel: conveyor cv_fuel;
+  He-3: bucket elevator BE-1 -> covered gallery cv_he3 over the fuel row
   He-3:  sieve SV-1 (<100 um) -> rotary kiln KN-1 (700 C, electric) -> gas hood + compressor CP-1 -> cold traps CT-1..4
          (H2O, CO2, N2, H2; H2 piped over the rack to the fuel line) -> cryo column DC-1 (He-3 / He-4) -> filling FS-1 -> canister rack;
          kiln tailings conveyor -> tailings pile
@@ -1167,7 +1168,7 @@ lo = bpy.data.objects.new('GlowRack', ld); coll('Stage').objects.link(lo); lo.lo
 CAM_TARGET = tuple(float(v) for v in A.get('ct', '-7.0,16.0,3.0').split(','))   # refinery-only review framing
 FRAME_W = float(A.get('fw', 34.0))
 # Mine station camera (art/3d/buildings/mine/README.md): Cam_Target glTF (-0.11, 2.65, 1.00) = Mine Blender (-0.11, -1.0, 2.65), frame_w 37
-MINE_CT = tuple(round(v, 3) for v in (W2F @ Vector([float(v) for v in A.get('minect', '-0.11,-1.0,2.65').split(',')])))
+MINE_CT = tuple(round(v, 3) for v in (W2F @ Vector([float(v) for v in A.get('minect', '0.06,-1.0,-2.36').split(',')])))
 MINE_W = float(A.get('minew', 37.0))
 _ct = bpy.data.objects.new('Review_Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
 _ct.location = CAM_TARGET; coll('Stage').objects.link(_ct); _ct['frame_w'] = FRAME_W
