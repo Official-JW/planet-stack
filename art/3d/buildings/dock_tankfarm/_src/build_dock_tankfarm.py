@@ -985,6 +985,7 @@ print('STATS objects', len(mine), 'tris', tri_count(mine), 'bbox', tuple(round(v
 print('GROUPS', dict(Counter(o.get('grp', 'Base') for o in mine)), flush=True)
 
 ONLY = A.get('only', 'hero')
+if A.get('notile') == '1': bpy.context.scene.cycles.use_auto_tile = False   # one full-frame tile (faster on CPU when RAM allows)
 if 'glb' in ONLY:
     root = bpy.data.objects.new('DockTankFarm', None); coll('Mine').objects.link(root)
     for ob in mine:

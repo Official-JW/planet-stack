@@ -39,17 +39,17 @@ Phone shots use the Game Coder camera spec: perspective, **38° vertical FOV, ti
 
 ## Files
 - `_src/build_dock_tankfarm.py`: the procedural Blender 4.2 build script. It imports `art/3d/mine_concepts/_src/mc_common.py` and re-uses the Life Support helpers.
-  `blender -b -P build_dock_tankfarm.py -- --out .. [--quick 1] [--only glb,blend,hero,phone,turn] [--hs 40] [--ts 32] [--ps 48] [--res WxH] [--pres WxH] [--door 0.5] [--hc x,y,z,tx,ty,tz] [--lens 28] [--td 95] [--ct 12,-2,6] [--fw 64] [--fill 2200]`. `--only proj [--ctlist x,y,z,W;...] [--overlap lch41,lch42]` prints phone-camera screen boxes per node (plus TankRow / Hall) and bbox overlaps without rendering.
+  `blender -b -P build_dock_tankfarm.py -- --out .. [--quick 1] [--only glb,blend,hero,phone,turn] [--hs 40] [--ts 32] [--ps 48] [--res WxH] [--pres WxH] [--door 0.5] [--hc x,y,z,tx,ty,tz] [--lens 28] [--td 95] [--ct 12,-2,6] [--fw 64] [--fill 2200] [--notile 1]`. `--only proj [--ctlist x,y,z,W;...] [--overlap lch41,lch42]` prints phone-camera screen boxes per node (plus TankRow / Hall) and bbox overlaps without rendering.
   `--only glb` writes `dock_tankfarm_master_raw.glb`. Pack it with `gltfpack -i dock_tankfarm_master_raw.glb -o dock_tankfarm_master.glb -cc -kn -km -ke -vpf`.
 - `_src/build_game_glb_tiered.py`: game exporter. It culls text, stencils, bolts, ribs, rails, cables and greebles under 0.3 m, disables bevel modifiers, remaps the materials to the 4 merged `SHM_*` materials (swatch colour goes to `COLOR_0`), welds, dissolves planar faces and collapse-decimates (base fitted to `--target 28000` total, tiers and moving parts at `--tierratio 0.7`). Splits out tier, moving-part and marker nodes.
   `blender -b dock_tankfarm_master.blend -P _src/build_game_glb_tiered.py -- --out raw.glb`, then `gltfpack -i raw.glb -o dock_tankfarm_game.glb -cc -kn -ke`
 - `_src/render_game_preview.py`: flat Workbench preview of the game GLB with vertex colours (`blender -b -P render_game_preview.py -- --glb raw.glb --out DIR`; use the unpacked raw.glb because Blender can't decode meshopt). It prints per-node screen boxes.
 - `_src/make_sheet.py`: builds the contact sheet (`python3 make_sheet.py turntable dock_tankfarm_turntable_sheet.png TITLE SUB hero.png`)
 - `dock_tankfarm_master.blend`: full scene (procedural shading, stage, lights, cameras, review astronauts). The door is rendered 50 % open (`--door`).
-- `dock_tankfarm_hero_3840x2160.png`: hero render (Cycles, OIDN, AgX), dock and tank farm on grey ground. **Stale:** from fb99e50 (old LH2 labels, old layout with the mast at x −24 and the surface line to x 48); re-render pending.
+- `dock_tankfarm_hero_3840x2160.png`: hero render (Cycles, OIDN, AgX), dock and tank farm on grey ground, current LCH4 build (Cycles 16 samples + OIDN, single tile: `--only hero --hs 16 --notile 1`)
 - `dock_tankfarm_phone_1179x2556.png` and `dock_tankfarm_phone_393x852.png`: in-game station camera view aimed at `Cam_Target`, W = 64 m (3× master, and its Lanczos downscale)
 - `dock_tankfarm_game_preview_393x852.png` and `dock_tankfarm_game_preview_hero.png`: the game GLB itself (all tiers visible, door closed) from the station camera (Cam_Target, W = 64 m) and the hero angle (flat preview renders)
-- `turntable/turn_000..315.png` and `dock_tankfarm_turntable_sheet.png`: 8 angles at 45° steps, plus the contact sheet. **Stale:** they predate the LCH4 relabel and the compacted layout (they still show LH2 labels, the mast at x −24 and the surface line to x 48); re-render pending. The phone renders and game previews are current.
+- `turntable/turn_000..315.png` and `dock_tankfarm_turntable_sheet.png`: 8 angles at 45° steps, plus the contact sheet (1000 px, Cycles 16 samples + OIDN: `--only turn --ts 16 --notile 1`), current LCH4 build
 
 ## Game GLB nodes
 All under the root `DockTankFarm`. Glows on tier and moving parts are folded into `SHM_Paint` (cyan kept as vertex colour) so each is exactly one draw (Beacon_Lights uses `SHM_GlowWhite`).
