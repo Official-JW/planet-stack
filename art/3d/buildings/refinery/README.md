@@ -12,13 +12,13 @@ The build is fully standalone: it reads no Mine markers, layout or GLB (`REFINER
 
 | | |
 |---|---|
-| Master | `refinery_master.blend` (1,638 objects, **357,388 tris** incl. the placed HT-04, Blender 4.2, procedural shading) |
-| Master GLB | `refinery_master.glb`, 2,286,460 B, md5 `f2d63e7f9c3aff01de7a446e696f904a`, `gltfpack -cc -kn -km` (meshopt + quantization, no Draco). Review asset, not for the game |
-| **Game GLB** | `refinery_game.glb`, **225,892 B**, md5 `41ac6c5a246c29bf75c75f4879622b9f`. **26,558 tris and 13 draws with every tier visible** (budget 30k / 15) |
+| Master | `refinery_master.blend` (1,638 objects, **357,764 tris** incl. the placed HT-04, Blender 4.2, procedural shading) |
+| Master GLB | `refinery_master.glb`, 2,290,300 B, md5 `6b29cab5f92baea9cd46dcc6764852d9`, `gltfpack -cc -kn -km` (meshopt + quantization, no Draco). Review asset, not for the game |
+| **Game GLB** | `refinery_game.glb`, **224,812 B**, md5 `e65968d7f1b567c1155e0ff90e42854a`. **26,566 tris and 13 draws with every tier visible** (budget 30k / 15) |
 | Game GLB format | `EXT_meshopt_compression` + `KHR_mesh_quantization` only (no Draco). 3 shared materials `SHM_Paint`, `SHM_GlowCyan`, `SH_GlowRed`, each only `pbrMetallicRoughness` + `emissiveFactor` (no transmission / clearcoat / ior / emissive_strength), no images or textures. Colour comes from `COLOR_0` vertex colours. **No truck geometry** (only the `Truck_*` markers), no astronauts. `strings refinery_game.glb \| grep -i lh2` is empty (same for the master GLB) |
 | Units / axes / origin | 1 m, Y up. **Origin = `Truck_Dump`** (HT-04 centre while tipping). No rotation: place it like any station, `position.set(i*GAP, 0, 0)` |
 | Station camera | **`Cam_Target` glTF (−5.90, 8.50, 3.36)**, extras `frame_w` **30.8**, `fov_y_deg` 38, `pitch_down_deg` 18, `distance_m_393x852` 96.96. Camera on +Z looking down −Z |
-| Footprint (glTF) | refinery x −21…7, z −33…+3, top 14.8 m (DC-2 beacon). Haul road x −48…3.55, z −0.5…+11.8 |
+| Footprint (glTF) | refinery x −21…7, z −33…+3, top 14.8 m (DC-2 beacon). Haul road x −46…3.55, z −0.5…+11.8 |
 
 ## Process
 Intake (white):
@@ -59,12 +59,17 @@ Support:
 - The process rows are built in line coordinates and placed by `_rowM` (mirror in X, **row scale 0.85**), then mirrored in Y (historic).
 
 ### Haul road RD-1 (`rd_haul_road`, part of `Base_Paint`, RoadCol vertex colours, never decimated)
-- **Inbound lane at glTF z +9**, heading +X from the left edge (x −48). This is the same Z as the Mine road that leaves the Mine's right edge
+- **Inbound lane at glTF z +9**, heading +X from the left edge (x −46 = world 274, where the 11th 8 m `haul_road_seg` tile ends). This is the same Z as the Mine road that leaves the Mine's right edge
   (Mine `Road_Entry` (13.5, 0, 9) heading +X), so a straight road joins them across the 160 m gap.
 - U-turn in front of the intake: centre (−4, 0, 4.5), radius 4.5 m, apex x 0.5 (bin starts at x 3.7).
 - Stop at `Truck_Path_07` heading −X, then **reverse 4 m** straight along +X to `Truck_Dump`.
-- **Outbound lane at glTF z 0**, from the wheel stop (x 3.55) out the left edge to x −48 heading −X.
+- **Outbound lane at glTF z 0**, from the wheel stop (x 3.55) out the left edge to x −46 heading −X.
 - Lane surfaces: inbound y 0.025, outbound y 0.045; the ground is cut 3 cm under the road.
+- **Strip join (x −34 → −46):** both lanes ease to the `haul_road_seg` x0 profile and colours (surface 0.045, crown 0.065,
+  tracks ±1.45 at 0.026, berm crest ±1.65, toe ±1.8, track colours #797c81/#7d8085 on z 9 and #7d8085/#7a7d82 on z 0).
+  Measured at x −45.99: every height within 2 mm of the strip. Before: inbound surface 0.025 vs 0.045 (2 cm step), tracks #8d9094,
+  and the road ran to −48 so it overlapped the last tile by 2 m (z-fighting on z 0). `Truck_Path_01` / `Truck_Exit` unchanged (`RD_MK` −46).
+  The rut is a doubled vertex at 1.5 m so the profile matches the strip's vertex count; visually unchanged in frame.
 
 ### Fit (393×852, station camera, every vertex projected, all tiers visible)
 Target band: HUD bottom ~141 + 24 = 165 to sheet top 674 − 34 = 640, centre ~402. Target x 40…353.
@@ -146,7 +151,7 @@ Clips (all loop): `kiln_spin` 4.0 s (one turn), `conveyor_he3_run` / `conveyor_f
 | `Crew_Path_01..07` | (−7.3, 0.1, −20.95), (−8.0, 0.1, −20.95), (−10.7, 0.1, −19.55), (−12.5, 5.45, −21.6), (−17.1, 0.1, −19.75), (1.0, 0.1, −20.35), (2.0, 0.1, −5.0) | | airlock → intake |
 
 ## Validation
-- Packed game GLB: 13 draws, 26,558 tris, extensionsUsed = [KHR_mesh_quantization, EXT_meshopt_compression], 0 images / textures, material keys only
+- Packed game GLB: 13 draws, 26,566 tris, extensionsUsed = [KHR_mesh_quantization, EXT_meshopt_compression], 0 images / textures, material keys only
   name / pbrMetallicRoughness / emissiveFactor, 5 clips, no truck nodes besides the `Truck_*` markers. `strings refinery_game.glb | grep -i lh2` → empty.
 - Master build: `RELAYOUT moved 1112 neg 0`, `BELOW_GROUND` only `tf_lox` / `tf_lch4` at −0.34 (the intended buried PL-1 risers). Phone `FIT_TIER` all OK.
 - Every proof was read at full size (and the truck / bin crop at 1179 checked: the tipping HT-04 is fully visible, nothing of the bin in front of it).

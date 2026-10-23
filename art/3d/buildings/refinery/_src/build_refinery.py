@@ -1139,12 +1139,20 @@ ore_chunks('rb_load_ore', (5.0, 0.0, BRIM + 0.05), 1.0, 30, [(ORE, 5, 'rock'), (
 # U-turn in front of the intake, stops at Truck_Path_07 heading -X, reverses 4.0 m into RB-1 (Truck_Dump), then drives forward
 # out along the y = 0 lane and back off the left edge toward the Mine. Same cross-section, colours and berm logic as the Mine's
 # 4 m graded regolith road (track, tyre ruts, berms). Part of the GLB (Base_Paint, RoadCol vertex colours, never decimated).
-_RHALF = [(0.0, 0.02, 'track'), (1.2, 0.0, 'track'), (1.5, -0.02, 'mark'), (1.8, 0.0, 'track'), (2.0, 0.0, 'foot'), (2.35, 0.25, 'crest'), (2.8, -0.04, 'toe')]
+# 10/23 PM seam fix: the V rut (1.2 / 1.5 / 1.8) is written as 8 columns (the 1.5 m rut vertex doubled) so that, off screen at the left
+# end, it eases column by column into the shared 8 m road strip's flat 0.4 m band (_shared/road: 1.1 / 1.25 / 1.65 / 1.8, -2 cm).
+_RHALF = [(0.0, 0.02, 'track'), (1.2, 0.0, 'track'), (1.5, -0.02, 'mark'), (1.5, -0.02, 'mark'), (1.8, 0.0, 'track'), (2.0, 0.0, 'foot'), (2.35, 0.25, 'crest'), (2.8, -0.04, 'toe')]
+_SEG_HALF = [(0.0, 0.02), (1.1, 0.0), (1.25, -0.02), (1.65, -0.02), (1.8, 0.0), (2.0, 0.0), (2.35, 0.25), (2.8, -0.04)]
+# strip end-row colours (sRGB) per lane and glTF-z side of the centre line (tyre tracks carry the strip's 8 m wear phase, crown its polish)
+_SEG_MARK = {'in': {-1: '#797c81', 1: '#7d8085'}, 'out': {-1: '#7d8085', 1: '#7a7d82'}}
+_SEG_CROWN = {'in': '#a6a9ae', 'out': '#a4a7ac'}
+SEAM_E0, SEAM_E1 = -34.0, -46.0           # ease from the station road (x >= -34, off screen) to the strip row at the road end (x -46)
 _RPROF = [(-o, dz, k) for o, dz, k in reversed(_RHALF[1:])] + _RHALF
 _RHEX = {'track': '#a4a7ac', 'mark': '#878a8f', 'foot': '#9da0a5', 'crest': '#939499', 'toe': '#82858a'}
 def _srgb_(h): h = h.lstrip('#'); return Vector([int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)])
 def _sm_(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
-RD_XL = float(A.get('roadx', -48.0))      # road ends (off the left edge of the station frame; the game ground carries it on to the Mine)
+RD_XL = float(A.get('roadx', -46.0))      # road ends at x -46 (= Truck_Path_01 / Truck_Exit), where the 11th 8 m strip tile ends (Mine x 26 + 88 = 114 = 160 - 46)
+RD_MK = -46.0                             # Truck_Path_01 / Truck_Exit (unchanged; the road now ends here)
 RD_YIN, RD_R, RD_XT = -9.0, 4.5, -4.0     # inbound lane y, U-turn radius, U-turn centre x (centre y = RD_YIN / 2)
 RD_X1 = 3.55                              # dump stub end: rear tyres at the RB-1 wheel stop
 def _dense(pts, step):
@@ -1171,12 +1179,14 @@ for o in list(coll('Mine').all_objects):
         w = mw @ v.co
         if RD_XL - 3 < w.x < 8 and RD_YIN - 4 < w.y < 4 and w.z < 0.6: _obs.append((w.x, w.y))
 _okd = _kd(_obs) if _obs else None
-def _sweep(bm, cl, other, zs, cl_layer):
-    rows = []
+def _sweep(bm, cl, other, zs0, cl_layer, lane):
+    rows = []; NP = len(_RPROF); MID = (NP - 1) // 2
     for i, p in enumerate(cl):
         a_ = Vector(cl[max(0, i - 1)]); b_ = Vector(cl[min(len(cl) - 1, i + 1)]); t = (b_ - a_).normalized(); nrm = Vector((-t.y, t.x))
-        row = []
-        for off, dz, kind in _RPROF:
+        row = []; e = _sm_((p[0] - SEAM_E0) / (SEAM_E1 - SEAM_E0)); zs = zs0 + (0.045 - zs0) * e   # both lanes meet the strip at y 0.045
+        for pi_, (off, dz, kind) in enumerate(_RPROF):
+            so_, sdz = _SEG_HALF[abs(pi_ - MID)]
+            off = math.copysign(abs(off) + (so_ - abs(off)) * e, off) if off else 0.0; dz = dz + (sdz - dz) * e
             q = Vector(p) + nrm * off; f = 1.0
             if abs(off) > 2.0 - 1e-6:
                 f = min(f, _sm_((other.find((q.x, q.y, 0))[2] - 1.8) / 1.0))          # on the other lane's running surface -> berm open
@@ -1185,6 +1195,8 @@ def _sweep(bm, cl, other, zs, cl_layer):
             elif kind == 'crest': z = zs + dz * f
             else: z = zs + dz
             c = _srgb_(_RHEX['track']).lerp(_srgb_(_RHEX[kind]), f) if abs(off) > 2.0 - 1e-6 else _srgb_(_RHEX[kind])
+            if e > 0 and kind == 'mark': c = c.lerp(_srgb_(_SEG_MARK[lane][1 if (-nrm.y * off) > 0 else -1]), e)
+            elif e > 0 and off == 0.0: c = c.lerp(_srgb_(_SEG_CROWN[lane]), e)
             row.append((bm.verts.new((q.x, q.y, z)), c))
         rows.append(row)
     for r0, r1 in zip(rows, rows[1:]):
@@ -1192,8 +1204,8 @@ def _sweep(bm, cl, other, zs, cl_layer):
             qd = (r0[k], r1[k], r1[k + 1], r0[k + 1]); fc = bm.faces.new([v for v, _ in qd])
             for lp, (_, c) in zip(fc.loops, qd): lp[cl_layer] = (c.x, c.y, c.z, 1.0)
 bm = bmesh.new(); _cl = bm.loops.layers.color.new('RoadCol')
-_sweep(bm, LANE_OUT, _kin, 0.045, _cl)          # outbound lane + dump stub on top
-_sweep(bm, LANE_IN, _kout, 0.025, _cl)          # inbound lane + U-turn 2 cm under it where they meet (no z-fighting)
+_sweep(bm, LANE_OUT, _kin, 0.045, _cl, 'out')   # outbound lane + dump stub on top
+_sweep(bm, LANE_IN, _kout, 0.025, _cl, 'in')     # inbound lane + U-turn 2 cm under it where they meet (no z-fighting); eases up to 0.045 at the left end
 bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 for f in bm.faces:
     if f.normal.z < 0: f.normal_flip()
@@ -1217,7 +1229,7 @@ for o in [o for o in bpy.data.objects if o.name.startswith(('haul_road', 'rd_hau
 # (the Mine Path_* convention, yaw -90 = heading +Z).
 GAME.setdefault('marker_extras', {})
 for n_ in [n_ for n_ in GAME['markers'] if n_.startswith(('Truck_Path_', 'Truck_Exit'))]: del GAME['markers'][n_]
-_TP = [((RD_XL + 2.0, RD_YIN), 0.0, 'road entry from the Mine (inbound lane, left edge of the frame); drive forward +X'),
+_TP = [((RD_MK, RD_YIN), 0.0, 'road entry from the Mine (inbound lane, left edge of the frame); drive forward +X'),
        ((-14.0, RD_YIN), 0.0, 'inbound lane, in frame')]
 for k in range(5):
     p = -math.pi / 2 + math.pi * k / 4
@@ -1233,7 +1245,7 @@ GAME['markers']['Truck_Dump'] = (0.0, 0.0, 0.0)
 GAME['marker_extras']['Truck_Dump'] = {'kind': 'truck_pose', 'mode': 'reverse_in', 'yaw_deg': 180.0, 'reverse_from': 'Truck_Path_07',
     'reverse_m': 4.0, 'reverse_s': 1.5, 'clip': 'truck_dump', 'exit_to': 'Truck_Exit',
     'note': 'HT-04 centre while tipping (cab -X, rear +X): rear tyres on the RB-1 wheel stop, tail lip over the bin rim (lip z 1.63, rim top z 1.57); then drive forward -X along the outbound lane to Truck_Exit'}
-GAME['markers']['Truck_Exit'] = (RD_XL + 2.0, 0.0, 0.0)
+GAME['markers']['Truck_Exit'] = (RD_MK, 0.0, 0.0)
 GAME['marker_extras']['Truck_Exit'] = {'kind': 'truck_pose', 'order': 9, 'mode': 'forward', 'yaw_deg': 180.0,
     'note': 'outbound lane leaves the left edge of the frame back toward the Mine (160 m west)'}
 GAME['markers']['Road_Entry'] = GAME['markers']['Truck_Path_01']
@@ -1297,6 +1309,7 @@ low = [(o.name, round(min((o.matrix_world @ Vector(c)).z for c in o.bound_box), 
 print('BELOW_GROUND', low[:20], flush=True)
 
 ONLY = A.get('only', 'hero')
+if A.get('notile') == '1': bpy.context.scene.cycles.use_auto_tile = False   # one full-frame tile (faster on CPU when RAM allows; Dock approach)
 def phone_cam(w, h, tgt, fw):
     asp = w / h; vt = math.tan(math.radians(19)); d = fw / (2.0 * vt * asp); e = math.radians(18)
     tgt = Vector(tgt); pos = tgt + Vector((0.0, -d * math.cos(e), d * math.sin(e)))   # station camera side = -Y (glTF +Z)
