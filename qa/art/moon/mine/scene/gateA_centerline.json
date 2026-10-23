@@ -42,12 +42,12 @@
       "y": 340
     },
     {
-      "x": 1180,
-      "y": 335
+      "x": 1155,
+      "y": 364
     },
     {
-      "x": 1240,
-      "y": 330
+      "x": 1214,
+      "y": 386
     }
   ],
   "cave_mouth_rect_px": {
@@ -72,5 +72,21 @@
     "x": 340,
     "y": 370
   },
-  "notes": "Point 0 beside ORE BIN (not overlapping); dump_stop_px is bed tip into hopper. ~90\u00b0 curve: bay out toward foreground/wider, then turn to cave in grounded rock hillside. Sky alpha forced to 0 (no soft ghosts). Old mid-road orange lamp blobs removed completely (2026-10-19); road lamps are edge lamps only, on soft edges (alternating sides), none on the centerline \u2014 truck does not drive over them. Motion per Director locked cycle (2026-10-19): start parked at dump_stop_px rear to the bin, tip, drive out the bay door nose-first; follow road nose-first to the cave, go in rear-first, come out nose-first; home nose-first to point 0, then back the short leg to dump_stop_px. That short bay leg is the only reversing; cycle repeats from the tip."
+  "notes": "Point 0 beside ORE BIN (not overlapping); dump_stop_px is bed tip into hopper. ~90\u00b0 curve: bay out toward foreground/wider, then turn to cave in grounded rock hillside. Sky alpha forced to 0 (no soft ghosts). Old mid-road orange lamp blobs removed completely (2026-10-19); road lamps are edge lamps only, on soft edges (alternating sides), none on the centerline \u2014 truck does not drive over them. Motion per Director locked cycle (2026-10-19): start parked at dump_stop_px rear to the bin, tip, drive out the bay door nose-first; follow road nose-first to the cave, go in rear-first, come out nose-first; home nose-first to point 0, then back the short leg to dump_stop_px. That short bay leg is the only reversing; cycle repeats from the tip.",
+  "cave_floor_px": {
+    "x": 1253,
+    "y": 361
+  },
+  "cave_floor_line_px": [
+    {
+      "x": 1214,
+      "y": 386
+    },
+    {
+      "x": 1253,
+      "y": 361
+    }
+  ],
+  "cave_rim_overlay": "cave_rim_overlay.png",
+  "cave_notes": "2026-10-22 cave fix: road-1125.png repainted ONLY inside x1100-1369,y240-429 (road now bends down into the bottom-left of the mouth onto a perspective tunnel floor; vanishing point ~(1300,330)). Centerline P9/P10 moved from (1180,335)/(1240,330) to (1155,364)/(1214,386) so the path ends on the floor. Wheels follow cave_floor_line_px from P10 to cave_floor_px (total scale 0.55x). Draw order: road sheet -> truck -> cave_rim_overlay. cave_rim_overlay replaces the unused mine_starter tunnel_front_lip sprite for Gate A. See CAVE_ENTRY_SPEC.md."
 }

@@ -1,0 +1,68 @@
+--- a/qa/game-1905.js
++++ b/qa/game-1905.js
+@@ -684,7 +684,8 @@
+  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
+  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
+  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
+-const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=d11cbaf9';
++const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=b75f9a19';
++const CAVE_RIM=new Image();let ROVER_DIM=1;   // Art cave rim overlay (drawn AFTER the truck) + truck brightness inside the tunnel
+ // Gate A: Art centerline (image px → scene via yardPt). Do not invent a road.
+ const GATEA={ready:0,pts:null,cave:null,bay:null};
+ function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
+@@ -699,6 +700,8 @@
+  GATEA.dump=j.dump_stop_px?{x:j.dump_stop_px.x,y:j.dump_stop_px.y}:null;
+  const R=r=>{if(!r)return null;const a=yardPt(r.x,r.y),z=yardPt(r.x+r.w,r.y+r.h);return{x:a.x,y:a.y,w:z.x-a.x,h:z.y-a.y}};
+  GATEA.cave=R(j.cave_mouth_rect_px);GATEA.bay=R(j.bay_door_rect_px);GATEA.bin=R(j.ore_bin_rect_px);
++ GATEA.floor=j.cave_floor_px?{x:j.cave_floor_px.x,y:j.cave_floor_px.y}:null;GATEA.floorLine=j.cave_floor_line_px||null;
++ if(j.cave_rim_overlay)CAVE_RIM.src='art/moon/mine/scene/'+j.cave_rim_overlay+'?v=b75f9a19';
+  GATEA.ready=!!GATEA.dump&&!!GATEA.binI&&!!GATEA.caveI}
+ tryJSON('art/moon/mine/scene/gateA_centerline.json').then(gateABuild);
+ function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
+@@ -801,7 +804,7 @@
+   let shade=0.26+0.5*nd+0.34*Math.max(0,ny);
+   if(ay<0.45)shade*=0.7;
+   if(ay>1.05)shade+=0.1;
+-  draw.push({q,z:zsum/4,col:roverShade(f.hex,shade)});
++  shade*=ROVER_DIM;draw.push({q,z:zsum/4,col:roverShade(f.hex,shade)});
+  }
+  draw.sort((a,b)=>b.z-a.z);
+  ctx.globalAlpha=al;
+@@ -857,17 +860,18 @@
+   G.home=mk(pts);G.back=mk(rp)}
+  const pAt=(P,s)=>{s=cl(s,0,P.l);let i=1;while(i<P.p.length-1&&P.c[i]<s)i++;const a=P.p[i-1],b=P.p[i],k=(s-P.c[i-1])/((P.c[i]-P.c[i-1])||1);return{x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k}};
+  const pDir=(P,s,w)=>{const a=pAt(P,s-w),b=pAt(P,s+w);return yawOf(b.x-a.x,b.y-a.y)};   // direction of travel along P
+- const cv=G.caveI,K={x:cv.x+cv.w*0.5,y:cv.y+cv.h*0.42};                 // deep point inside cave_mouth_rect
++ const cv=G.caveI,K=G.floor||{x:cv.x+cv.w*0.5,y:cv.y+cv.h*0.42};          // Art cave_floor_px: wheel contact deep on the tunnel floor
++ const FL=G.floorLine,F0=FL?FL[0]:PN,flYaw=yawOf(K.x-F0.x,K.y-F0.y),shK=0.55*scAt(F0.y)/scAt(K.y);   // floor line PN→K; total scale at K = 0.55× the mouth
+  const outYaw=tan(0),homeYaw=tan(0)+Math.PI,endOut=tan(L),endHome=tan(L)+Math.PI;  // endOut=nose into cave; endHome=nose toward camera (set during E)
+- let p,yaw,load=0,dump=0,al=1,shrink=1,clip=null,road=0;
++ let p,yaw,load=0,dump=0,al=1,shrink=1,clip=null,road=0,dim=1;
+  if(u<5.5){ // A tip at dump_stop into ore_bin_rect
+   const tip=u<2.2?ease(u/2.2):u<3.6?1:1-ease((u-3.6)/1.9);
+   p=D;yaw=legYaw;dump=tip*0.95;load=1-ease(cl((u-0.9)/2.5,0,1))}
+  else if(u<7.5){const e=ease((u-5.5)/2);p={x:D.x+(P0.x-D.x)*e,y:D.y+(P0.y-D.y)*e};yaw=lerpA(legYaw,outYaw,e)}       // B forward out the door
+  else if(u<22){const e=ease((u-7.5)/14.5),s=e*L;p=at(s);yaw=tan(s);road=1}                                           // C road out
+- else if(u<25){const e=ease((u-22)/3),mv=yawOf(K.x-PN.x,K.y-PN.y);p={x:PN.x+(K.x-PN.x)*e,y:PN.y+(K.y-PN.y)*e};yaw=lerpA(endOut,mv,ease(cl(e/0.45,0,1)));shrink=1-0.55*e;al=1-0.9*cl((e-0.35)/0.65,0,1);clip=G.cave}   // D keeps driving forward, gently yawing to face into the mouth (rear to camera = heading away)
++ else if(u<25){const e=ease((u-22)/3);p={x:F0.x+(K.x-F0.x)*e,y:F0.y+(K.y-F0.y)*e};yaw=lerpA(endOut,flYaw,ease(cl(e/0.35,0,1)));shrink=1+(shK-1)*e;dim=1-0.75*e;al=1-cl((e-0.55)/0.45,0,1)}   // D wheels on the floor line toward cave_floor_px, rear to camera; smaller, darker, gone past the rim
+  else if(u<27.5){GTK.lt=-1;return}                                                                                    // E hold: 180° turnaround out of sight only
+- else if(u<30.5){const e=ease((u-27.5)/3),mv=yawOf(PN.x-K.x,PN.y-K.y);p={x:K.x+(PN.x-K.x)*e,y:K.y+(PN.y-K.y)*e};yaw=lerpA(mv,endHome,ease(cl((e-0.55)/0.45,0,1)));shrink=0.45+0.55*e;al=0.1+0.9*cl(e/0.6,0,1);load=1;if(e<0.9)clip=G.cave}   // F emerge nose-first toward camera, full
++ else if(u<30.5){const e=ease((u-27.5)/3);p={x:K.x+(F0.x-K.x)*e,y:K.y+(F0.y-K.y)*e};yaw=lerpA(flYaw+Math.PI,endHome,ease(cl((e-0.65)/0.35,0,1)));shrink=shK+(1-shK)*e;dim=0.25+0.75*e;al=cl(e/0.45,0,1);load=1}   // F reverse of D: nose-first out along the floor line, growing, brightening (turnaround done hidden in E)
+  else if(u<47.5){const P=G.home,s=ease((u-30.5)/17)*P.l;p=pAt(P,s);yaw=pDir(P,s,14);load=1;road=1}                  // G road home + forward swing past P0 to W (one move, nose = travel)
+  else if(u<48.3){p=W;yaw=pDir(G.home,G.home.l,14);load=1}                                                            // H stop at W (cusp): parked, no yaw change
+  else if(u<51){const P=G.back,e=(u-48.3)/2.7,s=ease(e)*P.l,yb=v=>pDir(P,v,6)+Math.PI,o0=lerpA(yb(0),pDir(G.home,G.home.l,14),1)-yb(0),o1=lerpA(yb(P.l),legYaw,1)-yb(P.l);
+@@ -887,11 +891,13 @@
+  ctx.save();ctx.translate(sp.x,sp.y);
+  ctx.globalAlpha=0.3*al;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,0,50*sc,12*sc,0,0,7);ctx.fill();ctx.globalAlpha=1;
+  ctx.scale(sc,sc);
+- drawRover3D(yaw,GTK.odo,al,0,dump,load,lean);
++ ROVER_DIM=dim;drawRover3D(yaw,GTK.odo,al,0,dump,load,lean);ROVER_DIM=1;
+  ctx.restore();
+  if(dump>0.25&&load<0.98&&load>0.02){   // pour from the rear lip down into ore_bin_rect
+   const lip=gateAProj(yaw,lean,dump,[-1.3,0.66,0]),lx=sp.x+lip.x*sc,ly=sp.y+lip.y*sc,B=G.bin,by=B.y+B.h*0.55,bx=cl(lx,B.x+3,B.x+B.w-3);
+   ctx.fillStyle='#b9a07a';for(let i=0;i<7;i++){const q=((T*2.4+i/7)%1);ctx.globalAlpha=0.9-0.4*q;ctx.beginPath();ctx.arc(lx+(bx-lx)*q+Math.sin(i*2.1)*1.2,ly+(by-ly)*q*q,1.3+0.5*(i%2),0,7);ctx.fill()}ctx.globalAlpha=1}
++ if(p.x>1090&&CAVE_RIM.complete&&CAVE_RIM.naturalWidth){const a=yardPt(1100,238),b=yardPt(1370,430);   // Art rim/arch/jambs in front of the truck (sub-rect only)
++  ctx.drawImage(CAVE_RIM,1100,238,270,192,a.x,a.y,b.x-a.x,b.y-a.y)}
+  ctx.restore()}
+ const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
+ function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}

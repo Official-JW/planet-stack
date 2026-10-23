@@ -16,7 +16,7 @@
   },
   "loop": true,
   "blend": "normal",
-  "note": "male attendant (v7j suit: white enamel plates, cyan accents, chest screen, harness backpack) marshalling the loader with a single light stick held in a two-handed grip. 12 f @12 fps loop: wave A>B>C>B>A (f0-8, 0.67 s) then beckon D (f10). Faces LEFT (-x, toward the loader). Pivot = ground point under the feet; lowest visible boot pixel ends exactly on the pivot row. Feet on the Rover Bay floor surface (y = SCN.geo.bay = 650.667 pt) by the truck door. _glow is ADD above everything, same pivot.",
+  "note": "male attendant (v7j suit: white enamel plates, cyan accents, chest screen, harness backpack) marshalling the loader with a single light stick held in a two-handed grip. 12 f @12 fps loop = ONE full wand sweep in 1.0 s (rebuilt 2026-10-22 per Director): arm+wand rotate about the shoulder from -50 deg (f0, toward the loader) to +32 deg (f6) and back, cosine easeInOut (f0 -50, f1 -44.5, f2 -29.5, f3 -9, f4 +11.5, f5 +26.5, f6 +32, f7..f11 mirror). Wand tip travels ~63 px of 210 at 6x (30% of sheet height). Body below the shoulder is frame-identical, so feet do not move. Faces LEFT (-x, toward the loader). Pivot = ground point under the feet; lowest visible boot pixel ends exactly on the pivot row. Feet on the Rover Bay floor surface (y = SCN.geo.bay = 650.667 pt) by the truck door. _glow is ADD above everything, same pivot.",
   "anims": {
    "wave": [
     "attendant_marshal_0",
