@@ -462,6 +462,18 @@ ore_chunks('spill_s', (SDp.x + 0.6, SDp.y + 0.9, 0.0), 0.6, 10, ORE_MIX, size=(0
 # ================= STAGE =================
 height = build_stage(keep_flat=((1, 0, 22),))
 world_and_sun((-0.55, -0.6, 0.58), 5.5)
+# Jacob: cool gray rock ground, no tan - desaturate the shared stage/rock ramps to a slightly blue-gray (local override, mc_common untouched)
+def _cool(mname, k=(0.93, 0.99, 1.10), gain=0.97):
+    m = bpy.data.materials.get(mname)
+    if not m: return
+    def c(col):
+        L = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2]
+        return (L * k[0] * gain, L * k[1] * gain, L * k[2] * gain, 1.0)
+    for n in m.node_tree.nodes:
+        if n.type == 'VALTORGB':
+            for e in n.color_ramp.elements: e.color = c(e.color)
+    m.diffuse_color = c(m.diffuse_color)
+for _m in ('M_Regolith', 'M_Boulder', 'B_OreRock'): _cool(_m)
 # seat the truck on the regolith (tyres sink ~2 cm)
 gz = min(height(TX + x, TY + sy * 1.5) for x in AXLES for sy in (-1, 1)) - 0.02
 for o in TRUCK_OBJS:
@@ -488,7 +500,7 @@ def M_road():
     a2 = nt.nodes.new('ShaderNodeMath'); a2.operation = 'MULTIPLY'; nt.links.new(a.outputs[0], a2.inputs[0]); a2.inputs[1].default_value = 0.95
     r1 = band(0.27, 0.06, 2.0); r2 = band(0.73, 0.06, 2.0)
     rs = nt.nodes.new('ShaderNodeMath'); rs.operation = 'ADD'; rs.use_clamp = True; nt.links.new(r1, rs.inputs[0]); nt.links.new(r2, rs.inputs[1])
-    ramp = nt.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.elements[0].color = hexc('#383532'); ramp.color_ramp.elements[1].color = hexc('#272523')
+    ramp = nt.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.elements[0].color = hexc('#33363a'); ramp.color_ramp.elements[1].color = hexc('#232528')
     nt.links.new(rs.outputs[0], ramp.inputs['Fac']); nt.links.new(ramp.outputs['Color'], b.inputs['Base Color'])
     b.inputs['Roughness'].default_value = 0.9
     bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.12; bump.inputs['Distance'].default_value = 0.02
@@ -496,7 +508,7 @@ def M_road():
     nt.links.new(tc.outputs['Object'], n2.inputs['Vector']); nt.links.new(n2.outputs['Fac'], bump.inputs['Height']); nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
     tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mx = nt.nodes.new('ShaderNodeMixShader')
     nt.links.new(a2.outputs[0], mx.inputs['Fac']); nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(b.outputs[0], mx.inputs[2])
-    nt.links.new(mx.outputs[0], out.inputs['Surface']); m.diffuse_color = hexc('#605d59'); m.blend_method = 'BLEND'
+    nt.links.new(mx.outputs[0], out.inputs['Surface']); m.diffuse_color = hexc('#33363a'); m.blend_method = 'BLEND'
     return m
 ROADM = M_road()
 def road(name, pts, w, closed=False):
