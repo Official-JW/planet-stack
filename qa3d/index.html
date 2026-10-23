@@ -3,22 +3,103 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:,">
 <title>Planet Stack · QA3D</title>
 <style>
-html,body{margin:0;height:100%;background:#05060b;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;font-family:-apple-system,system-ui,sans-serif;color:#e8ecf4}
+html,body{margin:0;height:100%;background:#05060b;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:-apple-system,system-ui,sans-serif;color:#e8ecf4}
+button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
-#tag{position:fixed;left:10px;top:calc(env(safe-area-inset-top) + 8px);font:600 11px/1 system-ui;background:#0009;padding:5px 8px;border-radius:6px;z-index:5}
-#name{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 64px);text-align:center;font:700 20px/1.2 system-ui;text-shadow:0 2px 6px #000;pointer-events:none}
-#dots{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 18px);display:flex;height:44px;align-items:center;z-index:5}
+#tag{position:fixed;left:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 system-ui;background:#0009;padding:4px 7px;border-radius:6px;z-index:6;pointer-events:none}
+#dev{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:4px 7px;border-radius:6px;z-index:6;pointer-events:none}
+#hud{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 26px);height:56px;display:flex;align-items:stretch;gap:6px;z-index:5;pointer-events:none}
+#hud .cell{flex:1;background:#0b0f1acc;border:1px solid #ffffff1a;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+#hud .mid{flex:1.3}
+#hud .lbl{font:600 10px/1 system-ui;opacity:.65;letter-spacing:.04em;text-transform:uppercase}
+#hud b{font:800 18px/1 system-ui}
+#hud .mid b{font-size:24px;color:#7ff0ff}
+#money.bump{animation:bump .3s ease-out}
+@keyframes bump{40%{transform:scale(1.18);color:#9dffb0}}
+#bin{width:78%;height:5px;border-radius:3px;background:#ffffff22;overflow:hidden;margin-top:2px}
+#bin i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3fd7ff,#9ff6ff);border-radius:3px}
+#bin.full{animation:pulse .6s ease-in-out infinite alternate}
+#bin.full i{background:linear-gradient(90deg,#ffb23f,#ffe08a)}
+@keyframes pulse{from{box-shadow:0 0 0 0 #ffc44d00}to{box-shadow:0 0 0 3px #ffc44daa}}
+#name{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 92px);text-align:center;font:700 18px/1.2 system-ui;text-shadow:0 2px 6px #000;pointer-events:none;z-index:4}
+#dots{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 10px);display:flex;height:44px;align-items:center;z-index:5}
 #dots button{width:26px;height:44px;border:0;background:none;padding:0;position:relative}
 #dots button::after{content:'';position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:#fff5}
 #dots button.on::after{background:#fff;width:10px;height:10px;margin:-5px}
-#dev{position:fixed;left:10px;top:calc(env(safe-area-inset-top) + 32px);font:600 11px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:5px 8px;border-radius:6px;z-index:5}
+#sheetWrap{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 58px);height:178px;overflow:hidden;pointer-events:none;z-index:7}
+#sheet{position:absolute;left:6px;right:6px;bottom:0;height:178px;background:#121726f2;border:1px solid #ffffff1f;border-bottom:0;border-radius:18px 18px 0 0;pointer-events:auto;transition:transform .42s cubic-bezier(.2,1.3,.35,1);will-change:transform;box-shadow:0 -6px 20px #0008}
+#sheet.dragging{transition:none}
+#grab{height:46px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;touch-action:none;cursor:grab}
+#grab i{position:absolute;top:6px;left:50%;width:38px;height:5px;margin-left:-19px;border-radius:3px;background:#ffffff55}
+#grab span{font:700 15px/1 system-ui;margin-top:6px}
+#grab em{font:600 12px/1 system-ui;font-style:normal;opacity:.6;margin-top:6px}
+#grab .dotn{width:8px;height:8px;border-radius:50%;background:#5dff9a;box-shadow:0 0 6px #5dff9a;margin-top:6px}
+.row{display:flex;align-items:center;gap:10px;height:56px;padding:0 12px;border-top:1px solid #ffffff12}
+.row .ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#3fd7ff,#1d5f8a);flex:none}
+.row .ico.rv{background:linear-gradient(135deg,#d6dbe3,#6b7280)}
+.row .txt{flex:1;display:flex;flex-direction:column;gap:3px}
+.row .txt b{font:700 15px/1 system-ui}.row .txt b span{font-weight:600;opacity:.6;font-size:12px;margin-left:4px}
+.row .txt small{font:500 12px/1.1 system-ui;opacity:.7}
+.row button{min-width:92px;height:40px;border:0;border-radius:11px;background:linear-gradient(#3fdc7a,#23a957);font:800 15px/1 system-ui;color:#062010}
+.row button.need{background:#3a3f4c;color:#9aa1ae;font-weight:700;font-size:13px}
+.row button.max{background:#2a2f3a;color:#7d8594}
+#eve{position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 88px);min-height:92px;background:#0d1322f2;border:1px solid #6fd6ff55;border-radius:14px;display:flex;gap:10px;padding:10px 12px;z-index:8;box-shadow:0 6px 22px #000a;transform:translateY(-12px);opacity:0;transition:.25s;pointer-events:none;box-sizing:border-box}
+#eve.on{transform:none;opacity:1;pointer-events:auto}
+#eve .av{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#9aa0aa 0 28%,transparent 29%),radial-gradient(ellipse at 50% 100%,#9aa0aa 0 45%,transparent 46%),#454b57;flex:none}
+#eve .bd{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+#eve .who{font:800 11px/1 system-ui;letter-spacing:.06em;color:#7fdcff}
+#eve .tx{font:500 13.5px/1.3 system-ui;min-height:52px}
+#eve .ov{align-self:flex-end;height:30px;padding:0 14px;border:0;border-radius:9px;background:#2a7fff;font:700 13px/1 system-ui}
+#eve .x{position:absolute;right:2px;top:2px;width:36px;height:36px;border:0;background:none;font:400 20px/1 system-ui;opacity:.6}
+#point{position:fixed;z-index:6;pointer-events:none;width:0;height:0;display:none}
+#point i{position:absolute;left:-14px;top:-46px;width:28px;height:34px;animation:bob .8s ease-in-out infinite alternate}
+#point i::before{content:'';position:absolute;left:4px;top:0;border:10px solid transparent;border-top:18px solid #ffd84d;filter:drop-shadow(0 0 4px #000)}
+#point b{position:absolute;left:-40px;top:-70px;width:80px;text-align:center;font:800 12px/1 system-ui;color:#ffd84d;text-shadow:0 1px 3px #000}
+@keyframes bob{to{transform:translateY(-8px)}}
+#away{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);opacity:0;width:250px;background:#121a2cf5;border:1px solid #ffd84d66;border-radius:16px;padding:16px;text-align:center;z-index:9;transition:.25s;pointer-events:none;box-shadow:0 10px 30px #000b}
+#away.on{opacity:1;transform:translate(-50%,-50%);pointer-events:auto}
+#away p{margin:0 0 4px;font:600 13px/1.2 system-ui;opacity:.75}
+#away h3{margin:0 0 12px;font:800 28px/1 system-ui;color:#9dffb0}
+#away button{height:38px;padding:0 22px;border:0;border-radius:10px;background:linear-gradient(#3fdc7a,#23a957);font:800 14px/1 system-ui;color:#062010}
+.pop{position:fixed;z-index:8;pointer-events:none;font:800 18px/1 system-ui;color:#9dffb0;text-shadow:0 2px 4px #000;transform:translate(-50%,-50%);animation:pop 1.1s ease-out forwards;white-space:nowrap}
+.pop.bonus{color:#7ff0ff;font-size:20px}
+.pop.info{color:#ffd84d;font-size:13px}
+@keyframes pop{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}15%{opacity:1;transform:translate(-50%,-60%) scale(1.1)}100%{opacity:0;transform:translate(-50%,-180%) scale(1)}}
+.ring{position:fixed;z-index:5;pointer-events:none;width:46px;height:46px;margin:-23px 0 0 -23px;display:none}
+#cover{position:fixed;inset:0;background:#05060b;z-index:20;display:flex;align-items:center;justify-content:center;transition:opacity .4s ease;font:600 12px/1 system-ui;color:#ffffff55;letter-spacing:.1em}
+#cover{flex-direction:column;gap:14px;letter-spacing:.04em;font-size:13px}
+#cover .sp{width:28px;height:28px;border-radius:50%;border:3px solid #ffffff22;border-top-color:#7ff0ff;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#cover [hidden]{display:none}
+#coverRetry{height:40px;padding:0 24px;border:0;border-radius:10px;background:#2a7fff;color:#fff;font:700 14px/1 system-ui;letter-spacing:0}
+#cover.off{opacity:0;pointer-events:none}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="QA3D · 20:37">
+<body data-tag="QA3D · 21:25">
 <canvas id="c"></canvas>
-<div id="tag"></div><div id="name"></div><div id="dots"></div><div id="dev" hidden></div>
-<script type="module" src="./main.js?v=2037"></script>
+<div id="tag"></div><div id="dev" hidden></div>
+<script>if(/[?&]dev=1(&|$)/.test(location.search)){var d=document.getElementById('dev');d.hidden=false;d.textContent='measuring…';}</script>
+<div id="hud">
+ <div class="cell"><span class="lbl">Money</span><b id="money">$0</b></div>
+ <div class="cell mid"><b id="rate">0</b><span class="lbl">ore/min</span><div id="bin"><i></i></div></div>
+ <div class="cell"><span class="lbl">Crystals</span><b id="cry">0</b></div>
+</div>
+<div id="name"></div>
+<div id="dots"></div>
+<div id="sheetWrap"><div id="sheet">
+ <div id="grab"><i></i><span>Upgrade</span><em id="sum"></em><span class="dotn" id="canDot" hidden></span></div>
+ <div class="row"><div class="ico"></div><div class="txt"><b>Drill<span id="dLvl"></span></b><small id="dGain"></small></div><button id="bDrill"></button></div>
+ <div class="row"><div class="ico rv"></div><div class="txt"><b>Rovers<span id="rLvl"></span></b><small id="rGain"></small></div><button id="bRover"></button></div>
+</div></div>
+<div id="eve"><div class="av"></div><div class="bd"><div class="who">EVE · Earth Coms</div><div class="tx" id="eveTx"></div><button class="ov" id="eveOver">Over</button></div><button class="x" id="eveX" aria-label="Skip">×</button></div>
+<div id="point"><b>TAP HERE</b><i></i></div>
+<div id="away"><p>While you were away</p><h3 id="awayAmt">+$0</h3><button id="awayOk">Nice</button></div>
+<svg id="ring" class="ring" viewBox="0 0 46 46"><circle cx="23" cy="23" r="18" fill="#0009" stroke="#ffffff33" stroke-width="5"/><circle id="ringArc" cx="23" cy="23" r="18" fill="none" stroke="#7ff0ff" stroke-width="5" stroke-linecap="round" stroke-dasharray="113.1" stroke-dashoffset="113.1" transform="rotate(-90 23 23)"/></svg>
+<div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
+<script type="module" src="./main.js?v=2125"></script>
 </body></html>
