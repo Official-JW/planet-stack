@@ -47,10 +47,12 @@ GAME_NAMES = {
     # azimuth -90 deg = straight on: the game camera always sits on -Y looking +Y (glTF: looks down -Z), NO azimuth. The yard is built in its
     # own frame and the whole scene is then turned 'rot_z' about +Z at the yard origin (see FACE THE GAME CAMERA) so the hall door and SN-07
     # face the camera; 'target' is given in the build frame and turned with the yard. Cam_Target extras {'frame_w': W}; d = (W/2) / (tan(19 deg) * 393/852) ~= 3.148 * W.
-    # Framing rule on 393x852 (x3 on 1179x2556): focus (hall door + SN-07 + crane) whole inside y 100..650; HUD above, sheet from y 674.
+    # Framing rule on 393x852 (x3 on 1179x2556): see 'phone_cam' below; HUD above, sheet from y 674.
     # Blender Z-up coords; glTF Y-up = (x, z, -y).
     'rot_z': 10.0,   # deg, whole yard about +Z at the origin: the old az -100 view becomes the straight-on az -90 view
-    'phone_cam': {'target': (8.5, 4.5, 16.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 55.0},   # W 55: SN-07 + whole IS-1 stand pad in x 181-386, y 359-561 of 852; hall door's left half crops
+    # Director framing box on 393x852: x 18..375, y 230..640 must hold the whole assembly hall (incl. its 'ASSEMBLY HALL · AH-1' label), SN-07 + its whole
+    # IS-1 stand (tower top may run off the top) and crew module YC-1. Smallest W that fits with every tier within W (flat) of Cam_Target: 76 m.
+    'phone_cam': {'target': (-8.85, -25.45, 16.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 76.0},
 }
 
 # ====================================================================== materials
