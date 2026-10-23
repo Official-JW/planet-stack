@@ -136,6 +136,10 @@ def graded_roads(height, mat):
         for v in o.data.vertices:
             w = mw @ v.co
             if abs(w.x) < 30 and abs(w.y) < 40 and w.z < height(w.x, w.y) + 0.6: obs.append((w.x, w.y))
+    for (dx, dy) in (DEP1, DEP2):     # deposit clearance (10/23): berms fully open within 2.5 m of Dep_01 / Dep_02 (the game draws the glow there)
+        for rr_ in (0.0, 0.6, 1.2, 1.8, 2.3):
+            k_ = max(1, int(math.tau * rr_ / 0.3))
+            for j_ in range(k_): obs.append((dx + rr_ * math.cos(math.tau * j_ / k_), dy + rr_ * math.sin(math.tau * j_ / k_)))
     okd = KDTree(max(1, len(obs)))
     for i, (x, y) in enumerate(obs): okd.insert((x, y, 0), i)
     okd.balance()

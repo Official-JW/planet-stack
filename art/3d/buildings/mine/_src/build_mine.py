@@ -15,6 +15,18 @@ import mine_layout as ML
 A = argv(); MODE = A.get('mode', 'game'); MOUT = A.get('mout', '/tmp/mine/raw.glb')
 sc = bpy.context.scene; sc.frame_set(1)
 LAY = ML.apply()
+# Deposit clearance (10/23, Game Coder QA3D: the static heap read as a crater over the in-game Dep_01 glow). The game draws each
+# deposit itself (glow disc + gem at Dep_01 / Dep_02, respawning), so the concept's static rock heaps and their seam crystals are
+# removed from the station: nothing stands within 2.5 m of either marker. Done AFTER ML.apply(), so the road berms stay opened
+# where the heaps stood (graded_roads flattens berms near station parts) and every marker, path and the camera fit are unchanged.
+_DEP_ART = ('deposit', 'deposit_small', 'seam_crystal', 'seam_crystal_s', 'spill', 'spill_s')
+def _wc(o): return o.matrix_world @ (sum((Vector(c) for c in o.bound_box), Vector()) / 8)
+def _dd(o): return min(math.hypot(_wc(o).x - x, _wc(o).y - y) for (x, y) in (ML.DEP1, ML.DEP2))
+_gone = [o.name for o in bpy.data.objects if o.type == 'MESH' and _dd(o) < 6.0 and (o.name.split('.')[0] in _DEP_ART
+         or o.name.startswith('spill_'))]                     # spill_rock / spill_he3 / spill_pt / spill_s_* chips
+_gone += [o.name for o in bpy.data.objects if o.type == 'MESH' and o.name.split('.')[0] == 'pebble' and _dd(o) < 2.8]
+for _n in _gone: bpy.data.objects.remove(bpy.data.objects[_n], do_unlink=True)
+print('DEPOSIT CLEAR removed', len(_gone), 'objects')
 C0, C1, Lc, U, SIDE, UP = LAY['C0'], LAY['C1'], LAY['L'], LAY['u'], LAY['side'], LAY['up']
 base = lambda o: o.name.split('.')[0]
 TROOT = bpy.data.objects['Truck_HT04']; GZ = TROOT.matrix_world.translation.z
@@ -589,7 +601,7 @@ for j, k in enumerate(picks):
     p = seq[k]; e = emp('Path_%02d' % (j + 1), (p.x, p.y, 0.0), yaw_at(idx[k]), {'kind': 'truck_pose', 'yaw_deg': round(yaw_at(idx[k]), 1)}); PATHS.append(e)
 # deposits + spur (scoop) poses
 for nm, (x, y), r, park, lab in (('Dep_01', ML.DEP1, 2.2, ML.DEP1_PARK, 'main He-3 seam'), ('Dep_02', ML.DEP2, 1.05, ML.DEP2_PARK, 'tap deposit')):
-    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'scoop_from': 'Path_Spur_%s' % nm[-2:], 'glow': 'in Base_GlowCyan (seam crystals)'})
+    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'scoop_from': 'Path_Spur_%s' % nm[-2:], 'glow': 'drawn by the game (no deposit mesh in the GLB; clear ground within 2.5 m)'})
 emp('Path_Spur_01', (ML.DEP1_PARK[0], ML.DEP1_PARK[1], 0.0), ML.DEP1_PARK[2], {'kind': 'truck_pose', 'yaw_deg': ML.DEP1_PARK[2], 'deposit': 'Dep_01', 'note': 'stop here, play truck_scoop (reaches to the truck right)'})
 emp('Path_Spur_02', (ML.DEP2_PARK[0], ML.DEP2_PARK[1], 0.0), ML.DEP2_PARK[2], {'kind': 'truck_pose', 'yaw_deg': ML.DEP2_PARK[2], 'deposit': 'Dep_02', 'note': 'stop here, play truck_scoop (reaches to the truck right)'})
 emp('Road_Entry', (13.5, -9.0, 0.0), -90, {'kind': 'road_entry', 'note': 'east apex of the haul loop; the graded access road (haul_road_access) joins here and leaves heading +Z (toward the camera)'})

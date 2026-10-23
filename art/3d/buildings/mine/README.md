@@ -4,8 +4,8 @@ The in-game **Mine** for Planet Stack, built from the approved **concept B (slee
 
 | | |
 |---|---|
-| **Game GLB** | `mine_game.glb`, **179,192 B (0.18 MB)**, md5 `ec8b9c4fcc82b6e815965a5d1b6671ef` |
-| Triangles / draws | **24,132 triangles, 11 draw calls with every tier visible** (11 meshes × 1 primitive) |
+| **Game GLB** | `mine_game.glb`, **176,548 B (0.18 MB)**, md5 `a3ed7e1f1fa6440e51551a1a2a898585` |
+| Triangles / draws | **24,133 triangles, 11 draw calls with every tier visible** (11 meshes × 1 primitive) |
 | Format | meshopt + quantization (`gltfpack -cc -kn -ke`). Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. **No Draco.** |
 | Materials | `SHM_Paint` and `SHM_GlowCyan` (`../_shared/shared_materials.json`). Plain metallic/roughness plus emissiveFactor. No transmission, clearcoat or ior. Colour is in `COLOR_0` vertex colours. **No images or textures** and no TEXCOORD. |
 | Units / axes | 1 m, Y up. The origin is concept B's world origin. The camera side is +Z. |
@@ -54,8 +54,8 @@ Everything sits under the root `Mine`. gltfpack puts each mesh on an **unnamed c
 
 | Node | What it is | Tris | Material | Pivot (glTF, m) |
 |---|---|---|---|---|
-| `Base_Paint` | static base merged by material: pads, rig skirt, hopper, conveyor frame, silo base, graded roads (2,280 tris, not decimated), deposits, rocks | 9,962 | SHM_Paint | origin |
-| `Base_GlowCyan` | all static cyan glow: light strips, He-3 seam crystals | 3,926 | SHM_GlowCyan | origin |
+| `Base_Paint` | static base merged by material: pads, rig skirt, hopper, conveyor frame, silo base, graded roads (2,280 tris, not decimated), rocks | 10,179 | SHM_Paint | origin |
+| `Base_GlowCyan` | all static cyan glow: light strips | 3,710 | SHM_GlowCyan | origin |
 | `Rig` | bore head and crown block, the moving part of the rig (clip `dig`) | 635 | SHM_Paint | (−7.5, 8.65, −3.6) |
 | `Conveyor` | belt-surface ore lumps (clip `conveyor_run`) | 160 | SHM_Paint | (−0.85, 2.55, −2.65), the tail end C0 |
 | `Silo` | ore silo | 782 | SHM_Paint | (10.0, 0, −4.5), base centre |
@@ -111,7 +111,7 @@ Every tier node has `extras {"tier": N, "hidden_by_default": true}` (three.js `u
 | `Tier_12` | second, taller ore silo behind the first, plus a transfer bridge and beacon | 686 | SHM_Paint | (10.6, 0, −9.11) |
 | `Tier_20` | Mk II bore crown: bigger crown housing, twin emitter pods and a tall mast | 284 | SHM_Paint | (−7.5, 0, −3.59) |
 
-Base 13,888 + moving 7,424 + tiers 2,820 = 24,132 tris.
+Base 13,889 + moving 7,424 + tiers 2,820 = 24,133 tris.
 
 ## Markers (empties, glTF coords; yaw is about +Y, 0 = truck faces +X)
 - **`REFINERY_ANCHOR`**: world transform **position (−13.84, 0, 5.50), rotation +90° about Y** (quaternion (0, 0.7071, 0, 0.7071)), scale 1. That is Blender (−13.84, −5.5, 0), +90° about Z.
@@ -162,17 +162,18 @@ These live in `_src/mine_layout.py`. The B look, palette and parts are otherwise
   - **Cross-section:** a 4.0 m graded running surface (the HT-04 is 3.82 m over the tyres; the old 3.2 m stripe was narrower than the truck) with a 2 cm crown, then a **low berm on each side**: foot at ±2.0 m, crest **25 cm** high at ±2.35 m, toe buried at ±2.8 m.
   - **Tyre marks:** a 2 cm rut with a darker vertex colour at ±1.5 m, the HT-04 wheel track.
   - **Colour** is in a `RoadCol` corner colour attribute (no images): track `#a4a7ac` (a little lighter than the regolith), tyre marks `#878a8f`, berm crest `#939499`, toe `#82858a`, with ±5 % low-frequency variation. The render material `B_HaulRoadGraded` multiplies it by fine gravel noise and bump; the game GLB copies it into `COLOR_0` of `Base_Paint`.
-  - **Junctions:** berms flatten wherever they cross another road's running surface (loop ↔ dump stub at the west hairpin, loop ↔ access road at `Road_Entry`), so both junctions are open. Berms also flatten next to station parts (head column foot, rig feet, the two deposits) so nothing is buried.
+  - **Junctions:** berms flatten wherever they cross another road's running surface (loop ↔ dump stub at the west hairpin, loop ↔ access road at `Road_Entry`), so both junctions are open. Berms also flatten next to station parts (head column foot, rig feet) so nothing is buried. Around `Dep_01` / `Dep_02` the berms are fully open within 2.5 m of the marker (see Deposit clearance).
   - The stub surface sits 2 cm under the loop where they overlap (no z-fighting). Pebbles and boulders on the road were removed (36). In the render scene the terrain under the road is cut 3 cm below the road surface wherever it bulged through (20 ground vertices); `M_ground` itself is untouched.
   - Roads skip the planar dissolve and the decimation (they would smear the ruts and berms): 2,280 tris.
 - **Deposits moved:** they are inside the loop so the truck scoops them from the road. `Path_Spur` is now a stop, not a side road.
+- **Deposit clearance (game fix):** in-game, the concept's deposit heap mound (`deposit` / `deposit_small`, the "crater" over Dep_01), its He-3 seam crystals and the spilled ore chips covered the game-drawn deposit glow disc and gem. `build_mine.py` now deletes every concept deposit-art mesh whose centre is within 6 m of `Dep_01` / `Dep_02` (67 objects: `deposit*`, `seam_crystal*`, and the `spill_rock/he3/pt*` ore chips), plus loose `pebble`s within 2.8 m. This happens after the layout and before the merge. `mine_layout.graded_roads` adds obstacle rings so no berm rises within 2.5 m of either marker. As a result, **nothing stands within 2.5 m of either Dep marker except the flat graded running surface (≤ 6 cm)**, which the fixed `Path_*` centre lines put there, and the truck parked at `Path_Load` (fender 2.33 m from `Dep_01`; it is the moving actor). The `Dep_*` extras `glow` now reads "drawn by the game (no deposit mesh in the GLB; clear ground within 2.5 m)". Every node, clip and marker name and position, `Cam_Target`, and `frame_w` 37 are unchanged.
 - **Arm:** the game uses the arm stow `park` (forward over the cab corner, clear of the tipping bed). The scoop reach was changed so the elbow stays raised. **The master `b_sleek_hightech_master.blend` was not edited and still shows the concept's rim stow.** The game pose is generated by the script (`--arm park`).
 - **Text dropped:** stencils and labels are culled from the game GLB.
 - **Fuel:** the station's fuel is **LOX / LH2**. Concept B has no methane labels or tanks and the game GLB has no text, so there is nothing methane-related anywhere.
 
 ## Validation
 - **`gltf-transform inspect`:**
-  - 11 meshes / 11 primitives, 24,132 triangles
+  - 11 meshes / 11 primitives, 24,133 triangles
   - 2 materials, no textures
   - 6 animations
   - extensionsUsed = [KHR_mesh_quantization, EXT_meshopt_compression]
