@@ -165,18 +165,27 @@ def M_ground():
     link(nt, tc.outputs['Object'], nz.inputs['Vector'])
     ramp = nt.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.elements[0].color = hexc('#6f6c69'); ramp.color_ramp.elements[1].color = hexc('#9a9792')
     link(nt, nz.outputs['Fac'], ramp.inputs['Fac'])
-    # strata bands by height
-    sep = nt.nodes.new('ShaderNodeSeparateXYZ'); link(nt, tc.outputs['Object'], sep.inputs['Vector'])
-    wv = nt.nodes.new('ShaderNodeTexWave'); wv.wave_type = 'BANDS'; wv.bands_direction = 'Z'; wv.inputs['Scale'].default_value = 0.12
-    wv.inputs['Distortion'].default_value = 1.5; wv.inputs['Detail'].default_value = 4
-    link(nt, tc.outputs['Object'], wv.inputs['Vector'])
-    sr = nt.nodes.new('ShaderNodeValToRGB'); sr.color_ramp.elements[0].color = hexc('#57534f'); sr.color_ramp.elements[1].color = hexc('#a19c95')
-    sr.color_ramp.elements.new(0.5).color = hexc('#7c7570')
+    # subtle strata only on steep faces, warped + patchy (no uniform repeating bands)
+    warp = nt.nodes.new('ShaderNodeTexNoise'); warp.inputs['Scale'].default_value = 0.035; warp.inputs['Detail'].default_value = 3
+    link(nt, tc.outputs['Object'], warp.inputs['Vector'])
+    vm = nt.nodes.new('ShaderNodeVectorMath'); vm.operation = 'MULTIPLY_ADD'; vm.inputs[1].default_value = (9.0, 9.0, 3.5)
+    link(nt, warp.outputs['Color'], vm.inputs[0]); link(nt, tc.outputs['Object'], vm.inputs[2])
+    wv = nt.nodes.new('ShaderNodeTexWave'); wv.wave_type = 'BANDS'; wv.bands_direction = 'Z'; wv.inputs['Scale'].default_value = 0.09
+    wv.inputs['Distortion'].default_value = 6.0; wv.inputs['Detail'].default_value = 6; wv.inputs['Detail Roughness'].default_value = 0.7
+    link(nt, vm.outputs[0], wv.inputs['Vector'])
+    sr = nt.nodes.new('ShaderNodeValToRGB'); sr.color_ramp.elements[0].color = hexc('#66625e'); sr.color_ramp.elements[1].color = hexc('#9a958f')
+    sr.color_ramp.elements.new(0.5).color = hexc('#807a74')
     link(nt, wv.outputs['Fac'], sr.inputs['Fac'])
-    hm = nt.nodes.new('ShaderNodeMapRange'); hm.inputs['From Min'].default_value = 2.0; hm.inputs['From Max'].default_value = 5.0
-    link(nt, sep.outputs['Z'], hm.inputs['Value'])
+    geo = nt.nodes.new('ShaderNodeNewGeometry'); sn = nt.nodes.new('ShaderNodeSeparateXYZ'); link(nt, geo.outputs['Normal'], sn.inputs['Vector'])
+    hm = nt.nodes.new('ShaderNodeMapRange'); hm.inputs['From Min'].default_value = 0.95; hm.inputs['From Max'].default_value = 0.8
+    link(nt, sn.outputs['Z'], hm.inputs['Value'])
+    pm = nt.nodes.new('ShaderNodeTexNoise'); pm.inputs['Scale'].default_value = 0.05; pm.inputs['Detail'].default_value = 2
+    link(nt, tc.outputs['Object'], pm.inputs['Vector'])
+    pr = nt.nodes.new('ShaderNodeMapRange'); pr.inputs['From Min'].default_value = 0.42; pr.inputs['From Max'].default_value = 0.62; pr.inputs['To Max'].default_value = 0.85
+    link(nt, pm.outputs['Fac'], pr.inputs['Value'])
+    mk = nt.nodes.new('ShaderNodeMath'); mk.operation = 'MULTIPLY'; link(nt, hm.outputs[0], mk.inputs[0]); link(nt, pr.outputs[0], mk.inputs[1])
     mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'
-    link(nt, hm.outputs[0], mx.inputs['Factor']); link(nt, ramp.outputs['Color'], mx.inputs[6]); link(nt, sr.outputs['Color'], mx.inputs[7])
+    link(nt, mk.outputs[0], mx.inputs['Factor']); link(nt, ramp.outputs['Color'], mx.inputs[6]); link(nt, sr.outputs['Color'], mx.inputs[7])
     link(nt, mx.outputs[2], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.97
     bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.35; bump.inputs['Distance'].default_value = 0.05
     n2 = nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value = 3.0; n2.inputs['Detail'].default_value = 14
@@ -374,8 +383,38 @@ def heap(name, center, radius, h, mat, c='Mine', seed=3, sq=None):
 def build_stage(keep_flat=((0, 0, 16),), seed=5):
     c = 'Stage'; rr = random.Random(seed)
     size, n = 260.0, 420
-    craters = [(-26, -14, 6.5), (30, -8, 9), (-40, 22, 12), (18, 34, 7), (44, 30, 5), (-12, -40, 8), (34, -36, 11), (-58, -6, 7),
+    craters = [(-30, 96, 6), (26, 101, 8), (62, 90, 5), (-72, 108, 9), (4, 119, 7), (-48, 84, 3.5), (88, 112, 6.5), (-96, 92, 4.5),
+               (-26, -14, 6.5), (30, -8, 9), (-40, 22, 12), (18, 34, 7), (44, 30, 5), (-12, -40, 8), (34, -36, 11), (-58, -6, 7),
                (8, -26, 3.2), (-20, 16, 2.6), (24, 14, 2.4), (-30, 0, 3.0), (14, -20, 2.0)]
+    def fbm(x, y, oct=4, o=0.0):
+        a, f, t = 1.0, 1.0, 0.0
+        for _ in range(oct):
+            t += a * noise.noise(Vector((x * f, y * f, o))); a *= 0.5; f *= 2.03
+        return t
+    def ridged(x, y, o=0.0):
+        return (1 - abs(noise.noise(Vector((x, y, o))))) ** 2
+    def hills(x, y):
+        edge = 70 + 16 * fbm(x * 0.012, 0.3, 3, 11) + 5 * noise.noise(Vector((x * 0.07, 2.2, 4)))
+        ys = y - edge
+        if ys <= -4: return 0.0
+        width = 20 + 12 * fbm(x * 0.02, 1.7, 2, 21)            # slope run varies along the ridge
+        peak = 9 + 9 * fbm(x * 0.016, 5.1, 3, 31) + 6 * ridged(x * 0.022, 0.4, 41)  # uneven summit heights
+        t = max(0.0, (ys + 4) / max(8.0, width))
+        t += 0.10 * noise.noise(Vector((x * 0.09, y * 0.09, 51)))  # broken, wandering slope
+        t = min(max(t, 0.0), 1.6)
+        rise = smooth01(min(t, 1.0), 0.5)
+        # one or two irregular benches where the slope breaks (not evenly spaced)
+        b1 = 0.35 + 0.12 * noise.noise(Vector((x * 0.03, 61, 0)))
+        rise += 0.09 * math.tanh((t - b1) * 14) * (0.6 + 0.4 * noise.noise(Vector((x * 0.05, 71, 0))))
+        z = peak * max(rise, 0.0)
+        # rolling secondary ridges beyond the crest
+        if t > 0.8:
+            z += (t - 0.8) * 10 * (0.5 * ridged(x * 0.03, y * 0.03, 81) + 0.4 * fbm(x * 0.04, y * 0.04, 3, 91))
+        # soft erosion gullies running downslope + small-scale roughness
+        g = ridged(x * 0.22, y * 0.035, 101) * math.sin(math.pi * min(t, 1.0))
+        z -= 1.1 * g
+        z += 0.5 * fbm(x * 0.12, y * 0.12, 3, 111) * min(t, 1.0)
+        return max(z, 0.0) if ys > -4 else 0.0
     def height(x, y):
         z = 0.35 * noise.noise(Vector((x * 0.03, y * 0.03, 0.5))) + 0.08 * noise.noise(Vector((x * 0.2, y * 0.2, 1.5)))
         for cx, cy, r in craters:
@@ -384,12 +423,8 @@ def build_stage(keep_flat=((0, 0, 16),), seed=5):
                 bowl = -0.28 * r * max(0, 1 - d * d) ** 1.2 if d < 1 else 0
                 rim = 0.1 * r * math.exp(-((d - 1.0) / 0.18) ** 2)
                 z += bowl + rim
-        # escarpment with strata terraces behind the mine
-        ys = y - 72 - 10 * math.sin(x * 0.035) - 4 * noise.noise(Vector((x * 0.05, 7, 0)))
-        if ys > 0:
-            t = min(ys / 26, 1.0)
-            steps = 5 * t
-            z += 4.0 * (math.floor(steps) + smooth01(steps - math.floor(steps), 0.55)) * (1 + 0.25 * noise.noise(Vector((x * 0.06, 3, 0))))
+        # irregular lunar ridgeline behind the mine: uneven heights/spacing, broken slopes, soft erosion
+        z += hills(x, y)
         for kx, ky, kr in keep_flat:
             d = math.hypot(x - kx, y - ky)
             if d < kr: z *= (d / kr) ** 3
@@ -410,6 +445,10 @@ def build_stage(keep_flat=((0, 0, 16),), seed=5):
         x, y = d * math.cos(a), d * math.sin(a) * 0.9
         sphere('boulder', s, (x, y, height(x, y) + s * 0.15), rockm, scale=(1.2, 1, 0.65), sub=2, jitter=0.4, smooth=False,
                seed=rr.random(), rot=(0, 0, rr.uniform(0, TAU)), c=c)
+    for k in range(46):   # scattered boulders on the distant slopes
+        x = rr.uniform(-115, 125); y = rr.uniform(74, 124); s = rr.uniform(0.6, 2.4)
+        sphere('slope_boulder', s, (x, y, height(x, y) + s * 0.1), rockm, scale=(1.3, 1, 0.7), sub=2, jitter=0.45, smooth=False,
+               seed=rr.random(), rot=(rr.uniform(-0.3, 0.3), rr.uniform(-0.3, 0.3), rr.uniform(0, TAU)), c=c)
     for k in range(160):   # pebbles near mine
         a = rr.uniform(0, TAU); d = rr.uniform(4, 22); s = rr.uniform(0.04, 0.16)
         x, y = d * math.cos(a), d * math.sin(a)
