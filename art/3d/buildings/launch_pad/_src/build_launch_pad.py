@@ -14,7 +14,7 @@ Systems (collection 'Mine' = exported building):
   * blast berm r 27.5-36 m, 4.6 m high, with precast sintered retaining blocks; 52 deg gap with graded access road R-1
     (7 m running surface, wheel tracks, windrow shoulders, delineator posts, entry sign) for crew, crates and the haul truck
   * service tower ST-01 (44 m lattice, decks, stairs, elevator) with crew (28 m), cargo (20 m) and fuel (7 m) access arms
-    reaching the ship hull; pump skid with white radiators, LOX / CH4 lines in a covered trench through the berm
+    reaching the ship hull; pump skid with white radiators, LOX / LH2 lines in a covered trench through the berm
   * cargo handling: 3 cargo pods on a pallet + a pad-edge cargo lift (raises ship cargo capacity)
   * pad control station: ABOVE GROUND on 8 legs (2.4 m deck), two thick white shielded modules (HAB-1, OPS-1) with
     viewports, control cab PC-01, roof radiators RAD-P1, sensor mast + dish, airlock A1 with hatch + 2 suitports,
@@ -88,7 +88,7 @@ PAINT   = P_('LP_PadPaint', '#e9ecef', rough=0.55, metal=0.0, grime=0.45, grime_
 INK     = M_paint('LP_Ink', '#1f2329', rough=0.5, metal=0.0)
 INKW    = M_paint('LP_InkWhite', '#f4f7fa', rough=0.4, metal=0.0)
 LOXB    = P_('LP_LoxBand', '#2f7fe0', rough=0.3, metal=0.1, coat=0.5, grime=0.15)
-CH4B    = P_('LP_Ch4Band', '#e8701a', rough=0.3, metal=0.1, coat=0.5, grime=0.15)
+LH2B    = P_('LP_LH2Band', '#e8701a', rough=0.3, metal=0.1, coat=0.5, grime=0.15)
 CYAN    = M_glow('LP_Cyan', '#2fe3ff', 16)
 CYANS   = M_glow('LP_CyanSoft', '#2fe3ff', 5)
 LAMP    = M_glow('LP_Lamp', '#f2fbff', 25)
@@ -499,7 +499,7 @@ for s in (-1, 1): handrail(g0 + tang * 0.65 * s + Vector((0, 0, 0.6)), g1 + tang
 rbox('cargo_hoist', (1.0, 1.2, 1.0), tuple(g1 - inward * 0.6 + Vector((0, 0, -1.0))), GRAPH_S, rot=(0, 0, rot_u), r=0.12, segs=2)
 grp_end(_ga, 'Arm_Cargo'); _ga = grp_begin()
 f0, f1 = arm(7.0, 1.2, 1.0, 'fuel', mat=WHITE)
-for s, mat in ((-1, LOXB), (1, CH4B)):
+for s, mat in ((-1, LOXB), (1, LH2B)):
     st = f0 + tang * 0.4 * s + Vector((0, 0, -0.6)); en = f1 + tang * 0.4 * s + Vector((0, 0, -0.6))
     cable('fuel_hose', st, en, 0.14, FOIL, sag=0.6, n=24)
     rod('fuel_qd', en - inward * 0.1, en + inward * 0.4, 0.2, mat, segs=16)
@@ -764,7 +764,7 @@ if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette,
         return m
     # 6 base draws + 3 arm nodes (1 mat each) + 5 tier nodes (Tier_05 = 2 mats) = 15 draws with every tier visible
     RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowCyan'), ('amber', 'SH_GlowCyan'), ('glass', 'SH_Graphite'), ('lens', 'SH_Graphite'),
-             ('solar', 'SH_Solar'), ('pv', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('ch4', 'SH_White'),
+             ('solar', 'SH_Solar'), ('pv', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('lh2', 'SH_White'),
              ('sinter', 'SH_Rock'), ('road', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
              ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
     GROUP_MAT = {'Arm_Crew': 'SH_White', 'Arm_Cargo': 'SH_White', 'Arm_Fuel': 'SH_White', 'Tier_03': 'SH_White', 'Tier_08': 'SH_White',
