@@ -44,7 +44,7 @@
 
 ## Drive timing (Lv1): 12 s each way, eased start and stop
 - **Loaded run:** from Mine `Road_Entry` (Mine-local (13.5, 0, 9), world x 173.5) to Refinery `Truck_Path_01` (Refinery-local (−46, 0, 9), world x 274). That is **100.5 m** along z +9, heading +X.
-- **Return run:** from Refinery `Truck_Exit` (−46, 0, 0) to Mine `Road_Entry`, **100.5 m**, heading −X. It needs a lane change from z 0 to z +9 near the Mine end; see the caveats.
+- **Return run:** from Refinery `Truck_Exit` (−46, 0, 0) to Mine `Road_Entry`, **100.5 m**, heading −X. It runs on z 0; the Mine's matching z 0 return lane is coming (until then, merge to z +9 near the Mine end; see the caveats).
 - **Velocity profile:** use a trapezoid with 1.5 s ease-in and 1.5 s ease-out (smoothstep on speed) and a 9 s cruise.
   - Cruise speed is v = 100.5 / (12 − 1.5) = **9.57 m/s** (about 34 km/h), with peak acceleration about 6.4 m/s².
   - Or use a single easeInOutSine over 12 s, which peaks at about 13.2 m/s.
@@ -57,9 +57,9 @@
    | y | ≈ 0.0 | +0.40 | −0.53 | **−1.97** |
    - It follows the Mine's own terrain. On the game's flat y 0 ground plane, the last ~5 m sink below the ground, which leaves a visible step or gap at the junction (see the proof).
    - The Mine stub needs to be flattened to y ≈ 0.045 from x 17 to 26.
-2. **Single lane.** The Mine has one two-way lane at z +9 (it uses `Road_Entry` both ways). The segment's outbound z 0 lane has no counterpart at the Mine.
-   - Either the Mine adds a z 0 stub, or Coder merges the returning truck from z 0 to z +9 on the last segment.
-   - Or drive both directions on z +9 and leave the z 0 lane as an unused visual lane.
+2. **Return lane (in progress at the Mine).** Both lanes stay: inbound z +9, outbound/return z 0 (Coder, 10/23 12:24). The Mine is adding a matching
+   z 0 return lane; until it lands, the Mine stub only has the z +9 lane, so the return truck needs a short z 0 → z +9 merge on the last segment.
+   Once the Mine's z 0 lane is in, the return run is straight along z 0 with no lane change.
 3. **Colour step at the Refinery end.** RD-1 at the Refinery start shows a slight colour step; its tracks are fainter. Positions and lanes match.
 
 ## Proof

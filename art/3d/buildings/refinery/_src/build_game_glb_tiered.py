@@ -223,8 +223,11 @@ if ig:
 bl = bpy.data.objects.get('Beacon_Lights')
 if bl: keys(bl, 'Beacon_Lights_Blink', 'scale', ((0, (1, 1, 1)), (12, (0.001,) * 3), (36, (0.001,) * 3)), 'CONSTANT')   # 0.4 s on / 0.8 s off
 MEX = {'Road_Entry': {'kind': 'road', 'note': 'inbound lane at the left edge (glTF z +9), = Truck_Path_01'},
-       'He3_Output': {'kind': 'output', 'product': 'He-3 canisters'}, 'Fuel_Output': {'kind': 'output', 'product': 'LOX + LH2'},
-       'Pipe_TankFarm': {'kind': 'pipe_connection', 'lines': ['LOX', 'LH2'], 'note': 'TO TANK FARM header end'}}
+       'He3_Output': {'kind': 'output', 'product': 'HELIUM-3 dewars (loaded into the ship cargo at pickup)'}, 'Fuel_Output': {'kind': 'output', 'product': 'LOX + LCH4'},
+       'Pipe_TankFarm': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4'], 'direction': '+X', 'buried': True,
+                         'note': 'PL-1 fuel pipeline head: pipes drop below grade here and run buried along +X (glTF z -18.62) toward the Dock / pad'},
+       'Pipeline_Exit': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4'], 'direction': '+X', 'buried': True,
+                         'note': 'buried PL-1 leaves the Refinery footprint here, continuing +X to the Dock / pad (no tanker, no hose cart)'}}
 for n, p in sorted(GN['markers'].items()):
     old = bpy.data.objects.get(n)
     if old: bpy.data.objects.remove(old, do_unlink=True)

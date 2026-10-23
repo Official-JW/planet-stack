@@ -22,7 +22,7 @@ Process (rows built in line coords, then placed by the compact relayout _rowM: H
          kiln tailings conveyor -> tailings pile
   fuel:  crusher CR-1 -> magnetic separator MS-1 (ilmenite) -> H2 reduction reactor RX-1 (950 C, FeTiO3 + H2 -> Fe + TiO2 + H2O)
          -> water condenser WC-1 -> electrolyzer EL-1 (H2 recycled to RX-1, O2 + extra H2 on) -> liquefier LQ-1 + RAD-1
-         -> LOX-1 / LH2-1 -> header TO TANK FARM; slag / iron bin under RX-1
+         -> SB-1 Sabatier (CO2 from the He-3 cold traps + H2 -> CH4 + H2O) -> LQ-1 -> LOX-1 / LCH4-1 -> PL-1 buried pipeline; slag / iron bin under RX-1
   support: control module CM-1 + airlock A-1 + dust shower, power masts, pipe rack + catwalk, switchgear
 Review-only (Stage collection, never exported): ground, road, HT-04 truck in the dump pose (from concept_b_sleek.py --pose dump),
 Mine B scene (MineB collection) beside the refinery, astronauts, Review_Cam_Target.
@@ -498,12 +498,13 @@ for x, y in ((BX0 + 0.15, -BY + 0.15), (BX1 - 0.15, -BY + 0.15), (BX0 + 0.15, BY
     box('rb_leg', (0.26, 0.26, BRIM - ZP), (x, y, (BRIM + ZP) / 2), GRAPH2, bevel=0.02)
     box('rb_legfoot', (0.5, 0.5, 0.1), (x, y, ZP + 0.05), GRAPH, bevel=0.02)
 for sy in (1,): beam('rb_legx', (BX0 + 0.15, sy * (BY - 0.15), ZP + 0.2), (BX1 - 0.15, sy * (BY - 0.15), BRIM - 0.2), 0.1, 0.1, STEEL)
-# dust skirt: frame on 3 sides (open toward the truck), rubber curtains, spray bar, back splash plate
-for x, y in ((BX0 + 0.1, -BY - 0.1), (BX1 + 0.05, -BY - 0.1), (BX0 + 0.1, BY + 0.1), (BX1 + 0.05, BY + 0.1)):
+# dust skirt: frame on the far (+Y) side and the back (+X) only, open toward the truck AND toward the station camera (-Y), so the tipping
+# HT-04 bed is never hidden behind it (Coder QA3D 10/23 12:24); rubber curtains, spray bar, back splash plate
+for x, y in ((BX1 + 0.05, -BY - 0.1), (BX0 + 0.1, BY + 0.1), (BX1 + 0.05, BY + 0.1)):
     box('ds_post', (0.16, 0.16, 3.9 - BRIM), (x, y, (3.9 + BRIM) / 2), STEEL, bevel=0.01)
-for sy in (-1, 1): beam('ds_toprail', (BX0 + 0.1, sy * (BY + 0.1), 3.9), (BX1 + 0.05, sy * (BY + 0.1), 3.9), 0.16, 0.22, WHITE_S, bevel=0.02)
+for sy in (1,): beam('ds_toprail', (BX0 + 0.1, sy * (BY + 0.1), 3.9), (BX1 + 0.05, sy * (BY + 0.1), 3.9), 0.16, 0.22, WHITE_S, bevel=0.02)
 beam('ds_toprail', (BX1 + 0.05, -BY - 0.1, 3.9), (BX1 + 0.05, BY + 0.1, 3.9), 0.16, 0.22, WHITE_S, bevel=0.02)
-for sy in (-1, 1):
+for sy in (1,):
     for k in range(12):
         x = BX0 + 0.35 + k * (BX1 - BX0 - 0.5) / 11
         box('ds_curtain', (0.28, 0.025, 2.1), (x, sy * (BY + 0.12), 3.8 - 1.05), RUBBER, rot=(rr.uniform(-0.03, 0.03), 0, 0), bevel=0.0)
@@ -514,8 +515,8 @@ rod('ds_spraybar', (BX1 - 0.05, -BY, 3.55), (BX1 - 0.05, BY, 3.55), 0.05, STEELL
 for k in range(8): cyl('ds_nozzle', 0.035, 0.08, (BX1 - 0.12, -BY + 0.25 + k * (2 * BY - 0.5) / 7, 3.5), STEEL, rot=(0, math.pi / 2, 0), segs=8)
 pipe('ds_water', [(BX1 - 0.05, BY, 3.55), (BX1 - 0.05, BY + 0.5, 3.55), (BX1 + 0.22, BY + 0.5, 3.55), (BX1 + 0.22, BY + 0.5, 0.4)], 0.05, H2OP, bend=0.2)
 lamp('ds_flood', (BX1 + 0.05, -BY - 0.1, 4.08), LAMP, 0.11)
-label('rb_plate', 'RB-1  REFINERY INTAKE BIN', 'BACK IN  -  TIP AT STOP  -  40 t', (5.01, -BY - 0.25, 3.0), w=2.5, size=0.16, post=False)
-box('rb_plate_bk', (2.6, 0.04, 0.42), (5.01, -BY - 0.21, 3.0), GRAPH2, bevel=0.0)
+label('rb_plate', 'RB-1  REFINERY INTAKE BIN', 'BACK IN  -  TIP AT STOP  -  40 t', (5.3, -BY - 0.25, 0.85), w=2.3, size=0.15, post=False)
+box('rb_plate_bk', (2.4, 0.04, 0.42), (5.3, -BY - 0.21, 0.85), GRAPH2, bevel=0.0)
 _blk('feeder')
 # belt feeder BF-1 out of the bin bottom, south (toward the camera) onto the splitter
 FE0, FE1 = Vector((4.6, 0.6, 0.7)), Vector((4.6, -5.35, 1.8))
@@ -678,7 +679,7 @@ for k, (tg, gas, tk) in enumerate(CTS):
 pipe('cp_to_ct', [(CPX - 0.4, HY + 0.35, 3.35), (CPX - 0.4, HY + 0.35, 4.0), (25.0, HY, 4.0), (25.0, HY, 3.85)], 0.1, FOIL, bend=0.3)
 pipe('kiln_to_cp', [(22.9, HY + 0.3, 3.6), (22.9, HY + 0.3, 2.2), (CPX - 0.4, HY + 0.35, 2.2)], 0.2, WHITE_S, bend=0.3)
 label('ct_plate', 'COLD TRAPS  CT-1..4', 'STRIP H2O > CO2 > N2 > H2', (27.2, HY - 1.25, 0.85), w=2.6, size=0.2)
-# H2 from CT-4 -> pipe rack -> fuel line (liquefier)
+# CO2 (CT-2) + H2 (CT-4) -> pipe rack -> fuel line (SB-1 Sabatier feed)
 CT4X = 25.0 + 3 * 1.45
 # e. cryo distillation column DC-1 (splits He-3 from He-4)
 DCX, DCY, DCR, DCH = 31.2, HY + 0.4, 0.62, 12.5
@@ -721,6 +722,7 @@ def rack(tag, x0, y0, cols=6, rows=2):
     for r_ in range(rows):
         for c_ in range(cols): canister(f'{tag}_can', x0 + 0.35 + c_ * 0.5, y0, ZP + 0.15 + r_ * 1.1)
 rack('rk1', 30.0, -9.9)
+label('rk_plate', 'HELIUM-3', 'DEWARS  READY FOR SHIP PICKUP', (31.6, -10.75, 2.75), w=2.6, size=0.24, post=False)
 label('fs_plate', 'FS-1  He-3 FILLING', 'CANISTERS TO RACK  >  SHIP', (FSX + 0.4, HY - 1.6, 2.1), w=2.4, size=0.2)
 with grp('Tier_03'): rack('rk2', 33.6, -9.9)
 GAME['markers']['He3_Output'] = (31.6, -10.7, ZP)
@@ -833,7 +835,7 @@ pipe('el_h2_recycle', [(ELX - 0.6, FY + 0.5, 3.15), (ELX - 0.6, FY + 0.5, 9.2), 
 for k in range(5): rod('h2r_band', (RXX + 1.0 + k * 1.1, FY + 0.5, 9.2), (RXX + 1.15 + k * 1.1, FY + 0.5, 9.2), 0.105, CYANL, segs=12)
 stencil('st_h2r', 'H2 RECYCLE', (RXX + 3.0, FY + 0.38, 9.55), '-y', 0.22, INK)
 for x in (RXX + 1.3, ELX - 1.3): box('h2r_post', (0.14, 0.14, 9.1), (x, FY + 0.5, 4.55), STEEL, bevel=0.01)
-# f. liquefier LQ-1 (O2 -> LOX 90 K, extra H2 -> LH2 20 K) with its own radiators
+# f. liquefier LQ-1 (O2 -> LOX 90 K, CH4 from SB-1 -> LCH4 112 K) with its own radiators
 LQX = 29.0
 box('lq_coldbox', (2.2, 2.2, 5.6), (LQX, FY, 2.9), WHITE, bevel=0.1)
 for z in (1.0, 3.0, 5.0): box('lq_band', (2.22, 2.22, 0.12), (LQX, FY, z), GRAPH, bevel=0.01)
@@ -842,12 +844,21 @@ box('lq_cyan', (2.24, 0.03, 0.05), (LQX, FY - 1.12, 5.4), CYANL, bevel=0.0)
 box('lq_comp', (1.4, 1.2, 1.1), (LQX - 1.8, FY + 0.5, 0.75), GRAPH2, bevel=0.05)
 for j in range(5): box('lq_comp_fin', (0.06, 1.24, 0.9), (LQX - 2.3 + j * 0.25, FY + 0.5, 0.8), STEEL, bevel=0.0)
 pipe('el_o2_to_lq', [(ELX + 0.6, FY + 0.5, 3.15), (ELX + 0.6, FY + 0.5, 3.8), (LQX - 1.1, FY + 0.5, 3.8)], 0.08, O2P, bend=0.3)
-pipe('el_h2_to_lq', [(ELX - 0.6, FY + 0.5, 3.15), (ELX - 0.6, FY + 0.9, 3.4), (ELX - 0.6, FY + 0.9, 4.4), (LQX - 1.1, FY + 0.9, 4.4)], 0.07, WHITE_S, bend=0.3)
-label('lq_plate', 'LQ-1  LIQUEFIER', 'O2 > LOX  90 K   |   H2 > LH2  20 K', (LQX, FY - 1.14, 3.9), w=2.15, size=0.2, post=False)
+# (10/23 Director: fuel = LOX + LCH4, no LH2) SB-1 Sabatier reactor: CO2 (He-3 cold traps, over the pipe rack) + 4 H2 (EL-1)
+# -> CH4 + 2 H2O (water back to EL-1); the CH4 goes to LQ-1. Small jacketed vertical reactor behind LQ-1's compressor.
+SBX, SBY = 27.6, FY + 1.62
+vvessel('sb1', (SBX, SBY), 0.38, 0.5, 3.3, WHITE_S, dome=0.5, segs=24, bands=(1.2, 2.4), band_mat=GRAPH)
+for z in (1.6, 2.0): cyl('sb1_heat', 0.40, 0.08, (SBX, SBY, z), HOT, segs=24, bevel=0.0)
+cyl('sb1_skirt', 0.34, 0.5, (SBX, SBY, 0.25), GRAPH2, segs=20)
+pipe('el_h2_to_sb', [(ELX - 0.6, FY + 0.5, 3.15), (ELX - 0.6, FY + 0.9, 3.4), (ELX - 0.6, FY + 0.9, 4.4), (SBX, FY + 0.9, 4.4), (SBX, SBY, 4.4), (SBX, SBY, 3.6)], 0.07, WHITE_S, bend=0.3)
+pipe('sb_ch4_to_lq', [(SBX + 0.38, SBY, 2.4), (28.5, SBY, 2.4), (28.5, FY + 1.1, 2.4)], 0.07, FOIL, bend=0.2)
+pipe('sb_h2o_to_el', [(SBX - 0.38, SBY, 0.7), (ELX + 1.0, SBY, 0.7), (ELX + 1.0, FY + 0.75, 0.7), (ELX + 1.0, FY + 0.75, 0.45)], 0.05, H2OP, bend=0.2)
+label('sb_plate', 'SB-1  SABATIER', 'CO2 + 4 H2  ->  CH4 + 2 H2O', (SBX + 0.3, SBY - 0.45, 4.3), w=2.4, size=0.17, post=False)
+label('lq_plate', 'LQ-1  LIQUEFIER', 'O2 > LOX  90 K   |   CH4 > LCH4  112 K', (LQX, FY - 1.14, 3.9), w=2.15, size=0.2, post=False)
 radiator_array('lq_rad', 12.9, 22.0, 34.0, 1.8, 4.6, 4, axis='x')
 pipe('lq_rad_loop', [(LQX + 0.6, FY + 1.1, 4.8), (LQX + 0.6, 12.9, 4.8), (LQX + 0.6, 12.9, 6.5)], 0.09, STEELL, bend=0.4)
 label('rad_plate', 'RAD-1  HEAT REJECTION', None, (28.0, 12.82, 1.3), size=0.18, post=False)
-# g. LOX + LH2 cryo tanks (frosted base), header out TO TANK FARM
+# g. LOX + LCH4 cryo tanks (frosted base) -> PL-1 buried pipeline
 def cryo_tank(tag, x, y, r, z1, label_, sub):
     z0 = 1.6
     cyl(tag + '_plinth', r + 0.25, 0.3, (x, y, 0.15 + ZP), GRAPH, segs=40, bevel=0.03)
@@ -860,17 +871,28 @@ def cryo_tank(tag, x, y, r, z1, label_, sub):
     lamp(tag + '_lamp', (x - 0.5, y - 0.5, z1 + r * 0.42), AMBERL, 0.07)
     rod(tag + '_nozzle', (x, y - r + 0.1, z0 + 0.4), (x, y - r - 0.5, z0 + 0.4), 0.16, STEELL, segs=14)
 cryo_tank('lox1', 32.4, FY, 1.45, 6.0, 'LOX-1', 'LIQUID OXYGEN  90 K')
-cryo_tank('lh21', 36.0, FY, 1.85, 7.2, 'LH2-1', 'LIQUID HYDROGEN  20 K')
-with grp('Beacon_Lights'): sphere('beacon_lh2', 0.15, (36.0, FY, 7.2 + 1.85 * 0.45 + 0.2), REDL, sub=2)
+cryo_tank('lch41', 36.0, FY, 1.85, 7.2, 'LCH4-1', 'LIQUID METHANE  112 K')
+with grp('Beacon_Lights'): sphere('beacon_lch4', 0.15, (36.0, FY, 7.2 + 1.85 * 0.45 + 0.2), REDL, sub=2)
 pipe('lq_to_lox', [(LQX + 1.1, FY - 0.3, 2.2), (31.0, FY - 0.3, 2.2), (31.0, FY - 1.9, 2.2), (32.4, FY - 1.9, 2.2), (32.4, FY - 1.95, 2.0)], 0.1, FOIL, bend=0.3)
-pipe('lq_to_lh2', [(LQX + 1.1, FY + 0.4, 2.6), (34.0, FY + 0.4, 2.6), (34.0, FY - 2.3, 2.6), (36.0, FY - 2.3, 2.6), (36.0, FY - 2.35, 2.0)], 0.12, FOIL, bend=0.3)
-for nm, (x, r, hy) in (('lox', (32.4, 1.45, 5.45)), ('lh2', (36.0, 1.85, 5.0))):
-    pipe(f'tf_{nm}', [(x, FY - r - 0.5, 2.0), (x, hy, 2.0), (x, hy, 1.1), (38.3, hy, 1.1)], 0.13 if nm == 'lox' else 0.15, WHITE_S, bend=0.4)
-    for k in range(3): rod(f'tf_{nm}_band', (36.8 + k * 0.5, hy, 1.1), (36.95 + k * 0.5, hy, 1.1), 0.16, GRAPH if nm == 'lox' else CYANS, segs=14)
-    valve(f'tf_{nm}_v', (x, hy, 1.6), axis='y', r=0.14, wheel=False, actuator=True) if False else None
-for x in (37.95,): box('tf_sleeper', (0.3, 1.0, 0.85), (x, 5.22, 0.5), GRAPH, bevel=0.02)
-label('tf_plate', 'TO TANK FARM', 'LOX  /  LH2', (37.1, 4.72, 1.95), w=1.9, size=0.22)
-GAME['markers']['Pipe_TankFarm'] = (38.4, 5.22, 1.1)
+pipe('lq_to_lch4', [(LQX + 1.1, FY + 0.4, 2.6), (34.0, FY + 0.4, 2.6), (34.0, FY - 2.3, 2.6), (36.0, FY - 2.3, 2.6), (36.0, FY - 2.35, 2.0)], 0.12, FOIL, bend=0.3)
+# (10/23 Director) fuel leaves on a BURIED pipeline toward the pad (+X station, = smaller line x): both tank lines drop into a small
+# pipeline head PL-1 (valves, riser into the ground) just right of LOX-1, then yellow/black marker posts trace the buried line off the
+# right edge. No tanker / hose cart / transfer manifold. Pipe_TankFarm = the pipe end at PL-1; Pipeline_Exit = buried line heading +X.
+PLX = 31.0     # line x of the pipeline head (station x ~ -13.85, left of the pipe-rack feet)
+for nm, (x, r, hy) in (('lox', (32.4, 1.45, 5.45)), ('lch4', (36.0, 1.85, 5.0))):
+    pipe(f'tf_{nm}', [(x, FY - r - 0.5, 2.0), (x, hy, 2.0), (x, hy, 1.1), (PLX, hy, 1.1), (PLX, hy, -0.4)], 0.13 if nm == 'lox' else 0.15, WHITE_S, bend=0.4, flanges=False)
+    for k in range(3): rod(f'tf_{nm}_band', (PLX + 0.6 + k * 0.5, hy, 1.1), (PLX + 0.75 + k * 0.5, hy, 1.1), 0.16, GRAPH if nm == 'lox' else CYANS, segs=14)
+    cyl(f'plh_vb_{nm}', 0.2, 0.34, (PLX, hy, 0.62), RED, segs=14, bevel=0.01)                     # gate valve body on each riser
+    cyl(f'plh_hwh_{nm}', 0.26, 0.05, (PLX, hy, 0.9), GRAPH, segs=16, bevel=0.0)                    # handwheel (flat, top)
+box('plh_vault', (1.3, 1.25, 0.24), (PLX, 5.22, ZP + 0.02), GRAPH2, bevel=0.03)                     # pipeline head vault lid (pipes dive in here)
+box('plh_vault_band', (1.32, 1.27, 0.06), (PLX, 5.22, ZP + 0.12), RED, bevel=0.0)
+label('tf_plate', 'PL-1  FUEL PIPELINE', 'BURIED  >  PAD', (PLX + 0.2, 4.5, 1.6), w=2.0, size=0.2)
+for k, lx in enumerate((26.5, 21.8, 17.1, 12.4, 7.7, 3.0, -1.7)):                                     # buried-line marker posts (every ~4 m station)
+    box(f'plm{k}_pole', (0.14, 0.14, 0.95), (lx, 5.22, 0.47), RED, bevel=0.01)
+    box(f'plm{k}_cap', (0.2, 0.2, 0.12), (lx, 5.22, 1.0), GRAPH, bevel=0.01)
+    box(f'plm{k}_trench', (4.7 if k else 4.4, 0.5, 0.03), (lx + 2.35, 5.22, -0.005), GRAPH2, bevel=0.0) if lx < 9.8 else None   # faint backfill strip off the pad
+GAME['markers']['Pipe_TankFarm'] = (PLX, 5.22, 0.0)
+GAME['markers']['Pipeline_Exit'] = (-4.0, 5.22, 0.0)
 GAME['markers']['Fuel_Output'] = (34.2, 4.6, ZP)
 with grp('Tier_05'):
     electrolyzer('el2', ELX, FY + 2.6)
@@ -890,7 +912,7 @@ for k_, yt in enumerate((-10.0, -21.0)):
     q_ = GA0.lerp(GA1, (yt - GA0.y) / (GA1.y - GA0.y)); tower(f'gal_tower{k_}', q_.x, q_.y, ZP, q_.z - 0.32, w=0.9)
 # fuel branch: splitter west outlet -> crusher CR-1 hopper (fuel row west end)
 conveyor('cv_fuel', (SPN.x + 0.75, SPN.y - 1.3, 0.45), RF((CRX, FY + 0.45, 4.35)), w=0.8, cover=(0.1, 0.9), gaps=2, run_grp='Conveyor_Fuel', pitch=0.75)
-# pipe rack + catwalk in the gap between the rows: H2 from CT-4 (He-3 row) crosses to the liquefier LQ-1 (fuel row)
+# pipe rack + catwalk in the gap between the rows: CO2 + H2 from the cold traps (He-3 row) cross to SB-1 (fuel row)
 RKX = -12.5
 for y in (-24.0, -21.0, -18.8):
     for dx in (-0.6, 0.6): box('rk_col', (0.22, 0.22, 5.2), (RKX + dx, y, 2.6), STEEL, bevel=0.01)
@@ -900,10 +922,10 @@ for dx in (-0.6, 0.6): ibeam('rk_stringer', (RKX + dx, -24.2, 5.0), (RKX + dx, -
 box('cw_deck', (1.2, 5.6, 0.08), (RKX, -21.4, 5.4), GRAPH2, bevel=0.0)
 for dx in (-0.6, 0.6): rail('cw_rail', [(RKX + dx, -24.2, 5.44), (RKX + dx, -18.6, 5.44)], TRIM, post=1.8)
 box('cw_cyan', (0.04, 5.4, 0.05), (RKX - 0.62, -21.4, 5.33), CYANL, bevel=0.0)
-_c4 = RH((CT4X, HY, 4.6)); _lq = RF((LQX - 0.7, FY - 0.3, 5.7))
-pipe('h2_to_fuel', [_c4, (_c4[0], _c4[1], 5.7), (_c4[0], -24.3, 5.7), (RKX + 0.3, -24.3, 5.7), (RKX + 0.3, _lq[1], 5.7), (_lq[0], _lq[1], 5.7), (_lq[0], _lq[1], 4.85)], 0.08, WHITE_S, bend=0.4)
+_c4 = RH((CT4X, HY, 4.6)); _lq = RF((SBX + 0.15, SBY - 0.1, 5.7))
+pipe('h2_to_fuel', [_c4, (_c4[0], _c4[1], 5.7), (_c4[0], -24.3, 5.7), (RKX + 0.3, -24.3, 5.7), (RKX + 0.3, _lq[1], 5.7), (_lq[0], _lq[1], 5.7), (_lq[0], _lq[1], 3.55)], 0.08, WHITE_S, bend=0.4)
 for k in range(3): rod('h2x_band', (RKX + 0.3, -23.2 + k * 1.6, 5.7), (RKX + 0.3, -23.05 + k * 1.6, 5.7), 0.095, CYANL, segs=12)
-stencil('st_h2x', 'H2 > FUEL', (RKX, -24.0 - 0.13, 5.2), '-y', 0.14, INK)
+stencil('st_h2x', 'CO2 + H2 > SB-1', (RKX, -24.0 - 0.13, 5.2), '-y', 0.14, INK)
 # stair tower beside the catwalk (in the gap)
 TWX, TWY = RKX + 1.8, -21.0
 for ux in (-1, 1):
@@ -1013,8 +1035,8 @@ bpy.ops.object.make_single_user(object=True, obdata=True)
 bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 print('RELAYOUT moved', len(_mv), 'neg', sum(1 for o in _mv if o.matrix_world.determinant() < 0), flush=True)
 GAME['pivots']['Kiln_Drum'] = RH(GAME['pivots']['Kiln_Drum'])
-for n_, f_ in (('He3_Output', RH), ('Fuel_Output', RF), ('Pipe_TankFarm', RF)):
-    p_ = f_(GAME['markers'][n_]); GAME['markers'][n_] = (p_[0], p_[1], GAME['markers'][n_][2] if n_ != 'Pipe_TankFarm' else p_[2])
+for n_, f_ in (('He3_Output', RH), ('Fuel_Output', RF), ('Pipe_TankFarm', RF), ('Pipeline_Exit', RF)):
+    p_ = f_(GAME['markers'][n_]); GAME['markers'][n_] = (p_[0], p_[1], GAME['markers'][n_][2])
 if A.get('stopbody'):
     import json as _j
     _d=[]
@@ -1099,6 +1121,16 @@ for o in TRUCK:
         mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = XFm @ mw
 bpy.context.view_layer.update()
 print('TRUCK', len(TRUCK), tuple(round(v, 2) for v in troot.matrix_world.translation), flush=True)
+# (10/23 Director) one shared HT-04 for both stations: art/3d/props/ht04/ht04_game.glb. The concept-B master truck (old front arm) is
+# review-only and never exported. --truck none hides it in every render; --ht04 PATH hides it and places the shared GLB at Truck_Dump
+# (cab -X, rear into RB-1) in its truck_dump pose (--ht04frame N, default = the clip's tipped frame).
+if A.get('truck') == 'none' or A.get('ht04'):
+    for o in TRUCK: o.hide_render = True; o.hide_viewport = True
+    print('TRUCK master hidden', flush=True)
+if A.get('ht04'):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from place_ht04 import place_ht04
+    place_ht04(A['ht04'], coll('Stage'), frame=int(A['ht04frame']) if A.get('ht04frame') else None)
 heap('rb_load', (5.0, 0.0, BRIM + 0.02), 1.0, 0.32, ORE, c='Stage', seed=81, sq=(0.9, 1.3))
 ore_chunks('rb_load_ore', (5.0, 0.0, BRIM + 0.05), 1.0, 30, [(ORE, 5, 'rock'), (HE3, 2, 'he3')], size=(0.1, 0.24), heap=0.3, c='Stage', seed=82)
 # ---- RD-1 station haul road (Jacob 10/23: the Refinery is its own stop, one swipe right of the Mine, 160 m east of it).
@@ -1236,8 +1268,8 @@ ld = bpy.data.lights.new('GlowRack', 'POINT'); ld.energy = 300; ld.color = hexc(
 lo = bpy.data.objects.new('GlowRack', ld); coll('Stage').objects.link(lo); lo.location = F(RH((32.0, -11.6, 1.6)))
 # station camera (game): Cam_Target + frame_w. Look-at point only; the game camera looks down glTF -Z, 18 deg down, 38 deg vFOV,
 # d = (W/2)/(tan 19 deg * aspect). Solved so the RB-1 bin + tipping HT-04 sit mid-band (y ~405 on 393x852); see README.
-CAM_TARGET = tuple(float(v) for v in A.get('ct', '-5.0,-3.36,1.0').split(','))
-FRAME_W = float(A.get('fw', 36.0))
+CAM_TARGET = tuple(float(v) for v in A.get('ct', '-5.9,-3.36,8.5').split(','))
+FRAME_W = float(A.get('fw', 30.8))
 GAME['cam_target'] = {'pos': CAM_TARGET, 'frame_w': FRAME_W}
 _ct = bpy.data.objects.new('Review_Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
 _ct.location = CAM_TARGET; coll('Stage').objects.link(_ct); _ct['frame_w'] = FRAME_W
@@ -1340,6 +1372,28 @@ for mode_ in [m_ for m_ in ('phone', 'phonefull') if m_ in ONLY.split(',')]:
         print('FIT refinery px x %.1f..%.1f (%s / %s)  y %.1f..%.1f (%s / %s)  frame %dx%d  safe x %.0f..%.0f y %.0f..%.0f' % (
             min(_px)[0], max(_px)[0], min(_px)[2], max(_px)[2], min(p[1] for p in _px), max(p[1] for p in _px),
             min(_px, key=lambda p: p[1])[2], max(_px, key=lambda p: p[1])[2], w, h, 0.06 * w, 0.94 * w, 100 * h / 852, 650 * h / 852), flush=True)
+        # callout anchors for _src/make_callouts.py: per module, the projected top-centre of its visible vertices (px, this frame)
+        CALL = [('he3', 'BE-1  bucket elevator', ('be_',)), ('he3', 'SV-1  sieve <100 um', ('sv_',)), ('he3', 'KN-1  kiln 700 C', ('kn1_',)),
+                ('he3', 'CT-1..4  cold traps', ('ct0', 'ct1', 'ct2', 'ct3')), ('he3', 'DC-1  He-3 / He-4 column', ('dc_',)),
+                ('he3', 'HELIUM-3 dewar rack (ship pickup)', ('rk1_',)), ('he3', 'Tier_03  dewar rack 2', ('rk2_',)), ('he3', 'Tier_08  kiln KN-2', ('kn2_',)),
+                ('he3', 'Tier_12  column DC-2', ('dc2_',)),
+                ('fuel', 'CR-1 / MS-1  crush + ilmenite', ('cr_', 'ms_')), ('fuel', 'RX-1  H2 reduction', ('rx_', 'rx.')), ('fuel', 'EL-1  electrolyzer', ('el1_',)),
+                ('fuel', 'SB-1  Sabatier  CO2 + H2 > CH4', ('sb1',)), ('fuel', 'LQ-1  liquefier', ('lq_',)), ('fuel', 'LOX-1  /  LCH4-1', ('lox1', 'lch41')),
+                ('fuel', 'Tier_05  electrolyzer EL-2', ('el2_',)), ('fuel', 'Tier_20  LOX-2 / LOX-3', ('lox2', 'lox3')),
+                ('fuel', 'PL-1  buried fuel pipeline > pad', ('plh_', 'plm', 'tf_')),
+                ('intake', 'RB-1  intake bin', ('rb_',)), ('intake', 'HT-04  tipping (shared prop)', ('Mesh_0',))]
+        _co = []
+        for kind_, txt_, pre_ in CALL:
+            pts_ = []
+            for ob in bpy.data.objects:
+                if ob.type != 'MESH' or ob.hide_render or not ob.name.startswith(pre_) or ob.name.startswith('st_'): continue
+                for c_ in list(ob.data.vertices)[::max(1, len(ob.data.vertices) // 80)]:
+                    v = world_to_camera_view(sc, cam, ob.matrix_world @ c_.co); pts_.append((v.x * w, (1 - v.y) * h))
+            if not pts_: print('CALLOUT missing', txt_, flush=True); continue
+            xs_ = sorted(p_[0] for p_ in pts_); ys_ = sorted(p_[1] for p_ in pts_)
+            _co.append({'kind': kind_, 'text': txt_, 'x': round(xs_[len(xs_) // 2], 1), 'y': round(ys_[len(ys_) // 2], 1),
+                        'box': [round(xs_[0], 1), round(ys_[0], 1), round(xs_[-1], 1), round(ys_[-1], 1)]})
+        json.dump({'size': [w, h], 'callouts': _co}, open(os.path.join(OUT, f'{NAME}_{nm_}_{w}x{h}_callouts.json'), 'w'), indent=1)
         if A.get('norender'): continue
         bpy.ops.render.render(write_still=True)
     cam.data.sensor_fit = 'AUTO'
@@ -1361,7 +1415,7 @@ if 'diagram' in ONLY:
            'sieve': _MH((SVX, HY, 3.4)), 'kiln': _MH((17.2, HY, 3.6)), 'hood': _MH((CPX, HY, 3.0)), 'traps': _MH((27.2, HY, 4.0)), 'column': _MH((DCX, DCY, 8.0)),
            'fill': _MH((FSX, HY - 1.0, 1.5)), 'rack': _MH((31.6, -9.9, 2.4)), 'tailings': _MH((21.5, -12.9, 1.6)),
            'crusher': _MF((CRX, FY, 3.6)), 'magsep': _MF((MSX, FY, 3.0)), 'reactor': _MF((RXX, FY, 7.0)), 'condenser': _MF((WCX, FY, 2.4)),
-           'electrolyzer': _MF((ELX, FY, 2.0)), 'liquefier': _MF((LQX, FY, 5.6)), 'lox': _MF((32.4, FY, 6.0)), 'lh2': _MF((36.0, FY, 7.2)),
+           'electrolyzer': _MF((ELX, FY, 2.0)), 'liquefier': _MF((LQX, FY, 5.6)), 'lox': _MF((32.4, FY, 6.0)), 'lch4': _MF((36.0, FY, 7.2)), 'sabatier': _MF((SBX, SBY, 3.0)),
            'tankfarm': _MF((38.3, 5.22, 1.1)), 'slag': _MF((RXX, FY + 3.4, 1.0)), 'h2x': (RKX, -21.4, 5.7), 'h2recycle': _MF((21.8, FY + 0.5, 9.2)),
            'control': (CMX, CMY, 3.2), 'radiators': _MF((28.0, 12.9, 6.0))}
     out = {}
