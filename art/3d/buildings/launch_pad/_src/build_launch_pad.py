@@ -234,6 +234,11 @@ def facing(v):
 
 def lin(a, b): return Vector(a).lerp(Vector(b), 0.5)
 
+# game-GLB grouping: objects built between grp_begin()/grp_end() become one node (arms = animated, tiers = hidden upgrades)
+def grp_begin(): return set(bpy.data.objects.keys())
+def grp_end(s0, g):
+    for n in set(bpy.data.objects.keys()) - s0: bpy.data.objects[n]['grp'] = g
+
 # ====================================================================== STAGE FIRST (so legs / feet can follow the ground)
 SX, SY = -36.0, -31.0            # crew / pad-control station centre (above ground)
 RXr, RYr = -82.0, 52.0           # distant fission plant
@@ -311,10 +316,12 @@ for k in range(12):
 text('stencil_pad', 'PAD-01', (0, -7.75 * S, Z + 0.002), (0, 0, 0), 1.25 * S, PAINT, extrude=0.002)
 text('stencil_pad_b', 'PAD-01', (0, 7.75 * S, Z + 0.002), (0, 0, math.pi), 1.25 * S, PAINT, extrude=0.002)
 annulus('pad_strip', PAD_R - 1.6, PAD_R - 1.4, TOP + 0.005, CYAN, segs=256)
+_g12 = grp_begin()
 for k in range(48):
     a = TAU * k / 48; x, y = (PAD_R - 0.85) * math.cos(a), (PAD_R - 0.85) * math.sin(a)
     rbox('edge_light', (0.4, 0.7, 0.12), (x, y, TOP + 0.04), GRAPH_S, rot=(0, 0, a), r=0.04, segs=2)
     box('edge_lens', (0.24, 0.5, 0.02), (x, y, TOP + 0.105), LAMP if k % 4 else AMBERG, rot=(0, 0, a), bevel=0)
+grp_end(_g12, 'Tier_12')
 for k in range(80):
     a = TAU * (k + 0.5) / 80
     box('rim_tile', (0.7, 1.62, 0.16), ((PAD_R + 0.08) * math.cos(a), (PAD_R + 0.08) * math.sin(a), 0.03), GRAPH, rot=(0, 0, a), bevel=0.03)
@@ -470,21 +477,27 @@ def arm(z, w, h, label, mat=WHITE, tunnel=False):
     q = a0.lerp(a1, 0.35)
     beam('arm_kneebrace', Vector((TX, TY, z - 4.0)) + inward * (TW / 2), q + Vector((0, 0, -h / 2)), 0.35, 0.35, GRAPH_S, bevel=0.05)
     return a0, a1
+_ga = grp_begin()
 c0, c1 = arm(28.0, 2.4, 2.6, 'crew', tunnel=True)
 rbox('crew_seal', (1.0, 3.0, 3.0), tuple(c1), GRAPH_S, rot=(0, 0, rot_u), r=0.3, segs=3)
 for k in range(3):
     p = c0.lerp(c1, 0.25 + k * 0.25) + tang * 1.21
     rbox('crew_arm_port', (0.9, 0.06, 0.5), tuple(p + Vector((0, 0, 0.3))), GLASS, rot=(0, 0, rot_u), r=0.08, segs=2)
 text('decal_crew', 'CREW ACCESS', tuple(c0.lerp(c1, 0.5) - tang * 1.21 + Vector((0, 0, 0.6))), (math.pi / 2, 0, rot_u + math.pi), 0.32, INK, extrude=0.004)
+grp_end(_ga, 'Arm_Crew'); _ga = grp_begin()
 g0, g1 = arm(20.0, 1.4, 1.2, 'cargo', mat=WHITE)
 for s in (-1, 1): handrail(g0 + tang * 0.65 * s + Vector((0, 0, 0.6)), g1 + tang * 0.65 * s + Vector((0, 0, 0.6)) - inward * 0.4, h=1.0, n=4)
 rbox('cargo_hoist', (1.0, 1.2, 1.0), tuple(g1 - inward * 0.6 + Vector((0, 0, -1.0))), GRAPH_S, rot=(0, 0, rot_u), r=0.12, segs=2)
+grp_end(_ga, 'Arm_Cargo'); _ga = grp_begin()
 f0, f1 = arm(7.0, 1.2, 1.0, 'fuel', mat=WHITE)
 for s, mat in ((-1, LOXB), (1, CH4B)):
     st = f0 + tang * 0.4 * s + Vector((0, 0, -0.6)); en = f1 + tang * 0.4 * s + Vector((0, 0, -0.6))
     cable('fuel_hose', st, en, 0.14, FOIL, sag=0.6, n=24)
     rod('fuel_qd', en - inward * 0.1, en + inward * 0.4, 0.2, mat, segs=16)
+grp_end(_ga, 'Arm_Fuel')
+HINGE = {'Arm_Crew': c0, 'Arm_Cargo': g0, 'Arm_Fuel': f0}
 # pump skid with white radiators at the tower base (makes heat)
+_g8 = grp_begin()
 PS = Vector((TX, TY, 0)) - tang * 6.5 - inward * 1.0
 rbox('pump_skid', (3.6, 2.4, 1.6), (PS.x, PS.y, 0.85), WHITE, rot=(0, 0, rot_u), r=0.3, segs=4)
 rbox('pump_base', (4.0, 2.8, 0.25), (PS.x, PS.y, 0.12), GRAPH, rot=(0, 0, rot_u), r=0.05, segs=2)
@@ -501,7 +514,9 @@ for i in range(n):
     p = tr0 + d * ((i + 0.5) / n); hz = berm_h(p.length, B_IN, B_OUT, B_H)
     box('trench_cover', (1.08, 1.5, 0.08), (p.x, p.y, max(hz, 0.0) + 0.03), GRAPH, rot=(0, 0, math.atan2(d.y, d.x)), bevel=0.02)
 
+grp_end(_g8, 'Tier_08')
 # ====================================================================== CARGO (raises ship cargo capacity)
+_g3 = grp_begin()
 CA = math.radians(-100); CX, CY = (PAD_R + 1.6) * math.cos(CA), (PAD_R + 1.6) * math.sin(CA)
 rot_c = CA + math.pi / 2
 rbox('cargo_pallet', (5.4, 2.6, 0.22), (CX, CY, 0.11), GRAPH, rot=(0, 0, rot_c), r=0.05, segs=2)
@@ -525,6 +540,7 @@ box('lift_strip', (3.02, 2.42, 0.04), (LX, LY, 1.52), CYAN, rot=(0, 0, rl), beve
 for side in (-1, 1):
     handrail(Vector((LX, LY, 1.7)) + nl_ * 1.1 * side - tl_ * 1.4, Vector((LX, LY, 1.7)) + nl_ * 1.1 * side + tl_ * 1.4, h=1.0, n=3)
 
+grp_end(_g3, 'Tier_03')
 # ====================================================================== CREW / PAD-CONTROL STATION (above ground, on a raised deck)
 DH = 2.4                     # deck height
 DW, DL = 18.0, 9.0           # deck size (x, y)
@@ -575,6 +591,7 @@ for k in range(3):
     rbox('st_cab_port_f', (0.7, 0.18, 0.55), (SX - 0.7 + k * 0.7, SY + 0.9 - 1.48, MZ + 3.05), GRAPH_S, r=0.08, segs=2)
 box('st_cab_strip', (3.62, 3.02, 0.06), (SX, SY + 0.9, MZ + 2.15), CYAN, bevel=0)
 text('decal_cab', 'PAD CONTROL · PC-01', (SX, SY + 0.9 - 1.51, MZ + 3.6), (math.pi / 2, 0, 0), 0.2, INK, extrude=0.003)
+_g20 = grp_begin()
 rod('st_mast', (SX + 1.2, SY + 1.6, MZ + 3.9), (SX + 1.2, SY + 1.6, MZ + 7.4), 0.08, SATIN, segs=10)
 sphere('st_mast_tip', 0.12, (SX + 1.2, SY + 1.6, MZ + 7.45), CYAN, sub=2)
 lathe('st_dish', [(0, 0), (0.8, 0.28), (0.86, 0.31), (0.06, 0.04)], (SX - 1.1, SY + 1.3, MZ + 4.0), WHITE_S, segs=36)
@@ -584,6 +601,7 @@ for mx in (SX - 4.6, SX + 4.6):
     rod('st_rad_mast', (mx, SY + 0.6, MZ + MR - 0.05), (mx, SY + 0.6, MZ + MR + 1.4), 0.1, SATIN, segs=10)
     box('st_radiator', (6.2, 0.08, 2.6), (mx, SY + 0.6, MZ + MR + 2.75), RAD, bevel=0.01)
     for zz in (-1.32, 1.32): rod('st_rad_manifold', (mx - 3.15, SY + 0.6, MZ + MR + 2.75 + zz), (mx + 3.15, SY + 0.6, MZ + MR + 2.75 + zz), 0.06, GRAPH_S, segs=12)
+grp_end(_g20, 'Tier_20')
 text('decal_rad', 'RAD-P1', (SX - 4.6 - 2.2, SY + 0.6 - 0.05, MZ + MR + 3.8), (math.pi / 2, 0, 0), 0.24, INK, extrude=0.003)
 # airlock A1 (front of the OPS module) with suitports + dust-off porch on the deck
 AX = SX + 3.8; AYf = SY - DL / 2 + 2.0
@@ -669,7 +687,7 @@ def solar_mast(x, y, h=16.0, tag='SOL-1'):
     text('decal_sol', tag, (x, y - 0.23, g + 2.6), (math.pi / 2, 0, 0), 0.2, INK, extrude=0.003)
     rbox('sol_box', (0.7, 0.45, 0.9), (x, y - 0.45, g + 0.8), WHITE, r=0.08, segs=2)
 SOL = [(-54.0, -20.0, 17.0, 'SOL-1'), (-50.0, -3.0, 15.0, 'SOL-2')]
-for x, y, h, t in SOL: solar_mast(x, y, h, t)
+solar_mast(*SOL[0]); _g5 = grp_begin(); solar_mast(*SOL[1])
 # fission plant (Stage) - far behind its own berm, radiators poking over
 mound('reactor_berm', RXr + 8.0, RYr - 9.0, 11.0, 1.4, 5.2, 5.0, REGO, c='Stage', seed=31)
 lathe('reactor_vessel', [(0, 0), (3.0, 0), (3.0, 5.4), (2.3, 6.3), (0, 6.5)], (RXr, RYr, gz(RXr, RYr) - 0.1), WHITE, segs=48, c='Stage')
@@ -696,6 +714,7 @@ for a, b in zip(posts, posts[1:]):
     cable('power_cable', (a.x, a.y, gz(a.x, a.y) + 0.95), (b.x, b.y, gz(b.x, b.y) + 0.95), 0.05, RUBBER, sag=0.3, n=10, c=cc)
 cable('sol_feed1', (-54.0, -20.45, gz(-54, -20) + 0.5), (JX - 0.7, JY - 0.3, gz(JX, JY) + 0.4), 0.04, RUBBER, sag=0.2)
 cable('sol_feed2', (-50.0, -3.45, gz(-50, -3) + 0.5), (-52.0, -10.0, gz(-52, -10) + 0.9), 0.04, RUBBER, sag=0.3)
+grp_end(_g5, 'Tier_05')
 
 # ====================================================================== STAGE cleanup + lights + crew
 EXCL = [((ROAD_U.x * r, ROAD_U.y * r), 7.5) for r in range(22, 86, 4)] + [((0, 0), 40.0), ((SX, SY), 16.0), ((SX + 3.8, SY - 9), 5.0)] + [((x, y), 3.5) for x, y, _, _ in SOL] + [((RXr, RYr), 18.0)]
@@ -734,12 +753,18 @@ if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette,
         b.inputs['Base Color'].default_value = hexc(d['base']); b.inputs['Metallic'].default_value = d['metal']; b.inputs['Roughness'].default_value = d['rough']
         if 'emissive' in d: b.inputs['Emission Color'].default_value = hexc(d['emissive']); b.inputs['Emission Strength'].default_value = d['emissive_strength']
         return m
-    RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowWhite'), ('amber', 'SH_GlowRed'), ('glass', 'SH_Glass'), ('lens', 'SH_Glass'),
-             ('solar', 'SH_Solar'), ('pv', 'SH_Solar'), ('rad', 'SH_Radiator'), ('foil', 'SH_Foil'), ('mli', 'SH_Foil'), ('lox', 'SH_PipeH2O'), ('ch4', 'SH_Red'),
+    # 6 base draws + 3 arm nodes (1 mat each) + 5 tier nodes (Tier_05 = 2 mats) = 15 draws with every tier visible
+    RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowCyan'), ('amber', 'SH_GlowCyan'), ('glass', 'SH_Graphite'), ('lens', 'SH_Graphite'),
+             ('solar', 'SH_Solar'), ('pv', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('ch4', 'SH_White'),
              ('sinter', 'SH_Rock'), ('road', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
              ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
-    def remap(m):
+    GROUP_MAT = {'Arm_Crew': 'SH_White', 'Arm_Cargo': 'SH_White', 'Arm_Fuel': 'SH_White', 'Tier_03': 'SH_White', 'Tier_08': 'SH_White',
+                 'Tier_12': 'SH_GlowWhite', 'Tier_20': 'SH_White', 'Tier_05': None}   # None = solar cells keep SH_Solar, rest SH_White
+    def remap(m, g=None):
         n = (m.name if m else '').lower()
+        if g in GROUP_MAT:
+            if GROUP_MAT[g]: return GROUP_MAT[g]
+            return 'SH_Solar' if 'solar' in n else 'SH_White'
         for k, v in RULES:
             if k in n: return v
         print('UNMAPPED', m.name if m else None); return 'SH_White'
@@ -751,33 +776,77 @@ if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette,
     for o in keep: o.select_set(True)
     bpy.context.view_layer.objects.active = keep[0]
     bpy.ops.object.convert(target='MESH')
-    sel = [o for o in bpy.context.selected_objects if o.type == 'MESH']
-    for o in sel:
+    allm = [o for o in coll('Mine').all_objects if o.type == 'MESH']
+    groups = {}
+    for o in allm:
+        g = o.get('grp', 'Base'); groups.setdefault(g, []).append(o)
         o.data = o.data.copy()
-        for sl in o.material_slots: sl.material = sh_mat(remap(sl.material))
-    bpy.ops.object.join(); G = bpy.context.active_object; G.name = 'launch_pad_game'
-    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.001); bpy.ops.object.mode_set(mode='OBJECT')
+        for sl in o.material_slots: sl.material = sh_mat(remap(sl.material, g))
     import collections as _c
-    print('SLOTS', len(G.material_slots), _c.Counter(p.material_index for p in G.data.polygons).most_common(8), flush=True)
-    # merge duplicate SH slots (same material in several slots)
-    names = [sl.material.name for sl in G.material_slots]; uniq = sorted(set(names), key=names.index)
-    idx = [uniq.index(n) for n in names]
-    pidx = [idx[p.material_index] for p in G.data.polygons]
-    G.data.materials.clear()
-    for n in uniq: G.data.materials.append(bpy.data.materials[n])
-    for p, i in zip(G.data.polygons, pidx): p.material_index = i
-    print('MERGED', uniq, _c.Counter(p.material_index for p in G.data.polygons), flush=True)
-    tri = lambda: sum(len(p.vertices) - 2 for p in G.data.polygons)
-    T0 = tri(); TGT = int(A.get('tris', 18000))
-    for it in range(6):
-        t = tri()
-        if t <= TGT: break
-        md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.02, TGT / t * 0.97); md.use_collapse_triangulate = True
+    nodes = {}
+    for g, obs in groups.items():
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in obs: o.select_set(True)
+        bpy.context.view_layer.objects.active = obs[0]
+        if len(obs) > 1: bpy.ops.object.join()
+        G = bpy.context.active_object; G.name = 'launch_pad_base' if g == 'Base' else g
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.001); bpy.ops.object.mode_set(mode='OBJECT')
+        names = [sl.material.name for sl in G.material_slots]; uniq = sorted(set(names), key=names.index)
+        idx = [uniq.index(n) for n in names]; pidx = [idx[p.material_index] for p in G.data.polygons]
+        G.data.materials.clear()
+        for n in uniq: G.data.materials.append(bpy.data.materials[n])
+        for p, i in zip(G.data.polygons, pidx): p.material_index = i
+        nodes[g] = G
+    tri = lambda G: sum(len(p.vertices) - 2 for p in G.data.polygons)
+    T0 = sum(tri(G) for G in nodes.values()); TGT = int(A.get('tris', 20000))
+    def dec(G, ratio):
+        bpy.ops.object.select_all(action='DESELECT'); G.select_set(True); bpy.context.view_layer.objects.active = G
+        md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.03, min(1.0, ratio)); md.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=md.name)
-    print('GAMETRIS', T0, '->', tri(), 'MATS', len(G.data.materials), flush=True)
-    bpy.ops.object.select_all(action='DESELECT'); G.select_set(True)
+    for g, G in nodes.items():   # arms + tiers: gentle (they are seen up close when they animate / appear)
+        cap = 1000 if g.startswith('Arm_') else 900
+        if g != 'Base' and tri(G) > cap: dec(G, cap / tri(G))
+    B = nodes['Base']
+    for it in range(6):
+        rest = sum(tri(G) for g, G in nodes.items() if g != 'Base'); t = tri(B)
+        if t + rest <= TGT: break
+        dec(B, (TGT - rest) / t * 0.97)
+    for g, G in nodes.items(): print('NODE', g, tri(G), [m.name for m in G.data.materials], flush=True)
+    print('GAMETRIS', T0, '->', sum(tri(G) for G in nodes.values()), 'DRAWS', sum(len(G.data.materials) for G in nodes.values()), flush=True)
+    # arms: origin at the hinge (tower corner on the +tang side), retracted (swung -90 deg, parallel to the tower face) at rest
+    sc = bpy.context.scene; sc.render.fps = 25; F1 = round(1.2 * sc.render.fps)
+    RETRACT = math.radians(-90)
+    for g, a0 in HINGE.items():
+        G = nodes[g]; h = Vector(a0) + tang * (TW / 2 - 0.1); h.z = a0.z
+        G.data.transform(Matrix.Translation(-h)); G.location = h
+        G.animation_data_create(); act = bpy.data.actions.new(g.lower() + '_in'); G.animation_data.action = act
+        G.rotation_euler = (0, 0, RETRACT); G.keyframe_insert('rotation_euler', index=2, frame=0)
+        G.rotation_euler = (0, 0, 0.0); G.keyframe_insert('rotation_euler', index=2, frame=F1)
+        for fc in act.fcurves:
+            for kp in fc.keyframe_points: kp.interpolation = 'BEZIER'; kp.easing = 'EASE_IN_OUT'; kp.handle_left_type = kp.handle_right_type = 'AUTO_CLAMPED'
+        G.rotation_euler = (0, 0, RETRACT)
+        G['retracted_rad'] = RETRACT; G['clip'] = act.name; G['clip_s'] = 1.2
+        tr = G.animation_data.nla_tracks.new(); tr.name = act.name; tr.strips.new(act.name, 0, act); G.animation_data.action = None
+    for g, G in nodes.items():
+        if g.startswith('Tier_'): G['hidden'] = True; G['tier'] = int(g[5:])
+    sc.frame_set(0)
+    # empty markers (game logic anchors)
+    def mark(n, p):
+        e = bpy.data.objects.new(n, None); e.empty_display_size = 0.5; e.location = tuple(p); coll('Mine').objects.link(e); return e
+    rp = ROAD_U * (B_OUT + 1.0); ramp = Vector((0, -14.1, TOP)); st = Vector((s1.x, s1.y - 0.7, s1.z + 0.1))
+    mk = [mark('Ship_Center', (0, 0, TOP)), mark('Road_Entry', (rp.x, rp.y, gz(rp.x, rp.y) + 0.1)), mark('Ramp_Foot', ramp),
+          mark('Crate_Drop', (CX, CY, 0.33)), mark('Fuel_Hookup', tuple(f1))]
+    path = [ramp, Vector((-3.0, -18.0, TOP))] + [Vector((ROAD_U.x * r, ROAD_U.y * r, 0)) for r in (23.5, 29.0, 34.0, 38.0)] + [Vector((-26.0, -40.5, 0)), Vector((st.x, st.y - 1.5, 0)), st]
+    for i, p in enumerate(path):
+        z = p.z if p.z > 0 else gz(p.x, p.y) + 0.1
+        if Vector((p.x, p.y, 0)).length < PAD_R: z = TOP
+        mk.append(mark('Crew_Path_%02d' % (i + 1), (p.x, p.y, z)))
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in list(nodes.values()) + mk: o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_game_raw.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
-                              export_animations=False, export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False,
+                              export_animations=True, export_animation_mode='NLA_TRACKS', export_force_sampling=True, export_extras=True,
+                              export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False,
                               export_materials='EXPORT', export_image_format='NONE', export_texcoords=False)
     print('GAMEGLB', flush=True)
 HC = A.get('hc')
