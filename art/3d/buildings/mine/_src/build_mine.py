@@ -22,6 +22,7 @@ TORG = Vector((ML.TX, ML.TY, GZ))          # truck-local origin in world
 
 # ---------------------------------------------------------------- camera (Game Coder spec)
 FOV_Y, PITCH, PW, PH = 38.0, 18.0, 393, 852
+CY = float(A.get('cy', 460))     # focus-box centre on 393x852: Director wants the station at y~280-640 (sheet covers from 674)
 TAN_H = math.tan(math.radians(FOV_Y / 2)) * PW / PH
 def cam_pose(tgt, W):
     d = (W / 2) / TAN_H; p = math.radians(PITCH)
@@ -40,8 +41,8 @@ def focus_points():
     for dx in (-1.6, 1.6):
         for dy in (-1.6, 1.6):
             for z in (0, 3.0): P.append(Vector((rx + dx, ry + dy, z)))
-    for x, y in ((15.1, -9.0), (9.0, -15.1), (-5.0, -15.1), (13.0, -4.0)):   # haul-loop outer edge (east hairpin, south straight)
-        P.append(Vector((x, y, 0.0)))
+    for x, y in ((9.0 + 4.5 + ML.ROAD_W / 2, -9.0), (9.0, -13.5 - ML.BERM_OUT), (-5.0, -13.5 - ML.BERM_OUT), (13.0, -4.0)):
+        P.append(Vector((x, y, 0.0)))   # haul loop: graded edge at the east apex (the berm is open there: access road), south berm toes
     for o in bpy.data.objects:                       # silo + beacon tops stay in frame
         if o.type == 'MESH' and 'silo' in base(o).lower(): P += [o.matrix_world @ Vector(c) for c in o.bound_box]
     return P
@@ -60,8 +61,8 @@ def cam_fit():
             xs = [q.x * PW for q in pr]; ys = [(1 - q.y) * PH for q in pr]
             mx = (min(xs) + max(xs)) / 2; my = (min(ys) + max(ys)) / 2
             tgt.x += (mx - PW / 2) / PW * W
-            tgt.z -= (my - 375) / PW * W / math.cos(math.radians(PITCH))
-        ok = min(xs) >= 0.06 * PW and max(xs) <= 0.94 * PW and min(ys) >= 100 and max(ys) <= 650
+            tgt.z -= (my - CY) / PW * W / math.cos(math.radians(PITCH))
+        ok = min(xs) >= 0.04 * PW and max(xs) <= 0.96 * PW and min(ys) >= 100 and max(ys) <= 650
         print('FIT W', W, 'x', round(min(xs)), round(max(xs)), 'y', round(min(ys)), round(max(ys)), ok)
         if ok: best = (W, tgt.copy(), d, (min(xs), max(xs), min(ys), max(ys))); break
     bpy.data.objects.remove(cam, do_unlink=True)
@@ -82,7 +83,7 @@ if MODE == 'phone':      # renders the 1179x2556 master; phone_downscale.py make
     raise SystemExit(0)
 
 # ================================================================= GAME GLB
-TARGET = int(A.get('target', 23500))
+TARGET = int(A.get('target', 24600))
 def lin(h):
     h = h.lstrip('#'); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
     return [x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c] + [1.0]
@@ -197,6 +198,21 @@ for i in range(nl):
     LUMP.append(sphere('conv_lump', rl.uniform(0.16, 0.22), tuple(p), M_['B_OreRock'] if i % 3 else M_['B_He3'], scale=(1.2, 1, 0.7), sub=1, smooth=False))
 tag(LUMP, 'Conveyor')
 mine += T03 + T05 + T08 + T12 + T20 + LUMP
+if MODE == 'tiers':      # Director rule: every tier part must land inside the station frame (393x852, y 100-650). Renders all tiers visible.
+    from bpy_extras.object_utils import world_to_camera_view
+    cam = sc.camera; cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(FOV_Y); cam.data.dof.use_dof = False
+    pos, d = cam_pose(CAM_T, W); cam.location = pos; cam.rotation_euler = (CAM_T - pos).to_track_quat('-Z', 'Y').to_euler()
+    sc.render.resolution_x, sc.render.resolution_y = PW, PH; sc.render.resolution_percentage = 100; bpy.context.view_layer.update()
+    TR = {}
+    for g, objs in (('Tier_03', T03), ('Tier_05', T05), ('Tier_08', T08), ('Tier_12', T12), ('Tier_20', T20)):
+        pr = [world_to_camera_view(sc, cam, o.matrix_world @ v.co) for o in objs for v in o.data.vertices]
+        xs = [q.x * PW for q in pr]; ys = [(1 - q.y) * PH for q in pr]
+        TR[g] = [round(min(xs)), round(max(xs)), round(min(ys)), round(max(ys))]
+        print('TIERBOX', g, 'x', TR[g][0], TR[g][1], 'y', TR[g][2], TR[g][3], 'inside' if min(xs) >= 0 and max(xs) <= PW and min(ys) >= 100 and max(ys) <= 650 else 'OUTSIDE')
+    json.dump(TR, open(os.path.join(MOUT, 'tier_boxes.json'), 'w'))
+    sc.cycles.samples = int(A.get('ps', 32)); sc.render.use_border = False
+    os.makedirs(MOUT, exist_ok=True); sc.render.filepath = os.path.join(MOUT, 'mine_tiers_393x852.png'); bpy.ops.render.render(write_still=True)
+    raise SystemExit(0)
 
 # ---------------- cull + bake to world meshes
 keep = []
@@ -248,7 +264,8 @@ def truck_bone(o, cl):
 
 groups = {}
 for o in keep:
-    e = o.evaluated_get(dg); me = bpy.data.meshes.new_from_object(e, preserve_all_data_layers=False, depsgraph=dg)
+    road = bool(o.get('road'))
+    e = o.evaluated_get(dg); me = bpy.data.meshes.new_from_object(e, preserve_all_data_layers=road, depsgraph=dg)
     if me is None or len(me.polygons) == 0: continue
     me.transform(o.matrix_world)
     if len(me.materials) == 0: me.materials.append(None)
@@ -257,6 +274,11 @@ for o in keep:
     for poly in me.polygons:
         s = sm[min(poly.material_index, len(sm) - 1)]
         for li in poly.loop_indices: ca.data[li].color = s[1]
+    if road and 'RoadCol' in me.color_attributes:      # graded road: keep its own track / tyre-mark / berm colours
+        rc = me.color_attributes['RoadCol']
+        for li in range(len(me.loops)): ca.data[li].color = rc.data[li].color
+        me.color_attributes.remove(me.color_attributes['RoadCol'])
+    me.color_attributes.active_color = me.color_attributes['Col']
     for i, (m_, _) in enumerate(sm): me.materials[i] = m_
     b = base(o)
     if is_truck(o):
@@ -267,6 +289,7 @@ for o in keep:
     else:
         g = o.get('grp') or ('Rig' if b in RIG else 'Silo' if b in SILO else 'Base'); bone = None
     no = bpy.data.objects.new('g_' + o.name, me); col.objects.link(no); groups.setdefault(g, []).append(no)
+    if road: no['road'] = 1
     if bone:
         vg = no.vertex_groups.new(name=bone); vg.add(list(range(len(me.vertices))), 1.0, 'REPLACE'); no['bone'] = bone
 for c in list(sc.collection.children):
@@ -275,6 +298,7 @@ for c in list(sc.collection.children):
 def tris(objs): return sum(len(p.vertices) - 2 for o in objs for p in o.data.polygons)
 for g, objs in groups.items():
     for o in objs:
+        if o.get('road'): continue            # roads keep their profile columns (tyre marks / berms) - no planar dissolve
         bm = bmesh.new(); bm.from_mesh(o.data)
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.004)
         bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(4), verts=bm.verts, edges=bm.edges, delimit={'MATERIAL'})
@@ -320,8 +344,12 @@ for g, objs in groups.items():
         truck_mesh = join(parts); truck_mesh.name = 'Truck_Mesh'; truck_mesh.data.name = 'Truck_Mesh'
         if 'bone' in truck_mesh: del truck_mesh['bone']
         continue
-    J_ = join(objs)
-    decimate(J_, BUD[g])
+    if g == 'Base':                            # roads are exempt from decimation (it would smear the ruts and berms)
+        rd = [o for o in objs if o.get('road')]; rest = [o for o in objs if not o.get('road')]; RT = tris(rd)
+        J_ = join(rest); decimate(J_, BUD[g] - RT); J_ = join([J_] + rd); print('ROAD tris', RT, 'base rest', BUD[g] - RT)
+    else:
+        J_ = join(objs)
+        decimate(J_, BUD[g])
     if g == 'Base':
         bpy.ops.object.material_slot_remove_unused()
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.separate(type='MATERIAL'); bpy.ops.object.mode_set(mode='OBJECT')
@@ -560,7 +588,7 @@ for nm, (x, y), r, park, lab in (('Dep_01', ML.DEP1, 2.2, ML.DEP1_PARK, 'main He
     emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'scoop_from': 'Path_Spur_%s' % nm[-2:], 'glow': 'in Base_GlowCyan (seam crystals)'})
 emp('Path_Spur_01', (ML.DEP1_PARK[0], ML.DEP1_PARK[1], 0.0), ML.DEP1_PARK[2], {'kind': 'truck_pose', 'yaw_deg': ML.DEP1_PARK[2], 'deposit': 'Dep_01', 'note': 'stop here, play truck_scoop (reaches to the truck right)'})
 emp('Path_Spur_02', (ML.DEP2_PARK[0], ML.DEP2_PARK[1], 0.0), ML.DEP2_PARK[2], {'kind': 'truck_pose', 'yaw_deg': ML.DEP2_PARK[2], 'deposit': 'Dep_02', 'note': 'stop here, play truck_scoop (reaches to the truck right)'})
-emp('Road_Entry', (13.5, -9.0, 0.0), -90, {'kind': 'road_entry', 'note': 'east apex of the haul loop'})
+emp('Road_Entry', (13.5, -9.0, 0.0), -90, {'kind': 'road_entry', 'note': 'east apex of the haul loop; the graded access road (haul_road_access) joins here and leaves heading +Z (toward the camera)'})
 CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.6, 0.2, 0.0), (5.6, 1.0, 0.0), (8.6, 1.4, 0.0)]
 for i, p in enumerate(CREW): emp('Crew_Path_%02d' % (i + 1), (p[0], p[1], p[2] if p[2] > 0.3 else H(p[0], p[1])), 0, {'kind': 'crew_path'})
 

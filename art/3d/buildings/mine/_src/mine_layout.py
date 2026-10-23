@@ -5,8 +5,9 @@ over the cab, clear of the tipping bed).
 Edits vs the concept-B master (Blender coords, Z up, metres):
   * DUMP 01 receiving hopper + lift tube removed - trucks now dump into the Refinery intake bin (REFINERY_ANCHOR, west of the rig).
   * Head-end cantilever pylon + boom (stood in the new haul road) replaced by a column under the trough, north of the road.
-  * Haul road re-laid: loop  load bay (x 4.7) -> east hairpin -> south straight -> west hairpin -> north line back to the bay,
-    plus a dump stub running west past the rig to the Refinery intake.
+  * Haul road re-laid as a GRADED regolith track (4 m running surface, low berms, tyre-mark ruts, RoadCol vertex colour):
+    loop  load bay (x 4.7) -> east hairpin -> south straight -> west hairpin -> north line back to the bay,
+    plus a dump stub running west past the rig to the Refinery intake, plus an access road leaving the east apex (Road_Entry).
   * Deposits moved inside the loop so the truck scoops them from the road (Dep_01 east-centre, Dep_02 south straight).
   * Astronaut removed (no astronauts in game assets)."""
 import bpy, bmesh, math
@@ -42,7 +43,8 @@ DUMP = (-9.0, -5.5, 0.0)                     # truck centre when tipping (rear f
 REFINERY = (-13.84, -5.5, 90.0)              # intake-bin centre on the ground; yaw 90 -> anchor local glTF +Z = truck heading (+X)
 DEP1 = (8.65, -8.65); DEP1_PARK = (8.5, -4.5, 0.0)
 DEP2 = (-1.2, -10.4); DEP2_PARK = (-1.0, -13.5, 180.0)
-ROAD_W = 3.2
+ROAD_W = 4.0                                 # graded running surface (HT-04 is 3.82 m over the tyres)
+ROAD_ENTRY = (13.5, -9.0)                    # east apex of the loop; the access road leaves here heading south (toward the camera)
 
 def _smooth(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
 def north_y(x): return -5.5 + 1.0 * _smooth((x + 4.0) / 4.0)   # S-blend: y -5.5 west of x=-4, -4.5 east of x=0
@@ -68,23 +70,152 @@ def ground_fn():
         return hit[0].z if hit[0] is not None else 0.0
     return h
 
-def _road(name, pts, w, closed, height, mat, cols=5):
+# --- graded regolith haul road (replaces the flat dark decal): cross-section, half-widths from the centre line (m).
+# kind -> vertex colour; dz is height over the graded surface (toe is relative to the ground: it is buried so the berm grows out of it)
+_HALF = [(0.0, 0.02, 'track'), (1.2, 0.0, 'track'), (1.5, -0.02, 'mark'), (1.8, 0.0, 'track'), (2.0, 0.0, 'foot'), (2.35, 0.25, 'crest'), (2.8, -0.04, 'toe')]
+PROFILE = [(-o, dz, k) for o, dz, k in reversed(_HALF[1:])] + _HALF
+BERM_IN, BERM_OUT = 2.0, 2.8
+ROAD_HEX = {'track': '#a4a7ac', 'mark': '#878a8f', 'foot': '#9da0a5', 'crest': '#939499', 'toe': '#82858a'}
+def _lin(h):
+    h = h.lstrip('#'); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    return Vector([x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c])
+def _srgb(h): h = h.lstrip('#'); return Vector([int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)])
+ROAD_COL = {k: _srgb(v) for k, v in ROAD_HEX.items()}   # sRGB: bmesh BYTE_COLOR layers store sRGB bytes (attribute .color reads back linear)
+
+def _seg(pts, a, b, step):
+    n = max(1, int(round(abs(b - a) / step))); return [a + (b - a) * i / n for i in range(n)]
+def loop_rows():
+    """same centre line as loop_points(), sampled coarser on the straights, finer on the hairpins (fewer tris)."""
+    P = []
+    for x in _seg(P, -5.0, 9.0, 1.0): P.append(Vector((x, north_y(x), 0)))
+    for a in _seg(P, math.pi / 2, -math.pi / 2, 0.6 / 4.5): P.append(Vector((9 + 4.5 * math.cos(a), -9 + 4.5 * math.sin(a), 0)))
+    for x in _seg(P, 9.0, -5.0, 1.2): P.append(Vector((x, -13.5, 0)))
+    for a in _seg(P, 1.5 * math.pi, 0.5 * math.pi, 0.6 / 4.0): P.append(Vector((-5 + 4 * math.cos(a), -9.5 + 4 * math.sin(a), 0)))
+    return P
+def stub_rows(): return [Vector((x, -5.5, 0)) for x in _seg(None, -5.0, -12.5, 0.9)] + [Vector((-12.5, -5.5, 0))]
+def _bez(p0, p1, p2, p3, n):
+    out = []
+    for i in range(n + 1):
+        t = i / n; u = 1 - t
+        out.append(Vector(p0) * u ** 3 + Vector(p1) * 3 * u * u * t + Vector(p2) * 3 * u * t * t + Vector(p3) * t ** 3)
+    return out
+def access_rows():
+    """access road: joins the loop at ROAD_ENTRY (east apex) heading south (Road_Entry yaw), bends east and leaves the frame on the right."""
+    P = _bez((ROAD_ENTRY[0], ROAD_ENTRY[1], 0), (13.6, -13.0, 0), (15.0, -15.6, 0), (22.0, -16.4, 0), 16)   # bends east between craters (14,-20) and (30,-8)
+    return [Vector((p.x, p.y, 0)) for p in P]
+def _dense(pts, closed, step=0.2):
+    out = []; n = len(pts)
+    for i in range(n if closed else n - 1):
+        a, b = pts[i], pts[(i + 1) % n]; k = max(1, int((b - a).length / step))
+        out += [a.lerp(b, j / k) for j in range(k)]
+    if not closed: out.append(pts[-1])
+    return out
+def _sm(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
+
+def graded_roads(height, mat):
+    """builds haul_road_loop / haul_road_dump / haul_road_access: graded track + berms + tyre-mark ruts.
+    Colour lives in the 'RoadCol' corner colour attribute (linear), read by the render material and copied into the game 'Col'.
+    Berms open up where they cross another road (junctions) and where they would bury a station part (column feet, rig feet, deposits)."""
+    from mathutils.kdtree import KDTree
+    from mathutils import noise
     from mc_common import _obj
-    n = len(pts); bm = bmesh.new(); uvl = bm.loops.layers.uv.new('UVMap'); rows = []; s_acc = 0.0
-    for i, p in enumerate(pts):
-        a = pts[(i - 1) % n] if (closed or i > 0) else p; b_ = pts[(i + 1) % n] if (closed or i < n - 1) else p
-        t = (b_ - a); t.z = 0; t.normalize(); nn = Vector((-t.y, t.x, 0))
-        if i: s_acc += (p - pts[i - 1]).length
-        row = []
-        for k in range(cols):
-            q = p + nn * w * (k / (cols - 1) - 0.5); row.append((bm.verts.new((q.x, q.y, height(q.x, q.y) + 0.035)), k / (cols - 1), s_acc / w))
-        rows.append(row)
-    for i in (range(n) if closed else range(n - 1)):
-        r0, r1 = rows[i], rows[(i + 1) % n]
-        for k in range(cols - 1):
-            f = bm.faces.new((r0[k][0], r0[k + 1][0], r1[k + 1][0], r1[k][0]))
-            for lp, (vv, vk, vs) in zip(f.loops, (r0[k], r0[k + 1], r1[k + 1], r1[k])): lp[uvl].uv = (vs, vk)
-    return _obj(bm, name, mat, c='Stage', smooth=True, angle=180)
+    roads = [('haul_road_loop', loop_rows(), True, 0.065), ('haul_road_dump', stub_rows(), False, 0.045), ('haul_road_access', access_rows(), False, 0.045)]
+    trees = []
+    for nm, pts, cl, _ in roads:
+        d = _dense(pts, cl); kd = KDTree(len(d))
+        for i, q in enumerate(d): kd.insert((q.x, q.y, 0), i)
+        kd.balance(); trees.append(kd)
+    # obstacles: ground-contact points of station parts (not the truck, the ground, pebbles or roads)
+    truck = bpy.data.objects.get('Truck_HT04'); tkids = set(truck.children_recursive) if truck else set()
+    obs = []
+    for o in bpy.data.objects:
+        if o.type != 'MESH' or o in tkids: continue
+        b = o.name.split('.')[0]
+        if b in ('Ground',) or b.startswith(('haul_road', 'pebble', 'boulder', 'slope_boulder')): continue
+        mw = o.matrix_world
+        for v in o.data.vertices:
+            w = mw @ v.co
+            if abs(w.x) < 30 and abs(w.y) < 40 and w.z < height(w.x, w.y) + 0.6: obs.append((w.x, w.y))
+    okd = KDTree(max(1, len(obs)))
+    for i, (x, y) in enumerate(obs): okd.insert((x, y, 0), i)
+    okd.balance()
+    made = []
+    for ri, (nm, pts, closed, S) in enumerate(roads):
+        n = len(pts); bm = bmesh.new(); rows = []
+        for i, p in enumerate(pts):
+            a = pts[(i - 1) % n] if (closed or i > 0) else p; b_ = pts[(i + 1) % n] if (closed or i < n - 1) else p
+            t = (b_ - a); t.z = 0; t.normalize(); nn = Vector((-t.y, t.x, 0)); row = []
+            for off, dz, kind in PROFILE:
+                q = p + nn * off; g = height(q.x, q.y)
+                f = 1.0
+                if abs(off) > BERM_IN - 1e-6:
+                    for rj, kd in enumerate(trees):          # junction: inside another road's graded surface -> no berm
+                        if rj == ri: continue
+                        dB = kd.find((q.x, q.y, 0))[2]
+                        f = min(f, _sm((dB - (BERM_IN - 0.2)) / 1.0))
+                    if obs:
+                        dO = okd.find((q.x, q.y, 0))[2]; f = min(f, _sm((dO - 0.2) / 0.6))
+                if kind == 'toe': z = g + S * (1 - f) + dz * f
+                elif kind == 'crest': z = g + S + dz * f
+                else: z = g + S + dz
+                c = ROAD_COL['track'].lerp(ROAD_COL[kind], f) if abs(off) > BERM_IN - 1e-6 else ROAD_COL[kind].copy()
+                c = c * (1.0 + 0.05 * noise.noise(Vector((q.x * 0.35, q.y * 0.35, 3.1 + ri))))
+                row.append((bm.verts.new((q.x, q.y, z)), c))
+            rows.append(row)
+        cl_ = bm.loops.layers.color.new('RoadCol')
+        for i in (range(n) if closed else range(n - 1)):
+            r0, r1 = rows[i], rows[(i + 1) % n]
+            for k in range(len(PROFILE) - 1):
+                quad = (r0[k], r0[k + 1], r1[k + 1], r1[k])
+                try: fc = bm.faces.new([v for v, _ in quad])
+                except ValueError: continue
+                for lp, (_, c) in zip(fc.loops, quad): lp[cl_] = (c.x, c.y, c.z, 1.0)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        if sum(f.normal.z for f in bm.faces) < 0: bmesh.ops.reverse_faces(bm, faces=bm.faces)
+        o = _obj(bm, nm, mat, c='Stage', smooth=True, angle=180)
+        me = o.data
+        if 'RoadCol' in me.color_attributes: me.color_attributes.active_color = me.color_attributes['RoadCol']
+        o['road'] = 1; made.append(o)
+    # graded = cleared: drop pebbles / boulders lying on the road or its berms
+    gone = 0
+    for o in list(bpy.data.objects):
+        b = o.name.split('.')[0]
+        if b in ('pebble', 'boulder', 'slope_boulder'):
+            w = o.matrix_world.translation; r = max(o.dimensions) / 2
+            if min(kd.find((w.x, w.y, 0))[2] for kd in trees) < BERM_OUT + r: bpy.data.objects.remove(o, do_unlink=True); gone += 1
+    # render terrain only: where the (displaced, 0.62 m grid) ground bulges above the road between road vertices, cut it 3 cm under
+    # the road surface (a graded road is cut into the regolith). The ground material (shared M_ground) is untouched.
+    g = bpy.data.objects['Ground']; gm = g.data; vs_, ps_ = [], []
+    for o in made:
+        b0 = len(vs_); vs_ += [o.matrix_world @ v.co for v in o.data.vertices]; ps_ += [tuple(b0 + i for i in p.vertices) for p in o.data.polygons]
+    rb = BVHTree.FromPolygons(vs_, ps_); cut = 0; gi = g.matrix_world.inverted()
+    for v in gm.vertices:
+        w = g.matrix_world @ v.co
+        if abs(w.x) > 40 or abs(w.y) > 45: continue
+        hit = rb.ray_cast(Vector((w.x, w.y, w.z + 5)), Vector((0, 0, -1)))
+        if hit[0] is not None and w.z > hit[0].z - 0.03:
+            v.co = gi @ Vector((w.x, w.y, hit[0].z - 0.03)); cut += 1
+    gm.update()
+    print('ROADS', [(o.name, len(o.data.polygons)) for o in made], 'cleared rocks', gone, 'ground verts cut', cut)
+    return made
+
+def M_road_graded():
+    """compacted regolith: the RoadCol vertex colour (track / tyre marks / berms) x fine gravel noise, rough, opaque."""
+    m = bpy.data.materials.new('B_HaulRoadGraded'); m.use_nodes = True; nt = m.node_tree; N = nt.nodes
+    b = N['Principled BSDF']; tc = N.new('ShaderNodeTexCoord')
+    at = N.new('ShaderNodeAttribute'); at.attribute_type = 'GEOMETRY'; at.attribute_name = 'RoadCol'
+    nz = N.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 1.6; nz.inputs['Detail'].default_value = 6
+    nt.links.new(tc.outputs['Object'], nz.inputs['Vector'])
+    mr = N.new('ShaderNodeMapRange'); mr.inputs['From Min'].default_value = 0.3; mr.inputs['From Max'].default_value = 0.7
+    mr.inputs['To Min'].default_value = 0.9; mr.inputs['To Max'].default_value = 1.06; nt.links.new(nz.outputs['Fac'], mr.inputs['Value'])
+    mul = N.new('ShaderNodeMix'); mul.data_type = 'RGBA'; mul.blend_type = 'MULTIPLY'; mul.inputs['Factor'].default_value = 1.0
+    nt.links.new(at.outputs['Color'], mul.inputs[6]); nt.links.new(mr.outputs[0], mul.inputs[7]); nt.links.new(mul.outputs[2], b.inputs['Base Color'])
+    b.inputs['Roughness'].default_value = 0.96; b.inputs['Specular IOR Level'].default_value = 0.3
+    bump = N.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.25; bump.inputs['Distance'].default_value = 0.03
+    n2 = N.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value = 9; n2.inputs['Detail'].default_value = 8
+    nt.links.new(tc.outputs['Object'], n2.inputs['Vector']); nt.links.new(n2.outputs['Fac'], bump.inputs['Height']); nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
+    m.diffuse_color = (0.38, 0.39, 0.41, 1)
+    return m
 
 def _del(pred):
     n = 0
@@ -119,10 +250,7 @@ def apply():
     K = C0 + u * (L * 0.9) - up * 0.25                       # knee brace column -> head end underside
     beam('head_col_brace', Vector((P.x, P.y, P.z - 1.3)), K, 0.22, 0.26, WHITE, bevel=0.06)
     # 4) haul road loop + dump stub
-    height = ground_fn(); ROADM = M['B_HaulRoad']
-    _road('haul_road_loop', loop_points(0.5), ROAD_W, True, height, ROADM)
-    stub = [Vector((x, -5.5, 0)) for x in [(-4.0 - 0.5 * i) for i in range(18)]]   # x -4 .. -12.5 (ends at the intake front)
-    _road('haul_road_dump', stub, ROAD_W, False, height, ROADM)
+    height = ground_fn()
     # 5) deposits inside the loop
     OLD1, OLD2 = Vector((11.2, -8.8, 0)), Vector((4.7 + 3.0, -4.5 - 3.6, 0))
     X1 = Matrix.Translation((DEP1[0], DEP1[1], 0)) @ Matrix.Diagonal((0.85, 0.85, 1.0, 1)) @ Matrix.Translation(-OLD1)
@@ -136,6 +264,9 @@ def apply():
     for nm, (x, y) in (('Dep_01', DEP1), ('Dep_02', DEP2)):
         e = bpy.data.objects.get(nm)
         if e: e.location = (x, y, height(x, y))
+    bpy.context.view_layer.update()
+    # 4b) graded haul road (after the deposits moved, so the berms open around them)
+    graded_roads(height, M_road_graded())      # loop + dump stub (x -5 .. -12.5, ends at the intake front) + access road at ROAD_ENTRY
     bpy.context.view_layer.update()
     return dict(C0=C0, C1=C1, L=L, u=u, side=side, up=up, DIS=DIS, height=height, col=P)
 
