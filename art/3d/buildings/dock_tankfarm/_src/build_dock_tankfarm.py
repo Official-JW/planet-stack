@@ -658,8 +658,8 @@ plate('rad1_plate', 'RAD-1', (-14.6, 5.85, 1.5), '-y', 0.8, 0.34, 0.19)
 for k, zz in enumerate((2.08, 6.92)):
     pipe('rad1_loop', [(-14.6, 20.0 - 0.4 * k, zz), (-13.0, 20.0 - 0.4 * k, zz), (-HW - 0.2, 20.0 - 0.4 * k, zz)], 0.08, STEELL, bend=0.4)
 with grp('Tier_20'):
-    radiator_array('rad2', -18.6, 6.0, 20.0, 2.2, 4.6, 4, axis='y')
-    pipe('rad2_loop', [(-18.6, 20.0, 2.08), (-18.6, 21.0, 2.08), (-14.6, 21.0, 2.08), (-14.6, 20.0, 2.08)], 0.08, STEELL, bend=0.4)
+    radiator_array('rad2', 21.4, -15.4, -11.6, 2.2, 4.6, 2, axis='x')
+    pipe('rad2_loop', [(-13.2, 21.4, 2.08), (-13.2, 20.0, 2.08)], 0.08, STEELL, bend=0.3)
 def power_mast(name, x, y, h=10.0, c='Mine'):
     lathe(name, [(0.34, 0.0), (0.26, 1.0), (0.17, h - 0.4), (0.15, h)], (x, y, 0), GRAPH2, segs=14)
     cyl(name + '_base', 0.75, 0.45, (x, y, 0.22), GRAPH, segs=16, bevel=0.03, c=c)
@@ -692,32 +692,40 @@ for k, (mx, my) in enumerate(((-6.5, 34.0), (6.5, 34.0))):
 # ====================================================================== TANK FARM TF-1 (beside the dock, behind a low L-berm)
 TR, TZ0, TZ1, TD = 2.4, 1.9, 10.0, 0.45
 TOPZ = TZ1 + TR * TD
-def cryo_tank(tag, x, y, label, sub, band=GRAPH):
-    cyl(tag + '_plinth', TR + 0.3, 0.4, (x, y, 0.2), GRAPH, segs=40, bevel=0.03)
-    cyl(tag + '_skirt', TR * 0.86, TZ0 - 0.4, (x, y, 0.4 + (TZ0 - 0.4) / 2), GRAPH2, segs=40)
-    box(tag + '_skirt_door', (0.8, 0.12, 1.0), (x, y - TR * 0.86 - 0.02, 0.95), PALE, bevel=0.02)
-    vvessel(tag, (x, y), TR, TZ0, TZ1, WHITE, bottom='dish', dome=TD, bands=(TZ0 + 0.9, (TZ0 + TZ1) / 2 + 0.6, TZ1 - 0.5), band_mat=band)
+def cryo_tank(tag, x, y, label, sub, band=GRAPH, R=None, Z1=None, lz=None):
+    R = TR if R is None else R; Z1 = TZ1 if Z1 is None else Z1
+    TOP = Z1 + R * TD
+    cyl(tag + '_plinth', R + 0.3, 0.4, (x, y, 0.2), GRAPH, segs=40, bevel=0.03)
+    cyl(tag + '_skirt', R * 0.86, TZ0 - 0.4, (x, y, 0.4 + (TZ0 - 0.4) / 2), GRAPH2, segs=40)
+    box(tag + '_skirt_door', (0.8, 0.12, 1.0), (x, y - R * 0.86 - 0.02, 0.95), PALE, bevel=0.02)
+    vvessel(tag, (x, y), R, TZ0, Z1, WHITE, bottom='dish', dome=TD, segs=40 if R < 3 else 48, bands=(TZ0 + 0.9, (TZ0 + Z1) / 2 + 0.6, Z1 - 0.5) if R < 3 else (TZ0 + 0.9, TZ0 + (Z1 - TZ0) * 0.36, TZ0 + (Z1 - TZ0) * 0.68, Z1 - 0.5), band_mat=band)
     for k in range(16):
-        a = k * TAU / 16; cyl(tag + '_bolt', 0.05, 0.1, (x + (TR + 0.18) * math.cos(a), y + (TR + 0.18) * math.sin(a), 0.44), STEEL, segs=6)
-    tank_label(tag, label, sub, x, y, TR, (TZ0 + TZ1) / 2 + 2.2)
-    ladder(tag + '_ladder', x - TR - 0.3, y, 0.4, TZ1 + 0.6, along='y')
-    for z in range(3, int(TZ1) + 1):
-        curve_tube(tag + '_cage', [(x - TR - 0.3 + 0.42 * math.cos(a), y + 0.42 * math.sin(a), z) for a in [math.pi / 2 + i / 10 * math.pi for i in range(11)]], 0.018, STEELL)
-    rod(tag + '_nozzle', (x, y - TR + 0.2, TZ0 + 0.5), (x, y - TR - 0.55, TZ0 + 0.5), 0.2, STEELL, segs=16)
-    rod(tag + '_nozzle_fl', (x, y - TR - 0.5, TZ0 + 0.5), (x, y - TR - 0.62, TZ0 + 0.5), 0.3, STEEL, segs=16)
-    rod(tag + '_gauge', (x + TR + 0.12, y - 0.4, TZ0 + 0.4), (x + TR + 0.12, y - 0.4, TZ1 - 0.2), 0.06, STEELL, segs=8)
-    box(tag + '_gauge_cyan', (0.04, 0.04, (TZ1 - TZ0) * 0.55), (x + TR + 0.19, y - 0.4, TZ0 + 0.5 + (TZ1 - TZ0) * 0.275), CYANL, bevel=0.0)
+        a = k * TAU / 16; cyl(tag + '_bolt', 0.05, 0.1, (x + (R + 0.18) * math.cos(a), y + (R + 0.18) * math.sin(a), 0.44), STEEL, segs=6)
+    tank_label(tag, label, sub, x, y, R, (TZ0 + Z1) / 2 + 2.2 if lz is None else lz, size=0.78 if R < 3 else 1.0)
+    ladder(tag + '_ladder', x - R - 0.3, y, 0.4, Z1 + 0.6, along='y')
+    for z in range(3, int(Z1) + 1):
+        curve_tube(tag + '_cage', [(x - R - 0.3 + 0.42 * math.cos(a), y + 0.42 * math.sin(a), z) for a in [math.pi / 2 + i / 10 * math.pi for i in range(11)]], 0.018, STEELL)
+    rod(tag + '_nozzle', (x, y - R + 0.2, TZ0 + 0.5), (x, y - R - 0.55, TZ0 + 0.5), 0.2, STEELL, segs=16)
+    rod(tag + '_nozzle_fl', (x, y - R - 0.5, TZ0 + 0.5), (x, y - R - 0.62, TZ0 + 0.5), 0.3, STEEL, segs=16)
+    rod(tag + '_gauge', (x + R + 0.12, y - 0.4, TZ0 + 0.4), (x + R + 0.12, y - 0.4, Z1 - 0.2), 0.06, STEELL, segs=8)
+    box(tag + '_gauge_cyan', (0.04, 0.04, (Z1 - TZ0) * 0.55), (x + R + 0.19, y - 0.4, TZ0 + 0.5 + (Z1 - TZ0) * 0.275), CYANL, bevel=0.0)
     for dx in (-0.6, 0.6):
-        cyl(tag + '_relief', 0.12, 0.6, (x + dx, y + 0.5, TOPZ - 0.05), STEELL, segs=12)
-        cyl(tag + '_relief_cap', 0.16, 0.1, (x + dx, y + 0.5, TOPZ + 0.25), GRAPH, segs=12)
-    rod(tag + '_vent', (x + 0.4, y - 0.9, TOPZ - 0.3), (x + 0.4, y - 0.9, TOPZ + 1.6), 0.09, STEELL, segs=10)
-    lamp(tag + '_lamp', (x - 0.8, y - 0.6, TOPZ - 0.12), AMBERL, 0.08)
-ROWA_Y, ROWB_Y = 7.5, 15.5
-TANKS = {'LOX-1': (21.5, ROWA_Y), 'LOX-2': (28.0, ROWA_Y), 'LH2-1': (34.5, ROWA_Y), 'LH2-2': (24.75, ROWB_Y), 'HE3-1': (31.5, ROWB_Y)}
-cryo_tank('lox1', *TANKS['LOX-1'], 'LOX-1', 'LIQUID OXYGEN  90 K')
-cryo_tank('lh21', *TANKS['LH2-1'], 'LH2-1', 'LIQUID HYDROGEN  20 K')
-with grp('Tier_05'): cryo_tank('lox2', *TANKS['LOX-2'], 'LOX-2', 'LIQUID OXYGEN  90 K')
-with grp('Tier_20'): cryo_tank('lh22', *TANKS['LH2-2'], 'LH2-2', 'LIQUID HYDROGEN  20 K')
+        cyl(tag + '_relief', 0.12, 0.6, (x + dx, y + 0.5, TOP - 0.05), STEELL, segs=12)
+        cyl(tag + '_relief_cap', 0.16, 0.1, (x + dx, y + 0.5, TOP + 0.25), GRAPH, segs=12)
+    rod(tag + '_vent', (x + 0.4, y - 0.9, TOP - 0.3), (x + 0.4, y - 0.9, TOP + 1.6), 0.09, STEELL, segs=10)
+    lamp(tag + '_lamp', (x - 0.8, y - 0.6, TOP - 0.12), AMBERL, 0.08)
+HDR = {'LOX': (3.0, 1.15, 0.24), 'LH2': (3.7, 1.15, 0.26), 'HE3': (4.4, 1.3, 0.16)}   # header (y, z, r)
+ROWA_Y, ROWB_Y = 8.0, 15.6
+# LH2 is ~3x the LOX volume per tonne of propellant: LOX tanks r 2.4 / shell 1.9-10.0 m (~173 m3),
+# LH2 tanks r 3.3 / shell 1.9-15.05 m (pi*3.3^2*(13.15+0.6*3.3) ~ 518 m3 = 3.0x). They stand in row B behind the gaps of
+# the shorter row A (LOX-1, LOX-2, HE3-1), so every tank (and every tier) reads from the hero and from the phone camera.
+LH2R, LH2Z1 = 3.3, 15.05
+TANKS = {'LOX-1': (16.6, ROWA_Y), 'LOX-2': (23.0, ROWA_Y), 'HE3-1': (19.8, -0.3), 'LH2-1': (19.6, ROWB_Y), 'LH2-2': (27.2, ROWB_Y)}
+GAPX = {'LH2-1': 19.8, 'LH2-2': 26.25}   # where the LH2 drop lines pass between the row-A tanks
+cryo_tank('lox1', *TANKS['LOX-1'], 'LOX-1', 'LIQUID OXYGEN  90 K', lz=8.7)
+cryo_tank('lh21', *TANKS['LH2-1'], 'LH2-1', 'LIQUID HYDROGEN  20 K', R=LH2R, Z1=LH2Z1, lz=13.2)
+with grp('Tier_05'): cryo_tank('lox2', *TANKS['LOX-2'], 'LOX-2', 'LIQUID OXYGEN  90 K', lz=8.7)
+with grp('Tier_20'): cryo_tank('lh22', *TANKS['LH2-2'], 'LH2-2', 'LIQUID HYDROGEN  20 K', R=LH2R, Z1=LH2Z1, lz=13.2)
 with grp('Tier_12'):   # He-3 cryo sphere (cyan = He-3)
     hx, hy = TANKS['HE3-1']; HR = 3.1; HZ = 4.6
     sphere('he3t', HR, (hx, hy, HZ), WHITE_S, sub=5)
@@ -730,18 +738,18 @@ with grp('Tier_12'):   # He-3 cryo sphere (cyan = He-3)
         beam('he3t_brace', (lx, ly, 0.3), (hx + HR * 0.97 * math.cos(a + TAU / 6), hy + HR * 0.97 * math.sin(a + TAU / 6), HZ - 0.9), 0.08, 0.08, STEEL)
     cyl('he3t_nozzle', 0.2, 0.7, (hx, hy, HZ + HR + 0.2), STEELL, segs=14)
     cyl('he3t_valve', 0.26, 0.2, (hx, hy, HZ + HR + 0.6), GRAPH2, segs=14)
-    t = to_mesh(stencil('st_he3t', 'HE3-1', (hx, hy - HR - 0.02, HZ + 1.6), '-y', 0.7, INK, ex=0.008)); wrap_cyl(t, hx, hy, math.sqrt(HR * HR - 1.6 ** 2) + 0.02)
-    pipe('he3t_line', [(hx, hy, HZ + HR + 0.7), (hx, hy, HZ + HR + 1.2), (hx, hy - HR - 0.9, HZ + HR + 1.2), (hx, hy - HR - 0.9, 1.3), (hx, 4.4, 1.3)], 0.13, WHITE_S, bend=0.6)
+    t = to_mesh(stencil('st_he3t', 'HE3-1', (hx, hy - HR - 0.02, HZ + 0.52), '-y', 0.5, INK, ex=0.008)); wrap_cyl(t, hx, hy, math.sqrt(HR * HR - 0.52 ** 2) + 0.02)   # between the equator band and the upper cyan ring
+    pipe('he3t_line', [(hx, hy, HZ + HR + 0.7), (hx, hy, HZ + HR + 1.2), (hx + 1.2, hy + 1.2, HZ + HR + 1.2), (hx + 1.2, HDR['HE3'][0], HZ + HR + 1.2), (hx + 1.2, HDR['HE3'][0], HDR['HE3'][1])], 0.13, WHITE_S, bend=0.6)
 # catwalk across the row-A tank tops + stair tower
-CWZ = TOPZ + 0.45; SX0 = 17.4
-box('cw_deck', (34.5 - SX0 + 1.0, 1.1, 0.1), ((SX0 + 34.5) / 2 + 0.5, ROWA_Y, CWZ), GRAPH2, bevel=0.01)
+CWZ = TOPZ + 0.45; SX0 = 12.6; CWX1 = TANKS['LOX-2'][0] + 1.0
+box('cw_deck', (CWX1 - SX0, 1.1, 0.1), ((SX0 + CWX1) / 2, ROWA_Y, CWZ), GRAPH2, bevel=0.01)
 for sy in (-1, 1):
-    ibeam('cw_stringer', (SX0, ROWA_Y + sy * 0.5, CWZ - 0.25), (35.0, ROWA_Y + sy * 0.5, CWZ - 0.25), 0.18, 0.36, STEEL)
-    rail('cw_rail', [(SX0 + 1.2, ROWA_Y + sy * 0.55, CWZ + 0.05), (35.0, ROWA_Y + sy * 0.55, CWZ + 0.05)], TRIM, post=2.0)
-box('cw_cyan', (34.5 - SX0, 0.04, 0.05), ((SX0 + 34.5) / 2, ROWA_Y - 0.57, CWZ - 0.05), CYANL, bevel=0.0)
+    ibeam('cw_stringer', (SX0, ROWA_Y + sy * 0.5, CWZ - 0.25), (CWX1, ROWA_Y + sy * 0.5, CWZ - 0.25), 0.18, 0.36, STEEL)
+    rail('cw_rail', [(SX0 + 1.2, ROWA_Y + sy * 0.55, CWZ + 0.05), (CWX1, ROWA_Y + sy * 0.55, CWZ + 0.05)], TRIM, post=2.0)
+box('cw_cyan', (CWX1 - SX0 - 0.5, 0.04, 0.05), ((SX0 + CWX1) / 2, ROWA_Y - 0.57, CWZ - 0.05), CYANL, bevel=0.0)
 def cw_posts(x, y):
     for dx in (-0.7, 0.7): box('cw_post', (0.16, 0.9, CWZ - 0.4 - (TOPZ - 0.6)), (x + dx, y, (TOPZ - 0.6 + CWZ - 0.4) / 2), STEEL, bevel=0.01)
-cw_posts(*TANKS['LOX-1']); cw_posts(*TANKS['LH2-1'])
+cw_posts(*TANKS['LOX-1'])
 with grp('Tier_05'): cw_posts(*TANKS['LOX-2'])
 TWX, TWY = SX0, ROWA_Y
 for ux in (-1, 1):
@@ -763,30 +771,32 @@ box('stw_cyan', (2.4, 0.04, 0.05), (TWX, TWY - 1.22, CWZ - 0.05), CYANL, bevel=0
 plate('tf_plate', 'TF-1  TANK FARM', (TWX, TWY - 1.25, 2.2), '-y', 1.9, 0.42, 0.2, sub='CRYOGENIC  -  NO OPEN FLAME')
 # insulated headers, tie-ins with valves, pump skid, line out TO LAUNCH PAD
 HDR = {'LOX': (3.0, 1.15, 0.24), 'LH2': (3.7, 1.15, 0.26), 'HE3': (4.4, 1.3, 0.16)}
-HX0, HX1 = 19.4, 44.0
+HX0, HX1 = 15.0, 44.0
 for nm, (hy_, hz_, hr_) in HDR.items():
     xe = HX1 + 2.0 + (hy_ - 3.0)
     pipe('hdr_' + nm.lower(), [(HX0, hy_, hz_), (xe, hy_, hz_), (xe, -8.0, hz_)], hr_, WHITE_S, bend=1.2)
     for k in range(int((HX1 - HX0) / 1.8)):
         x = HX0 + 0.9 + k * 1.8; rod('hdr_band', (x - 0.1, hy_, hz_), (x + 0.1, hy_, hz_), hr_ * 1.07, GRAPH if nm != 'HE3' else CYANL, segs=16)
-for x in range(20, 45, 3):
+for x in range(16, 45, 3):
     box('hdr_sleeper', (0.3, 2.2, 0.9), (x, 3.7, 0.45), GRAPH, bevel=0.02)
     beam('hdr_sleeper_cap', (x, 2.6, 0.92), (x, 4.8, 0.92), 0.36, 0.08, STEEL)
 for y in (-2.0, -5.0): box('hdr_sleeper', (2.6, 0.3, 1.2), (46.7, y, 0.3), GRAPH, bevel=0.02)
 def tie(nm):
     x, y = TANKS[nm]; hy_, hz_, hr_ = HDR['LOX' if nm.startswith('LOX') else 'LH2']; tag = nm.lower().replace('-', '')
+    if nm.startswith('LH2'):   # row B: out of the nozzle, sideways to the row-A gap, then forward between the front tanks
+        gx = GAPX[nm]; ys = y - LH2R - 0.62; yv = ROWA_Y - TR - 1.2
+        pipe(tag + '_drop', [(x, ys, TZ0 + 0.5), (x, ys - 0.5, TZ0 + 0.5), (gx, ys - 0.5, TZ0 + 0.5), (gx, yv, TZ0 + 0.5), (gx, yv, hz_ + 0.7), (gx, hy_, hz_ + 0.7), (gx, hy_, hz_)], 0.17, FOIL, bend=0.35)
+        valve(tag + '_v', (gx, yv, 1.55), axis='y', r=0.2); return
     pipe(tag + '_drop', [(x, y - TR - 0.62, TZ0 + 0.5), (x, y - TR - 1.2, TZ0 + 0.5), (x, y - TR - 1.2, hz_ + 0.7), (x, hy_, hz_ + 0.7), (x, hy_, hz_)], 0.17, FOIL, bend=0.35)
     valve(tag + '_v', (x, y - TR - 1.2, 1.55), axis='y', r=0.2)
 tie('LOX-1'); tie('LH2-1')
 with grp('Tier_05'): tie('LOX-2')
-with grp('Tier_20'):
-    x, y = TANKS['LH2-2']
-    pipe('lh22_drop', [(x, y - TR - 0.62, TZ0 + 0.5), (x - 1.6, y - TR - 0.62, TZ0 + 0.5), (x - 1.6, HDR['LH2'][0], TZ0 + 0.5), (x - 1.6, HDR['LH2'][0], HDR['LH2'][1])], 0.17, FOIL, bend=0.5)
-for i, x in enumerate((24.6, 31.2, 40.0)):
+with grp('Tier_20'): tie('LH2-2')
+for i, x in enumerate((21.4, 32.8, 40.0)):
     for nm, (hy_, hz_, hr_) in HDR.items():
         if nm == 'HE3' and i < 2: continue
         valve(f'hdr_v_{nm}_{i}', (x, hy_, hz_), axis='x', r=hr_ * 0.85, wheel=(i != 2), actuator=(i == 2))
-PSX, PSY = 26.5, 0.2
+PSX, PSY = 28.2, -0.4
 box('ps_skid', (7.4, 2.6, 0.26), (PSX, PSY, 0.13), GRAPH, bevel=0.03)
 box('ps_cyan', (7.42, 0.03, 0.05), (PSX, PSY - 1.31, 0.2), CYANL, bevel=0.0)
 for k, px in enumerate((PSX - 2.2, PSX + 0.4)):
@@ -816,8 +826,8 @@ for ob in list(coll('Stage').objects):
 def g01(t): t = max(0.0, min(1.0, t)); return t * t * (3 - 2 * t)
 def seg_d(p, a, b):
     ab = b - a; t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared)); return (a + ab * t - p).length
-BERM = [Vector((14.3, 25.0)), Vector((14.3, -3.0)), Vector((41.5, -3.0))]
-BH_, BC, BRN = 1.6, 0.6, 2.2
+BERM = [Vector((12.6, 2.6)), Vector((12.6, -5.6)), Vector((36.0, -5.6))]
+BH_, BC, BRN = 1.5, 0.35, 1.15
 def berm_z(x, y):
     p = Vector((x, y)); d = min(seg_d(p, a, b) for a, b in zip(BERM, BERM[1:]))
     z = BH_ * g01(1 - max(d - BC, 0) / BRN)
@@ -904,20 +914,24 @@ lo = bpy.data.objects.new('HallLight', ld); coll('Stage').objects.link(lo); lo.l
 ld = bpy.data.lights.new('PorchLight', 'AREA'); ld.energy = 160; ld.size = 2.0; ld.color = hexc('#e8f4ff')[:3]
 lo = bpy.data.objects.new('PorchLight', ld); coll('Stage').objects.link(lo); lo.location = (AX, -1.0, MZ + 2.3)
 world_and_sun(tuple(SUN), 5.5)
+# soft fill over the hall's cast shadow between the dock and the tank farm (the old hero read it as a hard black wedge / hole)
+ld = bpy.data.lights.new('GapFill', 'AREA'); ld.energy = float(A.get('fill', 2200)); ld.size = 18.0; ld.color = hexc('#dfe8f5')[:3]
+ld.use_shadow = False
+lo = bpy.data.objects.new('GapFill', ld); coll('Stage').objects.link(lo); lo.location = (16.0, 2.0, 16.0)
 astronaut((2.9, -14.75, ZP), rot_z=0.4)
 astronaut((AX - 0.3, -2.2, MZ), rot_z=-0.2)
-astronaut((25.0, ROWA_Y, CWZ + 0.05), rot_z=-1.4)
+astronaut((19.8, ROWA_Y, CWZ + 0.05), rot_z=-1.4)
 for nm, p in (('Crew_Path_01', (AX, HYH - 0.6, MZ)), ('Crew_Path_02', (AX, -1.6, MZ)), ('Crew_Path_03', (AX, -3.7, ZP)),
               ('Crew_Path_04', (AX - 0.6, -6.0, ZP)), ('Crew_Path_05', (5.6, -14.3, ZP)), ('Crew_Path_06', (2.3, -11.9, ZP)),
               ('Crew_Path_07', (0.0, -6.0, ZP)), ('Crew_Path_08', (0.0, FY0 - 1.4, ZP))):
     GAME['markers'][nm] = p
 # station camera look-at: the phone shots and the game camera aim here (empty, no geometry / no draws).
 # 4 m in front of the origin at the game's lookY 2.5 so the focus sits between the HUD (y~100) and the sheet (y~650) on 393x852.
-CAM_TARGET = tuple(float(v) for v in A.get('ct', '0,-4.0,2.5').split(','))
+CAM_TARGET = tuple(float(v) for v in A.get('ct', '9.0,-2.0,3.0').split(','))
 GAME['markers']['Cam_Target'] = CAM_TARGET
 _ct = bpy.data.objects.new('Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
 _ct.location = CAM_TARGET; coll('Mine').objects.link(_ct)
-FRAME_W = float(A.get('fw', 15.0))      # metres of station that span the screen width at Cam_Target (game camera spec)
+FRAME_W = float(A.get('fw', 40.0))      # metres of station that span the screen width at Cam_Target (game camera spec)
 _ct['frame_w'] = FRAME_W; GAME['marker_extras'] = {'Cam_Target': {'frame_w': FRAME_W}}
 bpy.context.scene['game_nodes'] = json.dumps(GAME)
 print('HEIGHTS', [round(height(x, y), 3) for x, y in ((0, -16), (21.5, 7.5), (47, -8), (-24, 11), (0, 20), (31.5, 15.5))], flush=True)
@@ -968,21 +982,44 @@ if 'turn' in ONLY:
 if 'hero' in ONLY:
     w, h = (3840, 2160) if not QUICK else (960, 540)
     if A.get('res'): w, h = [int(v) for v in A['res'].split('x')]
-    hp = [float(v) for v in A.get('hc', '-9,-50,16,13,3,4.5').split(',')]
+    hp = [float(v) for v in A.get('hc', '-7,-47,17,12.5,5,5.5').split(',')]
     shoot(cam, os.path.join(OUT, 'hero.png'), tuple(hp[3:6]), tuple(hp[:3]), w, h, lens=float(A.get('lens', 28)), samples=int(A.get('hs', 48)) if not QUICK else 16)
-if 'phone' in ONLY:
+def phone_cam(w, h):
     # in-game station camera spec: perspective, vertical fov 38, 18 deg down, aimed at Cam_Target;
     # distance so exactly Cam_Target['frame_w'] metres span the screen width at Cam_Target
     sc = bpy.context.scene
-    w, h = (1179, 2556) if not QUICK else (393, 852)
-    if A.get('pres'): w, h = [int(v) for v in A['pres'].split('x')]
     asp = w / h; vt = math.tan(math.radians(19))
     d = float(bpy.data.objects['Cam_Target']['frame_w']) / (2.0 * vt * asp); e = math.radians(18)
     tgt = bpy.data.objects['Cam_Target'].matrix_world.translation.copy(); pos = tgt + Vector((0.0, -d * math.cos(e), d * math.sin(e)))
     cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(38); cam.data.dof.use_dof = False
     cam.location = pos; cam.rotation_euler = (tgt - pos).to_track_quat('-Z', 'Y').to_euler()
     sc.render.resolution_x, sc.render.resolution_y = w, h; sc.render.resolution_percentage = 100
+    bpy.context.view_layer.update()
+    return d
+def proj_report(w, h):
+    """screen-space (px, y down) bounding box of each game group under the phone camera (all tiers visible)."""
+    from bpy_extras.object_utils import world_to_camera_view
+    sc = bpy.context.scene; dg = bpy.context.evaluated_depsgraph_get(); B = {}
+    for ob in mine:
+        if ob.type != 'MESH': continue
+        g = ob.get('grp', 'Base'); e = ob.evaluated_get(dg); me = e.to_mesh()
+        vs_ = list(me.vertices)
+        for v in vs_[::max(1, len(vs_) // 400)]:
+            q = world_to_camera_view(sc, cam, e.matrix_world @ v.co); px, py = q.x * w, (1 - q.y) * h
+            b = B.setdefault(g, [1e9, 1e9, -1e9, -1e9]); b[0] = min(b[0], px); b[1] = min(b[1], py); b[2] = max(b[2], px); b[3] = max(b[3], py)
+        e.to_mesh_clear()
+    for g, b in sorted(B.items()): print('PROJ', g, 'x %.0f..%.0f  y %.0f..%.0f' % (b[0], b[2], b[1], b[3]), 'of', w, 'x', h, flush=True)
+if 'proj' in ONLY:
+    convert_curves()
+    for (w, h) in ((393, 852),):
+        d = phone_cam(w, h); print('PHONE dist', round(d, 3), 'frame_w', FRAME_W, 'cam', tuple(round(v, 2) for v in cam.location), flush=True); proj_report(w, h)
+if 'phone' in ONLY:
+    sc = bpy.context.scene
+    w, h = (1179, 2556) if not QUICK else (393, 852)
+    if A.get('pres'): w, h = [int(v) for v in A['pres'].split('x')]
+    d = phone_cam(w, h)
     sc.cycles.samples = int(A.get('ps', 64)) if not QUICK else 16
-    sc.render.filepath = os.path.join(OUT, f'phone_{w}x{h}.png'); print('PHONE dist', round(d, 3), 'frame_w', FRAME_W, 'width at target', round(2 * d * vt * asp, 3), flush=True)
+    sc.render.filepath = os.path.join(OUT, f'phone_{w}x{h}.png'); print('PHONE dist', round(d, 3), 'frame_w', FRAME_W, 'width at target', round(2 * d * math.tan(math.radians(19)) * w / h, 3), flush=True)
+    proj_report(w, h)
     bpy.ops.render.render(write_still=True)
     cam.data.sensor_fit = 'AUTO'
