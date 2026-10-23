@@ -20,7 +20,7 @@ Systems (collection 'Mine' = exported building):
     dust-off porch (air-knife arch, boot brushes, grated deck), stair + handrails everywhere
   * power: cable run on low stanchions from a distant fission reactor behind its own berm (Stage), plus 2 solar
     arrays on tall masts (SOL-1, SOL-2) and junction PWR-01
-Outputs: launch_pad_master.glb (full detail), launch_pad_game.glb (decimated, Draco, <=0.9 MB), .blend, hero, turntable.
+Outputs: launch_pad_master.glb (full detail), launch_pad_game.glb (SH_* palette, merged by material, <=30k tris, meshopt, <=0.9 MB), .blend, hero, turntable.
 """
 import sys, os, math, random
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -602,31 +602,66 @@ cam = setup_render(64 if not QUICK else 16)
 
 ONLY = A.get('only', 'hero')
 if 'glb' in ONLY: export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
-if 'game' in ONLY:   # game-ready: decimated copy of the building, Draco, no textures (procedural shading stays in the .blend)
-    import tempfile
-    bpy.ops.object.select_all(action='DESELECT')
-    for ob in coll('Mine').all_objects:
-        if ob.name.split('.')[0].startswith(('decal_', 'stencil_')) or ob.type not in ('MESH', 'CURVE', 'FONT'): continue
-        ob.select_set(True)
-    sel = list(bpy.context.selected_objects)
-    bpy.context.view_layer.objects.active = sel[0]
-    bpy.ops.object.convert(target='MESH')            # bake curves/text + modifiers into plain meshes
-    sel = [o for o in bpy.context.selected_objects if o.type == 'MESH']
-    for ob in sel:
-        if len(ob.data.polygons) > int(A.get('decmin', 80)):
-            md = ob.modifiers.new('Decimate', 'DECIMATE'); md.ratio = float(A.get('dec', 0.7))
-            bpy.context.view_layer.objects.active = ob; bpy.ops.object.modifier_apply(modifier=md.name)
-    bpy.ops.object.select_all(action='DESELECT')
-    for ob in sel: ob.select_set(True)
-    bpy.context.view_layer.objects.active = sel[0]
-    bpy.ops.object.join(); bpy.context.active_object.name = 'launch_pad_game'   # one node, one primitive per material
-    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_game.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
-                              export_animations=False, export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=True,
-                              export_draco_mesh_compression_level=10, export_draco_position_quantization=12, export_draco_normal_quantization=8,
-                              export_materials='EXPORT', export_image_format='NONE', export_texcoords=False)
-    print('GAMEGLB', flush=True)
 if 'blend' in ONLY:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f'{NAME}_master.blend'), compress=True)
+assert not ('game' in ONLY and set(ONLY) & {'hero', 'turn', 'close'}), 'game step is destructive: run it without render modes'
+if 'game' in ONLY:   # game-ready GLB per Game Coder rules: SH_* shared palette, merge by material, <=30k tris, no textures,
+    # no Draco (meshopt + quantization via gltfpack -cc afterwards, see _src/pack_game_glb.sh); ship + astronauts live in Stage -> excluded
+    import json
+    SHJ = os.path.normpath(os.path.join(HERE, '..', '..', '_shared', 'shared_materials.json'))
+    pal = json.load(open(SHJ))['materials']
+    def sh_mat(n):
+        if n in bpy.data.materials: return bpy.data.materials[n]
+        d = pal[n]; m = bpy.data.materials.new(n); m.use_nodes = True; b = m.node_tree.nodes['Principled BSDF']
+        b.inputs['Base Color'].default_value = hexc(d['base']); b.inputs['Metallic'].default_value = d['metal']; b.inputs['Roughness'].default_value = d['rough']
+        if 'emissive' in d: b.inputs['Emission Color'].default_value = hexc(d['emissive']); b.inputs['Emission Strength'].default_value = d['emissive_strength']
+        return m
+    RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowWhite'), ('amber', 'SH_GlowRed'), ('glass', 'SH_Glass'), ('lens', 'SH_Glass'),
+             ('solar', 'SH_Solar'), ('pv', 'SH_Solar'), ('rad', 'SH_Radiator'), ('foil', 'SH_Foil'), ('mli', 'SH_Foil'), ('lox', 'SH_PipeH2O'), ('ch4', 'SH_Red'),
+             ('sinter', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
+             ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
+    def remap(m):
+        n = (m.name if m else '').lower()
+        for k, v in RULES:
+            if k in n: return v
+        print('UNMAPPED', m.name if m else None); return 'SH_White'
+    keep = [o for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT') and not o.name.split('.')[0].startswith(('decal_', 'stencil_'))
+            and 'astro' not in o.name.lower()]
+    for o in list(coll('Mine').all_objects):
+        if o not in keep: bpy.data.objects.remove(o)
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in keep: o.select_set(True)
+    bpy.context.view_layer.objects.active = keep[0]
+    bpy.ops.object.convert(target='MESH')
+    sel = [o for o in bpy.context.selected_objects if o.type == 'MESH']
+    for o in sel:
+        o.data = o.data.copy()
+        for sl in o.material_slots: sl.material = sh_mat(remap(sl.material))
+    bpy.ops.object.join(); G = bpy.context.active_object; G.name = 'launch_pad_game'
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.001); bpy.ops.object.mode_set(mode='OBJECT')
+    import collections as _c
+    print('SLOTS', len(G.material_slots), _c.Counter(p.material_index for p in G.data.polygons).most_common(8), flush=True)
+    # merge duplicate SH slots (same material in several slots)
+    names = [sl.material.name for sl in G.material_slots]; uniq = sorted(set(names), key=names.index)
+    idx = [uniq.index(n) for n in names]
+    pidx = [idx[p.material_index] for p in G.data.polygons]
+    G.data.materials.clear()
+    for n in uniq: G.data.materials.append(bpy.data.materials[n])
+    for p, i in zip(G.data.polygons, pidx): p.material_index = i
+    print('MERGED', uniq, _c.Counter(p.material_index for p in G.data.polygons), flush=True)
+    tri = lambda: sum(len(p.vertices) - 2 for p in G.data.polygons)
+    T0 = tri(); TGT = int(A.get('tris', 28000))
+    for it in range(6):
+        t = tri()
+        if t <= TGT: break
+        md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.02, TGT / t * 0.97); md.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier=md.name)
+    print('GAMETRIS', T0, '->', tri(), 'MATS', len(G.data.materials), flush=True)
+    bpy.ops.object.select_all(action='DESELECT'); G.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_game_raw.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
+                              export_animations=False, export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False,
+                              export_materials='EXPORT', export_image_format='NONE', export_texcoords=False)
+    print('GAMEGLB', flush=True)
 HC = A.get('hc')
 if 'hero' in ONLY:
     w, h = (3840, 2160) if not QUICK else (960, 540)
