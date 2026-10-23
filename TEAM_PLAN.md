@@ -26,6 +26,7 @@ Approved by Game Director. This is the target the Mine A loop is built toward.
 - **Art order:** Mine concept C comes first, and Life Support continues. Art & Animation then does the starter ship's crew-quarters interior (a lit crew deck and a ramp) and the Refinery unit. Art Assistant does the Launch Pad, then the Shipyard. The opening crates and the unload animation come next. Habitat is paused.
 - **Build order:** Game Coder builds §Opening on placeholders after the bar/UI restyle build.
 - **Habitat (Jacob, 2026-10-22, via Director):** sleeping quarters return later as a purchase that grows the team. The 4 starting crew sleep on the ship. Habitat unlocks after the Launch Pad, and each crew-quarters module bought adds +2 crew capacity (the only way past 4). Life Support must keep up with the larger crew, like the old "+N miners" link. Director sets the prices when it's built. Art: buried, regolith-covered crew modules added one at a time, with a new module shown on each purchase; paused until Art Assistant gets to it.
+- **Refinery and fuel (Jacob, 2026-10-23, via Director):** the Refinery is part of the Mine station, beside the rig in the same view, not a seventh stop. The truck goes Mine conveyor → refinery intake bin → back, and the deposit bonus pays as the bed starts tipping at the bin, followed by the full 3 s truck_dump. Two lines: He-3 (sieve, ~700 °C kiln, cold traps, He-3/He-4 column, blue canisters) and fuel (crusher, ilmenite separator, H2 reduction, electrolyzer, LOX and LH2 tanks to the Tank Farm). The whole Mine station must fit in 1.2 MB, 50k triangles and 25 draws, with Cam_Target and frame_w covering both the rig and the bin. Fuel is LOX + LH2 everywhere (no methane). Shipyard REF-01 becomes FAB-01, a metals foundry.
 
 ## Size budget (Director, inside the 8 MB total)
 - Engine, UI and first screen: 1.0 MB
@@ -67,7 +68,7 @@ Approved by Game Director. This is the target the Mine A loop is built toward.
   2. **First ore:** "That's real ore. Earth's grid runs on Helium-3, so every load you send keeps the lights on down here."
   3. **First upgrade affordable:** "You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."
   4. **First cargo ready:** "Cargo's stacking up. Take it to the Space Dock and load the ship."
-  5. **At the first fuel check (placeholder until Jacob approves Eve's script):** "Your tanks are filling, but she won't lift until the oxygen and methane are topped off and the hold is full. Load her up and bring that Helium-3 home. Over."
+  5. **At the first fuel check (placeholder until Jacob approves Eve's script):** "Your tanks are filling, but she won't lift until the oxygen and hydrogen are topped off and the hold is full. Load her up and bring that Helium-3 home. Over."
   6. **First risk window:** "Heads up, there's an asteroid field on the route this week. Fly now for a bonus, or wait for clear skies. Your call."
   7. **First delivery home:** "Shipment received, Moonbase. Earth owes you one. Between us, the brass keep saying the word 'Mars.'"
 

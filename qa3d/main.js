@@ -1,4 +1,4 @@
-// Planet Stack QA3D: Mine A loop on placeholders (drill mines on its own + rover deposit bonus).
+// Planet Stack QA3D: Mine A loop on Art's Mine GLB (drill mines on its own + HT-04 truck deposit bonus).
 // Fixed camera, one-station swipes, upgrade sheet, offline catch-up, Eve placeholder, ?dev=1 readout.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -35,7 +35,7 @@ if (!(S.rt > 0)) S.rt = Date.now();
 const save = () => { try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} };
 
 const STATIONS = ['Life Support', 'Mine', 'Takeoff & Landing', 'Cargo Space Dock', 'Habitat', 'Shipyard', 'Engineering'];
-const GAP = 40, N = STATIONS.length, MINE = 1, MX = MINE * GAP;
+const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP;
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (t) => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
@@ -46,7 +46,13 @@ const binCap = () => CFG.binCap0 + CFG.binCapPerLvl * (S.drill - 1);
 const drillCost = () => Math.round(CFG.drillCost0 * CFG.drillCostGrowth ** (S.drill - 1));
 const canPay = (c) => DEV || S.money >= c;
 const pay = (c) => { if (!DEV) S.money -= c; };
-const fmt = (v) => '$' + Math.floor(v).toLocaleString('en-US');
+const SUF = [[1e15, 'Qa'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M']];
+function fmt(v) {                       // $999,999 then 3 significant digits: $8.32M, $83.2M, $832M, $8.32B, $8.32T (floored: never shows more than you have)
+  v = Math.floor(v); const a = Math.abs(v);
+  for (let i = 0; i < SUF.length; i++) { const d = SUF[i][0]; if (a < d) continue;
+    const q = v / d, dp = q >= 100 ? 0 : q >= 10 ? 1 : 2, m = 10 ** dp; return '$' + (Math.floor(q * m + 1e-7) / m).toFixed(dp) + SUF[i][1]; }
+  return '$' + v.toLocaleString('en-US');
+}
 
 // ===== renderer / scene
 const canvas = $('c');
@@ -58,7 +64,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05060b);
-const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 600);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 3000);
 
 const hemi = new THREE.HemisphereLight(0x9fb4d8, 0x2a2a30, 0.55); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff4e2, 2.6);
@@ -69,11 +75,11 @@ scene.add(sun); scene.add(sun.target);
 
 // ground (1 draw)
 {
-  const W = GAP * (N - 1) + 200, D = 160;
-  const g = new THREE.PlaneGeometry(W, D, 220, 80); g.rotateX(-Math.PI / 2);
+  const W = GAP * (N - 1) + 600, D = 1400;   // deep enough in +z for the farthest bounds-fit camera (Shipyard, k≈9)
+  const g = new THREE.PlaneGeometry(W, D, 260, 110); g.rotateX(-Math.PI / 2);
   const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
   const rnd = (a) => { const s = Math.sin(a * 127.1) * 43758.5453; return s - Math.floor(s); };
-  const craters = []; for (let i = 0; i < 70; i++) craters.push([(rnd(i + .3) - .5) * W, (rnd(i + 7.7) - .5) * D - 20, 1.5 + rnd(i + 3.1) * 6]);
+  const craters = []; for (let i = 0; i < 260; i++) craters.push([(rnd(i + .3) - .5) * W, (rnd(i + 7.7) - .5) * D - 20, 1.5 + rnd(i + 3.1) * 6]);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
     let v = 0.42 + 0.05 * Math.sin(x * .23 + z * .11) + 0.04 * Math.sin(x * .07 - z * .19) + (rnd(x * 3.1 + z * 7.3) - .5) * 0.05;
@@ -82,117 +88,131 @@ scene.add(sun); scene.add(sun.target);
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const ground = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true }));
-  ground.position.set(GAP * (N - 1) / 2, 0, 0); ground.receiveShadow = true; scene.add(ground);
+  ground.position.set(GAP * (N - 1) / 2, 0, -100); ground.receiveShadow = true; scene.add(ground);
+  const far = new THREE.Mesh(new THREE.PlaneGeometry(8000, 6000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: new THREE.Color().setRGB(.42, .42, .433) }));   // flat apron to the horizon so wide station frames never show the ground's edge (1 draw)
+  far.position.set(GAP * (N - 1) / 2, -0.06, -2400); scene.add(far);
 }
 // stars (1 draw)
 {
   const n = 900, p = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, e = .05 + Math.random() * 1.2, r = 400; p[i * 3] = GAP * 3 + Math.cos(a) * r * Math.cos(e); p[i * 3 + 1] = Math.sin(e) * r; p[i * 3 + 2] = -Math.abs(Math.sin(a)) * r * Math.cos(e) - 60; }
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, e = .05 + Math.random() * 1.2, r = 1800; p[i * 3] = GAP * 3 + Math.cos(a) * r * Math.cos(e); p[i * 3 + 1] = Math.sin(e) * r; p[i * 3 + 2] = -Math.abs(Math.sin(a)) * r * Math.cos(e) - 60; }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
   scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, sizeAttenuation: false })));
 }
 // gray placeholders for the other stations
+let _ldr = null; function loader0() { if (!_ldr) { _ldr = new GLTFLoader(); _ldr.setMeshoptDecoder(MeshoptDecoder); } return _ldr; }
 const ph = new THREE.MeshStandardMaterial({ color: 0x8a8d94, roughness: .85, metalness: .05 });
 const SIZES = [[10, 8, 8], null, [10, 1, 10], [14, 7, 9], [9, 12, 9], [12, 9, 10], [10, 10, 8]];
+const phBox = [];
 STATIONS.forEach((name, i) => {
   if (!SIZES[i]) return; const [w, h, d] = SIZES[i];
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), ph);
-  m.position.set(i * GAP, h / 2, 0); m.castShadow = m.receiveShadow = true; scene.add(m);
+  m.position.set(i * GAP, h / 2, 0); m.castShadow = m.receiveShadow = true; scene.add(m); phBox[i] = m;
 });
-
-// ===== drill rig (Art 8ec3810, md5 c64f9a72…)
-let mixer = null, rig = null, oreFill = null, oreBaseY = 1, rigBox = new THREE.Box3(new THREE.Vector3(MX - 3, 0, -3), new THREE.Vector3(MX + 3.2, 10, 3));
-const acts = {}; let curAct = null, rigLoaded = false, coverGone = false;
-const glowMats = [];
-function setClip(name) {
-  const a = acts[name]; if (!a || a === curAct) return;
-  a.reset(); a.setEffectiveWeight(1); a.play();
-  if (curAct) curAct.crossFadeTo(a, 0.3, false);
-  curAct = a;
-}
-function rigScale(l = S.drill) { return 1 + CFG.drillScalePerLvl * (Math.min(l, CFG.drillScaleStop) - 1); }
-// ===== tier parts: cheap primitives parented to the rig (so they scale + bounce with it); 2 draws per tier (body + glow)
-// all in rig-local units, inside the base footprint (|x|,|z| < 3.5) and under the Lv7 height, so they never reach the HUD,
-// the deposit strip or the rover parking spots
-const TIER_LV = [10, 20, 30, 40, 50];
-const tierBodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .55, metalness: .35 });
-const tierGlowMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
-function tint(g, hex) { const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) c.toArray(a, i * 3); g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; }
-const GREY = 0x8a929e, DARK = 0x3a3f48, HAZ = 0xf2b21b;
-const TIER_DEF = [
-  { lv: 10, at: [0.62, 9.55, 1.3], body: () => [tint(new THREE.CylinderGeometry(.2, .26, .16, 12).translate(0, .08, 0), DARK), tint(new THREE.CylinderGeometry(.05, .05, .1, 6).translate(0, .21, 0), GREY)],
-    glow: () => [tint(new THREE.SphereGeometry(.15, 12, 8).translate(0, .32, 0), 0xff5a2a)] },                                            // beacon light on the mast-top corner (kept under the mast top so the Lv7 frame holds)
-  { lv: 20, at: [-1.35, 1.06, 2.35], body: () => [tint(new THREE.CylinderGeometry(.34, .38, .3, 14).translate(0, .15, 0), HAZ), tint(new THREE.CylinderGeometry(.12, .12, 2.1, 8).translate(0, 1.35, 0), GREY),
-      tint(new THREE.CylinderGeometry(.3, .3, .35, 12).translate(0, 2.55, 0), DARK), tint(new THREE.ConeGeometry(.3, .5, 12).rotateX(Math.PI).translate(0, .05, 0), GREY)],
-    glow: () => [tint(new THREE.TorusGeometry(.32, .04, 6, 20).rotateX(Math.PI / 2).translate(0, 2.4, 0), 0x46e6ff)] },              // second drill head beside the main bit
-  { lv: 30, at: [-0.68, 7.0, 0.06], body: () => [-1, 1].flatMap(sd => { const x = sd * 1.66; return [tint(new THREE.BoxGeometry(.5, .08, .08).translate(x + sd * .2, 0, 1.3), GREY), tint(new THREE.BoxGeometry(.42, .3, .2).translate(x + sd * .45, 0, 1.42), DARK)]; }),
-    glow: () => [-1, 1].map(sd => tint(new THREE.BoxGeometry(.34, .22, .04).translate(sd * 1.66 + sd * .45, 0, 1.53), 0xfff4d0)) },   // side floodlights on the mast
-  { lv: 40, at: [-2.7, 1.06, 2.55], body: () => [tint(new THREE.CylinderGeometry(.55, .55, 1.8, 16).translate(0, .9, 0), 0xd9dde4), tint(new THREE.SphereGeometry(.55, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 1.8, 0), 0xd9dde4),
-      tint(new THREE.BoxGeometry(1.2, .14, 1.2).translate(0, .07, 0), DARK)],
-    glow: () => [tint(new THREE.CylinderGeometry(.57, .57, .14, 16, 1, true).translate(0, 1.2, 0), 0x46e6ff)] },                      // second tank
-  { lv: 50, at: [-0.68, 6.6, 0.06], body: () => [], glow: () => [tint(new THREE.TorusGeometry(2.55, .09, 8, 48).rotateX(Math.PI / 2), 0x46e6ff)] },   // cyan ring around the tower
+// ===== passed station GLBs (Art): swap in for the gray box once loaded; tiers hidden; idle loops play; doors stay shut
+const STATION_GLB = [
+  { i: 0, url: 'models/life_support_8b95c08.glb?v=eac16d1b', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },
+  { i: 5, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink', 'crane_jib_swing'] },
 ];
+const SITECAM = STATIONS.map(() => ({ k: 1, dx: 0, dz: 0, ly: CAM.lookY }));   // per-station framing; the Mine keeps k=1, dx=dz=0 until its GLB (with Cam_Target) is in
+const stationMixers = [], stationObjs = {};
+const _ct = new THREE.Vector3();
+function camTargetOf(o) { let t = null; o.traverse(n => { if (!t && n.name === 'Cam_Target' && n.userData && n.userData.frame_w > 0) t = n; }); return t; }
+function fitSite(i) {
+  const o = stationObjs[i]; if (!o || !camera.userData.dist) return;
+  const ct = o.userData.camTarget;
+  if (ct) {   // Art's station camera: aim at Cam_Target (incl. its y), frame_w metres span the screen width at its depth; 38° vFOV, 18° down; edges may crop
+    o.updateMatrixWorld(true); ct.getWorldPosition(_ct);
+    const d = (ct.userData.frame_w / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+    SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - i * GAP, dz: _ct.z, ly: _ct.y, ct: true, d };
+    return;
+  }
+  // no Cam_Target yet: fit the visible bounds whole inside the band between the HUD and the bar
+  const bx = new THREE.Box3(); o.traverse(m => { if (!m.isMesh) return; for (let q = m; q; q = q.parent) if (!q.visible) return; bx.expandByObject(m); });
+  const cx = (bx.min.x + bx.max.x) / 2, cz = (bx.min.z + bx.max.z) / 2, cy = (bx.min.y + bx.max.y) / 2;
+  const c = [], mc = camera.clone(), bd = band(), top = bd.top, bot = bd.bot;
+  for (const x of [bx.min.x, bx.max.x]) for (const y of [bx.min.y, bx.max.y]) for (const z of [bx.min.z, bx.max.z]) c.push([x, y, z]);
+  const e = THREE.MathUtils.degToRad(CAM.elev);
+  for (let k = 1; k < 24; k += .02) for (const ly of [CAM.lookY, (CAM.lookY + cy) / 2, cy]) {
+    const d = camera.userData.dist * k; mc.position.set(cx, ly + d * Math.sin(e), cz + d * Math.cos(e)); mc.lookAt(cx, ly, cz); mc.updateMatrixWorld();
+    const ps = c.map(p => toScreen(p[0], p[1], p[2], mc));
+    if (ps.every(p => p.x >= 12 && p.x <= W - 12 && p.y >= top && p.y <= bot)) { SITECAM[i] = { k, dx: cx - i * GAP, dz: cz, ly, ct: false }; return; }
+  }
+  console.warn('fitSite: no fit for', STATIONS[i]); SITECAM[i] = { k: 24, dx: cx - i * GAP, dz: cz, ly: cy, ct: false };
+}
+for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
+  const o = gltf.scene; o.position.set(G.i * GAP, 0, 0);
+  o.traverse(n => {
+    if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
+    if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false;
+  });
+  scene.add(o); o.updateMatrixWorld(true); stationObjs[G.i] = o; o.userData.camTarget = camTargetOf(o);
+  if (phBox[G.i]) { scene.remove(phBox[G.i]); phBox[G.i].geometry.dispose(); phBox[G.i] = null; }
+  const mx = new THREE.AnimationMixer(o); stationMixers.push(mx);
+  for (const c of gltf.animations) if (G.loops.includes(c.name)) mx.clipAction(c).play();
+  fitSite(G.i);
+  (window.__ps3d.stationsLoaded = window.__ps3d.stationsLoaded || []).push(STATIONS[G.i]);
+}, undefined, (e) => console.warn('station GLB failed, keeping gray box', G.url, e));
+
+// ===== Mine station GLB (Art 99c72d9, md5 0dcb9ef5…): rig + conveyor + silo + HT-04 truck (1 skinned mesh), markers, tiers, Cam_Target
+let mixer = null, mine = null, rig = null, truck = null, rigLoaded = false, coverGone = false;
+const acts = {}, MK = {};                  // MK: markers by name, Mine-local { x, y, z, e: extras }
+const glowMats = [];
+function setDigging(on) { for (const n of ['dig', 'conveyor_run']) { const a = acts[n]; if (a) a.paused = !on; } }   // rig + belt stop while the bin shows 'full'
+function rigScale() { return 1; }          // the GLB station keeps true scale; growth shows as tier parts
+// ===== tier parts: Art's Tier_NN nodes (extras tier N) shown by drill level, ease-out-back pop-in when bought
 const tiers = [];                                   // { lv, g, t } t<0: settled
 function buildTiers() {
-  for (const d of TIER_DEF) {
-    const g = new THREE.Group(); g.position.set(...d.at); g.visible = false; g.userData.tier = d.lv;
-    const b = d.body(), w = d.glow();
-    if (b.length) g.add(new THREE.Mesh(mergeGeometries(b), tierBodyMat));
-    if (w.length) g.add(new THREE.Mesh(mergeGeometries(w), tierGlowMat));
-    rig.add(g); tiers.push({ lv: d.lv, g, t: -1 });
-  }
+  mine.traverse(n => { const lv = n.userData && n.userData.tier; if (/^Tier_\d+/.test(n.name) && lv > 0) { n.visible = false; n.userData.tier = lv; tiers.push({ lv, g: n, t: -1 }); } });
+  tiers.sort((a, b) => a.lv - b.lv);
 }
 function applyTiers(popLv) {                         // restore everything owned; only a tier bought just now pops in
   for (const T of tiers) { const own = S.drill >= T.lv; T.g.visible = own;
-    if (own && T.lv === popLv) { T.t = 0; T.g.scale.setScalar(.01); } else if (T.t < 0) T.g.scale.setScalar(1); }
+    if (own && T.lv === popLv) { T.t = 0; T.g.scale.setScalar(.01); T.wait = focusTier(MINE, T.g); } else if (T.t < 0) T.g.scale.setScalar(1); }
   window.__ps3d.tiers = tiers.filter(T => T.g.visible).map(T => T.lv);
 }
 function updTiers(dt) {
-  for (const T of tiers) { if (T.t < 0) continue; T.t += dt; const u = T.t / .4;
+  for (const T of tiers) { if (T.t < 0) continue; if (T.wait > 0) { T.wait -= dt; continue; } T.t += dt; const u = T.t / .4;
     if (u >= 1) { T.t = -1; T.g.scale.setScalar(1); continue; }
     const c = 2.2; T.g.scale.setScalar(Math.max(.01, 1 + (c + 1) * (u - 1) ** 3 + c * (u - 1) ** 2)); }   // ease-out-back pop
 }
-let rigBase = null;                       // rig bounds at scale 1, relative to (MX,0,0)
-function updRigBox() {                    // footprint at the current level + margin: keeps deposits / rover paths off the rig
-  if (!rigBase) return; const k = rigScale();
-  rigBox.min.set(MX + rigBase.min.x * k - .6, 0, rigBase.min.z * k - .6); rigBox.max.set(MX + rigBase.max.x * k + .6, rigBase.max.y * k, rigBase.max.z * k + .6);
-  for (const d of [...deposits]) if (!d.claimed && d.x > rigBox.min.x - 1 && d.x < rigBox.max.x + 1 && d.z > rigBox.min.z - 1 && d.z < rigBox.max.z + 1) removeDeposit(d);
-}
 function applyRigLevel() {
-  if (!rig) return;
+  if (!mine) return;
   glowMats.forEach(m => m.emissiveIntensity = m.userData.ei0 * (1 + 0.12 * Math.min(S.drill - 1, 8)));
 }
-// the cover never fades onto empty ground: it stays until the rig is in the scene
+// the cover never fades onto empty ground: it stays until the Mine is in the scene
 let coverTimer = 0;
-function armCoverTimer() { clearTimeout(coverTimer); coverTimer = setTimeout(() => { if (!rigLoaded) { console.warn('drill_rig still loading after 15 s'); $('coverTx').textContent = 'Still loading…'; } }, 15000); }
+function armCoverTimer() { clearTimeout(coverTimer); coverTimer = setTimeout(() => { coverTimer = 0; if (!rigLoaded) { console.warn('Mine GLB still loading after 15 s'); $('coverTx').textContent = 'Still loading…'; } }, 15000); }
 armCoverTimer();
 function hideCover() {
   const c = $('cover'); if (!c || c.classList.contains('off')) return; clearTimeout(coverTimer); c.classList.add('off');
   setTimeout(() => { c.remove(); coverGone = true; }, 420);
 }
-const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-function loadRig() { loader.load('../art/3d/drill_rig/drill_rig.glb?v=c64f9a72', (gltf) => {
-  rig = gltf.scene; rig.position.set(MX, 0, 0);
-  rig.traverse(o => {
-    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true;
+const loader = loader0();
+function loadRig() { loader.load('models/mine_99c72d9.glb?v=0dcb9ef5', (gltf) => {
+  clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
+  mine = gltf.scene; mine.position.set(MX, 0, 0);
+  mine.traverse(o => {
+    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.frustumCulled = false;
       const m = o.material; if (m && m.emissive && m.emissive.getHex() && !glowMats.includes(m)) { m.userData.ei0 = m.emissiveIntensity; glowMats.push(m); } }
+    if (o.userData && o.userData.kind) MK[o.name] = { x: o.position.x, y: o.position.y, z: o.position.z, e: o.userData };
   });
-  scene.add(rig);
-  rig.updateMatrixWorld(true);
-  rigBase = new THREE.Box3().setFromObject(rig); rigBase.min.x -= MX; rigBase.max.x -= MX;
-  updRigBox(); rig.scale.setScalar(rigScale());
+  scene.add(mine); mine.updateMatrixWorld(true);
+  rig = mine.getObjectByName('Rig'); truck = mine.getObjectByName('Truck');
+  stationObjs[MINE] = mine; mine.userData.camTarget = camTargetOf(mine);
   buildTiers(); applyTiers(0);
-  oreFill = rig.getObjectByName('OreFill'); if (oreFill) oreBaseY = oreFill.scale.y;
-  mixer = new THREE.AnimationMixer(rig);
+  mixer = new THREE.AnimationMixer(mine);
   for (const c of gltf.animations) acts[c.name] = mixer.clipAction(c);
-  setClip(S.bin >= binCap() ? 'full' : 'dig');
-  applyRigLevel();
+  for (const n of ['dig', 'conveyor_run']) if (acts[n]) acts[n].play();
+  for (const n of ['truck_drive', 'truck_load', 'truck_dump', 'truck_scoop']) { const a = acts[n]; if (!a) continue; a.play(); a.paused = true; a.time = 0; a.setEffectiveWeight(0); }   // truck clips are scrubbed from the trip clock, never free-running
+  setDigging(!(S.bin >= binCap()));
+  applyRigLevel(); buildTrack(); fitSite(MINE); restoreTrips();
   rigLoaded = true;
   renderer.compile(scene, camera);
-  requestAnimationFrame(() => requestAnimationFrame(hideCover));   // fade only once the rig has been drawn
-  Object.assign(window.__ps3d, { rig, clips: gltf.animations.map(a => a.name), rigBox });
+  requestAnimationFrame(() => requestAnimationFrame(hideCover));   // fade only once the Mine has been drawn
+  Object.assign(window.__ps3d, { mine, rig, truck, MK, clips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
 }, undefined, (e) => {
-  console.error('drill_rig load failed', e); clearTimeout(coverTimer);
+  console.error('Mine GLB load failed', e); clearTimeout(coverTimer); coverTimer = 0;
   $('coverTx').textContent = "Couldn't load the Mine"; $('coverSp').hidden = true; $('coverRetry').hidden = false;
 }); }
 $('coverRetry').addEventListener('click', () => {
@@ -211,17 +231,95 @@ function camDist(aspect) {
 }
 function resize() {
   W = innerWidth; H = innerHeight; renderer.setSize(W, H, false);
-  camera.aspect = W / H; camera.userData.dist = camDist(camera.aspect); camera.updateProjectionMatrix();
+  camera.aspect = W / H; camera.userData.dist = camDist(camera.aspect); camera.updateProjectionMatrix(); if (typeof fitSite === 'function') for (const k in stationObjs) fitSite(+k);
 }
 addEventListener('resize', resize); resize();
 function poseCam(cam, x) {
-  const d = camera.userData.dist, e = THREE.MathUtils.degToRad(CAM.elev);
-  cam.position.set(x, CAM.lookY + d * Math.sin(e), d * Math.cos(e)); cam.lookAt(x, CAM.lookY, 0); cam.updateMatrixWorld();
+  const f = clamp(x / GAP, 0, N - 1), i0 = Math.floor(f), i1 = Math.min(N - 1, i0 + 1), u = f - i0, sm = u * u * (3 - 2 * u);
+  const A = SITECAM[i0], B = SITECAM[i1], k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;
+  let lx = x + dx, lyy = ly, lz = dz, kk = k;
+  if (cam === camera && FOC.w > 0) { const w = FOC.w; lx += (FOC.lx - lx) * w; lyy += (FOC.ly - lyy) * w; lz += (FOC.lz - lz) * w; kk += (FOC.k - kk) * w; }   // tier focus blend
+  poseLook(cam, lx, lyy, lz, kk);
 }
-function placeCamera() { poseCam(camera, camX); sun.position.set(camX - 30, 22, 18); sun.target.position.set(camX, 0, 0); }
+function poseLook(cam, lx, ly, lz, k) {
+  const d = camera.userData.dist * k, e = THREE.MathUtils.degToRad(CAM.elev);
+  cam.position.set(lx, ly + d * Math.sin(e), lz + d * Math.cos(e)); cam.lookAt(lx, ly, lz); cam.updateMatrixWorld();
+}
+// ===== tier focus (generic, any station; never saved): a revealed tier part whose world bounds fall outside the station frame
+// gets a camera visit: ease the look point (and distance only if the part needs it) to the node 0.6 s, hold 1.5 s while it pops
+// in, ease home 0.6 s. A 2nd off-frame tier revealed mid-visit is queued: after the current hold, ease straight to it (0.6 s),
+// hold 1.5 s, then go home once. Swipe / dot tap cancels the visit and the queue (0.2 s release; the new station's normal frame
+// takes over). Sheet open/close doesn't interrupt. If a visit outlives its expected end + 0.5 s it eases home anyway.
+const FOC = { i: -1, ph: 'idle', w: 0, seg0: 0, end: 0, from: null, to: null, cur: { lx: 0, ly: 0, lz: 0, k: 1 }, q: [], rel: null, lx: 0, ly: 0, lz: 0, k: 1 };
+const FOCT = { in: .6, hold: 1.5, out: .6, cancel: .2, safety: .6, grace: .5 };   // seconds, wall clock (not frame dt): slow frames can't stretch a visit
+const _fb = new THREE.Box3(), _fcs = [];
+for (let q = 0; q < 8; q++) _fcs.push(new THREE.Vector3());
+const fss = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+function boxInFrame(cam, b, i) {
+  const bd = band(), m = SITECAM[i].ct ? 0 : 12;     // Cam_Target stations: frame_w spans the full width; bounds-fit stations: the fit's 12 px margin
+  let q = 0; for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) _fcs[q++].set(x, y, z);
+  for (const c of _fcs) { const p = toScreen(c.x, c.y, c.z, cam, _scr); if (p.z > 1 || p.x < m || p.x > W - m || p.y < bd.top || p.y > bd.bot) return false; }
+  return true;
+}
+function focusHome(i) { const C = SITECAM[i]; return { lx: i * GAP + C.dx, ly: C.ly, lz: C.dz, k: C.k }; }
+function focusTier(i, node) {
+  if (!node || !camera.userData.dist || S.site !== i || drag) return 0;
+  const vis = node.visible, sc = node.scale.x; node.visible = true; node.scale.setScalar(1); node.updateMatrixWorld(true);
+  _fb.setFromObject(node); node.visible = vis; node.scale.setScalar(sc); node.updateMatrixWorld(true);
+  if (_fb.isEmpty()) return 0;
+  const C = SITECAM[i], hm = focusHome(i), mc = camera.clone();
+  poseLook(mc, hm.lx, hm.ly, hm.lz, hm.k);
+  const inside = boxInFrame(mc, _fb, i);
+  const info = window.__ps3d.lastFocus = { i, node: node.name, inside, box: [_fb.min.toArray().map(v => +v.toFixed(1)), _fb.max.toArray().map(v => +v.toFixed(1))] };
+  if (inside) return 0;                              // already in frame: no camera move
+  const tg = { lx: (_fb.min.x + _fb.max.x) / 2, ly: Math.max(0, (_fb.min.y + _fb.max.y) / 2), lz: (_fb.min.z + _fb.max.z) / 2, k: C.k, name: node.name };
+  while (tg.k < C.k * 3) { poseLook(mc, tg.lx, tg.ly, tg.lz, tg.k); if (boxInFrame(mc, _fb, i)) break; tg.k *= 1.04; }   // back off only if the part doesn't fit
+  Object.assign(info, { look: [+tg.lx.toFixed(1), +tg.ly.toFixed(1), +tg.lz.toFixed(1)], k: +tg.k.toFixed(3), k0: +C.k.toFixed(3) });
+  const now = performance.now(), T = FOCT; let delay;
+  if (FOC.i === i && (FOC.ph === 'in' || FOC.ph === 'move' || FOC.ph === 'hold')) {        // mid-visit: queue it
+    FOC.q.push(tg); const holdEnd = FOC.seg0 + (T.in + T.hold) * 1000;
+    delay = (holdEnd - now) / 1000 + (FOC.q.length - 1) * (T.in + T.hold) + T.in; info.queued = FOC.q.length;
+  } else {
+    if (FOC.i === i && FOC.w > 0 && !FOC.rel) {   // easing home: move on from where the camera is now, no jump
+      FOC.from = { lx: FOC.lx, ly: FOC.ly, lz: FOC.lz, k: FOC.k }; FOC.ph = 'move'; FOC.w = 1;
+    } else { FOC.from = null; FOC.ph = 'in'; FOC.w = 0; }
+    Object.assign(FOC, { i, to: tg, seg0: now, q: [], rel: null }); delay = T.in;
+  }
+  FOC.end = FOC.seg0 + (T.in + T.hold + FOC.q.length * (T.in + T.hold) + T.out) * 1000;   // expected end of the whole visit
+  info.delay = +delay.toFixed(2); return Math.max(0, delay);  // the caller delays the pop-in until the camera has arrived
+}
+function releaseFocus(by, dur) { if (FOC.i < 0 || FOC.rel) return; FOC.q.length = 0; FOC.rel = { t0: performance.now(), w0: FOC.w, dur, by }; FOC.ph = by === 'safety' ? 'safety' : 'cancel'; }
+function cancelFocus(by) { if (FOC.i < 0 || FOC.rel) return; window.__ps3d.focusCanceled = { by, ph: FOC.ph, w: +FOC.w.toFixed(3), q: FOC.q.length }; releaseFocus(by, FOCT.cancel); }
+function updFocus() {
+  if (FOC.i < 0) return;
+  if (S.site !== FOC.i) cancelFocus('site');
+  const now = performance.now(), T = FOCT;
+  if (!FOC.rel && now > FOC.end + T.grace * 1000) { window.__ps3d.focusSafety = (window.__ps3d.focusSafety || 0) + 1; releaseFocus('safety', T.safety); }
+  if (FOC.rel) { const u = (now - FOC.rel.t0) / 1000 / FOC.rel.dur; FOC.w = FOC.rel.w0 * (1 - fss(u)); if (u >= 1) { FOC.w = 0; FOC.i = -1; FOC.ph = 'idle'; FOC.rel = null; return; } }
+  else {
+    let t = (now - FOC.seg0) / 1000;
+    if (t >= T.in + T.hold && FOC.q.length) {      // hold done, next queued tier: ease straight there
+      FOC.from = { lx: FOC.to.lx, ly: FOC.to.ly, lz: FOC.to.lz, k: FOC.to.k }; FOC.to = FOC.q.shift(); FOC.seg0 += (T.in + T.hold) * 1000; FOC.ph = 'move'; t = (now - FOC.seg0) / 1000;
+    }
+    if (t < T.in) { if (FOC.from) { FOC.w = 1; FOC.ph = 'move'; } else { FOC.w = fss(t / T.in); FOC.ph = 'in'; } }
+    else if (t < T.in + T.hold) { FOC.w = 1; FOC.ph = 'hold'; }
+    else { FOC.w = 1 - fss((t - T.in - T.hold) / T.out); FOC.ph = 'out'; if (t >= T.in + T.hold + T.out) { FOC.w = 0; FOC.i = -1; FOC.ph = 'idle'; return; } }
+    // the blend target: the current stop, or a straight ease from the previous stop during a move
+    const to = FOC.to, f = FOC.from, u = f && t < T.in ? fss(t / T.in) : 1;
+    FOC.lx = f && u < 1 ? f.lx + (to.lx - f.lx) * u : to.lx; FOC.ly = f && u < 1 ? f.ly + (to.ly - f.ly) * u : to.ly;
+    FOC.lz = f && u < 1 ? f.lz + (to.lz - f.lz) * u : to.lz; FOC.k = f && u < 1 ? f.k + (to.k - f.k) * u : to.k;
+    if (t >= T.in && f) FOC.from = null;
+  }
+}
+let shK = 1;
+function placeCamera() { poseCam(camera, camX);
+  const f = clamp(camX / GAP, 0, N - 1), i0 = Math.floor(f), A = SITECAM[i0], B = SITECAM[Math.min(N - 1, i0 + 1)], u = f - i0, k = A.k + (B.k - A.k) * u, dx = A.dx + (B.dx - A.dx) * u, dz = A.dz + (B.dz - A.dz) * u;
+  if (Math.abs(k - shK) > .01) { shK = k; Object.assign(sun.shadow.camera, { left: -22 * k, right: 22 * k, top: 22 * k, bottom: -22 * k, far: 120 * k }); sun.shadow.camera.updateProjectionMatrix(); }
+  sun.position.set(camX + dx - 30 * k, 22 * k, dz + 18 * k); sun.target.position.set(camX + dx, 0, dz); }
 const _v = new THREE.Vector3();
-function toScreen(x, y, z, cam = camera) { _v.set(x, y, z).project(cam); return { x: (_v.x + 1) / 2 * W, y: (1 - _v.y) / 2 * H, z: _v.z }; }
-const mPerPx = () => (2 * camera.userData.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) / W;
+function toScreen(x, y, z, cam = camera, o = {}) { _v.set(x, y, z).project(cam); o.x = (_v.x + 1) / 2 * W; o.y = (1 - _v.y) / 2 * H; o.z = _v.z; return o; }
+const _scr = { x: 0, y: 0, z: 0 }, _pt = { x: 0, y: 0, l: '' };   // reused by per-frame overlays (no per-frame allocations)
+const mPerPx = () => (2 * camera.userData.dist * SITECAM[S.site].k * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) / W;   // finger tracks the ground 1:1 at the current station's framing
 
 // ===== UI: tag, name, dots
 $('tag').textContent = document.body.dataset.tag + (DEV ? ' · DEV' : '');
@@ -230,7 +328,7 @@ STATIONS.forEach((n, i) => { const b = document.createElement('button'); b.setAt
 function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === S.site)); }
 function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); } target = k * GAP; ui(); }
 dotsEl.addEventListener('pointerdown', (e) => {   // 44 px tap band: nearest dot wins
-  e.stopPropagation(); const r = dotsEl.getBoundingClientRect(); goSite(Math.round((e.clientX - r.left) / r.width * N - .5));
+  e.stopPropagation(); cancelFocus('dot'); const r = dotsEl.getBoundingClientRect(); goSite(Math.round((e.clientX - r.left) / r.width * N - .5));
 });
 ui();
 
@@ -238,13 +336,15 @@ ui();
 let drag = null;
 canvas.addEventListener('pointerdown', (e) => {
   if (drag) return; const t = e.timeStamp || performance.now();     // event time, so a busy frame can't distort the flick speed
-  drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: t, cx: camX, s: [[t, e.clientX]], moved: 0 };
+  if (e.isPrimary === false) return;
+  drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: t, cx: camX, base: S.site, s: [[t, e.clientX]], moved: 0 };
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
 });
 canvas.addEventListener('pointermove', (e) => {
   if (!drag || e.pointerId !== drag.id) return; const t = e.timeStamp || performance.now();
   const dx = e.clientX - drag.x0; drag.moved = Math.max(drag.moved, Math.hypot(dx, e.clientY - drag.y0));
-  const lo = Math.max((S.site - 1) * GAP, -GAP * .3), hi = Math.min((S.site + 1) * GAP, GAP * (N - 1 + .3));
+  if (drag.moved > 10 && FOC.i >= 0) cancelFocus('swipe');              // a swipe cancels a tier focus and takes over
+  const lo = Math.max((drag.base - 1) * GAP, -GAP * .3), hi = Math.min((drag.base + 1) * GAP, GAP * (N - 1 + .3));
   camX = clamp(drag.cx - dx * mPerPx(), lo, hi);
   drag.s.push([t, e.clientX]); while (drag.s.length > 2 && t - drag.s[1][0] > 250) drag.s.shift();
 });
@@ -257,15 +357,17 @@ function releaseVelocity(d, t, x) {        // average px/ms over the last 80 ms 
 function endDrag(e) {
   if (!drag || (e && e.pointerId !== drag.id)) return;
   const t = (e && e.timeStamp) || performance.now(), x = e ? e.clientX : drag.s[drag.s.length - 1][1];
-  const dx = x - drag.x0, v = releaseVelocity(drag, t, x), d = drag; drag = null;
-  let dir = 0;
+  const d = drag; drag = null; try { canvas.releasePointerCapture(d.id); } catch (_) {}
+  const cancel = !e || e.type !== 'pointerup';                    // pointercancel / lost capture: coordinates can't be trusted → spring back
+  const dx = cancel ? 0 : x - d.x0, v = cancel ? 0 : releaseVelocity(d, t, x);
+  let dir = 0;                                                     // velocity only picks the direction; the step is always exactly 1
   if (Math.abs(dx) > 0.15 * W) dir = dx < 0 ? 1 : -1;
   else if (Math.abs(v) > 0.35 && Math.abs(dx) >= 30) dir = v < 0 ? 1 : -1;   // a flick needs speed AND ≥30 px travel
-  window.__ps3d.lastSwipe = { dx, v: +v.toFixed(3), dir };
-  if (!dir && d.moved < 10 && t - d.t0 < 500 && e && e.type === 'pointerup') tap(e.clientX, e.clientY);
-  goSite(S.site + dir);
+  window.__ps3d.lastSwipe = { dx, v: +v.toFixed(3), dir, from: d.base };
+  if (!dir && d.moved < 10 && t - d.t0 < 500 && !cancel) tap(e.clientX, e.clientY);
+  goSite(d.base + dir);
 }
-canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('lostpointercapture', endDrag);
 
 // ===== HUD
 const moneyEl = $('money'), rateEl = $('rate'), cryEl = $('cry'), binEl = $('bin'), binFill = binEl.firstElementChild;
@@ -290,9 +392,13 @@ function pop(text, x, y, cls = '') {
   el.style.left = x + 'px'; el.style.top = y + 'px'; document.body.appendChild(el); setTimeout(() => el.remove(), 1150);
 }
 function moneyXY() { const r = cashTarget().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+function popXY() {                    // where '+$X' pops: under the HUD money, or under Eve's card while she talks (never on her text)
+  const m = moneyXY(); if (!eveCur) return { x: m.x, y: m.y + 30 };
+  const r = eveEl.getBoundingClientRect(); return { x: clamp(m.x, 50, W - 50), y: r.bottom + 36 };
+}
 
 // ===== ore chunks: 2 instanced meshes (He-3 cyan glow, platinum silver), fly from the hopper to the money counter
-const CH_MAX = 32;
+const CH_MAX = 32, CHK = 3;          // CHK: chunk start scale (readable at the Mine's 37 m frame), 1 at the counter
 const chGeo = new THREE.BoxGeometry(.34, .34, .34);
 const chMesh = [
   new THREE.InstancedMesh(chGeo, new THREE.MeshStandardMaterial({ color: 0x46e6ff, emissive: 0x20c8ff, emissiveIntensity: 1.6, roughness: .4 }), CH_MAX),
@@ -311,11 +417,11 @@ function flyChunks(n, from, value, cls) {
   n = Math.min(n, 12); let first = true;
   for (let i = 0; i < n; i++) {
     const kind = i % 3 === 2 ? 1 : 0; const idx = freeIdx[kind].pop(); if (idx === undefined) continue;
-    chunks.push({ kind, idx, t: -i * 0.07, dur: 0.75 + Math.random() * .15, p0: from.clone().add(new THREE.Vector3((Math.random() - .5) * .8, Math.random() * .4, (Math.random() - .5) * .6)),
-      up: 2.5 + Math.random() * 2, spin: Math.random() * 6, done: first ? () => { const m = moneyXY(); pop('+' + fmt(value), m.x, m.y + 30, cls); bumpMoney(); } : null });
+    chunks.push({ kind, idx, t: -i * 0.07, dur: 0.75 + Math.random() * .15, p0: from.clone().add(new THREE.Vector3((Math.random() - .5) * .8 * CHK, Math.random() * .4 * CHK, (Math.random() - .5) * .6 * CHK)),
+      up: 2.5 + Math.random() * 2, spin: Math.random() * 6, done: first ? () => { const m = popXY(); pop('+' + fmt(value), m.x, m.y, cls); bumpMoney(); } : null });
     first = false;
   }
-  if (!n || first) { const m = moneyXY(); pop('+' + fmt(value), m.x, m.y + 30, cls); bumpMoney(); }
+  if (!n || first) { const m = popXY(); pop('+' + fmt(value), m.x, m.y, cls); bumpMoney(); }
 }
 function updChunks(dt) {
   if (!chunks.length) return; counterWorld(_t);
@@ -323,7 +429,7 @@ function updChunks(dt) {
     const c = chunks[i]; c.t += dt; const u = clamp(c.t / c.dur, 0, 1), k = ease(u);
     if (c.t < 0) { chMesh[c.kind].setMatrixAt(c.idx, ZERO); continue; }
     _p.copy(c.p0).lerp(_t, k); _p.y += Math.sin(u * Math.PI) * c.up * (1 - u * .5);
-    _s.setScalar(1 - .55 * u); _q.setFromEuler(_e.set(c.spin * u, c.spin * .7 * u, 0));
+    _s.setScalar((1 - .55 * u) * (CHK - (CHK - 1) * u)); _q.setFromEuler(_e.set(c.spin * u, c.spin * .7 * u, 0));
     chMesh[c.kind].setMatrixAt(c.idx, _m.compose(_p, _q, _s));
     if (u >= 1) { chMesh[c.kind].setMatrixAt(c.idx, ZERO); freeIdx[c.kind].push(c.idx); const ls = toScreen(_p.x, _p.y, _p.z); window.__ps3d.lastLand = { x: Math.round(ls.x), y: Math.round(ls.y), target: cashTarget().id }; if (c.done) c.done(); chunks.splice(i, 1); }
   }
@@ -332,182 +438,246 @@ function updChunks(dt) {
 
 // ===== mine sim: drill fills the bin; when full it shows 'full', then the load auto-sells
 let fullT = 0;
-const hopperPos = () => new THREE.Vector3(MX + 1.85 * rigScale(), 4.4 * rigScale(), -.35);
+const CHUTE = [3.1, 4.35, 4.5];   // conveyor discharge chute (Path_Load extras.chute_glTF)
+const hopperPos = () => new THREE.Vector3(MX + CHUTE[0], CHUTE[1], CHUTE[2]);
 function sellLoad() {
   const n = Math.floor(S.bin + 1e-6); S.bin = Math.max(0, S.bin - n);
-  const value = n * CFG.oreValue; S.money += value; setClip('dig');
+  const value = n * CFG.oreValue; S.money += value; setDigging(true);
   window.__ps3d.loads = (window.__ps3d.loads || 0) + 1;
   if (S.site === MINE) flyChunks(Math.max(3, n * 2), hopperPos(), value); else bumpMoney();
 }
 function simMine(dt) {
   if (fullT > 0) { fullT -= dt; if (fullT <= 0) { fullT = 0; sellLoad(); } return; }
   S.bin += rate() / 60 * dt;
-  if (S.bin >= binCap()) { S.bin = binCap(); fullT = CFG.fullHold; setClip('full'); }
+  if (S.bin >= binCap()) { S.bin = binCap(); fullT = CFG.fullHold; setDigging(false); }
 }
 
-// ===== deposits: glowing cyan disc + floating gem, max 2, respawn every ~8 s, only inside the middle screen band
+// ===== deposits: glowing cyan disc + floating gem at Art's Dep_01 / Dep_02 markers (max 2), respawn every ~8 s
 const glowTex = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
   const r = g.createRadialGradient(64, 64, 4, 64, 64, 64);
   r.addColorStop(0, '#e8ffffff'); r.addColorStop(.35, '#58ecffdd'); r.addColorStop(.7, '#1fb8ff66'); r.addColorStop(1, '#1fb8ff00');
   g.fillStyle = r; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 })();
-const discGeo = new THREE.CircleGeometry(1.5, 32).rotateX(-Math.PI / 2);
-const discMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+const discGeo = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2);
+const discMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending });
+discMat.color.setScalar(1.7);           // additive glow pushed past 1.0 so it reads on the bright regolith
+const GEM = 2.2, GEMY = 2.4;          // gem scale / float height: readable at the Mine's ~116 m camera
 const gemGeo = new THREE.OctahedronGeometry(.42, 0); gemGeo.scale(1, 1.5, 1);
-const gemMat = new THREE.MeshStandardMaterial({ color: 0x5ff0ff, emissive: 0x22d0ff, emissiveIntensity: 1.8, roughness: .3, flatShading: true });
+const gemMat = new THREE.MeshStandardMaterial({ color: 0x5ff0ff, emissive: 0x22d0ff, emissiveIntensity: 2.6, roughness: .3, flatShading: true });
+const DEP_MIN_PX = 44, GEM_MIN_PX = 26, GEM_W = 0.84;   // disc ≥ 44 CSS px across (at the pulse low point), gem ≥ 26 px wide; GEM_W = gem width at scale 1 (m)
+const _dw = new THREE.Vector3();
+const DEP_NAMES = ['Dep_01', 'Dep_02'];
 const deposits = []; let depTimer = 0, depSeq = 0;
 function band() {
   const top = Math.max(hudEl.getBoundingClientRect().bottom, 120) + 24;   // station title moved to the bottom (above the dots); top of the band = under the HUD/Eve band (unchanged 144 px)
   const sheetTop = $('sheetWrap').getBoundingClientRect().top;      // open sheet top edge
   return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top) - 34, l: 34, r: W - 34 };
 }
-const homes = () => { const x = Math.min(rigBox.max.x + .4, MX + 6.3); return [new THREE.Vector3(x, 0, rigBox.max.z + .4), new THREE.Vector3(Math.min(rigBox.max.x + .5, MX + 6.3), 0, rigBox.max.z - 2.8)]; };   // right-front, by the hopper
-function spawnDeposit() {
-  if (deposits.length >= CFG.depositMax) return null;
-  const mc = camera.clone(); poseCam(mc, MX); const b = band(); const hs = homes();
-  for (let tries = 0; tries < 60; tries++) {
-    // front strip (between the rig and the sheet) or behind-left/right of the tower
-    let x, z; if (Math.random() < .75) { x = MX + (Math.random() * 2 - 1) * 6.2; z = rigBox.max.z + .6 + Math.random() * 4.5; }
-    else { x = MX + (Math.random() < .5 ? -1 : 1) * (4.2 + Math.random() * 2); z = -11 + Math.random() * 5; }
-    if (x > rigBox.min.x - 1 && x < rigBox.max.x + 1 && z > rigBox.min.z - 1 && z < rigBox.max.z + 1) continue;
-    if (hs.some(h => Math.hypot(h.x - x, h.z - z) < 2.6)) continue;
-    if (deposits.some(d => Math.hypot(d.x - x, d.z - z) < 3.5)) continue;
-    const p = toScreen(x, 0.6, z, mc), e1 = toScreen(x - 1.5, 0, z, mc), e2 = toScreen(x + 1.5, 0, z, mc);
-    if (p.x < b.l || p.x > b.r || e1.x < 8 || e2.x > W - 8 || p.y - 40 < b.top || p.y + 22 > b.bot) continue;
-    return makeDeposit(x, z);
-  }
-  return null;
+function spawnDeposit(name) {
+  if (!mine || deposits.length >= CFG.depositMax) return null;
+  const free = DEP_NAMES.filter(n => MK[n] && !deposits.some(d => d.mk === n)); if (!free.length) return null;
+  return makeDeposit(name && free.includes(name) ? name : free[Math.floor(Math.random() * free.length)]);
 }
-function makeDeposit(x, z, claimed = false) {
-  const disc = new THREE.Mesh(discGeo, discMat); disc.position.set(x, 0.04, z); disc.renderOrder = 2;
-  const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(x, 1, z); gem.castShadow = false;
+function makeDeposit(mk, claimed = false) {
+  const m = MK[mk], x = MX + m.x, z = m.z, r = Math.max(1.6, (m.e.radius_m || 1.4) * 1.15);
+  const disc = new THREE.Mesh(discGeo, discMat); disc.position.set(x, 0.06, z); disc.renderOrder = 2;
+  const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(x, GEMY, z); gem.castShadow = false;
   scene.add(disc, gem);
-  const d = { id: ++depSeq, x, z, disc, gem, age: claimed ? 1 : 0, claimed, dig: 0 }; deposits.push(d); return d;
+  const d = { id: ++depSeq, mk, spur: m.e.scoop_from || nearestSpur(m), x, z, r, rs: r, disc, gem, age: claimed ? 1 : 0, claimed, dig: 0 }; deposits.push(d); return d;
 }
-function removeDeposit(d) { scene.remove(d.disc, d.gem); deposits.splice(deposits.indexOf(d), 1); }
+function nearestSpur(m) { let b = null, bd = Infinity; for (const n in MK) if (/^Path_Spur_/.test(n)) { const q = MK[n], dd = Math.hypot(q.x - m.x, q.z - m.z); if (dd < bd) { bd = dd; b = n; } } return b; }
+function removeDeposit(d) { if (!d || !deposits.includes(d)) return; scene.remove(d.disc, d.gem); deposits.splice(deposits.indexOf(d), 1); }
 function updDeposits(dt, time) {
   depTimer += dt;
   if (deposits.length < CFG.depositMax && depTimer >= CFG.depositEvery) { depTimer = 0; spawnDeposit(); }
   if (deposits.length >= CFG.depositMax) depTimer = 0;
+  discMat.color.setScalar(1.5 + .5 * (.5 + .5 * Math.sin(time * 4)));   // shared glow brightens with the pulse
   for (const d of deposits) {
     d.age += dt; const pin = d.age < .35 ? 1 - (1 - d.age / .35) ** 3 * (1 - 1.7 * (d.age / .35)) : 1;
-    const shrink = d.claimed ? 1 - .85 * d.dig : 1, pulse = 1 + .1 * Math.sin(time * 4 + d.id);
-    d.disc.scale.setScalar(Math.max(.01, pin * pulse * shrink));
-    d.gem.scale.setScalar(Math.max(.01, pin * shrink)); d.gem.rotation.y = time * 1.6 + d.id;
-    d.gem.position.y = 1 + .18 * Math.sin(time * 2.6 + d.id);
+    const shrink = d.claimed ? 1 - .85 * d.dig : 1, ph = .5 + .5 * Math.sin(time * 4 + d.id), pulse = 1 + .25 * ph;   // 1.0 → 1.25
+    // on-screen size floor: scale with camera distance so the deposit never reads smaller than ~44 px across
+    const pxm = (H / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(1, camera.position.distanceTo(_dw.set(d.x, 0, d.z))));
+    d.rs = Math.max(d.r, DEP_MIN_PX / 2 / pxm); const gs = Math.max(GEM, GEM_MIN_PX / (GEM_W * pxm));
+    d.disc.scale.setScalar(Math.max(.01, pin * pulse * shrink * d.rs));
+    d.gem.scale.setScalar(Math.max(.01, pin * shrink * gs)); d.gem.rotation.y = time * 1.6 + d.id;
+    d.gem.position.y = GEMY + .4 * Math.sin(time * 2.6 + d.id);
   }
+}
+// on-screen tap circle for a deposit: ≥ 44 CSS px radius whatever the camera distance, else 1.1× the projected glow
+function depTapR(d) {
+  const c = toScreen(d.x, 0.6, d.z), cx = c.x, cy = c.y; let rr = 0;
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, p = toScreen(d.x + (d.rs || d.r) * Math.cos(a), 0, d.z + (d.rs || d.r) * Math.sin(a)); rr = Math.max(rr, Math.hypot(p.x - cx, p.y - cy)); }
+  return { x: cx, y: cy, R: Math.max(44, rr * 1.1), glow: rr };
 }
 
-// ===== rovers: placeholder box body + 4 cylinder wheels (2 draws each)
-const roverBodyGeo = mergeGeometries([
-  new THREE.BoxGeometry(1.5, .55, 2.3).translate(0, .78, 0),
-  new THREE.BoxGeometry(1.2, .5, .9).translate(0, 1.3, -.45),
-  new THREE.BoxGeometry(1.3, .35, .5).translate(0, .7, 1.35),
-]);
-const roverWheelGeo = mergeGeometries([[-.78, .8], [.78, .8], [-.78, -.8], [.78, -.8]].map(([x, z]) => new THREE.CylinderGeometry(.4, .4, .32, 14).rotateZ(Math.PI / 2).translate(x, .4, z)));
-const roverBodyMat = new THREE.MeshStandardMaterial({ color: 0xe6e9ef, roughness: .6, metalness: .1 });
-const roverWheelMat = new THREE.MeshStandardMaterial({ color: 0x2b2f38, roughness: .9 });
-const rovers = [];
-const ringTpl = $('ring');
-function addRover(i, popIn) {
-  const g = new THREE.Group(); const body = new THREE.Mesh(roverBodyGeo, roverBodyMat); body.castShadow = true;
-  const wheels = new THREE.Mesh(roverWheelGeo, roverWheelMat); g.add(body, wheels);
-  const h = homes()[i]; g.position.copy(h); g.rotation.y = 0; scene.add(g);
-  const ring = ringTpl.cloneNode(true); ring.id = ''; document.body.appendChild(ring);
-  const r = { i, g, body, ring, arc: ring.querySelector('circle:last-child'), phase: 'idle', t: 0, path: null, len: 0, leg: 0, dep: null, yaw: 0, pin: popIn ? 0 : 1, t0: 0 };
-  rovers.push(r); return r;
+// ===== HT-04 haul truck (Art's skinned Truck node). Everything is a pure function of the trip's wall clock, so a reload
+// or a locked phone resumes mid-trip and pays exactly once. Route (forward only, wide arcs on the loop):
+//   Path_Load → loop → Path_Spur (stop, truck_scoop, arm stowed) → loop → Path_Dump_Approach → reverse 1.5 s → Path_Dump
+//   → truck_dump 3 s (bonus pays as the bed starts tipping) → drive off east → Path_02 → reverse 1.5 s under the chute → truck_load
+const TRK = { n: 0, x: null, z: null, c: null, L: 0 };      // closed haul loop, sampled (Mine-local metres)
+const TV = { a: 18, vMin: 7, vMax: 16, vRet: 9, target: 7.0, rev: 1.5, scoop: 1.2, dump: 3.0, load: 0.8, wheelC: 2 * Math.PI * 0.85 };
+function buildTrack() {
+  const names = ['Path_Load']; for (let i = 1; i < 40; i++) { const n = 'Path_' + String(i).padStart(2, '0'); if (MK[n]) names.push(n); }
+  const curve = new THREE.CatmullRomCurve3(names.map(n => new THREE.Vector3(MK[n].x, 0, MK[n].z)), true, 'centripetal');
+  const n = 900, x = new Float32Array(n + 1), z = new Float32Array(n + 1), c = new Float32Array(n + 1), v = new THREE.Vector3();
+  for (let i = 0; i <= n; i++) { curve.getPoint(i / n, v); x[i] = v.x; z[i] = v.z; if (i) c[i] = c[i - 1] + Math.hypot(x[i] - x[i - 1], z[i] - z[i - 1]); }
+  Object.assign(TRK, { n, x, z, c, L: c[n] });
+  TRK.sLoad = 0; TRK.sApp = sAt(MK.Path_Dump_Approach); TRK.sPull = sAt(MK.Path_02);
+  window.__ps3d.track = { L: +TRK.L.toFixed(2), sApp: +TRK.sApp.toFixed(2), sPull: +TRK.sPull.toFixed(2), spur: DEP_NAMES.map(n => MK[n] && +sAt(MK[MK[n].e.scoop_from]).toFixed(2)) };
 }
-function segHitsBox(a, b, bx) {      // 2D (x,z) segment vs rect, Liang–Barsky
-  let t0 = 0, t1 = 1; const dx = b.x - a.x, dz = b.z - a.z;
-  for (const [p, q] of [[-dx, a.x - bx.min.x], [dx, bx.max.x - a.x], [-dz, a.z - bx.min.z], [dz, bx.max.z - a.z]]) {
-    if (p === 0) { if (q < 0) return false; continue; }
-    const r = q / p; if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; }
+function sAt(m) { let b = 0, bd = Infinity; for (let i = 0; i < TRK.n; i++) { const d = (TRK.x[i] - m.x) ** 2 + (TRK.z[i] - m.z) ** 2; if (d < bd) { bd = d; b = i; } } return TRK.c[b]; }
+function loopXZ(s, o) { s = ((s % TRK.L) + TRK.L) % TRK.L; let lo = 0, hi = TRK.n; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (TRK.c[m] <= s) lo = m; else hi = m; }
+  const u = (s - TRK.c[lo]) / Math.max(1e-6, TRK.c[hi] - TRK.c[lo]); o[0] = TRK.x[lo] + (TRK.x[hi] - TRK.x[lo]) * u; o[1] = TRK.z[lo] + (TRK.z[hi] - TRK.z[lo]) * u; return o; }
+// a driving path = polyline (optional straight lead-in) + the loop from s0 forward to s1; sampled once at plan time
+function mkPath(lead, s0, s1) {
+  const xs = [], zs = [], o = [0, 0]; if (lead) for (const p of lead) { xs.push(p[0]); zs.push(p[1]); }
+  let len = s1 - s0; if (len < 0) len += TRK.L; const k = Math.max(2, Math.ceil(len / 0.25));
+  for (let i = 0; i <= k; i++) { loopXZ(s0 + len * i / k, o); if (i === 0 && xs.length && Math.hypot(o[0] - xs[xs.length - 1], o[1] - zs[zs.length - 1]) < .05) continue; xs.push(o[0]); zs.push(o[1]); }
+  const n = xs.length, X = Float32Array.from(xs), Z = Float32Array.from(zs), C = new Float32Array(n);
+  for (let i = 1; i < n; i++) C[i] = C[i - 1] + Math.hypot(X[i] - X[i - 1], Z[i] - Z[i - 1]);
+  return { n, X, Z, C, L: C[n - 1] };
+}
+function pathXZ(P, s, o) { s = clamp(s, 0, P.L); let lo = 0, hi = P.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P.C[m] <= s) lo = m; else hi = m; }
+  const u = (s - P.C[lo]) / Math.max(1e-6, P.C[hi] - P.C[lo]); o[0] = P.X[lo] + (P.X[hi] - P.X[lo]) * u; o[1] = P.Z[lo] + (P.Z[hi] - P.Z[lo]) * u; return o; }
+function prof(L, v0, v, a) {                 // accelerate v0→v, cruise, brake to a stop exactly at L
+  v = Math.max(v, v0); let d0 = (v * v - v0 * v0) / (2 * a), d1 = v * v / (2 * a);
+  if (d0 + d1 > L) { v = Math.max(v0, Math.sqrt((2 * a * L + v0 * v0) / 2)); d0 = (v * v - v0 * v0) / (2 * a); d1 = v * v / (2 * a); if (d0 + d1 > L) { a = v0 * v0 / (2 * L); v = v0; d0 = 0; d1 = L; } }
+  const t0 = (v - v0) / a, t1 = v / a, tc = Math.max(0, (L - d0 - d1) / v);
+  return { L, v0, v, a, t0, tc, t1, d0, d1, T: t0 + tc + t1 };
+}
+function profAt(p, t, o) {
+  if (t < p.t0) { o[0] = p.v0 * t + .5 * p.a * t * t; o[1] = p.v0 + p.a * t; }
+  else if (t < p.t0 + p.tc) { o[0] = p.d0 + p.v * (t - p.t0); o[1] = p.v; }
+  else { const u = clamp(t - p.t0 - p.tc, 0, p.t1); o[0] = Math.min(p.L, p.L - p.d1 + p.v * u - .5 * p.a * u * u); o[1] = Math.max(0, p.v - p.a * u); }
+  return o;
+}
+const planCache = new Map();
+function buildPlan(tr, v) {
+  const D = MK.Path_Dump, A = MK.Path_Dump_Approach, Ld = MK.Path_Load, Pu = MK.Path_02, sp = MK[tr.spur], sS = sAt(sp);
+  const st = []; let t = 0; const add = (o) => { o.ts = t; t += o.T; st.push(o); return o; };
+  const f = tr.from || { k: 'load' }; let pa, v0 = 0, full = true;
+  if (f.k === 'dump') { pa = mkPath([[D.x, D.z]], TRK.sApp, sS); full = false; }
+  else if (f.k === 'ret') { full = false; v0 = f.v || 0;
+    if (f.d < 4) pa = mkPath([[D.x + f.d, D.z]], TRK.sApp, sS); else pa = mkPath(null, TRK.sApp + (f.d - 4), sS); }
+  else pa = mkPath(null, TRK.sLoad, sS);
+  const pA = prof(pa.L, v0, v, TV.a); add({ k: 'drive', P: pa, p: pA, T: pA.T, full });
+  add({ k: 'scoop', T: TV.scoop, x: sp.x, z: sp.z, yaw: THREE.MathUtils.degToRad(sp.e.yaw_deg || 0), full });
+  const scoopEnd = t;
+  const pb = mkPath(null, sS, TRK.sApp), pB = prof(pb.L, 0, v, TV.a); add({ k: 'drive', P: pb, p: pB, T: pB.T, full: true });
+  add({ k: 'rev', T: TV.rev, ax: A.x, az: A.z, bx: D.x, bz: D.z, full: true });
+  const payAt = t; add({ k: 'dump', T: TV.dump, x: D.x, z: D.z });
+  const dumpEnd = t;
+  const pc = mkPath([[D.x, D.z]], TRK.sApp, TRK.sPull), pC = prof(pc.L, 0, TV.vRet, TV.a); add({ k: 'drive', P: pc, p: pC, T: pC.T, full: false, ret: true });
+  const retEnd = t;
+  add({ k: 'rev', T: TV.rev, ax: Pu.x, az: Pu.z, bx: Ld.x, bz: Ld.z, full: false });
+  add({ k: 'load', T: TV.load, x: Ld.x, z: Ld.z });
+  return { st, v, scoopEnd, payAt, dumpEnd, retEnd, total: t };
+}
+function planOf(tr) {
+  let P = planCache.get(tr.id); if (P) return P;
+  let lo = TV.vMin, hi = TV.vMax;               // cruise speed so tap → payout lands on TV.target (5–8 s rule), clamped
+  for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (buildPlan(tr, m).payAt > TV.target) lo = m; else hi = m; }
+  P = buildPlan(tr, hi); planCache.set(tr.id, P); return P;
+}
+let truckRing = null, wheelPh = 0, tripSeq = 0;
+const _o = [0, 0], _o2 = [0, 0], _pf = [0, 0];
+function truckBusy() { let n = 0; for (const tr of S.trips) { if (!tr || !tr.v2) continue; if (tr.t0 == null) { n++; continue; } const P = planOf(tr); if ((Date.now() - tr.t0) / 1000 < P.dumpEnd) n++; } return n; }
+function sendTruck(d) {
+  if (!mine || !TRK.n) return false;
+  advanceTrips(Date.now());                                     // settle the current trip first (pays it if due) before re-routing
+  if (truckBusy() >= Math.max(1, S.rovers)) return false;     // 1 truck on the loop; a 2nd truck purchase lets a 2nd deposit queue
+  const now = Date.now(), tr = { v2: 1, id: ++tripSeq + '-' + now, dep: d.mk, spur: d.spur, bonus: CFG.roverBonus, t0: now, tapAt: now, from: { k: 'load' }, paid: false };
+  const cur = S.trips[0];
+  if (cur && cur.t0 != null) {
+    const P = planOf(cur), el = (now - cur.t0) / 1000;
+    if (el < P.dumpEnd) { tr.t0 = null; tr.after = 'dump'; }                       // after the dump already underway, straight from Path_Dump
+    else if (el < P.retEnd) {                                                    // driving back: carry on through the next marker to the spur, no stop at the load bay
+      const c = P.st.find(o => o.ret), lt = el - c.ts; profAt(c.p, lt, _pf);
+      tr.from = { k: 'ret', d: +_pf[0].toFixed(3), v: +_pf[1].toFixed(3) }; S.trips.shift(); planCache.delete(cur.id);
+    } else { tr.t0 = null; tr.after = 'end'; }                                  // backing under the chute / loading: ≤ 2.3 s, then go
   }
+  d.claimed = true; d.trip = tr.id; S.trips.push(tr); save();
+  window.__ps3d.lastSend = { at: now, dep: d.mk, after: tr.after || tr.from.k };
   return true;
 }
-function planPath(a, b) {
-  const F = rigBox.max.z + 1.4, B = rigBox.min.z - 1.4, L = rigBox.min.x - 1, R = rigBox.max.x + 1;
-  const v = (x, z) => new THREE.Vector3(x, 0, z);
-  const opts = [[a, b], [a, v(L, F), b], [a, v(L, F), v(R, F), b], [a, v(L, B), b], [a, v(L, B), v(R, B), b]];
-  let best = null, bl = Infinity;
-  for (const p of opts) {
-    let ok = true, len = 0; for (let i = 1; i < p.length; i++) { if (segHitsBox(p[i - 1], p[i], rigBox)) ok = false; len += p[i - 1].distanceTo(p[i]); }
-    if (ok && len < bl) { bl = len; best = p; }
-  }
-  return best || [a, b];
-}
-function pathAt(path, u, out) {
-  let total = 0; for (let i = 1; i < path.length; i++) total += path[i - 1].distanceTo(path[i]);
-  let d = u * total;
-  for (let i = 1; i < path.length; i++) { const s = path[i - 1].distanceTo(path[i]); if (d <= s || i === path.length - 1) return out.copy(path[i - 1]).lerp(path[i], s ? clamp(d / s, 0, 1) : 1); d -= s; }
-  return out.copy(path[path.length - 1]);
-}
-function sendRover(d) {
-  const r = rovers.find(r => r.phase === 'idle' && r.pin >= 1 && !S.trips[r.i]); if (!r) return false;
-  d.claimed = true; r.dep = d; const home = homes()[r.i];
-  const path = planPath(home, new THREE.Vector3(d.x, 0, d.z));
-  let len = 0; for (let i = 1; i < path.length; i++) len += path[i - 1].distanceTo(path[i]);
-  const leg = +clamp(1.2 + len / 8, CFG.roverLegMin, CFG.roverLegMax).toFixed(3);
-  // trip runs on wall-clock time from t0, so reload / tab-away resumes or completes it exactly once
-  S.trips[r.i] = { t0: Date.now(), out: leg, dig: CFG.roverDig, back: leg, dump: CFG.roverDump, bonus: CFG.roverBonus, path: path.map(v => [+v.x.toFixed(2), +v.z.toFixed(2)]) };
-  save(); return true;
-}
-const tripTotal = (t) => t.out + t.dig + t.back + t.dump;
-function finishTrip(r, tr) {
-  S.trips[r.i] = null;                          // cleared before paying: can never pay twice
-  S.money += tr.bonus; S.dep++; save();
-  if (r.dep) { removeDeposit(r.dep); r.dep = null; }
-  r.phase = 'idle'; r.trip = null; r.g.position.copy(homes()[r.i]); r.g.rotation.set(0, r.yaw, 0);
-  (window.__ps3d.trips = window.__ps3d.trips || []).push({ wall: Date.now() - tr.t0, bonus: tr.bonus });
-  if (S.site === MINE && !document.hidden) {
-    const sp = toScreen(r.g.position.x, 2.2, r.g.position.z);
-    pop('+' + fmt(tr.bonus) + ' bonus', sp.x, sp.y, 'bonus'); flyChunks(4, r.g.position.clone().add(new THREE.Vector3(0, 1.2, 0)), tr.bonus, 'bonus');
+function payTrip(tr, P, live) {
+  tr.paid = true; S.money += tr.bonus; S.dep++; save();     // flagged before anything else: can never pay twice
+  (window.__ps3d.trips = window.__ps3d.trips || []).push({ wall: Date.now() - (tr.tapAt || tr.t0), bonus: tr.bonus, dep: tr.dep });
+  if (live && S.site === MINE && !document.hidden) {
+    const D = MK.Path_Dump, w = new THREE.Vector3(MX + D.x - 3.3, 3.2, D.z), sp = toScreen(w.x, w.y, w.z);
+    pop('+' + fmt(tr.bonus) + ' bonus', sp.x, sp.y - 20, 'bonus'); flyChunks(4, w, tr.bonus, 'bonus');
   } else bumpMoney();
 }
-function restoreTrips() {          // on load: re-attach saved trips; a claimed deposit is re-shown only while the rover is still on its way / digging
-  for (const r of rovers) {
-    const tr = S.trips[r.i]; if (!tr) continue;
-    const el = (Date.now() - tr.t0) / 1000;
-    if (el >= 0 && el < tr.out + tr.dig) { const e = tr.path[tr.path.length - 1]; r.dep = makeDeposit(e[0], e[1], true); }
+function advanceTrips(now) {
+  for (let guard = 0; guard < 8; guard++) {
+    const tr = S.trips[0]; if (!tr) return;
+    if (tr.t0 == null) { tr.t0 = now; tr.from = { k: 'load' }; save(); }
+    let el = (now - tr.t0) / 1000; if (el < 0) { tr.t0 = now; el = 0; }      // clock moved backward: restart the trip, never skip ahead
+    const P = planOf(tr);
+    if (!tr.paid && el >= P.payAt) payTrip(tr, P, el - P.payAt < 1);
+    if (el >= P.scoopEnd && !tr.ate) { tr.ate = true; const d = deposits.find(d => d.trip === tr.id); if (d) removeDeposit(d); }
+    const nx = S.trips[1];
+    if (nx && nx.t0 == null && nx.after === 'dump' && el >= P.dumpEnd) { nx.t0 = tr.t0 + P.dumpEnd * 1000; nx.from = { k: 'dump' }; nx.tapAt = nx.tapAt || nx.t0; S.trips.shift(); planCache.delete(tr.id); save(); continue; }
+    if (el >= P.total) { S.trips.shift(); planCache.delete(tr.id); if (nx && nx.t0 == null) { nx.t0 = tr.t0 + P.total * 1000; nx.from = { k: 'load' }; } save(); continue; }
+    return;
   }
 }
-const _rp = new THREE.Vector3(), _rq = new THREE.Vector3();
-function updRovers(dt, time) {
-  const now = Date.now();
-  for (const r of rovers) {
-    if (r.pin < 1) { r.pin = Math.min(1, r.pin + dt / .4); r.g.scale.setScalar(ease(r.pin)); }
-    const tr = S.trips[r.i]; let show = false;
-    if (!tr) {
-      r.phase = 'idle';
-      const h = homes()[r.i]; r.g.position.lerp(h, Math.min(1, dt * 4));
-      let dy = 0 - r.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); r.yaw += dy * Math.min(1, dt * 5); r.g.rotation.set(0, r.yaw, 0);
-      r.ring.style.display = 'none'; continue;
-    }
-    if (r.trip !== tr) { r.trip = tr; r.path = tr.path.map(([x, z]) => new THREE.Vector3(x, 0, z)); }
-    let el = (now - tr.t0) / 1000;
-    if (el < 0) { tr.t0 = now; el = 0; }        // clock moved backward: restart the trip, never skip ahead
-    if (el >= tripTotal(tr)) { finishTrip(r, tr); r.ring.style.display = 'none'; continue; }
-    r.g.position.y = 0; r.g.rotation.x = 0;
-    if (el < tr.out || (el >= tr.out + tr.dig && el < tr.out + tr.dig + tr.back)) {
-      const outLeg = el < tr.out; r.phase = outLeg ? 'out' : 'back';
-      if (!outLeg && r.dep) { removeDeposit(r.dep); r.dep = null; }
-      const u = outLeg ? el / tr.out : (el - tr.out - tr.dig) / tr.back, k = ease(u), uu = outLeg ? k : 1 - k;
-      pathAt(r.path, uu, _rp); pathAt(r.path, clamp(uu + (outLeg ? .02 : -.02), 0, 1), _rq);
-      if (_rq.distanceToSquared(_rp) > 1e-6) { const yaw = Math.atan2(_rq.x - _rp.x, _rq.z - _rp.z); let dy = yaw - r.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); r.yaw += dy * Math.min(1, dt * 10); }
-      r.g.position.copy(_rp); r.g.rotation.set(0, r.yaw, 0);
-    } else if (el < tr.out + tr.dig) {
-      r.phase = 'dig'; const u = (el - tr.out) / tr.dig; if (r.dep) r.dep.dig = u; show = true;
-      const e = r.path[r.path.length - 1]; r.g.position.set(e.x, Math.abs(Math.sin(time * 18)) * .06, e.z); r.g.rotation.set(Math.sin(time * 22) * .03, r.yaw, 0);
-      r.arc.setAttribute('stroke-dashoffset', (113.1 * (1 - u)).toFixed(1));
-    } else {
-      r.phase = 'dump'; const u = (el - tr.out - tr.dig - tr.back) / tr.dump;
-      r.g.position.copy(r.path[0]); r.g.rotation.set(-Math.sin(u * Math.PI) * .35, r.yaw, 0);
-    }
-    if (show) { const p = toScreen(r.g.position.x, 2.6, r.g.position.z); r.ring.style.left = p.x + 'px'; r.ring.style.top = p.y + 'px'; }
-    r.ring.style.display = show ? 'block' : 'none';
+setInterval(() => { if (mine && TRK.n && S.trips.length) advanceTrips(Date.now()); }, 200);   // payouts keep wall-clock time even when frames stall (GPU-bound / throttled rAF)
+function restoreTrips() {          // on load: legacy rover trips pay once; claimed deposits re-show until their scoop is done
+  const keep = [];
+  for (const tr of S.trips) {
+    if (!tr) continue;
+    if (!tr.v2) { if (tr.bonus > 0) { S.money += tr.bonus; S.dep++; } continue; }   // pre-truck save (S.trips[i] per rover): settle it, exactly once
+    keep.push(tr);
+  }
+  S.trips = keep; save();
+  for (const tr of S.trips) {
+    if (tr.ate || !MK[tr.dep]) continue;
+    if (tr.t0 != null && (Date.now() - tr.t0) / 1000 >= planOf(tr).scoopEnd) continue;
+    const d = makeDeposit(tr.dep, true); d.trip = tr.id;
   }
 }
+function setTruckClips(load, loadT, dump, dumpT, scoopT, wheelT) {
+  const L = acts.truck_load, Dp = acts.truck_dump, Sc = acts.truck_scoop, Dr = acts.truck_drive;
+  if (L) { L.setEffectiveWeight(load ? 1 : 0); L.time = loadT; }
+  if (Dp) { Dp.setEffectiveWeight(dump ? 1 : 0); Dp.time = dumpT; }
+  if (Sc) { Sc.setEffectiveWeight(1); Sc.time = scoopT; }
+  if (Dr) { Dr.setEffectiveWeight(1); Dr.time = wheelT; }
+}
+function updTruck(dt) {
+  if (!truck || !TRK.n) return;
+  const now = Date.now(); advanceTrips(now);
+  const tr = S.trips[0], Ld = MK.Path_Load, dDur = acts.truck_dump ? acts.truck_dump.getClip().duration : 3, lDur = acts.truck_load ? acts.truck_load.getClip().duration : .8;
+  let x = Ld.x, z = Ld.z, yaw = 0, sp = 0, phase = 'idle', showRing = false, ringU = 0;
+  let loadOn = false, loadT = 0, dumpT = 0, scoopT = 0;           // default: parked under the chute with a full bed (dump clip at 0 = bed down, heap full)
+  if (tr && tr.t0 != null) {
+    const P = planOf(tr), el = (now - tr.t0) / 1000; let o = P.st[P.st.length - 1];
+    for (let i = 0; i < P.st.length; i++) if (el < P.st[i].ts + P.st[i].T) { o = P.st[i]; break; }
+    const lt = clamp(el - o.ts, 0, o.T); phase = o.k;
+    if (o.k === 'drive') {
+      profAt(o.p, lt, _pf); pathXZ(o.P, _pf[0], _o); pathXZ(o.P, _pf[0] + 0.8, _o2);
+      if (_pf[0] + 0.8 > o.P.L) { pathXZ(o.P, _pf[0] - 0.8, _o2); yaw = Math.atan2(-(_o[1] - _o2[1]), _o[0] - _o2[0]); } else yaw = Math.atan2(-(_o2[1] - _o[1]), _o2[0] - _o[0]);
+      x = _o[0]; z = _o[1]; sp = _pf[1]; dumpT = o.full ? 0 : dDur - 1e-3;
+    } else if (o.k === 'rev') {
+      const u = lt / o.T, e = u * u * (3 - 2 * u), L = Math.hypot(o.bx - o.ax, o.bz - o.az);
+      x = o.ax + (o.bx - o.ax) * e; z = o.az + (o.bz - o.az) * e; yaw = Math.atan2(-(o.az - o.bz), o.ax - o.bx); sp = -L * 6 * u * (1 - u) / o.T; dumpT = o.full ? 0 : dDur - 1e-3;
+    } else if (o.k === 'scoop') {
+      x = o.x; z = o.z; yaw = o.yaw; scoopT = Math.min(lt, acts.truck_scoop ? acts.truck_scoop.getClip().duration - 1e-3 : lt);
+      dumpT = o.full ? 0 : dDur - 1e-3; if (lt > o.T * .55) dumpT = 0;     // the scoop's lift drops ore in the bed
+      for (let i = 0; i < deposits.length; i++) if (deposits[i].trip === tr.id) deposits[i].dig = clamp(lt / o.T, 0, 1); showRing = true; ringU = lt / o.T;
+    } else if (o.k === 'dump') { x = o.x; z = o.z; yaw = 0; dumpT = Math.min(lt, dDur - 1e-3); }
+    else if (o.k === 'load') { x = o.x; z = o.z; yaw = 0; loadOn = true; loadT = Math.min(lt, lDur - 1e-3); }
+  }
+  wheelPh = (wheelPh + sp * dt / TV.wheelC) % 1; if (wheelPh < 0) wheelPh += 1;
+  truck.position.set(x, 0, z); truck.rotation.set(0, yaw, 0);
+  setTruckClips(loadOn, loadT, !loadOn, dumpT, scoopT, wheelPh);
+  if (!truckRing) { truckRing = $('ring').cloneNode(true); truckRing.id = ''; truckRing.arc = truckRing.querySelector('circle:last-child'); document.body.appendChild(truckRing); }
+  if (showRing && S.site === MINE) { const p = toScreen(MX + x, 5.5, z, camera, _scr); truckRing.style.left = p.x + 'px'; truckRing.style.top = p.y + 'px'; truckRing.arc.setAttribute('stroke-dashoffset', (113.1 * (1 - ringU)).toFixed(1)); }
+  if (showRing !== truckRing._on) { truckRing._on = showRing; truckRing.style.display = showRing ? 'block' : 'none'; }
+  truckState.phase = phase; truckState.x = x; truckState.z = z; truckState.yaw = yaw; truckState.v = sp; truckState.bed = dumpT;
+}
+const truckState = { phase: 'idle', x: 0, z: 0, yaw: 0, v: 0, bed: 0 };
 
 // ===== upgrade juice: spark burst (1 Points draw, ~0.5 s) + squash-and-bounce (~0.35 s)
 const SPK = 48, spkPos = new Float32Array(SPK * 3), spkVel = new Float32Array(SPK * 3);
@@ -515,11 +685,12 @@ const spkGeo = new THREE.BufferGeometry(); spkGeo.setAttribute('position', new T
 const spkMat = new THREE.PointsMaterial({ color: 0xffe27a, size: 0.32, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
 const sparks = new THREE.Points(spkGeo, spkMat); sparks.frustumCulled = false; sparks.visible = false; scene.add(sparks);
 let spkT = -1, sqT = -1;
+const RIGXZ = [-7.5, -3.6], FXK = 2.6;   // rig mast (Rig pivot) in Mine-local metres; sparks scaled for the 37 m frame
 function upgradeFx() {
-  const k = rigScale();
+  const k = FXK;
   for (let i = 0; i < SPK; i++) {
     const a = Math.random() * Math.PI * 2, e = Math.random() * 1.2, s = 6 + Math.random() * 7, h = (1 + Math.random() * 8) * k;
-    spkPos.set([MX + Math.cos(a) * 1.2 * k, h, Math.sin(a) * 1.2 * k], i * 3);
+    spkPos.set([MX + RIGXZ[0] + Math.cos(a) * 1.2 * k, h, RIGXZ[1] + Math.sin(a) * 1.2 * k], i * 3);
     spkVel.set([Math.cos(a) * Math.cos(e) * s, Math.sin(e) * s + 2, Math.sin(a) * Math.cos(e) * s], i * 3);
   }
   spkGeo.attributes.position.needsUpdate = true; spkT = 0; sqT = 0; sparks.visible = true;
@@ -529,28 +700,27 @@ function updFx(dt) {
   if (spkT >= 0) {
     spkT += dt; const u = spkT / 0.5;
     if (u >= 1) { spkT = -1; sparks.visible = false; }
-    else { for (let i = 0; i < SPK; i++) { spkVel[i * 3 + 1] -= 18 * dt; for (let j = 0; j < 3; j++) spkPos[i * 3 + j] += spkVel[i * 3 + j] * dt; }
-      spkGeo.attributes.position.needsUpdate = true; spkMat.opacity = 1 - u * u; spkMat.size = 0.34 * (1 - .5 * u); }
+    else { for (let i = 0; i < SPK; i++) { spkVel[i * 3 + 1] -= 18 * FXK * dt; for (let j = 0; j < 3; j++) spkPos[i * 3 + j] += spkVel[i * 3 + j] * FXK * dt; }
+      spkGeo.attributes.position.needsUpdate = true; spkMat.opacity = 1 - u * u; spkMat.size = 0.34 * FXK * (1 - .5 * u); }
   }
   let sy = 1;
   if (sqT >= 0) { sqT += dt; const u = sqT / 0.35; if (u >= 1) sqT = -1; else sy = 1 - 0.16 * Math.sin(u * Math.PI * 2) * (1 - u); }   // squash, stretch, settle
-  if (rig) { const k = rigScale(), sxz = 1 / Math.sqrt(sy); rig.scale.set(k * sxz, k * sy, k * sxz); }
+  if (rig) { const sxz = 1 / Math.sqrt(sy); rig.scale.set(sxz, sy, sxz); }      // squash-and-bounce on the bore head
   window.__ps3d.sy = sy;
 }
 
-// ===== taps on the 3D scene (deposits): screen-space hit test, radius ≥ 44 px
+// ===== taps on the 3D scene (deposits): screen-space hit test, radius ≥ 44 CSS px whatever the camera distance
 function tap(x, y) {
-  if (S.site !== MINE || Math.abs(camX - MX) > 3) return;
+  if (S.site !== MINE || Math.abs(camX - MX) > 3 || !mine) return;
   let best = null, bd = Infinity;
   for (const d of deposits) {
     if (d.claimed) continue;
-    const c = toScreen(d.x, 0.6, d.z), e = toScreen(d.x + 1.5, 0, d.z);
-    const R = Math.max(44, Math.abs(e.x - c.x) * 1.1), dist = Math.hypot(x - c.x, y - c.y);
-    if (dist < R && dist < bd) { bd = dist; best = d; }
+    const h = depTapR(d), dist = Math.hypot(x - h.x, y - h.y);
+    if (dist < h.R && dist < bd) { bd = dist; best = d; }
   }
   if (!best) return;
-  if (sendRover(best)) { if (eveCur && eveCur.point === 'deposit') pointerDone = true; }
-  else pop('Rovers busy', x, y - 20, 'info');
+  if (sendTruck(best)) { if (eveCur && eveCur.point === 'deposit') pointerDone = true; }
+  else pop('Truck busy', x, y - 20, 'info');
 }
 
 // ===== upgrade sheet (drag up/down, springs to open or closed)
@@ -585,9 +755,9 @@ function sheetUI() {
   bDrill.textContent = ok ? fmt(c) : 'Need ' + fmt(c); bDrill.className = ok ? '' : 'need'; bDrill.parentNode.classList.toggle('ok', ok);
   $('rLvl').textContent = S.rovers + '/' + CFG.roverMax; meter('rMeter', CFG.roverMax, S.rovers);
   if (S.rovers >= CFG.roverMax) { $('rGain').textContent = `Max · ${fmt(CFG.roverBonus)} per deposit`; bRover.textContent = 'Max'; bRover.className = 'max'; }
-  else { const ok2 = canPay(CFG.roverCost); $('rGain').textContent = `+1 rover · ${fmt(CFG.roverBonus)} per deposit`; bRover.textContent = ok2 ? fmt(CFG.roverCost) : 'Need ' + fmt(CFG.roverCost); bRover.className = ok2 ? '' : 'need'; }
+  else { const ok2 = canPay(CFG.roverCost); $('rGain').textContent = `+1 truck · ${fmt(CFG.roverBonus)} per deposit`; bRover.textContent = ok2 ? fmt(CFG.roverCost) : 'Need ' + fmt(CFG.roverCost); bRover.className = ok2 ? '' : 'need'; }
   bRover.parentNode.classList.toggle('ok', bRover.className === '');
-  $('sum').textContent = `Drill Lv ${S.drill} · ${S.rovers} rover${S.rovers > 1 ? 's' : ''}`;
+  $('sum').textContent = `Drill Lv ${S.drill} · ${S.rovers} truck${S.rovers > 1 ? 's' : ''}`;
   $('canDot').hidden = !(canPay(c) || (S.rovers < CFG.roverMax && canPay(CFG.roverCost)));
 }
 // buy buttons fire on pointerup (one tap = one buy even when frames lag); the trailing click is swallowed,
@@ -602,14 +772,14 @@ function bindBuy(el, fn) {
 }
 bindBuy(bDrill, () => {
   const c = drillCost(); if (!canPay(c)) return;
-  pay(c); S.drill++; applyRigLevel(); updRigBox(); applyTiers(S.drill); upgradeFx(); save(); sheetUI(); hud();
-  if (fullT > 0 && S.bin < binCap()) { fullT = 0; setClip('dig'); }
+  pay(c); S.drill++; applyRigLevel(); applyTiers(S.drill); upgradeFx(); save(); sheetUI(); hud();
+  if (fullT > 0 && S.bin < binCap()) { fullT = 0; setDigging(true); }
   const r = bDrill.getBoundingClientRect(); pop('Drill Lv ' + S.drill, r.left + r.width / 2, r.top - 8, 'info');
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 });
 bindBuy(bRover, () => {
   if (S.rovers >= CFG.roverMax || !canPay(CFG.roverCost)) return;
-  pay(CFG.roverCost); S.rovers++; addRover(S.rovers - 1, true); save(); sheetUI(); hud();
+  pay(CFG.roverCost); S.rovers++; save(); sheetUI(); hud();     // one truck on the loop (see sendTruck): the 2nd lets a 2nd deposit queue
 });
 
 // conveyor strip on the bar creeps (CSS background-position) only while the drill runs and the sheet is closed
@@ -619,7 +789,7 @@ function updConveyor() { const on = fullT === 0 && !sheetOpen && !(sheetDrag); i
 // ===== Eve placeholder radio calls
 const EVE_BEATS = [
   { id: 'mine_first_view', point: 'deposit', text: "Moonbase, this is Eve at Earth Coms. Good to hear you made it. First job: get that mine running. Tap where I'm pointing." },
-  { id: 'first_deposit', point: null, text: "Nice haul, Commander. Your rover's digs pay a bonus on top of the drill, so keep an eye out for that glow. Over." },
+  { id: 'first_deposit', point: null, text: "Nice haul, Commander. Your truck's hauls pay a bonus on top of the drill, so keep an eye out for that glow. Over." },
   { id: 'upgrade_ready', point: 'upgrade', text: "You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade." },
 ];
 const EVE_TRIG = {
@@ -642,27 +812,30 @@ function eveShow(b) {
   hudEl.classList.add('away'); lastCashTxt = ''; eveCash();
   S.eve.push(b.id); save();                    // heard as soon as it plays: never repeats, even after reload
   pointBeat = b.point; pointerDone = false;
-  if (b.point === 'deposit' && !deposits.some(d => !d.claimed)) spawnDeposit();
+  if (b.point === 'deposit' && !deposits.some(d => !d.claimed)) spawnDeposit('Dep_02');   // Art's 'tap deposit'
   window.__ps3d.eveShown = (window.__ps3d.eveShown || []).concat(b.id);
 }
-function eveClose() { eveEl.classList.remove('on'); eveCur = null; hudEl.classList.remove('away'); }   // HUD slides back in (0.25 s CSS)
-eveOv.addEventListener('click', () => {
-  if (!eveCur) return; if (eveTyped < evePage().length) { eveTyped = evePage().length; eveTx.textContent = evePage(); return; }   // first tap finishes the line
-  if (evePg < evePages.length - 1) { evePg++; eveTyped = 0; eveTx.textContent = ''; eveOv.textContent = evePg < evePages.length - 1 ? 'Next' : 'Over'; } else eveClose();
-});
-$('eveX').addEventListener('click', eveClose);
-eveEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (eveCur && !e.target.closest('button')) eveTyped = evePage().length; });
+function eveClose() { eveEl.classList.remove('on'); eveCur = null; hudEl.classList.remove('away'); lastMoneyTxt = ''; hud(); }   // HUD slides back in (0.25 s CSS)
+function eveNext() {                 // a tap while typing completes the line; after that Next turns the page; the last page closes the card
+  if (!eveCur) return; const pg = evePage();
+  if (eveTyped < pg.length) { eveTyped = pg.length; eveTx.textContent = pg; window.__ps3d.eveTap = 'complete'; return; }
+  if (evePg < evePages.length - 1) { evePg++; eveTyped = 0; eveTimer = 0; eveTx.textContent = ''; eveOv.textContent = evePg < evePages.length - 1 ? 'Next' : 'Over'; window.__ps3d.eveTap = 'next'; }
+  else { window.__ps3d.eveTap = 'close'; eveClose(); }
+}
+bindBuy(eveOv, eveNext);              // pointerup (one tap = one step even when frames lag; the trailing click is swallowed)
+bindBuy($('eveX'), eveClose);
+eveEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (eveCur && !e.target.closest('button')) { const pg = evePage(); eveTyped = pg.length; eveTx.textContent = pg; } });
 function updEve(dt) {
   if (eveCur) { const pg = evePage(); if (eveTyped < pg.length) { eveTimer += dt; while (eveTimer > .028 && eveTyped < pg.length) { eveTimer -= .028; eveTyped++; } } if (eveTx.textContent.length !== Math.min(eveTyped, pg.length)) eveTx.textContent = pg.slice(0, eveTyped); }
   if (!eveCur) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { eveShow(b); break; }
   // pointer arrow
   let p = null;
   if (pointBeat && !pointerDone) {
-    if (pointBeat === 'deposit' && S.site === MINE) { const d = deposits.find(d => !d.claimed); if (d) { const s = toScreen(d.x, 1.3, d.z); p = { x: s.x, y: s.y - 4, l: 'TAP HERE' }; } }
-    if (pointBeat === 'upgrade') { const r = grab.getBoundingClientRect(); p = { x: r.left + r.width / 2, y: r.top + 4, l: 'UPGRADE' }; }
+    if (pointBeat === 'deposit' && S.site === MINE) { const d = deposits.find(d => !d.claimed); if (d) { const s = toScreen(d.x, d.gem.position.y + .63 * d.gem.scale.y, d.z, camera, _scr); p = _pt; p.x = s.x; p.y = s.y + 16; /* arrow tip ~12 px above the gem's top */ p.l = 'TAP HERE'; } }
+    if (pointBeat === 'upgrade') { const r = grab.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 4; p.l = 'UPGRADE'; }
   }
   pointEl.style.display = p ? 'block' : 'none';
-  if (p) { pointEl.style.left = p.x + 'px'; pointEl.style.top = p.y + 'px'; pointEl.firstChild.textContent = p.l; }
+  if (p) { pointEl.style.left = p.x + 'px'; pointEl.style.top = p.y + 'px'; if (pointEl.firstChild.textContent !== p.l) pointEl.firstChild.textContent = p.l; }
 }
 
 // ===== away catch-up: 50% drill rate for time since S.rt, capped 4 h, never for negative time
@@ -683,9 +856,7 @@ document.addEventListener('visibilitychange', () => {
 });
 addEventListener('pagehide', save);
 
-// ===== starting rovers
-for (let i = 0; i < S.rovers; i++) addRover(i, false);
-restoreTrips();
+// trips are restored once the Mine GLB (track + markers) is in: see loadRig()
 
 // ===== loop + ?dev=1 readout (fps, min fps over last 5 s, draws, tris)
 const devEl = $('dev'); devEl.hidden = !DEV; if (DEV) devEl.textContent = 'measuring…';
@@ -703,12 +874,11 @@ function frame() {
     else { let left = Math.max(0, lag); while (left > 1e-4) { const st = Math.min(.1, left); simMine(st); left -= st; } S.rt = now; }   // slow frames: full-rate sim in ≤0.1 s steps
   } else { simMine(dt); S.rt = Math.min(now, S.rt + dt * 1000); } // hidden-tab trickle: only clamped dt; the rest is paid by catchUp() at 50%
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
-  placeCamera();
+  updFocus(); placeCamera();
+  updTruck(dt);                       // poses the truck + scrubs its clips, then the mixer applies them this frame
   if (mixer) mixer.update(dt);
-  if (rig) {
-    if (oreFill) oreFill.scale.y = oreBaseY * (0.06 + 0.94 * Math.min(1, S.bin / binCap()));
-  }
-  updDeposits(dt, time); updRovers(dt, time); updChunks(dt); updFx(dt); updTiers(dt);
+  for (const m of stationMixers) m.update(dt);
+  updDeposits(dt, time); updChunks(dt); updFx(dt); updTiers(dt);
   updEve(dt); eveCash(); updConveyor();
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
@@ -723,7 +893,7 @@ function frame() {
     }
   }
 }
-window.__ps3d = { renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS, get eveId() { return eveCur && eveCur.id; }, sparks, S, CFG, goSite, STATIONS, deposits, rovers, spawnDeposit, catchUp, save, toScreen, homes, drillCost, rate, binCap,
+window.__ps3d = { renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS, get eveId() { return eveCur && eveCur.id; }, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, save, toScreen, drillCost, rate, binCap, fmt, depTapR, sendTruck, planOf, truckState, SITECAM, TV, tap, focusTier, FOCT, THREE, popXY, get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
   get camX() { return camX; }, get fullT() { return fullT; }, get coverGone() { return coverGone; }, get eveOpen() { return !!eveCur; }, get evePages() { return evePages; }, get cashTarget() { return cashTarget().id; }, get evePg() { return evePg; }, get sheetOpen() { return sheetOpen; }, setSheet };
 if (hadRt) catchUp(true); else S.rt = Date.now();      // credit time away since the last save
 hud(); sheetUI();
