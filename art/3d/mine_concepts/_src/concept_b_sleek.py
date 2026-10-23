@@ -544,7 +544,8 @@ if 'turn' in ONLY:
     turntable(cam, OUT, (1.0, 0.5, 4.5), 50, 22, size=1000 if not QUICK else 400, samples=48 if not QUICK else 12)
 if 'closeup' in ONLY:   # truck beauty shot (run with --arm reach)
     w, h = (3840, 2160) if not QUICK else (960, 540)
-    shoot(cam, os.path.join(OUT, 'b_dump_truck_closeup_3840x2160.png'), tuple(T(0.5, -1.4, 1.95)), tuple(T(7.0, -11.5, 3.4)), w, h, lens=36, samples=int(A.get('hs', 64)) if not QUICK else 16)
+    cv = [float(v) for v in A['cc'].split(',')] if 'cc' in A else [0.6, -1.6, 2.3, -9.0, -14.0, 4.6, 32]   # rear-left 3/4: arm reads in profile
+    shoot(cam, os.path.join(OUT, 'b_dump_truck_closeup_3840x2160.png'), tuple(T(*cv[0:3])), tuple(T(*cv[3:6])), w, h, lens=cv[6], samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'top' in ONLY:
     shoot(cam, os.path.join(OUT, 'top.png'), (4.0, -1.0, 0.0), (4.0, -1.01, 40.0), 1000, 1000, lens=35, samples=24)
 if 'bedcrop' in ONLY:
