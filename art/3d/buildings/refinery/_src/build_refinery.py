@@ -1229,7 +1229,7 @@ if 'turn' in ONLY:
     show_mine(False)
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
     tt = [float(v) for v in A.get('tt', '-7,15.5,3').split(',')]
-    turntable(cam, os.path.join(OUT, 'turntable'), tuple(tt), float(A.get('td', 105)), 26, size=1000 if not QUICK else 400,
+    turntable(cam, os.path.join(OUT, 'turntable'), tuple(tt), float(A.get('td', 58)), 26, size=1000 if not QUICK else 400,
               samples=int(A.get('ts', 40)) if not QUICK else 12, lens=35)
 if 'hero' in ONLY:
     show_mine(True)
@@ -1280,24 +1280,26 @@ if 'diagram' in ONLY:
     show_mine(False)
     from bpy_extras.object_utils import world_to_camera_view
     sc = bpy.context.scene; W_, H_ = (3000, 2000) if not QUICK else (1200, 800)
-    cam.data.type = 'ORTHO'; cam.data.ortho_scale = float(A.get('os', 38.0)); cam.data.sensor_fit = 'AUTO'
-    cx, cy = [float(v) for v in A.get('dc', '-7,15.5').split(',')]
+    cam.data.type = 'ORTHO'; cam.data.ortho_scale = float(A.get('os', 54.0)); cam.data.sensor_fit = 'AUTO'
+    cx, cy = [float(v) for v in A.get('dc', '-7,14.0').split(',')]
     tilt = math.radians(float(A.get('tilt', 22)))
     cam.location = (cx, cy + 120 * math.sin(tilt), 120 * math.cos(tilt)); cam.rotation_euler = (tilt, 0, math.pi)
     sc.render.resolution_x, sc.render.resolution_y = W_, H_; sc.render.use_border = False
     sc.cycles.samples = int(A.get('ds', 32)) if not QUICK else 12
     bpy.context.view_layer.update()
-    H_, F_ = RH, RF
+    _MH, _MF = RH, RF
     PTS = {'truck': (-1.0, 0, 3.0), 'bin': (5.0, 0, 2.0), 'feeder': (5.1, -3.0, 1.6), 'splitter': (SPN.x, SPN.y, 1.2), 'elevator': (BEX, BEY, 6.0),
            'gallery': (2.4, -18.0, 5.4),
-           'sieve': H_((SVX, HY, 3.4)), 'kiln': H_((17.2, HY, 3.6)), 'hood': H_((CPX, HY, 3.0)), 'traps': H_((27.2, HY, 4.0)), 'column': H_((DCX, DCY, 8.0)),
-           'fill': H_((FSX, HY - 1.0, 1.5)), 'rack': H_((31.6, -9.9, 2.4)), 'tailings': H_((21.5, -12.9, 1.6)),
-           'crusher': F_((CRX, FY, 3.6)), 'magsep': F_((MSX, FY, 3.0)), 'reactor': F_((RXX, FY, 7.0)), 'condenser': F_((WCX, FY, 2.4)),
-           'electrolyzer': F_((ELX, FY, 2.0)), 'liquefier': F_((LQX, FY, 5.6)), 'lox': F_((32.4, FY, 6.0)), 'lh2': F_((36.0, FY, 7.2)),
-           'tankfarm': F_((38.3, 5.22, 1.1)), 'slag': F_((RXX, FY + 3.4, 1.0)), 'h2x': (RKX, -21.4, 5.7), 'h2recycle': F_((21.8, FY + 0.5, 9.2)),
-           'control': (CMX, CMY, 3.2), 'radiators': F_((28.0, 12.9, 6.0))}
+           'sieve': _MH((SVX, HY, 3.4)), 'kiln': _MH((17.2, HY, 3.6)), 'hood': _MH((CPX, HY, 3.0)), 'traps': _MH((27.2, HY, 4.0)), 'column': _MH((DCX, DCY, 8.0)),
+           'fill': _MH((FSX, HY - 1.0, 1.5)), 'rack': _MH((31.6, -9.9, 2.4)), 'tailings': _MH((21.5, -12.9, 1.6)),
+           'crusher': _MF((CRX, FY, 3.6)), 'magsep': _MF((MSX, FY, 3.0)), 'reactor': _MF((RXX, FY, 7.0)), 'condenser': _MF((WCX, FY, 2.4)),
+           'electrolyzer': _MF((ELX, FY, 2.0)), 'liquefier': _MF((LQX, FY, 5.6)), 'lox': _MF((32.4, FY, 6.0)), 'lh2': _MF((36.0, FY, 7.2)),
+           'tankfarm': _MF((38.3, 5.22, 1.1)), 'slag': _MF((RXX, FY + 3.4, 1.0)), 'h2x': (RKX, -21.4, 5.7), 'h2recycle': _MF((21.8, FY + 0.5, 9.2)),
+           'control': (CMX, CMY, 3.2), 'radiators': _MF((28.0, 12.9, 6.0))}
     out = {}
     for k_, p_ in PTS.items():
         v = world_to_camera_view(sc, cam, Vector(F(p_))); out[k_] = (round(v.x * W_, 1), round((1 - v.y) * H_, 1))
     json.dump({'size': [W_, H_], 'pts': out}, open(os.path.join(OUT, 'diagram_points.json'), 'w'), indent=1)
-    sc.render.filepath = os.path.join(OUT, 'diagram_plate.png'); bpy.ops.render.render(write_still=True)
+    print('DIAGPTS', json.dumps(out), flush=True)
+    if A.get('norender') != '1':
+        sc.render.filepath = os.path.join(OUT, 'diagram_plate.png'); bpy.ops.render.render(write_still=True)
