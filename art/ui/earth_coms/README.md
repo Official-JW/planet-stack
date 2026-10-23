@@ -67,9 +67,45 @@ The lines are the draft script from `TEAM_PLAN.md` § "Eve and Earth Coms", incl
 
 **The longest line is #5, which wraps to 4 lines at 1x** with about 130 pt to spare on the last line (roughly 18 more characters). A line that runs past 4 lines should be split into two taps; the prototype supports multiple lines per beat (`lines[]`).
 
+## Eve bubble, toast width and panel tabs (Director, 10/23)
+**Bubble** `.ec-bubble` (a `<button>`; replaces the separate Earth Coms button). It's a permanent 48 pt round `eve_avatar` (WebP 1x/2x/3x = 64/128/192 px) with a 2 pt cyan ring.
+- Position: `right = safe-right + 8`; `top = HUD top + (56 − 48)/2 = safe-top + 26 + 4 = safe-top + 30`. On a 393 × 852 notched phone (safe top 59), it spans x 337–385, y 89–137, with its centre at y 113, the HUD's centre.
+- Hit area: 56 pt (`::after` inset −4), so at least 44.
+- Tap: answers the call if one is waiting, otherwise opens the panel on Task.
+
+**Badge** `.ec-badge`: a child of the bubble, at its top-left (top −3, left −5), so it sits on the inward side and never clips off screen. Set the count as text plus `data-count`; it hides at 0. A copy sits on the Calls tab and clears when that tab is opened.
+
+**Incoming call**: the toast slides in as before, and the bubble gets `.is-ringing`. With `[data-tutorial]` it uses `ec-tut-pulse-b` (1.2 s, scale 1 → 1.08 plus glow). A story call gets a soft single ring (`::before`, `ec-ring`, 2 s). Tapping either the toast or the bubble answers. With reduced motion, both become a static ring.
+
+**Toast width math** (the toast stops 8 pt left of the bubble):
+- `--ec-toast-right = safe-right + 8 + 48 + 8 = safe-right + 64`
+- `width = min(300, screen − safe-left − 16 (left gap) − toast-right)`
+- 393 → 300 (x 29–329, bubble at 337). 375 → 295 (x 16–311). 320 → 240. The text ellipsizes.
+
+**Panel tabs**: `.ec-tabs` > `.ec-tab[role=tab][aria-selected]` (`data-tab` = task | updates | calls), with views in `.ec-view[data-view]` (+ `.is-on`) and `call` for the live call.
+- **Task**: `.ec-kicker`, `.ec-goal`, `.ec-prog` (label + `<b>2/3</b>`), `.ec-bar > i` (width %), and `.ec-tip`.
+- **Updates**: `ul.ec-log > li` with `.ec-ico[data-type=truck|ship-launch|ship-return|unlock]` and `<time>`. Newest first, capped at 20 rows (the game trims it), in a 202 pt scroll area `.ec-list`.
+- **Calls**: the same `.ec-log` rows with `.ec-sub` and a `.ec-replay` button (44 pt hit area).
+- Opens on Task unless a call is waiting, in which case it opens the call view with the Calls tab highlighted. It closes with ×, the chevron after the last line, a tap outside, or a swipe up (> 40 px).
+
+**Panel heights** (for `setViewOffset`; the 36 pt tab bar is now included):
+
+| View | Var | Height | Bottom on 393 × 852 |
+|---|---|---|---|
+| Call, 2 lines | `--ec-panel-h-2` | 272 | y 339 |
+| Call, 3 lines | `--ec-panel-h-3` | 292 | y 359 |
+| Call, 4 lines | `--ec-panel-h-4` | 312 | y 379 |
+| Task / Updates / Calls | `--ec-panel-h-tabs` | 268 | y 335 |
+
+The table further up lists the old heights, without tabs; these replace them.
+
+**Prototype**: `?tab=task|updates|calls`, `?missed=N`, `?tutorial=1`, `?w=375&h=667`, and `?bg=ph` for the gray placeholder (the default background is the Mine phone still).
+
+**Proofs**: `mockup_bubble_hud_{393x852,1179x2556}`, `mockup_panel_task_{393x852,1179x2556}`, `mockup_toast_bubble_{393x852,1179x2556,375x667,1125x2001}`, and `crop_panel_updates_1179x880` / `crop_panel_calls_1179x880`. The HUD money and station name are placeholders ("PH"). The 375 proof keeps the notched safe-top for comparison.
+
 ## Call rules (Director)
 - Tutorial calls: add `data-tutorial` to `.ec-toast`. No timeout; pulses until opened. Try `prototype.html?tutorial=1`.
-- Story calls: 8 s timeout, slide away, then `.ec-badge` on the Earth Coms button shows the missed count (`<span class="ec-badge" data-count="1">1</span>`).
+- Story calls: 8 s timeout, slide away, then `.ec-badge` on the Eve bubble shows the missed count (`<span class="ec-badge" data-count="1">1</span>`).
 - Heard = panel opened. The tutorial step advances on panel close.
 
 ## Colours

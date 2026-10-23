@@ -33,6 +33,16 @@
   /* proof stills: show the settled end state of the entrance animations */
   .shot .ec-panel.is-open, .shot .ec-panel.is-open .ec-row, .shot .ec-panel.is-open .ec-say, .shot .ec-panel.is-open .ec-feed img { animation: none; }
   .shot .ec-panel.is-open .ec-feed__static { animation: ec-static 400ms steps(4) infinite; }
+  .stage.mine { background: #111 url("../../3d/buildings/mine/mine_phone_1179x2556.png") center top / cover; }
+  .stage.mine .ph-ground, .stage.mine .ph-box, .stage.mine .ph-focus { display: none; }
+  /* placeholder game HUD (top: safe + 26, 56 tall) — not part of the kit */
+  .ph-hud { position: absolute; left: 8px; right: 64px; top: calc(59px + 26px); height: 56px; display: flex; align-items: center; gap: 8px; z-index: 40; }
+  .ph-hud .money, .ph-hud .name { white-space: nowrap; }
+  .ph-hud .money { padding: 0 12px; height: 40px; border-radius: 20px; display: flex; align-items: center; background: rgba(14,18,23,.85);
+    box-shadow: inset 0 0 0 1px rgba(63,224,255,.4); color: #E8F1F6; font: 700 18px/1 Rajdhani, Arial; letter-spacing: .04em; }
+  .ph-hud .money b { color: #3FE0FF; margin-right: 6px; }
+  .ph-hud .name { margin: 0 auto; padding: 0 12px; height: 32px; border-radius: 16px; display: flex; align-items: center; background: rgba(244,247,250,.92);
+    color: #1E252D; font: 700 14px/1 Rajdhani, Arial; letter-spacing: .14em; }
   .freeze *, .freeze *::before, .freeze *::after { animation-play-state: paused !important; transition: none !important; }
 </style>
 </head>
@@ -55,15 +65,23 @@
   <div class="ph-focus"><span>STATION FOCUS (Mine view y 188–572)</span></div>
   <div class="ph-sheet"><i style="top:46px"></i><i style="top:108px"></i><i style="top:170px"></i></div>
   <div class="home"></div>
+  <div class="ph-hud"><div class="money"><b>$</b>000,000 PH</div><div class="name">STATION · PH</div></div>
 
   <!-- ═════════ Earth Coms kit markup (copy from here) ═════════ -->
   <div class="ec-root" id="ec">
+    <button class="ec-bubble" id="ecBubble" aria-label="Earth Coms: Eve">
+      <picture>
+        <source type="image/webp" srcset="eve_avatar_1x.webp 1x, eve_avatar_2x.webp 2x, eve_avatar_3x.webp 3x">
+        <img src="eve_avatar_2x.webp" alt="" width="48" height="48">
+      </picture>
+      <span class="ec-badge" id="ecBadge" data-count="0"></span>
+    </button>
     <div class="ec-toast" id="ecToast" role="button" aria-label="Incoming call from Eve, Earth Coms. Tap to answer.">
       <div class="ec-toast__av">
         <span class="ec-ring"></span><span class="ec-ring"></span>
         <picture>
           <source type="image/webp" srcset="eve_avatar_1x.webp 1x, eve_avatar_2x.webp 2x, eve_avatar_3x.webp 3x">
-          <img src="eve_avatar_2x.png" srcset="eve_avatar_1x.png 1x, eve_avatar_2x.png 2x, eve_avatar_3x.png 3x" alt="Eve" width="44" height="44">
+          <img src="eve_avatar_2x.webp" alt="Eve" width="44" height="44">
         </picture>
       </div>
       <div class="ec-toast__txt">
@@ -85,12 +103,32 @@
           <svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="#1E252D" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
       </header>
-      <div class="ec-body">
+      <nav class="ec-tabs" role="tablist">
+        <button class="ec-tab" role="tab" data-tab="task" aria-selected="true">Task</button>
+        <button class="ec-tab" role="tab" data-tab="updates" aria-selected="false">Updates</button>
+        <button class="ec-tab" role="tab" data-tab="calls" aria-selected="false">Calls<span class="ec-badge" data-count="0"></span></button>
+      </nav>
+      <div class="ec-view" data-view="task"><div class="ec-list">
+        <div class="ec-kicker">CURRENT GOAL</div>
+        <div class="ec-goal">Fill the ship's tanks</div>
+        <div class="ec-prog"><span>Oxygen + hydrogen loads</span><b>2/3</b></div>
+        <div class="ec-bar"><i style="width:66.7%"></i></div>
+        <div class="ec-tip">Each refined load tops up the tanks. Upgrade Chute Feed Rate to fill the truck faster.</div>
+      </div></div>
+      <div class="ec-view" data-view="updates"><div class="ec-list"><ul class="ec-log">
+        <li><span class="ec-ico" data-type="truck"><svg viewBox="0 0 16 16"><path d="M1 11V5h8v6M9 7h3l3 3v1H9M3 13a1.4 1.4 0 1 0 0-.1M12 13a1.4 1.4 0 1 0 0-.1"/></svg></span>Truck dropped 12 t ore at the Refinery<time>2m</time></li>
+        <li><span class="ec-ico" data-type="unlock"><svg viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 7.5-2M3 7h10v7H3zM8 10v1.5"/></svg></span>Unlocked: Chute Feed Rate<time>6m</time></li>
+        <li><span class="ec-ico" data-type="ship-return"><svg viewBox="0 0 16 16"><path d="M8 1v9M4 6l4 4 4-4M2 14h12"/></svg></span>Ship returned home, +$0,000 (PH)<time>18m</time></li>
+        <li><span class="ec-ico" data-type="ship-launch"><svg viewBox="0 0 16 16"><path d="M8 15V6M4 10l4-4 4 4M2 2h12"/></svg></span>Ship launched to Earth<time>41m</time></li>
+        <li><span class="ec-ico" data-type="truck"><svg viewBox="0 0 16 16"><path d="M1 11V5h8v6M9 7h3l3 3v1H9M3 13a1.4 1.4 0 1 0 0-.1M12 13a1.4 1.4 0 1 0 0-.1"/></svg></span>Truck dropped 12 t ore at the Refinery<time>44m</time></li>
+      </ul></div></div>
+      <div class="ec-view" data-view="calls"><div class="ec-list"><ul class="ec-log" id="ecCalls"></ul></div></div>
+      <div class="ec-view" data-view="call">      <div class="ec-body">
         <div class="ec-row">
           <div class="ec-feed">
             <picture>
               <source type="image/webp" srcset="eve_feed_1x.webp 1x, eve_feed_2x.webp 2x, eve_feed_3x.webp 3x">
-              <img src="eve_feed_2x.png" srcset="eve_feed_1x.png 1x, eve_feed_2x.png 2x, eve_feed_3x.png 3x" alt="Eve on the Earth Coms video feed" width="150" height="112">
+              <img src="eve_feed_2x.webp" alt="Eve on the Earth Coms video feed" width="150" height="112">
             </picture>
             <div class="ec-feed__static"></div>
           </div>
@@ -107,6 +145,7 @@
           <span class="ec-say__txt" id="ecTxt"></span><span class="ec-caret"></span>
           <svg class="ec-chev" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="#3FE0FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
+      </div>
       </div>
     </section>
   </div>
@@ -142,16 +181,36 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
 function reset() {
   clearTimeout(toastTimer); clearTimeout(typing);
-  toast.className = "ec-toast"; panel.className = "ec-panel"; txt.textContent = ""; tx.textContent = "STANDING BY";
+  toast.className = "ec-toast"; panel.className = "ec-panel"; bubble.classList.remove("is-ringing"); txt.textContent = ""; tx.textContent = "STANDING BY";
 }
 function ring(beatIdx) {
-  reset(); lines = [BEATS[beatIdx].text]; li = 0;
-  void toast.offsetWidth; toast.classList.add("is-in");
+  reset(); lines = [BEATS[beatIdx].text]; li = 0; callWaiting = true;
+  void toast.offsetWidth; toast.classList.add("is-in"); bubble.classList.add("is-ringing");
+  if (q.get("tutorial") === "1") bubble.dataset.tutorial = ""; else delete bubble.dataset.tutorial;
   if (q.get("tutorial") === "1") { toast.dataset.tutorial = ""; return; } // tutorial call: no timeout, pulses until opened
   delete toast.dataset.tutorial;
-  toastTimer = setTimeout(() => { toast.classList.replace("is-in", "is-out"); }, M.toastTimeout); // story call: slide away, beat stays unheard, badge +1
+  toastTimer = setTimeout(() => { toast.classList.replace("is-in", "is-out"); bubble.classList.remove("is-ringing"); callWaiting = false; setMissed(missed + 1); }, M.toastTimeout); // story call: slide away, beat stays unheard, badge +1
 }
+const bubble = $("ecBubble"), badge = $("ecBadge");
+let missed = 0, callWaiting = false;
+function setMissed(n) { missed = n; badge.dataset.count = n; badge.textContent = n || "";
+  const tb = panel.querySelector('.ec-tab[data-tab="calls"] .ec-badge'); tb.dataset.count = n; tb.textContent = n || ""; }
+function showTab(t) {
+  panel.querySelectorAll(".ec-tab").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t || (t === "call" && b.dataset.tab === "calls")));
+  panel.querySelectorAll(".ec-view").forEach(v => v.classList.toggle("is-on", v.dataset.view === t));
+}
+$("ecCalls").innerHTML = BEATS.slice(0, 5).map((b, i) => `<li><span class="ec-ico"><svg viewBox="0 0 16 16"><path d="M4 3h2l1 3-1.5 1a7 7 0 0 0 3.5 3.5L10 9l3 1v2a1 1 0 0 1-1 1A10 10 0 0 1 3 4a1 1 0 0 1 1-1z"/></svg></span><span>${b.trigger}<span class="ec-sub">Eve · ${[3, 12, 25, 47, 63][i]}m ago</span></span><button class="ec-replay" data-beat="${i}">▶ REPLAY</button></li>`).join("");
+function openPanel(tab) {
+  clearTimeout(toastTimer); toast.className = "ec-toast"; bubble.classList.remove("is-ringing");
+  showTab(tab || "task"); panel.className = "ec-panel is-open"; root.dataset.open = tab || "task";
+}
+bubble.addEventListener("click", () => callWaiting ? answer() : (panel.classList.contains("is-open") ? hangUp() : openPanel("task")));
+panel.addEventListener("click", e => {
+  const tb = e.target.closest(".ec-tab"); if (tb) { e.stopPropagation(); showTab(tb.dataset.tab); if (tb.dataset.tab === "calls") setMissed(0); return; }
+  const rp = e.target.closest(".ec-replay"); if (rp) { e.stopPropagation(); lines = [BEATS[+rp.dataset.beat].text]; li = 0; callWaiting = true; answer(); }
+}, true);
 function answer() {
+  callWaiting = false; bubble.classList.remove("is-ringing"); showTab("call");
   clearTimeout(toastTimer);
   toast.classList.replace("is-in", "is-tapped");
   panel.classList.add("is-open");
@@ -180,6 +239,7 @@ function hangUp() {
 toast.addEventListener("click", answer);
 panel.addEventListener("click", e => {
   if (e.target.closest(".ec-close")) return hangUp();
+  if (!panel.querySelector('.ec-view[data-view="call"]').classList.contains("is-on")) return;
   if (panel.classList.contains("is-talking")) return done();           // tap while typing: finish the line
   if (++li < lines.length) return sayLine(lines[li]);                  // next line
   hangUp();                                                            // last line: dismiss
@@ -198,9 +258,17 @@ $("beat").onchange = () => ring(+$("beat").value);
 
 /* Proof hooks: ?shot=1&state=toast|panel&line=1..7&freeze=1 */
 if (q.get("shot")) { document.body.classList.add("shot"); $("stage").classList.add("full"); }
+if (q.get("w")) { const S = $("stage").style; S.width = q.get("w") + "px"; S.height = q.get("h") + "px"; }
+if (q.get("bg") !== "ph") $("stage").classList.add("mine");
+if (q.get("missed")) setMissed(+q.get("missed") || 1);
+if (q.get("tab")) openPanel(q.get("tab"));
+document.addEventListener("click", e => { if (panel.classList.contains("is-open") && !e.target.closest(".ec-panel, .ec-bubble, .ec-toast, .ctrl")) hangUp(); });
+let sy = null; panel.addEventListener("touchstart", e => sy = e.touches[0].clientY, { passive: true });
+panel.addEventListener("touchend", e => { if (sy !== null && sy - e.changedTouches[0].clientY > 40) hangUp(); sy = null; });
 const st = q.get("state"), bi = Math.max(0, (+q.get("line") || 1) - 1);
 if (st === "toast") { ring(bi); clearTimeout(toastTimer); }
-if (st === "panel") { lines = [BEATS[bi].text]; li = 0; toast.className = "ec-toast"; panel.classList.add("is-open"); fullText = lines[0]; done();
+if (st === "toast" && q.get("tutorial") !== "1") bubble.classList.add("is-ringing");
+if (st === "panel") { showTab("call"); lines = [BEATS[bi].text]; li = 0; toast.className = "ec-toast"; panel.classList.add("is-open"); fullText = lines[0]; done();
   if (q.get("talk")) { panel.classList.remove("is-waiting"); panel.classList.add("is-talking"); tx.textContent = "TRANSMITTING"; txt.textContent = fullText.slice(0, +q.get("talk")); } }
 if (q.get("freeze")) setTimeout(() => document.body.classList.add("freeze"), +q.get("freeze") > 1 ? +q.get("freeze") : 1200);
 if (q.get("autoplay")) setTimeout(playAll, 600);

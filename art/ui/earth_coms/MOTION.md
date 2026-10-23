@@ -39,8 +39,10 @@ Other loops: static noise drifts with `steps(4)` over 400 ms at 10 % opacity; th
 - Tap the toast = answer. Tap the panel = finish the line → next line → hang up. × in the header = skip the call (44 pt hit area).
 - **Heard = panel opened** (Director ruling). A tutorial step started by a call moves forward only when the panel **closes**.
 - **Tutorial calls** (`data-tutorial` on `.ec-toast`): never time out. The toast keeps pulsing (`ec-tut-pulse`, 1200 ms, `--ec-ease-wave` ease-in-out, infinite: scale 1 → 1.03 plus cyan glow 10 → 22 px) until the player opens it. Covering the HUD while ringing is fine.
-- **Story calls** (no flag): 8000 ms timeout, then the `.is-out` slide-away. The beat stays unheard and the Earth Coms button shows `.ec-badge` (red dot, count in text and `data-count`) until the player plays it back. Hide it at 0.
-- **View shift:** while the panel is open, Coder eases the camera down by the panel's height with `camera.setViewOffset`, 300 ms each way (`--ec-view-shift-ms`). In: `--ec-ease-out-expo`, starting with the panel expand. Out: `--ec-ease-in`, starting with the dismiss. Heights: `--ec-panel-h-2/3/4` = 236 / 256 / 276 px for 2 / 3 / 4 dialogue lines; re-ease if the line count changes on the next tap.
+- **Story calls** (no flag): 8000 ms timeout, then the `.is-out` slide-away. The beat stays unheard and the Eve bubble (`.ec-bubble`) shows `.ec-badge` at its top-left (red dot, count in text and `data-count`) until the player plays it back. Hide it at 0.
+- **Bubble while ringing** (`.ec-bubble.is-ringing`): a tutorial call uses `ec-tut-pulse-b`, 1200 ms, `--ec-ease-wave`, infinite (scale 1 → 1.08, glow 10 → 24 px). A story call gets a soft ring: `ec-ring`, 2000 ms, `--ec-ease-pulse`, infinite (scale 1 → 1.45, fading out). Ringing stops on answer or timeout. Toast or bubble tap = answer.
+- **Tabs**: switching is instant, with no animation. The panel opens with the same expand (380 ms) on Task, or on the call view if a call is waiting. Close = ×, chevron, tap outside, or swipe up > 40 px, all using the same dismiss motion.
+- **View shift:** while the panel is open, Coder eases the camera down by the panel's height with `camera.setViewOffset`, 300 ms each way (`--ec-view-shift-ms`). In: `--ec-ease-out-expo`, starting with the panel expand. Out: `--ec-ease-in`, starting with the dismiss. Heights: `--ec-panel-h-2/3/4` = 272 / 292 / 312 px for 2 / 3 / 4 dialogue lines (including the 36 pt tab bar), and `--ec-panel-h-tabs` = 268 px for Task / Updates / Calls; re-ease if the line count changes on the next tap.
 
 ## Reduced motion (`.ec-reduced` on `.ec-root`, set it when `matchMedia('(prefers-reduced-motion: reduce)')` matches)
 
@@ -55,5 +57,6 @@ Other loops: static noise drifts with `steps(4)` over 400 ms at 10 % opacity; th
 | Chevron | shown, no bob |
 | Dismiss | 150 ms fade-out, no CRT-off, no slide |
 | Live dot | solid, no pulse |
+| Bubble ring / pulse | no animation; static ring (3 px + 16 px glow) |
 | Tutorial pulse | no pulse; static cyan ring (2 px + 14 px glow) |
 | View shift | instant offset, no ease |
