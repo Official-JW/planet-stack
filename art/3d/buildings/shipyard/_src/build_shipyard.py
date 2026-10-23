@@ -44,10 +44,13 @@ GAME_NAMES = {
     'markers': {'Stand_Center': 'Stand_Center', 'Hall_Door_Front': 'Hall_Door_Front', 'Road_Entry': 'Road_Entry', 'Crate_Drop': 'Crate_Drop', 'Cam_Target': 'Cam_Target'},
     'crew_path': 'Crew_Path_%02d',
     # in-game phone camera (Game Coder spec): perspective, VERTICAL FOV 38 deg (sensor_fit VERTICAL), pitched down 18 deg, lookAt(Cam_Target),
-    # azimuth -86 deg (camera toward -Y, slightly +X). Cam_Target extras {'frame_w': W}; d = (W/2) / (tan(19 deg) * 393/852) ~= 3.148 * W.
+    # azimuth -90 deg = straight on: the game camera always sits on -Y looking +Y (glTF: looks down -Z), NO azimuth. The yard is built in its
+    # own frame and the whole scene is then turned 'rot_z' about +Z at the yard origin (see FACE THE GAME CAMERA) so the hall door and SN-07
+    # face the camera; 'target' is given in the build frame and turned with the yard. Cam_Target extras {'frame_w': W}; d = (W/2) / (tan(19 deg) * 393/852) ~= 3.148 * W.
     # Framing rule on 393x852 (x3 on 1179x2556): focus (hall door + SN-07 + crane) whole inside y 100..650; HUD above, sheet from y 674.
     # Blender Z-up coords; glTF Y-up = (x, z, -y).
-    'phone_cam': {'target': (8.5, 4.5, 16.5), 'az': -100.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 55.0},   # W 55: SN-07 + whole IS-1 stand pad in x 181-386, y 359-561 of 852; hall door's left half crops
+    'rot_z': 10.0,   # deg, whole yard about +Z at the origin: the old az -100 view becomes the straight-on az -90 view
+    'phone_cam': {'target': (8.5, 4.5, 16.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 55.0},   # W 55: SN-07 + whole IS-1 stand pad in x 181-386, y 359-561 of 852; hall door's left half crops
 }
 
 # ====================================================================== materials
@@ -269,7 +272,7 @@ def hill_disp(x, y, z):
     return w * d
 _g = bpy.data.objects['Ground']
 for v in _g.data.vertices: v.co.z += hill_disp(v.co.x, v.co.y, v.co.z)
-_g.data.update()   # ground material = the SHARED M_ground() that mc_common.build_stage() already assigned (mc_common @269e70f, no local variant)
+_g.data.update()   # ground material = the SHARED M_ground() that mc_common.build_stage() already assigned (mc_common @cb5bf5a, no local variant)
 assert _g.data.materials[0].name.startswith('M_Regolith'), 'Ground must use mc_common.M_ground'
 for ob in coll('Stage').objects:
     if ob.name.startswith('slope_boulder'):
@@ -874,6 +877,11 @@ pp = Vector((SHX, SHY, 0)) + (Vector((TX, TY, 0)) - Vector((SHX, SHY, 0))).norma
 astronaut((pp.x, pp.y, TOP + 21.3), rot_z=rot_u)                     # on the 21 m work platform
 astronaut((RFX - 6.0 + 2.6, RFY + 6.0 - 1.2, YTOP + 12.15), rot_z=0.2)   # column deck
 astronaut((RFX - 10.0, RFY - 4.0, YTOP), rot_z=0.6)
+# ====================================================================== FACE THE GAME CAMERA: turn the whole scene (yard, tiers, stage, lights) rot_z about +Z
+ROT = math.radians(GAME_NAMES['rot_z']); RZM = Matrix.Rotation(ROT, 4, 'Z')
+def RZ(p): return tuple(RZM @ Vector(tuple(p)))      # build-frame point -> final (rotated) frame
+for ob in [o for o in bpy.data.objects if o.parent is None and o.type != 'CAMERA']: ob.matrix_basis = RZM @ ob.matrix_basis   # basis = own loc/rot/scale (matrix_world may be stale)
+bpy.context.view_layer.update()
 cam = setup_render(64 if not QUICK else 16)
 
 ONLY = A.get('only', 'hero').split(',')
@@ -881,7 +889,7 @@ SHOW_TIERS = A.get('tiers') == '1'          # --tiers 1: preview every upgrade t
 for o in coll(TC).all_objects: o.hide_render = not SHOW_TIERS; o.hide_set(not SHOW_TIERS)
 if SHOW_TIERS:   # tier preview: clear stage rocks off the Tier_20 pad (stage is never in the game GLB; hero / turntable unchanged)
     for ob in [o for o in coll('Stage').objects if o.name.split('.')[0] in ('boulder', 'pebble', 'slope_boulder')]:
-        if math.hypot(ob.matrix_world.translation.x - MSX, ob.matrix_world.translation.y - MSY) < 16.0: bpy.data.objects.remove(ob, do_unlink=True)
+        if math.hypot(ob.matrix_world.translation.x - RZ((MSX, MSY, 0))[0], ob.matrix_world.translation.y - RZ((MSX, MSY, 0))[1]) < 16.0: bpy.data.objects.remove(ob, do_unlink=True)
 if 'glb' in ONLY: export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
 if 'blend' in ONLY:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f'{NAME}_master.blend'), compress=True)
@@ -971,15 +979,16 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
     MV = GAME_NAMES['moving']
     # Crane_Jib: pivot = slewing ring on the tower axis; rest = swung +90 deg out over the yard (pick-up), clip swings it in over the stack
     SWING = math.radians(90)
-    G = nodes['Crane_Jib']; set_origin(G, (TX, TY, JZ))
+    G = nodes['Crane_Jib']; set_origin(G, RZ((TX, TY, JZ)))   # mesh stays in the turned frame -> clip values unchanged
     G.animation_data_create(); act = bpy.data.actions.new(MV['Crane_Jib'][1]); G.animation_data.action = act
     G.rotation_euler = (0, 0, SWING); G.keyframe_insert('rotation_euler', index=2, frame=0)
     G.rotation_euler = (0, 0, 0.0); G.keyframe_insert('rotation_euler', index=2, frame=F1)
     ease(act); G.rotation_euler = (0, 0, SWING); push(G, act)
     # Hall_Door: pivot empty on the door track centre (floor level); leaves slide closed (rest) -> open
-    D = bpy.data.objects.new(MV['Hall_Door'][0], None); D.empty_display_size = 1.0; D.location = (HX, FRY - 0.45, YTOP); coll('Mine').objects.link(D)
+    D = bpy.data.objects.new(MV['Hall_Door'][0], None); D.empty_display_size = 1.0; D.location = RZ((HX, FRY - 0.45, YTOP)); D.rotation_euler = (0, 0, ROT); coll('Mine').objects.link(D)   # track axis turned with the yard
     for g, sx in (('Hall_Door_L', -1), ('Hall_Door_R', 1)):
-        G = nodes[g]; set_origin(G, (HX + sx * LEAF_OPEN, FRY - 0.45, YTOP))
+        G = nodes[g]; h = Vector(RZ((HX + sx * LEAF_OPEN, FRY - 0.45, YTOP)))
+        G.data.transform(RZM.inverted() @ Matrix.Translation(-h)); G.location = h   # leaf mesh in the (turned) pivot's local frame; slides on local x
         G.parent = D; G.location = Vector((sx * LEAF_CLOSED, 0, 0))
         G.animation_data_create(); act = bpy.data.actions.new(MV['Hall_Door'][1] + '|' + g); G.animation_data.action = act
         G.location = Vector((sx * LEAF_CLOSED, 0, 0)); G.keyframe_insert('location', index=0, frame=0)
@@ -987,7 +996,7 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
         ease(act); G.location = Vector((sx * LEAF_CLOSED, 0, 0)); push(G, act)
     # Beacon_Lights: node SCALE blink about the cluster centre (core glTF TRS -> survives gltfpack and every runtime; emissive anim would need
     # KHR_animation_pointer). Looping 1.0 s clip, STEP: on 0-0.5 s, off (scale 0.001) 0.5-1.0 s
-    G = nodes['Beacon_Lights']; set_origin(G, BEACON_C)
+    G = nodes['Beacon_Lights']; set_origin(G, RZ(BEACON_C))
     G.animation_data_create(); act = bpy.data.actions.new(MV['Beacon_Lights'][1]); G.animation_data.action = act
     for f, sv in ((0, 1.0), (12, 1.0), (13, 0.001), (24, 0.001), (25, 1.0)):
         G.scale = (sv, sv, sv); G.keyframe_insert('scale', frame=f)
@@ -999,7 +1008,7 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
         if g in GAME_NAMES['tiers']: G['tier'] = GAME_NAMES['tiers'][g][1]; G['hidden_by_default'] = True
     sc.frame_set(0)
     def mark(n, p):
-        e = bpy.data.objects.new(n, None); e.empty_display_size = 0.5; e.location = tuple(p); coll('Mine').objects.link(e); return e
+        e = bpy.data.objects.new(n, None); e.empty_display_size = 0.5; e.location = RZ(p); coll('Mine').objects.link(e); return e   # markers / Crew_Path given in the build frame
     MN = GAME_NAMES['markers']
     stf = Vector((s1.x, s1.y - 0.8, YTOP + 0.05)); hdf = Vector((HX, FRY - 4.0, YTOP + 0.05))
     mk = [mark(MN['Stand_Center'], (SHX, SHY, TOP)), mark(MN['Hall_Door_Front'], hdf), mark(MN['Road_Entry'], (-47.5, -9.5, YTOP + 0.05)),
@@ -1018,14 +1027,14 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
 HC = A.get('hc')
 if 'hero' in ONLY:
     w, h = (3840, 2160) if not QUICK else (960, 540)
-    tgt = (6.0, -2.0, 13.0); pos = (14.0, -122.0, 30.0)
+    tgt = RZ((6.0, -2.0, 13.0)); pos = RZ((14.0, -122.0, 30.0))
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
     shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 26)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 master (393x852 downscale made with PIL)
     PC = GAME_NAMES['phone_cam']   # same camera as the game: aimed at Cam_Target, 38 deg vertical FOV, distance from frame_w
     half = math.radians(PC['fov_y'] / 2); pw, ph = (1179, 2556) if not QUICK else (393, 852)
     dd = (PC['frame_w'] / 2) / (math.tan(half) * pw / ph)
-    pt = Vector(PC['target']); az = math.radians(PC['az']); el = math.radians(PC['pitch'])
+    pt = Vector(RZ(PC['target'])); az = math.radians(PC['az']); el = math.radians(PC['pitch'])
     pp = pt + Vector((math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))) * dd
     print('PHONECAM target', tuple(round(v, 3) for v in pt), 'cam', tuple(round(v, 3) for v in pp), 'd', round(dd, 3), flush=True)
     cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 36.0
@@ -1033,4 +1042,4 @@ if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 mast
     cam.data.sensor_fit = 'AUTO'
 if 'turn' in ONLY:
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
-    turntable(cam, os.path.join(OUT, 'turntable'), (6.0, -2.0, 12.0), 175, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)
+    turntable(cam, os.path.join(OUT, 'turntable'), RZ((6.0, -2.0, 12.0)), 175, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)
