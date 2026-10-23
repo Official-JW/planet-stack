@@ -47,7 +47,7 @@ GAME_NAMES = {
     # azimuth -86 deg (camera toward -Y, slightly +X). Cam_Target extras {'frame_w': W}; d = (W/2) / (tan(19 deg) * 393/852) ~= 3.148 * W.
     # Framing rule on 393x852 (x3 on 1179x2556): focus (hall door + SN-07 + crane) whole inside y 100..650; HUD above, sheet from y 674.
     # Blender Z-up coords; glTF Y-up = (x, z, -y).
-    'phone_cam': {'target': (-4.04, -0.06, 18.0), 'az': -100.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 55.0},   # W 55: hall door + SN-07 + launch mount in y 357-561 of 852
+    'phone_cam': {'target': (8.5, 4.5, 16.5), 'az': -100.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 55.0},   # W 55: SN-07 + whole IS-1 stand pad in x 181-386, y 359-561 of 852; hall door's left half crops
 }
 
 # ====================================================================== materials
