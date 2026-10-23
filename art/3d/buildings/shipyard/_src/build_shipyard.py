@@ -1,18 +1,20 @@
 """Planet Stack - SHIPYARD (SY-01), high-detail concept master (Blender 4.2 LTS, headless, Cycles).
 
 blender -b -P build_shipyard.py -- --out .. [--quick 1] [--only glb,blend,game,hero,turn] [--tris 18000] [--hs 64] [--ts 48]
-       [--hc x,y,z,tx,ty,tz] [--lens 26]
+       [--hc x,y,z,tx,ty,tz] [--lens 26] [--tiers 1 (render upgrade tiers)] [--only portrait]
+Game GLB names: GAME_NAMES dict below (one place).
 
 Blender coords: Z up, metres, front = -Y (toward the camera). Exported GLB: Y up, front +Z, origin = yard centre on the ground.
 Style: Mine concept B (sleek high-tech): glossy white + graphite panels, satin metal, cyan light strips, weathered + dusty.
 Reuses the shared helpers in art/3d/mine_concepts/_src/mc_common.py by import (not modified); cool-grey ground as the launch pad.
-True scale: 1.8 m astronauts, 40 m starter ship (appended read-only from art/3d/ship/starter_ship, Stage, not exported).
+True scale: 1.8 m astronauts; the IS-1 stack is a starter-class hull UNDER CONSTRUCTION (modelled here, exported with the building).
 
 Systems (collection 'Mine' = exported building), all ABOVE GROUND on a sintered yard slab:
   * assembly hall AH-1 (34 x 26 x 24 m, 1.2 m shielded white walls, 20 m door open to -Y), bridge crane, hull barrel on a cradle,
     engine-skirt section, roof radiators, interior work lights
   * welding bay W-2: barrel section on turning rolls, 4 robot welders, weld screens, power unit with white radiators
-  * integration stand IS-1: sintered pad r 15 m, 46 m tower with C-shaped work platforms around the (Stage) starter ship
+  * integration stand IS-1: sintered pad r 15 m, 46 m tower with C-shaped work platforms around a part-built stack (2 skinned rings,
+    open-bay ring with exposed frames / stringers / tank dome); the tower jib crane holds the next ring over the open top
   * refinery REF-01: 3 columns, LOX + CH4 spheres, pipe rack, radiator bank, ISRU reactor, regolith hopper + conveyor,
     propellant line to the stand
   * yard control YC-1: above-ground hab on legs, airlock A1 + suitports, dust-off arch, stair
@@ -33,6 +35,15 @@ QUICK = A.get('quick') == '1'
 reset(); rr = random.Random(202)
 TAU = math.tau
 NAME = 'shipyard'
+# ---- game-GLB node / clip / marker names: ONE mapping (pad + Life Support pattern) - rename here only
+GAME_NAMES = {
+    'base': 'shipyard_base',
+    'tiers': {'Tier_03': ('Tier_03', 3), 'Tier_05': ('Tier_05', 5), 'Tier_08': ('Tier_08', 8), 'Tier_12': ('Tier_12', 12), 'Tier_20': ('Tier_20', 20)},
+    'moving': {'Crane_Jib': ('Crane_Jib', 'crane_jib_swing'), 'Hall_Door': ('Hall_Door', 'hall_door_open'), 'Beacon_Lights': ('Beacon_Lights', 'Beacon_Lights_Blink')},
+    'door_leaves': ('Hall_Door_L', 'Hall_Door_R'),     # mesh children of the Hall_Door pivot empty
+    'markers': {'Stand_Center': 'Stand_Center', 'Hall_Door_Front': 'Hall_Door_Front', 'Road_Entry': 'Road_Entry', 'Crate_Drop': 'Crate_Drop'},
+    'crew_path': 'Crew_Path_%02d',
+}
 
 # ====================================================================== materials
 def add_dust(m, top=1.2, amt=0.8, col='#8a8d91', upamt=0.3):
@@ -299,6 +310,11 @@ HALLW = P_('SY_HallWhite', '#e4e7ea', rough=0.48, metal=0.0, coat=0.12, grime=0.
 YARD = P_('SY_YardSinter', '#56595d', rough=0.7, metal=0.0, grime=0.4, grime_col='#8a8d91', bump_noise=0.35, bevel=0.0, dirt_scale=0.5)
 def tag(o, g):
     o['grp'] = g; return o
+def grp_begin(): return set(bpy.data.objects.keys())
+def grp_end(s0, g):
+    for n in set(bpy.data.objects.keys()) - s0: bpy.data.objects[n]['grp'] = g
+TC = 'Tiers'   # upgrade tiers: own collection, hidden in hero / turntable / master GLB, exported (hidden_by_default) in the game GLB
+_tc = bpy.data.collections.new(TC); bpy.context.scene.collection.children.link(_tc)
 # ====================================================================== YARD SLAB (sintered, everything sits above ground)
 rbox('yard_slab', (112.0, 66.0, 0.7), (8.0, -6.0, YTOP - 0.35), YARD, r=0.25, segs=2)
 for x0, x1, y in ((-48.0, 64.0, -39.1), (-48.0, 64.0, 27.1)):
@@ -319,16 +335,56 @@ for k in range(32):
     box('is_edge_lens', (0.2, 0.42, 0.02), (x, y, TOP + 0.09), LAMP if k % 4 else AMBERG, rot=(0, 0, a), bevel=0)
 text('stencil_is', 'IS-1', (SHX, SHY - 11.0, TOP + 0.003), (0, 0, 0), 1.8, PAINT, extrude=0.002)
 SR = 4.0
-SHIP_BLEND = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'ship', 'starter_ship', 'starter_ship_master.blend'))
-with bpy.data.libraries.load(SHIP_BLEND, link=False) as (src, dst):
-    dst.collections = [n for n in src.collections if n == 'Mine']
-ship_c = dst.collections[0]; ship_c.name = 'StarterShip'
-coll('Stage').children.link(ship_c)
-for ob in ship_c.all_objects:
-    if ob.parent is None: ob.location.x += SHX; ob.location.y += SHY; ob.location.z += TOP
 UA = math.radians(30); TD = 13.5; TW, TH = 5.0, 46.0
 u_t = Vector((math.cos(UA), math.sin(UA), 0)); TX, TY = SHX + u_t.x * TD, SHY + u_t.y * TD
 inward = -u_t; tang = Vector((-u_t.y, u_t.x, 0)); rot_u = math.atan2(inward.y, inward.x)
+# ---------------------------------------------------------------------- UNDER-CONSTRUCTION STACK (replaces the finished starter ship)
+SC = Vector((SHX, SHY, 0))
+def shell(name, r0, z0, z1, mat, t=0.14, a0=0.0, a1=None, segs=72, c='Mine'):
+    return lathe(name, [(r0 - t, z0), (r0, z0), (r0, z1), (r0 - t, z1), (r0 - t, z0)], (SHX, SHY, 0), mat, segs=segs, a0=a0, a1=a1, smooth=True, c=c)
+def frame_ring(name, z, r0=SR, mat=None, c='Mine'):
+    return lathe(name, [(r0 - 0.45, z - 0.16), (r0 + 0.05, z - 0.16), (r0 + 0.05, z + 0.16), (r0 - 0.45, z + 0.16), (r0 - 0.45, z - 0.16)], (SHX, SHY, 0), mat or GRAPH, segs=72, smooth=False, c=c)
+def stringers(z0, z1, n=24, skip=(), mat=None, ctr=SC, c='Mine'):
+    for k in range(n):
+        if k in skip: continue
+        a = TAU * k / n
+        box('stk_stringer', (0.14, 0.26, z1 - z0), (ctr.x + (SR - 0.3) * math.cos(a), ctr.y + (SR - 0.3) * math.sin(a), (z0 + z1) / 2), mat or SATIN, rot=(0, 0, a), bevel=0, c=c)
+# launch mount: graphite ring beam on 6 pedestals, stack sits on hold-down clamps
+for k in range(6):
+    a = TAU * k / 6 + 0.26; p = SC + Vector((math.cos(a), math.sin(a), 0)) * 5.3
+    rbox('stk_pedestal', (1.3, 1.3, 2.6), (p.x, p.y, TOP + 1.3), GRAPH, rot=(0, 0, a), r=0.12, segs=2)
+    rbox('stk_clamp', (0.7, 0.9, 0.9), tuple(SC + Vector((math.cos(a), math.sin(a), 0)) * 4.4 + Vector((0, 0, TOP + 3.0))), GRAPH_S, rot=(0, 0, a), r=0.08, segs=1)
+lathe('stk_mount_ring', [(4.3, TOP + 2.55), (6.0, TOP + 2.55), (6.0, TOP + 3.1), (4.3, TOP + 3.1), (4.3, TOP + 2.55)], (SHX, SHY, 0), GRAPH, segs=72, smooth=False)
+ring('stk_mount_strip', 6.02, (SHX, SHY, TOP + 2.8), 0.08, CYAN, w=0.03, segs=72)
+# aft skirt + thrust structure + 3 engine bells (installed, nozzles covered by white caps)
+Z_AFT = TOP + 3.1
+lathe('stk_aft_skirt', [(SR - 0.15, Z_AFT), (SR + 0.25, Z_AFT), (SR, Z_AFT + 2.6), (SR - 0.14, Z_AFT + 2.6), (SR - 0.15, Z_AFT)], (SHX, SHY, 0), WHITE, segs=72)
+lathe('stk_thrust_puck', [(0, Z_AFT + 1.6), (SR - 0.3, Z_AFT + 1.6), (SR - 0.3, Z_AFT + 2.0), (0, Z_AFT + 2.3)], (SHX, SHY, 0), GRAPH, segs=48, smooth=False)
+for k in range(3):
+    a = TAU * k / 3 + 0.5; p = SC + Vector((math.cos(a), math.sin(a), 0)) * 1.7
+    lathe('stk_engine_bell', [(0.0, Z_AFT - 1.9), (1.05, Z_AFT - 1.9), (1.0, Z_AFT - 1.7), (0.5, Z_AFT + 0.6), (0.38, Z_AFT + 1.6), (0, Z_AFT + 1.6)], (p.x, p.y, 0), GRAPH_S, segs=32)
+    lathe('stk_nozzle_cap', [(0, Z_AFT - 2.0), (1.08, Z_AFT - 2.0), (1.08, Z_AFT - 1.75), (0, Z_AFT - 1.75)], (p.x, p.y, 0), WHITE_S, segs=32, smooth=False)
+RH = 5.75; Z1 = Z_AFT + 2.6                       # ring height = tower girt pitch
+RZ = [Z1 + RH * i for i in range(4)]             # ring bottoms: 2 closed, 1 open-bay, top edge open
+# ring 1 + 2: skinned (ring 2 with two panel bays still open)
+shell('stk_ring1', SR, RZ[0], RZ[1], WHITE)
+gap2 = [(math.radians(200), math.radians(228)), (math.radians(286), math.radians(306))]
+segs2 = [(math.radians(228), math.radians(286)), (math.radians(306), math.radians(560))]
+for a0, a1 in segs2: shell('stk_ring2', SR, RZ[1], RZ[2], WHITE, a0=a0, a1=a1, segs=max(8, int(72 * (a1 - a0) / TAU)))
+stringers(RZ[1], RZ[2], n=24, skip=[k for k in range(24) if not any(g0 <= (TAU * k / 24 if TAU * k / 24 >= math.radians(200) else TAU * k / 24 + TAU) <= g1 for g0, g1 in gap2)])
+# ring 3: frames + stringers up, only some skin panels hung, exposed tank dome inside
+for a0, a1 in ((math.radians(20), math.radians(95)), (math.radians(140), math.radians(170)), (math.radians(250), math.radians(300))):
+    shell('stk_ring3_panel', SR, RZ[2], RZ[2] + RH * (0.55 if a0 > 2 else 1.0), WHITE, a0=a0, a1=a1, segs=max(6, int(72 * (a1 - a0) / TAU)))
+stringers(RZ[2], RZ[3], n=24)
+lathe('stk_tank_dome', [(0, RZ[2] + 3.2), (1.8, RZ[2] + 2.9), (3.0, RZ[2] + 2.0), (3.6, RZ[2] + 0.6), (3.62, RZ[2] - 0.2), (0, RZ[2] - 0.2)], (SHX, SHY, 0), WHITE_S, segs=56)
+lathe('stk_dome_weld', [(3.0, RZ[2] + 2.0), (3.08, RZ[2] + 2.0), (3.08, RZ[2] + 2.12), (3.0, RZ[2] + 2.12)], (SHX, SHY, 0), SATIN, segs=56, smooth=False)
+for z in (RZ[0], RZ[1], RZ[2], RZ[2] + RH / 2, RZ[3]): frame_ring('stk_frame', z)
+ring('stk_ring_strip', SR + 0.01, (SHX, SHY, RZ[1] - 0.6), 0.1, CYAN, w=0.02, segs=72)
+for k in range(4):    # active weld spots on the open top joint
+    a = TAU * k / 4 + 0.7; sphere('stk_weld_lamp', 0.09, (SHX + (SR + 0.06) * math.cos(a), SHY + (SR + 0.06) * math.sin(a), RZ[2] + 0.02), LAMP, sub=2)
+# loose panels waiting on the 21 m platform, stencils
+text('stencil_stk', 'SN-07 · STACK IN WORK', (SHX + SR * math.cos(-1.9) * 1.003, SHY + SR * math.sin(-1.9) * 1.003, RZ[0] + 2.4), (math.pi / 2, 0, -1.9 + math.pi / 2), 0.42, INK, extrude=0.004)
+STACK_TOP = RZ[3]
 rbox('ist_plinth', (8.0, 8.0, 0.9), (TX, TY, TOP + 0.3), GRAPH, rot=(0, 0, rot_u), r=0.15, segs=3)
 corners = [Vector((TX, TY, 0)) + inward * (TW / 2) * sx + tang * (TW / 2) * sy for sx in (-1, 1) for sy in (-1, 1)]
 Z0 = TOP + 0.75
@@ -349,16 +405,39 @@ rbox('ist_cap', (TW + 1.2, TW + 1.2, 1.4), (TX, TY, Z0 + TH + 0.7), WHITE, rot=(
 box('ist_cap_strip', (TW + 1.22, TW + 1.22, 0.08), (TX, TY, Z0 + TH + 0.3), CYAN, rot=(0, 0, rot_u), bevel=0)
 text('decal_ist', 'IS-1', tuple(Vector((TX, TY, Z0 + TH + 0.85)) + inward * (TW / 2 + 0.61)), (math.pi / 2, 0, rot_u + math.pi / 2), 0.9, INK, extrude=0.01)
 rod('ist_mast', (TX, TY, Z0 + TH + 1.4), (TX, TY, Z0 + TH + 6.0), 0.12, SATIN, segs=10)
+_gb = grp_begin()   # Beacon_Lights: mast-top beacon + 4 cap-corner obstruction lights, one cluster (scale-blink pivot = cluster centre)
 sphere('ist_beacon', 0.3, (TX, TY, Z0 + TH + 6.1), AMBERG, sub=2)
-# top jib crane (lifts sections onto the stack)
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        sphere('ist_beacon_corner', 0.22, tuple(Vector((TX, TY, Z0 + TH + 1.62)) + inward * (TW / 2 + 0.3) * sx + tang * (TW / 2 + 0.3) * sy), AMBERG, sub=2)
+grp_end(_gb, 'Beacon_Lights')
+BEACON_C = Vector((TX, TY, Z0 + TH + 1.62))
+# top jib crane: swings about the tower axis, holding the next hull ring over the open stack
 JZ = Z0 + TH + 1.4
-beam('ist_jib', Vector((TX, TY, JZ + 0.6)) - inward * 4.0, Vector((TX, TY, JZ + 0.6)) + inward * 13.5, 1.0, 1.2, WHITE, bevel=0.1)
-box('ist_jib_strip', (17.5, 0.04, 0.12), tuple(Vector((TX, TY, JZ + 0.05)) + inward * 4.75), CYAN, rot=(0, 0, rot_u), bevel=0)
+_gj = grp_begin()
+beam('ist_jib', Vector((TX, TY, JZ + 0.6)) - inward * 4.0, Vector((TX, TY, JZ + 0.6)) + inward * 16.5, 1.0, 1.2, WHITE, bevel=0.1)
+box('ist_jib_strip', (20.5, 0.04, 0.12), tuple(Vector((TX, TY, JZ + 0.05)) + inward * 6.25), CYAN, rot=(0, 0, rot_u), bevel=0)
 rbox('ist_jib_cw', (2.4, 2.0, 1.6), tuple(Vector((TX, TY, JZ + 0.4)) - inward * 3.6), GRAPH, rot=(0, 0, rot_u), r=0.15, segs=2)
-hk = Vector((TX, TY, JZ)) + inward * 11.0
+rbox('ist_slew', (2.6, 2.6, 0.7), (TX, TY, JZ + 0.0), GRAPH_S, rot=(0, 0, rot_u), r=0.12, segs=2)
+hk = Vector((TX, TY, JZ)) + inward * TD          # trolley right over the stack axis
 rbox('ist_trolley', (1.4, 1.4, 0.7), tuple(hk), GRAPH_S, rot=(0, 0, rot_u), r=0.1, segs=2)
-rod('ist_hoist', tuple(hk), tuple(hk - Vector((0, 0, 4.5))), 0.05, SATIN, segs=8)
-rbox('ist_hook', (0.6, 0.6, 0.8), tuple(hk - Vector((0, 0, 4.9))), CH4B, r=0.1, segs=2)
+NRZ = STACK_TOP + 4.2                            # next ring hangs 4.2 m above the open top
+SPZ = NRZ + RH + 2.2
+rod('ist_hoist', tuple(hk), (hk.x, hk.y, SPZ + 0.9), 0.05, SATIN, segs=8)
+rbox('ist_hook', (0.6, 0.6, 0.8), (hk.x, hk.y, SPZ + 0.5), CH4B, r=0.1, segs=2)
+beam('ist_spreader', Vector((hk.x, hk.y, SPZ)) - tang * 4.2, Vector((hk.x, hk.y, SPZ)) + tang * 4.2, 0.5, 0.6, CH4B, bevel=0.05)
+beam('ist_spreader2', Vector((hk.x, hk.y, SPZ)) - inward * 4.2, Vector((hk.x, hk.y, SPZ)) + inward * 4.2, 0.5, 0.6, CH4B, bevel=0.05)
+NC = Vector((hk.x, hk.y, 0))
+for k in range(4):
+    a = TAU * k / 4 + rot_u; e = Vector((math.cos(a), math.sin(a), 0))
+    rod('ist_sling', tuple(Vector((hk.x, hk.y, SPZ - 0.3)) + e * 4.0), tuple(NC + e * (SR - 0.2) + Vector((0, 0, NRZ + RH + 0.15))), 0.04, SATIN, segs=6)
+    rbox('ist_lug', (0.3, 0.3, 0.4), tuple(NC + e * (SR - 0.2) + Vector((0, 0, NRZ + RH + 0.1))), GRAPH_S, rot=(0, 0, a), r=0.04, segs=1)
+lathe('ist_next_ring', [(SR - 0.14, NRZ), (SR, NRZ), (SR, NRZ + RH), (SR - 0.14, NRZ + RH), (SR - 0.14, NRZ)], (hk.x, hk.y, 0), WHITE, segs=72, a0=math.radians(-60), a1=math.radians(250))
+for z in (NRZ, NRZ + RH / 2, NRZ + RH):
+    lathe('ist_next_frame', [(SR - 0.45, z - 0.16), (SR + 0.05, z - 0.16), (SR + 0.05, z + 0.16), (SR - 0.45, z + 0.16), (SR - 0.45, z - 0.16)], (hk.x, hk.y, 0), GRAPH, segs=72, smooth=False)
+stringers(NRZ, NRZ + RH, n=24, ctr=NC)
+ring('ist_next_strip', SR + 0.01, (hk.x, hk.y, NRZ + 0.6), 0.1, CYAN, w=0.02, segs=72)
+grp_end(_gj, 'Crane_Jib')
 # C-shaped work platforms hugging the hull (tower side), handrail on the outer edge
 for z in (12.0, 21.0, 30.0):
     z = TOP + z; a0, a1 = UA - math.radians(62), UA + math.radians(62)
@@ -385,16 +464,19 @@ text('decal_umb', 'UMB-1', (UMX, UMY - 0.62, TOP + 6.5), (math.pi / 2, 0, 0), 0.
 
 # ====================================================================== ASSEMBLY HALL AH-1 (thick shielded white walls, door open to -Y)
 WT = 1.2; FRY = HY - HD / 2; BKY = HY + HD / 2; DWd, DHd = 20.0, 20.0
+LEAF_W = DWd / 2 + 0.6; LEAF_OPEN = DWd / 2 + LEAF_W / 2 + 0.2; LEAF_CLOSED = LEAF_W / 2 - 0.05   # leaf centre offsets from HX
 rbox('ah_wall_back', (HW, WT, HH), (HX, BKY - WT / 2, YTOP + HH / 2), HALLW, r=0.3, segs=3)
 for s in (-1, 1):
     rbox('ah_wall_side', (WT, HD, HH), (HX + s * (HW / 2 - WT / 2), HY, YTOP + HH / 2), HALLW, r=0.3, segs=3)
     rbox('ah_pier', ((HW - DWd) / 2, WT, HH), (HX + s * (DWd / 2 + (HW - DWd) / 4), FRY + WT / 2, YTOP + HH / 2), HALLW, r=0.3, segs=3)
-    rbox('ah_door_leaf', ((HW - DWd) / 2 + 1.0, 0.7, DHd + 0.4), (HX + s * (DWd / 2 + (HW - DWd) / 4 + 0.4), FRY - 0.45, YTOP + (DHd + 0.4) / 2), HALLW, r=0.12, segs=2)
+    _gd = grp_begin()
+    rbox('ah_door_leaf', (LEAF_W, 0.7, DHd + 0.4), (HX + s * LEAF_OPEN, FRY - 0.45, YTOP + (DHd + 0.4) / 2), HALLW, r=0.12, segs=2)
     for k in range(4):
-        box('ah_leaf_rib', ((HW - DWd) / 2 + 0.9, 0.12, 0.25), (HX + s * (DWd / 2 + (HW - DWd) / 4 + 0.4), FRY - 0.85, YTOP + 3.0 + k * 5.0), GRAPH_S, bevel=0.02)
+        box('ah_leaf_rib', (LEAF_W - 0.1, 0.12, 0.25), (HX + s * LEAF_OPEN, FRY - 0.85, YTOP + 3.0 + k * 5.0), GRAPH_S, bevel=0.02)
+    grp_end(_gd, 'Hall_Door_L' if s < 0 else 'Hall_Door_R')
     box('ah_pier_strip', (0.12, 0.04, HH - 6), (HX + s * (DWd / 2 + 0.25), FRY - 0.02, YTOP + HH / 2), CYAN, bevel=0)
 rbox('ah_header', (DWd + 0.2, WT, HH - DHd), (HX, FRY + WT / 2, YTOP + DHd + (HH - DHd) / 2), HALLW, r=0.3, segs=3)
-beam('ah_door_track', Vector((HX - HW / 2 - 1.5, FRY - 0.9, YTOP + DHd + 0.7)), Vector((HX + HW / 2 + 1.5, FRY - 0.9, YTOP + DHd + 0.7)), 0.5, 0.6, GRAPH_S, bevel=0.05)
+beam('ah_door_track', Vector((HX - DWd / 2 - LEAF_W - 0.8, FRY - 0.9, YTOP + DHd + 0.7)), Vector((HX + DWd / 2 + LEAF_W + 0.8, FRY - 0.9, YTOP + DHd + 0.7)), 0.5, 0.6, GRAPH_S, bevel=0.05)
 rbox('ah_roof', (HW + 0.8, HD + 0.8, 1.5), (HX, HY, YTOP + HH + 0.75), WHITE_S, r=0.4, segs=3)
 box('ah_roof_strip', (HW + 0.82, HD + 0.82, 0.1), (HX, HY, YTOP + HH + 0.2), CYAN, bevel=0)
 box('ah_base_strip', (HW + 0.05, HD + 0.05, 0.1), (HX, HY, YTOP + 1.1), CYANS, bevel=0)
@@ -529,16 +611,16 @@ for s in (-1, 1):
     cable('wb_cable', (PUX - 1.8, PUY + 0.4 * s, YTOP + 0.3), (WX - WB_L / 2 + 1.2, WY + s * 6.2, YTOP + 0.3), 0.06, RUBBER, sag=-0.05, n=12)
 
 # ====================================================================== REFINERY REF-01 (columns, spheres, pipe rack, radiators, ISRU reactor, hopper)
-def column(x, y, r, h, tag_=None):
-    lathe('rf_column', [(0, YTOP), (r + 0.45, YTOP), (r + 0.45, YTOP + 0.7), (r, YTOP + 0.8), (r, YTOP + h), (r * 0.75, YTOP + h + r * 0.45), (0, YTOP + h + r * 0.6)], (x, y, 0), WHITE, segs=48)
-    for z in range(4, int(h), 4): ring('rf_col_band', r + 0.03, (x, y, YTOP + z), 0.25, GRAPH, w=0.05, segs=48)
-    ring('rf_col_glow', r + 0.035, (x, y, YTOP + 2.2), 0.08, CYAN, w=0.03, segs=48)
+def column(x, y, r, h, tag_=None, c='Mine', sg=48):
+    lathe('rf_column', [(0, YTOP), (r + 0.45, YTOP), (r + 0.45, YTOP + 0.7), (r, YTOP + 0.8), (r, YTOP + h), (r * 0.75, YTOP + h + r * 0.45), (0, YTOP + h + r * 0.6)], (x, y, 0), WHITE, segs=sg, c=c)
+    for z in range(4, int(h), 4): ring('rf_col_band', r + 0.03, (x, y, YTOP + z), 0.25, GRAPH, w=0.05, segs=sg, c=c)
+    ring('rf_col_glow', r + 0.035, (x, y, YTOP + 2.2), 0.08, CYAN, w=0.03, segs=sg, c=c)
     for z in range(6, int(h) - 1, 6):
-        lathe('rf_col_deck', [(r + 0.1, YTOP + z), (r + 1.3, YTOP + z), (r + 1.3, YTOP + z + 0.15), (r + 0.1, YTOP + z + 0.15)], (x, y, 0), GRAPH_S, segs=40, smooth=False)
-        ring('rf_col_rail', r + 1.25, (x, y, YTOP + z + 1.2), 0.05, SATIN, w=0.04, segs=40)
+        lathe('rf_col_deck', [(r + 0.1, YTOP + z), (r + 1.3, YTOP + z), (r + 1.3, YTOP + z + 0.15), (r + 0.1, YTOP + z + 0.15)], (x, y, 0), GRAPH_S, segs=min(40, sg), smooth=False, c=c)
+        ring('rf_col_rail', r + 1.25, (x, y, YTOP + z + 1.2), 0.05, SATIN, w=0.04, segs=min(40, sg), c=c)
     a = -math.pi / 2 - 0.5; lx, ly = x + (r + 0.35) * math.cos(a), y + (r + 0.35) * math.sin(a)
     for s in (-0.25, 0.25):
-        rod('rf_ladder', (lx + s * math.sin(a), ly - s * math.cos(a), YTOP + 0.8), (lx + s * math.sin(a), ly - s * math.cos(a), YTOP + h), 0.03, SATIN, segs=6)
+        rod('rf_ladder', (lx + s * math.sin(a), ly - s * math.cos(a), YTOP + 0.8), (lx + s * math.sin(a), ly - s * math.cos(a), YTOP + h), 0.03, SATIN, segs=6, c=c)
     if tag_: text('decal_rf', tag_, (x, y - r - 0.02, YTOP + 3.2), (math.pi / 2, 0, 0), 0.5, INK, extrude=0.004)
 column(RFX - 6.0, RFY + 6.0, 1.6, 22.0, 'REF-01')
 column(RFX - 1.5, RFY + 8.0, 1.3, 17.0)
@@ -715,6 +797,86 @@ for a, b in zip(posts, posts[1:]):
     ga = YTOP if (abs(a.x - 8.0) < 56 and abs(a.y + 6.0) < 33) else gz(a.x, a.y); gb = YTOP if (abs(b.x - 8.0) < 56 and abs(b.y + 6.0) < 33) else gz(b.x, b.y)
     cable('power_cable', (a.x, a.y, ga + 0.95), (b.x, b.y, gb + 0.95), 0.05, RUBBER, sag=0.3, n=10, c=cc)
 
+
+# ====================================================================== UPGRADE TIERS (collection 'Tiers': final positions, hidden by default in game)
+def lattice_tower(nm, cx, cy, w, h, pitch, rot, c=TC, braces=True, col_w=0.6):
+    u = Vector((math.cos(rot), math.sin(rot), 0)); v = Vector((-u.y, u.x, 0))
+    cs = [Vector((cx, cy, 0)) + u * (w / 2) * sx + v * (w / 2) * sy for sx in (-1, 1) for sy in (-1, 1)]
+    for p in cs: box(nm + '_col', (col_w, col_w, h), (p.x, p.y, YTOP + h / 2), WHITE, rot=(0, 0, rot), bevel=0, c=c)
+    lv = [YTOP + pitch * i for i in range(1, int(h / pitch) + 1)]
+    for zi, z in enumerate(lv):
+        for i, j in ((0, 1), (1, 3), (3, 2), (2, 0)):
+            beam(nm + '_girt', cs[i] + Vector((0, 0, z)), cs[j] + Vector((0, 0, z)), 0.35, 0.35, GRAPH, bevel=0, c=c)
+            if braces and (i, j) in ((0, 1), (3, 2)):
+                beam(nm + '_brace', cs[i] + Vector((0, 0, z - pitch)), cs[j] + Vector((0, 0, z)), 0.2, 0.2, GRAPH_S, bevel=0, c=c)
+    return cs
+# Tier_03 - second jib crane (free-standing yard crane between the hall door and W-2)
+_t = grp_begin()
+C2X, C2Y, C2H = -1.0, -6.0, 30.0
+rbox('t3_crane_base', (4.4, 4.4, 1.2), (C2X, C2Y, YTOP + 0.6), GRAPH, r=0.1, segs=1, c=TC)
+lattice_tower('t3_mast', C2X, C2Y, 2.0, C2H, 5.0, 0.0)
+ja = math.atan2(-0.6, -1.0); ju = Vector((math.cos(ja), math.sin(ja), 0))
+rbox('t3_slew_cab', (2.6, 2.6, 2.0), (C2X, C2Y, YTOP + C2H + 1.0), WHITE, rot=(0, 0, ja), r=0.15, segs=1, c=TC)
+beam('t3_jib', Vector((C2X, C2Y, YTOP + C2H + 2.4)) - ju * 7.0, Vector((C2X, C2Y, YTOP + C2H + 2.4)) + ju * 22.0, 0.9, 1.1, WHITE, bevel=0, c=TC)
+rbox('t3_cw', (2.2, 1.8, 1.6), tuple(Vector((C2X, C2Y, YTOP + C2H + 1.4)) - ju * 6.0), GRAPH, rot=(0, 0, ja), r=0.1, segs=1, c=TC)
+th = Vector((C2X, C2Y, YTOP + C2H + 1.8)) + ju * 16.0
+rbox('t3_trolley', (1.2, 1.2, 0.6), tuple(th), GRAPH_S, rot=(0, 0, ja), r=0.08, segs=1, c=TC)
+rod('t3_hoist', tuple(th), tuple(th - Vector((0, 0, 12.0))), 0.05, SATIN, segs=6, c=TC)
+rbox('t3_hook', (0.6, 0.6, 0.8), tuple(th - Vector((0, 0, 12.4))), CH4B, r=0.08, segs=1, c=TC)
+grp_end(_t, 'Tier_03')
+# Tier_05 - second REF-01 column (fractionating, tied into the pipe rack)
+_t = grp_begin()
+column(RFX - 3.5, RFY + 14.0, 1.5, 20.0, None, c=TC, sg=32)
+rod('t5_feed', (RFX - 3.5, RFY + 12.3, YTOP + 3.65), (RFX - 3.5, PRY + 1.2, YTOP + 3.65), 0.2, SATIN, segs=10, c=TC)
+for t_ in (0.35, 0.7):
+    p_ = Vector((RFX - 3.5, RFY + 12.3 + (PRY + 1.2 - RFY - 12.3) * t_, 0)); rod('t5_feed_post', (p_.x, p_.y, YTOP), (p_.x, p_.y, YTOP + 3.45), 0.1, GRAPH_S, segs=8, c=TC)
+grp_end(_t, 'Tier_05')
+# Tier_08 - welding bay extension on the assembly hall (annex on the +x wall, own door + roof radiators)
+_t = grp_begin()
+AXx0, AXx1, AXy0, AXy1, AXh = HX + HW / 2 + 0.4, HX + HW / 2 + 6.0, HY - 11.0, HY + 9.0, 13.0
+rbox('t8_annex', (AXx1 - AXx0, AXy1 - AXy0, AXh), ((AXx0 + AXx1) / 2, (AXy0 + AXy1) / 2, YTOP + AXh / 2), HALLW, r=0.25, segs=2, c=TC)
+rbox('t8_door', (4.2, 0.4, 6.0), ((AXx0 + AXx1) / 2, AXy0 - 0.15, YTOP + 3.0), GRAPH_S, r=0.08, segs=1, c=TC)
+for k in range(5):
+    box('t8_rib', (0.4, 0.4, AXh - 0.4), (AXx1 + 0.15, AXy0 + 1.5 + k * (AXy1 - AXy0 - 3.0) / 4, YTOP + AXh / 2), GRAPH, bevel=0, c=TC)
+for k in range(2):
+    y_ = AXy0 + 5.0 + k * 10.0
+    rod('t8_rad_mast', ((AXx0 + AXx1) / 2, y_, YTOP + AXh), ((AXx0 + AXx1) / 2, y_, YTOP + AXh + 1.2), 0.12, SATIN, segs=8, c=TC)
+    box('t8_radiator', (0.1, 6.0, 2.8), ((AXx0 + AXx1) / 2, y_, YTOP + AXh + 2.6), RAD, bevel=0, c=TC)
+box('t8_strip', (0.04, AXy1 - AXy0 - 1.0, 0.1), (AXx1 + 0.37, (AXy0 + AXy1) / 2, YTOP + 1.1), CYAN, bevel=0, c=TC)
+grp_end(_t, 'Tier_08')
+# Tier_12 - bigger stand: second service tower opposite IS-1 with 2 work platforms + umbilical mast UMB-2
+_t = grp_begin()
+T2a = UA + math.pi; T2X, T2Y = SHX + math.cos(T2a) * TD, SHY + math.sin(T2a) * TD
+rbox('t12_plinth', (6.0, 6.0, 0.8), (T2X, T2Y, TOP + 0.3), GRAPH, rot=(0, 0, T2a), r=0.1, segs=1, c=TC)
+lattice_tower('t12_tower', T2X, T2Y, 4.0, 32.0, 5.75, T2a)
+rbox('t12_cap', (5.0, 5.0, 1.0), (T2X, T2Y, YTOP + 32.5), WHITE, rot=(0, 0, T2a), r=0.15, segs=1, c=TC)
+for z in (12.0, 21.0):
+    z = TOP + z; a0, a1 = T2a - math.radians(55), T2a + math.radians(55)
+    lathe('t12_platform', [(SR + 0.7, z), (SR + 3.0, z), (SR + 3.0, z + 0.3), (SR + 0.7, z + 0.3), (SR + 0.7, z)], (SHX, SHY, 0), GRAPH_S, segs=16, a0=a0, a1=a1, smooth=False, c=TC)
+    p0 = Vector((T2X, T2Y, z - 0.3)) - Vector((math.cos(T2a), math.sin(T2a), 0)) * 2.0; p1 = Vector((SHX, SHY, z - 0.3)) + Vector((math.cos(T2a), math.sin(T2a), 0)) * (SR + 3.0)
+    beam('t12_cantilever', p0, p1, 0.6, 0.7, WHITE, bevel=0, c=TC)
+U2X, U2Y = SHX + 4.0, SHY - 10.5
+rbox('t12_umb_mast', (1.2, 1.2, 10.0), (U2X, U2Y, TOP + 5.0), WHITE, r=0.12, segs=1, c=TC)
+for s_ in (-1, 1):
+    cable('t12_umb_hose', (U2X - 0.3 * s_, U2Y + 0.6, TOP + 9.2), (SHX + 1.4 + 0.3 * s_, SHY - SR * 0.93, TOP + 8.0), 0.13, FOIL, sag=0.9, n=12, c=TC)
+grp_end(_t, 'Tier_12')
+# Tier_20 - tall Mars-class stand (pad + 72 m tower + jib) in the NE corner of the yard
+_t = grp_begin()
+MSX, MSY = 50.0, 15.0
+lathe('t20_pad', [(0, YTOP), (9.5, YTOP), (9.0, YTOP + 0.4), (0, YTOP + 0.4)], (MSX, MSY, 0), SINTER, segs=48, smooth=False, c=TC)
+MTa = math.radians(45); MTX, MTY = MSX + math.cos(MTa) * 9.0, MSY + math.sin(MTa) * 9.0
+lattice_tower('t20_tower', MTX, MTY, 5.0, 72.0, 8.0, MTa, col_w=0.8)
+rbox('t20_cap', (6.4, 6.4, 1.4), (MTX, MTY, YTOP + 72.7), WHITE, rot=(0, 0, MTa), r=0.15, segs=1, c=TC)
+mu = -Vector((math.cos(MTa), math.sin(MTa), 0))
+beam('t20_jib', Vector((MTX, MTY, YTOP + 74.0)) - mu * 5.0, Vector((MTX, MTY, YTOP + 74.0)) + mu * 12.0, 1.1, 1.3, WHITE, bevel=0, c=TC)
+for z in (20.0, 36.0, 52.0):
+    a0, a1 = MTa - math.radians(60), MTa + math.radians(60)
+    lathe('t20_platform', [(5.4, YTOP + z), (7.6, YTOP + z), (7.6, YTOP + z + 0.3), (5.4, YTOP + z + 0.3), (5.4, YTOP + z)], (MSX, MSY, 0), GRAPH_S, segs=14, a0=a0, a1=a1, smooth=False, c=TC)
+for k in range(4):
+    a = TAU * k / 4 + 0.4; p = Vector((MSX, MSY, 0)) + Vector((math.cos(a), math.sin(a), 0)) * 6.2
+    rbox('t20_pedestal', (1.4, 1.4, 3.0), (p.x, p.y, YTOP + 1.9), GRAPH, rot=(0, 0, a), r=0.1, segs=1, c=TC)
+grp_end(_t, 'Tier_20')
+
 # ====================================================================== STAGE cleanup + lights + crew
 for ob in list(coll('Stage').objects):
     if ob.name.split('.')[0] in ('boulder', 'pebble', 'slope_boulder'):
@@ -737,11 +899,13 @@ astronaut((RFX - 10.0, RFY - 4.0, YTOP), rot_z=0.6)
 cam = setup_render(64 if not QUICK else 16)
 
 ONLY = A.get('only', 'hero').split(',')
+SHOW_TIERS = A.get('tiers') == '1'          # --tiers 1: preview every upgrade tier in a render
+for o in coll(TC).all_objects: o.hide_render = not SHOW_TIERS; o.hide_set(not SHOW_TIERS)
 if 'glb' in ONLY: export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
 if 'blend' in ONLY:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f'{NAME}_master.blend'), compress=True)
-assert not ('game' in ONLY and set(ONLY) & {'hero', 'turn', 'close'}), 'game step is destructive: run it without render modes'
-if 'game' in ONLY:   # SH_* palette, merge by material, <=30k tris, no textures, no Draco (gltfpack -cc afterwards); ship + astronauts in Stage
+assert not ('game' in ONLY and set(ONLY) & {'hero', 'turn', 'close', 'portrait'}), 'game step is destructive: run it without render modes'
+if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + material, <=30k tris, no textures, no Draco (gltfpack -cc -kn -ke after)
     import json
     SHJ = os.path.normpath(os.path.join(HERE, '..', '..', '_shared', 'shared_materials.json'))
     pal = json.load(open(SHJ))['materials']
@@ -751,45 +915,122 @@ if 'game' in ONLY:   # SH_* palette, merge by material, <=30k tris, no textures,
         b.inputs['Base Color'].default_value = hexc(d['base']); b.inputs['Metallic'].default_value = d['metal']; b.inputs['Roughness'].default_value = d['rough']
         if 'emissive' in d: b.inputs['Emission Color'].default_value = hexc(d['emissive']); b.inputs['Emission Strength'].default_value = d['emissive_strength']
         return m
-    RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowWhite'), ('amber', 'SH_GlowRed'), ('glass', 'SH_Glass'), ('lens', 'SH_Glass'),
-             ('solar', 'SH_Solar'), ('rad', 'SH_Radiator'), ('foil', 'SH_Foil'), ('mli', 'SH_Foil'), ('lox', 'SH_PipeO2'), ('ch4', 'SH_Red'),
+    # draw budget (every tier visible): base 6 + Crane_Jib 1 + Hall_Door_L/R 2 + Beacon_Lights 1 + 5 tiers x 1 = 15
+    RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowCyan'), ('amber', 'SH_GlowCyan'), ('glass', 'SH_Graphite'), ('lens', 'SH_Graphite'),
+             ('solar', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('ch4', 'SH_White'),
              ('sinter', 'SH_Rock'), ('yard', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
              ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
-    def remap(m):
+    GROUP_MAT = {'Crane_Jib': 'SH_White', 'Hall_Door_L': 'SH_White', 'Hall_Door_R': 'SH_White', 'Beacon_Lights': 'SH_GlowRed',
+                 'Tier_03': 'SH_White', 'Tier_05': 'SH_White', 'Tier_08': 'SH_White', 'Tier_12': 'SH_White', 'Tier_20': 'SH_White'}
+    CAP = {'Crane_Jib': 2400, 'Hall_Door_L': 400, 'Hall_Door_R': 400, 'Beacon_Lights': 600,
+           'Tier_03': 1400, 'Tier_05': 1400, 'Tier_08': 900, 'Tier_12': 1600, 'Tier_20': 1800}
+    def remap(m, g=None):
+        if g in GROUP_MAT: return GROUP_MAT[g]
         n = (m.name if m else '').lower()
         for k, v in RULES:
             if k in n: return v
         print('UNMAPPED', m.name if m else None); return 'SH_White'
-    keep = [o for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT') and not o.name.split('.')[0].startswith(('decal_', 'stencil_'))
-            and 'astro' not in o.name.lower()]
-    for o in list(coll('Mine').all_objects):
+    src = list(coll('Mine').all_objects) + list(coll(TC).all_objects)
+    keep = [o for o in src if o.type in ('MESH', 'CURVE', 'FONT') and not o.name.split('.')[0].startswith(('decal_', 'stencil_')) and 'astro' not in o.name.lower()]
+    for o in src:
         if o not in keep: bpy.data.objects.remove(o)
     bpy.ops.object.select_all(action='DESELECT')
-    for o in keep: o.select_set(True)
+    for o in keep: o.hide_set(False); o.hide_viewport = False; o.select_set(True)
     bpy.context.view_layer.objects.active = keep[0]
     bpy.ops.object.convert(target='MESH')
-    sel = [o for o in bpy.context.selected_objects if o.type == 'MESH']
-    for o in sel:
+    groups = {}
+    for o in [o for o in list(coll('Mine').all_objects) + list(coll(TC).all_objects) if o.type == 'MESH']:
+        g = o.get('grp', 'Base'); groups.setdefault(g, []).append(o)
         o.data = o.data.copy()
-        for sl in o.material_slots: sl.material = sh_mat(remap(sl.material))
-    bpy.ops.object.join(); G = bpy.context.active_object; G.name = 'shipyard_game'
-    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.001); bpy.ops.object.mode_set(mode='OBJECT')
-    names = [sl.material.name for sl in G.material_slots]; uniq = sorted(set(names), key=names.index)
-    idx = [uniq.index(n) for n in names]; pidx = [idx[p.material_index] for p in G.data.polygons]
-    G.data.materials.clear()
-    for n in uniq: G.data.materials.append(bpy.data.materials[n])
-    for p, i in zip(G.data.polygons, pidx): p.material_index = i
-    tri = lambda: sum(len(p.vertices) - 2 for p in G.data.polygons)
-    T0 = tri(); TGT = int(A.get('tris', 20000))
-    for it in range(6):
-        t = tri()
-        if t <= TGT: break
-        md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.02, TGT / t * 0.97); md.use_collapse_triangulate = True
+        for sl in o.material_slots: sl.material = sh_mat(remap(sl.material, g))
+    nodes = {}
+    for g, obs in groups.items():
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in obs: o.select_set(True)
+        bpy.context.view_layer.objects.active = obs[0]
+        if len(obs) > 1: bpy.ops.object.join()
+        G = bpy.context.active_object
+        if G.users_collection[0] != coll('Mine'):
+            for c_ in list(G.users_collection): c_.objects.unlink(G)
+            coll('Mine').objects.link(G)
+        G.name = (GAME_NAMES['base'] if g == 'Base' else GAME_NAMES['tiers'][g][0] if g in GAME_NAMES['tiers'] else
+                  GAME_NAMES['moving'][g][0] if g in GAME_NAMES['moving'] else GAME_NAMES['door_leaves'][0 if g.endswith('_L') else 1])
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.001); bpy.ops.object.mode_set(mode='OBJECT')
+        names = [sl.material.name for sl in G.material_slots]; uniq = sorted(set(names), key=names.index)
+        idx = [uniq.index(n) for n in names]; pidx = [idx[p.material_index] for p in G.data.polygons]
+        G.data.materials.clear()
+        for n in uniq: G.data.materials.append(bpy.data.materials[n])
+        for p, i in zip(G.data.polygons, pidx): p.material_index = i
+        nodes[g] = G
+    tri = lambda G: sum(len(p.vertices) - 2 for p in G.data.polygons)
+    T0 = sum(tri(G) for G in nodes.values()); TGT = int(A.get('tris', 24000))
+    def dec(G, ratio):
+        bpy.ops.object.select_all(action='DESELECT'); G.select_set(True); bpy.context.view_layer.objects.active = G
+        md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.03, min(1.0, ratio)); md.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=md.name)
-    print('GAMETRIS', T0, '->', tri(), 'MATS', len(G.data.materials), uniq, flush=True)
-    bpy.ops.object.select_all(action='DESELECT'); G.select_set(True)
+    for g, G in nodes.items():
+        if g != 'Base' and tri(G) > CAP[g]: dec(G, CAP[g] / tri(G))
+    B = nodes['Base']
+    for it in range(6):
+        rest = sum(tri(G) for g, G in nodes.items() if g != 'Base'); t = tri(B)
+        if t + rest <= TGT: break
+        dec(B, (TGT - rest) / t * 0.97)
+    for G in nodes.values(): G.data.validate(clean_customdata=False); G.data.update()
+    for g, G in nodes.items(): print('NODE', g, tri(G), [m.name for m in G.data.materials], flush=True)
+    print('GAMETRIS', T0, '->', sum(tri(G) for G in nodes.values()), 'DRAWS', sum(len(G.data.materials) for G in nodes.values()), flush=True)
+    sc = bpy.context.scene; sc.render.fps = 25; F1 = round(1.2 * sc.render.fps)
+    def set_origin(G, h):
+        G.data.transform(Matrix.Translation(-Vector(h))); G.location = Vector(h)
+    def ease(act):
+        for fc in act.fcurves:
+            for kp in fc.keyframe_points: kp.interpolation = 'BEZIER'; kp.easing = 'EASE_IN_OUT'; kp.handle_left_type = kp.handle_right_type = 'AUTO_CLAMPED'
+    def push(G, act):
+        tr = G.animation_data.nla_tracks.new(); tr.name = act.name.split('|')[0]; tr.strips.new(tr.name, 0, act); G.animation_data.action = None
+    MV = GAME_NAMES['moving']
+    # Crane_Jib: pivot = slewing ring on the tower axis; rest = swung +90 deg out over the yard (pick-up), clip swings it in over the stack
+    SWING = math.radians(90)
+    G = nodes['Crane_Jib']; set_origin(G, (TX, TY, JZ))
+    G.animation_data_create(); act = bpy.data.actions.new(MV['Crane_Jib'][1]); G.animation_data.action = act
+    G.rotation_euler = (0, 0, SWING); G.keyframe_insert('rotation_euler', index=2, frame=0)
+    G.rotation_euler = (0, 0, 0.0); G.keyframe_insert('rotation_euler', index=2, frame=F1)
+    ease(act); G.rotation_euler = (0, 0, SWING); push(G, act)
+    # Hall_Door: pivot empty on the door track centre (floor level); leaves slide closed (rest) -> open
+    D = bpy.data.objects.new(MV['Hall_Door'][0], None); D.empty_display_size = 1.0; D.location = (HX, FRY - 0.45, YTOP); coll('Mine').objects.link(D)
+    for g, sx in (('Hall_Door_L', -1), ('Hall_Door_R', 1)):
+        G = nodes[g]; set_origin(G, (HX + sx * LEAF_OPEN, FRY - 0.45, YTOP))
+        G.parent = D; G.location = Vector((sx * LEAF_CLOSED, 0, 0))
+        G.animation_data_create(); act = bpy.data.actions.new(MV['Hall_Door'][1] + '|' + g); G.animation_data.action = act
+        G.location = Vector((sx * LEAF_CLOSED, 0, 0)); G.keyframe_insert('location', index=0, frame=0)
+        G.location = Vector((sx * LEAF_OPEN, 0, 0)); G.keyframe_insert('location', index=0, frame=F1)
+        ease(act); G.location = Vector((sx * LEAF_CLOSED, 0, 0)); push(G, act)
+    # Beacon_Lights: node SCALE blink about the cluster centre (core glTF TRS -> survives gltfpack and every runtime; emissive anim would need
+    # KHR_animation_pointer). Looping 1.0 s clip, STEP: on 0-0.5 s, off (scale 0.001) 0.5-1.0 s
+    G = nodes['Beacon_Lights']; set_origin(G, BEACON_C)
+    G.animation_data_create(); act = bpy.data.actions.new(MV['Beacon_Lights'][1]); G.animation_data.action = act
+    for f, sv in ((0, 1.0), (12, 1.0), (13, 0.001), (24, 0.001), (25, 1.0)):
+        G.scale = (sv, sv, sv); G.keyframe_insert('scale', frame=f)
+    for fc in act.fcurves:
+        for kp in fc.keyframe_points: kp.interpolation = 'CONSTANT'
+    G.scale = (1, 1, 1); push(G, act)
+    for g, G in nodes.items():
+        for k in list(G.keys()): del G[k]
+        if g in GAME_NAMES['tiers']: G['tier'] = GAME_NAMES['tiers'][g][1]; G['hidden_by_default'] = True
+    sc.frame_set(0)
+    def mark(n, p):
+        e = bpy.data.objects.new(n, None); e.empty_display_size = 0.5; e.location = tuple(p); coll('Mine').objects.link(e); return e
+    MN = GAME_NAMES['markers']
+    stf = Vector((s1.x, s1.y - 0.8, YTOP + 0.05)); hdf = Vector((HX, FRY - 4.0, YTOP + 0.05))
+    mk = [mark(MN['Stand_Center'], (SHX, SHY, TOP)), mark(MN['Hall_Door_Front'], hdf), mark(MN['Road_Entry'], (-47.5, -9.5, YTOP + 0.05)),
+          mark(MN['Crate_Drop'], (HX + 8.5, FRY - 7.0, YTOP + 0.05))]
+    path = [stf, Vector((6.0, -30.0, YTOP + 0.05)), Vector((6.0, -12.0, YTOP + 0.05)), Vector((-8.0, -6.5, YTOP + 0.05)), hdf,
+            Vector((2.0, -2.0, YTOP + 0.05)), Vector((SHX - 6.0, SHY - 12.0, TOP)), Vector((TX - 3.0, TY - 7.0, TOP))]
+    for i, p in enumerate(path): mk.append(mark(GAME_NAMES['crew_path'] % (i + 1), p))
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in list(nodes.values()) + [D] + mk: o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_game_raw.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
-                              export_animations=False, export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False,
+                              export_animations=True, export_animation_mode='NLA_TRACKS', export_force_sampling=True, export_extras=True,
+                              export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False,
                               export_materials='EXPORT', export_image_format='NONE', export_texcoords=False)
     print('GAMEGLB', flush=True)
 HC = A.get('hc')
@@ -798,6 +1039,11 @@ if 'hero' in ONLY:
     tgt = (6.0, -2.0, 13.0); pos = (14.0, -122.0, 30.0)
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
     shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 26)), samples=int(A.get('hs', 64)) if not QUICK else 16)
+if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 master (393x852 downscale made with PIL)
+    pt = Vector((10.0, -2.0, 6.0)); az = math.radians(float(A.get('paz', -86))); el = math.radians(18); dd = float(A.get('pd', 140))
+    pp = pt + Vector((math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))) * dd
+    pw, ph = (1179, 2556) if not QUICK else (393, 852)
+    shoot(cam, os.path.join(OUT, 'portrait.png'), tuple(pt), tuple(pp), pw, ph, lens=float(A.get('plens', 30)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'turn' in ONLY:
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
     turntable(cam, os.path.join(OUT, 'turntable'), (6.0, -2.0, 12.0), 175, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)
