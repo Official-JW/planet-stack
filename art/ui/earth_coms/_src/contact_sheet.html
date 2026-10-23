@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../earth_coms.css">
+<style>
+body{margin:0;background:#0b0e12;color:#cfe;font:13px/1.35 Inter,Arial,sans-serif;width:1440px;padding:28px 32px;box-sizing:border-box}
+h1{font:700 28px/1 Rajdhani;letter-spacing:.14em;color:#3FE0FF;margin:0 0 4px} .sub{color:#93A6B5;margin-bottom:22px}
+h2{font:700 15px/1 Rajdhani;letter-spacing:.14em;color:#E8F1F6;margin:22px 0 10px;border-bottom:1px solid #2F3944;padding-bottom:6px}
+.row{display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap} figure{margin:0} figcaption{margin-top:6px;color:#93A6B5;font-size:12px}
+.chk{background:conic-gradient(#20262d 25%,#2a3139 0 50%,#20262d 0 75%,#2a3139 0) 0 0/16px 16px;padding:8px;border-radius:6px;display:inline-block}
+img{display:block} .pix{image-rendering:pixelated}
+.sw{width:118px} .sw i{display:block;height:44px;border-radius:8px;border:1px solid #2F3944} .sw b{display:block;margin-top:5px;color:#E8F1F6;font-weight:600} .sw span{color:#93A6B5;font-size:11.5px}
+.ec-root.demo{position:relative;inset:auto;height:auto;pointer-events:none}
+</style></head><body>
+<h1>EARTH COMS · UI KIT</h1><div class="sub">Planet Stack · Eve, Director of Earth Communications · all images shown at 1:1 device pixels (tiles enlarged ×8 / ×4, pixelated)</div>
+<h2>ROUND AVATAR · 64 pt (WebP shown; PNG fallback identical crop)</h2>
+<div class="row">
+ <figure><div class="chk"><img src="../eve_avatar_1x.webp" width="64" height="64"></div><figcaption>eve_avatar_1x · 64 px</figcaption></figure>
+ <figure><div class="chk"><img src="../eve_avatar_2x.webp" width="128" height="128"></div><figcaption>eve_avatar_2x · 128 px</figcaption></figure>
+ <figure><div class="chk"><img src="../eve_avatar_3x.webp" width="192" height="192"></div><figcaption>eve_avatar_3x · 192 px</figcaption></figure>
+ <figure><div class="chk"><img src="../eve_avatar_3x.png" width="192" height="192"></div><figcaption>eve_avatar_3x.png (256-colour fallback)</figcaption></figure>
+</div>
+<h2>VIDEO FEED · 150 × 112 pt</h2>
+<div class="row">
+ <figure><img src="../eve_feed_1x.webp" width="150" height="112"><figcaption>eve_feed_1x · 150×112</figcaption></figure>
+ <figure><img src="../eve_feed_2x.webp" width="300" height="224"><figcaption>eve_feed_2x · 300×224</figcaption></figure>
+ <figure><img src="../eve_feed_3x.webp" width="450" height="336"><figcaption>eve_feed_3x · 450×336</figcaption></figure>
+ <figure><img src="../eve_feed_2x.png" width="300" height="224"><figcaption>eve_feed_2x.png (256-colour fallback)</figcaption></figure>
+</div>
+<h2>FEED OVERLAY TILES</h2>
+<div class="row">
+ <figure><div class="chk" style="background:#9ab"><div class="pix" style="width:64px;height:64px;background:url(../fx_scanline_1x4.png) 0 0/8px 32px;image-rendering:pixelated"></div></div><figcaption>fx_scanline_1x4.png ×8</figcaption></figure>
+ <figure><div class="chk" style="background:#0E1217"><div style="width:256px;height:256px;background:url(../fx_static_64.png) 0 0/128px 128px;image-rendering:pixelated"></div></div><figcaption>fx_static_64.png ×2, tiled</figcaption></figure>
+ <figure><div style="position:relative" class="ec-root demo"><div class="ec-feed" style="transform:scale(2);transform-origin:0 0;margin:0 150px 112px 0"><img src="../eve_feed_3x.webp" width="150" height="112"><div class="ec-feed__static" style="animation:none"></div></div></div><figcaption>feed with scanline + static + vignette (CSS), ×2</figcaption></figure>
+</div>
+<h2>COLOURS</h2>
+<div class="row">
+ <div class="sw"><i style="background:#3FE0FF"></i><b>#3FE0FF</b><span>cyan accent / glow</span></div>
+ <div class="sw"><i style="background:#12A9CF"></i><b>#12A9CF</b><span>cyan deep</span></div>
+ <div class="sw"><i style="background:#F4F7FA"></i><b>#F4F7FA</b><span>header white</span></div>
+ <div class="sw"><i style="background:#D5DEE6"></i><b>#D5DEE6</b><span>header silver</span></div>
+ <div class="sw"><i style="background:#0E1217"></i><b>#0E1217</b><span>graphite 900</span></div>
+ <div class="sw"><i style="background:#161C23"></i><b>#161C23</b><span>graphite 800</span></div>
+ <div class="sw"><i style="background:#222A33"></i><b>#222A33</b><span>graphite 700</span></div>
+ <div class="sw"><i style="background:#2F3944"></i><b>#2F3944</b><span>graphite 600</span></div>
+ <div class="sw"><i style="background:#1E252D"></i><b>#1E252D</b><span>ink on header</span></div>
+ <div class="sw"><i style="background:#E8F1F6"></i><b>#E8F1F6</b><span>dialogue text</span></div>
+ <div class="sw"><i style="background:#93A6B5"></i><b>#93A6B5</b><span>secondary text</span></div>
+ <div class="sw"><i style="background:#FF4D5E"></i><b>#FF4D5E</b><span>live dot</span></div>
+</div>
+<h2>COMPONENTS · 1x (from proofs/)</h2>
+<div class="row">
+ <figure><img src="../proofs/mockup_toast_393x852.png" style="width:393px;height:110px;object-fit:cover;object-position:0 -20px"><figcaption>Incoming toast · 300×60 pt</figcaption></figure>
+ <figure><img src="../proofs/mockup_panel_393x852.png" style="width:393px;height:300px;object-fit:cover;object-position:0 -55px"><figcaption>Call panel · 373 pt wide · line 5 (longest), 4 lines</figcaption></figure>
+ <figure><img src="../proofs/mockup_panel_talking_393x852.png" style="width:393px;height:260px;object-fit:cover;object-position:0 -55px"><figcaption>Talking state · waveform + caret · 2-line minimum</figcaption></figure>
+</div>
+</body></html>

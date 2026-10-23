@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Planet Stack · Earth Coms prototype</title>
+<link rel="stylesheet" href="earth_coms.css">
+<style>
+  /* ── prototype page only (not part of the kit) ── */
+  html, body { margin: 0; height: 100%; background: #07090c; color: #9aa; font: 13px/1.4 -apple-system, Inter, Arial, sans-serif; }
+  .stage { position: relative; width: 393px; height: 852px; margin: 24px auto; overflow: hidden; border-radius: 48px;
+    background: radial-gradient(120% 70% at 50% 45%, #3a3d42 0%, #2a2c30 55%, #1d1f22 100%);
+    box-shadow: 0 0 0 10px #15171a, 0 0 0 11px #2b2f35, 0 30px 80px rgba(0,0,0,.6); }
+  .stage.full { margin: 0; border-radius: 0; box-shadow: none; }
+  @media (max-width: 440px) { .stage { width: 100vw; height: 100dvh; margin: 0; border-radius: 0; box-shadow: none; } }
+  /* simulated iPhone 15/16 safe area on desktop */
+  .stage.sim .ec-root { --ec-safe-top: 59px; }
+  .island { position: absolute; top: 11px; left: 50%; width: 126px; height: 37px; margin-left: -63px; border-radius: 20px; background: #000; z-index: 99; }
+  .status { position: absolute; top: 18px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 34px 0 46px; color: #e9edf1; font: 600 16px/22px -apple-system, Inter, Arial; z-index: 98; }
+  .home { position: absolute; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: rgba(255,255,255,.7); z-index: 99; }
+  /* plain dark-gray station placeholder */
+  .ph-ground { position: absolute; left: -40px; right: -40px; top: 520px; height: 420px; border-radius: 50% 50% 0 0 / 60px 60px 0 0; background: linear-gradient(#4a4d52, #34363a); }
+  .ph-box { position: absolute; background: linear-gradient(#6a6e74, #50545a); border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+  .ph-focus { position: absolute; left: 24px; right: 24px; top: 188px; height: 384px; border: 1px dashed rgba(255,255,255,.22); border-radius: 8px; }
+  .ph-focus span { position: absolute; left: 8px; bottom: 6px; font: 600 11px/1 Inter, Arial; color: rgba(255,255,255,.4); letter-spacing: .06em; }
+  .ph-sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 236px; background: linear-gradient(#e9eef2, #d3dbe2); border-radius: 22px 22px 0 0; box-shadow: 0 -6px 20px rgba(0,0,0,.35); }
+  .ph-sheet::before { content: "UPGRADE SHEET (placeholder)"; position: absolute; top: 18px; left: 20px; font: 700 13px/1 Rajdhani, Arial; letter-spacing: .12em; color: #6b7682; }
+  .ph-sheet i { position: absolute; left: 20px; right: 20px; height: 52px; border-radius: 12px; background: rgba(30,37,45,.10); }
+  .ctrl { position: fixed; left: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 200; }
+  .ctrl button, .ctrl select, .ctrl label { font: 12px/1 Inter, Arial; }
+  .ctrl button { padding: 6px 10px; border-radius: 6px; border: 1px solid #355; background: #10181c; color: #8ef; cursor: pointer; }
+  .shot .ctrl { display: none; }
+  /* proof stills: show the settled end state of the entrance animations */
+  .shot .ec-panel.is-open, .shot .ec-panel.is-open .ec-row, .shot .ec-panel.is-open .ec-say, .shot .ec-panel.is-open .ec-feed img { animation: none; }
+  .shot .ec-panel.is-open .ec-feed__static { animation: ec-static 400ms steps(4) infinite; }
+  .freeze *, .freeze *::before, .freeze *::after { animation-play-state: paused !important; transition: none !important; }
+</style>
+</head>
+<body>
+<div class="ctrl">
+  <button id="play">▶ Play full sequence</button>
+  <button id="ring">Incoming toast</button>
+  <label><input type="checkbox" id="rm"> Reduced motion</label>
+  <select id="beat"></select>
+</div>
+
+<div class="stage sim" id="stage">
+  <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+  <div class="island"></div>
+  <div class="ph-ground"></div>
+  <div class="ph-box" style="left:150px;top:250px;width:70px;height:300px"></div>
+  <div class="ph-box" style="left:96px;top:420px;width:56px;height:130px"></div>
+  <div class="ph-box" style="left:228px;top:380px;width:96px;height:170px"></div>
+  <div class="ph-box" style="left:44px;top:500px;width:300px;height:22px;opacity:.6"></div>
+  <div class="ph-focus"><span>STATION FOCUS (Mine view y 188–572)</span></div>
+  <div class="ph-sheet"><i style="top:46px"></i><i style="top:108px"></i><i style="top:170px"></i></div>
+  <div class="home"></div>
+
+  <!-- ═════════ Earth Coms kit markup (copy from here) ═════════ -->
+  <div class="ec-root" id="ec">
+    <div class="ec-toast" id="ecToast" role="button" aria-label="Incoming call from Eve, Earth Coms. Tap to answer.">
+      <div class="ec-toast__av">
+        <span class="ec-ring"></span><span class="ec-ring"></span>
+        <picture>
+          <source type="image/webp" srcset="eve_avatar_1x.webp 1x, eve_avatar_2x.webp 2x, eve_avatar_3x.webp 3x">
+          <img src="eve_avatar_2x.png" srcset="eve_avatar_1x.png 1x, eve_avatar_2x.png 2x, eve_avatar_3x.png 3x" alt="Eve" width="44" height="44">
+        </picture>
+      </div>
+      <div class="ec-toast__txt">
+        <div class="ec-toast__kicker">INCOMING · EARTH COMS</div>
+        <div class="ec-toast__who"><b>Eve</b> · Director of Earth Comms</div>
+      </div>
+      <div class="ec-toast__btn" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path fill="#0E1217" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
+      </div>
+    </div>
+
+    <section class="ec-panel" id="ecPanel" aria-live="polite" aria-label="Earth Coms call">
+      <header class="ec-head">
+        <div class="ec-head__title"><i></i>EARTH COMS</div>
+        <div class="ec-head__sp"></div>
+        <div class="ec-live"><span class="ec-live__dot"></span>LIVE</div>
+        <div class="ec-sig" data-level="4" aria-label="Signal 4 of 4"><span></span><span></span><span></span><span></span></div>
+        <button class="ec-close" id="ecClose" aria-label="Skip call">
+          <svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="#1E252D" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </header>
+      <div class="ec-body">
+        <div class="ec-row">
+          <div class="ec-feed">
+            <picture>
+              <source type="image/webp" srcset="eve_feed_1x.webp 1x, eve_feed_2x.webp 2x, eve_feed_3x.webp 3x">
+              <img src="eve_feed_2x.png" srcset="eve_feed_1x.png 1x, eve_feed_2x.png 2x, eve_feed_3x.png 3x" alt="Eve on the Earth Coms video feed" width="150" height="112">
+            </picture>
+            <div class="ec-feed__static"></div>
+          </div>
+          <div class="ec-side">
+            <div class="ec-name" aria-label="EVE · Director of Earth Communications">EVE</div>
+            <div class="ec-role">Director of Earth Communications</div>
+            <div class="ec-tx">
+              <div class="ec-wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+              <div class="ec-tx__label" id="ecTx">STANDING BY</div>
+            </div>
+          </div>
+        </div>
+        <div class="ec-say" id="ecSay">
+          <span class="ec-say__txt" id="ecTxt"></span><span class="ec-caret"></span>
+          <svg class="ec-chev" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="#3FE0FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+    </section>
+  </div>
+  <!-- ═════════ end kit markup ═════════ -->
+</div>
+
+<script>
+/* Eve's draft script, from TEAM_PLAN.md "Eve and Earth Coms" (awaiting Jacob's OK). trigger → line */
+const BEATS = [
+  { id: "landing",        trigger: "During the landing", text: "Earth Coms to lander. Telemetry looks clean, Commander. Set her down easy, unload the mining and refinery kits, and get that drill turning. Over." },
+  { id: "first_ore",      trigger: "First ore", text: "That's real ore. Earth's grid runs on Helium-3, so every load you send keeps the lights on down here." },
+  { id: "first_upgrade",  trigger: "First upgrade affordable", text: "You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade." },
+  { id: "first_cargo",    trigger: "First cargo ready", text: "Cargo's stacking up. Take it to the Space Dock and load the ship." },
+  { id: "first_fuel",     trigger: "At the first fuel check", text: "Your tanks are filling, but she won't lift until the oxygen and hydrogen are topped off and the hold is full. Load her up and bring that Helium-3 home. Over." },
+  { id: "first_risk",     trigger: "First risk window", text: "Heads up, there's an asteroid field on the route this week. Fly now for a bonus, or wait for clear skies. Your call." },
+  { id: "first_delivery", trigger: "First delivery home", text: "Shipment received, Moonbase. Earth owes you one. Between us, the brass keep saying the word 'Mars.'" },
+];
+
+/* Motion constants — mirror MOTION.md */
+const M = { toastIn: 420, tapOut: 160, expand: 380, flickerDelay: 160, flicker: 250, typeStart: 420,
+            charMs: 30, commaMs: 120, stopMs: 240, closeCrt: 120, closeSlide: 260, toastTimeout: 8000, rmFade: 150 };
+
+const q = new URLSearchParams(location.search);
+const $ = id => document.getElementById(id);
+const root = $("ec"), toast = $("ecToast"), panel = $("ecPanel"), txt = $("ecTxt"), tx = $("ecTx");
+const reduced = () => root.classList.contains("ec-reduced");
+if (matchMedia("(prefers-reduced-motion: reduce)").matches || q.get("rm") === "1") { root.classList.add("ec-reduced"); $("rm").checked = true; }
+$("rm").onchange = e => root.classList.toggle("ec-reduced", e.target.checked);
+BEATS.forEach((b, i) => $("beat").add(new Option(`${i + 1}. ${b.trigger}`, i)));
+
+let lines = [], li = 0, typing = null, toastTimer = null, fullText = "";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+function reset() {
+  clearTimeout(toastTimer); clearTimeout(typing);
+  toast.className = "ec-toast"; panel.className = "ec-panel"; txt.textContent = ""; tx.textContent = "STANDING BY";
+}
+function ring(beatIdx) {
+  reset(); lines = [BEATS[beatIdx].text]; li = 0;
+  void toast.offsetWidth; toast.classList.add("is-in");
+  toastTimer = setTimeout(() => { toast.classList.replace("is-in", "is-out"); }, M.toastTimeout); // untapped: slide away, beat stays unheard
+}
+function answer() {
+  clearTimeout(toastTimer);
+  toast.classList.replace("is-in", "is-tapped");
+  panel.classList.add("is-open");
+  setTimeout(() => sayLine(lines[li]), reduced() ? M.rmFade : M.typeStart);
+}
+function sayLine(s) {
+  fullText = s; txt.textContent = ""; panel.classList.remove("is-waiting");
+  if (reduced()) { txt.textContent = s; done(); return; }
+  panel.classList.add("is-talking"); tx.textContent = "TRANSMITTING";
+  let i = 0;
+  const step = () => {
+    txt.textContent = s.slice(0, ++i);
+    if (i >= s.length) return done();
+    const c = s[i - 1];
+    typing = setTimeout(step, /[.!?]/.test(c) && s[i] === " " ? M.stopMs : c === "," ? M.commaMs : M.charMs);
+  };
+  step();
+}
+function done() { clearTimeout(typing); txt.textContent = fullText; panel.classList.remove("is-talking"); panel.classList.add("is-waiting"); tx.textContent = "STANDING BY"; }
+function hangUp() {
+  clearTimeout(typing);
+  panel.classList.remove("is-talking", "is-waiting"); panel.classList.add("is-closing");
+  setTimeout(() => { panel.classList.remove("is-open"); panel.classList.add("is-out"); }, 0);
+  setTimeout(reset, (reduced() ? M.rmFade : M.closeCrt + M.closeSlide) + 30);
+}
+toast.addEventListener("click", answer);
+panel.addEventListener("click", e => {
+  if (e.target.closest(".ec-close")) return hangUp();
+  if (panel.classList.contains("is-talking")) return done();           // tap while typing: finish the line
+  if (++li < lines.length) return sayLine(lines[li]);                  // next line
+  hangUp();                                                            // last line: dismiss
+});
+
+async function playAll() {
+  for (let b = 0; b < BEATS.length; b++) {
+    ring(b); await wait(1400); answer();
+    while (!panel.classList.contains("is-waiting")) await wait(50);
+    await wait(1400); hangUp(); await wait(900);
+  }
+}
+$("play").onclick = playAll;
+$("ring").onclick = () => ring(+$("beat").value);
+$("beat").onchange = () => ring(+$("beat").value);
+
+/* Proof hooks: ?shot=1&state=toast|panel&line=1..7&freeze=1 */
+if (q.get("shot")) { document.body.classList.add("shot"); $("stage").classList.add("full"); }
+const st = q.get("state"), bi = Math.max(0, (+q.get("line") || 1) - 1);
+if (st === "toast") { ring(bi); clearTimeout(toastTimer); }
+if (st === "panel") { lines = [BEATS[bi].text]; li = 0; toast.className = "ec-toast"; panel.classList.add("is-open"); fullText = lines[0]; done();
+  if (q.get("talk")) { panel.classList.remove("is-waiting"); panel.classList.add("is-talking"); tx.textContent = "TRANSMITTING"; txt.textContent = fullText.slice(0, +q.get("talk")); } }
+if (q.get("freeze")) setTimeout(() => document.body.classList.add("freeze"), +q.get("freeze") > 1 ? +q.get("freeze") : 1200);
+if (q.get("autoplay")) setTimeout(playAll, 600);
+window.EC_BEATS = BEATS;
+</script>
+</body>
+</html>
