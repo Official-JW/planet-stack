@@ -911,6 +911,12 @@ for nm, p in (('Crew_Path_01', (AX, HYH - 0.6, MZ)), ('Crew_Path_02', (AX, -1.6,
               ('Crew_Path_04', (AX - 0.6, -6.0, ZP)), ('Crew_Path_05', (5.6, -14.3, ZP)), ('Crew_Path_06', (2.3, -11.9, ZP)),
               ('Crew_Path_07', (0.0, -6.0, ZP)), ('Crew_Path_08', (0.0, FY0 - 1.4, ZP))):
     GAME['markers'][nm] = p
+# station camera look-at: the phone shots and the game camera aim here (empty, no geometry / no draws).
+# 4 m in front of the origin at the game's lookY 2.5 so the focus sits between the HUD (y~100) and the sheet (y~650) on 393x852.
+CAM_TARGET = tuple(float(v) for v in A.get('ct', '0,-4.0,2.5').split(','))
+GAME['markers']['Cam_Target'] = CAM_TARGET
+_ct = bpy.data.objects.new('Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
+_ct.location = CAM_TARGET; coll('Mine').objects.link(_ct)
 bpy.context.scene['game_nodes'] = json.dumps(GAME)
 print('HEIGHTS', [round(height(x, y), 3) for x, y in ((0, -16), (21.5, 7.5), (47, -8), (-24, 11), (0, 20), (31.5, 15.5))], flush=True)
 
@@ -963,13 +969,13 @@ if 'hero' in ONLY:
     hp = [float(v) for v in A.get('hc', '-9,-50,16,13,3,4.5').split(',')]
     shoot(cam, os.path.join(OUT, 'hero.png'), tuple(hp[3:6]), tuple(hp[:3]), w, h, lens=float(A.get('lens', 28)), samples=int(A.get('hs', 48)) if not QUICK else 16)
 if 'phone' in ONLY:
-    # in-game station camera (qa3d/main.js CAM): vertical fov 38, 18 deg down, look-at (0, 2.5 up); distance as Life Support
+    # in-game station camera (qa3d/main.js CAM): vertical fov 38, 18 deg down, look-at = Cam_Target empty; distance as Life Support
     sc = bpy.context.scene
     w, h = (1179, 2556) if not QUICK else (393, 852)
     if A.get('pres'): w, h = [int(v) for v in A['pres'].split('x')]
     asp = w / h; vt = math.tan(math.radians(19)); fitTop = 12.14 * (h / 3 / 2 if w > 600 else h / 2) / max(60, (h / 3 if w > 600 else h) / 2 - 104)
     d = max(7.5 / (vt * asp), 7.2 / vt, fitTop / vt, 16.0); e = math.radians(18)
-    pos = Vector((0.0, -d * math.cos(e), 2.5 + d * math.sin(e))); tgt = Vector((0.0, 0.0, 2.5))
+    tgt = bpy.data.objects['Cam_Target'].matrix_world.translation.copy(); pos = tgt + Vector((0.0, -d * math.cos(e), d * math.sin(e)))
     cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(38); cam.data.dof.use_dof = False
     cam.location = pos; cam.rotation_euler = (tgt - pos).to_track_quat('-Z', 'Y').to_euler()
     sc.render.resolution_x, sc.render.resolution_y = w, h; sc.render.resolution_percentage = 100

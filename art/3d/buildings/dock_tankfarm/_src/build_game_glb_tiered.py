@@ -181,6 +181,8 @@ if dd: keys(dd, 'dock_door_open', 'scale', ((0, (1, 1, 1)), (75, (1, 1, 0.06))))
 bl = bpy.data.objects.get('Beacon_Lights')
 if bl: keys(bl, 'Beacon_Lights_Blink', 'scale', ((0, (1, 1, 1)), (9, (0.001,) * 3), (45, (0.001,) * 3)), 'CONSTANT')
 for n, p in sorted(GN['markers'].items()):
+    old = bpy.data.objects.get(n)          # e.g. the master's own Cam_Target empty: replace it so the marker keeps its exact name
+    if old: bpy.data.objects.remove(old, do_unlink=True)
     e = bpy.data.objects.new(n, None); e.empty_display_type = 'ARROWS'; e.empty_display_size = 0.5; e.location = p; col.objects.link(e); e.parent = root
 print('NODES', sorted(o.name for o in root.children))
 bpy.ops.object.select_all(action='SELECT')
