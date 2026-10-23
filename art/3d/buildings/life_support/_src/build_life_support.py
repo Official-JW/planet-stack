@@ -175,65 +175,8 @@ def M_cells(name='LS_SolarCells'):
     m.diffuse_color = hexc('#1b2a4a'); return m
 CELLS = M_cells()
 
-# ---- cool grey rock ground (same recipe as the starter ship's grey pass; no tan anywhere)
-def _m(N, L, op, a, b=None, clamp=False):
-    n = N.new('ShaderNodeMath'); n.operation = op; n.use_clamp = clamp
-    for i, v in enumerate((a, b)):
-        if v is None: continue
-        if isinstance(v, (int, float)): n.inputs[i].default_value = v
-        else: L.new(v, n.inputs[i])
-    return n.outputs[0]
-def _mr(N, L, v, f0, f1, t0=0.0, t1=1.0):
-    n = N.new('ShaderNodeMapRange'); n.clamp = True
-    n.inputs['From Min'].default_value = f0; n.inputs['From Max'].default_value = f1
-    n.inputs['To Min'].default_value = t0; n.inputs['To Max'].default_value = t1; L.new(v, n.inputs['Value']); return n.outputs[0]
-def _nz(N, L, vec, scale, detail=6, rough=0.6):
-    n = N.new('ShaderNodeTexNoise'); n.inputs['Scale'].default_value = scale; n.inputs['Detail'].default_value = detail
-    n.inputs['Roughness'].default_value = rough
-    if vec is not None: L.new(vec, n.inputs['Vector'])
-    return n.outputs['Fac']
-def M_ground_grey():
-    """cool neutral grey rock/regolith: flat ground = fine grey regolith, slopes = darker banded rock with IRREGULAR strata."""
-    m = bpy.data.materials.new('M_RegolithGrey'); nt, b = _nodes(m); N, L = nt.nodes, nt.links
-    geo = N.new('ShaderNodeNewGeometry'); P = geo.outputs['Position']
-    sp = N.new('ShaderNodeSeparateXYZ'); L.new(P, sp.inputs[0])
-    sn = N.new('ShaderNodeSeparateXYZ'); L.new(geo.outputs['Normal'], sn.inputs[0])
-    base = N.new('ShaderNodeValToRGB'); base.color_ramp.elements[0].color = hexc('#5e6063'); base.color_ramp.elements[1].color = hexc('#95979a')
-    L.new(_nz(N, L, P, 0.07, 12, 0.6), base.inputs['Fac'])
-    fine = _mr(N, L, _nz(N, L, P, 2.5, 12, 0.7), 0.3, 0.7, 0.82, 1.08)
-    # strata: height warped by low-frequency noise, then a 1-D fbm along that warped height -> beds of uneven thickness
-    warp = _m(N, L, 'MULTIPLY_ADD', _nz(N, L, P, 0.018, 3, 0.5), 7.0); warp.node.inputs[2].default_value = -3.5
-    w2 = _m(N, L, 'MULTIPLY_ADD', _nz(N, L, P, 0.09, 4, 0.5), 1.2); w2.node.inputs[2].default_value = -0.6
-    zz = _m(N, L, 'ADD', _m(N, L, 'ADD', sp.outputs['Z'], warp), w2)
-    cz = N.new('ShaderNodeCombineXYZ'); L.new(_m(N, L, 'MULTIPLY', zz, 0.2), cz.inputs['Z']); cz.inputs['X'].default_value = 3.1
-    L.new(_m(N, L, 'MULTIPLY', _nz(N, L, P, 0.012, 2, 0.5), 1.5), cz.inputs['Y'])          # beds pinch out / change along the ridge
-    beds = _nz(N, L, cz.outputs[0], 1.0, 4, 0.55)
-    sr = N.new('ShaderNodeValToRGB'); el = sr.color_ramp.elements; sr.color_ramp.interpolation = 'EASE'
-    el[0].position = 0.25; el[0].color = hexc('#3c3e42'); el[1].position = 0.75; el[1].color = hexc('#a2a4a7')
-    for pos, c_ in ((0.36, '#6a6c70'), (0.42, '#4a4c50'), (0.47, '#8a8c90'), (0.53, '#56585c'), (0.6, '#7e8084'), (0.66, '#5a5c60')):
-        e = el.new(pos); e.color = hexc(c_)
-    L.new(beds, sr.inputs['Fac'])
-    # where beds show: steeper faces + higher ground, patchy
-    steep = _mr(N, L, sn.outputs['Z'], 0.97, 0.82)
-    high = _mr(N, L, sp.outputs['Z'], 0.6, 3.0)
-    patch = _mr(N, L, _nz(N, L, P, 0.03, 3, 0.5), 0.38, 0.55, 0.45, 1.0)
-    k = _m(N, L, 'MULTIPLY', _m(N, L, 'MAXIMUM', steep, _m(N, L, 'MULTIPLY', high, 0.55)), patch, clamp=True)
-    mx = N.new('ShaderNodeMix'); mx.data_type = 'RGBA'; L.new(k, mx.inputs['Factor']); L.new(base.outputs['Color'], mx.inputs[6]); L.new(sr.outputs['Color'], mx.inputs[7])
-    mf = N.new('ShaderNodeMix'); mf.data_type = 'RGBA'; mf.blend_type = 'MULTIPLY'; mf.inputs['Factor'].default_value = 1.0
-    L.new(mx.outputs[2], mf.inputs[6]); cc = N.new('ShaderNodeCombineColor')
-    for i in range(3): L.new(fine, cc.inputs[i])
-    L.new(cc.outputs[0], mf.inputs[7]); L.new(mf.outputs[2], b.inputs['Base Color'])
-    b.inputs['Roughness'].default_value = 0.97
-    # rock relief: bed ledges + cracks + grain
-    vor = N.new('ShaderNodeTexVoronoi'); vor.feature = 'DISTANCE_TO_EDGE'; vor.inputs['Scale'].default_value = 0.6; L.new(P, vor.inputs['Vector'])
-    crack = _m(N, L, 'MULTIPLY', _mr(N, L, vor.outputs['Distance'], 0.0, 0.05, 0.0, 1.0), k)
-    h = _m(N, L, 'ADD', _m(N, L, 'MULTIPLY', beds, _m(N, L, 'MULTIPLY', k, 1.6)), _m(N, L, 'MULTIPLY', _nz(N, L, P, 3.0, 14), 0.5))
-    h = _m(N, L, 'ADD', h, _m(N, L, 'MULTIPLY', crack, 0.3))
-    bump = N.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.6; bump.inputs['Distance'].default_value = 0.08
-    L.new(h, bump.inputs['Height']); L.new(bump.outputs['Normal'], b.inputs['Normal'])
-    m.diffuse_color = hexc('#77797c'); return m
+# ---- ground: the SHARED mc_common.M_ground() (cool grey regolith, hill-stripe fix @269e70f), assigned by build_stage(); no local variant
 
-# ====================================================================== helpers
 def lbox(name, size, loc, rot, mat, bevel=0.0):
     """box built in local space then placed via object transform (so Object coords are local)."""
     bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1); bmesh.ops.scale(bm, vec=size, verts=bm.verts)
@@ -835,7 +778,8 @@ for ob in list(coll('Stage').objects):
     if ob.type == 'MESH' and ob.name.split('.')[0] in ('boulder', 'pebble'):
         vs_ = ob.data.vertices; c_ = sum((v.co for v in vs_), Vector()) / len(vs_)
         if -14 < c_.x < 14 and -14 < c_.y < 46: bpy.data.objects.remove(ob)
-GREY = M_ground_grey(); gnd = bpy.data.objects['Ground']; gnd.data.materials.clear(); gnd.data.materials.append(GREY)
+gnd = bpy.data.objects['Ground']; GREY = gnd.data.materials[0]   # shared M_ground from mc_common.build_stage (imported, read-only)
+assert GREY.name.startswith('M_Regolith') and len(gnd.data.materials) == 1, 'Ground must use mc_common.M_ground'
 for nd in bpy.data.materials['M_Boulder'].node_tree.nodes:
     if nd.type == 'VAL_TO_RGB': nd.color_ramp.elements[0].color = hexc('#5b5d60'); nd.color_ramp.elements[-1].color = hexc('#8c8e91')
 bpy.data.materials['M_Boulder'].diffuse_color = hexc('#6d6f72')
@@ -899,6 +843,9 @@ for ob in mine:
 CEN = Vector((0.0, 0.0, 0.0))   # origin = station focus (PM-1 / airlock axis); the game camera looks here
 print('STATS objects', len(mine), 'tris', tri_count(mine), 'bbox', tuple(round(v, 2) for v in mn), tuple(round(v, 2) for v in mxv), 'centre', tuple(round(v, 2) for v in CEN), flush=True)
 
+# Cam_Target for the game camera (exported as an empty with extras {frame_w}); stored on the scene so build_game_glb_tiered.py reads the same values
+PHONE_CAM = {'target': (0.0, 12.5, 2.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 34.0}
+bpy.context.scene['cam_target'] = PHONE_CAM['target']; bpy.context.scene['frame_w'] = PHONE_CAM['frame_w']
 ONLY = A.get('only', 'turn,hero')
 if 'glb' in ONLY:
     root = bpy.data.objects.new('LifeSupport', None); coll('Mine').objects.link(root)
@@ -927,17 +874,18 @@ if 'hero' in ONLY:
     if A.get('res'): w, h = [int(v) for v in A['res'].split('x')]
     shoot(cam, os.path.join(OUT, 'hero.png'), (-0.5, 6.0, 3.6), (17.0, -24.0, 10.5), w, h, lens=24, samples=int(A.get('hs', 48)) if not QUICK else 16)
 if 'phone' in ONLY:
-    # in-game station camera (qa3d/main.js): vertical fov 38, 18 deg down, look at (origin, y=2.5); dist fitted for 393x852 portrait
+    # in-game phone camera (Game Coder spec): aimed at Cam_Target, 38 deg vertical FOV (sensor_fit VERTICAL), 18 deg down, from -Y;
+    # d = (W/2) / (tan(19 deg) * w/h) ~= 3.148 * W.  W = 34: whole station in y 316-570 of 852, every tier <= 34 m from Cam_Target
     sc = bpy.context.scene
     w, h = (1179, 2556) if not QUICK else (393, 852)
     if A.get('pres'): w, h = [int(v) for v in A['pres'].split('x')]
-    asp = w / h; vt = math.tan(math.radians(19)); fitTop = 12.14 * (h / 3 / 2 if w > 600 else h / 2) / max(60, (h / 3 if w > 600 else h) / 2 - 104)
-    d = max(7.5 / (vt * asp), 7.2 / vt, fitTop / vt, 16.0); e = math.radians(18)
-    pos = Vector((0.0, -d * math.cos(e), 2.5 + d * math.sin(e))); tgt = Vector((0.0, 0.0, 2.5))
-    cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(38); cam.data.dof.use_dof = False
+    half = math.radians(PHONE_CAM['fov_y'] / 2); d = (PHONE_CAM['frame_w'] / 2) / (math.tan(half) * w / h)
+    tgt = Vector(PHONE_CAM['target']); az = math.radians(PHONE_CAM['az']); e = math.radians(PHONE_CAM['pitch'])
+    pos = tgt + Vector((math.cos(az) * math.cos(e), math.sin(az) * math.cos(e), math.sin(e))) * d
+    cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 36.0; cam.data.lens = 18.0 / math.tan(half); cam.data.dof.use_dof = False
     cam.location = pos; cam.rotation_euler = (tgt - pos).to_track_quat('-Z', 'Y').to_euler()
     sc.render.resolution_x, sc.render.resolution_y = w, h; sc.render.resolution_percentage = 100
     sc.cycles.samples = int(A.get('ps', 64)) if not QUICK else 16
-    sc.render.filepath = os.path.join(OUT, f'phone_{w}x{h}.png'); print('PHONE dist', round(d, 2), flush=True)
+    sc.render.filepath = os.path.join(OUT, f'phone_{w}x{h}.png'); print('PHONECAM target', tuple(tgt), 'cam', tuple(round(v, 3) for v in pos), 'd', round(d, 3), 'lens', round(cam.data.lens, 3), flush=True)
     bpy.ops.render.render(write_still=True)
     cam.data.sensor_fit = 'AUTO'

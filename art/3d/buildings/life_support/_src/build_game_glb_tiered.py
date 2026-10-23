@@ -4,7 +4,7 @@ then:  gltfpack -i raw.glb -o life_support_game.glb -cc -kn -ke     (meshopt + q
 Same culling and SHM_* palette remap as build_game_glb.py. Tier nodes (Tier_03/05/08/12/20) carry extras
 {"tier": N, "hidden_by_default": true}; each is ONE draw (dominant SHM_ material, other swatches kept as COLOR_0).
 Fan_Scrubber spins (clip Fan_Scrubber_Spin, pivot at the hub, axis +X); Beacon_Lights blinks (clip Beacon_Lights_Blink, scale 1 -> 0.001).
-Markers (empties): Airlock_Door, Crew_Path_01..05, Pipe_TankFarm."""
+Markers (empties): Airlock_Door, Crew_Path_01..05, Pipe_TankFarm, Cam_Target (extras {frame_w}: game camera aim point)."""
 import bpy, bmesh, json, os, sys, math
 from mathutils import Vector, Matrix
 a = sys.argv[sys.argv.index('--') + 1:]; A = {a[i][2:]: a[i + 1] for i in range(0, len(a) - 1, 2)}
@@ -187,6 +187,10 @@ MK = {'Airlock_Door': (0.0, -7.86, 1.7),                 # outer face of the sui
       'Pipe_TankFarm': (6.6, -11.8, 0.6)}                 # open flange at the end of the CO2 transfer line, facing -Y (toward the Tank Farm)
 for n, p in MK.items():
     e = bpy.data.objects.new(n, None); e.empty_display_type = 'ARROWS'; e.empty_display_size = 0.5; e.location = p; col.objects.link(e); e.parent = root
+# Cam_Target: empty only (no draw), extras {frame_w}; values written to the scene by build_life_support.py (PHONE_CAM)
+_sc = bpy.context.scene; assert 'cam_target' in _sc and 'frame_w' in _sc, 'rebuild life_support_master.blend (needs scene cam_target / frame_w)'
+ct = bpy.data.objects.new('Cam_Target', None); ct.empty_display_type = 'PLAIN_AXES'; ct.location = tuple(_sc['cam_target']); col.objects.link(ct); ct.parent = root
+ct['frame_w'] = float(_sc['frame_w'])
 print('NODES', sorted(o.name for o in root.children))
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_yup=True, export_extras=True,
