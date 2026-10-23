@@ -65,7 +65,7 @@
   <div class="ph-focus"><span>STATION FOCUS (Mine view y 188–572)</span></div>
   <div class="ph-sheet"><i style="top:46px"></i><i style="top:108px"></i><i style="top:170px"></i></div>
   <div class="home"></div>
-  <div class="ph-hud"><div class="money"><b>$</b>000,000 PH</div><div class="name">STATION · PH</div></div>
+  <div class="ph-hud ec-hud" id="hud"><div class="money"><b>$</b>000,000 PH</div><div class="name">STATION · PH</div></div>
 
   <!-- ═════════ Earth Coms kit markup (copy from here) ═════════ -->
   <div class="ec-root" id="ec">
@@ -177,6 +177,7 @@ $("rm").onchange = e => root.classList.toggle("ec-reduced", e.target.checked);
 BEATS.forEach((b, i) => $("beat").add(new Option(`${i + 1}. ${b.trigger}`, i)));
 
 let lines = [], li = 0, typing = null, toastTimer = null, fullText = "";
+const hudDim = on => document.getElementById("hud").classList.toggle("ec-hud-dim", on);
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 function reset() {
@@ -185,11 +186,11 @@ function reset() {
 }
 function ring(beatIdx) {
   reset(); lines = [BEATS[beatIdx].text]; li = 0; callWaiting = true;
-  void toast.offsetWidth; toast.classList.add("is-in"); bubble.classList.add("is-ringing");
+  void toast.offsetWidth; toast.classList.add("is-in"); hudDim(true); bubble.classList.add("is-ringing");
   if (q.get("tutorial") === "1") bubble.dataset.tutorial = ""; else delete bubble.dataset.tutorial;
   if (q.get("tutorial") === "1") { toast.dataset.tutorial = ""; return; } // tutorial call: no timeout, pulses until opened
   delete toast.dataset.tutorial;
-  toastTimer = setTimeout(() => { toast.classList.replace("is-in", "is-out"); bubble.classList.remove("is-ringing"); callWaiting = false; setMissed(missed + 1); }, M.toastTimeout); // story call: slide away, beat stays unheard, badge +1
+  toastTimer = setTimeout(() => { toast.classList.replace("is-in", "is-out"); setTimeout(() => hudDim(false), M.closeSlide); bubble.classList.remove("is-ringing"); callWaiting = false; setMissed(missed + 1); }, M.toastTimeout); // story call: slide away, beat stays unheard, badge +1
 }
 const bubble = $("ecBubble"), badge = $("ecBadge");
 let missed = 0, callWaiting = false;
@@ -201,7 +202,7 @@ function showTab(t) {
 }
 $("ecCalls").innerHTML = BEATS.slice(0, 5).map((b, i) => `<li><span class="ec-ico"><svg viewBox="0 0 16 16"><path d="M4 3h2l1 3-1.5 1a7 7 0 0 0 3.5 3.5L10 9l3 1v2a1 1 0 0 1-1 1A10 10 0 0 1 3 4a1 1 0 0 1 1-1z"/></svg></span><span>${b.trigger}<span class="ec-sub">Eve · ${[3, 12, 25, 47, 63][i]}m ago</span></span><button class="ec-replay" data-beat="${i}">▶ REPLAY</button></li>`).join("");
 function openPanel(tab) {
-  clearTimeout(toastTimer); toast.className = "ec-toast"; bubble.classList.remove("is-ringing");
+  clearTimeout(toastTimer); toast.className = "ec-toast"; hudDim(false); bubble.classList.remove("is-ringing");
   showTab(tab || "task"); panel.className = "ec-panel is-open"; root.dataset.open = tab || "task";
 }
 bubble.addEventListener("click", () => callWaiting ? answer() : (panel.classList.contains("is-open") ? hangUp() : openPanel("task")));
@@ -212,7 +213,7 @@ panel.addEventListener("click", e => {
 function answer() {
   callWaiting = false; bubble.classList.remove("is-ringing"); showTab("call");
   clearTimeout(toastTimer);
-  toast.classList.replace("is-in", "is-tapped");
+  toast.classList.replace("is-in", "is-tapped"); setTimeout(() => hudDim(false), M.tapOut);
   panel.classList.add("is-open");
   setTimeout(() => sayLine(lines[li]), reduced() ? M.rmFade : M.typeStart);
 }
@@ -266,13 +267,15 @@ document.addEventListener("click", e => { if (panel.classList.contains("is-open"
 let sy = null; panel.addEventListener("touchstart", e => sy = e.touches[0].clientY, { passive: true });
 panel.addEventListener("touchend", e => { if (sy !== null && sy - e.changedTouches[0].clientY > 40) hangUp(); sy = null; });
 const st = q.get("state"), bi = Math.max(0, (+q.get("line") || 1) - 1);
-if (st === "toast") { ring(bi); clearTimeout(toastTimer); }
+if (st === "toast") { ring(bi); document.getElementById("hud").style.transition = "none"; clearTimeout(toastTimer); }
 if (st === "toast" && q.get("tutorial") !== "1") bubble.classList.add("is-ringing");
 if (st === "panel") { showTab("call"); lines = [BEATS[bi].text]; li = 0; toast.className = "ec-toast"; panel.classList.add("is-open"); fullText = lines[0]; done();
   if (q.get("talk")) { panel.classList.remove("is-waiting"); panel.classList.add("is-talking"); tx.textContent = "TRANSMITTING"; txt.textContent = fullText.slice(0, +q.get("talk")); } }
 if (q.get("freeze")) setTimeout(() => document.body.classList.add("freeze"), +q.get("freeze") > 1 ? +q.get("freeze") : 1200);
 if (q.get("autoplay")) setTimeout(playAll, 600);
 window.EC_BEATS = BEATS;
+window.EC_PANEL_H = () => Math.round(panel.getBoundingClientRect().height);
+if (q.get("measure")) document.title = "H=" + EC_PANEL_H();
 </script>
 </body>
 </html>

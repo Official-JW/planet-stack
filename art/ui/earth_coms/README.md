@@ -82,9 +82,11 @@ The lines are the draft script from `TEAM_PLAN.md` § "Eve and Earth Coms", incl
 - `width = min(300, screen − safe-left − 16 (left gap) − toast-right)`
 - 393 → 300 (x 29–329, bubble at 337). 375 → 295 (x 16–311). 320 → 240. The text ellipsizes.
 
+**HUD fade hook:** put `.ec-hud` on the HUD container and toggle `.ec-hud-dim` while the toast is up. See MOTION.md for the timing.
+
 **Panel tabs**: `.ec-tabs` > `.ec-tab[role=tab][aria-selected]` (`data-tab` = task | updates | calls), with views in `.ec-view[data-view]` (+ `.is-on`) and `call` for the live call.
 - **Task**: `.ec-kicker`, `.ec-goal`, `.ec-prog` (label + `<b>2/3</b>`), `.ec-bar > i` (width %), and `.ec-tip`.
-- **Updates**: `ul.ec-log > li` with `.ec-ico[data-type=truck|ship-launch|ship-return|unlock]` and `<time>`. Newest first, capped at 20 rows (the game trims it), in a 202 pt scroll area `.ec-list`.
+- **Updates**: `ul.ec-log > li` with `.ec-ico[data-type=truck|ship-launch|ship-return|unlock]` and `<time>`. Newest first, capped at 20 rows (the game trims it), in `.ec-list`, which sizes to its content and scrolls only past 200 pt (panel max 268).
 - **Calls**: the same `.ec-log` rows with `.ec-sub` and a `.ec-replay` button (44 pt hit area).
 - Opens on Task unless a call is waiting, in which case it opens the call view with the Calls tab highlighted. It closes with ×, the chevron after the last line, a tap outside, or a swipe up (> 40 px).
 
@@ -95,9 +97,11 @@ The lines are the draft script from `TEAM_PLAN.md` § "Eve and Earth Coms", incl
 | Call, 2 lines | `--ec-panel-h-2` | 272 | y 339 |
 | Call, 3 lines | `--ec-panel-h-3` | 292 | y 359 |
 | Call, 4 lines | `--ec-panel-h-4` | 312 | y 379 |
-| Task / Updates / Calls | `--ec-panel-h-tabs` | 268 | y 335 |
+| Task / Updates / Calls | `--ec-panel-hmax-tabs` | sizes to content, **max** 268 (Task 236) | ≤ y 335 |
 
 The table further up lists the old heights, without tabs; these replace them.
+
+**View shift** uses the measured `getBoundingClientRect().height` and re-eases when a tab changes the height. In the prototype, `EC_PANEL_H()` returns it.
 
 **Prototype**: `?tab=task|updates|calls`, `?missed=N`, `?tutorial=1`, `?w=375&h=667`, and `?bg=ph` for the gray placeholder (the default background is the Mine phone still).
 
