@@ -1,19 +1,126 @@
 {
-  "_doc": "Shared flat PBR palette for Planet Stack building game GLBs (B look: glossy white + graphite, cyan light strips). One material = one draw call after merge-by-material. Values are glTF metallicRoughness; emissive in linear-ish sRGB hex with strength.",
-  "materials": {
-    "SH_White":     {"base": "#e6e9ed", "metal": 0.0, "rough": 0.32},
-    "SH_Graphite":  {"base": "#2c3137", "metal": 0.5, "rough": 0.38},
-    "SH_Steel":     {"base": "#a7afb8", "metal": 1.0, "rough": 0.3},
-    "SH_Foil":      {"base": "#c9ced6", "metal": 0.9, "rough": 0.35},
-    "SH_Radiator":  {"base": "#d9dde2", "metal": 0.2, "rough": 0.45},
-    "SH_Solar":     {"base": "#16233a", "metal": 0.3, "rough": 0.2},
-    "SH_Red":       {"base": "#b8322c", "metal": 0.1, "rough": 0.4},
-    "SH_PipeO2":    {"base": "#2f9e63", "metal": 0.1, "rough": 0.4},
-    "SH_PipeH2O":   {"base": "#2f6fc0", "metal": 0.1, "rough": 0.4},
-    "SH_Rock":      {"base": "#55575a", "metal": 0.0, "rough": 0.95},
-    "SH_Glass":     {"base": "#1b2a36", "metal": 0.0, "rough": 0.08},
-    "SH_GlowCyan":  {"base": "#2fe3ff", "metal": 0.0, "rough": 0.5, "emissive": "#2fe3ff", "emissive_strength": 4.0},
-    "SH_GlowWhite": {"base": "#eaf8ff", "metal": 0.0, "rough": 0.5, "emissive": "#eaf8ff", "emissive_strength": 3.0},
-    "SH_GlowRed":   {"base": "#f25f5c", "metal": 0.0, "rough": 0.5, "emissive": "#f25f5c", "emissive_strength": 3.0}
+ "_doc": "Shared flat PBR palette for Planet Stack building game GLBs (B look: glossy white + graphite, cyan light strips). One material = one draw call after merge-by-material. Values are glTF metallicRoughness; emissive in linear-ish sRGB hex with strength.",
+ "materials": {
+  "SH_White": {
+   "base": "#e6e9ed",
+   "metal": 0.0,
+   "rough": 0.32
+  },
+  "SH_Graphite": {
+   "base": "#2c3137",
+   "metal": 0.5,
+   "rough": 0.38
+  },
+  "SH_Steel": {
+   "base": "#a7afb8",
+   "metal": 1.0,
+   "rough": 0.3
+  },
+  "SH_Foil": {
+   "base": "#c9ced6",
+   "metal": 0.9,
+   "rough": 0.35
+  },
+  "SH_Radiator": {
+   "base": "#d9dde2",
+   "metal": 0.2,
+   "rough": 0.45
+  },
+  "SH_Solar": {
+   "base": "#16233a",
+   "metal": 0.3,
+   "rough": 0.2
+  },
+  "SH_Red": {
+   "base": "#b8322c",
+   "metal": 0.1,
+   "rough": 0.4
+  },
+  "SH_PipeO2": {
+   "base": "#2f9e63",
+   "metal": 0.1,
+   "rough": 0.4
+  },
+  "SH_PipeH2O": {
+   "base": "#2f6fc0",
+   "metal": 0.1,
+   "rough": 0.4
+  },
+  "SH_Rock": {
+   "base": "#55575a",
+   "metal": 0.0,
+   "rough": 0.95
+  },
+  "SH_Glass": {
+   "base": "#1b2a36",
+   "metal": 0.0,
+   "rough": 0.08
+  },
+  "SH_GlowCyan": {
+   "base": "#2fe3ff",
+   "metal": 0.0,
+   "rough": 0.5,
+   "emissive": "#2fe3ff",
+   "emissive_strength": 4.0
+  },
+  "SH_GlowWhite": {
+   "base": "#eaf8ff",
+   "metal": 0.0,
+   "rough": 0.5,
+   "emissive": "#eaf8ff",
+   "emissive_strength": 3.0
+  },
+  "SH_GlowRed": {
+   "base": "#f25f5c",
+   "metal": 0.0,
+   "rough": 0.5,
+   "emissive": "#f25f5c",
+   "emissive_strength": 3.0
   }
+ },
+ "_doc_merged": "Merged set for game GLBs at 3-6 draw calls. Each SH_* swatch above is baked as a COLOR_0 vertex colour (its 'base') and the mesh is merged into the merged material named in swatch_to_merged. Merged materials are plain glTF metallic/roughness (three.js MeshStandardMaterial). There are no KHR_materials_* extensions and no textures (KTX2 only, if one is ever needed; never PNG/JPG). Emissive strength is 1.0, so KHR_materials_emissive_strength is not needed.",
+ "merged_materials": {
+  "SHM_Paint": {
+   "base": "#ffffff",
+   "metal": 0.0,
+   "rough": 0.42,
+   "vertex_colors": true
+  },
+  "SHM_Metal": {
+   "base": "#ffffff",
+   "metal": 0.85,
+   "rough": 0.34,
+   "vertex_colors": true
+  },
+  "SHM_GlowCyan": {
+   "base": "#2fe3ff",
+   "metal": 0.0,
+   "rough": 0.5,
+   "emissive": "#2fe3ff",
+   "emissive_strength": 1.0
+  },
+  "SHM_GlowWhite": {
+   "base": "#eaf8ff",
+   "metal": 0.0,
+   "rough": 0.5,
+   "emissive": "#eaf8ff",
+   "emissive_strength": 1.0
+  }
+ },
+ "swatch_to_merged": {
+  "SH_White": "SHM_Paint",
+  "SH_Graphite": "SHM_Paint",
+  "SH_Steel": "SHM_Metal",
+  "SH_Foil": "SHM_Metal",
+  "SH_Radiator": "SHM_Paint",
+  "SH_Solar": "SHM_Paint",
+  "SH_Red": "SHM_Paint",
+  "SH_PipeO2": "SHM_Paint",
+  "SH_PipeH2O": "SHM_Paint",
+  "SH_Rock": "SHM_Paint",
+  "SH_Glass": "SHM_Paint",
+  "SH_GlowCyan": "SHM_GlowCyan",
+  "SH_GlowWhite": "SHM_GlowWhite",
+  "SH_GlowRed": "SHM_GlowWhite"
+ }
 }

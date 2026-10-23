@@ -32,7 +32,7 @@ TAU = math.tau
 NAME = 'life_support'
 
 # ====================================================================== materials
-def add_dust(m, top=1.3, amt=0.8, col='#8e8982', upamt=0.35):
+def add_dust(m, top=1.3, amt=0.8, col='#8a8c8f', upamt=0.35):
     """height-based regolith dust (world Z) + dust settling on up-facing surfaces."""
     nt = m.node_tree; b = nt.nodes['Principled BSDF']; inp = b.inputs['Base Color']
     if inp.links: src = inp.links[0].from_socket
@@ -62,14 +62,14 @@ def P_(name, color, dust=True, **kw):
     return add_dust(m) if dust else m
 
 # --- Mine-B 'sleek high-tech' palette: glossy white + graphite, satin metal, cyan light strips (weathered)
-WHITE  = P_('LS_White', '#eceff2', rough=0.24, metal=0.0, coat=0.8, grime=0.26, grime_col='#a59f97', wear=0.14, wear_col='#9aa3ad', panel=0.8, bevel=0.03, dirt_scale=1.5)
-WHITE_S = P_('LS_WhiteSmooth', '#eef1f4', rough=0.2, metal=0.0, coat=0.9, grime=0.2, grime_col='#a59f97', wear=0.1, wear_col='#9aa3ad', bevel=0.03)
-PALE   = P_('LS_WhitePanel', '#e2e6eb', rough=0.26, metal=0.0, coat=0.7, grime=0.28, grime_col='#a59f97', wear=0.16, wear_col='#9aa3ad', panel=0.8, bevel=0.02)
+WHITE  = P_('LS_White', '#eceff2', rough=0.24, metal=0.0, coat=0.8, grime=0.26, grime_col='#9b9da0', wear=0.14, wear_col='#9aa3ad', panel=0.8, bevel=0.03, dirt_scale=1.5)
+WHITE_S = P_('LS_WhiteSmooth', '#eef1f4', rough=0.2, metal=0.0, coat=0.9, grime=0.2, grime_col='#9b9da0', wear=0.1, wear_col='#9aa3ad', bevel=0.03)
+PALE   = P_('LS_WhitePanel', '#e2e6eb', rough=0.26, metal=0.0, coat=0.7, grime=0.28, grime_col='#9b9da0', wear=0.16, wear_col='#9aa3ad', panel=0.8, bevel=0.02)
 GRAPH  = P_('LS_Graphite', '#2c3137', rough=0.3, metal=0.55, coat=0.5, grime=0.2, grime_col='#6b665f', wear=0.22, wear_col='#9aa0a6', panel=1.4, bevel=0.02)
 GRAPH2 = P_('LS_Graphite2', '#30353c', rough=0.28, metal=0.6, coat=0.5, grime=0.22, grime_col='#6b665f', wear=0.2, wear_col='#9aa0a6', panel=1.6, bevel=0.02)
 STEEL  = P_('LS_Satin', '#9aa3ad', rough=0.28, metal=1.0, grime=0.25, grime_col='#5a5650', wear=0.12, wear_col='#d0d5db', bevel=0.015)
 STEELL = P_('LS_SatinLight', '#b9c0c8', rough=0.24, metal=1.0, grime=0.2, grime_col='#5a5650', wear=0.1, wear_col='#e0e4e8', bevel=0.01)
-AMBER  = P_('LS_WhiteTrim', '#e9edf1', rough=0.22, metal=0.0, coat=0.8, grime=0.22, grime_col='#a59f97', wear=0.18, wear_col='#8f969e', bevel=0.02)
+AMBER  = P_('LS_WhiteTrim', '#e9edf1', rough=0.22, metal=0.0, coat=0.8, grime=0.22, grime_col='#9b9da0', wear=0.18, wear_col='#8f969e', bevel=0.02)
 HAZ    = M_glow('LS_CyanStrip', '#2fe3ff', 7)
 GREEN  = P_('LS_BandGraphite', '#2c3137', rough=0.3, metal=0.55, coat=0.5, grime=0.2, wear=0.2, bevel=0.01)
 BLUE   = GREEN
@@ -87,12 +87,14 @@ REDL   = M_glow('LS_RedLamp', '#f25f5c', 8)
 HOT    = M_glow('LS_ReactorPort', '#ff8a3a', 4)
 WATERL = M_glow('LS_SightGlass', '#7fe6ff', 2.6)
 CYANL  = M_glow('LS_Cyan', '#2fe3ff', 10)
-MATTEW = P_('LS_ShieldTile', '#e4e8ec', rough=0.62, metal=0.0, grime=0.3, grime_col='#a59f97', wear=0.15, wear_col='#9aa3ad', panel=0.8, bevel=0.03)
+MATTEW = P_('LS_ShieldTile', '#e4e8ec', rough=0.62, metal=0.0, grime=0.3, grime_col='#9b9da0', wear=0.15, wear_col='#9aa3ad', panel=0.8, bevel=0.03)
 CYANS  = M_glow('LS_CyanSoft', '#2fe3ff', 4)
 DARKH  = M_glow('LS_Void', '#000000', 0)
 SLAG   = M_rock('LS_Slag', '#3e3c3a', '#5f5b57')
 FEED   = M_rock('LS_Ilmenite', '#4f4d4b', '#7b7773')
 ICE    = M_rock('LS_IceRegolith', '#8b9096', '#d9e2ea')
+O2BAND = P_('LS_O2Band', '#2f9e63', rough=0.35, metal=0.1, coat=0.5, grime=0.2, wear=0.2)
+H2OBAND = P_('LS_H2OBand', '#2f6fc0', rough=0.35, metal=0.1, coat=0.5, grime=0.2, wear=0.2)
 
 def M_sandbag(name='LS_Berm'):
     """regolith-filled bags on steep faces (brick rows, axis picked from the normal), loose regolith on top."""
@@ -172,6 +174,64 @@ def M_cells(name='LS_SolarCells'):
     b.inputs['Coat Weight'].default_value = 0.6; b.inputs['Coat Roughness'].default_value = 0.05
     m.diffuse_color = hexc('#1b2a4a'); return m
 CELLS = M_cells()
+
+# ---- cool grey rock ground (same recipe as the starter ship's grey pass; no tan anywhere)
+def _m(N, L, op, a, b=None, clamp=False):
+    n = N.new('ShaderNodeMath'); n.operation = op; n.use_clamp = clamp
+    for i, v in enumerate((a, b)):
+        if v is None: continue
+        if isinstance(v, (int, float)): n.inputs[i].default_value = v
+        else: L.new(v, n.inputs[i])
+    return n.outputs[0]
+def _mr(N, L, v, f0, f1, t0=0.0, t1=1.0):
+    n = N.new('ShaderNodeMapRange'); n.clamp = True
+    n.inputs['From Min'].default_value = f0; n.inputs['From Max'].default_value = f1
+    n.inputs['To Min'].default_value = t0; n.inputs['To Max'].default_value = t1; L.new(v, n.inputs['Value']); return n.outputs[0]
+def _nz(N, L, vec, scale, detail=6, rough=0.6):
+    n = N.new('ShaderNodeTexNoise'); n.inputs['Scale'].default_value = scale; n.inputs['Detail'].default_value = detail
+    n.inputs['Roughness'].default_value = rough
+    if vec is not None: L.new(vec, n.inputs['Vector'])
+    return n.outputs['Fac']
+def M_ground_grey():
+    """cool neutral grey rock/regolith: flat ground = fine grey regolith, slopes = darker banded rock with IRREGULAR strata."""
+    m = bpy.data.materials.new('M_RegolithGrey'); nt, b = _nodes(m); N, L = nt.nodes, nt.links
+    geo = N.new('ShaderNodeNewGeometry'); P = geo.outputs['Position']
+    sp = N.new('ShaderNodeSeparateXYZ'); L.new(P, sp.inputs[0])
+    sn = N.new('ShaderNodeSeparateXYZ'); L.new(geo.outputs['Normal'], sn.inputs[0])
+    base = N.new('ShaderNodeValToRGB'); base.color_ramp.elements[0].color = hexc('#5e6063'); base.color_ramp.elements[1].color = hexc('#95979a')
+    L.new(_nz(N, L, P, 0.07, 12, 0.6), base.inputs['Fac'])
+    fine = _mr(N, L, _nz(N, L, P, 2.5, 12, 0.7), 0.3, 0.7, 0.82, 1.08)
+    # strata: height warped by low-frequency noise, then a 1-D fbm along that warped height -> beds of uneven thickness
+    warp = _m(N, L, 'MULTIPLY_ADD', _nz(N, L, P, 0.018, 3, 0.5), 7.0); warp.node.inputs[2].default_value = -3.5
+    w2 = _m(N, L, 'MULTIPLY_ADD', _nz(N, L, P, 0.09, 4, 0.5), 1.2); w2.node.inputs[2].default_value = -0.6
+    zz = _m(N, L, 'ADD', _m(N, L, 'ADD', sp.outputs['Z'], warp), w2)
+    cz = N.new('ShaderNodeCombineXYZ'); L.new(_m(N, L, 'MULTIPLY', zz, 0.2), cz.inputs['Z']); cz.inputs['X'].default_value = 3.1
+    L.new(_m(N, L, 'MULTIPLY', _nz(N, L, P, 0.012, 2, 0.5), 1.5), cz.inputs['Y'])          # beds pinch out / change along the ridge
+    beds = _nz(N, L, cz.outputs[0], 1.0, 4, 0.55)
+    sr = N.new('ShaderNodeValToRGB'); el = sr.color_ramp.elements; sr.color_ramp.interpolation = 'EASE'
+    el[0].position = 0.25; el[0].color = hexc('#3c3e42'); el[1].position = 0.75; el[1].color = hexc('#a2a4a7')
+    for pos, c_ in ((0.36, '#6a6c70'), (0.42, '#4a4c50'), (0.47, '#8a8c90'), (0.53, '#56585c'), (0.6, '#7e8084'), (0.66, '#5a5c60')):
+        e = el.new(pos); e.color = hexc(c_)
+    L.new(beds, sr.inputs['Fac'])
+    # where beds show: steeper faces + higher ground, patchy
+    steep = _mr(N, L, sn.outputs['Z'], 0.97, 0.82)
+    high = _mr(N, L, sp.outputs['Z'], 0.6, 3.0)
+    patch = _mr(N, L, _nz(N, L, P, 0.03, 3, 0.5), 0.38, 0.55, 0.45, 1.0)
+    k = _m(N, L, 'MULTIPLY', _m(N, L, 'MAXIMUM', steep, _m(N, L, 'MULTIPLY', high, 0.55)), patch, clamp=True)
+    mx = N.new('ShaderNodeMix'); mx.data_type = 'RGBA'; L.new(k, mx.inputs['Factor']); L.new(base.outputs['Color'], mx.inputs[6]); L.new(sr.outputs['Color'], mx.inputs[7])
+    mf = N.new('ShaderNodeMix'); mf.data_type = 'RGBA'; mf.blend_type = 'MULTIPLY'; mf.inputs['Factor'].default_value = 1.0
+    L.new(mx.outputs[2], mf.inputs[6]); cc = N.new('ShaderNodeCombineColor')
+    for i in range(3): L.new(fine, cc.inputs[i])
+    L.new(cc.outputs[0], mf.inputs[7]); L.new(mf.outputs[2], b.inputs['Base Color'])
+    b.inputs['Roughness'].default_value = 0.97
+    # rock relief: bed ledges + cracks + grain
+    vor = N.new('ShaderNodeTexVoronoi'); vor.feature = 'DISTANCE_TO_EDGE'; vor.inputs['Scale'].default_value = 0.6; L.new(P, vor.inputs['Vector'])
+    crack = _m(N, L, 'MULTIPLY', _mr(N, L, vor.outputs['Distance'], 0.0, 0.05, 0.0, 1.0), k)
+    h = _m(N, L, 'ADD', _m(N, L, 'MULTIPLY', beds, _m(N, L, 'MULTIPLY', k, 1.6)), _m(N, L, 'MULTIPLY', _nz(N, L, P, 3.0, 14), 0.5))
+    h = _m(N, L, 'ADD', h, _m(N, L, 'MULTIPLY', crack, 0.3))
+    bump = N.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.6; bump.inputs['Distance'].default_value = 0.08
+    L.new(h, bump.inputs['Height']); L.new(bump.outputs['Normal'], b.inputs['Normal'])
+    m.diffuse_color = hexc('#77797c'); return m
 
 # ====================================================================== helpers
 def lbox(name, size, loc, rot, mat, bevel=0.0):
@@ -324,7 +384,7 @@ def panel_wall(p0, p1, hfun, pw=1.5, skip_portal=False, thick=0.32):
 # two parallel horizontal modules on graphite cradles, joined by a pressurised tunnel. Each hull wears a jacket of
 # white water-wall / polyethylene shield segments (radiation + micrometeoroid), seamed by graphite rings, with cyan strips.
 MR, MZ = 2.3, 2.95                 # hull radius, axis height
-MODS = ((-1.4, 4.6, 'PM-1', 'PROCESS / ECLSS'), (4.4, 4.2, 'PM-2', 'STORES / CONTROL'))
+MODS = ((-1.4, 3.6, 'PM-1', 'PROCESS / ECLSS'), (4.4, 3.2, 'PM-2', 'STORES / CONTROL'))
 for (my, mhl, mid, msub) in MODS:
     rod(f'{mid}_core', (-mhl, my, MZ), (mhl, my, MZ), MR - 0.05, GRAPH, segs=56)
     nseg = int(round(2 * mhl / 1.5)); sw = 2 * mhl / nseg
@@ -352,9 +412,9 @@ for (my, mhl, mid, msub) in MODS:
         for k in range(int(mhl)): rod(f'{mid}_rail_post', (-mhl + 0.6 + k * 2, my + sy * (MR + 0.12), MZ + 0.4), (-mhl + 0.6 + k * 2, my + sy * (MR + 0.32), MZ + 0.4), 0.02, STEELL, segs=6)
     # hull stencils (on the tilted forward shoulder)
     th = 0.72; r_ = MR + 0.135
-    stencil(f'st_{mid}', mid, (-2.6, my - r_ * math.cos(th), MZ + r_ * math.sin(th)), '-y', 0.5).rotation_euler = (math.pi / 2 - th, 0, 0)
+    stencil(f'st_{mid}', mid, (-mhl + sw * 1.5, my - r_ * math.cos(th), MZ + r_ * math.sin(th)), '-y', 0.42).rotation_euler = (math.pi / 2 - th, 0, 0)
     th2 = 0.42
-    stencil(f'st_{mid}_s', msub, (-2.6, my - r_ * math.cos(th2), MZ + r_ * math.sin(th2)), '-y', 0.16).rotation_euler = (math.pi / 2 - th2, 0, 0)
+    stencil(f'st_{mid}_s', msub, (-mhl + sw * 1.5, my - r_ * math.cos(th2), MZ + r_ * math.sin(th2)), '-y', 0.13).rotation_euler = (math.pi / 2 - th2, 0, 0)
 # connecting tunnel M-1 <-> M-2
 rod('tunnel', (0, -1.4, MZ), (0, 4.4, MZ), 1.15, WHITE, segs=40)
 for y in (0.95, 2.05): rod('tunnel_ring', (0, y - 0.06, MZ), (0, y + 0.06, MZ), 1.22, GRAPH2, segs=40)
@@ -362,8 +422,8 @@ rod('tunnel_cyan', (0, 1.48, MZ), (0, 1.52, MZ), 1.18, CYANL, segs=40)
 box('tunnel_cradle', (1.8, 0.5, MZ - 1.15), (0, 1.5, (MZ - 1.15) / 2), GRAPH, bevel=0.03)
 # station ID on the front module shoulder (right of the porch)
 th = 0.72; r_ = MR + 0.135
-stencil('st_ls01', 'LS-01', (3.0, -1.4 - r_ * math.cos(th), MZ + r_ * math.sin(th)), '-y', 0.62).rotation_euler = (math.pi / 2 - th, 0, 0)
-stencil('st_ls01s', 'LIFE SUPPORT', (3.0, -1.4 - r_ * math.cos(0.42), MZ + r_ * math.sin(0.42)), '-y', 0.2).rotation_euler = (math.pi / 2 - 0.42, 0, 0)
+stencil('st_ls01', 'LS-01', (1.44, -1.4 - r_ * math.cos(th), MZ + r_ * math.sin(th)), '-y', 0.42).rotation_euler = (math.pi / 2 - th, 0, 0)
+stencil('st_ls01s', 'LIFE SUPPORT', (1.44, -1.4 - r_ * math.cos(0.42), MZ + r_ * math.sin(0.42)), '-y', 0.13).rotation_euler = (math.pi / 2 - 0.42, 0, 0)
 
 # ====================================================================== AIRLOCK A1 + dust-cleaning porch
 AY0, AY1 = -2.8, -7.3
@@ -399,17 +459,17 @@ for k, y in enumerate((-5.65, -6.75)):
     stencil(f'st_sp{k}', f'SP-{k + 1}', (-AL_R - 0.40, y, AL_Z + 0.5), '-x', 0.09)
 # porch canopy (shield-panel roof: shade + micrometeoroid cover over the dust bay)
 CZ = 3.85; CY0, CY1 = HWY - 0.4, -10.6
-box('canopy_deck', (7.4, CY0 - CY1, 0.22), (0, (CY0 + CY1) / 2, CZ), GRAPH2, bevel=0.03)
+box('canopy_deck', (6.6, CY0 - CY1, 0.22), (0, (CY0 + CY1) / 2, CZ), GRAPH2, bevel=0.03)
 for sx in (-1, 1):
-    ibeam('canopy_girder', (sx * 3.55, CY0, CZ - 0.25), (sx * 3.55, CY1, CZ - 0.25), 0.25, 0.32, STEEL)
-    box('canopy_col', (0.28, 0.28, CZ - 0.4), (sx * 3.4, CY1 + 0.25, (CZ - 0.4) / 2), STEEL, bevel=0.02)
-    box('canopy_col_foot', (0.6, 0.6, 0.12), (sx * 3.4, CY1 + 0.25, 0.06), GRAPH, bevel=0.02)
-    beam('canopy_knee', (sx * 3.4, CY1 + 0.25, CZ - 1.3), (sx * 3.4, CY1 + 1.3, CZ - 0.4), 0.14, 0.14, STEEL)
-ibeam('canopy_front', (-3.6, CY1 + 0.25, CZ - 0.25), (3.6, CY1 + 0.25, CZ - 0.25), 0.25, 0.32, STEEL)
-box('canopy_haz', (7.42, 0.02, 0.05), (0, CY1 - 0.01, CZ), HAZ)
+    ibeam('canopy_girder', (sx * 3.15, CY0, CZ - 0.25), (sx * 3.15, CY1, CZ - 0.25), 0.25, 0.32, STEEL)
+    box('canopy_col', (0.28, 0.28, CZ - 0.4), (sx * 3.0, CY1 + 0.25, (CZ - 0.4) / 2), STEEL, bevel=0.02)
+    box('canopy_col_foot', (0.6, 0.6, 0.12), (sx * 3.0, CY1 + 0.25, 0.06), GRAPH, bevel=0.02)
+    beam('canopy_knee', (sx * 3.0, CY1 + 0.25, CZ - 1.3), (sx * 3.0, CY1 + 1.3, CZ - 0.4), 0.14, 0.14, STEEL)
+ibeam('canopy_front', (-3.2, CY1 + 0.25, CZ - 0.25), (3.2, CY1 + 0.25, CZ - 0.25), 0.25, 0.32, STEEL)
+box('canopy_haz', (6.62, 0.02, 0.05), (0, CY1 - 0.01, CZ), HAZ)
 for k in range(int((CY0 - CY1) / 1.0)):   # white shield-panel roof tiles over the dust bay
-    box('canopy_tile', (7.0, 0.96, 0.16), (0, CY1 + 0.55 + k * 1.0, CZ + 0.19), MATTEW, bevel=0.03)
-box('canopy_fascia', (7.5, 0.18, 0.42), (0, CY1 + 0.02, CZ + 0.12), GRAPH2, bevel=0.03)
+    box('canopy_tile', (6.2, 0.96, 0.16), (0, CY1 + 0.55 + k * 1.0, CZ + 0.19), MATTEW, bevel=0.03)
+box('canopy_fascia', (6.7, 0.18, 0.42), (0, CY1 + 0.02, CZ + 0.12), GRAPH2, bevel=0.03)
 for sx in (-1.6, 1.6):   # work floodlights under the canopy
     box('flood', (0.7, 0.3, 0.18), (sx, -9.4, CZ - 0.25), GRAPH, rot=(0.5, 0, 0), bevel=0.03)
     box('flood_lens', (0.6, 0.02, 0.12), (sx, -9.56, CZ - 0.3), LAMP, rot=(0.5, 0, 0))
@@ -434,9 +494,9 @@ box('shower_head', (3.3, 0.34, 0.24), (0, ASY, 2.75), GRAPH2, bevel=0.03)
 for k in range(8): cyl('nozzle_top', 0.035, 0.09, (-1.2 + k * 0.34, ASY, 2.6), CHROME, segs=8)
 box('shower_haz', (3.32, 0.02, 0.05), (0, ASY - 0.18, 2.75), HAZ)
 stencil('st_dust', 'DUST BAY  -  BRUSH  /  BLOW  /  STEP', (0, ASY - 0.19, 2.93), '-y', 0.1, INK)
-box('blower', (0.9, 0.7, 0.8), (2.5, -8.0, 0.4), GRAPH2, bevel=0.04)
-for k in range(5): box('blower_fin', (0.92, 0.02, 0.5), (2.5, -8.36, 0.45), STEELL) if k == 0 else None
-pipe('blow_hose', [(2.5, -8.0, 0.8), (2.5, -8.0, 1.4), (1.64, ASY, 1.4)], 0.06, RUBBER, bend=0.3)
+box('blower', (0.9, 0.7, 0.8), (2.35, -8.0, 0.4), GRAPH2, bevel=0.04)
+for k in range(5): box('blower_fin', (0.92, 0.02, 0.5), (2.35, -8.36, 0.45), STEELL) if k == 0 else None
+pipe('blow_hose', [(2.35, -8.0, 0.8), (2.35, -8.0, 1.4), (1.64, ASY, 1.4)], 0.06, RUBBER, bend=0.3)
 # boot/glove brush station (rotary brushes on a post pair), right of the mat
 BX = 2.15
 for sy in (-9.1, -10.2): box('brush_post', (0.14, 0.14, 1.4), (BX, sy, 0.7), STEEL, bevel=0.02)
@@ -449,7 +509,7 @@ box('rack', (0.12, 1.6, 1.8), (-2.15, -9.3, 0.9), GRAPH2, bevel=0.02)
 for k in range(4): rod('hook', (-2.15, -8.8 - k * 0.35, 1.5), (-2.0, -8.8 - k * 0.35, 1.55), 0.02, STEELL, segs=6)
 
 # ====================================================================== POWER: switchgear SWG-1 + reactor feeder
-SWX, SWY = -5.6, -9.2
+SWX, SWY = -4.4, -6.9
 box('swg_plinth', (3.0, 1.3, 0.25), (SWX, SWY, 0.125), GRAPH, bevel=0.03)
 box('swg_body', (2.7, 1.0, 2.3), (SWX, SWY + 0.04, 1.4), WHITE_S, bevel=0.04)   # front face sits behind the doors (no z-fight)
 box('swg_roof', (2.9, 1.2, 0.12), (SWX, SWY, 2.6), GRAPH2, bevel=0.02)
@@ -496,16 +556,15 @@ def tray_run(name, pts, z=0.9, post=5.0, c='Mine', heightf=None, cables=('#1c1d1
         for s in (-1, 1):
             u = (b - a).normalized(); sv = Vector((-u.y, u.x, 0)) * 0.25 * s
             beam(name + '_tray_lip', a + sv + Vector((0, 0, 0.06)), b + sv + Vector((0, 0, 0.06)), 0.02, 0.12, STEELL, c=c, bevel=0.0)
-FEEDER_NEAR = [(SWX - 1.5, SWY, 0), (-12.0, -9.6, 0), (-19.0, -10.2, 0)]
+FEEDER_NEAR = [(SWX - 1.5, SWY, 0), (-7.0, -8.6, 0), (-7.8, -10.4, 0)]
 tray_run('feeder', FEEDER_NEAR)
 pipe('feeder_drop', [(SWX - 1.5, SWY, 1.0), (SWX - 1.5, SWY, 0.5), (SWX - 1.36, SWY, 0.5)], 0.09, RED, bend=0.2)
 # distribution: conduit bundle up the headwall face into the module
 for k, dx in enumerate((-0.15, 0.0, 0.15)):
-    pipe('conduit', [(SWX + 1.2 + dx, SWY + 0.5, 2.2), (SWX + 1.2 + dx, SWY + 3.2, 2.2), (SWX + 1.2 + dx, -3.62, 2.3)], 0.05, [RUBBER, RED, RUBBER][k], bend=0.4)
-box('conduit_clamp', (0.6, 0.2, 0.12), (SWX + 1.2, -5.0, 2.2), STEEL, bevel=0.01)
-tray_run('dist_o2', [(SWX - 0.5, SWY + 0.6, 0), (-9.2, -6.0, 0), (-10.2, 2.6, 0)], z=0.75, post=3.5, cables=('#1c1d1f', '#c8322a'))
-tray_run('dist_h2o', [(-3.9, -5.0, 0), (7.6, -5.0, 0), (8.6, -1.0, 0)], z=0.6, post=3.5, cables=('#1c1d1f',))
+    pipe('conduit', [(SWX + 1.6 + dx, SWY + 0.5, 2.2), (SWX + 1.6 + dx, -4.5, 2.2), (SWX + 1.6 + dx, -3.62, 2.5)], 0.05, [RUBBER, RED, RUBBER][k], bend=0.4)
+box('conduit_clamp', (0.6, 0.2, 0.12), (SWX + 1.6, -5.2, 2.2), STEEL, bevel=0.01)
 
+_G0 = set(bpy.data.objects)
 # ====================================================================== O2 EXTRACTION (left)
 OX, OY = -12.6, -1.4     # reactor axis
 # receiving bin for ilmenite-rich regolith (rover tips into it)
@@ -586,7 +645,6 @@ for k, (tx, ty) in enumerate(O2T):
     cyl('o2_tank_valve', 0.16, 0.12, (tx, ty, 4.3), GREEN, segs=12)
 pipe('o2_out', [(EX - 1.2, EY + 1.0, 1.9), (EX - 1.2, EY + 2.0, 1.9), (O2T[1][0], O2T[1][1] - 1.6, 1.9), (O2T[1][0], O2T[1][1] - 1.35, 2.2)], 0.07, GREEN, bend=0.3)
 pipe('o2_cross', [(O2T[0][0], O2T[0][1], 4.3), (O2T[0][0], O2T[0][1], 4.7), (O2T[1][0], O2T[1][1], 4.7), (O2T[1][0], O2T[1][1], 4.3)], 0.06, GREEN, bend=0.25)
-pipe('o2_to_module', [(O2T[1][0] + 1.2, O2T[1][1], 1.2), (-6.5, 7.6, 1.2), (-6.5, 7.6, 3.4)], 0.07, GREEN, bend=0.4)
 # radiator array RAD-1 (reactor + electrolysis heat rejection), coolant loop
 R1Y, R1Z, R1H = 10.6, 2.6, 5.0
 radiator_array('rad1', R1Y, -19.4, -10.6, R1Z, R1H, 4, axis='x')
@@ -596,6 +654,7 @@ for k, (xr, zr) in enumerate(((-17.75, 2.0), (-18.05, 1.0))):
     zm = R1Z - 0.12 if k else R1Z + R1H + 0.12
     pipe('rad1_loop', [(xr, R1Y, zm), (xr, R1Y - 0.35, zm), (xr, R1Y - 0.35, zr), (xr, OY, zr), (OX - 1.22, OY, zr)], 0.08, STEELL, bend=0.45)
 
+_G1 = set(bpy.data.objects)
 # ====================================================================== WATER RECOVERY (right)
 WX, WY = 11.0, -5.6
 # ice-regolith feed hopper on frame + melt/sublimation vessel under it
@@ -649,8 +708,6 @@ rail('h2o_cw_rail', [(9.0, 2.95, 5.19), (15.8, 2.95, 5.19)], AMBER, h=1.0)
 ladder('h2o_ladder', 16.05, 2.8, 0.0, 5.15, along='y')
 pipe('filt_to_tank', [(FX + 1.4, FY + 0.45, 1.5), (FX + 1.8, FY + 0.45, 1.5), (FX + 1.8, 1.9, 1.5), (HT[1][0], 1.9, 1.5), (HT[1][0], 2.3, 1.5)], 0.06, BLUE, bend=0.3)
 pipe('tank_hdr', [(HT[0][0], HT[0][1] + 1.2, 1.0), (HT[2][0], HT[2][1] + 1.2, 1.0)], 0.07, BLUE)
-pipe('h2o_to_module', [(HT[0][0], HT[0][1] + 1.2, 1.0), (6.6, 4.6, 1.0), (6.6, 4.6, 3.4)], 0.07, BLUE, bend=0.4)
-pipe('grey_return', [(6.4, 0.8, 3.0), (6.4, 0.8, 1.2), (FX - 1.6, FY + 0.45, 1.2), (FX - 1.4, FY + 0.45, 1.2)], 0.05, STEELL, bend=0.3)
 stencil('st_grey', 'GREYWATER RETURN', (7.8, 0.66, 1.42), '-y', 0.1, INK)
 # radiator array RAD-2
 R2Y, R2Z, R2H = 7.6, 2.8, 4.8
@@ -660,58 +717,103 @@ for k, (xr, zr) in enumerate(((17.7, CDZ + 0.3), (18.0, CDZ - 0.3))):
     zm = R2Z + R2H + 0.12 if k == 0 else R2Z - 0.12
     pipe('rad2_loop', [(xr - 0.3, R2Y, zm), (xr, R2Y, zm), (xr, R2Y, zr), (xr, CDY, zr), (CDX + 1.6, CDY, zr)], 0.07, STEELL, bend=0.4)
 
+_G2 = set(bpy.data.objects)
 # ====================================================================== CO2 SCRUBBING (front right)
-SX, SY = 6.4, -8.4
-box('co2_skid', (4.0, 2.6, 0.22), (SX, SY, 0.11), GRAPH, bevel=0.02)
-box('co2_haz', (4.02, 0.02, 0.05), (SX, SY - 1.31, 0.3), HAZ)
+SX, SY = 4.55, -6.5
+box('co2_skid', (3.2, 2.6, 0.22), (SX, SY, 0.11), GRAPH, bevel=0.02)
+box('co2_haz', (3.22, 0.02, 0.05), (SX, SY - 1.31, 0.3), HAZ)
 for k in range(4):
-    bx = SX - 1.35 + k * 0.9
-    box('co2_bed', (0.72, 0.9, 2.1), (bx, SY + 0.25, 1.3), GRAPH2, bevel=0.05)
-    for j in range(3): box('co2_bed_rib', (0.75, 0.93, 0.06), (bx, SY + 0.25, 0.6 + j * 0.7), STEEL, bevel=0.01)
+    bx = SX - 1.11 + k * 0.74
+    box('co2_bed', (0.62, 0.9, 2.1), (bx, SY + 0.25, 1.3), GRAPH2, bevel=0.05)
+    for j in range(3): box('co2_bed_rib', (0.65, 0.93, 0.06), (bx, SY + 0.25, 0.6 + j * 0.7), STEEL, bevel=0.01)
     stencil(f'st_bed{k}', 'ABCD'[k], (bx, SY - 0.21, 1.75), '-y', 0.26, INKW)
     cyl('co2_valve', 0.11, 0.25, (bx, SY + 0.25, 2.5), STEELL, segs=12)
     box('co2_actuator', (0.26, 0.2, 0.2), (bx, SY + 0.25, 2.72), AMBER, bevel=0.03)
-    lamp(f'co2_lamp{k}', (bx + 0.22, SY - 0.22, 2.2), GREENL if k % 2 == 0 else AMBERL, 0.035)
-pipe('co2_hdr', [(SX - 1.6, SY + 0.25, 2.95), (SX + 1.6, SY + 0.25, 2.95)], 0.09, STEELL)
-plate('co2_plate', 'CO2 SCRUB', (SX - 0.45, SY - 0.24, 0.72), '-y', 1.5, 0.36, 0.17, sub='4-BED SWING  /  VACUUM REGEN')
-box('co2_blower', (1.0, 0.8, 0.9), (SX + 1.45, SY - 0.75, 0.67), PALE, bevel=0.04)
-cyl('co2_blower_fan', 0.3, 0.06, (SX + 1.45, SY - 1.16, 0.7), GRAPH, rot=(math.pi / 2, 0, 0), segs=24)
+    lamp(f'co2_lamp{k}', (bx + 0.19, SY - 0.22, 2.2), GREENL if k % 2 == 0 else AMBERL, 0.035)
+pipe('co2_hdr', [(SX - 1.35, SY + 0.25, 2.95), (SX + 1.35, SY + 0.25, 2.95)], 0.09, STEELL)
+plate('co2_plate', 'CO2 SCRUB', (SX, SY - 0.24, 0.72), '-y', 1.5, 0.36, 0.17, sub='4-BED SWING  /  VACUUM REGEN')
+box('co2_blower', (1.0, 0.8, 0.9), (SX - 0.9, SY + 1.75, 0.67), PALE, bevel=0.04)
+cyl('co2_blower_fan', 0.3, 0.06, (SX - 1.42, SY + 1.75, 0.7), GRAPH, rot=(0, math.pi / 2, 0), segs=24)
 # cabin-air ducts in from the module (insulated flex duct), to the beds
 for k, dz in enumerate((0.0, 0.5)):
-    pipe('cabin_duct', [(3.0, -3.6, 3.1 + dz), (3.0, -4.6, 3.1 + dz), (4.6, -4.6, 3.1 + dz), (4.6, SY + 1.2, 3.1 + dz), (SX - 1.1 + k * 1.8, SY + 1.2, 3.1 + dz), (SX - 1.1 + k * 1.8, SY + 0.7, 2.7)], 0.15, FOIL, bend=0.45)
+    pipe('cabin_duct', [(3.0, -3.6, 3.1 + dz), (3.0, -4.3, 3.1 + dz), (SX - 0.8 + k * 1.5, -4.3, 3.1 + dz), (SX - 0.8 + k * 1.5, SY + 0.7, 2.7)], 0.15, FOIL, bend=0.45)
 # vent stacks (vacuum desorption / relief)
-for k, (vx, vh) in enumerate(((SX + 1.0, 8.2), (SX + 1.6, 7.0))):
+for k, (vx, vh) in enumerate(((SX + 0.3, 5.6), (SX + 0.85, 4.9))):
     rod('vent_stack', (vx, SY + 0.95, 0.22), (vx, SY + 0.95, vh), 0.16, STEELL, segs=20)
     rod('vent_tip', (vx, SY + 0.95, vh), (vx, SY + 0.95, vh + 0.35), 0.21, GRAPH, segs=20)
     cyl('vent_band', 0.17, 0.3, (vx, SY + 0.95, vh - 0.8), AMBER, segs=20)
     for j in range(3):
-        a = j * TAU / 3 + 0.3; cable('vent_guy', (vx, SY + 0.95, vh - 1.6), (vx + 1.6 * math.cos(a), SY + 0.95 + 1.6 * math.sin(a), 0.22), 0.012, STEEL, sag=0.05, n=4)
+        a = j * TAU / 3 + 0.3; cable('vent_guy', (vx, SY + 0.95, vh - 1.6), (vx + 0.9 * math.cos(a), SY + 0.95 + 0.9 * math.sin(a), 0.22), 0.012, STEEL, sag=0.05, n=4)
     lamp(f'vent_lamp{k}', (vx, SY + 0.95, vh + 0.5), REDL, 0.07)
-stencil('st_vent', 'VENT', (SX + 1.0, SY + 0.78, 4.6), '-y', 0.2, INK)
+stencil('st_vent', 'VENT', (SX + 0.3, SY + 0.78, 3.6), '-y', 0.2, INK)
 # CO2 transfer line to the Tank Farm (methane plant) on low pipe sleepers
-CO2L = [(SX + 1.6, SY + 0.25, 2.95), (SX + 2.6, SY + 0.25, 2.95), (SX + 2.6, -9.9, 0.6), (19.0, -9.9, 0.6)]
+CO2L = [(SX + 1.35, SY + 0.25, 2.95), (SX + 1.75, SY + 0.25, 2.95), (SX + 1.75, -8.6, 0.6), (6.6, -11.8, 0.6)]
 pipe('co2_transfer', CO2L, 0.1, STEELL, bend=0.5)
-for x in range(10, 19, 3): box('co2_sleeper', (0.3, 0.8, 0.5), (x, -9.9, 0.25), GRAPH, bevel=0.02)
-plate('co2_tf', 'CO2  TO TANK FARM', (15.0, -10.0, 1.15), '-y', 1.6, 0.3, 0.14, bg=GRAPH, fg=INKW)
-for x in (13.6, 16.4): box('co2_tf_post', (0.08, 0.08, 1.0), (x, -9.95, 0.5), STEEL)
+box('co2_sleeper', (0.8, 0.3, 0.5), (SX + 1.75, -8.9, 0.25), GRAPH, bevel=0.02)
+plate('co2_tf', 'CO2  TO TANK FARM', (5.0, -9.75, 1.15), '-y', 1.6, 0.3, 0.14, bg=GRAPH, fg=INKW)
+for x in (4.4, 5.6): box('co2_tf_post', (0.08, 0.08, 1.0), (x, -9.7, 0.5), STEEL)
 
 # ====================================================================== hull crown: module radiator fin, vents, beacon, antenna
 TOPZ = MZ + MR + 0.12   # hull crown
-radiator_array('rad0', 4.4, -2.6, 2.6, TOPZ + 0.9, 3.4, 2, axis='x')
+radiator_array('rad0', 4.4, -2.6, 2.6, TOPZ + 0.7, 2.2, 2, axis='x')
 for k in range(3): box('rad0_footing', (1.0, 1.0, 0.5), (-2.6 + k * 2.6, 4.4, TOPZ + 0.1), GRAPH, bevel=0.03)
 plate('rad0_plate', 'RAD-0  CABIN', (-1.3, 4.32, TOPZ + 0.62), '-y', 1.1, 0.3, 0.13)
 for (x, y) in ((-1.6, -1.4), (1.6, -1.4)):
     cyl('hull_vent', 0.22, 1.2, (x, y, TOPZ + 0.5), STEELL, segs=16)
     cyl('hull_vent_cap', 0.3, 0.12, (x, y, TOPZ + 1.15), GRAPH, segs=16)
-rod('beacon_mast', (-3.8, -1.4, TOPZ - 0.2), (-3.8, -1.4, TOPZ + 2.6), 0.06, STEEL, segs=10)
-lamp('beacon', (-3.8, -1.4, TOPZ + 2.8), AMBERL, 0.16)
-rod('ant_mast', (3.4, 4.4, TOPZ - 0.2), (3.4, 4.4, TOPZ + 3.5), 0.07, STEEL, segs=10)
-sphere('ant_dish', 0.55, (3.4, 4.2, TOPZ + 3.6), WHITE_S, scale=(1, 0.3, 1), sub=3, rot=(0.5, 0, 0.6))
+rod('beacon_mast', (-3.0, -1.4, TOPZ - 0.2), (-3.0, -1.4, TOPZ + 2.6), 0.06, STEEL, segs=10)
+lamp('beacon', (-3.0, -1.4, TOPZ + 2.8), AMBERL, 0.16)
+rod('ant_mast', (2.8, 4.4, TOPZ - 0.2), (2.8, 4.4, TOPZ + 3.5), 0.07, STEEL, segs=10)
+sphere('ant_dish', 0.55, (2.8, 4.2, TOPZ + 3.6), WHITE_S, scale=(1, 0.3, 1), sub=3, rot=(0.5, 0, 0.6))
+
+
+# ====================================================================== RELAYOUT: plants pushed back behind the modules, inside the station framing
+def move_group(objs, dx, dy):
+    bpy.context.view_layer.update(); T = Matrix.Translation((dx, dy, 0))
+    for ob in objs:
+        if ob.parent is None: ob.matrix_world = T @ ob.matrix_world
+O2_D, H2O_D = (9.0, 21.0), (-7.6, 20.0)
+move_group(_G1 - _G0, *O2_D); move_group(_G2 - _G1, *H2O_D)
+bpy.context.view_layer.update()
+def sleepers(pts, step=3.0, w=1.4):
+    P = [Vector(p) for p in pts]
+    for a, b in zip(P, P[1:]):
+        L = (b - a).length; n = int(L / step)
+        for k in range(1, n + 1):
+            q = a.lerp(b, k / (n + 1)); ang = math.atan2(b.y - a.y, b.x - a.x) + math.pi / 2
+            box('line_sleeper', (w, 0.22, 0.75), (q.x, q.y, 0.375), GRAPH, rot=(0, 0, ang), bevel=0.02)
+# the O2 line (green bands) and the water line (blue) come forward down the spine and wrap PM-2 to PM-1's end caps
+O2X, H2X = -0.6, 0.4
+o2t = (O2T[1][0] + O2_D[0], O2T[1][1] + O2_D[1]); ht0 = (HT[0][0] + H2O_D[0], HT[0][1] + H2O_D[1])
+O2LINE = [(o2t[0], o2t[1], 1.0), (o2t[0], o2t[1] - 1.9, 1.0), (O2X, o2t[1] - 1.9, 1.0), (O2X, 7.4, 1.0), (-5.6, 7.4, 1.0), (-5.6, 7.4, 3.0), (-5.6, -1.4, 3.0), (-4.0, -1.4, 3.0)]
+H2LINE = [(ht0[0], ht0[1], 1.0), (ht0[0], ht0[1] - 1.6, 1.0), (H2X, ht0[1] - 1.6, 1.0), (H2X, 7.9, 1.0), (5.6, 7.9, 1.0), (5.6, 7.9, 3.0), (5.6, -1.4, 3.0), (4.0, -1.4, 3.0)]
+pipe('o2_line', O2LINE, 0.15, WHITE_S, bend=0.6); pipe('h2o_line', H2LINE, 0.15, WHITE_S, bend=0.6)
+for L_, col_ in ((O2LINE, O2BAND), (H2LINE, H2OBAND)):
+    for a, b in zip(L_[:7], L_[1:8]):
+        a, b = Vector(a), Vector(b); n = max(1, int((b - a).length / 1.6))
+        if (b - a).length < 1.2: continue
+        for k in range(n):
+            q = a.lerp(b, (k + 0.5) / n); d = (b - a).normalized() * 0.3
+            rod('line_band', q - d, q + d, 0.162, col_, segs=20)
+for sx_ in (-5.6, 5.6):   # flank pipe racks (T-posts)
+    for y_ in (-0.6, 1.9, 4.4, 6.4):
+        box('line_rack_post', (0.16, 0.16, 2.9), (sx_, y_, 1.45), GRAPH, bevel=0.02)
+        box('line_rack_arm', (0.6, 0.18, 0.12), (sx_, y_, 2.86), STEEL, bevel=0.01)
+        box('line_rack_foot', (0.45, 0.45, 0.1), (sx_, y_, 0.05), GRAPH, bevel=0.01)
+sleepers([(0.0 - 0.1, o2t[1] - 2.4, 0), (-0.1, 8.6, 0)], 3.0, 1.6)
+for x, y, t, c_ in ((-5.6, 2.6, 'O2', GREEN), (5.6, 2.6, 'H2O', BLUE)):
+    plate('line_tag', t, (x, -0.72, 3.45), '-y', 0.7, 0.3, 0.16, bg=GRAPH, fg=INKW)
+for x in (-4.4, 4.4):
+    box('line_entry_flange', (0.18, 0.5, 0.5), (x, -1.4, 3.0), STEEL, bevel=0.03)
+# power distribution trays from SWG-1: up the left flank, behind PM-2, to the electrolyser and water plant drops
+el = (EX + O2_D[0], EY + O2_D[1]); fl = (FX + H2O_D[0], FY + H2O_D[1])
+tray_run('dist_o2', [(SWX - 0.5, SWY + 0.6, 0), (-6.4, -5.4, 0), (-6.4, 7.0, 0), (-1.4, 7.0, 0), (-1.4, el[1] - 0.8, 0), (el[0] + 1.4, el[1] - 0.8, 0)], z=2.0, post=3.5, cables=('#1c1d1f',))
+tray_run('dist_h2o', [(-1.4, 7.0, 0), (1.25, 7.0, 0), (1.25, fl[1], 0), (fl[0] - 1.5, fl[1], 0)], z=2.0, post=3.5, cables=('#1c1d1f',))
 
 # ====================================================================== solar arrays on tall masts (backup power)
 SUN = Vector((-0.55, -0.6, 0.58))
 saz = math.atan2(SUN.y, SUN.x)
-for k, (mx, my) in enumerate(((-7.6, 13.6), (7.6, 13.6))):
+for k, (mx, my) in enumerate(((-6.5, 40.0), (6.5, 40.0))):
     MH = 15.0
     lathe('solar_mast', [(0.38, 0.0), (0.3, 1.0), (0.2, MH - 0.6), (0.2, MH)], (mx, my, 0), STEELL, segs=16)
     cyl('solar_base', 0.9, 0.5, (mx, my, 0.25), GRAPH, segs=16, bevel=0.03)
@@ -727,15 +829,20 @@ for k, (mx, my) in enumerate(((-7.6, 13.6), (7.6, 13.6))):
     stencil(f'st_sa{k}', f'SA-{k + 1}', (mx * 0.62, my - 3.66, 0.6), '-y', 0.16)
 
 # ====================================================================== STAGE: ground, distant reactor + feeder run, astronaut
-height = build_stage(keep_flat=((0, 1, 30),))
+height = build_stage(keep_flat=((0, 14, 38),))
 # remove stage rocks that would poke through the plant footprint
 for ob in list(coll('Stage').objects):
     if ob.type == 'MESH' and ob.name.split('.')[0] in ('boulder', 'pebble'):
         vs_ = ob.data.vertices; c_ = sum((v.co for v in vs_), Vector()) / len(vs_)
-        if -22 < c_.x < 22 and -12 < c_.y < 17: bpy.data.objects.remove(ob)
+        if -14 < c_.x < 14 and -14 < c_.y < 46: bpy.data.objects.remove(ob)
+GREY = M_ground_grey(); gnd = bpy.data.objects['Ground']; gnd.data.materials.clear(); gnd.data.materials.append(GREY)
+for nd in bpy.data.materials['M_Boulder'].node_tree.nodes:
+    if nd.type == 'VAL_TO_RGB': nd.color_ramp.elements[0].color = hexc('#5b5d60'); nd.color_ramp.elements[-1].color = hexc('#8c8e91')
+bpy.data.materials['M_Boulder'].diffuse_color = hexc('#6d6f72')
+BERM = GREY
 # far feeder run to the reactor (Stage, not exported)
 RXR, RYR = -62.0, 26.0
-FAR = [(-19.0, -10.2, 0), (-34.0, -3.0, 0), (-48.0, 10.0, 0), (RXR + 6.5, RYR - 4.5, 0)]
+FAR = [(-7.8, -10.4, 0), (-20.0, -8.0, 0), (-38.0, 2.0, 0), (-48.0, 10.0, 0), (RXR + 6.5, RYR - 4.5, 0)]
 tray_run('feeder_far', FAR, z=0.9, post=7.0, c='Stage', heightf=height)
 # fission reactor behind a ring berm with its own radiator wings
 gz = height(RXR, RYR)
@@ -762,8 +869,8 @@ cyl('reactor_mast', 0.5, 7.4, (RXR, RYR, gz + 3.7), STEEL, segs=16, c='Stage')
 sphere('reactor_beacon', 0.3, (RXR, RYR, gz + 7.7), REDL, sub=2, c='Stage')
 box('reactor_sign', (2.6, 0.08, 1.0), (RXR + 7.5, RYR - 8.5, height(RXR + 7.5, RYR - 8.5) + 1.2), INK, rot=(0, 0, 0.6), c='Stage')
 text('reactor_sign_t', 'FPU-1  KEEP OUT 1 km', (RXR + 7.53, RYR - 8.56, height(RXR + 7.5, RYR - 8.5) + 1.2), (math.pi / 2, 0, 0.6), 0.22, INKW, c='Stage')
-pipe('co2_transfer_far', [(19.0, -9.9, 0.6), (21.5, -9.9, 0.6), (34.0, -24.0, 0.6), (60.0, -30.0, 0.6)], 0.1, STEELL, bend=2.0, c='Stage')
-for (p0, p1) in (((21.5, -9.9), (34.0, -24.0)), ((34.0, -24.0), (60.0, -30.0))):
+pipe('co2_transfer_far', [(6.6, -11.8, 0.6), (8.4, -12.6, 0.6), (34.0, -24.0, 0.6), (60.0, -30.0, 0.6)], 0.1, STEELL, bend=2.0, c='Stage')
+for (p0, p1) in (((8.4, -12.6), (34.0, -24.0)), ((34.0, -24.0), (60.0, -30.0))):
     v0, v1 = Vector(p0), Vector(p1); n = int((v1 - v0).length / 4.5)
     for k in range(1, n):
         q = v0.lerp(v1, k / n); ang = math.atan2(v1.y - v0.y, v1.x - v0.x) + math.pi / 2
@@ -789,7 +896,7 @@ for ob in mine:
     if ob.type != 'MESH': continue
     for c_ in ob.bound_box:
         w = ob.matrix_world @ Vector(c_); mn = Vector(map(min, mn, w)); mxv = Vector(map(max, mxv, w))
-CEN = Vector(((mn.x + mxv.x) / 2, (mn.y + mxv.y) / 2, 0))
+CEN = Vector((0.0, 0.0, 0.0))   # origin = station focus (PM-1 / airlock axis); the game camera looks here
 print('STATS objects', len(mine), 'tris', tri_count(mine), 'bbox', tuple(round(v, 2) for v in mn), tuple(round(v, 2) for v in mxv), 'centre', tuple(round(v, 2) for v in CEN), flush=True)
 
 ONLY = A.get('only', 'turn,hero')
@@ -799,7 +906,11 @@ if 'glb' in ONLY:
         if ob.parent is None:
             ob.parent = root
     root.location = -CEN; bpy.context.view_layer.update()
-    export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
+    bpy.ops.object.select_all(action='DESELECT')
+    for ob in coll('Mine').all_objects: ob.select_set(True)
+    # no Draco anywhere: raw export here, meshopt-compressed afterwards with gltfpack -cc (see README)
+    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_master_raw.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
+                              export_animations=False, export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False)
     root.location = (0, 0, 0)
     for ob in mine:
         if ob.parent == root:
@@ -807,11 +918,26 @@ if 'glb' in ONLY:
     bpy.data.objects.remove(root); bpy.context.view_layer.update()
 if 'blend' in ONLY:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f'{NAME}_master.blend'), compress=True)
-TT = (0.0, 1.5, 4.0)
+TT = (0.0, 9.0, 4.0)
 if 'turn' in ONLY:
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
     turntable(cam, os.path.join(OUT, 'turntable'), TT, 60, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 40)) if not QUICK else 12)
 if 'hero' in ONLY:
     w, h = (3840, 2160) if not QUICK else (960, 540)
     if A.get('res'): w, h = [int(v) for v in A['res'].split('x')]
-    shoot(cam, os.path.join(OUT, 'hero.png'), (-1.5, -0.5, 4.0), (13.0, -29.5, 6.0), w, h, lens=24, samples=int(A.get('hs', 48)) if not QUICK else 16)
+    shoot(cam, os.path.join(OUT, 'hero.png'), (-0.5, 6.0, 3.6), (17.0, -24.0, 10.5), w, h, lens=24, samples=int(A.get('hs', 48)) if not QUICK else 16)
+if 'phone' in ONLY:
+    # in-game station camera (qa3d/main.js): vertical fov 38, 18 deg down, look at (origin, y=2.5); dist fitted for 393x852 portrait
+    sc = bpy.context.scene
+    w, h = (1179, 2556) if not QUICK else (393, 852)
+    if A.get('pres'): w, h = [int(v) for v in A['pres'].split('x')]
+    asp = w / h; vt = math.tan(math.radians(19)); fitTop = 12.14 * (h / 3 / 2 if w > 600 else h / 2) / max(60, (h / 3 if w > 600 else h) / 2 - 104)
+    d = max(7.5 / (vt * asp), 7.2 / vt, fitTop / vt, 16.0); e = math.radians(18)
+    pos = Vector((0.0, -d * math.cos(e), 2.5 + d * math.sin(e))); tgt = Vector((0.0, 0.0, 2.5))
+    cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(38); cam.data.dof.use_dof = False
+    cam.location = pos; cam.rotation_euler = (tgt - pos).to_track_quat('-Z', 'Y').to_euler()
+    sc.render.resolution_x, sc.render.resolution_y = w, h; sc.render.resolution_percentage = 100
+    sc.cycles.samples = int(A.get('ps', 64)) if not QUICK else 16
+    sc.render.filepath = os.path.join(OUT, f'phone_{w}x{h}.png'); print('PHONE dist', round(d, 2), flush=True)
+    bpy.ops.render.render(write_still=True)
+    cam.data.sensor_fit = 'AUTO'
