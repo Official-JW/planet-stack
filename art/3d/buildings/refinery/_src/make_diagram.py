@@ -10,7 +10,7 @@ LW = 1500; W, H = PW + LW, max(PH + 230, 2440)
 img = Image.new('RGB', (W, H), (14, 16, 20)); img.paste(plate, (0, 170)); d = ImageDraw.Draw(img, 'RGBA')
 WHITE, CYAN, ORANGE, GREY = (235, 238, 242), (70, 215, 255), (255, 150, 70), (170, 178, 188)
 d.text((60, 36), 'REFINERY  —  PROCESS DIAGRAM', font=ImageFont.truetype(FB, 64), fill=WHITE)
-d.text((60, 112), 'Mine station, compact layout (top view, north up).  Truck HT-04 dumps into RB-1; ore splits into a He-3 line and a fuel line (LOX / LH2, no methane).', font=ImageFont.truetype(F, 30), fill=GREY)
+d.text((60, 112), 'Mine station, compact layout (top view).  Truck HT-04 dumps into RB-1; ore splits into a He-3 line and a fuel line (LOX / LH2, no methane).', font=ImageFont.truetype(F, 30), fill=GREY)
 STEPS = [  # key, badge, colour, title, detail
     ('truck', 'T', WHITE, 'HT-04 haul truck', 'hauls ore from the Mine, reverses to Path_Dump and tips'),
     ('bin', '1', WHITE, 'RB-1 intake bin', 'grizzly bars scalp boulders (Intake_Grate shakes)'),
