@@ -5,7 +5,8 @@ then:  gltfpack -i raw.glb -o refinery_game.glb -cc -kn -ke      (meshopt + quan
 
 Space: GLB origin = the Mine's REFINERY_ANCHOR (place with refinery.position/quaternion = anchor world position/quaternion).
 Local glTF +Z points at the truck: Path_Dump (the truck centre while tipping) is at glTF (0, 0, 4.84), and the intake-bin front lip
-is 1.12 m along +Z. The process runs toward -Z. He-3 line on -X (glTF), fuel line on +X.
+is 1.12 m along +Z. Compact layout: feeder/splitter toward local -X, then a fuel row (local x -11..-20) and a He-3 row
+(local x -23..-29, camera side) that both flow toward local +Z (= Mine world +X).
 Draw budget 13 with every tier showing:
   Base_Paint (SHM_Paint, all white/graphite/steel/foil/rock/pipe swatches as COLOR_0), Base_GlowCyan (SHM_GlowCyan: cyan strips,
   He-3 canisters, white lamps), Base_GlowRed (SH_GlowRed: reactor / kiln heat glow) = 3 draws
@@ -30,7 +31,7 @@ def mk(n, d):
     if d.get('vertex_colors'):
         ca = nt.nodes.new('ShaderNodeVertexColor'); ca.layer_name = 'Col'; nt.links.new(ca.outputs['Color'], b.inputs['Base Color'])
     if 'emissive' in d:
-        b.inputs['Emission Color'].default_value = lin(d['emissive']); b.inputs['Emission Strength'].default_value = d['emissive_strength']
+        b.inputs['Emission Color'].default_value = lin(d['emissive']); b.inputs['Emission Strength'].default_value = min(1.0, d['emissive_strength'])   # <= 1: no KHR_materials_emissive_strength (matches the Mine GLB)
     m.use_backface_culling = True; return m
 for n in ('SHM_Paint', 'SHM_GlowCyan'): SH[n] = mk(n, MERGED[n])
 SH['SH_GlowRed'] = mk('SH_GlowRed', SW['SH_GlowRed'])          # the shared red glow swatch, used as-is (heat glow + beacons)
@@ -140,7 +141,7 @@ def set_origin(o, p):
 root = bpy.data.objects.new('Refinery', None); col.objects.link(root)
 root['origin'] = 'REFINERY_ANCHOR (Mine station). Place with refinery.position/quaternion = anchor world position/quaternion.'
 root['truck_dump'] = 'Path_Dump at local glTF (0, 0, 4.84): truck centre while tipping, rear toward -Z (the intake bin). Same spot as the Mine Path_Dump.'
-root['layout'] = 'intake bin at local +Z near the origin, process runs toward -Z; He-3 line -X (cyan), fuel line +X (LOX / LH2)'
+root['layout'] = 'compact block south of the Mine haul loop, inside the Mine W=37 station frame: intake bin RB-1 at local +Z next to the origin, feeder + splitter run toward -X; fuel row (back, local x -11..-20) and He-3 row (front, camera side, local x -23..-29) both flow toward local +Z (world +X); process rows at 0.85 scale'
 root['draws_all_tiers'] = 13
 nodes = []
 FORCE_DOM = {'Tier_03': 'SHM_GlowCyan', 'Beacon_Lights': 'SH_GlowRed'}

@@ -448,19 +448,39 @@ def pad(name, x0, x1, y0, y1, z=0.1):
     for (a, b) in (((x0, y0), (x1, y0)), ((x0, y1), (x1, y1)), ((x0, y0), (x0, y1)), ((x1, y0), (x1, y1))):
         beam(name + '_curb', (a[0], a[1], z + 0.04), (b[0], b[1], z + 0.04), 0.22, 0.14, GRAPH, bevel=0.02)
 ZP = 0.1
-pad('pad_intake', 3.6, 14.6, -2.6, 2.6)     # starts at the wheel stop: the truck itself stands on the Mine's haul road (ground level)
+# ---- COMPACT STATION LAYOUT. The Refinery must sit inside the Mine's W = 37 station frame (x 6-94 %, y 100-650 px on 393x852),
+# south of the haul loop, west of the access road and east of the frame edge. The two process rows are still built below in their
+# original line coordinates (He-3 line along y = HY, fuel line along y = FY, flow +X) and then placed by M_H / M_F:
+# mirrored in X (flow runs east, away from the intake), scaled RS and dropped into the field. Crew-scale parts (intake bin, CM-1,
+# airlock, catwalk, stair tower) and all station connectors are built 1:1 directly in station coords.
+RS = 0.85
+def _rowM(c, ty, y_ref, s=RS):
+    M = Matrix.Identity(4); M[0][0] = -s; M[1][1] = s; M[2][2] = s; M[0][3] = c; M[1][3] = ty - s * y_ref
+    return M
+M_H = _rowM(11.1, -33.3, -15.0)    # He-3 row: front row (camera side)
+M_F = _rowM(12.5, -10.9, 14.3)     # fuel row: back row, just south of the haul loop
+def RH(p): return tuple(M_H @ Vector(p))
+def RF(p): return tuple(M_F @ Vector(p))
+_BLK = {'cur': 'misc', 'seen': set(o.name for o in bpy.data.objects)}
+def _blk(name):
+    for o in bpy.data.objects:
+        if o.name not in _BLK['seen']: o['blk'] = _BLK['cur']; _BLK['seen'].add(o.name)
+    _BLK['cur'] = name
+_blk('pads')
+pad('pad_intake', 3.6, 6.1, -2.6, 2.3)      # starts at the wheel stop: the truck itself stands on the Mine's haul road (ground level)
+pad('pad_feed', 2.7, 5.55, -8.5, -2.62)
 pad('pad_he3', 9.8, 36.0, -11.0, -4.6)
 pad('pad_fuel', 9.8, 38.0, 4.6, 13.2)
 
 # ====================================================================== 1. INTAKE: drive-up tipping bin RB-1, grizzly, belt feeder, vibrating grizzly, splitter
 # Origin = Path_Dump = truck centre at the dump spot. Truck reverses in along +X (cab toward -X); its tail lip tips over the bin's -X rim.
-BX0, BX1, BY, BRIM, BBOT = 3.72, 7.42, 1.92, 1.40, 0.55
+BX0, BX1, BY, BRIM, BBOT = 3.72, 6.2, 1.92, 1.40, 0.55
 # wheel stop (rear tyres touch it) + approach apron with cyan guide lines
 box('rb_wheelstop', (0.32, 2.9, 0.36), (BX0 + 0.08, 0, ZP + 0.18), GRAPH, bevel=0.04)
 for sy in (-1, 1): box('rb_wheelstop_cyan', (0.33, 0.5, 0.04), (BX0 + 0.08, sy * 1.1, ZP + 0.37), CYANS, bevel=0.0)
 # hopper body: sloped steel walls, top rim, legs
 bm = bmesh.new()
-top = [(BX0, -BY), (BX1, -BY), (BX1, BY), (BX0, BY)]; bot = [(5.0, -0.55), (6.4, -0.55), (6.4, 0.55), (5.0, 0.55)]
+top = [(BX0, -BY), (BX1, -BY), (BX1, BY), (BX0, BY)]; bot = [(4.2, -0.55), (5.4, -0.55), (5.4, 0.55), (4.2, 0.55)]
 vt = [bm.verts.new((x, y, BRIM)) for x, y in top]; vb = [bm.verts.new((x, y, BBOT)) for x, y in bot]
 for i in range(4): j = (i + 1) % 4; bm.faces.new((vt[i], vt[j], vb[j], vb[i]))
 ob = _obj(bm, 'rb_hopper', WHITE, smooth=True, angle=30)
@@ -473,7 +493,7 @@ beam('rb_cyan', (BX0 + 0.2, -BY - 0.13, BRIM - 0.05), (BX1 - 0.2, -BY - 0.13, BR
 for x, y in ((BX0 + 0.15, -BY + 0.15), (BX1 - 0.15, -BY + 0.15), (BX0 + 0.15, BY - 0.15), (BX1 - 0.15, BY - 0.15)):
     box('rb_leg', (0.26, 0.26, BRIM - ZP), (x, y, (BRIM + ZP) / 2), GRAPH2, bevel=0.02)
     box('rb_legfoot', (0.5, 0.5, 0.1), (x, y, ZP + 0.05), GRAPH, bevel=0.02)
-for sy in (-1, 1): beam('rb_legx', (BX0 + 0.15, sy * (BY - 0.15), ZP + 0.2), (BX1 - 0.15, sy * (BY - 0.15), BRIM - 0.2), 0.1, 0.1, STEEL)
+for sy in (1,): beam('rb_legx', (BX0 + 0.15, sy * (BY - 0.15), ZP + 0.2), (BX1 - 0.15, sy * (BY - 0.15), BRIM - 0.2), 0.1, 0.1, STEEL)
 # dust skirt: frame on 3 sides (open toward the truck), rubber curtains, spray bar, back splash plate
 for x, y in ((BX0 + 0.1, -BY - 0.1), (BX1 + 0.05, -BY - 0.1), (BX0 + 0.1, BY + 0.1), (BX1 + 0.05, BY + 0.1)):
     box('ds_post', (0.16, 0.16, 3.9 - BRIM), (x, y, (3.9 + BRIM) / 2), STEEL, bevel=0.01)
@@ -488,15 +508,17 @@ box('ds_splash', (0.08, 2 * BY + 0.2, 2.4), (BX1 + 0.1, 0, BRIM + 1.2), WHITE, b
 for k in range(6): box('ds_splash_rib', (0.12, 0.08, 2.3), (BX1 + 0.17, -BY + 0.3 + k * (2 * BY - 0.6) / 5, BRIM + 1.2), GRAPH2, bevel=0.01)
 rod('ds_spraybar', (BX1 - 0.05, -BY, 3.55), (BX1 - 0.05, BY, 3.55), 0.05, STEELL, segs=10)
 for k in range(8): cyl('ds_nozzle', 0.035, 0.08, (BX1 - 0.12, -BY + 0.25 + k * (2 * BY - 0.5) / 7, 3.5), STEEL, rot=(0, math.pi / 2, 0), segs=8)
-pipe('ds_water', [(BX1 - 0.05, BY, 3.55), (BX1 - 0.05, BY + 0.5, 3.55), (BX1 + 0.4, BY + 0.5, 3.55), (BX1 + 0.4, BY + 0.5, 0.4)], 0.05, H2OP, bend=0.2)
+pipe('ds_water', [(BX1 - 0.05, BY, 3.55), (BX1 - 0.05, BY + 0.5, 3.55), (BX1 + 0.22, BY + 0.5, 3.55), (BX1 + 0.22, BY + 0.5, 0.4)], 0.05, H2OP, bend=0.2)
 lamp('ds_flood', (BX1 + 0.05, -BY - 0.1, 4.08), LAMP, 0.11)
-label('rb_plate', 'RB-1  REFINERY INTAKE BIN', 'BACK IN  -  TIP AT STOP  -  40 t', (5.55, -BY - 0.25, 3.0), size=0.22, post=False)
-box('rb_plate_bk', (3.3, 0.04, 0.5), (5.55, -BY - 0.21, 3.0), GRAPH2, bevel=0.0)
-# feeder belt out of the bin bottom (static) up to the vibrating grizzly
-FE0, FE1 = Vector((5.7, 0, 0.7)), Vector((9.7, 0, 2.55))
+label('rb_plate', 'RB-1  REFINERY INTAKE BIN', 'BACK IN  -  TIP AT STOP  -  40 t', (5.01, -BY - 0.25, 3.0), w=2.5, size=0.16, post=False)
+box('rb_plate_bk', (2.6, 0.04, 0.42), (5.01, -BY - 0.21, 3.0), GRAPH2, bevel=0.0)
+_blk('feeder')
+# belt feeder BF-1 out of the bin bottom, south (toward the camera) onto the splitter
+FE0, FE1 = Vector((4.6, 0.6, 0.7)), Vector((4.6, -5.35, 1.8))
 conveyor('feeder', FE0, FE1, w=0.9, cover=(0.25, 0.9), gaps=1)
-box('feeder_boot', (1.6, 1.4, 0.4), (5.7, 0, 0.45), GRAPH2, bevel=0.03)
-label('fd_plate', 'BF-1  BELT FEEDER', None, (7.6, -0.9, 0.95), size=0.16)
+box('feeder_boot', (1.2, 1.6, 0.4), (4.6, 0.2, 0.45), GRAPH2, bevel=0.03)
+label('fd_plate', 'BF-1  BELT FEEDER', None, (3.3, -3.3, 0.8), w=1.2, size=0.11)
+_blk('vg')
 # vibrating grizzly screen VG-1: spring-mounted inclined bar deck (Intake_Grate shakes it with the bin grizzly)
 VX0, VX1, VZ0, VZ1, VW = 9.8, 12.5, 2.75, 2.35, 1.5
 box('vg_base', (3.0, 2.2, 0.2), ((VX0 + VX1) / 2, 0, ZP + 0.1), GRAPH, bevel=0.02)
@@ -511,6 +533,7 @@ vt = [bm.verts.new((x, y, 1.75)) for x, y in t_]; vb = [bm.verts.new((x, y, 1.15
 for i in range(4): j = (i + 1) % 4; bm.faces.new((vt[i], vt[j], vb[j], vb[i]))
 ob = _obj(bm, 'vg_hopper', PALE, smooth=True, angle=30); md = ob.modifiers.new('sol', 'SOLIDIFY'); md.thickness = 0.05; md.offset = 1.0
 with grp('Intake_Grate'):
+    _blk('grate')
     # bin top grizzly (bars along X, cross bars)
     for k in range(13):
         y = -BY + 0.15 + k * (2 * BY - 0.3) / 12
@@ -518,6 +541,7 @@ with grp('Intake_Grate'):
     for k in range(4):
         x = BX0 + 0.3 + k * (BX1 - BX0 - 0.6) / 3
         beam('igr_cross', (x, -BY + 0.1, BRIM + 0.1), (x, BY - 0.1, BRIM + 0.1), 0.1, 0.12, STEEL, bevel=0.0)
+    _blk('vg')
     # screen deck box + bars
     p0, p1 = Vector((VX0, 0, VZ0)), Vector((VX1, 0, VZ1))
     for sy in (-1, 1): beam('igr_side', p0 + Vector((0, sy * VW / 2, 0.15)), p1 + Vector((0, sy * VW / 2, 0.15)), 0.1, 0.7, WHITE, bevel=0.02)
@@ -529,28 +553,42 @@ with grp('Intake_Grate'):
     rod('igr_exciter', p0.lerp(p1, 0.5) + Vector((0, -VW / 2 - 0.1, 0.55)), p0.lerp(p1, 0.5) + Vector((0, VW / 2 + 0.1, 0.55)), 0.18, GRAPH, segs=18)
     for sy in (-1, 1): cyl('igr_exciter_cap', 0.26, 0.2, tuple(p0.lerp(p1, 0.5) + Vector((0, sy * (VW / 2 + 0.18), 0.55))), WHITE_S, rot=(math.pi / 2, 0, 0), segs=20)
     ore_chunks('igr_ore', ((VX0 + VX1) / 2 - 0.4, 0, VZ0 - 0.05), 0.6, 18, [(ORE, 1, 'rock')], size=(0.12, 0.26), seed=44)
-GAME['pivots']['Intake_Grate'] = (8.0, 0.0, 2.0)
+GAME['pivots']['Intake_Grate'] = (5.0, 0.0, BRIM + 0.14)
 label('vg_plate', 'VG-1  VIBRATING GRIZZLY', None, ((VX0 + VX1) / 2, -VW / 2 - 0.45, 1.3), size=0.17)
 # oversize skip at the end of the deck
 box('os_skip', (1.1, 1.5, 0.9), (13.25, 0, ZP + 0.45), GRAPH2, bevel=0.05)
 ore_chunks('os_rocks', (13.25, 0, ZP + 0.9), 0.5, 14, [(ORE, 1, 'rock')], size=(0.22, 0.4), heap=0.25, seed=45)
 stencil('st_os', 'OVERSIZE', (13.25, -0.77, ZP + 0.5), '-y', 0.16, INKW)
+_blk('splitter')
 # splitter SP-1 (flop-gate diverter): two outlet chutes -> He-3 conveyor (-Y) and fuel conveyor (+Y)
 SPX = 11.55
 box('sp_body', (1.1, 1.1, 0.8), (SPX, 0, 0.95), WHITE_S, bevel=0.06)
 box('sp_band', (1.12, 1.12, 0.1), (SPX, 0, 1.25), GRAPH, bevel=0.01)
 box('sp_actuator', (0.3, 0.5, 0.3), (SPX + 0.65, 0, 1.15), GRAPH2, bevel=0.03)
 rod('sp_ram', (SPX + 0.8, 0, 1.15), (SPX + 1.1, 0, 0.8), 0.05, STEELL, segs=10)
-for sy in (-1, 1):
-    chute('sp_chute', (SPX, sy * 0.45, 0.8), (SPX, sy * 1.25, 0.5), 0.55)
-    box('sp_glow', (0.5, 0.03, 0.08), (SPX, sy * 0.56, 1.1), CYANL if sy < 0 else HOTS, bevel=0.0)
+for sy in (-1, 1):     # both outlets on the south face: He-3 (east, cyan) and fuel (west, orange)
+    chute('sp_chute', (SPX + sy * 0.28, -0.45, 0.8), (SPX + sy * 0.75, -1.25, 0.5), 0.45)
+    box('sp_glow', (0.3, 0.03, 0.08), (SPX + sy * 0.3, -0.56, 1.1), CYANL if sy < 0 else HOTS, bevel=0.0)
 for sy in (-1, 1): box('sp_leg', (0.12, 0.12, 0.6), (SPX + 0.4 * sy, -0.4 * sy, 0.35), STEEL, bevel=0.0)
-label('sp_plate', 'SP-1  SPLITTER', 'He-3  |  FUEL', (SPX - 0.9, -0.56, 1.0), w=1.2, size=0.14, post=False)
+label('sp_plate', 'SP-1  SPLITTER', 'He-3  |  FUEL', (SPX - 1.6, -0.75, 1.0), w=1.2, size=0.14)
 
 # ====================================================================== 2. He-3 LINE (y = -7.5, cyan / blue accents)
 HY = -7.5
-d3, s3, u3 = conveyor('cv_he3', (SPX, -1.25, 0.45), (SPX, HY + 1.0, 4.05), w=0.8, cover=(0.1, 0.9), gaps=2, run_grp='Conveyor_He3', pitch=0.75)
-stencil('st_cvhe3', 'He-3 FEED', (SPX - 0.62, -3.6, 2.6), '-x', 0.2, INK)
+_blk('cvhe3')
+# He-3 branch (station coords): splitter -> bucket elevator BE-1 -> covered gallery over the fuel row -> sieve SV-1
+SPN = Vector((4.6, -5.6, 0.0))      # splitter position in station coords
+BEX, BEY, BEH = 3.3, -7.6, 7.6
+box('be_boot', (1.0, 1.2, 0.8), (BEX, BEY, ZP + 0.4), GRAPH2, bevel=0.04)
+box('be_casing', (0.62, 0.95, BEH - 0.8), (BEX, BEY, ZP + 0.8 + (BEH - 0.8) / 2), WHITE_S, bevel=0.03)
+for k in range(4): box('be_band', (0.66, 0.99, 0.1), (BEX, BEY, ZP + 1.8 + k * 1.5), GRAPH, bevel=0.0)
+box('be_cyan', (0.04, 0.03, BEH - 2.0), (BEX, BEY - 0.49, ZP + 1.0 + (BEH - 2.0) / 2), CYANL, bevel=0.0)
+box('be_head', (1.0, 1.3, 0.9), (BEX, BEY, ZP + BEH + 0.2), WHITE, bevel=0.06)
+box('be_head_band', (1.02, 1.32, 0.1), (BEX, BEY, ZP + BEH - 0.1), GRAPH, bevel=0.0)
+rod('be_motor', (BEX + 0.5, BEY + 0.3, ZP + BEH + 0.25), (BEX + 1.0, BEY + 0.3, ZP + BEH + 0.25), 0.18, WHITE_S, segs=14)
+chute('be_in', (SPN.x - 0.75, SPN.y - 1.25, 0.5), (BEX + 0.35, BEY + 0.35, 0.75), 0.4)
+stencil('st_be', 'He-3', (BEX, BEY - 0.485, 5.3), '-y', 0.2, INK)
+label('be_plate', 'BE-1  ELEVATOR', 'He-3 FEED', (BEX, BEY - 0.62, 0.62), w=1.0, size=0.1, post=False)
+_blk('he3')
 # a. sieve SV-1 (stacked vibrating sieve decks, fines < 100 um pass to the kiln)
 SVX = SPX
 box('sv_body', (2.2, 2.0, 2.0), (SVX, HY, 2.35), WHITE, bevel=0.1)
@@ -683,10 +721,10 @@ label('fs_plate', 'FS-1  He-3 FILLING', 'CANISTERS TO RACK  >  SHIP', (FSX + 0.4
 with grp('Tier_03'): rack('rk2', 33.6, -9.9)
 GAME['markers']['He3_Output'] = (31.6, -10.7, ZP)
 # g. tailings conveyor out of the kiln discharge -> tailings pile
-conveyor('cv_tail', (21.5, HY - 1.4, 0.55), (21.5, -13.0, 2.6), w=0.6, cover=None)
-heap('tail_pile', (21.5, -14.4, 0.0), 2.6, 1.9, TAIL, seed=61)
-ore_chunks('tail_ore', (21.5, -14.4, 0.0), 2.4, 30, [(TAIL, 1, 'rock')], size=(0.15, 0.32), heap=1.9, seed=62)
-label('tail_plate', 'TAILINGS', 'SPENT REGOLITH', (19.3, -12.8, 0.9), w=1.4, size=0.2)
+conveyor('cv_tail', (21.5, HY - 1.4, 0.55), (21.5, -11.4, 2.1), w=0.6, cover=None)
+heap('tail_pile', (21.5, -12.9, 0.0), 2.0, 1.6, TAIL, seed=61)
+ore_chunks('tail_ore', (21.5, -12.9, 0.0), 1.8, 24, [(TAIL, 1, 'rock')], size=(0.15, 0.32), heap=1.6, seed=62)
+label('tail_plate', 'TAILINGS', 'SPENT REGOLITH', (18.9, -11.6, 0.9), w=1.4, size=0.2)
 # Tier_08: second kiln KN-2 in parallel (behind KN-1)
 with grp('Tier_08'):
     kiln('kn2', -3.9, False)
@@ -703,10 +741,9 @@ with grp('Beacon_Lights'): sphere('beacon_dc2', 0.16, (33.3, -5.0, 16.5 + 0.85 *
 
 # ====================================================================== 3. FUEL LINE (y = +7.5, orange reactor glow, white LOX frost)
 FY = 7.5
-conveyor('cv_fuel', (SPX, 1.25, 0.45), (SPX, FY - 1.3, 3.9), w=0.8, cover=(0.1, 0.9), gaps=2, run_grp='Conveyor_Fuel', pitch=0.75)
-stencil('st_cvfuel', 'FUEL FEED', (SPX - 0.62, 3.6, 2.5), '-x', 0.2, INK)
+_blk('fuel')
 # a. crusher CR-1 (cone crusher on a frame, feed hopper on top)
-CRX = SPX
+CRX = SPX + 0.6
 box('cr_frame', (2.6, 2.6, 1.3), (CRX, FY, 0.75), GRAPH2, bevel=0.05)
 lathe('cr_body', [(1.0, 1.4), (1.0, 2.5), (0.55, 3.2), (0.3, 3.3)], (CRX, FY, 0), WHITE, segs=32)
 cyl('cr_band', 1.04, 0.16, (CRX, FY, 2.0), GRAPH, segs=32)
@@ -803,9 +840,9 @@ for j in range(5): box('lq_comp_fin', (0.06, 1.24, 0.9), (LQX - 2.3 + j * 0.25, 
 pipe('el_o2_to_lq', [(ELX + 0.6, FY + 0.5, 3.15), (ELX + 0.6, FY + 0.5, 3.8), (LQX - 1.1, FY + 0.5, 3.8)], 0.08, O2P, bend=0.3)
 pipe('el_h2_to_lq', [(ELX - 0.6, FY + 0.5, 3.15), (ELX - 0.6, FY + 0.9, 3.4), (ELX - 0.6, FY + 0.9, 4.4), (LQX - 1.1, FY + 0.9, 4.4)], 0.07, WHITE_S, bend=0.3)
 label('lq_plate', 'LQ-1  LIQUEFIER', 'O2 > LOX  90 K   |   H2 > LH2  20 K', (LQX, FY - 1.14, 3.9), w=2.15, size=0.2, post=False)
-radiator_array('lq_rad', 15.3, 22.0, 34.0, 1.8, 4.6, 4, axis='x')
-pipe('lq_rad_loop', [(LQX + 0.6, FY + 1.1, 4.8), (LQX + 0.6, 15.3, 4.8), (LQX + 0.6, 15.3, 6.5)], 0.09, STEELL, bend=0.4)
-label('rad_plate', 'RAD-1  HEAT REJECTION', None, (28.0, 15.1, 1.3), size=0.18, post=False)
+radiator_array('lq_rad', 12.9, 22.0, 34.0, 1.8, 4.6, 4, axis='x')
+pipe('lq_rad_loop', [(LQX + 0.6, FY + 1.1, 4.8), (LQX + 0.6, 12.9, 4.8), (LQX + 0.6, 12.9, 6.5)], 0.09, STEELL, bend=0.4)
+label('rad_plate', 'RAD-1  HEAT REJECTION', None, (28.0, 12.82, 1.3), size=0.18, post=False)
 # g. LOX + LH2 cryo tanks (frosted base), header out TO TANK FARM
 def cryo_tank(tag, x, y, r, z1, label_, sub):
     z0 = 1.6
@@ -823,38 +860,48 @@ cryo_tank('lh21', 36.0, FY, 1.85, 7.2, 'LH2-1', 'LIQUID HYDROGEN  20 K')
 with grp('Beacon_Lights'): sphere('beacon_lh2', 0.15, (36.0, FY, 7.2 + 1.85 * 0.45 + 0.2), REDL, sub=2)
 pipe('lq_to_lox', [(LQX + 1.1, FY - 0.3, 2.2), (31.0, FY - 0.3, 2.2), (31.0, FY - 1.9, 2.2), (32.4, FY - 1.9, 2.2), (32.4, FY - 1.95, 2.0)], 0.1, FOIL, bend=0.3)
 pipe('lq_to_lh2', [(LQX + 1.1, FY + 0.4, 2.6), (34.0, FY + 0.4, 2.6), (34.0, FY - 2.3, 2.6), (36.0, FY - 2.3, 2.6), (36.0, FY - 2.35, 2.0)], 0.12, FOIL, bend=0.3)
-for nm, (x, r, hy) in (('lox', (32.4, 1.45, 4.3)), ('lh2', (36.0, 1.85, 3.8))):
-    pipe(f'tf_{nm}', [(x, FY - r - 0.5, 2.0), (x, hy, 2.0), (x, hy, 1.1), (41.5, hy, 1.1)], 0.13 if nm == 'lox' else 0.15, WHITE_S, bend=0.4)
-    for k in range(4): rod(f'tf_{nm}_band', (37.8 + k * 0.9, hy, 1.1), (37.95 + k * 0.9, hy, 1.1), 0.16, GRAPH if nm == 'lox' else CYANS, segs=14)
+for nm, (x, r, hy) in (('lox', (32.4, 1.45, 5.45)), ('lh2', (36.0, 1.85, 5.0))):
+    pipe(f'tf_{nm}', [(x, FY - r - 0.5, 2.0), (x, hy, 2.0), (x, hy, 1.1), (38.3, hy, 1.1)], 0.13 if nm == 'lox' else 0.15, WHITE_S, bend=0.4)
+    for k in range(3): rod(f'tf_{nm}_band', (36.8 + k * 0.5, hy, 1.1), (36.95 + k * 0.5, hy, 1.1), 0.16, GRAPH if nm == 'lox' else CYANS, segs=14)
     valve(f'tf_{nm}_v', (x, hy, 1.6), axis='y', r=0.14, wheel=False, actuator=True) if False else None
-for x in (38.0, 40.5): box('tf_sleeper', (0.3, 1.4, 0.8), (x, 4.05, 0.45), GRAPH, bevel=0.02)
-label('tf_plate', 'TO TANK FARM', 'LOX  /  LH2', (40.2, 3.0, 1.6), w=2.0, size=0.24)
-GAME['markers']['Pipe_TankFarm'] = (41.6, 4.05, 1.1)
+for x in (37.95,): box('tf_sleeper', (0.3, 1.0, 0.85), (x, 5.22, 0.5), GRAPH, bevel=0.02)
+label('tf_plate', 'TO TANK FARM', 'LOX  /  LH2', (37.1, 4.72, 1.95), w=1.9, size=0.22)
+GAME['markers']['Pipe_TankFarm'] = (38.4, 5.22, 1.1)
 GAME['markers']['Fuel_Output'] = (34.2, 4.6, ZP)
 with grp('Tier_05'):
     electrolyzer('el2', ELX, FY + 2.6)
     pipe('el2_h2o', [(ELX - 1.5, FY + 0.8, 0.35), (ELX - 1.5, FY + 2.6, 0.35)], 0.07, H2OP, bend=0.2)
 with grp('Tier_20'):
     cryo_tank('lox2', 32.4, FY + 3.6, 1.45, 6.0, 'LOX-2', 'LIQUID OXYGEN  90 K')
-    cryo_tank('lox3', 39.4, FY + 1.6, 1.45, 6.0, 'LOX-3', 'LIQUID OXYGEN  90 K')
+    cryo_tank('lox3', 36.0, FY + 3.8, 1.45, 6.0, 'LOX-3', 'LIQUID OXYGEN  90 K')
     pipe('lox2_tie', [(32.4 + 1.5, FY + 3.6, 1.9), (34.4, FY + 3.6, 1.9), (34.4, FY + 0.4, 2.6)], 0.1, FOIL, bend=0.4)
+    pipe('lox3_tie', [(36.0 - 1.5, FY + 3.6, 1.9), (34.4, FY + 3.6, 1.9)], 0.1, FOIL, bend=0.2)
 
-# ====================================================================== pipe rack + catwalk: H2 from CT-4 crosses to the liquefier
-RKX = 27.3
-for y in (-5.4, -2.0, 1.6, 5.2):
+_blk('conn')
+# ====================================================================== station connectors (compact layout, station coords, 1:1)
+# He-3 gallery: BE-1 head -> high over the fuel row (crusher end) -> sieve SV-1 at the He-3 row's west end
+GA0 = Vector((BEX - 0.05, BEY - 0.75, ZP + BEH - 0.15)); GA1 = Vector(RH((SVX, HY + 0.55, 4.3)))
+conveyor('cv_he3', GA0, GA1, w=0.8, cover=(0.04, 0.96), gaps=3, run_grp='Conveyor_He3', pitch=0.75, legs=False)
+for k_, yt in enumerate((-10.0, -21.0)):
+    q_ = GA0.lerp(GA1, (yt - GA0.y) / (GA1.y - GA0.y)); tower(f'gal_tower{k_}', q_.x, q_.y, ZP, q_.z - 0.32, w=0.9)
+# fuel branch: splitter west outlet -> crusher CR-1 hopper (fuel row west end)
+conveyor('cv_fuel', (SPN.x + 0.75, SPN.y - 1.3, 0.45), RF((CRX, FY + 0.45, 4.35)), w=0.8, cover=(0.1, 0.9), gaps=2, run_grp='Conveyor_Fuel', pitch=0.75)
+# pipe rack + catwalk in the gap between the rows: H2 from CT-4 (He-3 row) crosses to the liquefier LQ-1 (fuel row)
+RKX = -12.5
+for y in (-24.0, -21.0, -18.8):
     for dx in (-0.6, 0.6): box('rk_col', (0.22, 0.22, 5.2), (RKX + dx, y, 2.6), STEEL, bevel=0.01)
     beam('rk_beam', (RKX - 0.7, y, 5.2), (RKX + 0.7, y, 5.2), 0.24, 0.3, GRAPH2, bevel=0.01)
     box('rk_foot', (1.8, 0.5, 0.12), (RKX, y, 0.06 + ZP), GRAPH, bevel=0.02)
-for dx in (-0.6, 0.6): ibeam('rk_stringer', (RKX + dx, -5.6, 5.0), (RKX + dx, 5.4, 5.0), 0.16, 0.3, STEEL)
-box('cw_deck', (1.2, 11.0, 0.08), (RKX, -0.1, 5.4), GRAPH2, bevel=0.0)
-for dx in (-0.6, 0.6): rail('cw_rail', [(RKX + dx, -5.4, 5.44), (RKX + dx, 5.2, 5.44)], TRIM, post=1.8)
-box('cw_cyan', (0.04, 10.8, 0.05), (RKX - 0.62, -0.1, 5.33), CYANL, bevel=0.0)
-pipe('h2_to_fuel', [(CT4X, HY, 4.6), (CT4X, HY, 5.7), (CT4X, -5.4, 5.7), (RKX + 0.3, -5.4, 5.7), (RKX + 0.3, 5.4, 5.7), (RKX + 0.3, FY - 0.3, 5.7), (LQX - 0.7, FY - 0.3, 5.7), (LQX - 0.7, FY - 0.3, 5.7)], 0.08, WHITE_S, bend=0.4)
-for k in range(6): rod('h2x_band', (RKX + 0.3, -4.0 + k * 1.6, 5.7), (RKX + 0.3, -3.85 + k * 1.6, 5.7), 0.095, CYANL, segs=12)
-stencil('st_h2x', 'H2  TO FUEL LINE', (RKX + 0.68, -0.6, 5.8), '+x', 0.2, INK)
-plate('rk_plate', 'H2  >  FUEL', (RKX - 0.8, -1.9, 4.6), '-x', 1.1, 0.3, 0.16) if False else None
-# stair tower at the He-3 end of the catwalk
-TWX, TWY = RKX + 1.8, -4.4
+for dx in (-0.6, 0.6): ibeam('rk_stringer', (RKX + dx, -24.2, 5.0), (RKX + dx, -18.6, 5.0), 0.16, 0.3, STEEL)
+box('cw_deck', (1.2, 5.6, 0.08), (RKX, -21.4, 5.4), GRAPH2, bevel=0.0)
+for dx in (-0.6, 0.6): rail('cw_rail', [(RKX + dx, -24.2, 5.44), (RKX + dx, -18.6, 5.44)], TRIM, post=1.8)
+box('cw_cyan', (0.04, 5.4, 0.05), (RKX - 0.62, -21.4, 5.33), CYANL, bevel=0.0)
+_c4 = RH((CT4X, HY, 4.6)); _lq = RF((LQX - 0.7, FY - 0.3, 5.7))
+pipe('h2_to_fuel', [_c4, (_c4[0], _c4[1], 5.7), (_c4[0], -24.3, 5.7), (RKX + 0.3, -24.3, 5.7), (RKX + 0.3, _lq[1], 5.7), (_lq[0], _lq[1], 5.7), (_lq[0], _lq[1], 4.85)], 0.08, WHITE_S, bend=0.4)
+for k in range(3): rod('h2x_band', (RKX + 0.3, -23.2 + k * 1.6, 5.7), (RKX + 0.3, -23.05 + k * 1.6, 5.7), 0.095, CYANL, segs=12)
+stencil('st_h2x', 'H2 > FUEL', (RKX, -24.0 - 0.13, 5.2), '-y', 0.14, INK)
+# stair tower beside the catwalk (in the gap)
+TWX, TWY = RKX + 1.8, -21.0
 for ux in (-1, 1):
     for uy in (-1, 1): box('stw_post', (0.14, 0.14, 6.3), (TWX + ux * 0.9, TWY + uy * 0.9, 3.15), STEEL, bevel=0.0)
 for k in range(4):
@@ -870,21 +917,21 @@ box('stw_bridge', (1.2, 1.0, 0.08), (TWX - 1.2, TWY, 5.4), GRAPH2, bevel=0.0)
 for z in (1.35 * k for k in range(1, 5)): rod('stw_rail', (TWX - 0.9, TWY - 0.9, z + 1.0), (TWX + 0.9, TWY - 0.9, z + 1.0), 0.025, TRIM, segs=8)
 
 # ====================================================================== 4. SUPPORT: control module CM-1 + airlock + dust shower, power masts
-CMX, CMY = 6.5, -9.6
-pad('pad_cm', 3.0, 9.7, -11.6, -4.0); pad('pad_al', -0.7, 3.0, -10.6, -8.6)
-box('cm_body', (6.4, 3.4, 3.0), (CMX, CMY, ZP + 1.7), WHITE, bevel=0.38, segs=4)
-box('cm_plinth', (6.6, 3.6, 0.3), (CMX, CMY, ZP + 0.15), GRAPH, bevel=0.03)
-for x in (CMX - 2.2, CMX, CMX + 2.2): box('cm_rib', (0.14, 3.48, 3.0), (x, CMY, ZP + 1.7), PALE, bevel=0.05)
-box('cm_band', (6.44, 3.44, 0.22), (CMX, CMY, ZP + 2.55), GRAPH, bevel=0.03)
-box('cm_cyan', (6.0, 0.03, 0.06), (CMX, CMY - 1.73, ZP + 2.32), CYANL, bevel=0.0)
-for k in range(3): box('cm_screen', (0.9, 0.03, 0.45), (CMX + 1.0 + (k - 1) * 1.1, CMY - 1.71, ZP + 1.6), CYANS if k != 1 else HOTS, bevel=0.0)
-label('cm_plate', 'CM-1  REFINERY CONTROL', 'He-3  +  FUEL PROCESS', (CMX + 0.6, CMY - 1.74, ZP + 2.95), w=3.4, size=0.24, post=False)
+CMX, CMY = -2.4, -20.95     # in the gap between the fuel row (north) and the He-3 row (south)
+pad('pad_cm', CMX - 7.1, CMX + 3.0, CMY - 1.7, CMY + 1.7)
+box('cm_body', (5.2, 2.8, 3.0), (CMX, CMY, ZP + 1.7), WHITE, bevel=0.34, segs=4)
+box('cm_plinth', (5.4, 3.0, 0.3), (CMX, CMY, ZP + 0.15), GRAPH, bevel=0.03)
+for x in (CMX - 1.7, CMX, CMX + 1.7): box('cm_rib', (0.14, 2.88, 3.0), (x, CMY, ZP + 1.7), PALE, bevel=0.05)
+box('cm_band', (5.24, 2.84, 0.22), (CMX, CMY, ZP + 2.55), GRAPH, bevel=0.03)
+box('cm_cyan', (4.8, 0.03, 0.06), (CMX, CMY - 1.43, ZP + 2.32), CYANL, bevel=0.0)
+for k in range(3): box('cm_screen', (0.8, 0.03, 0.45), (CMX + 0.9 + (k - 1) * 0.95, CMY - 1.41, ZP + 1.6), CYANS if k != 1 else HOTS, bevel=0.0)
+label('cm_plate', 'CM-1  REFINERY CONTROL', 'He-3  +  FUEL PROCESS', (CMX + 0.3, CMY - 1.44, ZP + 2.95), w=3.2, size=0.22, post=False)
 box('cm_roofbox', (1.6, 1.2, 0.6), (CMX + 1.6, CMY + 0.4, ZP + 3.5), GRAPH2, bevel=0.06)
 rod('cm_mast', (CMX - 1.8, CMY + 0.6, ZP + 3.2), (CMX - 1.8, CMY + 0.6, ZP + 5.6), 0.05, STEELL, segs=8)
 lathe('cm_dish', [(0, 0.0), (0.45, 0.12), (0.6, 0.25)], (CMX - 1.2, CMY + 0.8, ZP + 3.3), WHITE_S, segs=24)
 with grp('Beacon_Lights'): sphere('beacon_cm', 0.13, (CMX - 1.8, CMY + 0.6, ZP + 5.72), REDL, sub=2)
 # airlock (cylinder on the -X end) + dust shower booth in front of the hatch
-AX = CMX - 3.2 - 1.0
+AX = CMX - 2.6 - 1.0
 cyl('al_tube', 1.15, 2.0, (AX, CMY, ZP + 1.45), WHITE_S, rot=(0, math.pi / 2, 0), segs=32, bevel=0.03)
 for x in (AX - 0.95, AX + 0.95): cyl('al_ring', 1.22, 0.14, (x, CMY, ZP + 1.45), GRAPH, rot=(0, math.pi / 2, 0), segs=32)
 box('al_hatch', (0.06, 0.9, 1.6), (AX - 1.03, CMY, ZP + 1.25), GRAPH2, bevel=0.05)
@@ -903,12 +950,11 @@ stencil('st_dsh', 'DUST SHOWER', (DSX, CMY - 0.87, ZP + 2.66), '-y', 0.13, INK)
 stencil('st_al', 'AIRLOCK A-1', (AX, CMY - 1.18, ZP + 2.25), '-y', 0.16, INK)
 GAME['markers']['Crew_Path_01'] = (AX - 1.3, CMY, ZP)
 GAME['markers']['Crew_Path_02'] = (DSX, CMY, ZP)
-GAME['markers']['Crew_Path_03'] = (3.2, -4.4, ZP)
-GAME['markers']['Crew_Path_04'] = (8.8, -3.2, ZP)
-GAME['markers']['Crew_Path_05'] = (16.0, -10.4, ZP)
-GAME['markers']['Crew_Path_06'] = (TWX, TWY - 1.4, ZP)
-GAME['markers']['Crew_Path_07'] = (RKX, 0.0, 5.45)
-GAME['markers']['Crew_Path_08'] = (24.0, 5.2, ZP)
+GAME['markers']['Crew_Path_03'] = (TWX, TWY + 1.45, ZP)
+GAME['markers']['Crew_Path_04'] = (RKX, -21.6, 5.45)
+GAME['markers']['Crew_Path_05'] = (-17.1, -19.75, ZP)
+GAME['markers']['Crew_Path_06'] = (CMX + 3.4, CMY + 0.6, ZP)
+GAME['markers']['Crew_Path_07'] = (2.0, -5.0, ZP)
 # power masts + lines (feed the kiln heater, electrolyzer, control module)
 def power_mast(name, x, y, h=9.0):
     lathe(name, [(0.3, 0.0), (0.24, 1.0), (0.16, h - 0.4), (0.14, h)], (x, y, 0), GRAPH2, segs=14)
@@ -919,26 +965,63 @@ def power_mast(name, x, y, h=9.0):
     for dx in (-1.2, 0.0, 1.2):
         cyl(name + '_ins', 0.08, 0.45, (x + dx, y, h - 0.2), FOIL, segs=10); pts.append((x + dx, y, h))
     return pts
-MASTS = [(9.0, -3.4), (17.2, -2.0), (25.0, -0.6), (34.0, 1.2)]
+MASTS = [(-15.0, -20.95), (-19.2, -20.95)]
 PM = [power_mast(f'pmast{k}', x, y) for k, (x, y) in enumerate(MASTS)]
 for a_, b_ in zip(PM, PM[1:]):
     for p, q in zip(a_, b_): cable('pline', p, q, 0.022, RUBBER, sag=0.5, n=18)
 with grp('Beacon_Lights'):
     for k, (x, y) in enumerate(MASTS): sphere(f'beacon_mast{k}', 0.15, (x, y, 9.3), REDL, sub=2)
-cable('pdrop_kiln', PM[1][1], (17.2, HY + 1.4, 4.0), 0.03, RUBBER, sag=0.6, n=16)
-box('kn_junction', (0.6, 0.4, 0.6), (17.2, HY + 1.4, 3.8), GRAPH2, bevel=0.03)
-cable('pdrop_el', PM[2][2], (ELX - 1.35, FY - 0.4, 2.85), 0.035, RUBBER, sag=0.8, n=18)
+_kj = RH((17.2, HY + 1.4, 3.75)); _kj = (_kj[0], _kj[1], 3.55)
+cable('pdrop_kiln', PM[0][2], (_kj[0], _kj[1], _kj[2] + 0.3), 0.03, RUBBER, sag=0.9, n=20)
+box('kn_junction', (0.6, 0.4, 0.6), _kj, GRAPH2, bevel=0.03)
+rod('kn_junction_post', (_kj[0], _kj[1], ZP), (_kj[0], _kj[1], _kj[2] - 0.3), 0.06, STEEL, segs=8)
+cable('pdrop_el', PM[0][1], RF((ELX - 1.35, FY - 0.4, 2.85)), 0.035, RUBBER, sag=0.8, n=18)
 cable('pdrop_cm', PM[0][0], (CMX + 1.6, CMY + 0.4, ZP + 3.8), 0.03, RUBBER, sag=0.8, n=18)
-box('sw_cabinet', (1.4, 0.8, 2.0), (9.0, -4.6, ZP + 1.0), PALE, bevel=0.05)
-for j, m_ in enumerate((GREENL, GREENL, AMBERL)): lamp(f'sw_lamp{j}', (8.7 + j * 0.3, -5.02, ZP + 1.8), m_, 0.04)
-stencil('st_sw', 'SWG-R  480 V', (9.0, -5.02, ZP + 1.35), '-y', 0.13, INK)
+box('sw_cabinet', (1.4, 0.8, 2.0), (-17.1, -20.4, ZP + 1.0), PALE, bevel=0.05)
+for j, m_ in enumerate((GREENL, GREENL, AMBERL)): lamp(f'sw_lamp{j}', (-17.4 + j * 0.3, -20.82, ZP + 1.8), m_, 0.04)
+stencil('st_sw', 'SWG-R  480 V', (-17.1, -20.82, ZP + 1.35), '-y', 0.13, INK)
 
 # ====================================================================== markers, pivots, bookkeeping
 GAME['markers']['Path_Dump'] = (0.0, 0.0, 0.0)
-GAME['markers']['Road_Entry'] = (-12.0, 0.0, 0.0)
+GAME['markers']['Road_Entry'] = (-4.0, 0.0, 0.0)
 GAME['extras']['root'] = {'origin': 'truck dump spot at the intake bin (Path_Dump)', 'truck_heading_at_dump': '-X (cab toward -X)',
-                          'approach': 'along +X (reverses the last 12 m from Road_Entry)', 'anchor': 'REFINERY_ANCHOR'}
+                          'approach': 'along +X (reverses the last 4 m from Road_Entry = Mine Path_Dump_Approach)', 'anchor': 'REFINERY_ANCHOR'}
 
+_blk('end')
+# ---- apply the compact layout: row blocks -> M_H / M_F, splitter -> SPN; VG-1 is dropped (the bin grizzly does the scalping)
+for o in list(coll('Mine').all_objects):
+    if o.name.startswith('pad_he3'): o['blk'] = 'he3'
+    elif o.name.startswith('pad_fuel'): o['blk'] = 'fuel'
+for o in [o for o in coll('Mine').all_objects if o.get('blk') == 'vg']: bpy.data.objects.remove(o, do_unlink=True)
+convert_curves()
+_FLX0 = Matrix.Diagonal((-1.0, 1.0, 1.0, 1.0)); _mv = []
+for o in list(coll('Mine').all_objects):
+    b_ = o.get('blk')
+    M_ = M_H if b_ == 'he3' else M_F if b_ == 'fuel' else Matrix.Translation((SPN.x - SPX, SPN.y, 0.0)) if b_ == 'splitter' else None
+    if M_ is None or o.parent is not None: continue
+    mw = M_ @ o.matrix_world
+    if o.name.startswith('st_'): mw = mw @ _FLX0
+    o.matrix_world = mw; _mv.append(o)
+bpy.context.view_layer.update()
+bpy.ops.object.select_all(action='DESELECT')
+for o in _mv:
+    if o.type == 'MESH': o.select_set(True)
+bpy.context.view_layer.objects.active = [o for o in _mv if o.type == 'MESH'][0]
+bpy.ops.object.make_single_user(object=True, obdata=True)
+bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+print('RELAYOUT moved', len(_mv), 'neg', sum(1 for o in _mv if o.matrix_world.determinant() < 0), flush=True)
+GAME['pivots']['Kiln_Drum'] = RH(GAME['pivots']['Kiln_Drum'])
+for n_, f_ in (('He3_Output', RH), ('Fuel_Output', RF), ('Pipe_TankFarm', RF)):
+    p_ = f_(GAME['markers'][n_]); GAME['markers'][n_] = (p_[0], p_[1], GAME['markers'][n_][2] if n_ != 'Pipe_TankFarm' else p_[2])
+if A.get('stopbody'):
+    import json as _j
+    _d=[]
+    for o in coll('Mine').all_objects:
+        if o.type not in ('MESH','CURVE','FONT'): continue
+        bb=[o.matrix_world @ Vector(c) for c in o.bound_box]
+        mn=[min(v[i] for v in bb) for i in range(3)]; mx=[max(v[i] for v in bb) for i in range(3)]
+        _d.append((o.name, o.parent.name if o.parent else '', [round(v,2) for v in mn],[round(v,2) for v in mx]))
+    _j.dump({'objs':_d,'game':GAME}, open(A['stopbody'],'w'), default=str); sys.exit(0)
 # ====================================================================== MIRROR to station handedness
 # The process was laid out with its stencils on the -Y faces. In the Mine station the camera looks from world -Y, which is
 # refinery +Y once the truck at Path_Dump faces world +X. So mirror the whole refinery in Y, then flip every stencil
@@ -974,7 +1057,7 @@ GAME['anchor_x'] = ANCHOR_X
 W2F = Matrix.Translation((-9.0, -5.5, 0.0)) @ Matrix.Rotation(math.pi, 4, 'Z')     # Mine world -> refinery final coords
 # mc_common's stage puts its ridge backdrop at +Y; our camera side is +Y, so build it rotated: flat spots given in pre-rotation
 # coords, then the whole stage turns 180 deg about Z (ridges end up behind the refinery, at -Y).
-_h0 = build_stage(keep_flat=((-15.0, 0.0, 34.0), (9.0, 1.5, 25.0)))
+_h0 = build_stage(keep_flat=((7.0, -16.0, 31.0), (9.0, 1.5, 25.0)))
 for ob in list(coll('Stage').objects):
     if ob.parent is None: ob.matrix_world = Matrix.Rotation(math.pi, 4, 'Z') @ ob.matrix_world
 bpy.context.view_layer.update()
@@ -982,7 +1065,7 @@ def height(x, y): return _h0(-x, -y)
 for ob in list(coll('Stage').objects):
     if ob.type == 'MESH' and ob.name.split('.')[0] in ('boulder', 'pebble'):
         c_ = ob.location
-        if (-40 < c_.x < 52 and -30 < c_.y < 30): bpy.data.objects.remove(ob)
+        if (-48 < c_.x < 40 and -30 < c_.y < 44): bpy.data.objects.remove(ob)
 
 def load_coll(path, cname):
     with bpy.data.libraries.load(path, link=False) as (src, dst): dst.collections = [cname]
@@ -1007,6 +1090,21 @@ if A.get('mine', '1') == '1':
     for o in set(MINEB.all_objects) | set(new_):
         if o.parent is None: o.matrix_world = W2F @ o.matrix_world
     bpy.context.view_layer.update()
+    # mine_layout cut the ground under its roads in Mine coords; the Stage ground here is in refinery-final coords, so redo the cut
+    from mathutils.bvhtree import BVHTree
+    _roads = [o for o in bpy.data.objects if o.get('road')]; _g = bpy.data.objects.get('Ground')
+    if _roads and _g:
+        vs_, ps_ = [], []
+        for o in _roads:
+            b0 = len(vs_); vs_ += [o.matrix_world @ v.co for v in o.data.vertices]; ps_ += [tuple(b0 + i for i in p.vertices) for p in o.data.polygons]
+        _rb = BVHTree.FromPolygons(vs_, ps_); _gi = _g.matrix_world.inverted(); _cut = 0
+        _x0, _x1 = min(v.x for v in vs_) - 1, max(v.x for v in vs_) + 1; _y0, _y1 = min(v.y for v in vs_) - 1, max(v.y for v in vs_) + 1
+        for v in _g.data.vertices:
+            w = _g.matrix_world @ v.co
+            if not (_x0 < w.x < _x1 and _y0 < w.y < _y1): continue
+            hit = _rb.ray_cast(Vector((w.x, w.y, w.z + 5)), Vector((0, 0, -1)))
+            if hit[0] is not None and w.z > hit[0].z - 0.03: v.co = _gi @ Vector((w.x, w.y, hit[0].z - 0.03)); _cut += 1
+        _g.data.update(); print('ROADCUT', len(_roads), _cut, flush=True)
     print('MINEB', len(MINEB.all_objects), 'layout objs', len(new_), flush=True)
 def show_mine(v):
     if MINEB:
@@ -1057,17 +1155,17 @@ if not MINEB:   # short stretch of haul road for refinery-only renders
 SUN = Vector((-0.55, 0.6, 0.58))      # station camera looks from +Y (world -Y)
 world_and_sun(tuple(SUN), 5.5)
 astronaut(F((AX - 1.5, CMY - 0.3, ZP)), rot_z=1.2 + math.pi)
-astronaut(F((RKX, 1.0, 5.44)), rot_z=-1.4)
-astronaut(F((31.0, -11.0, ZP)), rot_z=2.8)
-astronaut(F((8.3, -3.4, ZP)), rot_z=2.6)
-for nm_, e_, s_ in (('GlowKiln', (17.2, HY - 2.4, 2.6), 60), ('GlowRX', (RXX, FY - 2.2, 4.4), 60)):
+astronaut(F((RKX, -21.8, 5.44)), rot_z=-1.4)
+_a3 = RH((31.0, -11.6, 0.0)); astronaut(F((_a3[0], _a3[1], 0.0)), rot_z=2.8)
+astronaut(F((3.0, -4.2, ZP)), rot_z=2.6)
+for nm_, e_, s_ in (('GlowKiln', RH((17.2, HY - 2.4, 2.6)), 60), ('GlowRX', RF((RXX, FY - 2.2, 4.4)), 60)):
     ld = bpy.data.lights.new(nm_, 'POINT'); ld.energy = s_ * 10; ld.color = hexc('#ff8a3a')[:3]; ld.shadow_soft_size = 0.6
     lo = bpy.data.objects.new(nm_, ld); coll('Stage').objects.link(lo); lo.location = F(e_)
 ld = bpy.data.lights.new('GlowRack', 'POINT'); ld.energy = 300; ld.color = hexc('#3ab0ff')[:3]; ld.shadow_soft_size = 0.8
-lo = bpy.data.objects.new('GlowRack', ld); coll('Stage').objects.link(lo); lo.location = F((32.0, -11.6, 1.6))
+lo = bpy.data.objects.new('GlowRack', ld); coll('Stage').objects.link(lo); lo.location = F(RH((32.0, -11.6, 1.6)))
 # render-only camera target (the game GLB has NO Cam_Target: the Mine's Cam_Target frames Mine + Refinery)
-CAM_TARGET = tuple(float(v) for v in A.get('ct', '18.0,1.0,3.0').split(','))   # refinery-only review framing
-FRAME_W = float(A.get('fw', 54.0))
+CAM_TARGET = tuple(float(v) for v in A.get('ct', '-7.0,16.0,3.0').split(','))   # refinery-only review framing
+FRAME_W = float(A.get('fw', 34.0))
 # Mine station camera (art/3d/buildings/mine/README.md): Cam_Target glTF (-0.11, 2.65, 1.00) = Mine Blender (-0.11, -1.0, 2.65), frame_w 37
 MINE_CT = tuple(round(v, 3) for v in (W2F @ Vector([float(v) for v in A.get('minect', '-0.11,-1.0,2.65').split(',')])))
 MINE_W = float(A.get('minew', 37.0))
@@ -1129,7 +1227,7 @@ if 'blend' in ONLY:
 if 'turn' in ONLY:
     show_mine(False)
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
-    tt = [float(v) for v in A.get('tt', '16,0,3').split(',')]
+    tt = [float(v) for v in A.get('tt', '-7,15.5,3').split(',')]
     turntable(cam, os.path.join(OUT, 'turntable'), tuple(tt), float(A.get('td', 105)), 26, size=1000 if not QUICK else 400,
               samples=int(A.get('ts', 40)) if not QUICK else 12, lens=35)
 if 'hero' in ONLY:
@@ -1149,6 +1247,31 @@ for mode_ in [m_ for m_ in ('phone', 'phonefull') if m_ in ONLY.split(',')]:
         sc.render.resolution_x, sc.render.resolution_y = w, h; sc.render.resolution_percentage = 100; sc.render.use_border = False
         sc.cycles.samples = int(A.get('ps', 64)) if not QUICK else 16
         sc.render.filepath = os.path.join(OUT, f'{NAME}_{nm_}_{w}x{h}.png'); print('PHONE', nm_, 'target', tgt_, 'dist', round(d, 3), 'frame_w', fw_, flush=True)
+        from bpy_extras.object_utils import world_to_camera_view
+        bpy.context.view_layer.update(); _px = []
+        for ob in coll('Mine').all_objects:
+            if ob.type != 'MESH' or ob.hide_render: continue
+            for c_ in ob.data.vertices:
+                v = world_to_camera_view(sc, cam, ob.matrix_world @ c_.co); _px.append((v.x * w, (1 - v.y) * h, ob.name))
+        _tg = {}
+        for ob in coll('Mine').all_objects:
+            g_ = ob.get('grp', 'Base')
+            if ob.type != 'MESH' or not str(g_).startswith('Tier_'): continue
+            for c_ in ob.data.vertices:
+                v = world_to_camera_view(sc, cam, ob.matrix_world @ c_.co); e_ = _tg.setdefault(g_, [1e9, -1e9, 1e9, -1e9])
+                e_[0] = min(e_[0], v.x * w); e_[1] = max(e_[1], v.x * w); e_[2] = min(e_[2], (1 - v.y) * h); e_[3] = max(e_[3], (1 - v.y) * h)
+        for g_, e_ in sorted(_tg.items()):
+            ok_ = e_[0] >= 0.06 * w and e_[1] <= 0.94 * w and e_[2] >= 100 * h / 852 and e_[3] <= 650 * h / 852
+            print('FIT_TIER %s x %.1f..%.1f y %.1f..%.1f %s' % (g_, e_[0], e_[1], e_[2], e_[3], 'OK' if ok_ else 'OUT'), flush=True)
+        if A.get('norender'):
+            _o = {}
+            for p in _px:
+                if p[0] < 0.06 * w or p[0] > 0.94 * w or p[1] > 650 * h / 852: _o[p[2]] = min(_o.get(p[2], 1e9), p[0]) if p[0] < w / 2 else max(_o.get(p[2], -1e9), p[0])
+            print('FIT_OUT', sorted(_o.items(), key=lambda kv: kv[1])[:40], flush=True)
+        print('FIT refinery px x %.1f..%.1f (%s / %s)  y %.1f..%.1f (%s / %s)  frame %dx%d  safe x %.0f..%.0f y %.0f..%.0f' % (
+            min(_px)[0], max(_px)[0], min(_px)[2], max(_px)[2], min(p[1] for p in _px), max(p[1] for p in _px),
+            min(_px, key=lambda p: p[1])[2], max(_px, key=lambda p: p[1])[2], w, h, 0.06 * w, 0.94 * w, 100 * h / 852, 650 * h / 852), flush=True)
+        if A.get('norender'): continue
         bpy.ops.render.render(write_still=True)
     cam.data.sensor_fit = 'AUTO'
 if 'diagram' in ONLY:
@@ -1156,20 +1279,22 @@ if 'diagram' in ONLY:
     show_mine(False)
     from bpy_extras.object_utils import world_to_camera_view
     sc = bpy.context.scene; W_, H_ = (3000, 2000) if not QUICK else (1200, 800)
-    cam.data.type = 'ORTHO'; cam.data.ortho_scale = float(A.get('os', 54.0)); cam.data.sensor_fit = 'AUTO'
-    cx, cy = [float(v) for v in A.get('dc', '16,0.5').split(',')]
+    cam.data.type = 'ORTHO'; cam.data.ortho_scale = float(A.get('os', 38.0)); cam.data.sensor_fit = 'AUTO'
+    cx, cy = [float(v) for v in A.get('dc', '-7,15.5').split(',')]
     tilt = math.radians(float(A.get('tilt', 22)))
     cam.location = (cx, cy + 120 * math.sin(tilt), 120 * math.cos(tilt)); cam.rotation_euler = (tilt, 0, math.pi)
     sc.render.resolution_x, sc.render.resolution_y = W_, H_; sc.render.use_border = False
     sc.cycles.samples = int(A.get('ds', 32)) if not QUICK else 12
     bpy.context.view_layer.update()
-    PTS = {'truck': (-1.0, 0, 3.0), 'bin': (5.5, 0, 2.0), 'grizzly': (11.1, 0, 2.6), 'splitter': (SPX, 0, 1.2),
-           'sieve': (SVX, HY, 3.4), 'kiln': (17.2, HY, 3.6), 'hood': (CPX, HY, 3.0), 'traps': (27.2, HY, 4.0), 'column': (DCX, DCY, 8.0),
-           'fill': (FSX, HY - 1.0, 1.5), 'rack': (31.6, -9.9, 2.4), 'tailings': (21.5, -14.4, 1.6),
-           'crusher': (CRX, FY, 3.6), 'magsep': (MSX, FY, 3.0), 'reactor': (RXX, FY, 7.0), 'condenser': (WCX, FY, 2.4),
-           'electrolyzer': (ELX, FY, 2.0), 'liquefier': (LQX, FY, 5.6), 'lox': (32.4, FY, 6.0), 'lh2': (36.0, FY, 7.2),
-           'tankfarm': (41.4, 4.05, 1.1), 'slag': (RXX, FY + 3.4, 1.0), 'h2x': (RKX, 0.0, 5.7), 'h2recycle': (21.8, FY + 0.5, 9.2),
-           'control': (CMX, CMY, 3.2), 'radiators': (28.0, 15.3, 6.0)}
+    H_, F_ = RH, RF
+    PTS = {'truck': (-1.0, 0, 3.0), 'bin': (5.0, 0, 2.0), 'feeder': (5.1, -3.0, 1.6), 'splitter': (SPN.x, SPN.y, 1.2), 'elevator': (BEX, BEY, 6.0),
+           'gallery': (2.4, -18.0, 5.4),
+           'sieve': H_((SVX, HY, 3.4)), 'kiln': H_((17.2, HY, 3.6)), 'hood': H_((CPX, HY, 3.0)), 'traps': H_((27.2, HY, 4.0)), 'column': H_((DCX, DCY, 8.0)),
+           'fill': H_((FSX, HY - 1.0, 1.5)), 'rack': H_((31.6, -9.9, 2.4)), 'tailings': H_((21.5, -12.9, 1.6)),
+           'crusher': F_((CRX, FY, 3.6)), 'magsep': F_((MSX, FY, 3.0)), 'reactor': F_((RXX, FY, 7.0)), 'condenser': F_((WCX, FY, 2.4)),
+           'electrolyzer': F_((ELX, FY, 2.0)), 'liquefier': F_((LQX, FY, 5.6)), 'lox': F_((32.4, FY, 6.0)), 'lh2': F_((36.0, FY, 7.2)),
+           'tankfarm': F_((38.3, 5.22, 1.1)), 'slag': F_((RXX, FY + 3.4, 1.0)), 'h2x': (RKX, -21.4, 5.7), 'h2recycle': F_((21.8, FY + 0.5, 9.2)),
+           'control': (CMX, CMY, 3.2), 'radiators': F_((28.0, 12.9, 6.0))}
     out = {}
     for k_, p_ in PTS.items():
         v = world_to_camera_view(sc, cam, Vector(F(p_))); out[k_] = (round(v.x * W_, 1), round((1 - v.y) * H_, 1))
