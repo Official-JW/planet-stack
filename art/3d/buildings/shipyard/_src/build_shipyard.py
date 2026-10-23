@@ -317,53 +317,93 @@ SR = 4.0
 UA = math.radians(30); TD = 13.5; TW, TH = 5.0, 46.0
 u_t = Vector((math.cos(UA), math.sin(UA), 0)); TX, TY = SHX + u_t.x * TD, SHY + u_t.y * TD
 inward = -u_t; tang = Vector((-u_t.y, u_t.x, 0)); rot_u = math.atan2(inward.y, inward.x)
-# ---------------------------------------------------------------------- UNDER-CONSTRUCTION STACK (replaces the finished starter ship)
+# ---------------------------------------------------------------------- SN-07 = Art Assistant 2's REAL starter ship (art/3d/ship/starter_ship), mid-assembly
+# The ship is appended from ONE path through ONE function (swap SHIP_SRC when AA2's next pass lands). It is cut by height in its own frame:
+# below SHIP_CUT[0] = stacked + complete on the stand (engines, legs, tank section, cargo bay with its door open), SHIP_CUT[0]..[1] = the
+# crew-deck ring hanging from the tower jib, above SHIP_CUT[1] (upper band + nose, incl. the nose-pod area) = not built yet.
 SC = Vector((SHX, SHY, 0))
 def shell(name, r0, z0, z1, mat, t=0.14, a0=0.0, a1=None, segs=72, c='Mine'):
     return lathe(name, [(r0 - t, z0), (r0, z0), (r0, z1), (r0 - t, z1), (r0 - t, z0)], (SHX, SHY, 0), mat, segs=segs, a0=a0, a1=a1, smooth=True, c=c)
-def frame_ring(name, z, r0=SR, mat=None, c='Mine'):
-    return lathe(name, [(r0 - 0.45, z - 0.16), (r0 + 0.05, z - 0.16), (r0 + 0.05, z + 0.16), (r0 - 0.45, z + 0.16), (r0 - 0.45, z - 0.16)], (SHX, SHY, 0), mat or GRAPH, segs=72, smooth=False, c=c)
+def frame_ring(name, z, r0=SR, mat=None, c='Mine', ctr=SC):
+    return lathe(name, [(r0 - 0.45, z - 0.16), (r0 + 0.05, z - 0.16), (r0 + 0.05, z + 0.16), (r0 - 0.45, z + 0.16), (r0 - 0.45, z - 0.16)], (ctr.x, ctr.y, 0), mat or GRAPH, segs=72, smooth=False, c=c)
 def stringers(z0, z1, n=24, skip=(), mat=None, ctr=SC, c='Mine'):
     for k in range(n):
         if k in skip: continue
         a = TAU * k / n
         box('stk_stringer', (0.14, 0.26, z1 - z0), (ctr.x + (SR - 0.3) * math.cos(a), ctr.y + (SR - 0.3) * math.sin(a), (z0 + z1) / 2), mat or SATIN, rot=(0, 0, a), bevel=0, c=c)
-# launch mount: graphite ring beam on 6 pedestals, stack sits on hold-down clamps
-for k in range(6):
-    a = TAU * k / 6 + 0.26; p = SC + Vector((math.cos(a), math.sin(a), 0)) * 5.3
-    rbox('stk_pedestal', (1.3, 1.3, 2.6), (p.x, p.y, TOP + 1.3), GRAPH, rot=(0, 0, a), r=0.12, segs=2)
-    rbox('stk_clamp', (0.7, 0.9, 0.9), tuple(SC + Vector((math.cos(a), math.sin(a), 0)) * 4.4 + Vector((0, 0, TOP + 3.0))), GRAPH_S, rot=(0, 0, a), r=0.08, segs=1)
-lathe('stk_mount_ring', [(4.3, TOP + 2.55), (6.0, TOP + 2.55), (6.0, TOP + 3.1), (4.3, TOP + 3.1), (4.3, TOP + 2.55)], (SHX, SHY, 0), GRAPH, segs=72, smooth=False)
-ring('stk_mount_strip', 6.02, (SHX, SHY, TOP + 2.8), 0.08, CYAN, w=0.03, segs=72)
-# aft skirt + thrust structure + 3 engine bells (installed, nozzles covered by white caps)
-Z_AFT = TOP + 3.1
-lathe('stk_aft_skirt', [(SR - 0.15, Z_AFT), (SR + 0.25, Z_AFT), (SR, Z_AFT + 2.6), (SR - 0.14, Z_AFT + 2.6), (SR - 0.15, Z_AFT)], (SHX, SHY, 0), WHITE, segs=72)
-lathe('stk_thrust_puck', [(0, Z_AFT + 1.6), (SR - 0.3, Z_AFT + 1.6), (SR - 0.3, Z_AFT + 2.0), (0, Z_AFT + 2.3)], (SHX, SHY, 0), GRAPH, segs=48, smooth=False)
-for k in range(3):
-    a = TAU * k / 3 + 0.5; p = SC + Vector((math.cos(a), math.sin(a), 0)) * 1.7
-    lathe('stk_engine_bell', [(0.0, Z_AFT - 1.9), (1.05, Z_AFT - 1.9), (1.0, Z_AFT - 1.7), (0.5, Z_AFT + 0.6), (0.38, Z_AFT + 1.6), (0, Z_AFT + 1.6)], (p.x, p.y, 0), GRAPH_S, segs=32)
-    lathe('stk_nozzle_cap', [(0, Z_AFT - 2.0), (1.08, Z_AFT - 2.0), (1.08, Z_AFT - 1.75), (0, Z_AFT - 1.75)], (p.x, p.y, 0), WHITE_S, segs=32, smooth=False)
-RH = 5.75; Z1 = Z_AFT + 2.6                       # ring height = tower girt pitch
-RZ = [Z1 + RH * i for i in range(4)]             # ring bottoms: 2 closed, 1 open-bay, top edge open
-# ring 1 + 2: skinned (ring 2 with two panel bays still open)
-shell('stk_ring1', SR, RZ[0], RZ[1], WHITE)
-gap2 = [(math.radians(200), math.radians(228)), (math.radians(286), math.radians(306))]
-segs2 = [(math.radians(228), math.radians(286)), (math.radians(306), math.radians(560))]
-for a0, a1 in segs2: shell('stk_ring2', SR, RZ[1], RZ[2], WHITE, a0=a0, a1=a1, segs=max(8, int(72 * (a1 - a0) / TAU)))
-stringers(RZ[1], RZ[2], n=24, skip=[k for k in range(24) if not any(g0 <= (TAU * k / 24 if TAU * k / 24 >= math.radians(200) else TAU * k / 24 + TAU) <= g1 for g0, g1 in gap2)])
-# ring 3: frames + stringers up, only some skin panels hung, exposed tank dome inside
-for a0, a1 in ((math.radians(20), math.radians(95)), (math.radians(140), math.radians(170)), (math.radians(250), math.radians(300))):
-    shell('stk_ring3_panel', SR, RZ[2], RZ[2] + RH * (0.55 if a0 > 2 else 1.0), WHITE, a0=a0, a1=a1, segs=max(6, int(72 * (a1 - a0) / TAU)))
-stringers(RZ[2], RZ[3], n=24)
-lathe('stk_tank_dome', [(0, RZ[2] + 3.2), (1.8, RZ[2] + 2.9), (3.0, RZ[2] + 2.0), (3.6, RZ[2] + 0.6), (3.62, RZ[2] - 0.2), (0, RZ[2] - 0.2)], (SHX, SHY, 0), WHITE_S, segs=56)
-lathe('stk_dome_weld', [(3.0, RZ[2] + 2.0), (3.08, RZ[2] + 2.0), (3.08, RZ[2] + 2.12), (3.0, RZ[2] + 2.12)], (SHX, SHY, 0), SATIN, segs=56, smooth=False)
-for z in (RZ[0], RZ[1], RZ[2], RZ[2] + RH / 2, RZ[3]): frame_ring('stk_frame', z)
-ring('stk_ring_strip', SR + 0.01, (SHX, SHY, RZ[1] - 0.6), 0.1, CYAN, w=0.02, segs=72)
-for k in range(4):    # active weld spots on the open top joint
-    a = TAU * k / 4 + 0.7; sphere('stk_weld_lamp', 0.09, (SHX + (SR + 0.06) * math.cos(a), SHY + (SR + 0.06) * math.sin(a), RZ[2] + 0.02), LAMP, sub=2)
-# loose panels waiting on the 21 m platform, stencils
-text('stencil_stk', 'SN-07 · STACK IN WORK', (SHX + SR * math.cos(-1.9) * 1.003, SHY + SR * math.sin(-1.9) * 1.003, RZ[0] + 2.4), (math.pi / 2, 0, -1.9 + math.pi / 2), 0.42, INK, extrude=0.004)
-STACK_TOP = RZ[3]
+SHIP_SRC = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'ship', 'starter_ship', 'starter_ship_master.blend'))   # AA2's ship master (git 46a9346)
+SHIP_YAW = math.radians(45.0)      # ship-frame yaw on the stand: open cargo door toward the game camera; legs + radiator wings clear of the tower
+SHIP_CUT = (19.4, 25.1)            # ship-frame z: cargo-bay top band | crew-deck top band
+SHIP_LIFT = 4.2                    # the crew-deck ring hangs 4.2 m above the open top of the stack
+SHIP_DROP = ('LightMast', 'PowerMast', 'Umb', 'Crate', 'HoistLoadLine', 'HoistHook', 'HoistSling', 'HoistTagLine')   # AA2's pad kit / cargo, not the ship
+SHIP_WHOLE = ('RadiatorWing', 'RadiatorTube', 'RadiatorHeader', 'RadiatorGlow', 'RadBracket')                       # installed whole with the stack
+SHIP_GAME_TRIS = {'stack': 4500, 'ring': 1100}   # game GLB: SN-07 pieces decimated to these before merging (stack -> base, ring -> Crane_Jib)
+SHIP_INTERIOR = ('S_Mattress', 'S_Pillow', 'S_Blanket', 'S_CabinWall', 'S_CabinTrim', 'S_DeckFloor', 'S_PodLining', 'S_Bristle')   # dropped in the game GLB only
+def load_starter_ship(path=SHIP_SRC):
+    """append AA2's starter ship (its 'Mine' collection, pad kit dropped) -> new mesh objects, modifiers applied, geometry in the SHIP frame
+    (origin = base centre on the pad top, front -Y, Z up, 40 m tall). Nothing else of the source file is kept."""
+    with bpy.data.libraries.load(path, link=False) as (src, dst): dst.collections = ['Mine']
+    col = dst.collections[0]; bpy.context.scene.collection.children.link(col); bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get(); out = []
+    for o in list(col.all_objects):
+        if o.type == 'MESH' and not o.name.split('.')[0].startswith(SHIP_DROP):
+            me = bpy.data.meshes.new_from_object(o.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg); me.transform(o.matrix_world)
+            out.append(bpy.data.objects.new('ss_' + o.name, me))
+    for o in list(col.all_objects): bpy.data.objects.remove(o)
+    bpy.data.collections.remove(col)
+    return out
+def _bisect(o, z, keep_below):
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, z), plane_no=(0, 0, 1), clear_outer=keep_below, clear_inner=not keep_below)
+    bm.to_mesh(o.data); bm.free(); o.data.update(); return len(o.data.polygons) > 0
+def _anchor_mats(obs, anchor, tag):
+    """AA2's weathering masks read world Position (ship at the origin) -> re-point them at an anchor empty carrying the ship frame."""
+    cache = {}
+    def fix(nt):
+        ls = [l for l in nt.links if l.from_node.type == 'NEW_GEOMETRY' and l.from_socket.name == 'Position']
+        if ls:
+            tc = nt.nodes.new('ShaderNodeTexCoord'); tc.object = anchor
+            for l in ls: to = l.to_socket; nt.links.remove(l); nt.links.new(tc.outputs['Object'], to)
+        for n in nt.nodes:
+            if n.type == 'GROUP' and n.node_tree:
+                k = 'G:' + n.node_tree.name
+                if k not in cache: g = n.node_tree.copy(); g.name = n.node_tree.name + '_' + tag; cache[k] = g; fix(g)
+                n.node_tree = cache[k]
+    for o in obs:
+        for sl in o.material_slots:
+            m = sl.material
+            if m is None: continue
+            if m.name not in cache:
+                c = m.copy(); c.name = m.name + '_' + tag; cache[m.name] = c
+                if c.use_nodes: fix(c.node_tree)
+            sl.material = cache[m.name]
+M_ST = Matrix.Translation((SHX, SHY, TOP)) @ Matrix.Rotation(SHIP_YAW, 4, 'Z')
+M_RG = Matrix.Translation((SHX, SHY, TOP + SHIP_LIFT)) @ Matrix.Rotation(SHIP_YAW, 4, 'Z')
+ship_stack, ship_ring = [], []
+for o in load_starter_ship():
+    zs = [v.co.z for v in o.data.vertices]
+    if not zs: bpy.data.objects.remove(o); continue
+    lo, hi = min(zs), max(zs); nm = o.name[3:].split('.')[0]
+    if lo >= SHIP_CUT[1] - 0.01: bpy.data.objects.remove(o); continue
+    if hi <= SHIP_CUT[0] + 0.01 or nm.startswith(SHIP_WHOLE): ship_stack.append(o); continue
+    part = o
+    if lo < SHIP_CUT[0]:
+        part = o.copy(); part.data = o.data.copy(); part.name = o.name + '_ring'
+        if _bisect(o, SHIP_CUT[0], True): ship_stack.append(o)
+        else: bpy.data.objects.remove(o)
+        _bisect(part, SHIP_CUT[0], False)
+    if hi > SHIP_CUT[1] and not _bisect(part, SHIP_CUT[1], True): bpy.data.objects.remove(part); continue
+    ship_ring.append(part)
+for obs, M, tg in ((ship_stack, M_ST, 'stack'), (ship_ring, M_RG, 'ring')):
+    anc = bpy.data.objects.new('SN07_frame_' + tg, None); anc.matrix_world = M; coll('Stage').objects.link(anc)   # texture-space anchor, not a parent
+    _anchor_mats(obs, anc, 'sn07' + tg[0])
+    for o in obs:
+        o.data.transform(M); coll('Mine').objects.link(o); o['ship'] = tg
+print('SN07 ship parts: stack', len(ship_stack), 'ring', len(ship_ring), flush=True)
+STACK_TOP = TOP + SHIP_CUT[0]; RH = SHIP_CUT[1] - SHIP_CUT[0]
+frame_ring('stk_frame', STACK_TOP - 0.17)            # open joint: bare frame ring + weld spots on the stack top
+for k in range(4):
+    a = TAU * k / 4 + 0.7; sphere('stk_weld_lamp', 0.09, (SHX + (SR + 0.06) * math.cos(a), SHY + (SR + 0.06) * math.sin(a), STACK_TOP + 0.02), LAMP, sub=2)
 rbox('ist_plinth', (8.0, 8.0, 0.9), (TX, TY, TOP + 0.3), GRAPH, rot=(0, 0, rot_u), r=0.15, segs=3)
 corners = [Vector((TX, TY, 0)) + inward * (TW / 2) * sx + tang * (TW / 2) * sy for sx in (-1, 1) for sy in (-1, 1)]
 Z0 = TOP + 0.75
@@ -400,7 +440,7 @@ rbox('ist_jib_cw', (2.4, 2.0, 1.6), tuple(Vector((TX, TY, JZ + 0.4)) - inward * 
 rbox('ist_slew', (2.6, 2.6, 0.7), (TX, TY, JZ + 0.0), GRAPH_S, rot=(0, 0, rot_u), r=0.12, segs=2)
 hk = Vector((TX, TY, JZ)) + inward * TD          # trolley right over the stack axis
 rbox('ist_trolley', (1.4, 1.4, 0.7), tuple(hk), GRAPH_S, rot=(0, 0, rot_u), r=0.1, segs=2)
-NRZ = STACK_TOP + 4.2                            # next ring hangs 4.2 m above the open top
+NRZ = STACK_TOP + SHIP_LIFT                      # SN-07 crew-deck ring hangs SHIP_LIFT above the open top
 SPZ = NRZ + RH + 2.2
 rod('ist_hoist', tuple(hk), (hk.x, hk.y, SPZ + 0.9), 0.05, SATIN, segs=8)
 rbox('ist_hook', (0.6, 0.6, 0.8), (hk.x, hk.y, SPZ + 0.5), LH2B, r=0.1, segs=2)
@@ -411,15 +451,12 @@ for k in range(4):
     a = TAU * k / 4 + rot_u; e = Vector((math.cos(a), math.sin(a), 0))
     rod('ist_sling', tuple(Vector((hk.x, hk.y, SPZ - 0.3)) + e * 4.0), tuple(NC + e * (SR - 0.2) + Vector((0, 0, NRZ + RH + 0.15))), 0.04, SATIN, segs=6)
     rbox('ist_lug', (0.3, 0.3, 0.4), tuple(NC + e * (SR - 0.2) + Vector((0, 0, NRZ + RH + 0.1))), GRAPH_S, rot=(0, 0, a), r=0.04, segs=1)
-lathe('ist_next_ring', [(SR - 0.14, NRZ), (SR, NRZ), (SR, NRZ + RH), (SR - 0.14, NRZ + RH), (SR - 0.14, NRZ)], (hk.x, hk.y, 0), WHITE, segs=72, a0=math.radians(-60), a1=math.radians(250))
-for z in (NRZ, NRZ + RH / 2, NRZ + RH):
-    lathe('ist_next_frame', [(SR - 0.45, z - 0.16), (SR + 0.05, z - 0.16), (SR + 0.05, z + 0.16), (SR - 0.45, z + 0.16), (SR - 0.45, z - 0.16)], (hk.x, hk.y, 0), GRAPH, segs=72, smooth=False)
-stringers(NRZ, NRZ + RH, n=24, ctr=NC)
-ring('ist_next_strip', SR + 0.01, (hk.x, hk.y, NRZ + 0.6), 0.1, CYAN, w=0.02, segs=72)
+frame_ring('ist_next_frame', NRZ + 0.17, ctr=NC)   # lifting frame under the hanging ring
 grp_end(_gj, 'Crane_Jib')
+for o in ship_ring: o['grp'] = 'Crane_Jib'       # the hanging SN-07 ring swings with the jib in the game
 # C-shaped work platforms hugging the hull (tower side), handrail on the outer edge
 for z in (12.0, 21.0, 30.0):
-    z = TOP + z; a0, a1 = UA - math.radians(62), UA + math.radians(62)
+    z = TOP + z; a0, a1 = UA - math.radians(55), UA + math.radians(55)   # arc clear of SN-07's ladder cage + radiator wings
     lathe('ist_platform', [(SR + 0.7, z), (SR + 3.2, z), (SR + 3.2, z + 0.3), (SR + 0.7, z + 0.3), (SR + 0.7, z)], (SHX, SHY, 0), GRAPH_S, segs=40, a0=a0, a1=a1, smooth=False)
     lathe('ist_platform_edge', [(SR + 3.15, z - 0.05), (SR + 3.3, z - 0.05), (SR + 3.3, z + 0.05), (SR + 3.15, z + 0.05)], (SHX, SHY, 0), CYANS, segs=40, a0=a0, a1=a1, smooth=False)
     for k in range(9):
@@ -905,13 +942,13 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
         if 'emissive' in d: b.inputs['Emission Color'].default_value = hexc(d['emissive']); b.inputs['Emission Strength'].default_value = d['emissive_strength']
         return m
     # draw budget (every tier visible): base 6 + Crane_Jib 1 + Hall_Door_L/R 2 + Beacon_Lights 1 + 5 tiers x 1 = 15
-    RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowCyan'), ('amber', 'SH_GlowCyan'), ('glass', 'SH_Graphite'), ('lens', 'SH_Graphite'),
+    RULES = [('enginebell', 'SH_Graphite'), ('nozzle', 'SH_Graphite'), ('hazard', 'SH_White'), ('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowCyan'), ('amber', 'SH_GlowCyan'), ('glass', 'SH_Graphite'), ('lens', 'SH_Graphite'),
              ('solar', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('lh2', 'SH_White'),
              ('sinter', 'SH_Rock'), ('yard', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
              ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
     GROUP_MAT = {'Crane_Jib': 'SH_White', 'Hall_Door_L': 'SH_White', 'Hall_Door_R': 'SH_White', 'Beacon_Lights': 'SH_GlowRed',
                  'Tier_03': 'SH_White', 'Tier_05': 'SH_White', 'Tier_08': 'SH_White', 'Tier_12': 'SH_White', 'Tier_20': 'SH_White'}
-    CAP = {'Crane_Jib': 2400, 'Hall_Door_L': 400, 'Hall_Door_R': 400, 'Beacon_Lights': 600,
+    CAP = {'Crane_Jib': 3200, 'Hall_Door_L': 400, 'Hall_Door_R': 400, 'Beacon_Lights': 600,
            'Tier_03': 1400, 'Tier_05': 1400, 'Tier_08': 900, 'Tier_12': 1600, 'Tier_20': 1800}
     def remap(m, g=None):
         if g in GROUP_MAT: return GROUP_MAT[g]
@@ -927,6 +964,18 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
     for o in keep: o.hide_set(False); o.hide_viewport = False; o.select_set(True)
     bpy.context.view_layer.objects.active = keep[0]
     bpy.ops.object.convert(target='MESH')
+    # SN-07 (AA2's real ship) in the game GLB: interior (pods / cabin) dropped, each piece pre-joined + hard-decimated, then merged into its group
+    for tg, cap in SHIP_GAME_TRIS.items():
+        so = [o for o in coll('Mine').all_objects if o.type == 'MESH' and o.get('ship') == tg]
+        for o in [o for o in so if o.material_slots and all(sl.material and sl.material.name.startswith(SHIP_INTERIOR) for sl in o.material_slots)]:
+            so.remove(o); bpy.data.objects.remove(o)
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in so: o.select_set(True)
+        bpy.context.view_layer.objects.active = so[0]; bpy.ops.object.join(); J = bpy.context.active_object
+        bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.01); bpy.ops.object.mode_set(mode='OBJECT')
+        t0 = sum(len(p.vertices) - 2 for p in J.data.polygons)
+        md = J.modifiers.new('Dec', 'DECIMATE'); md.ratio = min(1.0, cap / max(1, t0)); md.use_collapse_triangulate = True; bpy.ops.object.modifier_apply(modifier=md.name)
+        print('SN07GAME', tg, t0, '->', sum(len(p.vertices) - 2 for p in J.data.polygons), flush=True)
     groups = {}
     for o in [o for o in list(coll('Mine').all_objects) + list(coll(TC).all_objects) if o.type == 'MESH']:
         g = o.get('grp', 'Base'); groups.setdefault(g, []).append(o)
@@ -953,7 +1002,7 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
         for p, i in zip(G.data.polygons, pidx): p.material_index = i
         nodes[g] = G
     tri = lambda G: sum(len(p.vertices) - 2 for p in G.data.polygons)
-    T0 = sum(tri(G) for G in nodes.values()); TGT = int(A.get('tris', 24000))
+    T0 = sum(tri(G) for G in nodes.values()); TGT = int(A.get('tris', 28000))
     def dec(G, ratio):
         bpy.ops.object.select_all(action='DESELECT'); G.select_set(True); bpy.context.view_layer.objects.active = G
         md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.03, min(1.0, ratio)); md.use_collapse_triangulate = True
