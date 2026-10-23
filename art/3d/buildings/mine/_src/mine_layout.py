@@ -1,14 +1,14 @@
-"""Mine station layout for the in-game build (approved concept B + HT-04, Refinery now part of the station).
-Imported by build_mine.py AFTER concept_b_sleek.py has built the B scene (run with --arm park so the arm is stowed forward
-over the cab, clear of the tipping bed).
+"""Mine station layout for the in-game build (approved concept B + HT-04; the Refinery is its own station, one swipe right).
+Imported by build_mine.py AFTER concept_b_sleek.py has built the B scene (--arm park; build_mine then deletes the truck's
+scoop arm - the HT-04 only fills under the conveyor chute).
 
 Edits vs the concept-B master (Blender coords, Z up, metres):
-  * DUMP 01 receiving hopper + lift tube removed - trucks now dump into the Refinery intake bin (REFINERY_ANCHOR, west of the rig).
+  * DUMP 01 receiving hopper + lift tube removed - trucks haul to the Refinery station (off the right edge) and dump there.
   * Head-end cantilever pylon + boom (stood in the new haul road) replaced by a column under the trough, north of the road.
   * Haul road re-laid as a GRADED regolith track (4 m running surface, low berms, tyre-mark ruts, RoadCol vertex colour):
     loop  load bay (x 4.7) -> east hairpin -> south straight -> west hairpin -> north line back to the bay,
-    plus a dump stub running west past the rig to the Refinery intake, plus an access road leaving the east apex (Road_Entry).
-  * Deposits moved inside the loop so the truck scoops them from the road (Dep_01 east-centre, Dep_02 south straight).
+    plus a haul road stub leaving the east apex (Road_Entry) toward +X, off the frame's right edge (the Refinery is the next station).
+  * Deposits moved inside the loop (Dep_01 east-centre, Dep_02 south straight); the drill taps them, the chute delivers the ore.
   * Astronaut removed (no astronauts in game assets)."""
 import bpy, bmesh, math
 from mathutils import Vector, Matrix
@@ -38,13 +38,13 @@ def conveyor():
 
 # --- station layout (world, Blender XY)
 LOAD = (TX, TY, 0.0)                         # truck centre + yaw(deg) at the conveyor head
-DUMP_APPROACH = (-5.0, -5.5, 0.0)            # stop here heading +X, then reverse 4 m west
-DUMP = (-9.0, -5.5, 0.0)                     # truck centre when tipping (rear faces west, into the intake)
-REFINERY = (-13.84, -5.5, 90.0)              # intake-bin centre on the ground; yaw 90 -> anchor local glTF +Z = truck heading (+X)
-DEP1 = (8.65, -8.65); DEP1_PARK = (8.5, -4.5, 0.0)
-DEP2 = (-1.2, -10.4); DEP2_PARK = (-1.0, -13.5, 180.0)
+LOOP_END = (-5.0, -5.5, 0.0)                 # west end of the north line: last Path_NN way-point (then on to Path_Load_Approach)
+# (10/23: the dump stub west to the Refinery intake, Path_Dump / Path_Dump_Approach and REFINERY_ANCHOR are gone - the Refinery is
+#  its own station, one swipe right; trucks leave the Mine at Road_Entry along the +X stub)
+DEP1 = (8.65, -8.65)
+DEP2 = (-1.2, -10.4)
 ROAD_W = 4.0                                 # graded running surface (HT-04 is 3.82 m over the tyres)
-ROAD_ENTRY = (13.5, -9.0)                    # east apex of the loop; the access road leaves here heading south (toward the camera)
+ROAD_ENTRY = (13.5, -9.0)                    # east apex of the loop; the haul road stub leaves here heading +X (off the frame's right edge)
 
 def _smooth(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
 def north_y(x): return -5.5 + 1.0 * _smooth((x + 4.0) / 4.0)   # S-blend: y -5.5 west of x=-4, -4.5 east of x=0
@@ -92,7 +92,6 @@ def loop_rows():
     for x in _seg(P, 9.0, -5.0, 1.2): P.append(Vector((x, -13.5, 0)))
     for a in _seg(P, 1.5 * math.pi, 0.5 * math.pi, 0.6 / 4.0): P.append(Vector((-5 + 4 * math.cos(a), -9.5 + 4 * math.sin(a), 0)))
     return P
-def stub_rows(): return [Vector((x, -5.5, 0)) for x in _seg(None, -5.0, -12.5, 0.9)] + [Vector((-12.5, -5.5, 0))]
 def _bez(p0, p1, p2, p3, n):
     out = []
     for i in range(n + 1):
@@ -100,9 +99,8 @@ def _bez(p0, p1, p2, p3, n):
         out.append(Vector(p0) * u ** 3 + Vector(p1) * 3 * u * u * t + Vector(p2) * 3 * u * t * t + Vector(p3) * t ** 3)
     return out
 def access_rows():
-    """access road: joins the loop at ROAD_ENTRY (east apex) heading south (Road_Entry yaw), bends east and leaves the frame on the right."""
-    P = _bez((ROAD_ENTRY[0], ROAD_ENTRY[1], 0), (13.6, -13.0, 0), (15.0, -15.6, 0), (22.0, -16.4, 0), 16)   # bends east between craters (14,-20) and (30,-8)
-    return [Vector((p.x, p.y, 0)) for p in P]
+    """haul road stub: leaves the loop at ROAD_ENTRY (east apex) straight toward +X and runs off the frame's right edge (Refinery station)."""
+    return [Vector((x, ROAD_ENTRY[1], 0)) for x in _seg(None, ROAD_ENTRY[0], 26.0, 1.0)] + [Vector((26.0, ROAD_ENTRY[1], 0))]
 def _dense(pts, closed, step=0.2):
     out = []; n = len(pts)
     for i in range(n if closed else n - 1):
@@ -119,7 +117,7 @@ def graded_roads(height, mat):
     from mathutils.kdtree import KDTree
     from mathutils import noise
     from mc_common import _obj
-    roads = [('haul_road_loop', loop_rows(), True, 0.065), ('haul_road_dump', stub_rows(), False, 0.045), ('haul_road_access', access_rows(), False, 0.045)]
+    roads = [('haul_road_loop', loop_rows(), True, 0.065), ('haul_road_access', access_rows(), False, 0.045)]
     trees = []
     for nm, pts, cl, _ in roads:
         d = _dense(pts, cl); kd = KDTree(len(d))
@@ -270,7 +268,7 @@ def apply():
         if e: e.location = (x, y, height(x, y))
     bpy.context.view_layer.update()
     # 4b) graded haul road (after the deposits moved, so the berms open around them)
-    graded_roads(height, M_road_graded())      # loop + dump stub (x -5 .. -12.5, ends at the intake front) + access road at ROAD_ENTRY
+    graded_roads(height, M_road_graded())      # loop + haul road stub (+X from ROAD_ENTRY, off the right edge)
     bpy.context.view_layer.update()
     return dict(C0=C0, C1=C1, L=L, u=u, side=side, up=up, DIS=DIS, height=height, col=P)
 

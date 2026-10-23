@@ -10,8 +10,8 @@ const { MeshoptDecoder } = require('meshoptimizer');
 const RAM = ['L', 'R'].flatMap(s => [`Truck_Ram_${s}`, `Truck_Ram_${s}_Stage2`, `Truck_Ram_${s}_Rod`]);
 const WHEELS = [1, 2, 3, 4, 5, 6].map(i => `Truck_Wheel_0${i}`);
 const ALLOW = {
-  dig: ['Rig'], conveyor_run: ['Conveyor'], truck_load: ['Truck_Load'], truck_drive: WHEELS,
-  truck_dump: ['Truck_Bed', 'Truck_Load', ...RAM], truck_scoop: ['Truck_Arm', 'Truck_Arm_Fore', 'Truck_Arm_Scoop'],
+  dig: ['Rig'], conveyor_run: ['Conveyor'], truck_drive: WHEELS, truck_dump: ['Truck_Bed', 'Truck_Load', ...RAM],
+  chute_pour: [1, 2, 3, 4].map(i => `Truck_Pour_0${i}`), truck_load_rich: [1, 2, 3, 4, 5].map(i => `Truck_Rich_0${i}`),
 };
 const rest = (n, p) => p === 'translation' ? n.getTranslation() : p === 'rotation' ? n.getRotation() : n.getScale();
 (async () => {

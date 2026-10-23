@@ -31,15 +31,51 @@ C0, C1, Lc, U, SIDE, UP = LAY['C0'], LAY['C1'], LAY['L'], LAY['u'], LAY['side'],
 base = lambda o: o.name.split('.')[0]
 TROOT = bpy.data.objects['Truck_HT04']; GZ = TROOT.matrix_world.translation.z
 TORG = Vector((ML.TX, ML.TY, GZ))          # truck-local origin in world
+# No scoop arm (Director 10/23, from Jacob): the HT-04 only fills under the conveyor chute at Path_Load, then drives off.
+# The loading arm (pedestal, turret, shoulder, upper/fore arm, rams, hoses, scoop + its ore) is deleted from the truck before
+# anything else reads the scene, so it is gone from the renders, the game mesh, the skin and the camera fit.
+def _under(o, r):
+    p = o.parent
+    while p is not None:
+        if p == r: return True
+        p = p.parent
+    return False
+_arm = [o.name for o in bpy.data.objects if _under(o, TROOT) and o.name.split('.')[0].startswith(('arm_', 'scoop'))]
+for _n in _arm: bpy.data.objects.remove(bpy.data.objects[_n], do_unlink=True)
+print('ARM removed', len(_arm), 'objects')
+# Fill + pour parts (Director 10/23, 2nd pass). Fill is code-driven by percent: ONE pile mesh (bed_heap, bone Truck_Load) carrying a
+# morph target 'fill' on Truck_Mesh (influence 0 = thin layer, 1 = heaped full) - cheaper than 7 stage meshes (0 extra draws).
+# Ore chunks are tiny specks buried in the bed floor at rest (invisible), skinned to their own bones, scaled up only while falling:
+#  * Truck_Pour_01..04: rock / He-3 chunks of the looping chute_pour clip (chute mouth -> bed)
+#  * Truck_Rich_01..05: glowing cyan chunks of the 1 s truck_load_rich drop
+_HEAP = next(o for o in bpy.data.objects if o.name.split('.')[0] == 'bed_heap')
+_hb = [_HEAP.matrix_world @ Vector(c) for c in _HEAP.bound_box]
+HEAP_C = Vector(((min(v.x for v in _hb) + max(v.x for v in _hb)) / 2, (min(v.y for v in _hb) + max(v.y for v in _hb)) / 2, min(v.z for v in _hb)))
+HEAP_H = max(v.z for v in _hb) - HEAP_C.z
+_dc = [o for o in bpy.data.objects if o.type == 'MESH' and o.name.split('.')[0] == 'dis_chute']
+CHUTE_Z = min((o.matrix_world @ Vector(c)).z for o in _dc for c in o.bound_box) if _dc else 4.35
+ORE_SPECK = 0.02
+_SPOTS = [(-0.3, 0.15), (0.25, -0.2), (0.05, 0.3), (-0.1, -0.25), (0.35, 0.1), (-0.4, -0.05), (0.15, 0.05), (-0.2, 0.32), (0.4, -0.3)]
+CHUNKS = [('Truck_Pour_%02d' % (k + 1), 'B_OreRock' if k % 2 == 0 else 'B_He3', r) for k, r in enumerate((0.3, 0.26, 0.28, 0.25))]
+CHUNKS += [('Truck_Rich_%02d' % (k + 1), 'B_He3', r) for k, r in enumerate((0.32, 0.28, 0.3, 0.27, 0.29))]
+CH_REST = {}
+for k, (bn, mn, _) in enumerate(CHUNKS):
+    dx, dy = _SPOTS[k]; CH_REST[bn] = Vector((HEAP_C.x - TORG.x + dx, HEAP_C.y - TORG.y + dy, HEAP_C.z - TORG.z - 0.03))
+    ch_ = sphere('load_chunk', ORE_SPECK, tuple(TORG + CH_REST[bn]), bpy.data.materials[mn], scale=(1.2, 1.0, 0.85), sub=1, smooth=False)
+    ch_.parent = TROOT; ch_.matrix_parent_inverse = TROOT.matrix_world.inverted(); ch_['keep_truck'] = 1; ch_['chunk_bone'] = bn; ch_.hide_render = True
+print('LOAD parts: heap base', tuple(round(v, 3) for v in HEAP_C), 'h', round(HEAP_H, 3), 'chute mouth z', round(CHUTE_Z, 3))
 
 # ---------------------------------------------------------------- camera (Game Coder spec)
 FOV_Y, PITCH, PW, PH = 38.0, 18.0, 393, 852
-CY = float(A.get('cy', 380))     # focus-box centre on 393x852 (Mine + Refinery footprint; 380 keeps Mine Tier_20 on top and the Refinery front above y 650)
 TAN_H = math.tan(math.radians(FOV_Y / 2)) * PW / PH
 def cam_pose(tgt, W):
     d = (W / 2) / TAN_H; p = math.radians(PITCH)
     pos = Vector(tgt) + Vector((0, -d * math.cos(p), d * math.sin(p)))
     return pos, d
+TIER_BOXES = [((-0.89, -2.82, 2.63), (2.32, 2.66, 5.27)), ((-9.0, 2.26, 0.25), (-6.0, 4.94, 9.15)), ((6.89, 1.39, 0.0), (13.11, 7.59, 6.62)),
+              ((-1.41, -3.96, 2.83), (3.10, 3.18, 6.76)), ((-0.10, 0.81, 0.0), (7.29, 7.92, 7.34)), ((-15.55, 5.90, 0.0), (-8.63, 9.40, 7.40)),
+              ((7.49, 5.0, 0.0), (13.71, 13.22, 8.74)), ((-10.93, 2.26, 13.52), (-4.07, 4.93, 21.78))]
+TOP_Y = float(A.get('top_y', 230))   # Tier_20 mast tip on 393x852 (target band 220-240; HUD bottom ~141, sheet top 674)
 def focus_points():
     P = []
     rig = ('pad', 'strut_foot', 'leg', 'leg_foot', 'crown', 'ant_tip', 'beacon', 'op_pod', 'power', 'cyclone')
@@ -49,16 +85,14 @@ def focus_points():
         b = base(o)
         if b in rig or b in head or o.parent == TROOT or (o.parent and o.parent.parent == TROOT):
             P += [o.matrix_world @ Vector(c) for c in o.bound_box]
-    rx, ry = ML.REFINERY[0], ML.REFINERY[1]     # intake bin envelope (refinery side, ~3 x 3 m, 3 m tall incl. hood)
-    for dx in (-1.6, 1.6):
-        for dy in (-1.6, 1.6):
-            for z in (0, 3.0): P.append(Vector((rx + dx, ry + dy, z)))
-    # Refinery (Director ruling 10/23: the station camera frames the rig and the Refinery together, every tier in frame).
-    # Convex-hull points of refinery_game.glb (all tiers), refinery-local Blender coords, placed at REFINERY_ANCHOR (+90 deg about Z).
-    RHULL = [(-2.6, 1.26, -0.1), (2.3, 1.26, -0.1), (2.3, -1.24, -0.1), (-8.5, 0.71, -0.1), (-29.99, -2.07, 0.06), (-29.9, -24.43, 0.06), (-19.15, -24.64, -0.08), (-19.15, -0.58, 0.06), (-11.84, -24.73, 0.18), (-1.92, 1.48, 1.39), (2.1, -1.02, 4.01), (-2.02, 1.49, 3.79), (2.02, 1.49, 4.01), (-8.25, -1.04, 8.35), (-6.95, -2.04, 8.35), (-27.77, -2.62, 2.85), (-33.2, -12.24, -0), (-26.56, -2.26, 3.86), (-7.04, 1.03, 0.56), (-19.25, -14.34, -0.1), (-22.65, -14.34, -0.1), (-22.65, -4.24, -0.1), (-21.03, -25.44, 8.6), (-29.28, -25.06, 2.15), (-24.8, -22.76, 14.09), (-12.98, -24.08, 5.1), (-13.67, -23.34, 6.67)]
-    for hx, hy, hz in RHULL: P.append(Vector((rx - hy, ry + hx, hz)))
-    for x, y in ((9.0 + 4.5 + ML.ROAD_W / 2, -9.0), (9.0, -13.5 - ML.BERM_OUT), (-5.0, -13.5 - ML.BERM_OUT), (13.0, -4.0)):
-        P.append(Vector((x, y, 0.0)))   # haul loop: graded edge at the east apex (the berm is open there: access road), south berm toes
+    # Mine-only framing (Director 10/23: the Refinery is its own station, one swipe right). Game tier envelopes (Tier_03..Tier_20,
+    # Conveyor, Rig, Silo; Blender world AABBs of the game nodes - the tiers are built later, in game mode only).
+    for (x0, y0, z0), (x1, y1, z1) in TIER_BOXES:
+        for x in (x0, x1):
+            for y in (y0, y1):
+                for z in (z0, z1): P.append(Vector((x, y, z)))
+    for x, y in ((9.0 + 4.5 + ML.ROAD_W / 2, -9.0), (9.0, -13.5 - ML.BERM_OUT), (-5.0, -13.5 - ML.BERM_OUT), (13.0, -4.0), (-9.0 - ML.BERM_OUT, -9.5)):
+        P.append(Vector((x, y, 0.0)))   # haul loop: graded edge at the east apex (access road leaves there, +X), south berm toes, west hairpin toe
     for o in bpy.data.objects:                       # silo + beacon tops stay in frame
         if o.type == 'MESH' and 'silo' in base(o).lower(): P += [o.matrix_world @ Vector(c) for c in o.bound_box]
     return P
@@ -68,23 +102,27 @@ def cam_fit():
     cd.sensor_fit = 'VERTICAL'; cd.angle_y = math.radians(FOV_Y); cd.clip_end = 3000
     sc.render.resolution_x, sc.render.resolution_y = PW, PH
     P = focus_points(); best = None
-    for W in ([float(A['w'])] if 'w' in A else [30 + 0.5 * i for i in range(21)]):
-        tgt = Vector((-2.5, -1.0, 4.0))
-        for it in range(12):
+    TIP = Vector((ML.RX - 1.8, ML.RYc + 0.5, 21.78))                 # Tier_20 mast tip = the frame top
+    for W in ([float(A['w'])] if 'w' in A else [24 + 0.25 * i for i in range(80)]):
+        tgt = Vector((0.0, -1.0, 0.0))
+        for it in range(16):
             pos, d = cam_pose(tgt, W); cam.location = pos
             cam.rotation_euler = (tgt - pos).to_track_quat('-Z', 'Y').to_euler(); bpy.context.view_layer.update()
             pr = [world_to_camera_view(sc, cam, p) for p in P]
             xs = [q.x * PW for q in pr]; ys = [(1 - q.y) * PH for q in pr]
-            mx = (min(xs) + max(xs)) / 2; my = (min(ys) + max(ys)) / 2
+            ty = (1 - world_to_camera_view(sc, cam, TIP).y) * PH
+            mx = (min(xs) + max(xs)) / 2
             tgt.x += (mx - PW / 2) / PW * W
-            tgt.z -= (my - CY) / PW * W / math.cos(math.radians(PITCH))
-        ok = min(xs) >= 0.04 * PW and max(xs) <= 0.96 * PW and min(ys) >= 100 and max(ys) <= 650
-        print('FIT W', W, 'x', round(min(xs)), round(max(xs)), 'y', round(min(ys)), round(max(ys)), ok)
+            tgt.z -= (min(min(ys), ty) - TOP_Y) / PW * W / math.cos(math.radians(PITCH))
+        ok = min(xs) >= 0.03 * PW and max(xs) <= 0.97 * PW and max(ys) <= 660
+        print('FIT W', W, 'x', round(min(xs)), round(max(xs)), 'y', round(min(ys)), round(max(ys)), 'tip', round(ty), ok)
         if ok: best = (W, tgt.copy(), d, (min(xs), max(xs), min(ys), max(ys))); break
     bpy.data.objects.remove(cam, do_unlink=True)
     return best
 FIT = cam_fit(); W, CAM_T, CAM_D, FIT_BOX = FIT
 CAM_T = Vector((round(CAM_T.x, 2), round(CAM_T.y, 2), round(CAM_T.z, 2)))
+# Mine-only aim (Director 10/23, Refinery now its own station): solved above - the whole Mine incl. every tier in frame,
+# Tier_20 mast tip at y TOP_Y on 393x852, bottom above the sheet top.
 print('CAMFIT W=%.1f target=%s d=%.2f box=%s' % (W, tuple(CAM_T), CAM_D, tuple(round(v) for v in FIT_BOX)))
 
 if MODE == 'phone':      # renders the 1179x2556 master; phone_downscale.py makes the 393x852 (Lanczos)
@@ -236,6 +274,7 @@ for o in mine:
     if o.type not in ('MESH', 'CURVE'): continue
     b = base(o); nm = b.lower()
     if o.get('grp'): keep.append(o); continue
+    if o.get('keep_truck'): keep.append(o); continue
     if nm.startswith(DROP): continue
     if 'Ram' in b and is_truck(o): keep.append(o); continue
     dims = o.dimensions; big = max(dims)
@@ -251,13 +290,6 @@ bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get()
 col = bpy.data.collections.new('Game'); sc.collection.children.link(col)
 
 # truck bone assignment
-SH_T = ML.SH_T
-def ik(S, Tg, l1, l2, upv=Vector((0, 0, 1))):
-    dv = Tg - S; D = min(dv.length, l1 + l2 - 1e-3); dn = dv.normalized()
-    a = (l1 * l1 - l2 * l2 + D * D) / (2 * D); h = math.sqrt(max(0.0, l1 * l1 - a * a))
-    n = (upv - dn * upv.dot(dn)).normalized()
-    return S + dn * a + n * h, S + dn * D
-EL_S, WR_S = ik(SH_T, ML.STOW_WRIST_T, ML.L1, ML.L2)
 AX = [(x, sy * 1.5) for sy in (1, -1) for x in ML.AXLES]   # Wheel_01..03 left (+Y) rear->front, 04..06 right (-Y) rear->front
 def seg_dist(p, a, b):
     ab = b - a; t = max(0, min(1, (p - a).dot(ab) / ab.length_squared)); return (a + ab * t - p).length
@@ -271,11 +303,8 @@ def truck_bone(o, cl):
         if 'Rod' in b: return 'Truck_Ram_%s_Rod' % side
         return 'Truck_Ram_%s' % side
     if b == 'bed_heap': return 'Truck_Load'
+    if b == 'load_chunk': return o['chunk_bone']
     if o.parent and base(o.parent) == 'Bed_Pivot': return 'Truck_Bed'
-    if b.startswith('scoop'): return 'Truck_Arm_Scoop'
-    if b in ('arm_elbow', 'arm_fore', 'arm_wrist'): return 'Truck_Arm_Fore'
-    if b == 'arm_strip': return 'Truck_Arm' if seg_dist(cl, SH_T, EL_S) < seg_dist(cl, EL_S, WR_S) else 'Truck_Arm_Fore'
-    if b.startswith(('arm_upper', 'arm_shoulder', 'arm_ram')): return 'Truck_Arm'
     return 'Truck_Chassis'
 
 groups = {}
@@ -296,6 +325,14 @@ for o in keep:
         me.color_attributes.remove(me.color_attributes['RoadCol'])
     me.color_attributes.active_color = me.color_attributes['Col']
     for i, (m_, _) in enumerate(sm): me.materials[i] = m_
+    if base(o) == 'bed_heap':                          # ore pile: rock with He-3 crystal flecks (reads as ore at phone scale)
+        for j_, poly in enumerate(me.polygons):
+            if (j_ * 7919) % 100 < 16:
+                for li in poly.loop_indices: ca.data[li].color = lin('#2fe3ff')
+    if base(o) == 'load_chunk' and o['chunk_bone'].startswith('Truck_Rich'):   # rich ore: bright glow cyan, faceted
+        for j_, poly in enumerate(me.polygons):
+            c_ = lin('#5fe8ff') if j_ % 3 else lin('#c8fbff')
+            for li in poly.loop_indices: ca.data[li].color = c_
     b = base(o)
     if is_truck(o):
         g = 'Truck'
@@ -411,7 +448,8 @@ BONES = [('Truck_Chassis', None, Vector((0, 0, 0))), ('Truck_Bed', 'Truck_Chassi
 for s in ('L', 'R'):
     b, u0, (o2, o3) = ram_geo(s, 0.0)
     BONES += [('Truck_Ram_%s' % s, 'Truck_Chassis', b), ('Truck_Ram_%s_Stage2' % s, 'Truck_Ram_%s' % s, b + u0 * o2), ('Truck_Ram_%s_Rod' % s, 'Truck_Ram_%s' % s, b + u0 * o3)]
-BONES += [('Truck_Arm', 'Truck_Chassis', SH_T.copy()), ('Truck_Arm_Fore', 'Truck_Arm', EL_S.copy()), ('Truck_Arm_Scoop', 'Truck_Arm_Fore', WR_S.copy())]
+RICH_C = HEAP_C - TORG                       # heap base centre (truck-local)
+BONES += [(bn, 'Truck_Chassis', CH_REST[bn].copy()) for bn, _, _ in CHUNKS]
 for i, (x, y) in enumerate(AX): BONES.append(('Truck_Wheel_%02d' % (i + 1), 'Truck_Chassis', Vector((x, y, ML.WR))))
 for n, par, h in BONES:
     eb = ad.edit_bones.new(n); eb.head = h; eb.tail = h + Vector((0, 0, 0.3)); eb.roll = 0.0
@@ -422,6 +460,24 @@ mod = tm.modifiers.new('Armature', 'ARMATURE'); mod.object = arm
 for n, _, _ in BONES:
     if n not in tm.vertex_groups: tm.vertex_groups.new(name=n)    # empty groups keep joint order stable
 tm.name = 'Truck_Mesh'
+# fill morph: Basis = thin layer (fill 0 %), key 'fill' = the heaped-full pile (fill 100 %). Linear blend = the pile rises and spreads.
+_gi = tm.vertex_groups['Truck_Load'].index
+HEAPV = [v.index for v in tm.data.vertices if any(g.group == _gi and g.weight > 0.5 for g in v.groups)]
+FILL_THIN_Z, FILL_THIN_XY = 0.05, 0.82
+FILL_TOP = ML.BTOP + 0.85                      # heaped full: the mound crowns 0.85 m over the bed rim (reads from the phone camera), under the chute mouth
+FILL_KZ = (FILL_TOP - RICH_C.z) / HEAP_H
+tm.shape_key_add(name='Basis', from_mix=False); kf = tm.shape_key_add(name='fill', from_mix=False)
+kb = tm.data.shape_keys.key_blocks['Basis']
+for i in HEAPV:
+    c_ = tm.data.vertices[i].co.copy()
+    kf.data[i].co = Vector((c_.x, c_.y, RICH_C.z + (c_.z - RICH_C.z) * FILL_KZ))
+    t_ = Vector((RICH_C.x + (c_.x - RICH_C.x) * FILL_THIN_XY, RICH_C.y + (c_.y - RICH_C.y) * FILL_THIN_XY, RICH_C.z + (c_.z - RICH_C.z) * FILL_THIN_Z))
+    kb.data[i].co = t_; tm.data.vertices[i].co = t_
+tm.data.shape_keys.use_relative = True; kf.value = 0.0
+FILL_INFO = {'mesh': 'Truck_Mesh', 'morph_target': 'fill', 'morph_index': 0, 'weight': 'sqrt(fill_pct / 100)', 'heap_verts': len(HEAPV),
+             'thin_layer_z': FILL_THIN_Z, 'thin_layer_xy': FILL_THIN_XY, 'full_top_m_over_ground': FILL_TOP, 'rim_m': ML.BTOP}
+tm['fill_morph'] = 'morphTargetInfluences[0] (target "fill") = sqrt(fill_pct / 100): 0 = thin layer, 1 = heaped full (sqrt so the early fill shows over the bed rim); truck_dump empties it via Truck_Load'
+print('FILL morph verts', len(HEAPV))
 bpy.context.view_layer.update()
 
 # ---------------- truck clip posing (armature space == truck-local, bones Y-up == local +Z)
@@ -436,16 +492,6 @@ def ram_G(s, a):
 def load_G(a, fill):
     sxy = 0.75 + 0.25 * fill; sz = max(0.02, fill)
     return bed_G(a) @ Tm(LOAD_C) @ Matrix.Diagonal((sxy, sxy, sz, 1)) @ Tm(-LOAD_C)
-def scoop_R(EL, WR, k):
-    fdir = (WR - EL).normalized(); sdir = (fdir + Vector((0, 0, k))).normalized()
-    return frame_from(WR, WR + sdir)[3]
-R_U0 = frame_from(SH_T, EL_S)[3]; R_F0 = frame_from(EL_S, WR_S)[3]; R_S0 = scoop_R(EL_S, WR_S, -0.25)
-def arm_G(P, k):
-    EL, WR = ik(SH_T, P, ML.L1, ML.L2)
-    Gu = about(SH_T, frame_from(SH_T, EL)[3] @ R_U0.transposed())
-    Gf = Tm(EL) @ (frame_from(EL, WR)[3] @ R_F0.transposed()).to_4x4() @ Tm(-EL_S)
-    Gs = Tm(WR) @ (scoop_R(EL, WR, k) @ R_S0.transposed()).to_4x4() @ Tm(-WR_S)
-    return Gu, Gf, Gs, EL, WR
 def wheel_G(i, th):
     x, y = AX[i]; return about(Vector((x, y, ML.WR)), Matrix.Rotation(th, 3, 'Y'))
 ORDER = [n for n, _, _ in BONES]
@@ -467,19 +513,29 @@ def dump_pose(f, F=90):
     for s in ('L', 'R'):
         Gb, G2, G3 = ram_G(s, a); G['Truck_Ram_%s' % s] = Gb; G['Truck_Ram_%s_Stage2' % s] = G2; G['Truck_Ram_%s_Rod' % s] = G3
     return G, a
-REACH = ML.REACH_WRIST_T
-def scoop_pose(f):
-    """36 frames @30fps = 1.2 s: 0-14 reach out+down, 14-20 curl (scoop fills), 20-36 back to stow (ends on rest)."""
-    if f <= 14:
-        t = ease(f / 14); P = WR_S.lerp(REACH, t) + Vector((0, 0, 0.55 * math.sin(math.pi * t))); k = -0.25 + (-0.9 + 0.25) * t
-    elif f <= 20:
-        t = ease((f - 14) / 6); P = REACH + Vector((0, 0, 0.25 * t)); k = -0.9 + 1.15 * t
-    else:
-        t = ease((f - 20) / 16); P = (REACH + Vector((0, 0, 0.25))).lerp(WR_S, t) + Vector((0, 0, 0.55 * math.sin(math.pi * t))); k = 0.25 + (-0.25 - 0.25) * t
-    Gu, Gf, Gs, EL, WR = arm_G(P, k)
-    return {'Truck_Arm': Gu, 'Truck_Arm_Fore': Gf, 'Truck_Arm_Scoop': Gs}
+# chute_pour (loop, 36 f = 1.2 s) and truck_load_rich (30 f = 1.0 s); truck parked at Path_Load (bed centre under the chute mouth)
+POUR_F, RICH_F = 36, 30
+CH_R = {bn: r for bn, _, r in CHUNKS}
+MOUTH = Vector((HEAP_C.x - TORG.x, HEAP_C.y - TORG.y, CHUTE_Z - TORG.z - 0.1))
+ZLAND = RICH_C.z + 0.12                          # chunks sink into the pile / thin layer here (hidden inside a fuller pile)
+def fall_G(bn, u, land, spin):
+    """u 0..1 along the fall (accelerating); grows in at the mouth, shrinks to 0 on landing. u outside -> hidden at the mouth."""
+    r0 = CH_REST[bn]
+    if u < 0 or u > 1: return Tm(MOUTH) @ Matrix.Diagonal((0, 0, 0, 1)) @ Tm(-r0)
+    p = Vector((MOUTH.x + land.x * u, MOUTH.y + land.y * u, MOUTH.z - (MOUTH.z - ZLAND) * u * u))
+    sc_ = CH_R[bn] / ORE_SPECK * min(1.0, u / 0.1, (1.0 - u) / 0.15)
+    R_ = Matrix.Rotation(spin * u, 4, 'X') @ Matrix.Rotation(0.7 * spin * u, 4, 'Z')
+    return Tm(p) @ R_ @ Matrix.Diagonal((sc_, sc_, sc_, 1)) @ Tm(-r0)
+POUR = [bn for bn, _, _ in CHUNKS if bn.startswith('Truck_Pour')]
+RICH = [bn for bn, _, _ in CHUNKS if bn.startswith('Truck_Rich')]
+POUR_LAND = [Vector((0.25, -0.12)), Vector((-0.22, 0.15)), Vector((0.08, -0.25)), Vector((-0.12, 0.22))]
+RICH_LAND = [Vector((0.3, 0.1)), Vector((-0.3, -0.15)), Vector((0.05, 0.3)), Vector((-0.1, -0.3)), Vector((0.2, -0.2))]
+def pour_pose(f):
+    f = f % POUR_F                                # frame 36 == frame 0 -> seamless loop
+    return {bn: fall_G(bn, (((f - 9 * k) % POUR_F) / 14.0), POUR_LAND[k], 2.0 + k) for k, bn in enumerate(POUR)}
+def rich_pose(f):
+    return {bn: fall_G(bn, ((f - (0, 3, 5, 8, 10)[k]) / 18.0) if f > (0, 3, 5, 8, 10)[k] else -1, RICH_LAND[k], 2.5 + k) for k, bn in enumerate(RICH)}
 
-# ---------------- clearance checks, played on the real skinned mesh
 def eval_parts(sel):
     """posed (skinned) truck mesh split into two polygon soups by bone predicate; returns (verts, polys, bone_of_poly) x2"""
     dg_ = bpy.context.evaluated_depsgraph_get(); e = tm.evaluated_get(dg_); me = e.to_mesh()
@@ -502,40 +558,7 @@ def overlap(A_, B_, skip=lambda a, b: False):
         pairs[k] = pairs.get(k, 0) + 1
     md = min((tb.find_nearest(v)[3] for v in A_[0][::3]), default=99.0)
     return sum(pairs.values()), md, pairs
-REPORT = {}
-is_arm = lambda b: b.startswith('Truck_Arm')
-for deg in (0, 25, 50):
-    a = math.radians(deg); G = {'Truck_Bed': bed_G(a), 'Truck_Load': load_G(a, 1.0)}
-    for s in ('L', 'R'):
-        Gb, G2, G3 = ram_G(s, a); G['Truck_Ram_%s' % s] = Gb; G['Truck_Ram_%s_Stage2' % s] = G2; G['Truck_Ram_%s_Rod' % s] = G3
-    rest_pose(); pose(G)
-    arm_p, _ = eval_parts(is_arm)
-    bed_p, _ = eval_parts(lambda b: b in ('Truck_Bed', 'Truck_Load'))
-    n, md, pr = overlap(arm_p, bed_p)
-    REPORT['stow_vs_bed_%d' % deg] = {'overlaps': n, 'min_gap_m': round(md, 3)}
-    print('CLEAR stow vs bed @%ddeg overlaps=%d min_gap=%.3f' % (deg, n, md))
-worst = []
-# the shoulder ball sits in the chassis turret by design: arm faces whose centroid is within 0.4 m of the shoulder are the joint, not a clip
-for f in range(0, 37, 2):
-    rest_pose(); pose(scoop_pose(f))
-    arm_p, oth = eval_parts(is_arm)
-    tb = BVHTree.FromPolygons(oth[0], oth[1]); hits = {}; md = 99.0; mdq = None
-    for pi, p in enumerate(arm_p[1]):               # sample every arm face; skip samples within 0.45 m of the shoulder (joint)
-        vv = [arm_p[0][k] for k in p]
-        for (w0, w1) in ((0.33, 0.33), (0.1, 0.1), (0.8, 0.1), (0.1, 0.8), (0.5, 0.0), (0.0, 0.5), (0.5, 0.5)):
-            q = vv[0] * (1 - w0 - w1) + vv[1] * w0 + vv[2] * w1
-            if (q - SH_T).length < 0.45: continue
-            loc, nrm, j, dist = tb.find_nearest(q)
-            if loc is None: continue
-            inside = (q - loc).dot(nrm) < 0 and dist < 0.15
-            if dist < md: md = dist; mdq = (tuple(round(c, 2) for c in q), arm_p[2][pi], oth[2][j])
-            if inside or dist < 0.005:
-                k = '%s|%s' % (arm_p[2][pi], oth[2][j]); hits[k] = hits.get(k, 0) + 1
-    n, pr = sum(hits.values()), hits
-    lo = min(v.z for v in arm_p[0])
-    worst.append((f, n, round(md, 3), round(lo, 2), pr, mdq))
-print('CLEAR scoop frames (frame, overlaps, min gap m, lowest arm z):', worst)
-REPORT['scoop'] = worst
+REPORT = {'arm': 'removed (no scoop arm on the HT-04)'}
 rest_pose()
 
 # ---------------- clips
@@ -554,9 +577,10 @@ def bake(clip, frames, fn, bones):
     return act
 RAMB = ['Truck_Ram_%s%s' % (s, x) for s in ('L', 'R') for x in ('', '_Stage2', '_Rod')]
 bake('truck_dump', list(range(0, 91)), lambda f: dump_pose(f)[0], ['Truck_Bed', 'Truck_Load'] + RAMB)
-bake('truck_scoop', list(range(0, 37)), scoop_pose, ['Truck_Arm', 'Truck_Arm_Fore', 'Truck_Arm_Scoop'])
 bake('truck_drive', list(range(0, 31)), lambda f: {('Truck_Wheel_%02d' % (i + 1)): wheel_G(i, math.tau * f / 30) for i in range(6)}, ['Truck_Wheel_%02d' % (i + 1) for i in range(6)])
-bake('truck_load', list(range(0, 25)), lambda f: {'Truck_Load': load_G(0.0, max(0.02, ease(f / 24)))}, ['Truck_Load'])
+bake('chute_pour', list(range(0, POUR_F + 1)), pour_pose, POUR)
+bake('truck_load_rich', list(range(0, RICH_F + 1)), rich_pose, RICH)
+
 rest_pose()
 def obj_keys(ob, clip, path, frames, interp='LINEAR'):
     ob.animation_data_create(); act = bpy.data.actions.new(clip); ob.animation_data.action = act
@@ -582,29 +606,29 @@ def emp(name, loc, yaw_deg=0.0, extras=None):
 def gl(v): return [round(v[0], 3), round(v[2], 3), round(-v[1], 3)]
 emp('Cam_Target', tuple(CAM_T), 0, {'frame_w': W, 'fov_y_deg': FOV_Y, 'pitch_down_deg': PITCH, 'distance_m': round(CAM_D, 2), 'camera_side': '+Z (glTF)'})
 DIS = LAY['DIS']
-emp('Path_Load', ML.LOAD, 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'chute_glTF': gl((DIS.x, DIS.y, 4.35))})
-emp('Path_Dump_Approach', ML.DUMP_APPROACH, 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'note': 'stop, then reverse 4 m along -X(glTF) to Path_Dump'})
-emp('Path_Dump', ML.DUMP, 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'note': 'truck rear faces REFINERY_ANCHOR; play truck_dump here'})
-emp('REFINERY_ANCHOR', (ML.REFINERY[0], ML.REFINERY[1], 0.0), ML.REFINERY[2], {'kind': 'refinery_origin', 'intake_front_offset_m': 1.2,
-    'note': 'Refinery GLB origin; local +Z(glTF) points at the truck (truck heading at Path_Dump = +X glTF)'})
+BEDC_W = TORG + Vector((LOAD_C.x, LOAD_C.y, 0))
+print('LOADCHECK bed centre (world)', tuple(round(v, 3) for v in BEDC_W), 'chute DIS', tuple(round(v, 3) for v in DIS), 'dxy', round((BEDC_W.xy - DIS.xy).length, 4))
+emp('Path_Load', ML.LOAD, 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'chute_glTF': gl((DIS.x, DIS.y, 4.35)),
+    'bed_centre_glTF': gl((BEDC_W.x, BEDC_W.y, LOAD_C.z)), 'note': 'bed centre exactly under the chute mouth; reverse in from Path_Load_Approach, play chute_pour (loop) while code raises the fill morph 0->100 %, then drive off forward (+X glTF) along Path_01.. to Road_Entry'})
+emp('Path_Load_Approach', (ML.LOAD[0] + 4.3, ML.LOAD[1], 0.0), 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'note': 'on return: drive forward past the chute to here (heading +X), stop, then reverse 4.3 m straight along -X(glTF) to Path_Load'})
+emp('Rich_Pop', (BEDC_W.x, BEDC_W.y, GZ + ML.BTOP + 1.6), 0, {'kind': 'fx_anchor', 'note': 'money pop for the rich load: spawn the +value pop here when truck_load_rich plays (truck parked at Path_Load)'})
+emp('Operator_Deck', (14.0, -1.2, 0.0), 0, {'kind': 'prop_anchor', 'prop': 'art/3d/props/mine_operator/mine_operator_game.glb', 'note': 'place the mine operator prop root here, rotation identity (deck front faces +Z glTF, toward the camera); scenery only'})
 # haul loop way-points in driving order: Path_Load -> east hairpin -> south straight -> west hairpin -> Path_Dump_Approach
 lp = ML.loop_points(0.25); n = len(lp)
 def yaw_at(i): t = lp[(i + 1) % n] - lp[i - 1]; return math.degrees(math.atan2(t.y, t.x))
 i0 = min(range(n), key=lambda i: (lp[i] - Vector((ML.TX + 0.0, ML.TY, 0))).length)
 seq = [lp[(i0 + k) % n] for k in range(n)]; idx = [(i0 + k) % n for k in range(n)]
 s_acc, picks, last = 0.0, [], None
-end = min(range(n), key=lambda k: (seq[k] - Vector(ML.DUMP_APPROACH)).length)
+end = min(range(n), key=lambda k: (seq[k] - Vector(ML.LOOP_END)).length)
 for k in range(1, end):
     if last is None or (seq[k] - last).length >= 3.0: picks.append(k); last = seq[k]
 PATHS = []
 for j, k in enumerate(picks):
     p = seq[k]; e = emp('Path_%02d' % (j + 1), (p.x, p.y, 0.0), yaw_at(idx[k]), {'kind': 'truck_pose', 'yaw_deg': round(yaw_at(idx[k]), 1)}); PATHS.append(e)
 # deposits + spur (scoop) poses
-for nm, (x, y), r, park, lab in (('Dep_01', ML.DEP1, 2.2, ML.DEP1_PARK, 'main He-3 seam'), ('Dep_02', ML.DEP2, 1.05, ML.DEP2_PARK, 'tap deposit')):
-    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'scoop_from': 'Path_Spur_%s' % nm[-2:], 'glow': 'drawn by the game (no deposit mesh in the GLB; clear ground within 2.5 m)'})
-emp('Path_Spur_01', (ML.DEP1_PARK[0], ML.DEP1_PARK[1], 0.0), ML.DEP1_PARK[2], {'kind': 'truck_pose', 'yaw_deg': ML.DEP1_PARK[2], 'deposit': 'Dep_01', 'note': 'stop here, play truck_scoop (reaches to the truck right)'})
-emp('Path_Spur_02', (ML.DEP2_PARK[0], ML.DEP2_PARK[1], 0.0), ML.DEP2_PARK[2], {'kind': 'truck_pose', 'yaw_deg': ML.DEP2_PARK[2], 'deposit': 'Dep_02', 'note': 'stop here, play truck_scoop (reaches to the truck right)'})
-emp('Road_Entry', (13.5, -9.0, 0.0), -90, {'kind': 'road_entry', 'note': 'east apex of the haul loop; the graded access road (haul_road_access) joins here and leaves heading +Z (toward the camera)'})
+for nm, (x, y), r, lab in (('Dep_01', ML.DEP1, 2.2, 'main He-3 seam'), ('Dep_02', ML.DEP2, 1.05, 'tap deposit')):
+    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'tap': 'the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load', 'glow': 'drawn by the game (no deposit mesh in the GLB; clear ground within 2.5 m)'})
+emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_entry', 'note': 'east apex of the haul loop; the haul road stub (haul_road_access) leaves here heading +X(glTF) off the right edge of the frame toward the Refinery station (+160 m, one swipe right)'})
 CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.6, 0.2, 0.0), (5.6, 1.0, 0.0), (8.6, 1.4, 0.0)]
 for i, p in enumerate(CREW): emp('Crew_Path_%02d' % (i + 1), (p[0], p[1], p[2] if p[2] > 0.3 else H(p[0], p[1])), 0, {'kind': 'crew_path'})
 
@@ -617,9 +641,9 @@ bpy.ops.export_scene.gltf(filepath=MOUT, export_format='GLB', use_selection=True
                           export_animations=True, export_animation_mode='ACTIONS', export_force_sampling=True, export_optimize_animation_size=False,
                           export_anim_slide_to_zero=True, export_def_bones=False, export_rest_position_armature=True,
                           export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False, export_vertex_color='ACTIVE',
-                          export_all_vertex_colors=False, export_skins=True, export_morph=False, export_texcoords=False)
+                          export_all_vertex_colors=False, export_skins=True, export_morph=True, export_morph_normal=False, export_morph_animation=False, export_texcoords=False)
 INFO = {'W': W, 'cam_target': list(CAM_T), 'cam_target_glTF': gl(CAM_T), 'cam_d': CAM_D, 'fit_box_px': FIT_BOX, 'tris': {o.name: tris([o]) for o in col.objects if o.type == 'MESH'},
-        'clearance': REPORT, 'stow_wrist_T': list(WR_S), 'stow_elbow_T': list(EL_S),
+        'clearance': REPORT, 'load': {'heap_base': list(HEAP_C), 'heap_h': HEAP_H, 'chute_mouth_z': CHUTE_Z, 'fill_morph': FILL_INFO},
         'markers': {o.name: {'glTF_pos': gl(o.location), 'yaw_deg': round(math.degrees(o.rotation_euler.z), 2), 'extras': {k: (v if isinstance(v, (int, float, str)) else list(v)) for k, v in o.items()}}
                     for o in col.objects if o.type == 'EMPTY' and o != root}}
 json.dump(INFO, open(MOUT.replace('.glb', '_info.json'), 'w'), indent=1, default=str)
