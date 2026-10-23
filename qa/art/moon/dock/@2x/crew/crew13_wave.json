@@ -15,7 +15,7 @@
    "y": 57
   },
   "loop": false,
-  "note": "1.3x crew for the Cargo Space Dock stop"
+  "note": "v7j male suit (mockups/v7j.py render_suit), role band worker. Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row."
  },
  "frames": {
   "crew13_wave_0": {
@@ -23,7 +23,7 @@
    "frame": {
     "x": 0,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -31,9 +31,9 @@
   "crew13_wave_1": {
    "page": 0,
    "frame": {
-    "x": 83,
+    "x": 84,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -41,9 +41,9 @@
   "crew13_wave_2": {
    "page": 0,
    "frame": {
-    "x": 166,
+    "x": 168,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -51,9 +51,9 @@
   "crew13_wave_3": {
    "page": 0,
    "frame": {
-    "x": 249,
+    "x": 252,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -61,9 +61,9 @@
   "crew13_wave_4": {
    "page": 0,
    "frame": {
-    "x": 332,
+    "x": 336,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -71,9 +71,9 @@
   "crew13_wave_5": {
    "page": 0,
    "frame": {
-    "x": 415,
+    "x": 420,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -81,9 +81,9 @@
   "crew13_wave_6": {
    "page": 0,
    "frame": {
-    "x": 498,
+    "x": 504,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -91,9 +91,9 @@
   "crew13_wave_7": {
    "page": 0,
    "frame": {
-    "x": 581,
+    "x": 588,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -101,9 +101,9 @@
   "crew13_wave_8": {
    "page": 0,
    "frame": {
-    "x": 664,
+    "x": 672,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83
@@ -111,9 +111,9 @@
   "crew13_wave_9": {
    "page": 0,
    "frame": {
-    "x": 747,
+    "x": 756,
     "y": 0,
-    "w": 83,
+    "w": 84,
     "h": 114
    },
    "duration": 83

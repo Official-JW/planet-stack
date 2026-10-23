@@ -1,0 +1,122 @@
+{
+ "meta": {
+  "images": [
+   "crew13_wave.webp"
+  ],
+  "image": "crew13_wave.webp",
+  "scale": 3,
+  "fps": 12,
+  "logicalFrame": {
+   "w": 42,
+   "h": 57
+  },
+  "pivot": {
+   "x": 21,
+   "y": 57
+  },
+  "loop": false,
+  "note": "v7j male suit (mockups/v7j.py render_suit), role band worker. Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row."
+ },
+ "frames": {
+  "crew13_wave_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_1": {
+   "page": 0,
+   "frame": {
+    "x": 126,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_2": {
+   "page": 0,
+   "frame": {
+    "x": 252,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_3": {
+   "page": 0,
+   "frame": {
+    "x": 378,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_4": {
+   "page": 0,
+   "frame": {
+    "x": 504,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_5": {
+   "page": 0,
+   "frame": {
+    "x": 630,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_6": {
+   "page": 0,
+   "frame": {
+    "x": 756,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_7": {
+   "page": 0,
+   "frame": {
+    "x": 882,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_8": {
+   "page": 0,
+   "frame": {
+    "x": 1008,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  },
+  "crew13_wave_9": {
+   "page": 0,
+   "frame": {
+    "x": 1134,
+    "y": 0,
+    "w": 126,
+    "h": 171
+   },
+   "duration": 83
+  }
+ }
+}

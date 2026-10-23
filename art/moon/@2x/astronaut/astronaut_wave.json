@@ -15,7 +15,7 @@
    "y": 44
   },
   "loop": false,
-  "note": "frames 0-1 raise, 2-7 wave, 8-9 lower"
+  "note": "v7j male suit (mockups/v7j.py render_suit), role band worker. Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row."
  },
  "frames": {
   "astronaut_wave_0": {

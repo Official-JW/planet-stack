@@ -1,0 +1,251 @@
+{
+ "meta": {
+  "images": [
+   "crew13_carry.webp"
+  ],
+  "image": "crew13_carry.webp",
+  "scale": 2,
+  "fps": 20,
+  "logicalFrame": {
+   "w": 42,
+   "h": 57
+  },
+  "pivot": {
+   "x": 21,
+   "y": 57
+  },
+  "loop": true,
+  "note": "v7j male suit (mockups/v7j.py render_suit), role band worker. Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row. Foot-locked: 16 f @20 fps; move the sprite by frame_dx_local per drawn frame, never continuously.",
+  "role": "worker",
+  "frame_dx_local": [
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0
+  ],
+  "speed_local_per_s": 40.0,
+  "planted_fields": "per frame: planted_foot near|far, stance_start = first frame of that foot's stance, planted_sole_x = planted boot heel contact x in logical units from the frame left edge (pivot.x units); during a stance planted_sole_x(f)+sum(frame_dx) is constant (foot lock)"
+ },
+ "frames": {
+  "crew13_carry_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": true,
+   "planted_sole_x": 27.4508
+  },
+  "crew13_carry_1": {
+   "page": 0,
+   "frame": {
+    "x": 84,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 25.4508
+  },
+  "crew13_carry_2": {
+   "page": 0,
+   "frame": {
+    "x": 168,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 23.4508
+  },
+  "crew13_carry_3": {
+   "page": 0,
+   "frame": {
+    "x": 252,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 21.4508
+  },
+  "crew13_carry_4": {
+   "page": 0,
+   "frame": {
+    "x": 336,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 19.4508
+  },
+  "crew13_carry_5": {
+   "page": 0,
+   "frame": {
+    "x": 420,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 17.4508
+  },
+  "crew13_carry_6": {
+   "page": 0,
+   "frame": {
+    "x": 504,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 15.4508
+  },
+  "crew13_carry_7": {
+   "page": 0,
+   "frame": {
+    "x": 588,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 13.4508
+  },
+  "crew13_carry_8": {
+   "page": 0,
+   "frame": {
+    "x": 672,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": true,
+   "planted_sole_x": 24.1576
+  },
+  "crew13_carry_9": {
+   "page": 0,
+   "frame": {
+    "x": 756,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 22.1576
+  },
+  "crew13_carry_10": {
+   "page": 0,
+   "frame": {
+    "x": 840,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 20.1576
+  },
+  "crew13_carry_11": {
+   "page": 0,
+   "frame": {
+    "x": 924,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 18.1576
+  },
+  "crew13_carry_12": {
+   "page": 0,
+   "frame": {
+    "x": 1008,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 16.1576
+  },
+  "crew13_carry_13": {
+   "page": 0,
+   "frame": {
+    "x": 1092,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 14.1576
+  },
+  "crew13_carry_14": {
+   "page": 0,
+   "frame": {
+    "x": 1176,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 12.1576
+  },
+  "crew13_carry_15": {
+   "page": 0,
+   "frame": {
+    "x": 1260,
+    "y": 0,
+    "w": 84,
+    "h": 114
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 10.1576
+  }
+ }
+}

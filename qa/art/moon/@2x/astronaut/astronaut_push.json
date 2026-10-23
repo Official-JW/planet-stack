@@ -5,7 +5,7 @@
   ],
   "image": "astronaut_push.webp",
   "scale": 2,
-  "fps": 14,
+  "fps": 20,
   "logicalFrame": {
    "w": 52,
    "h": 44
@@ -15,7 +15,45 @@
    "y": 44
   },
   "loop": true,
-  "role": "worker"
+  "note": "v7j male suit (mockups/v7j.py render_suit), role band worker. Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row. Foot-locked: 16 f @20 fps; move the sprite by frame_dx_local per drawn frame, never continuously.",
+  "role": "worker",
+  "frame_dx_local": [
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152,
+   1.5152
+  ],
+  "speed_local_per_s": 30.303,
+  "frame_dx_pt_in_tower": [
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ]
  },
  "frames": {
   "astronaut_push_0": {
@@ -26,7 +64,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_1": {
    "page": 0,
@@ -36,7 +74,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_2": {
    "page": 0,
@@ -46,7 +84,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_3": {
    "page": 0,
@@ -56,7 +94,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_4": {
    "page": 0,
@@ -66,7 +104,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_5": {
    "page": 0,
@@ -76,7 +114,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_6": {
    "page": 0,
@@ -86,7 +124,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_7": {
    "page": 0,
@@ -96,7 +134,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_8": {
    "page": 0,
@@ -106,7 +144,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_9": {
    "page": 0,
@@ -116,7 +154,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_10": {
    "page": 0,
@@ -126,7 +164,7 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
   },
   "astronaut_push_11": {
    "page": 0,
@@ -136,7 +174,47 @@
     "w": 104,
     "h": 88
    },
-   "duration": 71
+   "duration": 50
+  },
+  "astronaut_push_12": {
+   "page": 0,
+   "frame": {
+    "x": 1248,
+    "y": 0,
+    "w": 104,
+    "h": 88
+   },
+   "duration": 50
+  },
+  "astronaut_push_13": {
+   "page": 0,
+   "frame": {
+    "x": 1352,
+    "y": 0,
+    "w": 104,
+    "h": 88
+   },
+   "duration": 50
+  },
+  "astronaut_push_14": {
+   "page": 0,
+   "frame": {
+    "x": 1456,
+    "y": 0,
+    "w": 104,
+    "h": 88
+   },
+   "duration": 50
+  },
+  "astronaut_push_15": {
+   "page": 0,
+   "frame": {
+    "x": 1560,
+    "y": 0,
+    "w": 104,
+    "h": 88
+   },
+   "duration": 50
   }
  }
 }

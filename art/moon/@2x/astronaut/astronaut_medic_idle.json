@@ -15,6 +15,7 @@
    "y": 44
   },
   "loop": true,
+  "note": "v7j male suit (mockups/v7j.py render_suit), role band medic. Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row. Idle frame 0 = walk frame 0 contact pose (same planted near boot); frames 1-7 keep the legs, arms breathe.",
   "role": "medic"
  },
  "frames": {

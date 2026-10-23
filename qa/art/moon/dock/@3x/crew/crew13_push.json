@@ -5,7 +5,7 @@
   ],
   "image": "crew13_push.webp",
   "scale": 3,
-  "fps": 14,
+  "fps": 20,
   "logicalFrame": {
    "w": 68,
    "h": 57
@@ -15,8 +15,28 @@
    "y": 57
   },
   "loop": true,
+  "note": "v7j male suit (mockups/v7j.py render_suit), role band worker. Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row. Foot-locked: 16 f @20 fps; move the sprite by frame_dx_local per drawn frame, never continuously.",
   "role": "worker",
-  "note": "1.3x crew for the Cargo Space Dock stop"
+  "frame_dx_local": [
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0,
+   2.0
+  ],
+  "speed_local_per_s": 40.0,
+  "planted_fields": "per frame: planted_foot near|far, stance_start = first frame of that foot's stance, planted_sole_x = planted boot heel contact x in logical units from the frame left edge (pivot.x units); during a stance planted_sole_x(f)+sum(frame_dx) is constant (foot lock)"
  },
  "frames": {
   "crew13_push_0": {
@@ -24,120 +44,208 @@
    "frame": {
     "x": 0,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": true,
+   "planted_sole_x": 27.4508
   },
   "crew13_push_1": {
    "page": 0,
    "frame": {
-    "x": 202,
+    "x": 204,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 25.4508
   },
   "crew13_push_2": {
    "page": 0,
    "frame": {
-    "x": 404,
+    "x": 408,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 23.4508
   },
   "crew13_push_3": {
    "page": 0,
    "frame": {
-    "x": 606,
+    "x": 612,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 21.4508
   },
   "crew13_push_4": {
    "page": 0,
    "frame": {
-    "x": 808,
+    "x": 816,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 19.4508
   },
   "crew13_push_5": {
    "page": 0,
    "frame": {
-    "x": 1010,
+    "x": 1020,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 17.4508
   },
   "crew13_push_6": {
    "page": 0,
    "frame": {
-    "x": 1212,
+    "x": 1224,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 15.4508
   },
   "crew13_push_7": {
    "page": 0,
    "frame": {
-    "x": 1414,
+    "x": 1428,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 13.4508
   },
   "crew13_push_8": {
    "page": 0,
    "frame": {
-    "x": 1616,
+    "x": 1632,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": true,
+   "planted_sole_x": 24.1576
   },
   "crew13_push_9": {
    "page": 0,
    "frame": {
-    "x": 1818,
+    "x": 1836,
     "y": 0,
-    "w": 202,
-    "h": 172
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 22.1576
   },
   "crew13_push_10": {
    "page": 0,
    "frame": {
-    "x": 0,
-    "y": 172,
-    "w": 202,
-    "h": 172
+    "x": 2040,
+    "y": 0,
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 20.1576
   },
   "crew13_push_11": {
    "page": 0,
    "frame": {
-    "x": 202,
-    "y": 172,
-    "w": 202,
-    "h": 172
+    "x": 2244,
+    "y": 0,
+    "w": 204,
+    "h": 171
    },
-   "duration": 71
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 18.1576
+  },
+  "crew13_push_12": {
+   "page": 0,
+   "frame": {
+    "x": 2448,
+    "y": 0,
+    "w": 204,
+    "h": 171
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 16.1576
+  },
+  "crew13_push_13": {
+   "page": 0,
+   "frame": {
+    "x": 2652,
+    "y": 0,
+    "w": 204,
+    "h": 171
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 14.1576
+  },
+  "crew13_push_14": {
+   "page": 0,
+   "frame": {
+    "x": 2856,
+    "y": 0,
+    "w": 204,
+    "h": 171
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 12.1576
+  },
+  "crew13_push_15": {
+   "page": 0,
+   "frame": {
+    "x": 3060,
+    "y": 0,
+    "w": 204,
+    "h": 171
+   },
+   "duration": 50,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 10.1576
   }
  }
 }

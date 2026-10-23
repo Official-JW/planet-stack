@@ -16,7 +16,24 @@
   },
   "loop": true,
   "speed_px_s": 22,
-  "note": "0.7x crew13 walk; feet on grating y=52; flip for leftward"
+  "role": "worker",
+  "note": "v7j male suit (mockups/v7j.py render_suit), worker band, = crew13 v7j at 0.684x (old walkway height kept). Faces RIGHT; pivot = ground point; lowest opaque (alpha>128) boot pixel on the pivot row; flip for leftward. Foot-locked: 12 f @12 fps; move the sprite by frame_dx_local (1.8333 = 22 local/s) per drawn frame, never continuously.",
+  "frame_dx_local": [
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333,
+   1.8333
+  ],
+  "speed_local_per_s": 22.0,
+  "planted_fields": "per frame: planted_foot near|far, stance_start = first frame of that foot's stance, planted_sole_x = planted boot heel contact x in logical units from the frame left edge (pivot.x units); during a stance planted_sole_x(f)+sum(frame_dx) is constant (foot lock)"
  },
  "frames": {
   "walkway_astro_walk_0": {
@@ -27,7 +44,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "near",
+   "stance_start": true,
+   "planted_sole_x": 19.1965
   },
   "walkway_astro_walk_1": {
    "page": 0,
@@ -37,7 +57,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 17.3632
   },
   "walkway_astro_walk_2": {
    "page": 0,
@@ -47,7 +70,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 15.5299
   },
   "walkway_astro_walk_3": {
    "page": 0,
@@ -57,7 +83,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 13.6965
   },
   "walkway_astro_walk_4": {
    "page": 0,
@@ -67,7 +96,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 11.8632
   },
   "walkway_astro_walk_5": {
    "page": 0,
@@ -77,7 +109,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "near",
+   "stance_start": false,
+   "planted_sole_x": 10.0299
   },
   "walkway_astro_walk_6": {
    "page": 0,
@@ -87,7 +122,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "far",
+   "stance_start": true,
+   "planted_sole_x": 16.943
   },
   "walkway_astro_walk_7": {
    "page": 0,
@@ -97,7 +135,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 15.1097
   },
   "walkway_astro_walk_8": {
    "page": 0,
@@ -107,7 +148,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 13.2763
   },
   "walkway_astro_walk_9": {
    "page": 0,
@@ -117,7 +161,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 11.443
   },
   "walkway_astro_walk_10": {
    "page": 0,
@@ -127,7 +174,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 9.6097
   },
   "walkway_astro_walk_11": {
    "page": 0,
@@ -137,7 +187,10 @@
     "w": 60,
     "h": 80
    },
-   "duration": 83
+   "duration": 83,
+   "planted_foot": "far",
+   "stance_start": false,
+   "planted_sole_x": 7.7763
   }
  }
 }

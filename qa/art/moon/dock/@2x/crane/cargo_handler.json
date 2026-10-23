@@ -1,0 +1,67 @@
+{
+ "meta": {
+  "images": [
+   "cargo_handler.webp"
+  ],
+  "image": "cargo_handler.webp",
+  "scale": 2,
+  "fps": 1,
+  "logicalFrame": {
+   "w": 49.0,
+   "h": 67.833
+  },
+  "pivot": {
+   "x": 24.5,
+   "y": 67.333
+  },
+  "trimmed": false,
+  "loop": false,
+  "frames_note": "0 stand, 1 wand (signal the cab), 2 point low (latch at the stock), 3 point high (set-down at the bay). Art faces +x; flip for -x.",
+  "dockPos_pt": {
+   "x": 178,
+   "y": 0
+  }
+ },
+ "frames": {
+  "cargo_handler_0": {
+   "page": 0,
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 98,
+    "h": 136
+   },
+   "duration": 1000
+  },
+  "cargo_handler_1": {
+   "page": 0,
+   "frame": {
+    "x": 100,
+    "y": 0,
+    "w": 98,
+    "h": 136
+   },
+   "duration": 1000
+  },
+  "cargo_handler_2": {
+   "page": 0,
+   "frame": {
+    "x": 200,
+    "y": 0,
+    "w": 98,
+    "h": 136
+   },
+   "duration": 1000
+  },
+  "cargo_handler_3": {
+   "page": 0,
+   "frame": {
+    "x": 300,
+    "y": 0,
+    "w": 98,
+    "h": 136
+   },
+   "duration": 1000
+  }
+ }
+}

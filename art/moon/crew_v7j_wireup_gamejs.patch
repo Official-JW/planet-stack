@@ -1,0 +1,105 @@
+Planet Stack - v7j crew wire-up for qa/game-1843.js (QA 18:43). Art & Animation, 10/22/2026 PT. Game Coder applies: git apply art/moon/crew_v7j_wireup_gamejs.patch
+ A loader keeps JSON meta (s.meta=m) so frame_dx_local/fps reach the game
+ B defs: crew_female_walk/_idle(+_glow) [mine_later_crusher], attendant_marshal(+_glow) [mine_starter], cargo_handler [dock]
+ C+D floor crew: v7j male worker/engineer/medic walk foot-locked (1 frame = frame_dx_local, at sheet fps x crewMul, turn mid-idle, feet on device px);
+     Crusher crew[0] = v7j female (pink helmet), scene pt x1/0.66, glow ADD; old continuous walk kept as fallback for sheets without frame_dx_local
+ E v7j marshal (two-armed wand wave, 12f@12fps, faces the bin) on the Rover Bay floor by the truck door (x 280), only while the bay is crewed, glow ADD
+ F dock crew13 walkers foot-locked (N steps multiple of 8, 0.6 s hold, never on the handler mark)
+ G dock handler = v7j cargo_handler, pose+facing per cranePhaseAt (CARGO_CRANE_SPEC), crew13 f0 fallback
+ H walkway astronaut foot-locked (frame_dx_local 1.8333 @12fps, 0.5 s hold)
+ el_rider / ui_icon_worker / roof_habitat: art swap only, no code
+Verified: git apply --check, node --check, headless Chrome 390x844@3x: no errors, all keys ready, walkers step 1 frame = 1 dx.
+
+--- a/qa/game-1843.js	2026-10-22 18:58:05.980469583 -0700
++++ b/qa/game-1843.js	2026-10-22 18:58:05.976469474 -0700
+@@ -123,6 +123,10 @@
+ def('floor_empty','floors/floor_empty','floors_later_empty','img');   // later pack: empty-floor art for unbuilt floors
+ def('ship4_hatch',DOCK+'ship/ship4_hatch','dock_later_hatch');   // later pack: cargo hatch (0 open → 5 shut), loaded after the first screen
+ def('walk_medic','astronaut/astronaut_medic_walk','hab');def('idle_medic','astronaut/astronaut_medic_idle','hab');
++// v7j crew (Art): female astronaut = Crusher crew[0] (Crusher pack), cave/bay marshal (mine starter), dock cargo handler (dock pack). Glows are ADD, same pivot/frames.
++['crew_female_walk','crew_female_walk_glow','crew_female_idle','crew_female_idle_glow'].forEach(n=>def(n,MINE+'scene/'+n,'mine_later_crusher'));
++['attendant_marshal','attendant_marshal_glow'].forEach(n=>def(n,MINE+'scene/'+n,'mine_starter'));
++def('cargo_handler',DOCK+'crane/cargo_handler','dock');
+ const IMG_SIZE={rover_bay_dump_still_pt:[90,58,0,58],rover_bay_dump_still_he3:[90,58,0,58],ground_strip:[1170,230,0,0],launch_tower:[360,360,0,360],launch_tower_ship:[360,360,0,360],walkway_mid:[48,64,0,52],walkway_mid_s:[36,64,0,52],walkway_truss:[48,40,24,0],surface_hopper:[60,40,30,40],mine_preview:[390,844,0,0],tunnel_front_lip:[260,130,0,70],tunnel_haze:[260,130,0,70],dock_base:[600,70,300,70],ship4_hull:[320,480,160,480],floor_empty:[360,120,0,120],launch_tower4:[240,500,38,500],
+  crane_gantry:[120,200,60,200],crane_trolley:[24,10,12,0],crane_hook_empty:[40,40,20,0],crane_jib_mast:[40,180,20,180],crane_jib_boom:[150,20,10,10],floodlight_mast:[30,150,15,150],floodlight_cone:[160,160,80,0],
+  dock_sign_neon_base:[200,48,100,48],dock_sign_neon_pad_t10:[240,48,120,48],dock_sign_neon_pad_t20:[280,48,140,48],dock_sign_bloom_base:[280,40,140,20],dock_sign_bloom_pad_t10:[320,40,160,20],dock_sign_bloom_pad_t20:[360,40,180,20]};
+@@ -141,7 +145,7 @@
+   else{const j=await tryJSON(ART+s.path+'.json');if(j&&!j.meta&&j.image&&j.alpha){const dir=ART+s.path.replace(/[^/]+$/,''),im=await bmp(await getImg(dir+j.image));if(im){const dv=s.path.includes('/@2x/')?2:3;   // glow v2: one image, per-frame alpha, additive
+     s.pages=[im];s.img=im;s.frames=j.alpha.map(()=>({page:0,x:0,y:0,w:im.width,h:im.height}));s.n=j.alpha.length;s.fps=j.fps||12;s.w=im.width/dv;s.h=im.height/dv;s.px=j.pivot.x;s.py=j.pivot.y;s.alpha=j.alpha;s.add=j.blend==='add'}}
+   else if(j&&j.meta){const m=j.meta,dir=ART+s.path.replace(/[^/]+$/,'');
+-    s.sc=m.scale||(DEV_DPR>2?3:2);const fz=f=>Object.assign({page:f.page||0,ds:f.drawScale||1},f.frame,f.offset?{ox:f.offset.x,oy:f.offset.y}:{});const nm=s.path.split('/').pop();
++    s.meta=m;s.sc=m.scale||(DEV_DPR>2?3:2);const fz=f=>Object.assign({page:f.page||0,ds:f.drawScale||1},f.frame,f.offset?{ox:f.offset.x,oy:f.offset.y}:{});const nm=s.path.split('/').pop();
+     if(m.layers&&m.layers.includes('glow')&&j.frames[nm+'_glow_0']){s.frames=[];for(let i=0;j.frames[nm+'_'+i];i++){const g=j.frames[nm+'_glow_'+i];s.frames.push({layers:[g?Object.assign(fz(g),{lin:1}):null,fz(j.frames[nm+'_'+i])].filter(Boolean)})}}   // 2-layer burst: glow (drawScale 2, linear) under sharp
+     else s.frames=Object.values(j.frames).map(fz);s.n=s.frames.length;const d0=Object.values(j.frames)[0];if(d0&&d0.duration&&m.layers)m.fps=1000/d0.duration;s.fps=m.fps||1;s.w=m.logicalFrame.w;s.h=m.logicalFrame.h;s.px=m.pivot.x;s.py=m.pivot.y;s.loop=m.loop!==false;
+     s.pages=await Promise.all((m.images||[m.image]).map(async n=>bmp(await getImg(dir+n))));s.img=s.pages[0]}}
+@@ -373,7 +377,18 @@
+ const floorFx={},crew={},elev={};
+ function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=[]);
+  while(arr.length<Math.min(4,f.workers))arr.push({x:40+Math.random()*260,v:(Math.random()<.5?-1:1)*30,idle:0,t:Math.random()*5});arr.length=Math.min(arr.length,f.workers)})}
+-function crewTick(dt){const m=crewMul();for(const id in crew)for(const a of crew[id]){if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
++// v7j foot-locked walkers. A walk sheet with meta.frame_dx_local (v7j male astronaut_*_walk: 16 f @20 fps, 1 pt = 1/0.66 local per frame; v7j female: 12 f @12 fps)
++// is stepped a whole frame at a time (x += frame_dx_local[frame] at fps x crewMul, at most one frame per tick); the drawn frame is the same counter.
++// Turns only mid-idle (a wall hit starts an idle first). Sheets without frame_dx_local keep the old continuous 30 u/s walk.
++function femOn(d,ci){return d.id==='crusher'&&ci===0&&ok('crew_female_walk')&&ok('crew_female_idle')}   // v7j female (pink helmet) is the Crusher's first crew
++function walkSheet(id,ci){if(femOn({id},ci))return SPR.crew_female_walk;const d=F[IDX[id]];if(!d)return null;const k='walk_'+((d.crew&&ok('walk_'+d.crew))?d.crew:'worker'),W=SPR[k];return ok(k)&&W.meta&&W.meta.frame_dx_local?W:null}
++function stepTick(a,dt,m,W){const D=W.meta.frame_dx_local,n=D.length;if(a.st!==1){a.st=1;a.acc=0;a.wf=0;a.turn=false;a.x=Math.max(16,Math.min(344,a.x))}
++ if(a.idle>0){a.idle-=dt;if(a.turn&&a.idle<=a.idleHalf){a.turn=false;a.v=-a.v}if(a.idle<=0){a.idle=0;a.acc=0}return}   // flip at mid-idle
++ if(Math.random()<dt*.12){a.idle=1+Math.random()*2;a.idleHalf=a.idle/2;a.turn=Math.random()<.5;a.wf=0;a.acc=0;return}
++ a.acc=Math.min(a.acc+dt*(W.fps||20)*m,1.999);if(a.acc<1)return;a.acc-=1;
++ const nx=a.x+Math.sign(a.v)*D[a.wf%n];if(nx<16||nx>344){a.idle=1+Math.random()*2;a.idleHalf=a.idle/2;a.turn=true;a.wf=0;a.acc=0;return}   // wall: idle first, flip mid-idle
++ a.x=nx;a.wf=(a.wf+1)%n}
++function crewTick(dt){const m=crewMul();for(const id in crew)for(const[ci,a]of crew[id].entries()){const W=walkSheet(id,ci);if(W){stepTick(a,dt,m,W);continue}a.st=0;if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
+ function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');
+  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
+  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
+@@ -460,7 +475,11 @@
+   if(lift)for(const ex of [ax-IN+4,bx+IN-10])leg(ex,ay+12,HOR+(ex<(ax+bx)/2?(ea<-60?0:DOCK_CAP_DY+12):(eb<-60?0:DOCK_CAP_DY+12)))   // raised run: legs under both caps (to the ground, or to the dock deck)
+   ctx.save();ctx.translate((ax+bx)/2,(ay+by)/2);ctx.rotate(ang);
+   const mids=()=>{for(let k=0;k<N;k++)spr(ctx,'walkway_mid',0,x0+30+k*48*sx,0,sx,1)};mids();
+-  if(ok('walkway_astro_walk')&&span>20){const L=span-10;const per=Math.max(1,L/22*2),q=((T+i*3.1)%per)/per,go=q<.5,u=go?q*2:2-q*2;ctx.save();ctx.translate(x0+35+L*u,0);if(!go)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',fr('walkway_astro_walk',T),0,0);ctx.restore()}
++  if(ok('walkway_astro_walk')&&span>20){const L=span-10,WS=SPR.walkway_astro_walk,WD=WS.meta&&WS.meta.frame_dx_local;
++  if(WD){const n=WS.n,fp=WS.fps||12,dx=WD[0],N=Math.max(1,Math.floor(L/dx)),H=Math.round(0.5*fp),cyc=2*(N+H),g=Math.floor((T+i*3.1)*fp)%cyc;let s,f,fw=true;   // v7j: foot-locked steps
++   if(g<N){s=g;f=g%n}else if(g<N+H){s=N;f=0}else if(g<2*N+H){s=2*N+H-g;f=(g-N-H)%n;fw=false}else{s=0;f=0;fw=false}
++   ctx.save();ctx.translate(x0+35+s*dx,0);if(!fw)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',f,0,0);ctx.restore()}
++  else{const per=Math.max(1,L/22*2),q=((T+i*3.1)%per)/per,go=q<.5,u=go?q*2:2-q*2;ctx.save();ctx.translate(x0+35+L*u,0);if(!go)ctx.scale(-1,1);spr(ctx,'walkway_astro_walk',fr('walkway_astro_walk',T),0,0);ctx.restore()}}
+   ctx.globalAlpha=.35;mids();ctx.globalAlpha=1;ctx.restore()}}
+ function drawStop(o){const {s,f}=o;curStopA=0;ctx.save();
+  ctx.translate(snap(f.x),snap(f.y));   // upright, always
+@@ -525,9 +544,11 @@
+   else{ctx.fillStyle=`rgba(4,6,12,${(0.4*LPS.k).toFixed(3)})`;ctx.fillRect(0,-H,360,H)}}   // floors without _lowpower art (Life Support): steady dim to 60%. The single warning lives in the HUD pill
+  if(!f.workers&&!noCrew(d)){ctx.fillStyle='rgba(5,8,15,.45)';ctx.fillRect(0,-H,360,H);label(180,-60,(f.off?'No crew · tap, then + to assign':'Needs crew · tap to assign a resident'),'#ffb347',13)}
+  const fx=floorFx[d.id]||{};if(fx.up!=null){const q=(T-fx.up)/0.25;if(q<1){ctx.globalAlpha=0.6*(1-q);ctx.fillStyle='#fff';ctx.fillRect(0,-H,360,H);ctx.globalAlpha=1}}
+- (crew[d.id]||[]).forEach(a=>{const y=-120+104,role=(d.crew&&ok('walk_'+d.crew))?d.crew:'worker',key=(a.idle>0?'idle_':'walk_')+role;
++ if(d.id==='rover'&&f.workers&&ok('attendant_marshal')){const MK=1/0.66,mf=fr('attendant_marshal',T);ctx.save();ctx.translate(280,-16);ctx.scale(MK,MK);spr(ctx,'attendant_marshal',mf,0,0);if(ok('attendant_marshal_glow')){ctx.globalCompositeOperation='lighter';spr(ctx,'attendant_marshal_glow',mf,0,0)}ctx.restore()}   // marshal: scene pt x1/0.66 = floor local (same as the female); two-armed wand wave loop 12 f @12 fps. Drawn after the low-power layer, like the crew
++ (crew[d.id]||[]).forEach((a,ci)=>{const y=-120+104,fem=femOn(d,ci),role=(d.crew&&ok('walk_'+d.crew))?d.crew:'worker',key=fem?(a.idle>0?'crew_female_idle':'crew_female_walk'):(a.idle>0?'idle_':'walk_')+role,K=fem?1/0.66:1;   // female sheet is in scene pt: x1/0.66 = floor local
+   ctx.globalAlpha=.25;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(a.x,y,6,1.2,0,0,7);ctx.fill();ctx.globalAlpha=1;
+-  ctx.save();ctx.translate(snap(a.x),y);if(a.v<0)ctx.scale(-1,1);spr(ctx,key,lp&&a.idle<=0?0:fr(key,T+a.t),0,0);ctx.restore()});
++  const stp=a.st===1&&a.idle<=0,f=stp?a.wf%SPR[key].n:(!a.st&&lp&&a.idle<=0)?0:fr(key,T+a.t),m0=ctx.getTransform(),ax=a.st===1&&m0.a?(Math.round(m0.e+a.x*m0.a)-m0.e)/m0.a:snap(a.x);   // stepped walkers: feet on whole device px
++  ctx.save();ctx.translate(ax,y);ctx.scale(a.v<0?-K:K,K);spr(ctx,key,f,0,0);if(fem&&ok(key+'_glow')){ctx.globalCompositeOperation='lighter';spr(ctx,key+'_glow',f,0,0)}ctx.restore()});
+  const L=tierOf(f.lvl);let bw=0;const bf='800 11px Inter,system-ui,sans-serif';const cc=chipY(H,d.id),cy=cc.y;ctx.save();ctx.globalAlpha*=cc.a;
+  if(L){const bt=(L===50?'🏅 ':'★ ')+d.tierInfo[L].name;ctx.font=bf;bw=ctx.measureText(bt).width+12;chip(352-bw-34,cy,bt,CFG.tierColors[CFG.tierLevels.indexOf(L)],'#1a1205',bf,cc.sh)}   // badge pinned right (clear of the star medal)
+  ctx.font='700 11px Inter,system-ui,-apple-system,sans-serif';const maxW=(L?352-bw-34-6:340)-8-12;let txt=`${d.name} ${f.lvl} · ${meter(IDX[d.id])}`;
+@@ -959,14 +980,21 @@
+  // walkers stay on the back lane, clear of the handler's mark
+  const nCrew=Math.min(dockCrew.length,1+Math.floor(dockLvl('crew')/10));
+  for(let i=0;i<nCrew;i++){const c=dockCrew[i],per=(c.b-c.a)/28*2+1.2,q=((T+i*1.7)%per)/per,go=q<0.5,u=go?q*2:2-q*2;
++  const ck='crew13_'+c.k,CS=SPR[ck],CD=CS&&CS.ready&&CS.meta&&CS.meta.frame_dx_local;
++  if(CD){   // v7j crew13: foot-locked. x moves CD (2 dock units) per drawn frame, never continuously; N steps = multiple of 8 so both ends stop on a contact frame; hold 0.6 s, turn, walk back
++   const n=CS.n,fp=CS.fps||20,dx=CD[0],N=Math.max(8,Math.floor((c.b-c.a)/dx/8)*8),H=Math.round(0.6*fp),cyc=2*(N+H),g=Math.floor((T+i*1.7)*fp)%cyc;
++   let cx,f,fw=true;if(g<N){cx=c.a+g*dx;f=g%n}else if(g<N+H){cx=c.a+N*dx;f=N%n}else if(g<2*N+H){const k=g-N-H;cx=c.a+(N-k)*dx;f=(N+k)%n;fw=false}else{cx=c.a;f=0;fw=false}
++   if(Math.abs(cx-HANDLER_X)<36)continue;   // never drawn on the handler's mark (routes are clear of it today)
++   ctx.save();const m=ctx.getTransform(),px=X(cx);ctx.translate(m.a?(Math.round(m.e+px*m.a)-m.e)/m.a:px,deck-18);if(!fw)ctx.scale(-1,1);spr(ctx,ck,f,0,0);ctx.restore();continue}   // feet on whole device px
+   let x=c.a+(c.b-c.a)*Math.min(1,Math.max(0,(u*1.1-0.05)));if(Math.abs(x-HANDLER_X)<36)x=HANDLER_X+(x<HANDLER_X?-36:36);
+-  ctx.save();ctx.translate(X(x),deck-18);if(!go)ctx.scale(-1,1);spr(ctx,'crew13_'+c.k,fr('crew13_'+c.k,T),0,0);ctx.restore()}
++  ctx.save();ctx.translate(X(x),deck-18);if(!go)ctx.scale(-1,1);spr(ctx,ck,fr(ck,T),0,0);ctx.restore()}
+  const skip=(S.ship.st==='docked'&&(S.ship.craneT||0)>0.04&&craneCarrying(cranePhaseAt(S.ship.craneT)))?(craneWantsHe()?'he':'pt'):'';
+  drawStockpile(deck,X,skip);
+  drawCrane(deck,X);
+  dockOverlays(['crane']);
+  // handler stands on the mark, in front. Nobody else is drawn here.
+- ctx.save();ctx.translate(X(HANDLER_X),deck);spr(ctx,'crew13_walk',0,0,0);ctx.restore();
++ {const sh=S.ship,busy=sh.st==='docked'&&(sh.craneT||0)>0.04,ph=busy?cranePhaseAt(sh.craneT).id:'park',P={slew:[1,1],lower:[1,1],latch:[2,-1],raise:[0,-1],traverse:[1,1],settle:[1,1],enter:[1,1],roller:[3,-1],door:[3,-1]}[ph]||[0,1];
++  ctx.save();ctx.translate(X(HANDLER_X),deck);if(ok('cargo_handler')){if(P[1]<0)ctx.scale(-1,1);spr(ctx,'cargo_handler',P[0],0,0)}else spr(ctx,'crew13_walk',0,0,0);ctx.restore()}   // handler: pose + facing per crane phase (CARGO_CRANE_SPEC)
+  const pt=dockTier('pad'),sk=pt>=20&&ok('dock_sign_neon_pad_t20')?'pad_t20':pt>=10&&ok('dock_sign_neon_pad_t10')?'pad_t10':'base';
+  {const g=SPR['dock_sign_glow_'+sk],gf=fr('dock_sign_glow_'+sk,T),al=g&&g.alpha?g.alpha[gf%g.n]:1;ctx.save();ctx.translate(0,deck+38);ctx.rotate(-curStopA);spr(ctx,'dock_sign_neon_'+sk,0,0,0);spr(ctx,'dock_sign_glow_'+sk,gf,0,0);ctx.restore();
+   if(ok('dock_sign_bloom_'+sk)){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.6+0.4*al;spr(ctx,'dock_sign_bloom_'+sk,0,0,deck);ctx.restore()}}
