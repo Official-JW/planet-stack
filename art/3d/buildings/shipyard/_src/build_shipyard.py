@@ -47,7 +47,7 @@ GAME_NAMES = {
     # azimuth -86 deg (camera toward -Y, slightly +X). Cam_Target extras {'frame_w': W}; d = (W/2) / (tan(19 deg) * 393/852) ~= 3.148 * W.
     # Framing rule on 393x852 (x3 on 1179x2556): focus (hall door + SN-07 + crane) whole inside y 100..650; HUD above, sheet from y 674.
     # Blender Z-up coords; glTF Y-up = (x, z, -y).
-    'phone_cam': {'target': (-1.52, 0.72, 16.5), 'az': -86.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 84.0},
+    'phone_cam': {'target': (-4.04, -0.06, 18.0), 'az': -100.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 55.0},   # W 55: hall door + SN-07 + launch mount in y 357-561 of 852
 }
 
 # ====================================================================== materials
@@ -800,12 +800,13 @@ rbox('t3_trolley', (1.2, 1.2, 0.6), tuple(th), GRAPH_S, rot=(0, 0, ja), r=0.08, 
 rod('t3_hoist', tuple(th), tuple(th - Vector((0, 0, 12.0))), 0.05, SATIN, segs=6, c=TC)
 rbox('t3_hook', (0.6, 0.6, 0.8), tuple(th - Vector((0, 0, 12.4))), LH2B, r=0.08, segs=1, c=TC)
 grp_end(_t, 'Tier_03')
-# Tier_05 - second FAB-01 furnace column (tied into the pipe rack)
+# Tier_05 - second FAB-01 furnace column (tied into the pipe rack); x = RFX-8.5 keeps it within one frame_w (55 m) of Cam_Target
 _t = grp_begin()
-column(RFX - 3.5, RFY + 14.0, 1.5, 20.0, 'FURNACE 2', c=TC, sg=32)
-rod('t5_feed', (RFX - 3.5, RFY + 12.3, YTOP + 3.65), (RFX - 3.5, PRY + 1.2, YTOP + 3.65), 0.2, SATIN, segs=10, c=TC)
+T5X = RFX - 8.5
+column(T5X, RFY + 14.0, 1.5, 20.0, 'FURNACE 2', c=TC, sg=32)
+rod('t5_feed', (T5X, RFY + 12.3, YTOP + 3.65), (T5X, PRY + 1.2, YTOP + 3.65), 0.2, SATIN, segs=10, c=TC)
 for t_ in (0.35, 0.7):
-    p_ = Vector((RFX - 3.5, RFY + 12.3 + (PRY + 1.2 - RFY - 12.3) * t_, 0)); rod('t5_feed_post', (p_.x, p_.y, YTOP), (p_.x, p_.y, YTOP + 3.45), 0.1, GRAPH_S, segs=8, c=TC)
+    p_ = Vector((T5X, RFY + 12.3 + (PRY + 1.2 - RFY - 12.3) * t_, 0)); rod('t5_feed_post', (p_.x, p_.y, YTOP), (p_.x, p_.y, YTOP + 3.45), 0.1, GRAPH_S, segs=8, c=TC)
 grp_end(_t, 'Tier_05')
 # Tier_08 - welding bay extension on the assembly hall (annex on the +x wall, own door + roof radiators)
 _t = grp_begin()
@@ -836,10 +837,11 @@ rbox('t12_umb_mast', (1.2, 1.2, 10.0), (U2X, U2Y, TOP + 5.0), WHITE, r=0.12, seg
 for s_ in (-1, 1):
     cable('t12_umb_hose', (U2X - 0.3 * s_, U2Y + 0.6, TOP + 9.2), (SHX + 1.4 + 0.3 * s_, SHY - SR * 0.93, TOP + 8.0), 0.13, FOIL, sag=0.9, n=12, c=TC)
 grp_end(_t, 'Tier_12')
-# Tier_20 - tall Mars-class stand (pad + 72 m tower + jib) in the NE corner of the yard
+# Tier_20 - tall Mars-class stand (pad + 72 m tower + jib) on a new sintered pad north of IS-1, past the yard edge
+#           (within one frame_w of Cam_Target; 13 m pad with a skirt down to the bare ground so it sits on the regolith)
 _t = grp_begin()
-MSX, MSY = 50.0, 15.0
-lathe('t20_pad', [(0, YTOP), (9.5, YTOP), (9.0, YTOP + 0.4), (0, YTOP + 0.4)], (MSX, MSY, 0), SINTER, segs=48, smooth=False, c=TC)
+MSX, MSY = 6.0, 35.5
+lathe('t20_pad', [(0, -0.35), (13.0, -0.35), (13.0, YTOP), (12.5, YTOP + 0.4), (0, YTOP + 0.4)], (MSX, MSY, 0), SINTER, segs=48, smooth=False, c=TC)
 MTa = math.radians(45); MTX, MTY = MSX + math.cos(MTa) * 9.0, MSY + math.sin(MTa) * 9.0
 lattice_tower('t20_tower', MTX, MTY, 5.0, 72.0, 8.0, MTa, col_w=0.8)
 rbox('t20_cap', (6.4, 6.4, 1.4), (MTX, MTY, YTOP + 72.7), WHITE, rot=(0, 0, MTa), r=0.15, segs=1, c=TC)
@@ -877,6 +879,9 @@ cam = setup_render(64 if not QUICK else 16)
 ONLY = A.get('only', 'hero').split(',')
 SHOW_TIERS = A.get('tiers') == '1'          # --tiers 1: preview every upgrade tier in a render
 for o in coll(TC).all_objects: o.hide_render = not SHOW_TIERS; o.hide_set(not SHOW_TIERS)
+if SHOW_TIERS:   # tier preview: clear stage rocks off the Tier_20 pad (stage is never in the game GLB; hero / turntable unchanged)
+    for ob in [o for o in coll('Stage').objects if o.name.split('.')[0] in ('boulder', 'pebble', 'slope_boulder')]:
+        if math.hypot(ob.matrix_world.translation.x - MSX, ob.matrix_world.translation.y - MSY) < 16.0: bpy.data.objects.remove(ob, do_unlink=True)
 if 'glb' in ONLY: export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
 if 'blend' in ONLY:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f'{NAME}_master.blend'), compress=True)
