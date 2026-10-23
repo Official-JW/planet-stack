@@ -12,7 +12,7 @@ const CFG={
  maxFloors:10,siteAngleDeg:60,rotPerSlot:0.25,neighbourSink:0,surfaceScroll:6,towerScale:0.93,
  // money ONLY from mining (+ refining): $500 grant, a small raw-ore trickle until the first ship returns, then cargo sales
  econ:{startGrant:500,arrivalSec:20,leaveSec:10,
-  pod:{housing:4,oxygen:0,water:4,energy:8},kwPerPerson:1,staffBonus:0.25,
+  pod:{housing:4,oxygen:1,water:4,energy:10},kwPerPerson:1,staffBonus:0.25,
   ptPerMin:1,hePerMin:1/3,ptValue:40,heValue:160,packShare:0.3,refinedMult:3,stageCap:72,
   oreTrickleSec:16,oreTrickle:3,laterFloorBoost:0.5,boostPer:0.03,depotBoost:0.05},
  elevator:{maxLevel:100,speedPerLevel:1.03,baseCapacity:1,capacityEvery:5,cost:25,costMult:1.12,lookEvery:10,bonusPerLevel:0.01,
@@ -178,7 +178,7 @@ function drawLayers(c,s,t,paused,h=120){if(!s||!s.ready||!s.layers)return;const 
 const SAVEKEY=DEV?(IS_QA?'planetstack-qa-dev':'planetstack-dev'):IS_QA?'planetstack-qa':location.pathname.includes('/preview/')?'planetstack-preview':'planetstack_moon_v2';
 if(IS_PREVIEW&&QS.has('fresh')){try{localStorage.removeItem(SAVEKEY)}catch(e){}{const q=new URLSearchParams(location.search);q.delete('fresh');history.replaceState(null,'',location.pathname+'?'+q.toString().replace(/=(?=&|$)/g,''))}}   // ?dev=1&fresh: clean dev save (preview only); normal save untouched   // ?fresh clears THIS build's save (dev or not; preview/qa only)
 const noCrew=d=>!!d.res||d.role==='housing'||!!d.upper;   // Life Support + Living Quarters run without crew
-function fresh(){const n=Date.now();return{money:CFG.econ.startGrant,pop:3,trips:0,arr:0,pt:0,he:0,refPt:0,refHe:0,ptAcc:0,heAcc:0,refAcc:0,oreAcc:0,firstReturn:0,gt:n,rt:n,step:0,hint:0,tapped:0,wrench:0,
+function fresh(){const n=Date.now();return{money:CFG.econ.startGrant,pop:4,trips:0,arr:0,pt:0,he:0,refPt:0,refHe:0,ptAcc:0,heAcc:0,refAcc:0,oreAcc:0,firstReturn:0,gt:n,rt:n,step:0,hint:0,tapped:0,wrench:0,
  dock:{crane:1,crew:1,pad:1,refuel:1},
  elev:Object.fromEntries(BUILDINGS.map(b=>[b.id,1])),ship:{st:'docked',t:n,pt:0,he:0,refPt:0,refHe:0,loadAcc:0},
  f:Object.fromEntries(F.map(d=>[d.id,{built:d.cost===0&&!d.upper,lvl:1,workers:d.cost===0&&!noCrew(d)?1:0,pend:0,ac:0}]))}}
@@ -226,8 +226,8 @@ const mineFloors=['rover','crusher','separator','packing'];
 function econ(){const P=CFG.econ.pod,e={oxygen:P.oxygen,water:P.water,energy:P.energy,housing:P.housing,floorUse:0};
  F.forEach((d,i)=>{if(d.res==='energy')e.energy+=rawOut(i);if(st(i).built&&(st(i).workers>0||noCrew(d)))e.floorUse+=d.use||0});
  const pop=Math.floor(S.pop);e.demand=e.floorUse+pop*CFG.econ.kwPerPerson;e.power=e.demand>0?Math.min(1,e.energy/e.demand):1;
- F.forEach((d,i)=>{const o=rawOut(i)*(d.use?e.power:1);d._out=o;if(d.res==='oxygen')e.oxygen+=o;if(d.res==='water')e.water+=o;if(d.role==='housing')e.housing+=o});
- e.energySupport=Math.max(0,e.energy-e.floorUse)/CFG.econ.kwPerPerson;
+ F.forEach((d,i)=>{const o=rawOut(i)*((d.use&&!d.res&&d.role!=='housing')?e.power:1);d._out=o;if(d.res==='oxygen')e.oxygen+=o;if(d.res==='water')e.water+=o;if(d.role==='housing')e.housing+=o});
+ e.energySupport=e.energy/CFG.econ.kwPerPerson;   // buying a floor never lowers the crew cap (Director 10/22); floor load only slows output via e.power
  const lim={Beds:e.housing,Oxygen:e.oxygen,Water:e.water,Energy:e.energySupport};
  e.cap=Math.floor(Math.min(...Object.values(lim)));e.limit=Object.keys(lim).reduce((a,k)=>lim[k]<lim[a]?k:a,'Beds');e.lim=lim;
  // mining: Rover Bay sets the base rate; each later floor and the Supply Depot multiply it
@@ -684,7 +684,8 @@ function drawMineYard(){
  const lg=ctx.createRadialGradient(FG.tunnel+150,-16,6,FG.tunnel+140,-8,110);
  lg.addColorStop(0,'rgba(255,176,80,.42)');lg.addColorStop(1,'rgba(255,176,80,0)');
  ctx.fillStyle=lg;ctx.fillRect(FG.tunnel+40,-90,210,100)}
-const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=d11cbaf9';
+const YARD=new Image();YARD.src='art/moon/mine/scene/road-1125.png?v=b75f9a19';
+const CAVE_RIM=new Image();let ROVER_DIM=1;   // Art cave rim overlay (drawn AFTER the truck) + truck brightness inside the tunnel
 // Gate A: Art centerline (image px → scene via yardPt). Do not invent a road.
 const GATEA={ready:0,pts:null,cave:null,bay:null};
 function yardPt(ix,iy){const w=560,h=w*(YARD.naturalHeight||488)/(YARD.naturalWidth||1500);return{x:-300+ix/1500*w,y:6+iy/(YARD.naturalHeight||488)*h}}
@@ -699,6 +700,8 @@ function gateABuild(j){if(!j||!j.centerline_px||j.centerline_px.length<2)return;
  GATEA.dump=j.dump_stop_px?{x:j.dump_stop_px.x,y:j.dump_stop_px.y}:null;
  const R=r=>{if(!r)return null;const a=yardPt(r.x,r.y),z=yardPt(r.x+r.w,r.y+r.h);return{x:a.x,y:a.y,w:z.x-a.x,h:z.y-a.y}};
  GATEA.cave=R(j.cave_mouth_rect_px);GATEA.bay=R(j.bay_door_rect_px);GATEA.bin=R(j.ore_bin_rect_px);
+ GATEA.floor=j.cave_floor_px?{x:j.cave_floor_px.x,y:j.cave_floor_px.y}:null;GATEA.floorLine=j.cave_floor_line_px||null;
+ if(j.cave_rim_overlay)CAVE_RIM.src='art/moon/mine/scene/'+j.cave_rim_overlay+'?v=b75f9a19';
  GATEA.ready=!!GATEA.dump&&!!GATEA.binI&&!!GATEA.caveI}
 tryJSON('art/moon/mine/scene/gateA_centerline.json').then(gateABuild);
 function drawApprovedYard(f){if(!(YARD.complete&&YARD.naturalWidth))return;
@@ -801,7 +804,7 @@ function drawRover3D(yaw,dist,al,depth,dump,load,roll){
   let shade=0.26+0.5*nd+0.34*Math.max(0,ny);
   if(ay<0.45)shade*=0.7;
   if(ay>1.05)shade+=0.1;
-  draw.push({q,z:zsum/4,col:roverShade(f.hex,shade)});
+  shade*=ROVER_DIM;draw.push({q,z:zsum/4,col:roverShade(f.hex,shade)});
  }
  draw.sort((a,b)=>b.z-a.z);
  ctx.globalAlpha=al;
@@ -857,17 +860,18 @@ function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
   G.home=mk(pts);G.back=mk(rp)}
  const pAt=(P,s)=>{s=cl(s,0,P.l);let i=1;while(i<P.p.length-1&&P.c[i]<s)i++;const a=P.p[i-1],b=P.p[i],k=(s-P.c[i-1])/((P.c[i]-P.c[i-1])||1);return{x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k}};
  const pDir=(P,s,w)=>{const a=pAt(P,s-w),b=pAt(P,s+w);return yawOf(b.x-a.x,b.y-a.y)};   // direction of travel along P
- const cv=G.caveI,K={x:cv.x+cv.w*0.5,y:cv.y+cv.h*0.42};                 // deep point inside cave_mouth_rect
+ const cv=G.caveI,K=G.floor||{x:cv.x+cv.w*0.5,y:cv.y+cv.h*0.42};          // Art cave_floor_px: wheel contact deep on the tunnel floor
+ const FL=G.floorLine,F0=FL?FL[0]:PN,flYaw=yawOf(K.x-F0.x,K.y-F0.y),shK=0.55*scAt(F0.y)/scAt(K.y);   // floor line PN→K; total scale at K = 0.55× the mouth
  const outYaw=tan(0),homeYaw=tan(0)+Math.PI,endOut=tan(L),endHome=tan(L)+Math.PI;  // endOut=nose into cave; endHome=nose toward camera (set during E)
- let p,yaw,load=0,dump=0,al=1,shrink=1,clip=null,road=0;
+ let p,yaw,load=0,dump=0,al=1,shrink=1,clip=null,road=0,dim=1;
  if(u<5.5){ // A tip at dump_stop into ore_bin_rect
   const tip=u<2.2?ease(u/2.2):u<3.6?1:1-ease((u-3.6)/1.9);
   p=D;yaw=legYaw;dump=tip*0.95;load=1-ease(cl((u-0.9)/2.5,0,1))}
  else if(u<7.5){const e=ease((u-5.5)/2);p={x:D.x+(P0.x-D.x)*e,y:D.y+(P0.y-D.y)*e};yaw=lerpA(legYaw,outYaw,e)}       // B forward out the door
  else if(u<22){const e=ease((u-7.5)/14.5),s=e*L;p=at(s);yaw=tan(s);road=1}                                           // C road out
- else if(u<25){const e=ease((u-22)/3),mv=yawOf(K.x-PN.x,K.y-PN.y);p={x:PN.x+(K.x-PN.x)*e,y:PN.y+(K.y-PN.y)*e};yaw=lerpA(endOut,mv,ease(cl(e/0.45,0,1)));shrink=1-0.55*e;al=1-0.9*cl((e-0.35)/0.65,0,1);clip=G.cave}   // D keeps driving forward, gently yawing to face into the mouth (rear to camera = heading away)
+ else if(u<25){const e=ease((u-22)/3);p={x:F0.x+(K.x-F0.x)*e,y:F0.y+(K.y-F0.y)*e};yaw=lerpA(endOut,flYaw,ease(cl(e/0.35,0,1)));shrink=1+(shK-1)*e;dim=1-0.75*e;al=1-cl((e-0.55)/0.45,0,1)}   // D wheels on the floor line toward cave_floor_px, rear to camera; smaller, darker, gone past the rim
  else if(u<27.5){GTK.lt=-1;return}                                                                                    // E hold: 180° turnaround out of sight only
- else if(u<30.5){const e=ease((u-27.5)/3),mv=yawOf(PN.x-K.x,PN.y-K.y);p={x:K.x+(PN.x-K.x)*e,y:K.y+(PN.y-K.y)*e};yaw=lerpA(mv,endHome,ease(cl((e-0.55)/0.45,0,1)));shrink=0.45+0.55*e;al=0.1+0.9*cl(e/0.6,0,1);load=1;if(e<0.9)clip=G.cave}   // F emerge nose-first toward camera, full
+ else if(u<30.5){const e=ease((u-27.5)/3);p={x:K.x+(F0.x-K.x)*e,y:K.y+(F0.y-K.y)*e};yaw=lerpA(flYaw+Math.PI,endHome,ease(cl((e-0.65)/0.35,0,1)));shrink=shK+(1-shK)*e;dim=0.25+0.75*e;al=cl(e/0.45,0,1);load=1}   // F reverse of D: nose-first out along the floor line, growing, brightening (turnaround done hidden in E)
  else if(u<47.5){const P=G.home,s=ease((u-30.5)/17)*P.l;p=pAt(P,s);yaw=pDir(P,s,14);load=1;road=1}                  // G road home + forward swing past P0 to W (one move, nose = travel)
  else if(u<48.3){p=W;yaw=pDir(G.home,G.home.l,14);load=1}                                                            // H stop at W (cusp): parked, no yaw change
  else if(u<51){const P=G.back,e=(u-48.3)/2.7,s=ease(e)*P.l,yb=v=>pDir(P,v,6)+Math.PI,o0=lerpA(yb(0),pDir(G.home,G.home.l,14),1)-yb(0),o1=lerpA(yb(P.l),legYaw,1)-yb(P.l);
@@ -887,11 +891,13 @@ function drawYardTruck(f){if(!S.f.rover||!S.f.rover.built)return;
  ctx.save();ctx.translate(sp.x,sp.y);
  ctx.globalAlpha=0.3*al;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,0,50*sc,12*sc,0,0,7);ctx.fill();ctx.globalAlpha=1;
  ctx.scale(sc,sc);
- drawRover3D(yaw,GTK.odo,al,0,dump,load,lean);
+ ROVER_DIM=dim;drawRover3D(yaw,GTK.odo,al,0,dump,load,lean);ROVER_DIM=1;
  ctx.restore();
  if(dump>0.25&&load<0.98&&load>0.02){   // pour from the rear lip down into ore_bin_rect
   const lip=gateAProj(yaw,lean,dump,[-1.3,0.66,0]),lx=sp.x+lip.x*sc,ly=sp.y+lip.y*sc,B=G.bin,by=B.y+B.h*0.55,bx=cl(lx,B.x+3,B.x+B.w-3);
   ctx.fillStyle='#b9a07a';for(let i=0;i<7;i++){const q=((T*2.4+i/7)%1);ctx.globalAlpha=0.9-0.4*q;ctx.beginPath();ctx.arc(lx+(bx-lx)*q+Math.sin(i*2.1)*1.2,ly+(by-ly)*q*q,1.3+0.5*(i%2),0,7);ctx.fill()}ctx.globalAlpha=1}
+ if(p.x>1090&&CAVE_RIM.complete&&CAVE_RIM.naturalWidth){const a=yardPt(1100,238),b=yardPt(1370,430);   // Art rim/arch/jambs in front of the truck (sub-rect only)
+  ctx.drawImage(CAVE_RIM,1100,238,270,192,a.x,a.y,b.x-a.x,b.y-a.y)}
  ctx.restore()}
 const lipC=document.createElement('canvas'),lipX=lipC.getContext('2d');
 function softCaveLip(){const s=SPR.tunnel_front_lip;if(!s)return;const k=DPR*SC,w=Math.ceil(260*k),h=Math.ceil(130*k);if(lipC.width!==w||lipC.height!==h){lipC.width=w;lipC.height=h;lipC._ok=0}
@@ -1164,7 +1170,7 @@ function wrenchUI(){let b=$('#wrench');const show=STOPS[site].kind==='dock';
 // a tap in the station-dot row always closes an open sheet first and never reaches the sheet underneath (e.g. the Upgrade button)
 let dotSwallow=0;
 const inDots=(x,y)=>{const d=$('#dots');if(!d||!d.children.length)return -1;const r=d.getBoundingClientRect(),cy=r.top+r.height/2;if(Math.abs(y-cy)>22||x<r.left-8||x>r.right+8)return -1;const c=d.children[0].getBoundingClientRect();return Math.max(0,Math.min(STOPS.length-1,Math.floor((x-c.left)/c.width)))};
-addEventListener('pointerdown',ev=>{if(!$('#sheet').classList.contains('open'))return;const j=inDots(ev.clientX,ev.clientY);if(j<0)return;ev.preventDefault();ev.stopPropagation();dotSwallow=performance.now();closeSheet();goSite(j)},true);
+addEventListener('pointerdown',ev=>{const j=inDots(ev.clientX,ev.clientY);if(j<0)return;ev.preventDefault();ev.stopPropagation();dotSwallow=performance.now();if(sheetFor||$('#sheet').classList.contains('open'))closeSheet();goSite(j)},true);   // tap anywhere in the dot row's 44 px band
 addEventListener('click',ev=>{if(performance.now()-dotSwallow<700){ev.preventDefault();ev.stopPropagation()}},true);
 function closeSheet(){sheetFor=null;sd=null;const el=$('#sheet'),sh=$('#shade');el.style.transform='';el.style.transition='';sh.style.opacity='';sh.style.transition='';el.classList.remove('open');sh.classList.remove('on')}
 // ----- sheet drag-to-dismiss (grab handle). Touch events (iOS Safari: preventDefault while dragging) + mouse pointer. 1:1 with the finger, backdrop fades;
@@ -1212,7 +1218,7 @@ function powerStep(){let i=IDX.nuke,guard=0;
 function lowPowerUI(){const el=$('#lpw');if(!el)return;const low=powerShort();el.style.display=low?'flex':'none';if(!low)return;
  const t='Low power: '+powerStep().text;if(el.dataset.t!==t){el.dataset.t=t;el.querySelector('span').textContent=t}}
 function goNuclear(){const p=powerStep(),d=F[p.i],si=STOPS.findIndex(s=>s.kind==='tower'&&s.bi===d.b);closeSheet();goSite(si);if(S.f[d.id].built)setTimeout(()=>openSheet(p.i),480)}   // opens that exact step: the floor's sheet if built, else its station with the build button
-function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money)+'|'+['crane','crew','pad','refuel'].map(dockCost).join(',')+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=DEV?'∞':fmt(S.money);$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
+function hud(){const e=E;lowPowerUI();if($('#toast').classList.contains('on'))placeToast();if(sheetFor&&sheetFor.dock){const k=Math.floor(S.money)+'|'+['crane','crew','pad','refuel'].map(dockCost).join(',')+'|'+shipLoad()+'|'+staged()+'|'+S.ship.st;if(k!==sheetFor.k){sheetFor.k=k;openDock(true)}}$('#mval').textContent=DEV?'∞':fmt(S.money);{const g=$('#gval');if(g)g.textContent=DEV?'∞':String(Math.floor(S.crystals||0))}$('#rate').textContent=S.firstReturn?`cargo ${fmt(e.cargoRate*60)}/min`:`+${fmt(e.ore*60)}/min ore`;
  const lim=e.limit,low=e.power<0.999,m=[['people','ui_icon_people',`${num(S.pop)}/${num(e.cap)}`,lim==='Beds'],['oxygen','ui_icon_oxygen',num(e.oxygen),lim==='Oxygen'],['water','ui_icon_water',num(e.water),lim==='Water'],['energy','ui_icon_energy',`${num(e.energy)}/${num(e.demand)}`,lim==='Energy']];
  const box=$('#meters');if(!box.children.length)box.innerHTML=m.map(r=>`<div class="m glass" data-k="${r[0]}"><img src="${ui(r[1])}"><span></span></div>`).join('');
  m.forEach((r,j)=>{const el=box.children[j];el.querySelector('span').textContent=r[2];el.classList.toggle('lim',!!r[3]&&r[0]!=='energy');el.classList.toggle('low',r[0]==='energy'&&low)});
@@ -1272,7 +1278,7 @@ $('#shade').addEventListener('pointerdown',e=>{if(mouseLike(e))gStart(e.clientX,
 addEventListener('pointermove',e=>{if(mouseLike(e))gMove(e.clientX,e.clientY)},{passive:true});
 addEventListener('pointercancel',e=>{if(mouseLike(e))gEnd(e.clientX,e.clientY,true)});
 addEventListener('pointerup',e=>{if(mouseLike(e))gEnd(e.clientX,e.clientY)});
-function goSite(k,instant){k=Math.max(0,Math.min(STOPS.length-1,k));const from=cam.rot,to=k*CFG.rotPerSlot;cam.anim=instant?null:{from,to,t0:T,d:0.45};if(instant)cam.rot=to;if(k!==site)dockPan=0;if(k!==site){site=k;cam.y=0;cam.vy=0;const s=STOPS[k];if(siteOpen(s.bi))ensureBuildingArt(s.bi);if(k>=1&&k<=3)ensureBuildingArt(stopOfDock())}hud();wrenchUI()}
+function goSite(k,instant){k=Math.max(0,Math.min(STOPS.length-1,k));S.site=k;const from=cam.rot,to=k*CFG.rotPerSlot;cam.anim=instant?null:{from,to,t0:T,d:0.45};if(instant)cam.rot=to;if(k!==site)dockPan=0;if(k!==site){site=k;cam.y=0;cam.vy=0;const s=STOPS[k];if(siteOpen(s.bi))ensureBuildingArt(s.bi);if(k>=1&&k<=3)ensureBuildingArt(stopOfDock())}hud();wrenchUI()}
 function tap(p){const s=STOPS[site],f=stopFrame(site);const lx=(p.x-f.x+(s.kind==='dock'?dockPan:0))/TS,ly=(p.y-(OY+cam.y)-f.y)/TS;
  if(s.kind==='pad'){if(Math.abs(ly+360)<28&&Math.abs(lx)<180&&S.ship.st==='docked'){const L=shipLoad(),Y=L+loose();if(launchShip()){shipAnim.mode='launch';shipAnim.t0=T;shipAnim.smoke=0;toast('🚀 Cargo away · '+L+' of '+Y+' loaded · '+fmt(shipValue(S.ship))+' · back in '+mmss(tripSec(S.ship)/SPEED))}else toast('Nothing in the hold yet. The crane is still loading at the Cargo Dock.')}return}
  if(s.kind==='dock'){openDock();return}
@@ -1323,7 +1329,7 @@ let bgDone=false;
  const bar=$('#lbar');await Promise.all([loadGroup('core',p=>{if(bar)bar.style.width=(p*80)+'%'}),loadGroup('life',p=>{})]);if(bar)bar.style.width='100%';
  if(SPR.ground_strip&&SPR.ground_strip.ready){GSTRIP.p=1;GSTRIP.done=true;GSTRIP.t0=1}   // painted ground is on the first screen — don't flash the old gray ground
  ensureLook(elevLook(0));
- offline();econ();crewSync();hud();devUI();
+ offline();econ();crewSync();if(S.site>0)goSite(S.site,true);hud();devUI();   // reload reopens the station you were on, at its normal height
  {const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreen={files:r.length+1,bytes:r.reduce((a,x)=>a+x.transferSize,0)+(n?n.transferSize:0)}}const L=$('#load');if(L){L.style.pointerEvents='none';L.style.opacity=0;setTimeout(()=>{if(L.parentNode)L.remove();inputReady=true},500)}startLoop();document.fonts&&document.fonts.load('700 22px Rajdhani').catch(()=>{});
  await new Promise(r=>setTimeout(r,400));
  await loadGroup('mine_starter');{const r=performance.getEntriesByType('resource'),n=performance.getEntriesByType('navigation')[0];window.__firstScreenMine={files:r.length+1,bytes:r.reduce((a,x)=>a+(x.transferSize||x.encodedBodySize||0),0)+(n?n.transferSize:0)}}firstScreenDone=true;laterWait.splice(0).forEach(r=>r());loadGroup('mine_later_tunnel_trucks');await loadGroup('hab');await loadGroup('fx2');loadGroup('walkway');loadGroup('mine_later_dump');loadGroup('fx_later_upgrade_burst');loadGroup('floors_later_offscreen');tryJSON(ART+SPR.ground_strip.path+'.json').then(j=>{if(j){GSTRIP.tileWidth=j.tileWidth||GSTRIP.tileWidth;GSTRIP.groundLineY=j.groundLineY??GSTRIP.groundLineY;GSTRIP.h=(j.logicalSize&&j.logicalSize.h)||GSTRIP.h;IMG_SIZE.ground_strip=[GSTRIP.tileWidth,GSTRIP.h,0,0]}});loadGroup('ground_later_strip').then(()=>{const S=SPR.ground_strip;if(S.ready){S.w=GSTRIP.tileWidth;S.h=GSTRIP.h;const im=S.img;Promise.resolve(im&&im.decode?im.decode():null).catch(()=>{}).then(()=>{
