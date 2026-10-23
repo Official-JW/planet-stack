@@ -1,0 +1,39 @@
+{
+ "deband_lum_std_before_after": [
+  0.0984,
+  0.0512
+ ],
+ "basecolor_mean_linear": [
+  0.2,
+  0.2129,
+  0.2365
+ ],
+ "basecolor_mean_srgb8": [
+  124,
+  127,
+  133
+ ],
+ "seam_basecolor": [
+  1.21,
+  0.999
+ ],
+ "normal_mean_tilt_deg": 2.45,
+ "seam_normal": [
+  1.127,
+  1.022
+ ],
+ "macro_mult_range": [
+  0.655,
+  1.427
+ ],
+ "seam_macro": [
+  0.907,
+  0.843
+ ],
+ "ktx2_bytes": {
+  "ground_basecolor_1024.ktx2": 53364,
+  "ground_normal_512.ktx2": 145083,
+  "ground_macro_256.ktx2": 17543
+ },
+ "ktx2_total_bytes": 215990
+}
