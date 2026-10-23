@@ -7,15 +7,15 @@ no regolith cover. There are no glass domes and no real logos, only invented ste
 
 | | |
 |---|---|
-| Triangles (master, `Mine` collection) | **516,990** (2,200 objects) |
-| Master GLB | `dock_tankfarm_master.glb`, 3,271,160 B, meshopt + quantization (`gltfpack -cc -kn -km -vpf`), **no Draco**, one node per part. Review asset only: it keeps the master's clearcoat and emissive-strength material extensions. md5 `ed96fb1d65dea717246146b000fd012a` |
-| **Game GLB** | `dock_tankfarm_game.glb`, **181,120 B (0.17 MB)**, **27,679 triangles and 12 draw calls with every tier visible** (base 18,077 tris / 4 draws). Materials `SHM_Paint`, `SHM_Metal`, `SHM_GlowCyan`, `SHM_GlowWhite` from `../_shared/shared_materials.json`. Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. Plain metallic/roughness, no transmission/clearcoat/ior, no images or textures. Colour comes from `COLOR_0` vertex colours. No astronauts. md5 `6fb3ac0e5b37b8f727f42074674b4c77` |
+| Triangles (master, `Mine` collection) | **516,990** (2,200 objects + the `Cam_Target` empty) |
+| Master GLB | `dock_tankfarm_master.glb`, 3,293,248 B, meshopt + quantization (`gltfpack -cc -kn -km -ke -vpf`), **no Draco**, one node per part. Review asset only: it keeps the master's clearcoat and emissive-strength material extensions. md5 `26b8990600624d4dd6569c072894b08a` |
+| **Game GLB** | `dock_tankfarm_game.glb`, **181,288 B (0.17 MB)**, **27,679 triangles and 12 draw calls with every tier visible** (base 18,077 tris / 4 draws). Materials `SHM_Paint`, `SHM_Metal`, `SHM_GlowCyan`, `SHM_GlowWhite` from `../_shared/shared_materials.json`. Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. Plain metallic/roughness, no transmission/clearcoat/ior, no images or textures. Colour comes from `COLOR_0` vertex colours. No astronauts. md5 `882c8e273e4b9125091f87e6fe5cf62d` |
 | Units / axes / origin | 1 m, Y up. The dock front (rolling door, container yard) faces +Z. The **origin is the station focus**: on the yard pad, on the hall/door axis. The tank farm extends to +X. |
 | Footprint | X −24.8…48.0 m (power mast to the launch-pad pipe end), Z −36.3…16.9 m (solar masts behind to the road entry in front). Hall crown 13.2 m, sign top ~12.6 m, mast tops ~16.6 m. |
 | Scale | astronaut = 1.8 m (three in the review renders only; Stage collection, never exported) |
 
 ## Layout (fits the in-game station framing)
-The in-game station camera (`qa3d/main.js`: fov 38° vertical, 18° down, look-at 2.5 m above the origin, distance 47.22 m for a 393×852 portrait) sees about 15 m of width at the origin.
+Phone shots use the Game Coder camera spec: perspective, **38° vertical FOV, tilted down 18°, aimed at the `Cam_Target` empty**. `Cam_Target` sits at Blender (0, −4.0, 2.5) = glTF (0, 2.5, 4.0), 4 m in front of the origin at the game's lookY of 2.5 m. It carries `extras {"frame_w": 15}`: **W = 15 m** of station spans the screen width at Cam_Target. The camera distance is d = W / (2·tan 19°·aspect) = **47.22 m** for 393×852 and for the 1179×2556 master, which has the same aspect. With that framing on 393×852, the focus (roof crown and sign down to the yard pad's front curb) sits between y ≈ 100 (HUD) and y ≈ 645, and the ground in front ends above the open sheet at y = 674. `--ct x,y,z` and `--fw W` change it.
 - **Focus (centre):** the cargo hall's rolling door (9.2 × 7.4 m opening) with the blue-neon **CARGO SPACE DOCK** sign on the arch cap above it, and the container yard in front.
 - **Gantry crane GC-1** spans the yard (rails at x = ±7.2) and rests just in front of the stacks, low enough to leave the sign clear.
 - **Container stacks** frame the lane left and right; the He-3 canister and the armoured platinum crate sit at the lane's front edge so they read at phone size.
@@ -35,15 +35,15 @@ The in-game station camera (`qa3d/main.js`: fov 38° vertical, 18° down, look-a
 
 ## Files
 - `_src/build_dock_tankfarm.py`: the procedural Blender 4.2 build script. It imports `art/3d/mine_concepts/_src/mc_common.py` and re-uses the Life Support helpers.
-  `blender -b -P build_dock_tankfarm.py -- --out .. [--quick 1] [--only glb,blend,hero,phone,turn] [--hs 40] [--ts 32] [--ps 48] [--res WxH] [--pres WxH] [--door 0.5] [--hc x,y,z,tx,ty,tz] [--lens 28] [--td 100]`
-  `--only glb` writes `dock_tankfarm_master_raw.glb`. Pack it with `gltfpack -i dock_tankfarm_master_raw.glb -o dock_tankfarm_master.glb -cc -kn -km -vpf`.
+  `blender -b -P build_dock_tankfarm.py -- --out .. [--quick 1] [--only glb,blend,hero,phone,turn] [--hs 40] [--ts 32] [--ps 48] [--res WxH] [--pres WxH] [--door 0.5] [--hc x,y,z,tx,ty,tz] [--lens 28] [--td 95] [--ct 0,-4,2.5] [--fw 15]`
+  `--only glb` writes `dock_tankfarm_master_raw.glb`. Pack it with `gltfpack -i dock_tankfarm_master_raw.glb -o dock_tankfarm_master.glb -cc -kn -km -ke -vpf`.
 - `_src/build_game_glb_tiered.py`: game exporter. It culls text, stencils, bolts, ribs, rails, cables and greebles under 0.3 m, disables bevel modifiers, remaps the materials to the 4 merged `SHM_*` materials (swatch colour goes to `COLOR_0`), welds, dissolves planar faces and collapse-decimates (base fitted to `--target 28000` total, tiers and moving parts at `--tierratio 0.7`). Splits out tier, moving-part and marker nodes.
   `blender -b dock_tankfarm_master.blend -P _src/build_game_glb_tiered.py -- --out raw.glb`, then `gltfpack -i raw.glb -o dock_tankfarm_game.glb -cc -kn -ke`
 - `_src/make_sheet.py`: builds the contact sheet (`python3 make_sheet.py turntable dock_tankfarm_turntable_sheet.png TITLE SUB hero.png`)
 - `dock_tankfarm_master.blend`: full scene (procedural shading, stage, lights, cameras, review astronauts). The door is rendered 50 % open (`--door`).
 - `dock_tankfarm_hero_3840x2160.png`: hero render (Cycles, OIDN, AgX), dock and tank farm on grey ground
-- `dock_tankfarm_phone_1179x2556.png` and `dock_tankfarm_phone_393x852.png`: in-game station camera view (3× master, and its Lanczos downscale)
-- `dock_tankfarm_game_preview_393x852.png` and `dock_tankfarm_game_preview_hero.png`: the game GLB itself (all tiers visible, door closed) from the station camera and the hero angle (flat preview renders)
+- `dock_tankfarm_phone_1179x2556.png` and `dock_tankfarm_phone_393x852.png`: in-game station camera view aimed at `Cam_Target`, W = 15 m (3× master, and its Lanczos downscale)
+- `dock_tankfarm_game_preview_393x852.png` and `dock_tankfarm_game_preview_hero.png`: the game GLB itself (all tiers visible, door closed) from the station camera (Cam_Target, W = 15 m) and the hero angle (flat preview renders)
 - `turntable/turn_000..315.png` and `dock_tankfarm_turntable_sheet.png`: 8 angles at 45° steps, plus the contact sheet
 
 ## Game GLB nodes
@@ -73,9 +73,11 @@ Markers (empty nodes, glTF coords):
 - `Crate_Drop` (0, 0.12, 6.00): crane drop spot in the yard lane, in front of the door.
 - `Container_Stack` (−4.00, 5.30, 3.00): top of the left front stack.
 - `Pipe_LaunchPad` (47.00, 1.20, 8.10): open flange at the end of the launch-pad line.
+- `Cam_Target` (0, 2.50, 4.00), `extras {"frame_w": 15}`: station-camera look-at (empty, no draws). Aim the camera at it from 18° down with 38° vertical FOV, at the distance where 15 m spans the screen width.
 - `Crew_Path_01..08`: from the airlock hatch over the dust mat and out to the hall front: (9.25, 0.32, 0.28), (9.25, 0.32, 1.60), (9.25, 0.12, 3.70), (8.65, 0.12, 6.00), (5.60, 0.12, 14.30), (2.30, 0.12, 11.90), (0, 0.12, 6.00), (0, 0.12, −2.10).
 
 ## Validation (game GLB)
+- three.js: `Cam_Target` loads at (0, 2.5, 4) with `userData.frame_w = 15`; all five tiers carry `{tier, hidden_by_default: true}`; clips Beacon_Lights_Blink 1.5 s, crane_gantry_move 6.0 s, dock_door_open 2.5 s.
 - `gltf-transform inspect`: 12 meshes / 12 primitives, 4 materials, no textures, 3 animations, extensionsUsed = [KHR_mesh_quantization, EXT_meshopt_compression] (no Draco).
 - Loaded in Node with three.js `GLTFLoader` plus `MeshoptDecoder`: 12 draw calls, 27,679 triangles, 29,331 vertices (all tiers visible), materials SHM_GlowCyan/GlowWhite/Metal/Paint, bbox (−24.75, −0.30, −36.26)…(48.00, 16.59, 16.94).
 - Materials contain only `pbrMetallicRoughness` and `emissiveFactor`, with no `KHR_materials_*` extensions.
@@ -85,5 +87,6 @@ Markers (empty nodes, glTF coords):
 - The game door is modelled closed (`Dock_Door` scale 1); the renders show it 50 % open.
 - Grime, dust, wear and corrugation are procedural and live only in the .blend and the renders.
 - The master GLB is for review, not the game. It still uses the `KHR_materials_clearcoat` and `KHR_materials_emissive_strength` extensions.
+- Fuel is LOX + LH2 (no methane anywhere). LH2-1/LH2-2 are MLI-jacketed white tanks but the **same size as the LOX tanks** (r 2.4 m). Real LH2 storage would need about 3× the LOX volume per tonne of fuel, so bigger LH2 tanks are a possible follow-up (it would need re-renders).
 - Cyan is used for light strips to match Mine B, and the He-3 canister/sphere glow blue-cyan. STYLE_GUIDE_3D reserves cyan for He-3, so the guide may need updating.
 - For framing, the tank farm is about 20–35 m from the hall and the launch-pad line ends at x = 47 m; a real installation would keep cryo tanks much farther from the dock.
