@@ -57,3 +57,4 @@ budget allows (about 0.3 MB left over).
 - The stage terrain comes from `mc_common.build_stage`, which currently includes the in-progress hills/crater edits.
 - For framing, FPU-1 sits about 65 m away. A real installation would put it about 1 km away behind terrain or a berm (the sign says so).
 - Cyan is used for light strips to match the chosen Mine B look. STYLE_GUIDE_3D reserves cyan for He-3, so the guide may need updating.
+- The turntable frames were rendered before the hull stencils were renamed M-1/M-2 to PM-1/PM-2 (to avoid clashing with melt vessel M-1). The label can't be read at 1000 px. The hero, .blend and GLBs have the final labels.
