@@ -192,10 +192,21 @@ def M_ground():
         return x.outputs[2]
     sp = N.new('ShaderNodeSeparateXYZ'); link(nt, P, sp.inputs[0])
     geo = N.new('ShaderNodeNewGeometry'); sn = N.new('ShaderNodeSeparateXYZ'); link(nt, geo.outputs['Normal'], sn.inputs[0])
-    # base regolith: cool neutral grey, large soft patches + mid-scale mottling
-    base = ramp(nz(P, 0.08, 12, 0.6), ((0.3, '#646770'), (0.7, '#9a9da2')))
+    # base regolith: cool neutral grey. ~12 m patches on a SOFT ramp (wide positions, narrow value range, same mean)
+    # so they read as gentle tone drift, not blotches; the ~80 m patch layer is kept but lighter
+    base = ramp(nz(P, 0.08, 12, 0.6), ((0.15, '#6f7279'), (0.85, '#909399')))
     patch_big = mr(nz(P, 0.012, 3, 0.5), 0.35, 0.65)
-    base = mix(math_('MULTIPLY', patch_big, 0.35), base, '#7c7f84')
+    base = mix(math_('MULTIPLY', patch_big, 0.25), base, '#7c7f84')
+    # mid-scale variation (~0.3-3 m): neutral value-only multipliers (no hue shift -> stays cool grey, never tan)
+    mid = math_('MULTIPLY', mr(nz(P, 0.9, 4, 0.55), 0.3, 0.7, 0.90, 1.10), mr(nz(P, 2.6, 3, 0.5), 0.3, 0.7, 0.94, 1.06))
+    mcc = N.new('ShaderNodeCombineColor')
+    for i in range(3): link(nt, mid, mcc.inputs[i])
+    base = mix(1.0, base, mcc.outputs[0], 'MULTIPLY')
+    # small pebbles: sparse voronoi discs (~0.2-0.35 m), each a random light or dark cool grey; also raised in the bump below
+    pv = N.new('ShaderNodeTexVoronoi'); pv.inputs['Scale'].default_value = 0.9; link(nt, P, pv.inputs['Vector'])
+    psep = N.new('ShaderNodeSeparateColor'); link(nt, pv.outputs['Color'], psep.inputs[0])
+    peb = math_('MULTIPLY', mr(pv.outputs['Distance'], 0.10, 0.17, 1.0, 0.0), mr(psep.outputs['Red'], 0.55, 0.62))   # ~40% of cells hold a pebble
+    base = mix(math_('MULTIPLY', peb, 0.6), base, ramp(psep.outputs['Green'], ((0.0, '#5d6066'), (1.0, '#a3a6ab'))))
     # strata: domain-warped height (two octaves of warp) -> 1-D fbm => beds of uneven thickness/spacing
     w1 = mr(nz(P, 0.02, 3), 0.0, 1.0, -4.0, 4.0, clamp=False)
     w2 = mr(nz(P, 0.07, 4), 0.0, 1.0, -1.6, 1.6, clamp=False)
@@ -226,6 +237,7 @@ def M_ground():
     link(nt, face, b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.97
     # bump: fine regolith grain everywhere + crack grooves and bed ledges on the rock faces (hard sun shadows)
     h = math_('ADD', nz(P, 3.0, 14, 0.6), math_('MULTIPLY', math_('SUBTRACT', math_('MULTIPLY', beds, 0.8), math_('MULTIPLY', crack, 0.9)), rock))
+    h = math_('ADD', h, math_('MULTIPLY', peb, 0.6))   # pebbles stand proud of the regolith (catch the hard sun)
     bump = N.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.4; bump.inputs['Distance'].default_value = 0.08
     link(nt, h, bump.inputs['Height']); link(nt, bump.outputs['Normal'], b.inputs['Normal'])
     m.diffuse_color = hexc('#7c7f84')
