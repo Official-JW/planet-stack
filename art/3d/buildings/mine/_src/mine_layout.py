@@ -6,8 +6,8 @@ Edits vs the concept-B master (Blender coords, Z up, metres):
   * DUMP 01 receiving hopper + lift tube removed - trucks haul to the Refinery station (off the right edge) and dump there.
   * Head-end cantilever pylon + boom (stood in the new haul road) replaced by a column under the trough, north of the road.
   * Haul road re-laid as a GRADED regolith track (4 m running surface, low berms, tyre-mark ruts, RoadCol vertex colour):
-    loop  load bay (x 4.7) -> east hairpin -> south straight -> west hairpin -> north line back to the bay,
-    plus a haul road stub leaving the east apex (Road_Entry) toward +X, off the frame's right edge (the Refinery is the next station).
+    two lanes like the Refinery road strip: OUT (bay -> S-curve -> lane glTF z 9 -> +X off the right edge) and RET (lane glTF z 0
+    from x 26 heading -X -> east of the operator deck -> south -> west -> U-turn round Dep_01 -> the bay heading +X).
   * Deposits moved inside the loop (Dep_01 east-centre, Dep_02 south straight); the drill taps them, the chute delivers the ore.
   * Astronaut removed (no astronauts in game assets)."""
 import bpy, bmesh, math
@@ -38,29 +38,41 @@ def conveyor():
 
 # --- station layout (world, Blender XY)
 LOAD = (TX, TY, 0.0)                         # truck centre + yaw(deg) at the conveyor head
-LOOP_END = (-5.0, -5.5, 0.0)                 # west end of the north line: last Path_NN way-point (then on to Path_Load_Approach)
+# (10/23 PM: the long west loop / south straight / west hairpin are gone - see HAUL below)
 # (10/23: the dump stub west to the Refinery intake, Path_Dump / Path_Dump_Approach and REFINERY_ANCHOR are gone - the Refinery is
 #  its own station, one swipe right; trucks leave the Mine at Road_Entry along the +X stub)
 DEP1 = (8.65, -8.65)
 DEP2 = (-1.2, -10.4)
 ROAD_W = 4.0                                 # graded running surface (HT-04 is 3.82 m over the tyres)
-ROAD_ENTRY = (13.5, -9.0)                    # east apex of the loop; the haul road stub leaves here heading +X (off the frame's right edge)
+ROAD_ENTRY = (16.794, -9.0)                  # end of the outbound S-curve: from here the loaded lane runs straight +X off the right edge
 
-def _smooth(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
-def north_y(x): return -5.5 + 1.0 * _smooth((x + 4.0) / 4.0)   # S-blend: y -5.5 west of x=-4, -4.5 east of x=0
-
-def loop_points(step=0.5):
-    """closed haul loop in driving order, starting at the west end of the north line (dump approach)."""
+# --- haul network (10/23 PM, two lanes to match the Refinery road strip; Blender XY, glTF z = -Blender y):
+#   OUT (loaded):  Path_Load (4.7,-4.5) -> +X along the bay -> S-curve (R 4.5, 2 x 60 deg) -> outbound lane y -9 (glTF z 9) -> x 26
+#   RET (empty):   x 26 on the return lane y 0 (glTF z 0), heading -X -> left 90 (R 4.5, east of the Operator_Deck) -> south leg x 19.5
+#                  (crosses the outbound lane) -> right 90 -> west on y -13.5 -> right U-turn (R 4.5) round Dep_01 -> bay heading +X
+#                  -> Path_Load_Approach (9,-4.5) -> reverse 4.3 m to Path_Load.
+R_T = 4.5
+BAY_X0 = 0.0                                 # west end of the load bay (truck tail at Path_Load ~ x 1.2)
+_S_DX = 2 * R_T * math.sin(math.radians(60))  # 7.794: S-curve length along x for a 4.5 m lateral offset
+RET_X_LEG = 19.5                             # return south leg (x); berm toe 16.7 stays east of the deck (x <= 15.42)
+U_X = 8.65                                   # centre x of the return U-turn (centre (8.65, -9)): directly over Dep_01 x, so the U clears its tap circle like the bay does
+def _line(a, b): a, b = Vector((a[0], a[1], 0)), Vector((b[0], b[1], 0)); return ('line', a, b, (b - a).length)
+def _arcl(c, a0, a1): return ('arc', Vector((c[0], c[1], 0)), (math.radians(a0), math.radians(a1)), abs(math.radians(a1 - a0)) * R_T)
+def _pt(leg, t):
+    if leg[0] == 'line': return leg[1].lerp(leg[2], t)
+    c, (a0, a1) = leg[1], leg[2]; a = a0 + (a1 - a0) * t; return Vector((c.x + R_T * math.cos(a), c.y + R_T * math.sin(a), 0))
+OUT_LEGS = [_line((TX, TY), (9.0, TY)), _arcl((9.0, TY - R_T), 90, 30), _arcl((9.0 + _S_DX, TY), 210, 270), _line((9.0 + _S_DX, -9.0), (26.0, -9.0))]
+RET_LEGS = [_line((26.0, 0.0), (RET_X_LEG + R_T, 0.0)), _arcl((RET_X_LEG + R_T, -R_T), 90, 180), _line((RET_X_LEG, -R_T), (RET_X_LEG, -9.0)),
+            _arcl((RET_X_LEG - R_T, -9.0), 0, -90), _line((RET_X_LEG - R_T, -13.5), (U_X, -13.5)), _arcl((U_X, -9.0), -90, -180),
+            _arcl((U_X, -9.0), 180, 90), _line((U_X, TY), (9.0, TY))]
+def leg_rows(legs, d_line=1.0, d_arc=0.6):
     P = []
-    n = int(14 / step)
-    for i in range(n): x = -5 + 14 * i / n; P.append(Vector((x, north_y(x), 0)))
-    n = int(math.pi * 4.5 / step)
-    for i in range(n): a = math.pi / 2 - math.pi * i / n; P.append(Vector((9 + 4.5 * math.cos(a), -9 + 4.5 * math.sin(a), 0)))
-    n = int(14 / step)
-    for i in range(n): P.append(Vector((9 - 14 * i / n, -13.5, 0)))
-    n = int(math.pi * 4 / step)
-    for i in range(n): a = 1.5 * math.pi - math.pi * i / n; P.append(Vector((-5 + 4 * math.cos(a), -9.5 + 4 * math.sin(a), 0)))
-    return P
+    for lg in legs:
+        n = max(1, int(round(lg[3] / (d_line if lg[0] == 'line' else d_arc))))
+        P += [_pt(lg, k / n) for k in range(n)]
+    P.append(_pt(legs[-1], 1.0)); return P
+def out_rows(): return [Vector((x, TY, 0)) for x in _seg(None, BAY_X0, TX, 1.0)] + leg_rows(OUT_LEGS)
+def ret_rows(): return leg_rows(RET_LEGS[:-1])          # ends where the U-turn meets the bay (x 8.65); the bay strip carries the last 0.35 m
 
 def ground_fn():
     g = bpy.data.objects['Ground']; me = g.data
@@ -84,23 +96,12 @@ ROAD_COL = {k: _srgb(v) for k, v in ROAD_HEX.items()}   # sRGB: bmesh BYTE_COLOR
 
 def _seg(pts, a, b, step):
     n = max(1, int(round(abs(b - a) / step))); return [a + (b - a) * i / n for i in range(n)]
-def loop_rows():
-    """same centre line as loop_points(), sampled coarser on the straights, finer on the hairpins (fewer tris)."""
-    P = []
-    for x in _seg(P, -5.0, 9.0, 1.0): P.append(Vector((x, north_y(x), 0)))
-    for a in _seg(P, math.pi / 2, -math.pi / 2, 0.6 / 4.5): P.append(Vector((9 + 4.5 * math.cos(a), -9 + 4.5 * math.sin(a), 0)))
-    for x in _seg(P, 9.0, -5.0, 1.2): P.append(Vector((x, -13.5, 0)))
-    for a in _seg(P, 1.5 * math.pi, 0.5 * math.pi, 0.6 / 4.0): P.append(Vector((-5 + 4 * math.cos(a), -9.5 + 4 * math.sin(a), 0)))
-    return P
 def _bez(p0, p1, p2, p3, n):
     out = []
     for i in range(n + 1):
         t = i / n; u = 1 - t
         out.append(Vector(p0) * u ** 3 + Vector(p1) * 3 * u * u * t + Vector(p2) * 3 * u * t * t + Vector(p3) * t ** 3)
     return out
-def access_rows():
-    """haul road stub: leaves the loop at ROAD_ENTRY (east apex) straight toward +X and runs off the frame's right edge (Refinery station)."""
-    return [Vector((x, ROAD_ENTRY[1], 0)) for x in _seg(None, ROAD_ENTRY[0], 26.0, 1.0)] + [Vector((26.0, ROAD_ENTRY[1], 0))]
 def _dense(pts, closed, step=0.2):
     out = []; n = len(pts)
     for i in range(n if closed else n - 1):
@@ -109,6 +110,7 @@ def _dense(pts, closed, step=0.2):
     if not closed: out.append(pts[-1])
     return out
 def _sm(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
+_smooth = _sm
 
 def graded_roads(height, mat):
     """builds haul_road_loop / haul_road_dump / haul_road_access: graded track + berms + tyre-mark ruts.
@@ -117,7 +119,7 @@ def graded_roads(height, mat):
     from mathutils.kdtree import KDTree
     from mathutils import noise
     from mc_common import _obj
-    roads = [('haul_road_loop', loop_rows(), True, 0.065), ('haul_road_access', access_rows(), False, 0.045)]
+    roads = [('haul_road_out', out_rows(), False, 0.065), ('haul_road_return', ret_rows(), False, 0.045)]
     trees = []
     for nm, pts, cl, _ in roads:
         d = _dense(pts, cl); kd = KDTree(len(d))

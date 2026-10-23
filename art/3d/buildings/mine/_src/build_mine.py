@@ -676,28 +676,45 @@ DIS = LAY['DIS']
 BEDC_W = TORG + Vector((LOAD_C.x, LOAD_C.y, 0))
 print('LOADCHECK bed centre (world)', tuple(round(v, 3) for v in BEDC_W), 'chute DIS', tuple(round(v, 3) for v in DIS), 'dxy', round((BEDC_W.xy - DIS.xy).length, 4))
 emp('Path_Load', ML.LOAD, 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'chute_glTF': gl((DIS.x, DIS.y, 4.35)),
-    'bed_centre_glTF': gl((BEDC_W.x, BEDC_W.y, LOAD_C.z)), 'note': 'bed centre exactly under the chute mouth; reverse in from Path_Load_Approach, play chute_pour (loop) while code raises the fill morph 0->100 %, then drive off forward (+X glTF) along Path_01.. to Road_Entry'})
-emp('Path_Load_Approach', (ML.LOAD[0] + 4.3, ML.LOAD[1], 0.0), 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'note': 'on return: drive forward past the chute to here (heading +X), stop, then reverse 4.3 m straight along -X(glTF) to Path_Load'})
+    'bed_centre_glTF': gl((BEDC_W.x, BEDC_W.y, LOAD_C.z)), 'note': 'bed centre exactly under the chute mouth; reverse in from Path_Load_Approach, play chute_pour (loop) while code raises the fill morph 0->100 %, then drive off forward (+X glTF) along Path_Out_01.. (Road_Entry = Path_Out_03) and off the right edge'})
+emp('Path_Load_Approach', (ML.LOAD[0] + 4.3, ML.LOAD[1], 0.0), 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'note': 'on return: Path_Ret_01..08 end here heading +X; stop, then reverse 4.3 m straight along -X(glTF) to Path_Load'})
 emp('Rich_Pop', (BEDC_W.x, BEDC_W.y, GZ + ML.BTOP + 1.6), 0, {'kind': 'fx_anchor', 'note': 'money pop for the rich load: spawn the +value pop here when truck_load_rich plays (truck parked at Path_Load)'})
 FA = bpy.data.objects.new('Fill_Arc', None); col.objects.link(FA); FA.parent = arm; FA.location = (2.2, 0.0, 4.6)   # truck-local: 0.9 m over the cab light bar
 FA['kind'] = 'ui_anchor'; FA['note'] = 'anchor for the slim cyan fill-% arc, child of the Truck root (truck-local glTF (2.2, 4.6, 0)): 0.9 m over the cab light bar'
 emp('Operator_Deck', (14.0, -1.2, 0.0), 0, {'kind': 'prop_anchor', 'prop': 'art/3d/props/mine_operator/mine_operator_game.glb', 'note': 'place the mine operator prop root here, rotation identity (deck front faces +Z glTF, toward the camera); scenery only'})
-# haul loop way-points in driving order: Path_Load -> east hairpin -> south straight -> west hairpin -> Path_Dump_Approach
-lp = ML.loop_points(0.25); n = len(lp)
-def yaw_at(i): t = lp[(i + 1) % n] - lp[i - 1]; return math.degrees(math.atan2(t.y, t.x))
-i0 = min(range(n), key=lambda i: (lp[i] - Vector((ML.TX + 0.0, ML.TY, 0))).length)
-seq = [lp[(i0 + k) % n] for k in range(n)]; idx = [(i0 + k) % n for k in range(n)]
-s_acc, picks, last = 0.0, [], None
-end = min(range(n), key=lambda k: (seq[k] - Vector(ML.LOOP_END)).length)
-for k in range(1, end):
-    if last is None or (seq[k] - last).length >= 3.0: picks.append(k); last = seq[k]
-PATHS = []
-for j, k in enumerate(picks):
-    p = seq[k]; e = emp('Path_%02d' % (j + 1), (p.x, p.y, 0.0), yaw_at(idx[k]), {'kind': 'truck_pose', 'yaw_deg': round(yaw_at(idx[k]), 1)}); PATHS.append(e)
+# haul way-points (10/23 PM): Path_Out_NN = loaded, Path_Load -> outbound lane (glTF z 9) -> x 26;
+# Path_Ret_NN = empty, x 26 on the return lane (glTF z 0) -> U-turn -> Path_Load_Approach. One marker at the START of every leg;
+# extras.next_leg says how to get to the next marker (straight, or an arc of radius 4.5 m about centre_glTF), so code can follow the
+# eased curves exactly (or sample them) instead of cutting corners between markers.
+SPEED = 100.0 / 12.0
+def _tan(lg):
+    if lg[0] == 'line': d = lg[2] - lg[1]
+    else: a0, a1 = lg[2]; sg = 1 if a1 > a0 else -1; d = Vector((-math.sin(a0) * sg, math.cos(a0) * sg, 0))
+    return math.degrees(math.atan2(d.y, d.x))
+def _leg_x(lg):
+    if lg[0] == 'line': return {'type': 'straight', 'length_m': round(lg[3], 3)}
+    a0, a1 = lg[2]
+    return {'type': 'arc', 'turn': 'left' if a1 > a0 else 'right', 'radius_m': ML.R_T, 'centre_glTF': gl(lg[1]), 'sweep_deg': round(abs(math.degrees(a1 - a0)), 1), 'length_m': round(lg[3], 3)}
+def _yaw(v): v = (v + 180.0) % 360.0 - 180.0; return 180.0 if abs(v + 180.0) < 1e-6 else round(v, 2)
+HAUL = {}
+for pre, legs, first, last in (('Path_Out', ML.OUT_LEGS, 1, 'leaves the Mine at x 26 on the outbound lane (glTF z 9, heading +X) = the Refinery road strip inbound lane'),
+                               ('Path_Ret', ML.RET_LEGS, 0, 'next: Path_Load_Approach, stop, reverse 4.3 m along -X to Path_Load')):
+    s_ = sum(lg[3] for lg in legs[:first]); seq_ = []
+    for k, lg in enumerate(legs[first:]):
+        p = ML._pt(lg, 0.0); nm = '%s_%02d' % (pre, k + 1); y_ = _yaw(_tan(lg))
+        emp(nm, (p.x, p.y, 0.0), y_, {'kind': 'truck_pose', 'yaw_deg': y_, 'route': 'out (loaded)' if pre == 'Path_Out' else 'return (empty)', 's_m': round(s_, 3), 'next_leg': json.dumps(_leg_x(lg))})
+        seq_.append({'name': nm, 'glTF': gl(p), 'yaw_deg': y_, 's_m': round(s_, 3), 'next_leg': _leg_x(lg)}); s_ += lg[3]
+    pe = ML._pt(legs[-1], 1.0)
+    if pre == 'Path_Out':
+        nm = 'Path_Out_%02d' % (len(legs) - first + 1)
+        emp(nm, (pe.x, pe.y, 0.0), 0.0, {'kind': 'truck_pose', 'yaw_deg': 0.0, 'route': 'out (loaded)', 's_m': round(s_, 3), 'note': last})
+        seq_.append({'name': nm, 'glTF': gl(pe), 'yaw_deg': 0.0, 's_m': round(s_, 3)})
+    HAUL[pre] = {'markers': seq_, 'length_m': round(s_, 3), 'time_s_at_8.33': round(s_ / SPEED, 2)}
+print('HAUL', json.dumps(HAUL))
 # deposits + spur (scoop) poses
 for nm, (x, y), r, lab in (('Dep_01', ML.DEP1, 2.2, 'main He-3 seam'), ('Dep_02', ML.DEP2, 1.05, 'tap deposit')):
     emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'tap': 'the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load', 'glow': 'drawn by the game (no deposit mesh in the GLB; clear ground within 2.5 m)'})
-emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_entry', 'note': 'east apex of the haul loop; the haul road stub (haul_road_access) leaves here heading +X(glTF) off the right edge of the frame toward the Refinery station (+160 m, one swipe right)'})
+emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_entry', 'note': 'end of the outbound S-curve (= Path_Out_03): the loaded lane runs straight +X(glTF) at z 9 off the right edge to x 26 (Refinery road strip). The empty return lane comes in at z 0 (Path_Ret_01, x 26).'})
 CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.6, 0.2, 0.0), (5.6, 1.0, 0.0), (8.6, 1.4, 0.0)]
 for i, p in enumerate(CREW): emp('Crew_Path_%02d' % (i + 1), (p[0], p[1], p[2] if p[2] > 0.3 else H(p[0], p[1])), 0, {'kind': 'crew_path'})
 
@@ -737,7 +754,7 @@ print('WHEEL_R', WHEEL_R, 'axle z', ML.WR, 'min tread r', round(min(_rr), 3))
 bpy.ops.export_scene.gltf(filepath=TOUT, **GLTF_KW)
 print('TRUCK RAW', TOUT, os.path.getsize(TOUT), 'TRIS', TRUCK_TRIS)
 INFO = {'W': W, 'cam_target': list(CAM_T), 'cam_target_glTF': gl(CAM_T), 'cam_d': CAM_D, 'fit_box_px': FIT_BOX, 'tris': {o.name: tris([o]) for o in col.objects if o.type == 'MESH' and o != tm}, 'truck_tris': TRUCK_TRIS, 'truck_raw': TOUT,
-        'clearance': REPORT, 'load': {'heap_base': list(HEAP_C), 'heap_h': HEAP_H, 'chute_mouth_z': CHUTE_Z, 'fill_morph': FILL_INFO},
+        'clearance': REPORT, 'haul': HAUL, 'load': {'heap_base': list(HEAP_C), 'heap_h': HEAP_H, 'chute_mouth_z': CHUTE_Z, 'fill_morph': FILL_INFO},
         'markers': {o.name: {'glTF_pos': gl(o.location), 'yaw_deg': round(math.degrees(o.rotation_euler.z), 2), 'extras': {k: (v if isinstance(v, (int, float, str)) else list(v)) for k, v in o.items()}}
                     for o in col.objects if o.type == 'EMPTY' and o != root}}
 json.dump(INFO, open(MOUT.replace('.glb', '_info.json'), 'w'), indent=1, default=str)
