@@ -72,10 +72,10 @@ def ground_fn():
 
 # --- graded regolith haul road (replaces the flat dark decal): cross-section, half-widths from the centre line (m).
 # kind -> vertex colour; dz is height over the graded surface (toe is relative to the ground: it is buried so the berm grows out of it)
-_HALF = [(0.0, 0.02, 'track'), (1.2, 0.0, 'track'), (1.5, -0.02, 'mark'), (1.8, 0.0, 'track'), (2.0, 0.0, 'foot'), (2.35, 0.25, 'crest'), (2.8, -0.04, 'toe')]
+_HALF = [(0.0, 0.02, 'track'), (1.05, 0.0, 'track'), (1.25, -0.03, 'mark'), (1.65, -0.03, 'mark'), (1.85, 0.0, 'track'), (2.0, 0.0, 'foot'), (2.35, 0.25, 'crest'), (2.8, -0.04, 'toe')]   # worn tyre tracks 0.4 m wide at +-1.45 (HT-04 tyre centres)
 PROFILE = [(-o, dz, k) for o, dz, k in reversed(_HALF[1:])] + _HALF
 BERM_IN, BERM_OUT = 2.0, 2.8
-ROAD_HEX = {'track': '#a4a7ac', 'mark': '#878a8f', 'foot': '#9da0a5', 'crest': '#939499', 'toe': '#82858a'}
+ROAD_HEX = {'track': '#a4a7ac', 'mark': '#6c6f74', 'foot': '#9da0a5', 'crest': '#939499', 'toe': '#82858a'}
 def _lin(h):
     h = h.lstrip('#'); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
     return Vector([x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c])

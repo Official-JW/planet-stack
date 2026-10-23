@@ -1,13 +1,20 @@
 """Fill / pour / rich proof renders of the GAME mesh in the Mine phone framing (Cam_Target extras).
-  $B -b -P proof_fill.py -- --glb /tmp/mine4/raw_pruned.glb --out DIR [--ps 24]
+  $B -b -P proof_fill.py -- --glb /tmp/mine4/raw_pruned.glb --truck /tmp/mine4/ht04_raw_pruned.glb --out DIR [--ps 24]
+  (--truck: the shared HT-04 prop, placed with its root on the Mine's Path_Load marker)
 (Blender's importer has no meshopt decoder: feed it the pruned raw GLB = mine_game.glb before gltfpack.)
-Writes DIR/stage_XX_<pct>.png (393x852), pour.png, rich.png and closeup_{full,pour,rich}.png (1179x2556 phone scale, cropped)."""
+Default: DIR/stage_XX_<pct>.png (393x852 crops), pour.png, rich.png and closeup_{full,pour,rich}.png (1179x2556 phone scale, cropped).
+--mode strip: FULL phone frames DIR/full_<rx>_<pct>.png at 10 / 33 / 66 / 100 % (official remap), chute_pour running at 10/33/66,
+plus full_<rx>_000.png (empty after a dump); --rx 393 or 1179 (852 / 2556 high). Compose with proof_strip.py."""
 import bpy, sys, math, os
 from mathutils import Vector
 a = sys.argv[sys.argv.index('--') + 1:]; A = {a[i].lstrip('-'): a[i + 1] for i in range(0, len(a) - 1, 2)}
 OUT = A['out']; os.makedirs(OUT, exist_ok=True)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=A['glb'])
+if A.get('truck'):                                  # shared HT-04 prop (art/3d/props/ht04): root dropped onto the Mine's Path_Load marker
+    bpy.ops.import_scene.gltf(filepath=A['truck'])
+    _pl = bpy.data.objects['Path_Load']; bpy.context.view_layer.update()
+    bpy.data.objects['Truck'].matrix_world = _pl.matrix_world.copy()
 sc = bpy.context.scene; sc.render.engine = 'CYCLES'; sc.cycles.samples = int(A.get('ps', 24)); sc.cycles.use_denoising = True
 sc.view_settings.view_transform = 'AgX'; sc.render.film_transparent = False
 w = bpy.data.worlds.new('W'); sc.world = w; w.use_nodes = True; w.node_tree.nodes['Background'].inputs[0].default_value = (0.03, 0.035, 0.045, 1); w.node_tree.nodes['Background'].inputs[1].default_value = 1.0
@@ -36,11 +43,11 @@ for o in bpy.data.objects:
     if o.animation_data:
         for t in o.animation_data.nla_tracks: t.mute = True
 def act(name, f):
-    arm.animation_data_create(); arm.animation_data.action = next((x for x in bpy.data.actions if x.name.startswith(name)), None) if name else None
+    arm.animation_data_create(); arm.animation_data.action = next((x for x in bpy.data.actions if x.name.startswith(name) and not x.name.startswith('_')), None) if name else None
     for pb in arm.pose.bones: pb.location = (0, 0, 0); pb.rotation_quaternion = (1, 0, 0, 0); pb.scale = (1, 1, 1)
     sc.frame_set(f)
 from bpy_extras.object_utils import world_to_camera_view
-def wt(pct): return math.sqrt(pct / 100.0)       # documented mapping: morph influence = sqrt(fill_pct / 100)
+def wt(pct): return 0.0 if pct <= 0 else 0.5 + 0.5 * (pct / 100.0) ** 0.8    # official remap (README)
 def bbox_px(rx, ry):
     q = world_to_camera_view(sc, cam, arm.matrix_world.translation + Vector((-1.6, 0, 2.5)))
     return q.x, q.y
@@ -52,6 +59,12 @@ def render(path, rx, ry, crop=None):
         sc.render.border_min_x, sc.render.border_max_x = cx - hw, cx + hw; sc.render.border_min_y, sc.render.border_max_y = cy - hh, cy + hh
     else: sc.render.use_border = False
     sc.render.filepath = path; bpy.ops.render.render(write_still=True); print('WROTE', path)
+if A.get('mode') == 'strip':
+    rx = int(A.get('rx', 393)); ry = {393: 852, 1179: 2556}[rx]; pf = int(A.get('pf', 12))
+    for pct in [int(x) for x in A.get('pcts', '10,33,66,100,0').split(',')]:
+        kf.value = wt(pct); act('chute_pour' if 0 < pct < 100 else None, pf)
+        render(os.path.join(OUT, 'full_%d_%03d.png' % (rx, pct)), rx, ry)
+    sys.exit(0)
 st = A.get('stages', '1') == '1'
 if st:
     for i, pct in enumerate((0, 17, 33, 50, 67, 83, 100)):

@@ -43,10 +43,13 @@ def _under(o, r):
 _arm = [o.name for o in bpy.data.objects if _under(o, TROOT) and o.name.split('.')[0].startswith(('arm_', 'scoop'))]
 for _n in _arm: bpy.data.objects.remove(bpy.data.objects[_n], do_unlink=True)
 print('ARM removed', len(_arm), 'objects')
-# Fill + pour parts (Director 10/23, 2nd pass). Fill is code-driven by percent: ONE pile mesh (bed_heap, bone Truck_Load) carrying a
-# morph target 'fill' on Truck_Mesh (influence 0 = thin layer, 1 = heaped full) - cheaper than 7 stage meshes (0 extra draws).
-# Ore chunks are tiny specks buried in the bed floor at rest (invisible), skinned to their own bones, scaled up only while falling:
-#  * Truck_Pour_01..04: rock / He-3 chunks of the looping chute_pour clip (chute mouth -> bed)
+# Fill + pour parts (Director 10/23, 3rd pass). Fill is code-driven by percent: ONE pile mesh (bed_heap, bone Truck_Load) carrying a
+# morph target 'fill' on Truck_Mesh - cheaper than 7 stage meshes (0 extra draws). Official code remap (Director):
+#   influence = 0.5 + 0.5 * (fill_pct / 100) ** 0.8   for fill_pct > 0;   influence = 0 for fill_pct == 0 (empty, after a dump)
+# so the shapes are designed around it: Basis (0) = 2*MID - FULL, hidden below the bed rim from the station camera (empty look);
+# influence 0.5 = MID, a real crowning heap ~0.18 m over the rim top; influence 1 = FULL, a conical heap 0.85 m over the rim top.
+# Ore chunks are tiny specks buried in the bed floor at rest (invisible), skinned to their own bones, scaled up only while moving:
+#  * Truck_Pour_01..07: rock / He-3 chunks of the looping chute_pour stream (chute mouth -> pile), Truck_Dust_01..04: landing puffs
 #  * Truck_Rich_01..05: glowing cyan chunks of the 1 s truck_load_rich drop
 _HEAP = next(o for o in bpy.data.objects if o.name.split('.')[0] == 'bed_heap')
 _hb = [_HEAP.matrix_world @ Vector(c) for c in _HEAP.bound_box]
@@ -54,14 +57,51 @@ HEAP_C = Vector(((min(v.x for v in _hb) + max(v.x for v in _hb)) / 2, (min(v.y f
 HEAP_H = max(v.z for v in _hb) - HEAP_C.z
 _dc = [o for o in bpy.data.objects if o.type == 'MESH' and o.name.split('.')[0] == 'dis_chute']
 CHUTE_Z = min((o.matrix_world @ Vector(c)).z for o in _dc for c in o.bound_box) if _dc else 4.35
+# pile shapes (truck-local metres; heightfield over the bed interior, apex under the chute)
+PILE_CX, PILE_AX, PILE_AY = HEAP_C.x - TORG.x, (ML.BX1 - ML.BX0) / 2 - 0.12, ML.BW - 0.16     # half extents 1.78 x 1.24 (bed interior)
+RIM_TOP = ML.BTOP + 0.08                                  # top of the bed rim rail
+FULL_APEX, FULL_EDGE = RIM_TOP + 0.85, ML.BTOP           # 100 %: conical heap 0.85 m over the rim top, flush with the rim at the walls
+BASIS_APEX = 2.87                                         # station camera sight line over the near rim reaches 2.88 m at the bed centre
+MID_APEX, MID_EDGE, MID_Q = (BASIS_APEX + FULL_APEX) / 2, 2.62, 1.2
+PILE_SKIRT_Z = 1.95                                       # skirt ring tucked into the bed floor (closes the heightfield at the open tail)
+def pile_r(x, y):
+    u, v = abs(x - PILE_CX) / PILE_AX, abs(y) / PILE_AY
+    return min(1.0, (u ** 2.2 + v ** 2.2) ** (1 / 2.2))
+def pile_full(r): return FULL_EDGE + (FULL_APEX - FULL_EDGE) * (1 - r)
+def pile_mid(r): return MID_EDGE + (MID_APEX - MID_EDGE) * (1 - r) ** MID_Q
+def pile_basis(r): return 2 * pile_mid(r) - pile_full(r)
+if MODE != 'phone':                                       # game build: replace the concept's static heap with the morphable heightfield
+    import random as _rnd
+    _rr = _rnd.Random(21); NXg, NYg = 17, 13
+    bm_ = bmesh.new(); _g = {}
+    _inv = _HEAP.matrix_world.inverted()
+    for ix in range(NXg):
+        for iy in range(NYg):
+            x = PILE_CX - PILE_AX + 2 * PILE_AX * ix / (NXg - 1); y = -PILE_AY + 2 * PILE_AY * iy / (NYg - 1)
+            r_ = pile_r(x, y); n_ = 0.035 * min(1.0, r_ / 0.25) * (_rr.random() * 2 - 1)
+            _g[ix, iy] = bm_.verts.new(_inv @ (TORG + Vector((x, y, pile_basis(r_) + n_))))
+    _ring = [(ix, 0) for ix in range(NXg)] + [(NXg - 1, iy) for iy in range(1, NYg)] + [(ix, NYg - 1) for ix in range(NXg - 2, -1, -1)] + [(0, iy) for iy in range(NYg - 2, 0, -1)]
+    _sk = {k: bm_.verts.new(_inv @ (TORG + Vector(((_inv.inverted() @ _g[k].co) - TORG).xy[:] + (PILE_SKIRT_Z,)))) for k in _ring}
+    for ix in range(NXg - 1):
+        for iy in range(NYg - 1): bm_.faces.new((_g[ix, iy], _g[ix + 1, iy], _g[ix + 1, iy + 1], _g[ix, iy + 1]))
+    for a_, b_ in zip(_ring, _ring[1:] + _ring[:1]):
+        try: bm_.faces.new((_g[a_], _g[b_], _sk[b_], _sk[a_]))
+        except ValueError: pass
+    bmesh.ops.recalc_face_normals(bm_, faces=bm_.faces)
+    _me = bpy.data.meshes.new('bed_heap_fill'); bm_.to_mesh(_me); bm_.free()
+    for p_ in _me.polygons: p_.use_smooth = False
+    _me.materials.append(_HEAP.data.materials[0] if _HEAP.data.materials else None); _HEAP.data = _me
 ORE_SPECK = 0.02
-_SPOTS = [(-0.3, 0.15), (0.25, -0.2), (0.05, 0.3), (-0.1, -0.25), (0.35, 0.1), (-0.4, -0.05), (0.15, 0.05), (-0.2, 0.32), (0.4, -0.3)]
-CHUNKS = [('Truck_Pour_%02d' % (k + 1), 'B_OreRock' if k % 2 == 0 else 'B_He3', r) for k, r in enumerate((0.3, 0.26, 0.28, 0.25))]
-CHUNKS += [('Truck_Rich_%02d' % (k + 1), 'B_He3', r) for k, r in enumerate((0.32, 0.28, 0.3, 0.27, 0.29))]
+POUR_N, RICH_N, DUST_N = 7, 5, 4
+CHUNKS = [('Truck_Pour_%02d' % (k + 1), 'B_OreRock' if k % 2 == 0 else 'B_He3', r) for k, r in enumerate((0.34, 0.29, 0.36, 0.3, 0.33, 0.28, 0.35))]
+CHUNKS += [('Truck_Rich_%02d' % (k + 1), 'B_He3', r) for k, r in enumerate((0.34, 0.3, 0.32, 0.29, 0.31))]
+CHUNKS += [('Truck_Dust_%02d' % (k + 1), 'B_OreRock', r) for k, r in enumerate((0.3, 0.27, 0.32, 0.28))]
 CH_REST = {}
 for k, (bn, mn, _) in enumerate(CHUNKS):
-    dx, dy = _SPOTS[k]; CH_REST[bn] = Vector((HEAP_C.x - TORG.x + dx, HEAP_C.y - TORG.y + dy, HEAP_C.z - TORG.z - 0.03))
-    ch_ = sphere('load_chunk', ORE_SPECK, tuple(TORG + CH_REST[bn]), bpy.data.materials[mn], scale=(1.2, 1.0, 0.85), sub=1, smooth=False)
+    a_ = 2.39996 * k; rr_ = 0.12 + 0.03 * (k % 5)
+    CH_REST[bn] = Vector((HEAP_C.x - TORG.x + rr_ * math.cos(a_), HEAP_C.y - TORG.y + rr_ * math.sin(a_), HEAP_C.z - TORG.z - 0.03))
+    _sc = (1.25, 1.25, 0.6) if 'Dust' in bn else (1.2, 1.0, 0.85)
+    ch_ = sphere('load_chunk', ORE_SPECK, tuple(TORG + CH_REST[bn]), bpy.data.materials[mn], scale=_sc, sub=1, smooth=False, jitter=0.0 if 'Dust' in bn else 0.25, seed=k)
     ch_.parent = TROOT; ch_.matrix_parent_inverse = TROOT.matrix_world.inverted(); ch_['keep_truck'] = 1; ch_['chunk_bone'] = bn; ch_.hide_render = True
 print('LOAD parts: heap base', tuple(round(v, 3) for v in HEAP_C), 'h', round(HEAP_H, 3), 'chute mouth z', round(CHUTE_Z, 3))
 
@@ -290,13 +330,14 @@ bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get()
 col = bpy.data.collections.new('Game'); sc.collection.children.link(col)
 
 # truck bone assignment
-AX = [(x, sy * 1.5) for sy in (1, -1) for x in ML.AXLES]   # Wheel_01..03 left (+Y) rear->front, 04..06 right (-Y) rear->front
+AX = [(x, sy * 1.5) for sy in (1, -1) for x in ML.AXLES]   # left (+Y) rear->front, right (-Y) rear->front
+WHEELN = ['HT04_Wheel_RL', 'HT04_Wheel_ML', 'HT04_Wheel_FL', 'HT04_Wheel_RR', 'HT04_Wheel_MR', 'HT04_Wheel_FR']   # F = front axle, M/R = rear tandem
 def seg_dist(p, a, b):
     ab = b - a; t = max(0, min(1, (p - a).dot(ab) / ab.length_squared)); return (a + ab * t - p).length
 def truck_bone(o, cl):
     b = base(o)
     if b in ('tire', 'rim', 'hub', 'hub_glow', 'hub_cap'):
-        k = min(range(6), key=lambda i: (cl.x - AX[i][0]) ** 2 + (cl.y - AX[i][1]) ** 2); return 'Truck_Wheel_%02d' % (k + 1)
+        k = min(range(6), key=lambda i: (cl.x - AX[i][0]) ** 2 + (cl.y - AX[i][1]) ** 2); return WHEELN[k]
     if b.startswith('Ram'):
         side = 'R' if b[3] == 'L' else 'L'      # concept 'RamL' sits at -Y = the truck's right
         if 'Stage2' in b: return 'Truck_Ram_%s_Stage2' % side
@@ -325,13 +366,23 @@ for o in keep:
         me.color_attributes.remove(me.color_attributes['RoadCol'])
     me.color_attributes.active_color = me.color_attributes['Col']
     for i, (m_, _) in enumerate(sm): me.materials[i] = m_
-    if base(o) == 'bed_heap':                          # ore pile: rock with He-3 crystal flecks (reads as ore at phone scale)
+    if base(o) == 'bed_heap':                          # ore pile: pale broken regolith (reads against the dark bed) with He-3 crystal flecks
         for j_, poly in enumerate(me.polygons):
-            if (j_ * 7919) % 100 < 16:
-                for li in poly.loop_indices: ca.data[li].color = lin('#2fe3ff')
+            h_ = (j_ * 7919) % 100
+            c_ = lin('#2fe3ff') if h_ < 16 else lin('#b4ada1') if h_ < 58 else lin('#9c958a') if h_ < 86 else lin('#c9c2b5')
+            for li in poly.loop_indices: ca.data[li].color = c_
     if base(o) == 'load_chunk' and o['chunk_bone'].startswith('Truck_Rich'):   # rich ore: bright glow cyan, faceted
         for j_, poly in enumerate(me.polygons):
             c_ = lin('#5fe8ff') if j_ % 3 else lin('#c8fbff')
+            for li in poly.loop_indices: ca.data[li].color = c_
+    if base(o) == 'load_chunk' and o['chunk_bone'].startswith('Truck_Pour'):   # stream chunks: pale rock / bright He-3 (read in the chute shadow)
+        he_ = int(o['chunk_bone'][-2:]) % 2 == 0
+        for j_, poly in enumerate(me.polygons):
+            c_ = (lin('#5fe8ff') if j_ % 3 else lin('#c8fbff')) if he_ else (lin('#cdc6b9') if j_ % 2 else lin('#aaa397'))
+            for li in poly.loop_indices: ca.data[li].color = c_
+    if base(o) == 'load_chunk' and o['chunk_bone'].startswith('Truck_Dust'):   # landing dust: pale regolith grey
+        for j_, poly in enumerate(me.polygons):
+            c_ = lin('#d8d3c8') if j_ % 2 else lin('#bdb7ab')
             for li in poly.loop_indices: ca.data[li].color = c_
     b = base(o)
     if is_truck(o):
@@ -348,18 +399,20 @@ for o in keep:
 for c in list(sc.collection.children):
     if c != col: sc.collection.children.unlink(c)
 
+FILL_BONES = {'Truck_Load'} | {bn for bn, _, _ in CHUNKS}
 def tris(objs): return sum(len(p.vertices) - 2 for o in objs for p in o.data.polygons)
 for g, objs in groups.items():
     for o in objs:
-        if o.get('road'): continue            # roads keep their profile columns (tyre marks / berms) - no planar dissolve
+        if o.get('road') or o.get('bone') in FILL_BONES: continue   # roads keep their profile columns; the fill pile + chunks keep their grids
         bm = bmesh.new(); bm.from_mesh(o.data)
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.004)
         bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(4), verts=bm.verts, edges=bm.edges, delimit={'MATERIAL'})
         bm.to_mesh(o.data); bm.free()
 T1 = {g: tris(o) for g, o in groups.items()}; print('TRIS after planar', T1, sum(T1.values()))
-BUD = {'Truck': int(A.get('truck', 6000)), 'Rig': 650, 'Conveyor': 300, 'Silo': 800,
+BUD = {'Truck': int(A.get('truck', 3950)),   # HT-04 shared prop (art/3d/props/ht04): <= 4k tris, 1 draw
+       'Rig': 650, 'Conveyor': 300, 'Silo': 800,
        'Tier_03': 260, 'Tier_05': 1400, 'Tier_08': 320, 'Tier_12': 700, 'Tier_20': 420}
-BUD['Base'] = TARGET - sum(min(BUD[g], T1[g]) for g in T1 if g != 'Base')
+BUD['Base'] = TARGET - sum(min(BUD[g], T1[g]) for g in T1 if g != 'Base') - (min(6000, T1['Truck']) - min(BUD['Truck'], T1['Truck']))   # the truck moved to its own prop: its saving comes off the Mine, not into the Base
 print('BUDGET', BUD)
 def join(objs):
     bpy.ops.object.select_all(action='DESELECT')
@@ -389,10 +442,11 @@ for g, objs in groups.items():
         # decimate parts per bone so seams between rigid parts stay clean
         byb = {}
         for o in objs: byb.setdefault(o['bone'], []).append(o)
-        tt = tris(objs); r = min(1.0, BUD['Truck'] / tt); parts = []
+        tx_ = sum(tris(os_) for b_, os_ in byb.items() if b_ in FILL_BONES)   # pile + chunks are exempt: shrink the rest to fit
+        tt = tris(objs); r = min(1.0, (BUD['Truck'] - tx_) / max(1, tt - tx_)); parts = []
         for bname, os_ in byb.items():
             j = join(os_) if len(os_) > 1 else os_[0]
-            if tris([j]) > 60: decimate(j, max(40, int(tris([j]) * r)))
+            if tris([j]) > 60 and bname not in FILL_BONES: decimate(j, max(40, int(tris([j]) * r)))
             parts.append(j)
         truck_mesh = join(parts); truck_mesh.name = 'Truck_Mesh'; truck_mesh.data.name = 'Truck_Mesh'
         if 'bone' in truck_mesh: del truck_mesh['bone']
@@ -450,9 +504,10 @@ for s in ('L', 'R'):
     BONES += [('Truck_Ram_%s' % s, 'Truck_Chassis', b), ('Truck_Ram_%s_Stage2' % s, 'Truck_Ram_%s' % s, b + u0 * o2), ('Truck_Ram_%s_Rod' % s, 'Truck_Ram_%s' % s, b + u0 * o3)]
 RICH_C = HEAP_C - TORG                       # heap base centre (truck-local)
 BONES += [(bn, 'Truck_Chassis', CH_REST[bn].copy()) for bn, _, _ in CHUNKS]
-for i, (x, y) in enumerate(AX): BONES.append(('Truck_Wheel_%02d' % (i + 1), 'Truck_Chassis', Vector((x, y, ML.WR))))
+for i, (x, y) in enumerate(AX): BONES.append((WHEELN[i], 'Truck_Chassis', Vector((x, y, ML.WR))))
 for n, par, h in BONES:
     eb = ad.edit_bones.new(n); eb.head = h; eb.tail = h + Vector((0, 0, 0.3)); eb.roll = 0.0
+    if n in WHEELN: eb.align_roll(Vector((1, 0, 0)))   # wheel joint local +X = the axle, pointing to the truck's left (glTF -Z): + spin about local X rolls forward
     if par: eb.parent = ad.edit_bones[par]; eb.use_connect = False
 bpy.ops.object.mode_set(mode='OBJECT')
 tm.parent = arm; tm.matrix_parent_inverse = Matrix.Identity(4); tm.location = (0, 0, 0)
@@ -463,20 +518,17 @@ tm.name = 'Truck_Mesh'
 # fill morph: Basis = thin layer (fill 0 %), key 'fill' = the heaped-full pile (fill 100 %). Linear blend = the pile rises and spreads.
 _gi = tm.vertex_groups['Truck_Load'].index
 HEAPV = [v.index for v in tm.data.vertices if any(g.group == _gi and g.weight > 0.5 for g in v.groups)]
-FILL_THIN_Z, FILL_THIN_XY = 0.05, 0.82
-FILL_TOP = ML.BTOP + 0.85                      # heaped full: the mound crowns 0.85 m over the bed rim (reads from the phone camera), under the chute mouth
-FILL_KZ = (FILL_TOP - RICH_C.z) / HEAP_H
 tm.shape_key_add(name='Basis', from_mix=False); kf = tm.shape_key_add(name='fill', from_mix=False)
-kb = tm.data.shape_keys.key_blocks['Basis']
-for i in HEAPV:
+for i in HEAPV:                                 # vertices sit on the Basis shape (+ rock noise); the key = FULL with the same noise
     c_ = tm.data.vertices[i].co.copy()
-    kf.data[i].co = Vector((c_.x, c_.y, RICH_C.z + (c_.z - RICH_C.z) * FILL_KZ))
-    t_ = Vector((RICH_C.x + (c_.x - RICH_C.x) * FILL_THIN_XY, RICH_C.y + (c_.y - RICH_C.y) * FILL_THIN_XY, RICH_C.z + (c_.z - RICH_C.z) * FILL_THIN_Z))
-    kb.data[i].co = t_; tm.data.vertices[i].co = t_
+    if c_.z < PILE_SKIRT_Z + 0.02: continue      # skirt ring: identical in both shapes
+    r_ = pile_r(c_.x, c_.y); kf.data[i].co = Vector((c_.x, c_.y, pile_full(r_) + (c_.z - pile_basis(r_))))
 tm.data.shape_keys.use_relative = True; kf.value = 0.0
-FILL_INFO = {'mesh': 'Truck_Mesh', 'morph_target': 'fill', 'morph_index': 0, 'weight': 'sqrt(fill_pct / 100)', 'heap_verts': len(HEAPV),
-             'thin_layer_z': FILL_THIN_Z, 'thin_layer_xy': FILL_THIN_XY, 'full_top_m_over_ground': FILL_TOP, 'rim_m': ML.BTOP}
-tm['fill_morph'] = 'morphTargetInfluences[0] (target "fill") = sqrt(fill_pct / 100): 0 = thin layer, 1 = heaped full (sqrt so the early fill shows over the bed rim); truck_dump empties it via Truck_Load'
+REMAP = 'influence = 0.5 + 0.5 * (fill_pct / 100) ** 0.8 for fill_pct > 0; influence = 0 at fill_pct 0 (empty, after a dump)'
+FILL_INFO = {'mesh': 'Truck_Mesh', 'morph_target': 'fill', 'morph_index': 0, 'remap': REMAP, 'heap_verts': len(HEAPV),
+             'rim_top_m': RIM_TOP, 'apex_m': {'0': BASIS_APEX, '0.5': MID_APEX, '1': FULL_APEX},
+             'apex_over_rim_m': {'0.5': round(MID_APEX - RIM_TOP, 3), '1': round(FULL_APEX - RIM_TOP, 3)}}
+tm['fill_morph'] = 'morphTargetInfluences[0] (target "fill"): ' + REMAP + '. 0.5 = crowning heap just over the rim, 1 = heaped full; truck_dump empties it via Truck_Load'
 print('FILL morph verts', len(HEAPV))
 bpy.context.view_layer.update()
 
@@ -517,22 +569,34 @@ def dump_pose(f, F=90):
 POUR_F, RICH_F = 36, 30
 CH_R = {bn: r for bn, _, r in CHUNKS}
 MOUTH = Vector((HEAP_C.x - TORG.x, HEAP_C.y - TORG.y, CHUTE_Z - TORG.z - 0.1))
-ZLAND = RICH_C.z + 0.12                          # chunks sink into the pile / thin layer here (hidden inside a fuller pile)
+ZLAND = MID_APEX - 0.12                          # chunks sink into the pile top here (inside a fuller pile they vanish a little earlier)
 def fall_G(bn, u, land, spin):
     """u 0..1 along the fall (accelerating); grows in at the mouth, shrinks to 0 on landing. u outside -> hidden at the mouth."""
     r0 = CH_REST[bn]
     if u < 0 or u > 1: return Tm(MOUTH) @ Matrix.Diagonal((0, 0, 0, 1)) @ Tm(-r0)
-    p = Vector((MOUTH.x + land.x * u, MOUTH.y + land.y * u, MOUTH.z - (MOUTH.z - ZLAND) * u * u))
-    sc_ = CH_R[bn] / ORE_SPECK * min(1.0, u / 0.1, (1.0 - u) / 0.15)
+    p = Vector((MOUTH.x + land.x * u, MOUTH.y + land.y * u, MOUTH.z - (MOUTH.z - ZLAND) * (0.35 * u + 0.65 * u * u)))
+    sc_ = CH_R[bn] / ORE_SPECK * min(1.0, u / 0.08, (1.0 - u) / 0.12)
     R_ = Matrix.Rotation(spin * u, 4, 'X') @ Matrix.Rotation(0.7 * spin * u, 4, 'Z')
     return Tm(p) @ R_ @ Matrix.Diagonal((sc_, sc_, sc_, 1)) @ Tm(-r0)
+def puff_G(bn, u, d):
+    """dust puff: grows fast at the landing spot, drifts up/out and shrinks to 0 (fade by scale). u outside 0..1 -> hidden."""
+    r0 = CH_REST[bn]
+    if u < 0 or u > 1: return Tm(Vector((MOUTH.x, MOUTH.y, ZLAND))) @ Matrix.Diagonal((0, 0, 0, 1)) @ Tm(-r0)
+    p = Vector((MOUTH.x + d.x * (0.4 + 0.6 * u), MOUTH.y + d.y * (0.4 + 0.6 * u), ZLAND + 0.08 + 0.32 * u))
+    sc_ = CH_R[bn] / ORE_SPECK * (min(1.0, u / 0.25) * (1.0 - max(0.0, (u - 0.35) / 0.65)) ** 1.2) * (0.6 + 0.6 * u)
+    return Tm(p) @ Matrix.Diagonal((sc_, sc_, sc_, 1)) @ Tm(-r0)
 POUR = [bn for bn, _, _ in CHUNKS if bn.startswith('Truck_Pour')]
 RICH = [bn for bn, _, _ in CHUNKS if bn.startswith('Truck_Rich')]
-POUR_LAND = [Vector((0.25, -0.12)), Vector((-0.22, 0.15)), Vector((0.08, -0.25)), Vector((-0.12, 0.22))]
+DUST = [bn for bn, _, _ in CHUNKS if bn.startswith('Truck_Dust')]
+POUR_FALL, DUST_LIFE = 24.0, 15.0                # frames: each chunk falls 0.8 s; a new one leaves the mouth every 36/7 f -> ~5 in the air
+POUR_LAND = [Vector((0.3 * math.cos(2.4 * k), 0.22 * math.sin(2.4 * k))) for k in range(POUR_N)]
+DUST_DIR = [Vector((0.55 * math.cos(1.1 + 1.6 * k), 0.4 * math.sin(1.1 + 1.6 * k))) for k in range(DUST_N)]
 RICH_LAND = [Vector((0.3, 0.1)), Vector((-0.3, -0.15)), Vector((0.05, 0.3)), Vector((-0.1, -0.3)), Vector((0.2, -0.2))]
 def pour_pose(f):
-    f = f % POUR_F                                # frame 36 == frame 0 -> seamless loop
-    return {bn: fall_G(bn, (((f - 9 * k) % POUR_F) / 14.0), POUR_LAND[k], 2.0 + k) for k, bn in enumerate(POUR)}
+    f = f % POUR_F                                # every channel is periodic in 36 f -> frame 36 == frame 0, seamless loop
+    G = {bn: fall_G(bn, (((f - POUR_F * k / POUR_N) % POUR_F) / POUR_FALL), POUR_LAND[k], 2.0 + k) for k, bn in enumerate(POUR)}
+    G.update({bn: puff_G(bn, (((f - POUR_F * k / DUST_N - POUR_FALL + 2) % POUR_F) / DUST_LIFE), DUST_DIR[k]) for k, bn in enumerate(DUST)})
+    return G
 def rich_pose(f):
     return {bn: fall_G(bn, ((f - (0, 3, 5, 8, 10)[k]) / 18.0) if f > (0, 3, 5, 8, 10)[k] else -1, RICH_LAND[k], 2.5 + k) for k, bn in enumerate(RICH)}
 
@@ -563,8 +627,10 @@ rest_pose()
 
 # ---------------- clips
 sc.render.fps = 30
+BAKED = {}
 def bake(clip, frames, fn, bones):
-    act = bpy.data.actions.new(clip); arm.animation_data_create(); arm.animation_data.action = act
+    if clip in bpy.data.actions: bpy.data.actions[clip].name = '_concept_' + clip   # the concept file has its own 'truck_dump'
+    act = bpy.data.actions.new(clip); arm.animation_data_create(); arm.animation_data.action = act; BAKED[clip] = act
     for f in frames:
         rest_pose(); pose(fn(f))
         for n in bones:
@@ -577,8 +643,9 @@ def bake(clip, frames, fn, bones):
     return act
 RAMB = ['Truck_Ram_%s%s' % (s, x) for s in ('L', 'R') for x in ('', '_Stage2', '_Rod')]
 bake('truck_dump', list(range(0, 91)), lambda f: dump_pose(f)[0], ['Truck_Bed', 'Truck_Load'] + RAMB)
-bake('truck_drive', list(range(0, 31)), lambda f: {('Truck_Wheel_%02d' % (i + 1)): wheel_G(i, math.tau * f / 30) for i in range(6)}, ['Truck_Wheel_%02d' % (i + 1) for i in range(6)])
-bake('chute_pour', list(range(0, POUR_F + 1)), pour_pose, POUR)
+# truck_drive: 1.0 s seamless body loop (bed rattle on the suspension). NO wheel spin in any clip: code spins HT04_Wheel_* about local X by distance / wheel_radius
+bake('truck_drive', list(range(0, 31)), lambda f: {'Truck_Bed': Tm(Vector((0, 0, 0.012 * math.sin(2 * math.tau * f / 30) + 0.006 * math.sin(3 * math.tau * f / 30 + 1.0))))}, ['Truck_Bed'])
+bake('chute_pour', list(range(0, POUR_F + 1)), pour_pose, POUR + DUST)
 bake('truck_load_rich', list(range(0, RICH_F + 1)), rich_pose, RICH)
 
 rest_pose()
@@ -612,6 +679,8 @@ emp('Path_Load', ML.LOAD, 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'chute_glTF': 
     'bed_centre_glTF': gl((BEDC_W.x, BEDC_W.y, LOAD_C.z)), 'note': 'bed centre exactly under the chute mouth; reverse in from Path_Load_Approach, play chute_pour (loop) while code raises the fill morph 0->100 %, then drive off forward (+X glTF) along Path_01.. to Road_Entry'})
 emp('Path_Load_Approach', (ML.LOAD[0] + 4.3, ML.LOAD[1], 0.0), 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'note': 'on return: drive forward past the chute to here (heading +X), stop, then reverse 4.3 m straight along -X(glTF) to Path_Load'})
 emp('Rich_Pop', (BEDC_W.x, BEDC_W.y, GZ + ML.BTOP + 1.6), 0, {'kind': 'fx_anchor', 'note': 'money pop for the rich load: spawn the +value pop here when truck_load_rich plays (truck parked at Path_Load)'})
+FA = bpy.data.objects.new('Fill_Arc', None); col.objects.link(FA); FA.parent = arm; FA.location = (2.2, 0.0, 4.6)   # truck-local: 0.9 m over the cab light bar
+FA['kind'] = 'ui_anchor'; FA['note'] = 'anchor for the slim cyan fill-% arc, child of the Truck root (truck-local glTF (2.2, 4.6, 0)): 0.9 m over the cab light bar'
 emp('Operator_Deck', (14.0, -1.2, 0.0), 0, {'kind': 'prop_anchor', 'prop': 'art/3d/props/mine_operator/mine_operator_game.glb', 'note': 'place the mine operator prop root here, rotation identity (deck front faces +Z glTF, toward the camera); scenery only'})
 # haul loop way-points in driving order: Path_Load -> east hairpin -> south straight -> west hairpin -> Path_Dump_Approach
 lp = ML.loop_points(0.25); n = len(lp)
@@ -632,17 +701,42 @@ emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_e
 CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.6, 0.2, 0.0), (5.6, 1.0, 0.0), (8.6, 1.4, 0.0)]
 for i, p in enumerate(CREW): emp('Crew_Path_%02d' % (i + 1), (p[0], p[1], p[2] if p[2] > 0.3 else H(p[0], p[1])), 0, {'kind': 'crew_path'})
 
-# ---------------- export
-for o in col.objects: o.select_set(False)
+# ---------------- export: the Mine GLB (no truck) and the shared HT-04 prop GLB (art/3d/props/ht04/ht04_game.glb, packed separately)
+TRUCK_OBJS = [arm, tm, FA]
+TOUT = A.get('tout', os.path.join(os.path.dirname(MOUT), 'ht04_raw.glb'))
+GLTF_KW = dict(export_format='GLB', use_selection=True, export_apply=False, export_yup=True, export_extras=True,
+               export_animations=True, export_animation_mode='ACTIONS', export_force_sampling=True, export_optimize_animation_size=False,
+               export_anim_slide_to_zero=True, export_def_bones=False, export_rest_position_armature=True,
+               export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False, export_vertex_color='ACTIVE',
+               export_all_vertex_colors=False, export_skins=True, export_morph=True, export_morph_normal=True, export_morph_animation=False, export_texcoords=False)
+TRUCK_TRIS = tris([tm])
 bpy.ops.object.select_all(action='DESELECT')
-for o in col.objects: o.select_set(True)
+for o in col.objects: o.select_set(o not in TRUCK_OBJS)
 os.makedirs(os.path.dirname(MOUT), exist_ok=True)
-bpy.ops.export_scene.gltf(filepath=MOUT, export_format='GLB', use_selection=True, export_apply=False, export_yup=True, export_extras=True,
-                          export_animations=True, export_animation_mode='ACTIONS', export_force_sampling=True, export_optimize_animation_size=False,
-                          export_anim_slide_to_zero=True, export_def_bones=False, export_rest_position_armature=True,
-                          export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False, export_vertex_color='ACTIVE',
-                          export_all_vertex_colors=False, export_skins=True, export_morph=True, export_morph_normal=False, export_morph_animation=False, export_texcoords=False)
-INFO = {'W': W, 'cam_target': list(CAM_T), 'cam_target_glTF': gl(CAM_T), 'cam_d': CAM_D, 'fit_box_px': FIT_BOX, 'tris': {o.name: tris([o]) for o in col.objects if o.type == 'MESH'},
+_tr = [t for t in arm.animation_data.nla_tracks]                 # keep the truck clips off the Mine export
+for t in _tr: arm.animation_data.nla_tracks.remove(t)
+_truck_acts = ('truck_dump', 'truck_drive', 'chute_pour', 'truck_load_rich')
+_saved = dict(BAKED)
+bpy.ops.export_scene.gltf(filepath=MOUT, **GLTF_KW)
+for n in _truck_acts:
+    tr_ = arm.animation_data.nla_tracks.new(); tr_.name = n; tr_.strips.new(n, 0, _saved[n]); tr_.mute = True
+# HT-04 prop: root 'Truck' at the origin = ground centre under the truck, forward +X (glTF yaw 0), up +Y
+arm.parent = None; arm.matrix_world = Matrix.Identity(4); bpy.context.view_layer.update()
+bpy.ops.object.select_all(action='DESELECT')
+for o in TRUCK_OBJS: o.select_set(True)
+arm['prop'] = 'HT-04 haul truck (shared Mine / Refinery prop)'; arm['origin'] = 'ground centre under the truck (between the axle groups), +X forward = yaw 0, +Y up'
+arm['place'] = 'copy a truck_pose marker (Path_Load, Path_Load_Approach, Path_XX, Road_Entry ...): position = marker position, rotation = marker rotation (yaw about +Y)'
+arm['fill_morph'] = tm['fill_morph']
+_wg = {tm.vertex_groups[n].index: i for i, n in enumerate(WHEELN)}; _rr = []
+for v in tm.data.vertices:
+    for g in v.groups:
+        if g.group in _wg and g.weight > 0.5: x_, _y = AX[_wg[g.group]]; _rr.append(math.hypot(v.co.x - x_, v.co.z - ML.WR))
+WHEEL_R = round(max(_rr), 3); arm['wheel_radius'] = WHEEL_R; arm['wheel_axle_height'] = ML.WR
+arm['wheels'] = 'HT04_Wheel_FL/FR (front axle x +2.4), HT04_Wheel_ML/MR (x -1.35), HT04_Wheel_RL/RR (x -2.7); track +-1.5 m; spin axis = joint local +X (points to the truck left, glTF -Z); forward roll = +angle, angle = distance / wheel_radius; no clip animates the wheels'
+print('WHEEL_R', WHEEL_R, 'axle z', ML.WR, 'min tread r', round(min(_rr), 3))
+bpy.ops.export_scene.gltf(filepath=TOUT, **GLTF_KW)
+print('TRUCK RAW', TOUT, os.path.getsize(TOUT), 'TRIS', TRUCK_TRIS)
+INFO = {'W': W, 'cam_target': list(CAM_T), 'cam_target_glTF': gl(CAM_T), 'cam_d': CAM_D, 'fit_box_px': FIT_BOX, 'tris': {o.name: tris([o]) for o in col.objects if o.type == 'MESH' and o != tm}, 'truck_tris': TRUCK_TRIS, 'truck_raw': TOUT,
         'clearance': REPORT, 'load': {'heap_base': list(HEAP_C), 'heap_h': HEAP_H, 'chute_mouth_z': CHUTE_Z, 'fill_morph': FILL_INFO},
         'markers': {o.name: {'glTF_pos': gl(o.location), 'yaw_deg': round(math.degrees(o.rotation_euler.z), 2), 'extras': {k: (v if isinstance(v, (int, float, str)) else list(v)) for k, v in o.items()}}
                     for o in col.objects if o.type == 'EMPTY' and o != root}}
