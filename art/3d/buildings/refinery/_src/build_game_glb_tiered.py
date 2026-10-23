@@ -1,22 +1,22 @@
-"""Refinery game GLB, tiered (adapted from dock_tankfarm/_src/build_game_glb_tiered.py).
-master .blend -> static base merged by material + named tier / moving-part nodes + empty markers, in REFINERY_ANCHOR space.
-usage: blender -b refinery_master.blend -P build_game_glb_tiered.py -- --out raw.glb [--target 23500] [--tierratio 0.55]
+"""Refinery game GLB, tiered (adapted from dock_tankfarm/_src/build_game_glb_tiered.py). Own station (Jacob 10/23: Mine, Refinery, Dock).
+master .blend -> static base merged by material + named tier / moving-part nodes + empty markers + Cam_Target, in the station frame.
+usage: blender -b refinery_master.blend -P build_game_glb_tiered.py -- --out raw.glb [--target 27000] [--tierratio 0.55] [--ct x,y,z --fw W]
 then:  gltfpack -i raw.glb -o refinery_game.glb -cc -kn -ke      (meshopt + quantization; keeps named nodes, extras, animations)
 
-Space: GLB origin = the Mine's REFINERY_ANCHOR (place with refinery.position/quaternion = anchor world position/quaternion).
-Local glTF +Z points at the truck: Path_Dump (the truck centre while tipping) is at glTF (0, 0, 4.84), and the intake-bin front lip
-is 1.12 m along +Z. Compact layout: feeder/splitter toward local -X, then a fuel row (local x -11..-20) and a He-3 row
-(local x -23..-29, camera side) that both flow toward local +Z (= Mine world +X).
-Draw budget 13 with every tier showing:
-  Base_Paint (SHM_Paint, all white/graphite/steel/foil/rock/pipe swatches as COLOR_0), Base_GlowCyan (SHM_GlowCyan: cyan strips,
-  He-3 canisters, white lamps), Base_GlowRed (SH_GlowRed: reactor / kiln heat glow) = 3 draws
-  + Kiln_Drum, Conveyor_He3, Conveyor_Fuel, Intake_Grate, Beacon_Lights (5) + Tier_03/05/08/12/20 (5) = 13.
-Clips: kiln_spin (4 s loop, 1 turn), conveyor_he3_run / conveyor_fuel_run (1 s loop, one cleat pitch), intake_shake (0.6 s),
+Space: GLB origin = Truck_Dump (HT-04 centre while tipping); no rotation; the game camera sits on +Z looking down -Z. RB-1 is at +X of
+the origin, the process rows run behind it (-Z), the haul road comes in from the left (-X) edge. --ct/--fw override Cam_Target (Blender
+coords) / frame_w; the script prints FIT393 screen boxes (393x852) per node, for the bin + tipping truck and TIERDIST per tier.
+Draw budget 13 with every tier showing (station budget <= 30k tris, <= 15 draws):
+  Base_Paint (SHM_Paint, all white/graphite/steel/foil/rock/pipe swatches + the RD-1 haul road as COLOR_0), Base_GlowCyan
+  (SHM_GlowCyan: cyan strips, He-3 canisters, white lamps), Base_GlowRed (SH_GlowRed: kiln / reactor heat glow + static red lamps) = 3
+  + Kiln_Drum, Conveyor_He3, Conveyor_Fuel, Intake_Grate, Beacon_Lights (SH_GlowRed) (5) + Tier_03/05/08/12/20 (5) = 13.
+RD-1 road (rd_haul_road, ob['roadcol']): keeps its RoadCol corner colours (Mine road palette) and is never decimated.
+Clips: kiln_spin (4 s loop, 1 turn), conveyor_he3_run / conveyor_fuel_run (1 s loop, one cleat pitch), intake_shake (0.5 s),
 Beacon_Lights_Blink (1.2 s stepped scale)."""
 import bpy, bmesh, json, os, sys, math
 from mathutils import Vector, Matrix
 a = sys.argv[sys.argv.index('--') + 1:]; A = {a[i][2:]: a[i + 1] for i in range(0, len(a) - 1, 2)}
-OUT = A.get('out', '/tmp/rf_game_raw.glb'); TARGET = int(A.get('target', 23500))
+OUT = A.get('out', '/tmp/rf_game_raw.glb'); TARGET = int(A.get('target', 27000))
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 def lin(h):
@@ -56,13 +56,15 @@ def shared_for(m):
     if sw is None:
         c = m.diffuse_color if m else (1, 1, 1, 1); sw = 'SH_White' if 0.3 * c[0] + 0.6 * c[1] + 0.1 * c[2] > 0.35 else 'SH_Graphite'
         print('UNMAPPED', m.name if m else None, '->', sw)
-    if sw == 'SH_GlowRed': return SH['SH_GlowRed'], [1, 1, 1, 1]
+    if sw == 'SH_GlowRed':   # (material, fold colour): Base keeps SH_GlowRed as its own emissive draw (white vertex colour)
+        return SH['SH_GlowRed'], lin(HOT_PAINT.get(next((k for k in HOT_PAINT if m is not None and m.name.startswith(k)), ''), '#e8402a'))
     tm = TARGET_MAT[S2M[sw]]
     return SH[tm], (lin(SW[sw]['base']) if tm == 'SHM_Paint' else [1, 1, 1, 1])
 
+HOT_PAINT = {'RF_HeatGlow': '#ff7a33', 'RF_HeatSoft': '#e8703c', 'RF_RedLamp': '#e8402a'}   # red glow folded into a tier / moving node's SHM_Paint
 GN = json.loads(bpy.context.scene['game_nodes'])
-AX_ = GN.get('anchor_x', 4.84)
-ANCH = Matrix.Rotation(math.pi / 2, 4, 'Z') @ Matrix.Translation((-AX_, 0.0, 0.0))   # refinery final coords -> REFINERY_ANCHOR local
+# own station (10/23): the GLB frame IS the master's final coords (origin = Truck_Dump, camera on -Y = glTF +Z), no rotation
+ANCH = Matrix.Identity(4) if GN.get('station_frame') == 'identity' else Matrix.Rotation(math.pi / 2, 4, 'Z') @ Matrix.Translation((-GN.get('anchor_x', 4.84), 0.0, 0.0))
 R3 = ANCH.to_3x3()
 MOVING = ('Kiln_Drum', 'Conveyor_He3', 'Conveyor_Fuel', 'Intake_Grate', 'Beacon_Lights')
 DROP_NAMES = ('st_', 'bolt', 'rivet', 'nozzle', 'louver', 'seam', 'clamp', 'handle', 'rail_post', 'bracket', 'rib', 'rung', 'cage', 'spoke',
@@ -93,19 +95,35 @@ TIERS = {'Tier_03': 3, 'Tier_05': 5, 'Tier_08': 8, 'Tier_12': 12, 'Tier_20': 20}
 col = bpy.data.collections.new('Game'); bpy.context.scene.collection.children.link(col)
 groups = {}
 for ob in keep:
-    e = ob.evaluated_get(dg); me = bpy.data.meshes.new_from_object(e, preserve_all_data_layers=False, depsgraph=dg)
+    e = ob.evaluated_get(dg); me = bpy.data.meshes.new_from_object(e, preserve_all_data_layers=bool(ob.get('roadcol')), depsgraph=dg)
     if me is None or len(me.polygons) == 0: continue
     M = ANCH @ ob.matrix_world; me.transform(M)
     if M.determinant() < 0: me.flip_normals()
     if len(me.materials) == 0: me.materials.append(None)
+    g = ob.get('grp', 'Base')
     sm = [shared_for(m) for m in me.materials]
+    if g == 'Base': sm = [((m_, [1, 1, 1, 1]) if m_ == SH['SH_GlowRed'] else (m_, c_)) for m_, c_ in sm]   # kiln / reactor heat + red lamps: real emissive draw
+    elif g != 'Beacon_Lights': sm = [((SH['SHM_Paint'], c_) if m_ == SH['SH_GlowRed'] else (m_, c_)) for m_, c_ in sm]
+    rc = me.color_attributes.get('RoadCol') if ob.get('roadcol') else None
+    rcol = [tuple(d.color) for d in rc.data] if rc else None
     ca = me.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
     for poly in me.polygons:
         s = sm[min(poly.material_index, len(sm) - 1)]
-        for li in poly.loop_indices: ca.data[li].color = s[1]
+        for li in poly.loop_indices: ca.data[li].color = rcol[li] if rcol else s[1]
+    if rc: me.color_attributes.remove(me.color_attributes['RoadCol']); sm = [(SH['SHM_Paint'], None) for _ in sm]
     for i, (m_, _) in enumerate(sm): me.materials[i] = m_
-    g = ob.get('grp', 'Base')
+    if ob.get('roadcol'): g = 'Road'
     no = bpy.data.objects.new('g_' + ob.name, me); col.objects.link(no); groups.setdefault(g, []).append(no)
+TRUCKPTS = []
+if 'Stage' in bpy.data.collections:
+    for o in bpy.data.collections['Stage'].all_objects:
+        if o.type != 'MESH' or o.name.startswith(('Ground', 'pebble', 'boulder', 'slope', 'haul', 'astro', 'rd_')): continue
+        c_ = o.matrix_world.translation
+        if -7 < c_.x < 7.5 and -3 < c_.y < 3:
+            for v in list(o.data.vertices)[::max(1, len(o.data.vertices) // 200)]:
+                w_ = o.matrix_world @ v.co
+                if -5 < w_.x < 8 and abs(w_.y) < 2.5 and w_.z < 6: TRUCKPTS.append(ANCH @ w_)
+print('TRUCK proxy pts', len(TRUCKPTS))
 for c in list(bpy.context.scene.collection.children):
     if c != col: bpy.context.scene.collection.children.unlink(c)
 def tris(objs): return sum(len(p.vertices) - 2 for o in objs for p in o.data.polygons)
@@ -114,17 +132,18 @@ def area_by_mat(o):
     for p in o.data.polygons:
         m = o.material_slots[p.material_index].material.name; a[m] = a.get(m, 0) + p.area
     return a
+ROAD = groups.pop('Road', [])
 for g, objs in groups.items():
     for o in objs:
         bm = bmesh.new(); bm.from_mesh(o.data)
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.004)
         bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(4), verts=bm.verts, edges=bm.edges, delimit={'MATERIAL'})
         bm.to_mesh(o.data); bm.free()
-T1 = {g: tris(o) for g, o in groups.items()}; print('TRIS after planar', T1, sum(T1.values()))
+T1 = {g: tris(o) for g, o in groups.items()}; RTRIS = tris(ROAD); print('TRIS after planar', T1, sum(T1.values()), 'road', RTRIS)
 TR = float(A.get('tierratio', 0.55)); MR = float(A.get('movratio', 0.6))
 RAT = {g: (MR if g in MOVING else TR) for g in T1 if g != 'Base'}
 TS = sum(T1[g] * RAT[g] for g in RAT)
-R = min(1.0, (TARGET - TS) / T1['Base'])
+R = min(1.0, (TARGET - RTRIS - TS) / T1['Base'])
 print('BASE ratio', round(R, 4))
 def join(objs):
     bpy.ops.object.select_all(action='DESELECT')
@@ -139,9 +158,11 @@ def decimate(o, tgt):
 def set_origin(o, p):
     o.data.transform(Matrix.Translation(-p)); o.location = p
 root = bpy.data.objects.new('Refinery', None); col.objects.link(root)
-root['origin'] = 'REFINERY_ANCHOR (Mine station). Place with refinery.position/quaternion = anchor world position/quaternion.'
-root['truck_dump'] = 'Path_Dump at local glTF (0, 0, 4.84): truck centre while tipping, rear toward -Z (the intake bin). Same spot as the Mine Path_Dump.'
-root['layout'] = 'compact block south of the Mine haul loop, inside the Mine W=37 station frame: intake bin RB-1 at local +Z next to the origin, feeder + splitter run toward -X; fuel row (back, local x -11..-20) and He-3 row (front, camera side, local x -23..-29) both flow toward local +Z (world +X); process rows at 0.85 scale'
+root['origin'] = 'Truck_Dump (HT-04 centre while tipping into RB-1), on the ground. Own station: place at the Refinery slot (Mine, Refinery, Dock; 160 m apart) with no rotation.'
+root['truck_dump'] = ('Truck_Dump at the origin: HT-04 centre while tipping, cab -X, rear +X into RB-1. Route: in from the left edge on the '
+                     'inbound lane (glTF z +9), Truck_Path_01..06 forward, r 4.5 m U-turn in front of the intake, stop at Truck_Path_07 heading -X, reverse '
+                     '4.0 m straight (~1.5 s) to Truck_Dump, tip, then forward -X along the z 0 lane to Truck_Exit off the left edge.')
+root['layout'] = 'own station, camera on +Z: intake bin RB-1 + bucket elevator in front at the right (x 3.7..7.4), process rows behind (-Z), haul road + U-turn in front at the left; process rows at 0.85 scale'
 root['draws_all_tiers'] = 13
 nodes = []
 FORCE_DOM = {'Tier_03': 'SHM_GlowCyan', 'Beacon_Lights': 'SH_GlowRed'}
@@ -152,6 +173,14 @@ for g, objs in groups.items():
         bpy.ops.object.material_slot_remove_unused()
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.separate(type='MATERIAL'); bpy.ops.object.mode_set(mode='OBJECT')
         parts = [o for o in col.objects if o.type == 'MESH' and o.name.startswith('g_') and o.data.users and o in bpy.context.selected_objects]
+        if ROAD:   # RD-1 haul road joins Base_Paint after decimation (keeps its berm profile and tyre ruts)
+            pp = [o for o in parts if o.material_slots[o.data.polygons[0].material_index].material.name == 'SHM_Paint']
+            tgt = pp[0]
+            bpy.ops.object.select_all(action='DESELECT')
+            for r_ in ROAD: r_.select_set(True)
+            tgt.select_set(True); bpy.context.view_layer.objects.active = tgt; bpy.ops.object.join()
+            print('ROAD joined into', tgt.name, 'road tris', RTRIS)
+            for o in parts: o.select_set(True)
         for o in parts:
             used = {p.material_index for p in o.data.polygons}
             o.name = o.material_slots[list(used)[0]].material.name.replace('SHM_', 'Base_').replace('SH_', 'Base_')
@@ -181,7 +210,7 @@ def keys(ob, clip, path, frames, interp='BEZIER'):
         for kp in fc.keyframe_points: kp.interpolation = interp
     setattr(ob, path, rest)
 kd = bpy.data.objects.get('Kiln_Drum')       # drum axis runs along anchor-local Y (Blender) = glTF Z
-if kd: keys(kd, 'kiln_spin', 'rotation_euler', [(i * 30, (0.0, i * math.pi / 2, 0.0)) for i in range(5)], 'LINEAR')
+if kd: keys(kd, 'kiln_spin', 'rotation_euler', [(i * 30, ((i * math.pi / 2, 0.0, 0.0) if ANCH == Matrix.Identity(4) else (0.0, i * math.pi / 2, 0.0))) for i in range(5)], 'LINEAR')   # drum axis = Blender X (glTF X)
 for nm, clip in (('Conveyor_He3', 'conveyor_he3_run'), ('Conveyor_Fuel', 'conveyor_fuel_run')):
     cv = bpy.data.objects.get(nm)
     if cv:
@@ -193,15 +222,42 @@ if ig:
     keys(ig, 'intake_shake', 'location', [(0, tuple(L0))] + [(3 + 3 * i, tuple(L0 + R3 @ v)) for i, v in enumerate(sh)], 'LINEAR')   # 0.6 s
 bl = bpy.data.objects.get('Beacon_Lights')
 if bl: keys(bl, 'Beacon_Lights_Blink', 'scale', ((0, (1, 1, 1)), (12, (0.001,) * 3), (36, (0.001,) * 3)), 'CONSTANT')   # 0.4 s on / 0.8 s off
-MEX = {'Path_Dump': {'kind': 'truck_pose', 'note': 'HT-04 centre while tipping (rear toward -Z, into RB-1); matches the Mine Path_Dump'},
-       'Road_Entry': {'kind': 'road', 'note': 'haul road joins here (Mine dump stub)'},
+MEX = {'Road_Entry': {'kind': 'road', 'note': 'inbound lane at the left edge (glTF z +9), = Truck_Path_01'},
        'He3_Output': {'kind': 'output', 'product': 'He-3 canisters'}, 'Fuel_Output': {'kind': 'output', 'product': 'LOX + LH2'},
        'Pipe_TankFarm': {'kind': 'pipe_connection', 'lines': ['LOX', 'LH2'], 'note': 'TO TANK FARM header end'}}
 for n, p in sorted(GN['markers'].items()):
     old = bpy.data.objects.get(n)
     if old: bpy.data.objects.remove(old, do_unlink=True)
     e = bpy.data.objects.new(n, None); e.empty_display_type = 'ARROWS'; e.empty_display_size = 0.5; e.location = ANCH @ Vector(p); col.objects.link(e); e.parent = root
-    for k, v in MEX.get(n, {'kind': 'crew_path'} if n.startswith('Crew_Path') else {}).items(): e[k] = v
+    for k, v in (GN.get('marker_extras', {}).get(n) or MEX.get(n, {'kind': 'crew_path'} if n.startswith('Crew_Path') else {})).items(): e[k] = v
+CT = GN.get('cam_target')
+if CT:
+    ctp = Vector([float(v) for v in A['ct'].split(',')]) if A.get('ct') else Vector(CT['pos']); FW = float(A.get('fw', CT['frame_w']))
+    VT = math.tan(math.radians(19)); E = math.radians(18)
+    ce = bpy.data.objects.new('Cam_Target', None); ce.empty_display_type = 'SPHERE'; ce.empty_display_size = 0.5; ce.location = ANCH @ ctp; col.objects.link(ce); ce.parent = root
+    ce['frame_w'] = FW; ce['fov_y_deg'] = 38; ce['pitch_down_deg'] = 18; ce['distance_m_393x852'] = round(FW / (2 * VT * 393 / 852), 2)
+    ce['note'] = 'station camera look-at (empty, no draws): camera looks down glTF -Z from +Z, 18 deg down, 38 deg vFOV, d = (frame_w/2)/(tan 19 deg * aspect)'
+    def proj(pw, w=393, h=852):
+        d = FW / (2 * VT * w / h); pos = ctp + Vector((0, -d * math.cos(E), d * math.sin(E))); f = Vector((0, math.cos(E), -math.sin(E))); u = Vector((0, math.sin(E), math.cos(E)))
+        v = pw - pos; z = v.dot(f); k = (h / 2) / VT
+        return (w / 2 + k * v.x / z, h / 2 - k * v.dot(u) / z)
+    def sbox(pts):
+        s_ = [proj(p) for p in pts]; return (min(a for a, _ in s_), max(a for a, _ in s_), min(b for _, b in s_), max(b for _, b in s_))
+    FIT = {}
+    for o in nodes:
+        FIT[o.name] = sbox([o.matrix_world @ v.co for v in o.data.vertices])
+    allp = [o.matrix_world @ v.co for o in nodes for v in o.data.vertices]
+    FIT['ALL'] = sbox(allp)
+    FIT['ALL_no_road'] = sbox([p for p in allp if not (p.x < -9.5 and p.y < 3.0 and p.z < 0.4)])
+    binp = [p for o in nodes if o.name.startswith('Base') for p in [o.matrix_world @ v.co for v in o.data.vertices] if 3.3 < p.x < 7.8 and -2.6 < p.y < 2.6]
+    if TRUCKPTS: FIT['TRUCK_dump_pose'] = sbox(TRUCKPTS)
+    FIT['BIN_RB1'] = sbox(binp); FIT['BIN_plus_TRUCK'] = sbox(binp + TRUCKPTS)
+    for k_, b_ in FIT.items(): print('FIT393 %-16s x %6.1f..%6.1f  y %6.1f..%6.1f  cy %.1f' % (k_, b_[0], b_[1], b_[2], b_[3], (b_[2] + b_[3]) / 2))
+    for o in nodes:
+        if o.name in TIERS:
+            c_ = Vector(o.location); print('TIERDIST %s pivot flat %.1f m, farthest vertex flat %.1f m (frame_w %.0f)' % (o.name, math.hypot(c_.x - ctp.x, c_.y - ctp.y),
+                  max(math.hypot((o.matrix_world @ v.co).x - ctp.x, (o.matrix_world @ v.co).y - ctp.y) for v in o.data.vertices), FW))
+    print('CAM_TARGET glTF (%.2f, %.2f, %.2f) frame_w %.1f d %.2f' % (ctp.x, ctp.z, -ctp.y, FW, ce['distance_m_393x852']))
 print('NODES', sorted(o.name for o in root.children))
 print('MARKERS_GL', {n: tuple(round(v, 2) for v in (o.location.x, o.location.z, -o.location.y)) for n, o in [(c.name, c) for c in root.children if c.type == 'EMPTY']})
 bpy.ops.object.select_all(action='SELECT')
