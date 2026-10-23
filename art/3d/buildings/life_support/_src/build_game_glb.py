@@ -23,7 +23,7 @@ for n, d in MERGED.items():
         ca = nt.nodes.new('ShaderNodeVertexColor'); ca.layer_name = 'Col'; nt.links.new(ca.outputs['Color'], b.inputs['Base Color'])
     if 'emissive' in d:
         b.inputs['Emission Color'].default_value = lin(d['emissive']); b.inputs['Emission Strength'].default_value = d['emissive_strength']
-    SH[n] = m
+    m.use_backface_culling = True; SH[n] = m
 MAP = [  # master material name prefix -> shared swatch (SH_*), whose base colour becomes the vertex colour
     ('LS_RedLamp', 'SH_GlowRed'), ('LS_Red', 'SH_Red'), ('LS_White', 'SH_White'), ('LS_ShieldTile', 'SH_White'), ('LS_InkWhite', 'SH_White'),
     ('LS_Graphite', 'SH_Graphite'), ('LS_BandGraphite', 'SH_Graphite'), ('LS_Rubber', 'SH_Graphite'), ('LS_Ink', 'SH_Graphite'), ('LS_Void', 'SH_Graphite'),
