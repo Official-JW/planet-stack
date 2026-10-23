@@ -204,7 +204,10 @@ loadRig();
 let camX = S.site * GAP, target = camX, W = 1, H = 1;
 function camDist(aspect) {
   const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  return Math.max(CAM.halfW / (vt * aspect), 7.2 / vt, 16);
+  // short screens (iPhone SE): back off just enough that the full-size rig (Lv6+ incl. tier parts) tops out ≥104 px,
+  // clear of the HUD / Eve band. Calibrated on 393×852 where it has no effect (rig top 108 px there). Elevation stays 18°.
+  const fitTop = 12.14 * (H / 2) / Math.max(60, H / 2 - 104);
+  return Math.max(CAM.halfW / (vt * aspect), 7.2 / vt, fitTop / vt, 16);
 }
 function resize() {
   W = innerWidth; H = innerHeight; renderer.setSize(W, H, false);
@@ -266,12 +269,15 @@ canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointerc
 
 // ===== HUD
 const moneyEl = $('money'), rateEl = $('rate'), cryEl = $('cry'), binEl = $('bin'), binFill = binEl.firstElementChild;
-let lastMoneyTxt = '';
+let lastMoneyTxt = '', lastMoneyV = 0, lastBin = -1;
+moneyEl.addEventListener('animationend', (e) => { if (e.animationName === 'tick') moneyEl.classList.remove('tick'); });
 function hud() {
-  const mt = DEV ? '∞' : fmt(S.money); if (mt !== lastMoneyTxt) { moneyEl.textContent = mt; lastMoneyTxt = mt; }
+  const mt = DEV ? '∞' : fmt(S.money); if (mt !== lastMoneyTxt) { moneyEl.textContent = mt; lastMoneyTxt = mt; moneyEl.classList.toggle('long', mt.length > 10);
+    if (S.money > lastMoneyV && !moneyEl.classList.contains('bump')) moneyEl.classList.add('tick'); }   // soft tick on any increase (transform/opacity only, no forced reflow)
+  lastMoneyV = S.money;
   rateEl.textContent = rate();
   cryEl.textContent = DEV ? '∞' : S.crystals;
-  binFill.style.width = (100 * Math.min(1, S.bin / binCap())).toFixed(1) + '%';
+  const bf = Math.min(1, S.bin / binCap()); if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = `scaleX(${bf.toFixed(3)})`; }
   binEl.classList.toggle('full', fullT > 0);
 }
 // while Eve talks her card lies over the HUD band and carries a live cash badge; chunks and '+$X' pops fly to it
@@ -352,9 +358,9 @@ const gemGeo = new THREE.OctahedronGeometry(.42, 0); gemGeo.scale(1, 1.5, 1);
 const gemMat = new THREE.MeshStandardMaterial({ color: 0x5ff0ff, emissive: 0x22d0ff, emissiveIntensity: 1.8, roughness: .3, flatShading: true });
 const deposits = []; let depTimer = 0, depSeq = 0;
 function band() {
-  const top = Math.max($('name').getBoundingClientRect().bottom, 120) + 24;   // Eve's card now lives in the HUD band, so only the title matters
+  const top = Math.max(hudEl.getBoundingClientRect().bottom, 120) + 24;   // station title moved to the bottom (above the dots); top of the band = under the HUD/Eve band (unchanged 144 px)
   const sheetTop = $('sheetWrap').getBoundingClientRect().top;      // open sheet top edge
-  return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top) - 34, l: 34, r: W - 34 };
+  return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top) - 34, l: 34, r: W - 34 };
 }
 const homes = () => { const x = Math.min(rigBox.max.x + .4, MX + 6.3); return [new THREE.Vector3(x, 0, rigBox.max.z + .4), new THREE.Vector3(Math.min(rigBox.max.x + .5, MX + 6.3), 0, rigBox.max.z - 2.8)]; };   // right-front, by the hopper
 function spawnDeposit() {
@@ -550,9 +556,10 @@ function tap(x, y) {
 // ===== upgrade sheet (drag up/down, springs to open or closed)
 const sheet = $('sheet'), grab = $('grab'), PEEK = 46;
 let sheetOpen = false, sheetDrag = null;
-const closedY = () => sheet.offsetHeight - PEEK;
-function setSheet(open) { sheetOpen = open; sheet.classList.remove('dragging'); sheet.style.transform = `translateY(${open ? 0 : closedY()}px)`; if (open && eveCur && eveCur.point === 'upgrade') pointerDone = true; }
+const closedY = () => sheet.offsetHeight - PEEK - (parseFloat(getComputedStyle(sheet).paddingBottom) || 0);   // panel runs flush to the bottom edge; peek sits above the safe-area inset
+function setSheet(open) { sheetOpen = open; document.body.classList.toggle('sheet-open', open); sheet.classList.remove('dragging'); sheet.style.transform = `translateY(${open ? 0 : closedY()}px)`; if (open && eveCur && eveCur.point === 'upgrade') pointerDone = true; }
 setSheet(false);
+addEventListener('resize', () => { if (!sheetDrag) sheet.style.transform = `translateY(${sheetOpen ? 0 : closedY()}px)`; });   // inset can change (rotation)
 grab.addEventListener('pointerdown', (e) => { e.stopPropagation(); sheetDrag = { y0: e.clientY, b: sheetOpen ? 0 : closedY(), s: [[performance.now(), e.clientY]], moved: 0 }; sheet.classList.add('dragging'); try { grab.setPointerCapture(e.pointerId); } catch (_) {} });
 grab.addEventListener('pointermove', (e) => {
   if (!sheetDrag) return; const dy = e.clientY - sheetDrag.y0; sheetDrag.moved = Math.max(sheetDrag.moved, Math.abs(dy));
@@ -568,13 +575,18 @@ const endSheet = (e) => {
 grab.addEventListener('pointerup', endSheet); grab.addEventListener('pointercancel', endSheet);
 sheet.addEventListener('pointerdown', (e) => e.stopPropagation());
 const bDrill = $('bDrill'), bRover = $('bRover');
+const meterKeys = {};
+function meter(id, n, on) { const k = n + ':' + on; if (meterKeys[id] === k) return; meterKeys[id] = k; const el = $(id);
+  if (el.children.length !== n) el.innerHTML = '<i></i>'.repeat(n); [...el.children].forEach((x, i) => x.classList.toggle('on', i < on)); }
 function sheetUI() {
   const c = drillCost(), ok = canPay(c);
-  $('dLvl').textContent = 'Lv ' + S.drill; $('dGain').textContent = `${rate()} ore/min → next +${CFG.drillRatePerLvl} ore/min`;
-  bDrill.textContent = ok ? fmt(c) : 'need ' + fmt(c); bDrill.className = ok ? '' : 'need';
-  $('rLvl').textContent = S.rovers + '/' + CFG.roverMax;
+  $('dLvl').textContent = 'LV ' + S.drill; meter('dMeter', 10, S.drill >= 50 ? 10 : (S.drill - 1) % 10 + 1);   // segments = progress through the current 10-level tier
+  $('dGain').textContent = `${rate()} ore/min → next +${CFG.drillRatePerLvl} ore/min`;
+  bDrill.textContent = ok ? fmt(c) : 'Need ' + fmt(c); bDrill.className = ok ? '' : 'need'; bDrill.parentNode.classList.toggle('ok', ok);
+  $('rLvl').textContent = S.rovers + '/' + CFG.roverMax; meter('rMeter', CFG.roverMax, S.rovers);
   if (S.rovers >= CFG.roverMax) { $('rGain').textContent = `Max · ${fmt(CFG.roverBonus)} per deposit`; bRover.textContent = 'Max'; bRover.className = 'max'; }
-  else { const ok2 = canPay(CFG.roverCost); $('rGain').textContent = `+1 rover · ${fmt(CFG.roverBonus)} per deposit`; bRover.textContent = ok2 ? fmt(CFG.roverCost) : 'need ' + fmt(CFG.roverCost); bRover.className = ok2 ? '' : 'need'; }
+  else { const ok2 = canPay(CFG.roverCost); $('rGain').textContent = `+1 rover · ${fmt(CFG.roverBonus)} per deposit`; bRover.textContent = ok2 ? fmt(CFG.roverCost) : 'Need ' + fmt(CFG.roverCost); bRover.className = ok2 ? '' : 'need'; }
+  bRover.parentNode.classList.toggle('ok', bRover.className === '');
   $('sum').textContent = `Drill Lv ${S.drill} · ${S.rovers} rover${S.rovers > 1 ? 's' : ''}`;
   $('canDot').hidden = !(canPay(c) || (S.rovers < CFG.roverMax && canPay(CFG.roverCost)));
 }
@@ -599,6 +611,10 @@ bindBuy(bRover, () => {
   if (S.rovers >= CFG.roverMax || !canPay(CFG.roverCost)) return;
   pay(CFG.roverCost); S.rovers++; addRover(S.rovers - 1, true); save(); sheetUI(); hud();
 });
+
+// conveyor strip on the bar creeps (CSS background-position) only while the drill runs and the sheet is closed
+let convOn = null;
+function updConveyor() { const on = fullT === 0 && !sheetOpen && !(sheetDrag); if (on !== convOn) { convOn = on; sheet.classList.toggle('run', on); window.__ps3d.conveyor = on; } }
 
 // ===== Eve placeholder radio calls
 const EVE_BEATS = [
@@ -693,7 +709,7 @@ function frame() {
     if (oreFill) oreFill.scale.y = oreBaseY * (0.06 + 0.94 * Math.min(1, S.bin / binCap()));
   }
   updDeposits(dt, time); updRovers(dt, time); updChunks(dt); updFx(dt); updTiers(dt);
-  updEve(dt); eveCash();
+  updEve(dt); eveCash(); updConveyor();
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
   renderer.render(scene, camera);
@@ -707,7 +723,7 @@ function frame() {
     }
   }
 }
-window.__ps3d = { renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS, get eveId() { return eveCur && eveCur.id; }, sparks, S, CFG, goSite, STATIONS, deposits, rovers, spawnDeposit, catchUp, save, toScreen, drillCost, rate, binCap,
+window.__ps3d = { renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS, get eveId() { return eveCur && eveCur.id; }, sparks, S, CFG, goSite, STATIONS, deposits, rovers, spawnDeposit, catchUp, save, toScreen, homes, drillCost, rate, binCap,
   get camX() { return camX; }, get fullT() { return fullT; }, get coverGone() { return coverGone; }, get eveOpen() { return !!eveCur; }, get evePages() { return evePages; }, get cashTarget() { return cashTarget().id; }, get evePg() { return evePg; }, get sheetOpen() { return sheetOpen; }, setSheet };
 if (hadRt) catchUp(true); else S.rt = Date.now();      // credit time away since the last save
 hud(); sheetUI();

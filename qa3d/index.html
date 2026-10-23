@@ -7,6 +7,7 @@
 <link rel="icon" href="data:,">
 <title>Planet Stack · QA3D</title>
 <style>
+html{--sab:env(safe-area-inset-bottom,0px)}
 html,body{margin:0;height:100%;background:#05060b;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:-apple-system,system-ui,sans-serif;color:#e8ecf4}
 button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -14,49 +15,96 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #dev{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:4px 7px;border-radius:6px;z-index:30;pointer-events:none}
 #hud{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 26px);height:56px;display:flex;align-items:stretch;gap:6px;z-index:5;pointer-events:none;transition:transform .25s ease-out,opacity .25s ease-out}
 #hud.away{transform:translateY(-72px);opacity:0}
-#hud .cell{flex:1;background:#0b0f1acc;border:1px solid #ffffff1a;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+/* ---- holo-console HUD: chamfered pills, hairline = ::before (gradient), fill = ::after (inset 1px) ---- */
+#hud .cell{flex:1;position:relative;isolation:isolate;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 10px;min-width:0}
+#hud .cell::before,#hud .cell::after,#eve::before,#eve::after,.row::before,.row::after{content:'';position:absolute;z-index:-1;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+#hud .cell::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}
+#hud .cell::after{inset:1px;background:linear-gradient(180deg,#0f1a2ef0,#090f1df0)}
 #hud .mid{flex:1.3}
-#hud .lbl{font:600 10px/1 system-ui;opacity:.65;letter-spacing:.04em;text-transform:uppercase}
-#hud b{font:800 18px/1 system-ui}
-#hud .mid b{font-size:24px;color:#7ff0ff}
+#hud .top{display:flex;align-items:center;gap:5px;height:24px}
+.hi{width:24px;height:24px;flex:none;background:#7ff3ff;-webkit-mask:var(--i) center/24px 24px no-repeat;mask:var(--i) center/24px 24px no-repeat}
+.hi.cr{--i:url(ui/icon_credits.svg)}.hi.ore{--i:url(ui/icon_ore_rate.svg)}.hi.cy{--i:url(ui/icon_crystal.svg)}
+#hud .lbl,.hl{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;text-transform:uppercase;color:#c9d3e6;opacity:.75;white-space:nowrap}
+#hud b{display:block;font:800 17px/1 system-ui;font-variant-numeric:tabular-nums;color:#eafcff;text-shadow:0 0 8px #3ad0ff99;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;margin:-4px -8px;transform-origin:8px 50%}
+#hud .mid b{font-size:20px;color:#7ff3ff;text-shadow:0 0 10px #3ad0ffaa}
+#hud .mid .top b{flex:1;overflow:visible;text-overflow:clip;margin-right:0}
+#hud .mid .lbl{letter-spacing:.06em;flex:none}
+#hud b.long{font-size:13px;letter-spacing:-.01em}
 #money.bump,#eveCash.bump{animation:bump .3s ease-out}
-@keyframes bump{40%{transform:scale(1.18);color:#9dffb0}}
-#bin{width:78%;height:5px;border-radius:3px;background:#ffffff22;overflow:hidden;margin-top:2px}
-#bin i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3fd7ff,#9ff6ff);border-radius:3px}
-#bin.full{animation:pulse .6s ease-in-out infinite alternate}
-#bin.full i{background:linear-gradient(90deg,#ffb23f,#ffe08a)}
-@keyframes pulse{from{box-shadow:0 0 0 0 #ffc44d00}to{box-shadow:0 0 0 3px #ffc44daa}}
-#name{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 92px);text-align:center;font:700 18px/1.2 system-ui;text-shadow:0 2px 6px #000;pointer-events:none;z-index:4}
-#dots{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 10px);display:flex;height:44px;align-items:center;z-index:5}
+@keyframes bump{40%{transform:scale(1.12)}}
+#money.tick{animation:tick .45s ease-out}
+@keyframes tick{0%{opacity:.55;transform:translateY(2px)}100%{opacity:1;transform:none}}
+#bin{position:relative;width:100%;height:4px;background:#ffffff12;overflow:hidden}
+#bin i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#3ad0ff,#b8f6ff);box-shadow:0 0 6px #3ad0ff;transform-origin:0 50%;transform:scaleX(0)}
+#bin::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 7px,#0a1120 7px 9px)}
+#bin.full i{background:linear-gradient(90deg,#c9d3e6,#ffffff);animation:pulse .6s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:.45}to{opacity:1}}
+#name{position:fixed;left:0;right:0;bottom:calc(var(--sab) + 100px);text-align:center;font:700 10px/14px system-ui;font-stretch:condensed;letter-spacing:.32em;text-indent:.32em;text-transform:uppercase;color:#c9d3e6;text-shadow:0 0 6px #3ad0ff88,0 1px 2px #000;pointer-events:none;z-index:5;transition:opacity .2s ease-out .05s,transform .2s ease-out .05s}
+#name::before,#name::after{content:'';display:inline-block;vertical-align:middle;width:18px;height:1px;margin:0 10px 0 0;background:linear-gradient(90deg,transparent,#3ad0ff)}#name::after{margin:0 0 0 2px;background:linear-gradient(90deg,#3ad0ff,transparent)}
+body.sheet-open #name{opacity:0;transform:translateY(6px);transition:opacity .15s ease-out,transform .15s ease-out}
+#dots{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sab) + 56px);display:flex;height:44px;align-items:center;z-index:5;transition:opacity .2s ease-out .05s,transform .2s ease-out .05s}
+body.sheet-open #dots{opacity:0;transform:translate(-50%,6px);pointer-events:none;transition:opacity .15s ease-out,transform .15s ease-out}
 #dots button{width:26px;height:44px;border:0;background:none;padding:0;position:relative}
-#dots button::after{content:'';position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:#fff5}
-#dots button.on::after{background:#fff;width:10px;height:10px;margin:-5px}
-#sheetWrap{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 58px);height:178px;overflow:hidden;pointer-events:none;z-index:7}
-#sheet{position:absolute;left:6px;right:6px;bottom:0;height:178px;background:#121726f2;border:1px solid #ffffff1f;border-bottom:0;border-radius:18px 18px 0 0;pointer-events:auto;transition:transform .42s cubic-bezier(.2,1.3,.35,1);will-change:transform;box-shadow:0 -6px 20px #0008}
+#dots button::after{content:'';position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#c9d3e6;opacity:.4}
+#dots button.on::after{width:8px;height:8px;margin:-4px;background:#3ad0ff;opacity:1;box-shadow:0 0 6px #3ad0ffaa}
+/* ---- bottom bar / sheet: slim holo panel flush to the bottom edge; 12 px headroom so the top glow isn't clipped ---- */
+#sheetWrap{position:fixed;left:0;right:0;bottom:0;height:calc(190px + var(--sab));overflow:hidden;pointer-events:none;z-index:7}
+#sheet{position:absolute;left:0;right:0;bottom:0;height:calc(178px + var(--sab));padding-bottom:var(--sab);box-sizing:border-box;isolation:isolate;pointer-events:auto;transition:transform .42s cubic-bezier(.2,1.3,.35,1);will-change:transform;--ch:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px)}
 #sheet.dragging{transition:none}
-#grab{height:46px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;touch-action:none;cursor:grab}
-#grab i{position:absolute;top:6px;left:50%;width:38px;height:5px;margin-left:-19px;border-radius:3px;background:#ffffff55}
-#grab span{font:700 15px/1 system-ui;margin-top:6px}
-#grab em{font:600 12px/1 system-ui;font-style:normal;opacity:.6;margin-top:6px}
-#grab .dotn{width:8px;height:8px;border-radius:50%;background:#5dff9a;box-shadow:0 0 6px #5dff9a;margin-top:6px}
-.row{display:flex;align-items:center;gap:10px;height:56px;padding:0 12px;border-top:1px solid #ffffff12}
-.row .ico{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#3fd7ff,#1d5f8a);flex:none}
-.row .ico.rv{background:linear-gradient(135deg,#d6dbe3,#6b7280)}
-.row .txt{flex:1;display:flex;flex-direction:column;gap:3px}
-.row .txt b{font:700 15px/1 system-ui}.row .txt b span{font-weight:600;opacity:.6;font-size:12px;margin-left:4px}
-.row .txt small{font:500 12px/1.1 system-ui;opacity:.7}
-.row button{min-width:92px;height:40px;border:0;border-radius:11px;background:linear-gradient(#3fdc7a,#23a957);font:800 15px/1 system-ui;color:#062010}
-.row button.need{background:#3a3f4c;color:#9aa1ae;font-weight:700;font-size:13px}
-.row button.max{background:#2a2f3a;color:#7d8594}
-#eve{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 26px);height:56px;align-items:center;background:#0d1322f2;border:1px solid #6fd6ff55;border-radius:12px;display:flex;gap:8px;padding:3px 4px 3px 8px;z-index:8;box-shadow:0 6px 22px #000a;transform:translateY(-12px);opacity:0;transition:.25s;pointer-events:none;box-sizing:border-box}
+body:not(.sheet-open) #sheet:not(.dragging) .row{opacity:0;transition:opacity .15s ease-out}
+#sheet .pn{position:absolute;inset:0;z-index:-2;clip-path:var(--ch);background:linear-gradient(90deg,#3ad0ff,#c9d3e6 50%,#3ad0ff)}
+#sheet .pn::after{content:'';position:absolute;inset:1px 0 0;clip-path:polygon(15.6px 0,calc(100% - 15.6px) 0,100% 15.6px,100% 100%,0 100%,0 15.6px);background:linear-gradient(180deg,#0d1424e6,#182238e6)}
+#sheet .spk{position:absolute;inset:1px 0 0;z-index:-1;clip-path:var(--ch);opacity:.55;background:url(ui/speckle.png) 0 0/128px 128px repeat;pointer-events:none}
+@media (min-resolution:2dppx){#sheet .spk{background-size:64px 64px}}
+@media (min-resolution:3dppx){#sheet .spk{background-size:42.667px 42.667px}}
+#sheet .gl{position:absolute;left:16px;right:16px;top:0;height:1px;z-index:-3;box-shadow:0 0 10px 1px #3ad0ff77,0 0 2px #3ad0ff;pointer-events:none}
+#sheet .brk{position:absolute;left:8px;right:8px;top:8px;height:16px;pointer-events:none;background:linear-gradient(#c9d3e6,#c9d3e6) 10px 0/10px 1px no-repeat,linear-gradient(#c9d3e6,#c9d3e6) 0 10px/1px 6px no-repeat,linear-gradient(#c9d3e6,#c9d3e6) calc(100% - 10px) 0/10px 1px no-repeat,linear-gradient(#c9d3e6,#c9d3e6) 100% 10px/1px 6px no-repeat;opacity:.7}
+#sheet .tk{position:absolute;top:6px;width:44px;height:4px;background:repeating-linear-gradient(90deg,#8794ad 0 1px,transparent 1px 6px);opacity:.6;pointer-events:none}
+#sheet .tk.l{left:34px}#sheet .tk.r{right:34px}
+#grab{height:46px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;touch-action:none;cursor:grab;color:#c9d3e6}
+#conv{position:absolute;left:18px;right:18px;top:2px;height:2px;overflow:hidden;pointer-events:none;opacity:.6}
+#conv::before{content:'';position:absolute;left:0;top:0;bottom:0;right:-12px;background:repeating-linear-gradient(90deg,#3ad0ff 0 5px,transparent 5px 12px);animation:conv 1s linear infinite;animation-play-state:paused}
+#sheet.run #conv::before{animation-play-state:running}
+@keyframes conv{to{transform:translateX(-12px)}}
+#grab .drill{width:20px;height:20px;margin-top:6px;flex:none;background:#c9d3e6;-webkit-mask:url(ui/drill.svg) center/contain no-repeat;mask:url(ui/drill.svg) center/contain no-repeat}
+#grab i{position:absolute;top:8px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:linear-gradient(90deg,#8de9ff,#eef3fb,#8de9ff);box-shadow:0 0 8px #3ad0ffaa}
+#grab span{font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.2em;text-transform:uppercase;margin-top:6px}
+#grab em{font:600 11px/1 system-ui;font-style:normal;font-variant-numeric:tabular-nums;letter-spacing:.04em;opacity:.6;margin-top:6px}
+#grab .dotn{width:8px;height:8px;border-radius:50%;background:#3ad0ff;box-shadow:0 0 6px #3ad0ff;margin-top:6px}
+.row{transition:opacity .2s ease-out;position:relative;isolation:isolate;display:flex;align-items:center;gap:10px;height:52px;margin:8px 10px 0;padding:0 4px 0 8px;color:#c9d3e6}
+.row::before{inset:0;background:linear-gradient(100deg,#3ad0ff66,#8794ad44 40%,#8794ad22)}
+.row::after{inset:1px;background:linear-gradient(180deg,#121c31f0,#0e1628f0)}
+.chip{width:36px;height:36px;flex:none;display:grid;place-items:center;background:radial-gradient(circle,#3ad0ff33,#0a1424 70%);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);box-shadow:inset 0 0 0 1px #3ad0ff66}
+.chip i{width:24px;height:24px;background:#7ff3ff;-webkit-mask:var(--i) center/24px 24px no-repeat;mask:var(--i) center/24px 24px no-repeat}
+.chip.dr i{--i:url(ui/drill.svg)}.chip.rv i{--i:url(ui/rover.svg);background:#c9d3e6}
+.row .txt{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+.row .txt .hd{display:flex;align-items:baseline;gap:6px}
+.row .txt .hl{font-size:11px;opacity:1;color:#e6ecf7}
+.row .txt .lv{font:700 11px/1 system-ui;font-variant-numeric:tabular-nums;color:#7ff3ff;letter-spacing:.06em}
+.meter{display:flex;gap:2px;height:4px}
+.meter i{flex:1;max-width:12px;background:#8794ad44;transform:skewX(-20deg)}
+.meter i.on{background:#3ad0ff;box-shadow:0 0 4px #3ad0ffaa}
+.row .txt small{font:500 10.5px/1.1 system-ui;font-variant-numeric:tabular-nums;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bw{position:relative;flex:none}
+.bw::before{content:'';position:absolute;inset:-8px -6px;background:radial-gradient(closest-side,#3ad0ff55,transparent);opacity:0;transition:opacity .2s;pointer-events:none}
+.bw.ok::before{opacity:1}
+.row button{position:relative;overflow:hidden;min-width:96px;height:44px;padding:0 16px;border:0;background:linear-gradient(180deg,#7fe6ff,#2fbdf0);font:800 14px/1 system-ui;font-variant-numeric:tabular-nums;letter-spacing:.04em;color:#04202c;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%)}
+.row button::after{content:'';position:absolute;top:0;bottom:0;left:0;width:60%;background:linear-gradient(105deg,transparent 20%,#ffffffaa 50%,transparent 80%);transform:translateX(-120%);animation:shim 2.6s ease-in-out infinite;pointer-events:none}
+@keyframes shim{0%,55%{transform:translateX(-120%)}100%{transform:translateX(260%)}}
+.row button.need,.row button.max{background:#232a38;color:#9aa1ae;font-weight:700;font-size:12px}
+.row button.max{color:#7d8594}
+.row button.need::after,.row button.max::after{display:none}
+#eve{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 26px);height:56px;align-items:center;isolation:isolate;display:flex;gap:8px;padding:3px 4px 3px 8px;z-index:8;transform:translateY(-12px);opacity:0;transition:transform .25s,opacity .25s;pointer-events:none;box-sizing:border-box}
+#eve::before{inset:0;background:linear-gradient(110deg,#3ad0ff,#c9d3e6aa 50%,#8794ad66)}
+#eve::after{inset:1px;background:linear-gradient(180deg,#0f1a2efa,#090f1dfa)}
 #eve.on{transform:none;opacity:1;pointer-events:auto}
-#eve .av{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#9aa0aa 0 28%,transparent 29%),radial-gradient(ellipse at 50% 100%,#9aa0aa 0 45%,transparent 46%),#454b57;flex:none}
+#eve .av{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#c9d3e6 0 28%,transparent 29%),radial-gradient(ellipse at 50% 100%,#c9d3e6 0 45%,transparent 46%),#16304a;box-shadow:0 0 0 1px #3ad0ff99,0 0 8px #3ad0ff66;flex:none}
 #eve .bd{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
-#eve .who{display:flex;justify-content:space-between;align-items:center;height:12px;font:800 10px/1 system-ui;letter-spacing:.06em;color:#7fdcff}
-#eveCash{font:800 12px/1 system-ui;color:#9dffb0;letter-spacing:0;padding-left:6px;white-space:nowrap;display:inline-block}
+#eve .who{display:flex;justify-content:space-between;align-items:center;height:14px;font:800 9px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;text-transform:uppercase;color:#7ff3ff}
+#eveCash{font:800 11px/1 system-ui;font-variant-numeric:tabular-nums;color:#eafcff;letter-spacing:.02em;padding:2px 8px 2px 9px;white-space:nowrap;display:inline-block;background:#3ad0ff26;box-shadow:inset 0 0 0 1px #3ad0ff77;text-shadow:0 0 6px #3ad0ff;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
 #eve .tx{font:500 13px/1.3 system-ui;height:2.6em;overflow:hidden}
-#eve .ov{flex:none;height:44px;min-width:62px;padding:0 12px;border:0;border-radius:9px;background:#2a7fff;font:700 13px/1 system-ui}
-#eve .x{flex:none;width:30px;height:44px;padding:0;border:0;background:none;font:400 20px/1 system-ui;opacity:.6}
+#eve .ov{flex:none;height:44px;min-width:62px;padding:0 14px;border:0;background:linear-gradient(180deg,#7fe6ff,#2fbdf0);color:#04202c;font:800 12px/1 system-ui;letter-spacing:.14em;text-transform:uppercase;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,10px 100%,0 50%)}
+#eve .x{flex:none;width:30px;height:44px;padding:0;border:0;background:none;font:400 20px/1 system-ui;color:#c9d3e6;opacity:.7}
 #point{position:fixed;z-index:6;pointer-events:none;width:0;height:0;display:none}
 #point i{position:absolute;left:-14px;top:-46px;width:28px;height:34px;animation:bob .8s ease-in-out infinite alternate}
 #point i::before{content:'';position:absolute;left:4px;top:0;border:10px solid transparent;border-top:18px solid #ffd84d;filter:drop-shadow(0 0 4px #000)}
@@ -82,26 +130,26 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="QA3D · 22:38">
+<body data-tag="QA3D · 23:29">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <script>if(/[?&]dev=1(&|$)/.test(location.search)){var d=document.getElementById('dev');d.hidden=false;d.textContent='measuring…';}</script>
 <div id="hud">
- <div class="cell"><span class="lbl">Money</span><b id="money">$0</b></div>
- <div class="cell mid"><b id="rate">0</b><span class="lbl">ore/min</span><div id="bin"><i></i></div></div>
- <div class="cell"><span class="lbl">Crystals</span><b id="cry">0</b></div>
+ <div class="cell"><div class="top"><i class="hi cr"></i><span class="lbl">Money</span></div><b id="money">$0</b></div>
+ <div class="cell mid"><div class="top"><i class="hi ore"></i><b id="rate">0</b><span class="lbl">ore/min</span></div><div id="bin"><i></i></div></div>
+ <div class="cell"><div class="top"><i class="hi cy"></i><span class="lbl">Crystals</span></div><b id="cry">0</b></div>
 </div>
 <div id="name"></div>
 <div id="dots"></div>
-<div id="sheetWrap"><div id="sheet">
- <div id="grab"><i></i><span>Upgrade</span><em id="sum"></em><span class="dotn" id="canDot" hidden></span></div>
- <div class="row"><div class="ico"></div><div class="txt"><b>Drill<span id="dLvl"></span></b><small id="dGain"></small></div><button id="bDrill"></button></div>
- <div class="row"><div class="ico rv"></div><div class="txt"><b>Rovers<span id="rLvl"></span></b><small id="rGain"></small></div><button id="bRover"></button></div>
+<div id="sheetWrap"><div id="sheet"><div class="gl"></div><div class="pn"></div><div class="spk"></div><div class="brk"></div><div class="tk l"></div><div class="tk r"></div>
+ <div id="grab"><div id="conv"></div><i></i><b class="drill" aria-hidden="true"></b><span>Upgrade</span><em id="sum"></em><span class="dotn" id="canDot" hidden></span></div>
+ <div class="row"><div class="chip dr"><i></i></div><div class="txt"><div class="hd"><span class="hl">Drill</span><span class="lv" id="dLvl"></span></div><div class="meter" id="dMeter"></div><small id="dGain"></small></div><span class="bw"><button id="bDrill"></button></span></div>
+ <div class="row"><div class="chip rv"><i></i></div><div class="txt"><div class="hd"><span class="hl">Rovers</span><span class="lv" id="rLvl"></span></div><div class="meter" id="rMeter"></div><small id="rGain"></small></div><span class="bw"><button id="bRover"></button></span></div>
 </div></div>
-<div id="eve"><div class="av"></div><div class="bd"><div class="who"><span>EVE · Earth Coms</span><b id="eveCash">$0</b></div><div class="tx" id="eveTx"></div></div><button class="ov" id="eveOver">Over</button><button class="x" id="eveX" aria-label="Skip">×</button></div>
+<div id="eve"><div class="av"></div><div class="bd"><div class="who"><span>Eve · Earth Coms</span><b id="eveCash">$0</b></div><div class="tx" id="eveTx"></div></div><button class="ov" id="eveOver">Over</button><button class="x" id="eveX" aria-label="Skip">×</button></div>
 <div id="point"><b>TAP HERE</b><i></i></div>
 <div id="away"><p>While you were away</p><h3 id="awayAmt">+$0</h3><button id="awayOk">Nice</button></div>
 <svg id="ring" class="ring" viewBox="0 0 46 46"><circle cx="23" cy="23" r="18" fill="#0009" stroke="#ffffff33" stroke-width="5"/><circle id="ringArc" cx="23" cy="23" r="18" fill="none" stroke="#7ff0ff" stroke-width="5" stroke-linecap="round" stroke-dasharray="113.1" stroke-dashoffset="113.1" transform="rotate(-90 23 23)"/></svg>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="./main.js?v=2238"></script>
+<script type="module" src="./main.js?v=2329"></script>
 </body></html>
