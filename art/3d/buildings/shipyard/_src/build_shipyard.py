@@ -15,7 +15,7 @@ Systems (collection 'Mine' = exported building), all ABOVE GROUND on a sintered 
   * welding bay W-2: barrel section on turning rolls, 4 robot welders, weld screens, power unit with white radiators
   * integration stand IS-1: sintered pad r 15 m, 46 m tower with C-shaped work platforms around a part-built stack (2 skinned rings,
     open-bay ring with exposed frames / stringers / tank dome); the tower jib crane holds the next ring over the open top
-  * refinery REF-01: 3 columns, LOX + CH4 spheres, pipe rack, radiator bank, ISRU reactor, regolith hopper + conveyor,
+  * foundry FAB-01 (metals foundry: refinery leftovers -> hull parts): 3 furnace columns, LOX + LH2 spheres, pipe rack, radiator bank, furnace F-1, slag hopper + conveyor,
     propellant line to the stand
   * yard control YC-1: above-ground hab on legs, airlock A1 + suitports, dust-off arch, stair
   * power: 2 solar masts + cable run from a distant fission plant behind a berm (Stage)
@@ -43,10 +43,11 @@ GAME_NAMES = {
     'door_leaves': ('Hall_Door_L', 'Hall_Door_R'),     # mesh children of the Hall_Door pivot empty
     'markers': {'Stand_Center': 'Stand_Center', 'Hall_Door_Front': 'Hall_Door_Front', 'Road_Entry': 'Road_Entry', 'Crate_Drop': 'Crate_Drop', 'Cam_Target': 'Cam_Target'},
     'crew_path': 'Crew_Path_%02d',
-    # in-game phone camera (Game Coder): lookAt(Cam_Target), pitch 18 deg, azimuth -86 deg (camera sits toward -Y, slightly +X), 152 m, 30 mm on a
-    # 36 mm sensor fitted to the 852/2556 px height -> vertical FOV 61.93 deg. Blender Z-up coords; glTF Y-up = (x, z, -y).
-    # Framing rule on 393x852: focus (hall door + SN-07 + crane) whole inside y 100..650 (HUD above, sheet from 674).
-    'phone_cam': {'target': (-1.1, 0.85, 16.5), 'az': -86.0, 'pitch': 18.0, 'dist': 152.0, 'lens': 30.0},
+    # in-game phone camera (Game Coder spec): perspective, VERTICAL FOV 38 deg (sensor_fit VERTICAL), pitched down 18 deg, lookAt(Cam_Target),
+    # azimuth -86 deg (camera toward -Y, slightly +X). Cam_Target extras {'frame_w': W}; d = (W/2) / (tan(19 deg) * 393/852) ~= 3.148 * W.
+    # Framing rule on 393x852 (x3 on 1179x2556): focus (hall door + SN-07 + crane) whole inside y 100..650; HUD above, sheet from y 674.
+    # Blender Z-up coords; glTF Y-up = (x, z, -y).
+    'phone_cam': {'target': (-1.52, 0.72, 16.5), 'az': -86.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 84.0},
 }
 
 # ====================================================================== materials
@@ -90,7 +91,7 @@ PAINT   = P_('SY_PadPaint', '#e9ecef', rough=0.55, metal=0.0, grime=0.45, grime_
 INK     = M_paint('SY_Ink', '#1f2329', rough=0.5, metal=0.0)
 INKW    = M_paint('SY_InkWhite', '#f4f7fa', rough=0.4, metal=0.0)
 LOXB    = P_('SY_LoxBand', '#2f7fe0', rough=0.3, metal=0.1, coat=0.5, grime=0.15)
-CH4B    = P_('SY_Ch4Band', '#e8701a', rough=0.3, metal=0.1, coat=0.5, grime=0.15)
+LH2B    = P_('SY_LH2Band', '#e8701a', rough=0.3, metal=0.1, coat=0.5, grime=0.15)
 CYAN    = M_glow('SY_Cyan', '#2fe3ff', 16)
 CYANS   = M_glow('SY_CyanSoft', '#2fe3ff', 5)
 LAMP    = M_glow('SY_Lamp', '#f2fbff', 25)
@@ -250,7 +251,7 @@ def lin(a, b): return Vector(a).lerp(Vector(b), 0.5)
 SHX, SHY = 22.0, 8.0             # integration stand / starter ship
 HX, HY, HW, HD, HH = -20.0, 12.0, 34.0, 26.0, 24.0   # assembly hall AH-1
 WX, WY = -27.0, -21.0            # welding bay W-2
-RFX, RFY = 50.0, -16.0           # refinery REF-01
+RFX, RFY = 50.0, -16.0           # foundry FAB-01 (relabelled; ex-REF-01 geometry)
 CSX, CSY = 4.0, -38.0            # yard control YC-1
 RXr, RXy = -82.0, 52.0           # distant fission plant
 height = build_stage(keep_flat=((5, -4, 62), (5, -4, 62), (RFX, RFY, 28), (RFX, RFY, 28), (CSX, CSY, 18), (-50, -16, 18), (RXr, RXy, 24), (RXr, RXy, 24)))
@@ -399,9 +400,9 @@ rbox('ist_trolley', (1.4, 1.4, 0.7), tuple(hk), GRAPH_S, rot=(0, 0, rot_u), r=0.
 NRZ = STACK_TOP + 4.2                            # next ring hangs 4.2 m above the open top
 SPZ = NRZ + RH + 2.2
 rod('ist_hoist', tuple(hk), (hk.x, hk.y, SPZ + 0.9), 0.05, SATIN, segs=8)
-rbox('ist_hook', (0.6, 0.6, 0.8), (hk.x, hk.y, SPZ + 0.5), CH4B, r=0.1, segs=2)
-beam('ist_spreader', Vector((hk.x, hk.y, SPZ)) - tang * 4.2, Vector((hk.x, hk.y, SPZ)) + tang * 4.2, 0.5, 0.6, CH4B, bevel=0.05)
-beam('ist_spreader2', Vector((hk.x, hk.y, SPZ)) - inward * 4.2, Vector((hk.x, hk.y, SPZ)) + inward * 4.2, 0.5, 0.6, CH4B, bevel=0.05)
+rbox('ist_hook', (0.6, 0.6, 0.8), (hk.x, hk.y, SPZ + 0.5), LH2B, r=0.1, segs=2)
+beam('ist_spreader', Vector((hk.x, hk.y, SPZ)) - tang * 4.2, Vector((hk.x, hk.y, SPZ)) + tang * 4.2, 0.5, 0.6, LH2B, bevel=0.05)
+beam('ist_spreader2', Vector((hk.x, hk.y, SPZ)) - inward * 4.2, Vector((hk.x, hk.y, SPZ)) + inward * 4.2, 0.5, 0.6, LH2B, bevel=0.05)
 NC = Vector((hk.x, hk.y, 0))
 for k in range(4):
     a = TAU * k / 4 + rot_u; e = Vector((math.cos(a), math.sin(a), 0))
@@ -432,7 +433,7 @@ for z in (12.0, 21.0, 30.0):
 # propellant + power umbilical mast at the stand edge
 UMX, UMY = SHX - 10.5, SHY + 7.0
 rbox('is_umb_mast', (1.2, 1.2, 9.0), (UMX, UMY, TOP + 4.5), WHITE, r=0.15, segs=3)
-for s, mat in ((-1, LOXB), (1, CH4B)):
+for s, mat in ((-1, LOXB), (1, LH2B)):
     cable('is_umb_hose', (UMX + 0.6, UMY + 0.3 * s, TOP + 8.2), (SHX - SR * 0.78, SHY + SR * 0.6 + 0.3 * s, TOP + 7.0), 0.13, FOIL, sag=0.9, n=20)
     rod('is_umb_qd', (SHX - SR * 0.8 - 0.3, SHY + SR * 0.6 + 0.3 * s, TOP + 7.0), (SHX - SR * 0.8, SHY + SR * 0.6 + 0.3 * s, TOP + 7.0), 0.2, mat, segs=14)
 text('decal_umb', 'UMB-1', (UMX, UMY - 0.62, TOP + 6.5), (math.pi / 2, 0, 0), 0.25, INK, extrude=0.003)
@@ -496,11 +497,11 @@ for s in (-1, 1):
     beam('ah_crane_rail', Vector((HX + s * (HW / 2 - WT - 0.5), FRY + 1.5, CRZ)), Vector((HX + s * (HW / 2 - WT - 0.5), BKY - 1.5, CRZ)), 0.7, 0.9, GRAPH, bevel=0.06)
 CBY = HY + 1.0
 beam('ah_crane_bridge', Vector((HX - HW / 2 + WT + 0.6, CBY, CRZ + 1.0)), Vector((HX + HW / 2 - WT - 0.6, CBY, CRZ + 1.0)), 1.6, 1.6, WHITE, bevel=0.12)
-box('ah_crane_stripe', (HW - 2 * WT - 2, 0.04, 0.3), (HX, CBY - 0.82, CRZ + 1.0), CH4B, bevel=0)
+box('ah_crane_stripe', (HW - 2 * WT - 2, 0.04, 0.3), (HX, CBY - 0.82, CRZ + 1.0), LH2B, bevel=0)
 rbox('ah_crane_trolley', (2.6, 2.4, 1.4), (HX, CBY, CRZ + 0.1), GRAPH_S, r=0.15, segs=2)
 for s in (-1, 1):
     rod('ah_crane_rope', (HX + s * 0.6, CBY, CRZ - 0.6), (HX + s * 0.6, CBY, YTOP + 11.6), 0.05, SATIN, segs=8)
-beam('ah_spreader', Vector((HX - 4.5, CBY, YTOP + 11.3)), Vector((HX + 4.5, CBY, YTOP + 11.3)), 0.5, 0.6, CH4B, bevel=0.05)
+beam('ah_spreader', Vector((HX - 4.5, CBY, YTOP + 11.3)), Vector((HX + 4.5, CBY, YTOP + 11.3)), 0.5, 0.6, LH2B, bevel=0.05)
 for s in (-1, 1): rod('ah_sling', (HX + s * 4.2, CBY, YTOP + 11.0), (HX + s * 3.0, CBY, YTOP + 9.6), 0.04, SATIN, segs=8)
 # hull barrel (axis along y, open end faces the door) on a cradle
 BR, BL, BZ = 4.0, 11.0, YTOP + 5.4
@@ -585,7 +586,7 @@ for s in (-1, 1):
 for s in (-1, 1):
     cable('wb_cable', (PUX - 1.8, PUY + 0.4 * s, YTOP + 0.3), (WX - WB_L / 2 + 1.2, WY + s * 6.2, YTOP + 0.3), 0.06, RUBBER, sag=-0.05, n=12)
 
-# ====================================================================== REFINERY REF-01 (columns, spheres, pipe rack, radiators, ISRU reactor, hopper)
+# ====================================================================== FOUNDRY FAB-01 (furnace columns, LOX/LH2 spheres, pipe rack, radiators, furnace F-1, slag hopper)
 def column(x, y, r, h, tag_=None, c='Mine', sg=48):
     lathe('rf_column', [(0, YTOP), (r + 0.45, YTOP), (r + 0.45, YTOP + 0.7), (r, YTOP + 0.8), (r, YTOP + h), (r * 0.75, YTOP + h + r * 0.45), (0, YTOP + h + r * 0.6)], (x, y, 0), WHITE, segs=sg, c=c)
     for z in range(4, int(h), 4): ring('rf_col_band', r + 0.03, (x, y, YTOP + z), 0.25, GRAPH, w=0.05, segs=sg, c=c)
@@ -596,8 +597,8 @@ def column(x, y, r, h, tag_=None, c='Mine', sg=48):
     a = -math.pi / 2 - 0.5; lx, ly = x + (r + 0.35) * math.cos(a), y + (r + 0.35) * math.sin(a)
     for s in (-0.25, 0.25):
         rod('rf_ladder', (lx + s * math.sin(a), ly - s * math.cos(a), YTOP + 0.8), (lx + s * math.sin(a), ly - s * math.cos(a), YTOP + h), 0.03, SATIN, segs=6, c=c)
-    if tag_: text('decal_rf', tag_, (x, y - r - 0.02, YTOP + 3.2), (math.pi / 2, 0, 0), 0.5, INK, extrude=0.004)
-column(RFX - 6.0, RFY + 6.0, 1.6, 22.0, 'REF-01')
+    if tag_: text('decal_rf', tag_, (x, y - r - 0.02, YTOP + 3.2), (math.pi / 2, 0, 0), 0.5, INK, extrude=0.004, c=c)
+column(RFX - 6.0, RFY + 6.0, 1.6, 22.0, 'FAB-01')
 column(RFX - 1.5, RFY + 8.0, 1.3, 17.0)
 column(RFX + 3.0, RFY + 5.5, 1.1, 13.0)
 def sph_tank(x, y, r, band, tag_):
@@ -609,25 +610,25 @@ def sph_tank(x, y, r, band, tag_):
     ring('rf_tank_glow', r + 0.025, (x, y, YTOP + r + 0.6), 0.07, CYAN, w=0.02, segs=64)
     text('decal_tank', tag_, (x, y - r - 0.06, YTOP + r + 1.95), (math.pi / 2, 0, 0), 0.55, INK, extrude=0.004)
 sph_tank(RFX + 7.0, RFY - 7.0, 3.6, LOXB, 'LOX-T1')
-sph_tank(RFX - 2.0, RFY - 8.0, 3.2, CH4B, 'CH4-T2')
-# ISRU reactor (makes heat) + radiator bank
+sph_tank(RFX - 2.0, RFY - 8.0, 3.2, LH2B, 'LH2-T2')
+# furnace F-1 (makes heat) + radiator bank
 rbox('rf_reactor', (6.0, 4.0, 4.4), (RFX + 9.5, RFY + 6.0, YTOP + 2.2), WHITE, r=0.5, segs=4)
 rbox('rf_reactor_band', (6.1, 4.1, 0.3), (RFX + 9.5, RFY + 6.0, YTOP + 3.4), GRAPH, r=0.08, segs=2)
 box('rf_reactor_strip', (5.0, 0.02, 0.08), (RFX + 9.5, RFY + 3.99, YTOP + 1.2), CYAN, bevel=0)
-text('decal_rfr', 'ISRU REACTOR R-1 · SABATIER', (RFX + 9.5, RFY + 3.97, YTOP + 2.5), (math.pi / 2, 0, 0), 0.28, INK, extrude=0.003)
+text('decal_rfr', 'FURNACE F-1 · HULL STOCK', (RFX + 9.5, RFY + 3.97, YTOP + 2.5), (math.pi / 2, 0, 0), 0.28, INK, extrude=0.003)
 for k in range(5):
     x = RFX + 4.0 + k * 2.6
     for s in (-1, 1): rod('rf_rad_post', (x, RFY + 14.0 + s * 3.6, YTOP), (x, RFY + 14.0 + s * 3.6, YTOP + 2.0), 0.1, SATIN, segs=10)
     box('rf_radiator', (0.1, 8.0, 5.0), (x, RFY + 14.0, YTOP + 4.6), RAD, bevel=0.01)
     for zz in (-2.52, 2.52): rod('rf_rad_manifold', (x, RFY + 10.0, YTOP + 4.6 + zz), (x, RFY + 18.0, YTOP + 4.6 + zz), 0.07, GRAPH_S, segs=10)
-text('decal_rfrad', 'RAD-R1', (RFX + 3.92, RFY + 14.0, YTOP + 7.4), (math.pi / 2, 0, -math.pi / 2), 0.4, INK, extrude=0.004)
+text('decal_rfrad', 'RAD-F1', (RFX + 3.92, RFY + 14.0, YTOP + 7.4), (math.pi / 2, 0, -math.pi / 2), 0.4, INK, extrude=0.004)
 # pipe rack
 PRY = RFY - 1.0
 for k in range(7):
     x = RFX - 10.0 + k * 3.5
     for s in (-1, 1): rod('rf_rack_post', (x, PRY + s * 1.1, YTOP), (x, PRY + s * 1.1, YTOP + 5.2), 0.12, GRAPH, segs=10)
     for z in (3.4, 5.2): beam('rf_rack_beam', Vector((x, PRY - 1.3, YTOP + z)), Vector((x, PRY + 1.3, YTOP + z)), 0.2, 0.25, GRAPH_S, bevel=0.02)
-for i, (dy, z, r, m) in enumerate(((-0.8, 3.65, 0.18, LOXB), (-0.3, 3.65, 0.18, CH4B), (0.3, 3.65, 0.24, FOIL), (0.8, 3.65, 0.14, SATIN), (-0.5, 5.45, 0.2, FOIL), (0.5, 5.45, 0.16, SATIN))):
+for i, (dy, z, r, m) in enumerate(((-0.8, 3.65, 0.18, LOXB), (-0.3, 3.65, 0.18, LH2B), (0.3, 3.65, 0.24, FOIL), (0.8, 3.65, 0.14, SATIN), (-0.5, 5.45, 0.2, FOIL), (0.5, 5.45, 0.16, SATIN))):
     rod('rf_pipe', (RFX - 10.4, PRY + dy, YTOP + z), (RFX + 11.4, PRY + dy, YTOP + z), r, m, segs=14)
 # regolith hopper + conveyor from a raw-feed pile
 HPX, HPY = RFX - 14.0, RFY - 10.0
@@ -643,7 +644,7 @@ beam('rf_conveyor', c0_, c1_, 1.1, 0.35, GRAPH_S, bevel=0.04)
 beam('rf_conveyor_belt', c0_ + Vector((0, 0, 0.2)), c1_ + Vector((0, 0, 0.2)), 0.9, 0.05, RUBBER, bevel=0)
 for t in (0.3, 0.6):
     p = c0_.lerp(c1_, t); rod('rf_conv_leg', (p.x, p.y, YTOP), (p.x, p.y, p.z - 0.15), 0.1, SATIN, segs=8)
-# propellant transfer line (LOX + CH4) on low stanchions: tank farm -> umbilical mast UMB-1
+# propellant transfer line (LOX + LH2) on low stanchions: tank farm -> umbilical mast UMB-1
 route = [Vector((RFX - 5.0, RFY - 4.0, 0)), Vector((36.0, -6.0, 0)), Vector((36.0, 16.0, 0)), Vector((UMX + 1.0, UMY + 8.0, 0)), Vector((UMX, UMY + 0.8, 0))]
 for a, b in zip(route, route[1:]):
     L = (b - a).length; n = max(1, int(L / 4.0)); ang = math.atan2(b.y - a.y, b.x - a.x)
@@ -651,7 +652,7 @@ for a, b in zip(route, route[1:]):
         p = a.lerp(b, i / n)
         rod('pl_post', (p.x, p.y, YTOP), (p.x, p.y, YTOP + 0.8), 0.05, GRAPH_S, segs=8)
         box('pl_saddle', (0.3, 0.7, 0.08), (p.x, p.y, YTOP + 0.8), SATIN, rot=(0, 0, ang), bevel=0.01)
-    for dy, m in ((-0.18, LOXB), (0.18, CH4B)):
+    for dy, m in ((-0.18, LOXB), (0.18, LH2B)):
         o = Vector((-math.sin(ang), math.cos(ang), 0)) * dy
         rod('pl_pipe', (a.x + o.x, a.y + o.y, YTOP + 0.95), (b.x + o.x, b.y + o.y, YTOP + 0.95), 0.11, FOIL, segs=10)
         rod('pl_band', tuple(a.lerp(b, 0.5) + o + Vector((0, 0, YTOP + 0.95)) - (b - a).normalized() * 0.3), tuple(a.lerp(b, 0.5) + o + Vector((0, 0, YTOP + 0.95)) + (b - a).normalized() * 0.3), 0.12, m, segs=10)
@@ -797,11 +798,11 @@ rbox('t3_cw', (2.2, 1.8, 1.6), tuple(Vector((C2X, C2Y, YTOP + C2H + 1.4)) - ju *
 th = Vector((C2X, C2Y, YTOP + C2H + 1.8)) + ju * 16.0
 rbox('t3_trolley', (1.2, 1.2, 0.6), tuple(th), GRAPH_S, rot=(0, 0, ja), r=0.08, segs=1, c=TC)
 rod('t3_hoist', tuple(th), tuple(th - Vector((0, 0, 12.0))), 0.05, SATIN, segs=6, c=TC)
-rbox('t3_hook', (0.6, 0.6, 0.8), tuple(th - Vector((0, 0, 12.4))), CH4B, r=0.08, segs=1, c=TC)
+rbox('t3_hook', (0.6, 0.6, 0.8), tuple(th - Vector((0, 0, 12.4))), LH2B, r=0.08, segs=1, c=TC)
 grp_end(_t, 'Tier_03')
-# Tier_05 - second REF-01 column (fractionating, tied into the pipe rack)
+# Tier_05 - second FAB-01 furnace column (tied into the pipe rack)
 _t = grp_begin()
-column(RFX - 3.5, RFY + 14.0, 1.5, 20.0, None, c=TC, sg=32)
+column(RFX - 3.5, RFY + 14.0, 1.5, 20.0, 'FURNACE 2', c=TC, sg=32)
 rod('t5_feed', (RFX - 3.5, RFY + 12.3, YTOP + 3.65), (RFX - 3.5, PRY + 1.2, YTOP + 3.65), 0.2, SATIN, segs=10, c=TC)
 for t_ in (0.35, 0.7):
     p_ = Vector((RFX - 3.5, RFY + 12.3 + (PRY + 1.2 - RFY - 12.3) * t_, 0)); rod('t5_feed_post', (p_.x, p_.y, YTOP), (p_.x, p_.y, YTOP + 3.45), 0.1, GRAPH_S, segs=8, c=TC)
@@ -892,7 +893,7 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
         return m
     # draw budget (every tier visible): base 6 + Crane_Jib 1 + Hall_Door_L/R 2 + Beacon_Lights 1 + 5 tiers x 1 = 15
     RULES = [('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowCyan'), ('amber', 'SH_GlowCyan'), ('glass', 'SH_Graphite'), ('lens', 'SH_Graphite'),
-             ('solar', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('ch4', 'SH_White'),
+             ('solar', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('lh2', 'SH_White'),
              ('sinter', 'SH_Rock'), ('yard', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
              ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
     GROUP_MAT = {'Crane_Jib': 'SH_White', 'Hall_Door_L': 'SH_White', 'Hall_Door_R': 'SH_White', 'Beacon_Lights': 'SH_GlowRed',
@@ -997,7 +998,8 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
     MN = GAME_NAMES['markers']
     stf = Vector((s1.x, s1.y - 0.8, YTOP + 0.05)); hdf = Vector((HX, FRY - 4.0, YTOP + 0.05))
     mk = [mark(MN['Stand_Center'], (SHX, SHY, TOP)), mark(MN['Hall_Door_Front'], hdf), mark(MN['Road_Entry'], (-47.5, -9.5, YTOP + 0.05)),
-          mark(MN['Crate_Drop'], (HX + 8.5, FRY - 7.0, YTOP + 0.05)), mark(MN['Cam_Target'], GAME_NAMES['phone_cam']['target'])]   # Cam_Target: empty only, no draw
+          mark(MN['Crate_Drop'], (HX + 8.5, FRY - 7.0, YTOP + 0.05)), mark(MN['Cam_Target'], GAME_NAMES['phone_cam']['target'])]
+    mk[-1]['frame_w'] = GAME_NAMES['phone_cam']['frame_w']   # Cam_Target: empty only (no draw) + extras {frame_w}   # Cam_Target: empty only, no draw
     path = [stf, Vector((6.0, -30.0, YTOP + 0.05)), Vector((6.0, -12.0, YTOP + 0.05)), Vector((-8.0, -6.5, YTOP + 0.05)), hdf,
             Vector((2.0, -2.0, YTOP + 0.05)), Vector((SHX - 6.0, SHY - 12.0, TOP)), Vector((TX - 3.0, TY - 7.0, TOP))]
     for i, p in enumerate(path): mk.append(mark(GAME_NAMES['crew_path'] % (i + 1), p))
@@ -1015,11 +1017,15 @@ if 'hero' in ONLY:
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
     shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 26)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 master (393x852 downscale made with PIL)
-    PC = GAME_NAMES['phone_cam']   # aimed at Cam_Target exactly like the game camera
-    pt = Vector(PC['target']); az = math.radians(float(A.get('paz', PC['az']))); el = math.radians(PC['pitch']); dd = float(A.get('pd', PC['dist']))
+    PC = GAME_NAMES['phone_cam']   # same camera as the game: aimed at Cam_Target, 38 deg vertical FOV, distance from frame_w
+    half = math.radians(PC['fov_y'] / 2); pw, ph = (1179, 2556) if not QUICK else (393, 852)
+    dd = (PC['frame_w'] / 2) / (math.tan(half) * pw / ph)
+    pt = Vector(PC['target']); az = math.radians(PC['az']); el = math.radians(PC['pitch'])
     pp = pt + Vector((math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))) * dd
-    pw, ph = (1179, 2556) if not QUICK else (393, 852)
-    shoot(cam, os.path.join(OUT, 'portrait.png'), tuple(pt), tuple(pp), pw, ph, lens=float(A.get('plens', PC['lens'])), samples=int(A.get('hs', 64)) if not QUICK else 16)
+    print('PHONECAM target', tuple(round(v, 3) for v in pt), 'cam', tuple(round(v, 3) for v in pp), 'd', round(dd, 3), flush=True)
+    cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 36.0
+    shoot(cam, os.path.join(OUT, 'portrait.png'), tuple(pt), tuple(pp), pw, ph, lens=18.0 / math.tan(half), samples=int(A.get('hs', 64)) if not QUICK else 16)
+    cam.data.sensor_fit = 'AUTO'
 if 'turn' in ONLY:
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
     turntable(cam, os.path.join(OUT, 'turntable'), (6.0, -2.0, 12.0), 175, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)
