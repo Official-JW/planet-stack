@@ -18,7 +18,7 @@ const CFG = {
   // HT-04 truck loop (Director 10/23): park under the chute, fill, auto-depart when full, 12 s haul leg, tip at the Refinery, 12 s back
   fill0: 120, chuteMul: 0.89, fillFloor: 15, chuteMax: 19,   // fill s at Lv1; Chute Feed Rate ×0.89/level; 15 s floor (reached at Lv19)
   chuteCost0: 25, chuteCostGrowth: 1.6,                      // PLACEHOLDER price: not in the Director's numbers
-  loadMin: 2,                           // PLACEHOLDER base load value = drill ore/min × 2 min (the Lv1 fill) × oreValue (no spec number)
+  load0: 12, loadPerLvl: 6,             // base load value: fixed $ per load ($12 at drill Lv1, +$6 per drill level); independent of the fill time, so Chute Feed Rate = more loads/h at the same value
   richFill: 0.25, richBonus: 8, richPayDelay: 1.0,            // deposit tap: +25% bed (tweened over the 1 s truck_load_rich), bonus pays ~1 s later
   roverBonus: 8, roverMax: 2, roverCost: 60,
   crew0: 4,                             // starting crew; the Mine operator (Operator_Deck) is one of them
@@ -29,12 +29,19 @@ const CFG = {
 const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide in portrait, 18° down
 
 const Q = new URLSearchParams(location.search);
+// ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
+const MINE_GLB = 'models/mine_8a0bfe6.glb';             // Art 8a0bfe6 (md5 699164bb…); Path_Out_*/Path_Ret_* markers drive the route
+const REFINERY_GLB = 'models/refinery_0358ffa.glb';     // Art 0358ffa (md5 41ac6c5a…); previous: 'models/refinery_4a70acf.glb'
+const ROAD_LAST_SCALE = 1.0;   // haul road: 10 full 8 m tiles + a last tile scaled along X only. 1.0 = 11 full tiles ending at world x 274 (Art's trimmed Refinery road);
+                               // 0.75 = ends at x 272, where Refinery 0358ffa's own road starts
 const DEV = Q.get('dev') === '1';
 const SAVEKEY = DEV ? 'planetstack-qa3d-dev' : 'planetstack-qa3d';
 if (Q.has('fresh')) try { localStorage.removeItem(SAVEKEY); } catch (e) {}
 const SPD = Math.max(1, Math.min(100, +Q.get('speed') || 1)), T0 = Date.now();   // ?speed=N (QA only): the game clock (truck loop, fill, deposits, 3D anims) runs N×
 let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live play (no offline rate)
-const nowMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
+let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
+const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
+const nowMs = () => (HOLD !== null ? HOLD : rawMs());
 const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], rt: nowMs() };
 let hadRt = false;
 try { const sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); hadRt = sv.rt > 0;
@@ -64,7 +71,7 @@ const rate = () => CFG.drillRate0 + CFG.drillRatePerLvl * (S.drill - 1);        
 const drillCost = () => Math.round(CFG.drillCost0 * CFG.drillCostGrowth ** (S.drill - 1));
 const fillSec = (lv = S.chute) => Math.max(CFG.fillFloor, CFG.fill0 * CFG.chuteMul ** (lv - 1));   // Lv7 = 59.6 s, Lv19 = 15 s
 const chuteCost = () => Math.round(CFG.chuteCost0 * CFG.chuteCostGrowth ** (S.chute - 1));
-const loadValue = () => rate() * CFG.loadMin * CFG.oreValue;                                           // PLACEHOLDER (see CFG.loadMin)
+const loadValue = (lv = S.drill) => CFG.load0 + CFG.loadPerLvl * (lv - 1);   // Director 10/23: fixed per load, scales with drill level only
 const canPay = (c) => DEV || S.money >= c;
 const pay = (c) => { if (!DEV) S.money -= c; };
 const SUF = [[1e15, 'Qa'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M']];
@@ -161,7 +168,8 @@ STATIONS.forEach((name, i) => {
 const DOCK = { pipeLaunchPad: [37.70, 0.66, 7.30] };   // Dock-local glTF; read from the GLB on load (the Launch Pad pipe joins here)
 const STATION_GLB = [
   { i: 0, url: 'models/life_support_adfaac9.glb?v=e8427ec4', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Cam_Target (0, 2.5, -12.5), frame_w 34
-  { i: 2, url: 'models/refinery_4a70acf.glb?v=d1178fd7', loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
+  { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
+    loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: 4, url: 'models/dock_tankfarm_fd286b9.glb?v=7959ae74', loops: ['Beacon_Lights_Blink', 'crane_gantry_move'], onLoad: (o) => {   // Cam_Target (12, 6, 2), frame_w 64; dock door stays shut
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; } },
   { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink', 'crane_jib_swing'] },
@@ -170,7 +178,7 @@ const SITECAM = STATIONS.map(() => ({ k: 1, dx: 0, dz: 0, ly: CAM.lookY }));   /
 const stationMixers = [], stationObjs = {};
 const _ct = new THREE.Vector3();
 function camTargetOf(o) { let t = null; o.traverse(n => { if (!t && n.name === 'Cam_Target' && n.userData && n.userData.frame_w > 0) t = n; }); return t; }
-// ===== Refinery (index 2): Art's Refinery GLB 4a70acf (md5 d1178fd7…), origin = Truck_Dump, Cam_Target (-5, 1, 3.36) frame_w 36.
+// ===== Refinery (index 2): Art's Refinery GLB 0358ffa (md5 41ac6c5a…), origin = Truck_Dump, Cam_Target (-5.9, 8.5, 3.36) frame_w 30.8.
 // The shared HT-04 drives its Truck_Path_01..07 → reverse 4 m → Truck_Dump → Truck_Exit markers (Refinery-local). Values below are the
 // README fallback so the truck timeline exists before the GLB is in; the GLB's own markers replace them on load.
 const RMK = {};               // Refinery markers, Refinery-local { x, z }
@@ -271,14 +279,14 @@ function maybeReady() {
   requestAnimationFrame(() => requestAnimationFrame(hideCover));   // fade only once the Mine has been drawn
 }
 const loader = loader0();
-function loadRig() { loader.load('models/mine_582676b.glb?v=68e07c01', (gltf) => {
+function loadRig() { loader.load(MINE_GLB, (gltf) => {
   clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
   mine = gltf.scene; mine.position.set(MX, 0, 0);
   const moved = [];
   mine.traverse(o => {
     if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.frustumCulled = false;
       const m = o.material; if (m && m.emissive && m.emissive.getHex() && !glowMats.includes(m)) { m.userData.ei0 = m.emissiveIntensity; glowMats.push(m); } }
-    if (o.userData && o.userData.kind) { const old = MK[o.name], p = { x: o.position.x, y: o.position.y, z: o.position.z, e: o.userData };
+    if ((o.userData && o.userData.kind) || /^Path_(Out|Ret)_/.test(o.name)) { const old = MK[o.name], p = { x: o.position.x, y: o.position.y, z: o.position.z, e: o.userData };
       if (old && /^Path_|^Road_/.test(o.name) && Math.hypot(old.x - p.x, old.z - p.z) > .01) moved.push(o.name); MK[o.name] = p; }
   });
   scene.add(mine); mine.updateMatrixWorld(true);
@@ -289,6 +297,7 @@ function loadRig() { loader.load('models/mine_582676b.glb?v=68e07c01', (gltf) =>
   for (const c of gltf.animations) acts[c.name] = mixer.clipAction(c);
   for (const n of ['dig', 'conveyor_run']) if (acts[n]) acts[n].play();
   digOn = null;
+  if (Object.keys(MK).some(n => /^Path_(Out|Ret)_/.test(n))) moved.push('Path_Out_*/Path_Ret_*');   // Art's out/return route markers: marker-driven route
   if (moved.length) { console.warn('Mine haul markers differ from the README fallback: route rebuilt', moved); buildRoute(); }
   applyRigLevel(); fitSite(MINE); restoreDeposits();
   if (op) { const d = MK.Operator_Deck; op.position.set(MX + d.x, 0, d.z); }
@@ -679,15 +688,19 @@ function depTapR(d) {
 }
 // ===== HT-04 haul loop (no scoop). The truck's state is purely its position along the whole loop, computed from saved timestamps (S.tk),
 // so it is right on any station, after a reload and after time away; every load pays exactly once.
-//   fill under the chute (Path_Load) → auto-depart when full → Path_01..04 → Road_Entry → Mine stub (z 9) → temp haul road (z 9)
+//   fill under the chute (Path_Load) → auto-depart when full → Path_Out_01..04 (exact next_leg arcs) → temp haul road (z 9)
 //   → Refinery Truck_Path_01..07 (U-turn) → reverse 4 m → Truck_Dump → truck_dump 3 s (base load pays as the tip starts)
-//   → Truck_Exit → temp road (z 0) → TEMP merge to z 9 → Mine stub → Path_05..15 → Path_Load_Approach → reverse 4.3 m under the chute
-const ROAD = { tile: 8, x0: MX + 26, n: 11, zIn: 9, zOut: 0, mergeX: MX + 42 };   // temp road tiles: 8 m, origin at tile start, world x = 160 + 26 + 8i (i 0..10)
-const TV = { legT: 12, acc: 12, revRef: 1.5, dump: 3.0, settle: 0.4, revMine: 2.0, wheelR: 0.853 };
-const R = { pOut: null, pBack: null, kOut: null, kBack: null, legOut: 0, legBack: 0, tl: null };
+//   → Truck_Exit → temp road (z 0) → Path_Ret_01..08 (exact arcs) → Path_Load_Approach → reverse 4.3 m under the chute
+//   The lanes cross at Path_Ret_04 (Mine x 19.5, z 9). One truck today; with more trucks the loaded (outbound) truck must get priority there.
+const ROAD = { tile: 8, x0: MX + 26, n: 11, zIn: 9, zOut: 0, last: ROAD_LAST_SCALE };   // tiles at world x = 160 + 26 + 8i (i 0..10); tile 10 scaled ROAD_LAST_SCALE along X
+const roadTileM = (i, z = 0) => new THREE.Matrix4().makeTranslation(ROAD.x0 + ROAD.tile * i, 0, z).multiply(new THREE.Matrix4().makeScale(i === ROAD.n - 1 ? ROAD.last : 1, 1, 1));
+const TV = { v: 8.33, ease: 3, brake: 4, revRef: 1.5, dump: 3.0, settle: 0.4, revMine: 2.0, wheelR: 0.853 };
+const R = { pOut: null, pBack: null, kOut: null, kBack: null, legOut: 0, legBack: 0, tl: null, mode: '' };
 const mw = (n) => [MX + MK[n].x, MK[n].z], rw = (n) => [RX + RMK[n].x, RMK[n].z];
 function line(a, b, step = 4) { const n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / step)), o = []; for (let i = 1; i <= n; i++) o.push([a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]); return o; }
+function dedupe(pts) { const o = []; for (const p of pts) { const q = o[o.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > .3) o.push(p); } return o; }
 function samplePath(pts) {          // centripetal Catmull-Rom through the markers, resampled every ~0.2 m by arc length
+  pts = dedupe(pts);
   const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal'); c.arcLengthDivisions = 6000;
   const n = Math.ceil(c.getLength() / .2) + 1, sp = c.getSpacedPoints(n - 1), X = new Float64Array(n), Z = new Float64Array(n), C = new Float64Array(n);
   for (let i = 0; i < n; i++) { X[i] = sp[i].x; Z[i] = sp[i].z; if (i) C[i] = C[i - 1] + Math.hypot(X[i] - X[i - 1], Z[i] - Z[i - 1]); }
@@ -706,38 +719,82 @@ function kinAt(k, t, o) {
   t -= k.tc; if (t < k.td) { const r = k.td - t; o[0] = k.L - .5 * k.v * r * r / k.td; o[1] = k.v * r / k.td; return o; }
   o[0] = k.L; o[1] = 0; return o;
 }
+function kinT(k, s) {               // time at which the profile reaches arc length s
+  if (s <= 0) return 0; if (s < k.da) return Math.sqrt(2 * s * k.ta / k.v);
+  if (s < k.L - k.dd) return k.ta + (s - k.da) / k.v;
+  const r = Math.sqrt(Math.max(0, 2 * (k.L - s) * k.td / k.v)); return k.ta + k.tc + k.td - r;
+}
+// Dense centre line from a marker to the next one, following its extras.next_leg exactly (straight, or arc about centre_glTF with sweep_deg).
+// Arc direction comes from the marker's heading (extras.yaw_deg about +Y: 0 = +X, -90 = +Z), so it does not depend on the left/right convention.
+function legPts(n, nx, step = 0.25) {
+  const m = MK[n], a = [MX + m.x, m.z], b = nx; let L = m.e && m.e.next_leg; try { if (typeof L === 'string') L = JSON.parse(L); } catch (e) { L = null; }
+  if (!L || L.type !== 'arc' || !L.centre_glTF) return line(a, b, step);
+  const cx = MX + L.centre_glTF[0], cz = L.centre_glTF[2], r = Math.hypot(a[0] - cx, a[1] - cz), a0 = Math.atan2(a[1] - cz, a[0] - cx);
+  const yw = ((m.e.yaw_deg != null ? m.e.yaw_deg : 0) * Math.PI) / 180, hx = Math.cos(yw), hz = -Math.sin(yw);
+  const sg = (-Math.sin(a0) * hx + Math.cos(a0) * hz) >= 0 ? 1 : -1, sw = ((L.sweep_deg || 90) * Math.PI) / 180, k = Math.max(2, Math.ceil(r * sw / step)), o = [];
+  for (let i = 1; i <= k; i++) { const t = a0 + sg * sw * i / k; o.push([cx + r * Math.cos(t), cz + r * Math.sin(t)]); }
+  o[o.length - 1] = b; return o;
+}
+function chainPts(names, end) { const o = [mw(names[0])]; for (let i = 0; i < names.length; i++) { const nx = i + 1 < names.length ? mw(names[i + 1]) : end; if (nx) o.push(...legPts(names[i], nx)); } return o; }
+const sortedMk = (re) => Object.keys(MK).filter(n => re.test(n) && !MK[n].fb).sort((a, b) => { const x = a.match(/(\d+)$/), y = b.match(/(\d+)$/); return x && y ? +x[1] - +y[1] : a < b ? -1 : 1; });
+// Route. Marker-driven when the Mine GLB has Path_Out_* / Path_Ret_* (sorted by suffix): out on the inbound lane (z +9), return on the z 0 lane.
+// Otherwise the INTERIM route: z +9 lane both ways across the gap (lane change on the Refinery's own road apron, no S-curve in the gap),
+// back into the Mine's loop (Path_05..15) at the same flat speed → Path_Load_Approach → 2 s reverse under the chute.
 function buildRoute() {
-  const RE = mw('Road_Entry'), stub = [MX + 26, ROAD.zIn], TP1 = rw('Truck_Path_01'), RJ = [MX + 17, ROAD.zIn];
-  const out = [mw('Path_Load'), mw('Path_01'), mw('Path_02'), mw('Path_03'), mw('Path_04'), RE, ...line(RE, stub), ...line(stub, TP1, 8), ...line(TP1, rw('Truck_Path_02'), 8),
-    rw('Truck_Path_03'), rw('Truck_Path_04'), rw('Truck_Path_05'), rw('Truck_Path_06'), rw('Truck_Path_07')];
-  const mg = []; for (let i = 0; i <= 8; i++) { const u = i / 8; mg.push([ROAD.mergeX - 16 * u, ROAD.zIn * u * u * (3 - 2 * u)]); }   // TEMP S-merge z 0 → z 9 (Mine stub is one lane)
-  const ex = rw('Truck_Exit'), dp = rw('Truck_Dump');
-  const back = [dp, ...line(dp, ex, 6), ...line(ex, mg[0], 8), ...mg.slice(1), ...line(mg[8], RJ),
-    ...['05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15'].map(k => mw('Path_' + k)), [MX - 2, 4.6], [MX + 2, 4.5], [MX + 5.5, 4.5], mw('Path_Load_Approach')];
+  const TP1 = rw('Truck_Path_01'), tp = (n) => rw('Truck_Path_0' + n), dp = rw('Truck_Dump'), ex = rw('Truck_Exit'), AP = mw('Path_Load_Approach');
+  const outN = sortedMk(/^Path_Out_/), retN = sortedMk(/^Path_Ret_/);
+  const uturn = [tp(3), tp(4), tp(5), tp(6), tp(7)];
+  let out, back, legA, legB, legC, legD;           // haul leg out: legA → legB; back: legC → legD
+  if (outN.length >= 2 && retN.length >= 2) {
+    R.mode = 'markers';
+    const O = outN.map(mw), Rt = retN.map(mw);
+    legA = O[O.length - 1]; legD = Rt[0]; legB = TP1; legC = ex;
+    out = [...chainPts(['Path_Load', ...outN.filter(n => n !== outN[outN.length - 1])], legA), ...line(legA, TP1, 2), ...line(TP1, tp(2), 2), ...uturn];   // Path_Load's next_leg is the 4.3 m straight
+    back = [dp, ...line(dp, ex, 2), ...line(ex, legD, 2), ...chainPts(retN, AP)];
+  } else {
+    R.mode = 'interim';
+    const RE = mw('Road_Entry'), RJ = [MX + 17, ROAD.zIn], lc = [];
+    for (let i = 0; i <= 8; i++) { const u = i / 8; lc.push([RX - 20 - 18 * u, ROAD.zIn * u * u * (3 - 2 * u)]); }   // lane change z 0 → z 9 on the Refinery road (x −20 … −38 local)
+    legA = RE; legB = TP1; legC = [RX - 46, ROAD.zIn]; legD = RJ;
+    out = [mw('Path_Load'), mw('Path_01'), mw('Path_02'), mw('Path_03'), mw('Path_04'), RE, ...line(RE, TP1, 8), ...line(TP1, tp(2), 8), ...uturn];
+    back = [dp, ...line(dp, lc[0], 6), ...lc.slice(1), ...line(lc[8], RJ, 8),
+      ...['05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15'].map(k => mw('Path_' + k)), [MX - 2, 4.6], [MX + 2, 4.5], [MX + 5.5, 4.5], AP];
+  }
   R.pOut = samplePath(out); R.pBack = samplePath(back);
-  const sRE = sOf(R.pOut, RE), sTP1 = sOf(R.pOut, TP1), sTP3 = sOf(R.pOut, rw('Truck_Path_03'));
-  R.legOut = sTP1 - sRE; R.kOut = kin(R.pOut.L, sRE, R.pOut.L - sTP3, R.legOut / TV.legT);       // flat speed from Road_Entry through the U-turn start; brake round the U-turn
-  const sEx = sOf(R.pBack, ex), sRJ = sOf(R.pBack, RJ);
-  R.legBack = sRJ - sEx; R.kBack = kin(R.pBack.L, TV.acc, TV.acc, R.legBack / TV.legT);            // accelerate off the dump, flat speed, brake into the approach
+  const sA = sOf(R.pOut, legA), sB = sOf(R.pOut, legB), sU = sOf(R.pOut, tp(3));
+  R.legOut = sB - sA; const v = TV.v;                                   // Director 13:04: one constant speed (8.33 m/s) on every leg
+  R.kOut = kin(R.pOut.L, TV.ease, TV.brake, v);                          // eased only where the truck stops: away from the chute, into the stop before the intake reverse
+  const sC = sOf(R.pBack, legC), sD = sOf(R.pBack, legD);
+  R.legBack = sD - sC; R.kBack = kin(R.pBack.L, TV.ease, TV.brake, v);  // eased away from the dump, constant 8.33 m/s, eased stop at Path_Load_Approach
   const t1 = R.kOut.T, t2 = t1 + TV.revRef, t3 = t2 + TV.dump, t4 = t3 + TV.settle, t5 = t4 + R.kBack.T, t6 = t5 + TV.revMine;
   R.tl = { t1, t2, tDump: t2, t3, t4, t5, t6, trip: t6 };
-  window.__ps3d.route = { legOut: +R.legOut.toFixed(2), legBack: +R.legBack.toFixed(2), vOut: +R.kOut.v.toFixed(2), vBack: +R.kBack.v.toFixed(2), Lout: +R.pOut.L.toFixed(1), Lback: +R.pBack.L.toFixed(1),
-    tl: Object.fromEntries(Object.entries(R.tl).map(([k, v]) => [k, +v.toFixed(2)])), mineOut: +(R.kOut.ta).toFixed(2), legOutT: +(R.legOut / R.kOut.v).toFixed(2), refIn: +(t2 - (R.kOut.ta + R.legOut / R.kOut.v)).toFixed(2) };
+  const f = (x) => +x.toFixed(2), tC = kinT(R.kBack, sC), tD = kinT(R.kBack, sD);
+  window.__ps3d.route = { mode: R.mode, legOut: f(R.legOut), legBack: f(R.legBack), v: f(v), Lout: f(R.pOut.L), Lback: f(R.pBack.L), tl: Object.fromEntries(Object.entries(R.tl).map(([k, x]) => [k, f(x)])),
+    phases: { mineOut: f(kinT(R.kOut, sA)), legOut: f(kinT(R.kOut, sB) - kinT(R.kOut, sA)), refIn: f(t1 - kinT(R.kOut, sB)), revRef: TV.revRef, dump: TV.dump, settle: TV.settle,
+      refOut: f(tC), legBack: f(tD - tC), mineReturn: f(R.kBack.T - tD), mineReturnM: f(R.pBack.L - sD), revMine: TV.revMine, trip: f(t6) } };
   buildTempRoad();
 }
 let roadMesh = null;
-function buildTempRoad() {            // TEMP flat haul road across the gap until Art's haul_road_seg tiles land (same 8 m tile layout)
-  if (roadMesh) { scene.remove(roadMesh); roadMesh.traverse(o => o.geometry && o.geometry.dispose()); }
+// Art's 8 m haul-road strip (shared/road 6f06c39, md5 661e3582…, pending Director review): 11 unscaled tiles at Mine-local x 26 + 8i, both lanes (z +9 / z 0).
+// Swap back to the flat temp tiles with ?road=temp (or set ROAD_GLB to null).
+const ROAD_GLB = Q.get('road') === 'temp' ? null : 'models/haul_road_seg_661e358.glb?v=661e3582';
+let roadSeg = null;
+if (ROAD_GLB) loader.load(ROAD_GLB, (g) => { g.scene.updateMatrixWorld(true); g.scene.traverse(o => { if (!roadSeg && o.isMesh) roadSeg = { geo: o.geometry, mat: o.material, m: o.matrixWorld.clone() }; }); buildTempRoad(); },
+  undefined, (e) => console.warn('haul road strip failed, keeping the temp road', e));
+function buildTempRoad() {            // haul road across the gap: Art's strip when loaded, else TEMP flat tiles (same layout; z 0 lane only once the Mine has a return lane)
+  if (roadMesh) { scene.remove(roadMesh); roadMesh.traverse(o => o.geometry && o.geometry !== (roadSeg && roadSeg.geo) && o.geometry.dispose()); }
+  if (roadSeg) {
+    roadMesh = new THREE.Group(); roadMesh.name = 'HaulRoad';
+    const im = new THREE.InstancedMesh(roadSeg.geo, roadSeg.mat, ROAD.n); im.name = 'HaulRoad_Tiles';
+    for (let i = 0; i < ROAD.n; i++) im.setMatrixAt(i, roadTileM(i).multiply(roadSeg.m));
+    im.receiveShadow = true; im.frustumCulled = false; roadMesh.add(im); scene.add(roadMesh); window.__ps3d && (window.__ps3d.road = 'strip'); return;
+  }
+  if (window.__ps3d) window.__ps3d.road = 'temp';
   roadMesh = new THREE.Group(); roadMesh.name = 'TempRoad';
   const mat = new THREE.MeshStandardMaterial({ color: 0x55575c, roughness: .95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const lanes = []; for (let i = 0; i < ROAD.n; i++) { const x = ROAD.x0 + ROAD.tile * i; lanes.push([x, ROAD.zIn]); if (x >= ROAD.mergeX - .01) lanes.push([x, ROAD.zOut]); }
+  const lanes = []; for (let i = 0; i < ROAD.n; i++) { const x = ROAD.x0 + ROAD.tile * i; lanes.push([i, ROAD.zIn]); if (R.mode === 'markers') lanes.push([i, ROAD.zOut]); }
   const tile = new THREE.PlaneGeometry(ROAD.tile, 4.6).rotateX(-Math.PI / 2).translate(ROAD.tile / 2, .03, 0);
-  const im = new THREE.InstancedMesh(tile, mat, lanes.length); lanes.forEach((l, i) => im.setMatrixAt(i, new THREE.Matrix4().makeTranslation(l[0], 0, l[1]))); im.receiveShadow = true; roadMesh.add(im);
-  const P = R.pBack, s0 = sOf(P, [ROAD.mergeX + 2, 0]), s1 = sOf(P, [ROAD.x0 - 1, ROAD.zIn]), pos = [], o = {};   // merge ribbon
-  for (let s = s0; s <= s1 + 1e-6; s += .5) { pathAt(P, s, o); const nx = Math.sin(o.yaw) * 2.3, nz = Math.cos(o.yaw) * 2.3; pos.push(o.x - nx, .035, o.z - nz, o.x + nx, .035, o.z + nz); }
-  const g = new THREE.BufferGeometry(), idx = []; g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  for (let i = 0; i < pos.length / 6 - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx); g.computeVertexNormals();
-  const rb = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x55575c, roughness: .95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); rb.receiveShadow = true; roadMesh.add(rb);
+  const im = new THREE.InstancedMesh(tile, mat, lanes.length); lanes.forEach((l, i) => im.setMatrixAt(i, roadTileM(l[0], l[1]))); im.receiveShadow = true; roadMesh.add(im);
   scene.add(roadMesh);
 }
 const fillAt = (t) => { const k = S.tk; if (k.dep) return 1; return clamp((t - k.c0) / (fillSec() * 1000) + k.add, 0, 1); };
@@ -916,7 +973,7 @@ function meter(id, n, on) { const k = n + ':' + on; if (meterKeys[id] === k) ret
 function sheetUI() {
   const c = drillCost(), ok = canPay(c);
   $('dLvl').textContent = 'LV ' + S.drill; meter('dMeter', 10, S.drill >= 50 ? 10 : (S.drill - 1) % 10 + 1);   // segments = progress through the current 10-level tier
-  $('dGain').textContent = `${rate()} ore/min · ${fmt(loadValue())} per load`;
+  $('dGain').textContent = `${fmt(loadValue())} per load → ${fmt(loadValue(S.drill + 1))}`;
   bDrill.textContent = ok ? fmt(c) : 'Need ' + fmt(c); bDrill.className = ok ? '' : 'need'; bDrill.parentNode.classList.toggle('ok', ok);
   const cc = chuteCost(), cmax = S.chute >= CFG.chuteMax, cok = !cmax && canPay(cc);
   $('chLvl').textContent = 'LV ' + S.chute; meter('chMeter', 10, cmax ? 10 : (S.chute - 1) % 10 + 1);
@@ -1140,8 +1197,9 @@ function frame() {
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS,
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue,
-  poseNow: () => { updTruck(); if (tMixer) tMixer.update(0); },
-  warpTo: (t) => { if (t > nowMs()) { WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } }, TS, truckState: TS, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
+  buildRoute, MK, poseNow: () => { updTruck(); if (tMixer) tMixer.update(0); },
+  warpTo: (t) => { if (t > nowMs()) { if (HOLD !== null) HOLD = t; else WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } },
+  hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
 buildRoute();
