@@ -252,7 +252,7 @@ RXr, RXy = -82.0, 52.0           # distant fission plant
 height = build_stage(keep_flat=((5, -4, 62), (5, -4, 62), (RFX, RFY, 28), (RFX, RFY, 28), (CSX, CSY, 18), (-50, -16, 18), (RXr, RXy, 24), (RXr, RXy, 24)))
 def gz(x, y): return height(x, y)
 RYr = RXy
-# ---------------------------------------------------------------------- cool-grey ground + irregular far ridges (no tan, no even bands)
+# ---------------------------------------------------------------------- far-hill geometry break-up (material: shared mc_common.M_ground)
 def _ridge(x, y, o):
     return (1 - abs(noise.noise(Vector((x, y, o))))) ** 2
 def hill_disp(x, y, z):
@@ -262,39 +262,10 @@ def hill_disp(x, y, z):
     d = 3.2 * (_ridge(x * 0.028, y * 0.05, 7.3) - 0.3) + 1.6 * noise.noise(Vector((x * 0.07, y * 0.09, 3.1)))
     d += 0.9 * _ridge(x * 0.11, y * 0.16, 9.7) - 0.7 * _ridge(x * 0.19 + 0.3 * y * 0.02, y * 0.045, 12.2)
     return w * d
-def M_cool_ground():
-    m = bpy.data.materials.new('SY_Ground'); nt, b = _nodes(m)
-    tc = nt.nodes.new('ShaderNodeTexCoord')
-    nz = nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 0.08; nz.inputs['Detail'].default_value = 12
-    link(nt, tc.outputs['Object'], nz.inputs['Vector'])
-    ramp = nt.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.elements[0].color = hexc('#5f6266'); ramp.color_ramp.elements[1].color = hexc('#8d9094')
-    link(nt, nz.outputs['Fac'], ramp.inputs['Fac'])
-    # exposed rock on steep faces: blotchy voronoi + noise (no wave bands), darker and cooler
-    vo = nt.nodes.new('ShaderNodeTexVoronoi'); vo.inputs['Scale'].default_value = 0.22; vo.inputs['Randomness'].default_value = 1.0
-    wp = nt.nodes.new('ShaderNodeTexNoise'); wp.inputs['Scale'].default_value = 0.06; wp.inputs['Detail'].default_value = 4
-    link(nt, tc.outputs['Object'], wp.inputs['Vector'])
-    vm = nt.nodes.new('ShaderNodeVectorMath'); vm.operation = 'MULTIPLY_ADD'; vm.inputs[1].default_value = (14.0, 14.0, 14.0)
-    link(nt, wp.outputs['Color'], vm.inputs[0]); link(nt, tc.outputs['Object'], vm.inputs[2]); link(nt, vm.outputs[0], vo.inputs['Vector'])
-    sr = nt.nodes.new('ShaderNodeValToRGB'); sr.color_ramp.elements[0].color = hexc('#4a4d51'); sr.color_ramp.elements[1].color = hexc('#7f8286')
-    sr.color_ramp.elements.new(0.55).color = hexc('#66696d')
-    n3 = nt.nodes.new('ShaderNodeTexNoise'); n3.inputs['Scale'].default_value = 0.9; n3.inputs['Detail'].default_value = 8
-    link(nt, tc.outputs['Object'], n3.inputs['Vector'])
-    mixr = nt.nodes.new('ShaderNodeMath'); mixr.operation = 'MULTIPLY_ADD'; mixr.inputs[1].default_value = 0.6
-    link(nt, vo.outputs['Distance'], mixr.inputs[0]); link(nt, n3.outputs['Fac'], mixr.inputs[2]); link(nt, mixr.outputs[0], sr.inputs['Fac'])
-    geo = nt.nodes.new('ShaderNodeNewGeometry'); sn = nt.nodes.new('ShaderNodeSeparateXYZ'); link(nt, geo.outputs['Normal'], sn.inputs['Vector'])
-    hm = nt.nodes.new('ShaderNodeMapRange'); hm.inputs['From Min'].default_value = 0.95; hm.inputs['From Max'].default_value = 0.78
-    link(nt, sn.outputs['Z'], hm.inputs['Value'])
-    mk = nt.nodes.new('ShaderNodeMath'); mk.operation = 'MULTIPLY'; mk.inputs[1].default_value = 0.8; link(nt, hm.outputs[0], mk.inputs[0])
-    mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'
-    link(nt, mk.outputs[0], mx.inputs['Factor']); link(nt, ramp.outputs['Color'], mx.inputs[6]); link(nt, sr.outputs['Color'], mx.inputs[7])
-    link(nt, mx.outputs[2], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.97
-    bump = nt.nodes.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.35; bump.inputs['Distance'].default_value = 0.05
-    n2 = nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value = 3.0; n2.inputs['Detail'].default_value = 14
-    link(nt, tc.outputs['Object'], n2.inputs['Vector']); link(nt, n2.outputs['Fac'], bump.inputs['Height']); link(nt, bump.outputs['Normal'], b.inputs['Normal'])
-    m.diffuse_color = hexc('#75787c'); return m
 _g = bpy.data.objects['Ground']
 for v in _g.data.vertices: v.co.z += hill_disp(v.co.x, v.co.y, v.co.z)
-_g.data.update(); _g.data.materials.clear(); _g.data.materials.append(M_cool_ground())
+_g.data.update()   # ground material = the SHARED M_ground() that mc_common.build_stage() already assigned (mc_common @269e70f, no local variant)
+assert _g.data.materials[0].name.startswith('M_Regolith'), 'Ground must use mc_common.M_ground'
 for ob in coll('Stage').objects:
     if ob.name.startswith('slope_boulder'):
         t = ob.matrix_world.translation; ob.location.z += hill_disp(t.x, t.y, t.z)
