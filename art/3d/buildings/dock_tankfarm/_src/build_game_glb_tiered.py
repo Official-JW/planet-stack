@@ -184,6 +184,7 @@ for n, p in sorted(GN['markers'].items()):
     old = bpy.data.objects.get(n)          # e.g. the master's own Cam_Target empty: replace it so the marker keeps its exact name
     if old: bpy.data.objects.remove(old, do_unlink=True)
     e = bpy.data.objects.new(n, None); e.empty_display_type = 'ARROWS'; e.empty_display_size = 0.5; e.location = p; col.objects.link(e); e.parent = root
+    for k, v in GN.get('marker_extras', {}).get(n, {}).items(): e[k] = v
 print('NODES', sorted(o.name for o in root.children))
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_yup=True, export_extras=True,

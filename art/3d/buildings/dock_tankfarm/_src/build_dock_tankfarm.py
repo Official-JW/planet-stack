@@ -917,6 +917,8 @@ CAM_TARGET = tuple(float(v) for v in A.get('ct', '0,-4.0,2.5').split(','))
 GAME['markers']['Cam_Target'] = CAM_TARGET
 _ct = bpy.data.objects.new('Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
 _ct.location = CAM_TARGET; coll('Mine').objects.link(_ct)
+FRAME_W = float(A.get('fw', 15.0))      # metres of station that span the screen width at Cam_Target (game camera spec)
+_ct['frame_w'] = FRAME_W; GAME['marker_extras'] = {'Cam_Target': {'frame_w': FRAME_W}}
 bpy.context.scene['game_nodes'] = json.dumps(GAME)
 print('HEIGHTS', [round(height(x, y), 3) for x, y in ((0, -16), (21.5, 7.5), (47, -8), (-24, 11), (0, 20), (31.5, 15.5))], flush=True)
 
@@ -950,7 +952,7 @@ if 'glb' in ONLY:
     bpy.context.view_layer.update()
     bpy.ops.object.select_all(action='DESELECT')
     for ob in coll('Mine').all_objects: ob.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_master_raw.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
+    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f'{NAME}_master_raw.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True, export_extras=True,
                               export_animations=False, export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False)
     for ob in mine:
         if ob.parent == root:
@@ -969,17 +971,18 @@ if 'hero' in ONLY:
     hp = [float(v) for v in A.get('hc', '-9,-50,16,13,3,4.5').split(',')]
     shoot(cam, os.path.join(OUT, 'hero.png'), tuple(hp[3:6]), tuple(hp[:3]), w, h, lens=float(A.get('lens', 28)), samples=int(A.get('hs', 48)) if not QUICK else 16)
 if 'phone' in ONLY:
-    # in-game station camera (qa3d/main.js CAM): vertical fov 38, 18 deg down, look-at = Cam_Target empty; distance as Life Support
+    # in-game station camera spec: perspective, vertical fov 38, 18 deg down, aimed at Cam_Target;
+    # distance so exactly Cam_Target['frame_w'] metres span the screen width at Cam_Target
     sc = bpy.context.scene
     w, h = (1179, 2556) if not QUICK else (393, 852)
     if A.get('pres'): w, h = [int(v) for v in A['pres'].split('x')]
-    asp = w / h; vt = math.tan(math.radians(19)); fitTop = 12.14 * (h / 3 / 2 if w > 600 else h / 2) / max(60, (h / 3 if w > 600 else h) / 2 - 104)
-    d = max(7.5 / (vt * asp), 7.2 / vt, fitTop / vt, 16.0); e = math.radians(18)
+    asp = w / h; vt = math.tan(math.radians(19))
+    d = float(bpy.data.objects['Cam_Target']['frame_w']) / (2.0 * vt * asp); e = math.radians(18)
     tgt = bpy.data.objects['Cam_Target'].matrix_world.translation.copy(); pos = tgt + Vector((0.0, -d * math.cos(e), d * math.sin(e)))
     cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(38); cam.data.dof.use_dof = False
     cam.location = pos; cam.rotation_euler = (tgt - pos).to_track_quat('-Z', 'Y').to_euler()
     sc.render.resolution_x, sc.render.resolution_y = w, h; sc.render.resolution_percentage = 100
     sc.cycles.samples = int(A.get('ps', 64)) if not QUICK else 16
-    sc.render.filepath = os.path.join(OUT, f'phone_{w}x{h}.png'); print('PHONE dist', round(d, 2), flush=True)
+    sc.render.filepath = os.path.join(OUT, f'phone_{w}x{h}.png'); print('PHONE dist', round(d, 3), 'frame_w', FRAME_W, 'width at target', round(2 * d * vt * asp, 3), flush=True)
     bpy.ops.render.render(write_still=True)
     cam.data.sensor_fit = 'AUTO'
