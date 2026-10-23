@@ -20,7 +20,7 @@ for k in range(8):
     img.paste(im, (x, y)); d.rectangle((x + 20, y + 20, x + 210, y + 84), fill=(0, 0, 0))
     d.text((x + 36, y + 28), f'{k*45:>3}°', font=lf, fill=(255, 255, 255))
 y = head + 2 * cell + 10
-d.text((60, y + 10), 'CLOSE-UP — airlock + ramp, MINE / REFINERY kit crates, crew', font=ImageFont.truetype(FB, 40), fill=(240, 242, 245))
+d.text((60, y + 10), 'CLOSE-UP — caged crew ladder + airlock dust-off, cargo door + hoist lowering REFINERY, MINE on pad', font=ImageFont.truetype(FB, 40), fill=(240, 242, 245))
 d.text((clw + 40, y + 10), 'CREW DECK — 4 sleep pods behind small shuttered ports', font=ImageFont.truetype(FB, 40), fill=(240, 242, 245))
 img.paste(cl.resize((clw, rh), Image.LANCZOS), (0, y + 70))
 pw = po.resize((pow_, int(po.height * pow_ / po.width)), Image.LANCZOS)
