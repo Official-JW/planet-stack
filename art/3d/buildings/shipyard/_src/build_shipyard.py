@@ -41,8 +41,12 @@ GAME_NAMES = {
     'tiers': {'Tier_03': ('Tier_03', 3), 'Tier_05': ('Tier_05', 5), 'Tier_08': ('Tier_08', 8), 'Tier_12': ('Tier_12', 12), 'Tier_20': ('Tier_20', 20)},
     'moving': {'Crane_Jib': ('Crane_Jib', 'crane_jib_swing'), 'Hall_Door': ('Hall_Door', 'hall_door_open'), 'Beacon_Lights': ('Beacon_Lights', 'Beacon_Lights_Blink')},
     'door_leaves': ('Hall_Door_L', 'Hall_Door_R'),     # mesh children of the Hall_Door pivot empty
-    'markers': {'Stand_Center': 'Stand_Center', 'Hall_Door_Front': 'Hall_Door_Front', 'Road_Entry': 'Road_Entry', 'Crate_Drop': 'Crate_Drop'},
+    'markers': {'Stand_Center': 'Stand_Center', 'Hall_Door_Front': 'Hall_Door_Front', 'Road_Entry': 'Road_Entry', 'Crate_Drop': 'Crate_Drop', 'Cam_Target': 'Cam_Target'},
     'crew_path': 'Crew_Path_%02d',
+    # in-game phone camera (Game Coder): lookAt(Cam_Target), pitch 18 deg, azimuth -86 deg (camera sits toward -Y, slightly +X), 152 m, 30 mm on a
+    # 36 mm sensor fitted to the 852/2556 px height -> vertical FOV 61.93 deg. Blender Z-up coords; glTF Y-up = (x, z, -y).
+    # Framing rule on 393x852: focus (hall door + SN-07 + crane) whole inside y 100..650 (HUD above, sheet from 674).
+    'phone_cam': {'target': (-1.1, 0.85, 16.5), 'az': -86.0, 'pitch': 18.0, 'dist': 152.0, 'lens': 30.0},
 }
 
 # ====================================================================== materials
@@ -993,7 +997,7 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
     MN = GAME_NAMES['markers']
     stf = Vector((s1.x, s1.y - 0.8, YTOP + 0.05)); hdf = Vector((HX, FRY - 4.0, YTOP + 0.05))
     mk = [mark(MN['Stand_Center'], (SHX, SHY, TOP)), mark(MN['Hall_Door_Front'], hdf), mark(MN['Road_Entry'], (-47.5, -9.5, YTOP + 0.05)),
-          mark(MN['Crate_Drop'], (HX + 8.5, FRY - 7.0, YTOP + 0.05))]
+          mark(MN['Crate_Drop'], (HX + 8.5, FRY - 7.0, YTOP + 0.05)), mark(MN['Cam_Target'], GAME_NAMES['phone_cam']['target'])]   # Cam_Target: empty only, no draw
     path = [stf, Vector((6.0, -30.0, YTOP + 0.05)), Vector((6.0, -12.0, YTOP + 0.05)), Vector((-8.0, -6.5, YTOP + 0.05)), hdf,
             Vector((2.0, -2.0, YTOP + 0.05)), Vector((SHX - 6.0, SHY - 12.0, TOP)), Vector((TX - 3.0, TY - 7.0, TOP))]
     for i, p in enumerate(path): mk.append(mark(GAME_NAMES['crew_path'] % (i + 1), p))
@@ -1011,10 +1015,11 @@ if 'hero' in ONLY:
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
     shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 26)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 master (393x852 downscale made with PIL)
-    pt = Vector((10.0, -2.0, 6.0)); az = math.radians(float(A.get('paz', -86))); el = math.radians(18); dd = float(A.get('pd', 140))
+    PC = GAME_NAMES['phone_cam']   # aimed at Cam_Target exactly like the game camera
+    pt = Vector(PC['target']); az = math.radians(float(A.get('paz', PC['az']))); el = math.radians(PC['pitch']); dd = float(A.get('pd', PC['dist']))
     pp = pt + Vector((math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))) * dd
     pw, ph = (1179, 2556) if not QUICK else (393, 852)
-    shoot(cam, os.path.join(OUT, 'portrait.png'), tuple(pt), tuple(pp), pw, ph, lens=float(A.get('plens', 30)), samples=int(A.get('hs', 64)) if not QUICK else 16)
+    shoot(cam, os.path.join(OUT, 'portrait.png'), tuple(pt), tuple(pp), pw, ph, lens=float(A.get('plens', PC['lens'])), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'turn' in ONLY:
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
     turntable(cam, os.path.join(OUT, 'turntable'), (6.0, -2.0, 12.0), 175, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)
