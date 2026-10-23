@@ -93,6 +93,19 @@ def _lin(h):
     return Vector([x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c])
 def _srgb(h): h = h.lstrip('#'); return Vector([int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)])
 ROAD_COL = {k: _srgb(v) for k, v in ROAD_HEX.items()}   # sRGB: bmesh BYTE_COLOR layers store sRGB bytes (attribute .color reads back linear)
+# --- seam with the shared 8 m road strip (_shared/road/haul_road_seg.glb) at x 26 (10/23 PM). Off screen (the frame's right edge is
+#  x ~16.6 on z 9 / ~17.8 on z 0), the stub eases onto the flat game ground and into the strip's exact cross-section and colours:
+#  terrain height -> 0 over x 17..22; surface -> y 0.045 (out lane 0.065 -> 0.045), profile / colours -> the strip's x 0 row over x 21..25.
+SEAM_X0, SEAM_X1 = 17.0, 22.0                # height ease (game ground is flat y 0; the render terrain dips to ~-2 at x 26)
+SEAM_P0, SEAM_P1 = 21.0, 25.0                # profile + colour ease into the strip row
+SEG_HALF = [(0.0, 0.02), (1.1, 0.0), (1.25, -0.02), (1.65, -0.02), (1.8, 0.0), (2.0, 0.0), (2.35, 0.25), (2.8, -0.04)]   # strip HALF (same kinds as _HALF)
+SEG_S = 0.045
+# strip x 0 row colours (sRGB) by lane and glTF-z side of the centre line: tyre tracks carry the strip's 8 m wear phase, crown its polish
+SEG_MARK = {'out': {-1: '#797c81', 1: '#7d8085'}, 'ret': {-1: '#7d8085', 1: '#7a7d82'}}
+SEG_CROWN = {'out': '#a6a9ae', 'ret': '#a4a7ac'}
+def seam_h(x): return 1.0 - _sm_((x - SEAM_X0) / (SEAM_X1 - SEAM_X0))
+def seam_p(x): return _sm_((x - SEAM_P0) / (SEAM_P1 - SEAM_P0))
+def _sm_(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
 
 def _seg(pts, a, b, step):
     n = max(1, int(round(abs(b - a) / step))); return [a + (b - a) * i / n for i in range(n)]
@@ -149,8 +162,11 @@ def graded_roads(height, mat):
         for i, p in enumerate(pts):
             a = pts[(i - 1) % n] if (closed or i > 0) else p; b_ = pts[(i + 1) % n] if (closed or i < n - 1) else p
             t = (b_ - a); t.z = 0; t.normalize(); nn = Vector((-t.y, t.x, 0)); row = []
-            for off, dz, kind in PROFILE:
-                q = p + nn * off; g = height(q.x, q.y)
+            e = seam_p(p.x); lane = 'out' if nm == 'haul_road_out' else 'ret'; S_ = S + (SEG_S - S) * e
+            for pi_, (off, dz, kind) in enumerate(PROFILE):
+                hi = abs(pi_ - (len(PROFILE) - 1) // 2); so_, sdz = SEG_HALF[hi]
+                off = math.copysign(abs(off) + (so_ - abs(off)) * e, off) if off else 0.0; dz = dz + (sdz - dz) * e
+                q = p + nn * off; g = height(q.x, q.y) * seam_h(q.x)
                 f = 1.0
                 if abs(off) > BERM_IN - 1e-6:
                     for rj, kd in enumerate(trees):          # junction: inside another road's graded surface -> no berm
@@ -159,11 +175,15 @@ def graded_roads(height, mat):
                         f = min(f, _sm((dB - (BERM_IN - 0.2)) / 1.0))
                     if obs:
                         dO = okd.find((q.x, q.y, 0))[2]; f = min(f, _sm((dO - 0.2) / 0.6))
-                if kind == 'toe': z = g + S * (1 - f) + dz * f
-                elif kind == 'crest': z = g + S + dz * f
-                else: z = g + S + dz
+                if kind == 'toe': z = g + S_ * (1 - f) + dz * f
+                elif kind == 'crest': z = g + S_ + dz * f
+                else: z = g + S_ + dz
                 c = ROAD_COL['track'].lerp(ROAD_COL[kind], f) if abs(off) > BERM_IN - 1e-6 else ROAD_COL[kind].copy()
-                c = c * (1.0 + 0.05 * noise.noise(Vector((q.x * 0.35, q.y * 0.35, 3.1 + ri))))
+                c = c * (1.0 + 0.05 * (1.0 - e) * noise.noise(Vector((q.x * 0.35, q.y * 0.35, 3.1 + ri))))
+                if e > 0:                                   # strip row colour (glTF z side = -Blender y of the offset)
+                    side = 1 if (-nn.y * off) > 0 else -1
+                    tgt = _srgb(SEG_MARK[lane][side]) if kind == 'mark' else (_srgb(SEG_CROWN[lane]) if off == 0.0 else ROAD_COL['track'].lerp(ROAD_COL[kind], f))
+                    c = c.lerp(tgt, e)
                 row.append((bm.verts.new((q.x, q.y, z)), c))
             rows.append(row)
         cl_ = bm.loops.layers.color.new('RoadCol')
