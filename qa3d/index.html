@@ -11,14 +11,15 @@ html,body{margin:0;height:100%;background:#05060b;overflow:hidden;touch-action:n
 button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #tag{position:fixed;left:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 system-ui;background:#0009;padding:4px 7px;border-radius:6px;z-index:6;pointer-events:none}
-#dev{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:4px 7px;border-radius:6px;z-index:6;pointer-events:none}
-#hud{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 26px);height:56px;display:flex;align-items:stretch;gap:6px;z-index:5;pointer-events:none}
+#dev{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:4px 7px;border-radius:6px;z-index:30;pointer-events:none}
+#hud{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 26px);height:56px;display:flex;align-items:stretch;gap:6px;z-index:5;pointer-events:none;transition:transform .25s ease-out,opacity .25s ease-out}
+#hud.away{transform:translateY(-72px);opacity:0}
 #hud .cell{flex:1;background:#0b0f1acc;border:1px solid #ffffff1a;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 #hud .mid{flex:1.3}
 #hud .lbl{font:600 10px/1 system-ui;opacity:.65;letter-spacing:.04em;text-transform:uppercase}
 #hud b{font:800 18px/1 system-ui}
 #hud .mid b{font-size:24px;color:#7ff0ff}
-#money.bump{animation:bump .3s ease-out}
+#money.bump,#eveCash.bump{animation:bump .3s ease-out}
 @keyframes bump{40%{transform:scale(1.18);color:#9dffb0}}
 #bin{width:78%;height:5px;border-radius:3px;background:#ffffff22;overflow:hidden;margin-top:2px}
 #bin i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3fd7ff,#9ff6ff);border-radius:3px}
@@ -47,14 +48,15 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 .row button{min-width:92px;height:40px;border:0;border-radius:11px;background:linear-gradient(#3fdc7a,#23a957);font:800 15px/1 system-ui;color:#062010}
 .row button.need{background:#3a3f4c;color:#9aa1ae;font-weight:700;font-size:13px}
 .row button.max{background:#2a2f3a;color:#7d8594}
-#eve{position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 88px);min-height:92px;background:#0d1322f2;border:1px solid #6fd6ff55;border-radius:14px;display:flex;gap:10px;padding:10px 12px;z-index:8;box-shadow:0 6px 22px #000a;transform:translateY(-12px);opacity:0;transition:.25s;pointer-events:none;box-sizing:border-box}
+#eve{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 26px);height:56px;align-items:center;background:#0d1322f2;border:1px solid #6fd6ff55;border-radius:12px;display:flex;gap:8px;padding:3px 4px 3px 8px;z-index:8;box-shadow:0 6px 22px #000a;transform:translateY(-12px);opacity:0;transition:.25s;pointer-events:none;box-sizing:border-box}
 #eve.on{transform:none;opacity:1;pointer-events:auto}
-#eve .av{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#9aa0aa 0 28%,transparent 29%),radial-gradient(ellipse at 50% 100%,#9aa0aa 0 45%,transparent 46%),#454b57;flex:none}
-#eve .bd{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
-#eve .who{font:800 11px/1 system-ui;letter-spacing:.06em;color:#7fdcff}
-#eve .tx{font:500 13.5px/1.3 system-ui;min-height:52px}
-#eve .ov{align-self:flex-end;height:30px;padding:0 14px;border:0;border-radius:9px;background:#2a7fff;font:700 13px/1 system-ui}
-#eve .x{position:absolute;right:2px;top:2px;width:36px;height:36px;border:0;background:none;font:400 20px/1 system-ui;opacity:.6}
+#eve .av{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#9aa0aa 0 28%,transparent 29%),radial-gradient(ellipse at 50% 100%,#9aa0aa 0 45%,transparent 46%),#454b57;flex:none}
+#eve .bd{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+#eve .who{display:flex;justify-content:space-between;align-items:center;height:12px;font:800 10px/1 system-ui;letter-spacing:.06em;color:#7fdcff}
+#eveCash{font:800 12px/1 system-ui;color:#9dffb0;letter-spacing:0;padding-left:6px;white-space:nowrap;display:inline-block}
+#eve .tx{font:500 13px/1.3 system-ui;height:2.6em;overflow:hidden}
+#eve .ov{flex:none;height:44px;min-width:62px;padding:0 12px;border:0;border-radius:9px;background:#2a7fff;font:700 13px/1 system-ui}
+#eve .x{flex:none;width:30px;height:44px;padding:0;border:0;background:none;font:400 20px/1 system-ui;opacity:.6}
 #point{position:fixed;z-index:6;pointer-events:none;width:0;height:0;display:none}
 #point i{position:absolute;left:-14px;top:-46px;width:28px;height:34px;animation:bob .8s ease-in-out infinite alternate}
 #point i::before{content:'';position:absolute;left:4px;top:0;border:10px solid transparent;border-top:18px solid #ffd84d;filter:drop-shadow(0 0 4px #000)}
@@ -80,7 +82,7 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="QA3D · 21:25">
+<body data-tag="QA3D · 22:38">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <script>if(/[?&]dev=1(&|$)/.test(location.search)){var d=document.getElementById('dev');d.hidden=false;d.textContent='measuring…';}</script>
@@ -96,10 +98,10 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
  <div class="row"><div class="ico"></div><div class="txt"><b>Drill<span id="dLvl"></span></b><small id="dGain"></small></div><button id="bDrill"></button></div>
  <div class="row"><div class="ico rv"></div><div class="txt"><b>Rovers<span id="rLvl"></span></b><small id="rGain"></small></div><button id="bRover"></button></div>
 </div></div>
-<div id="eve"><div class="av"></div><div class="bd"><div class="who">EVE · Earth Coms</div><div class="tx" id="eveTx"></div><button class="ov" id="eveOver">Over</button></div><button class="x" id="eveX" aria-label="Skip">×</button></div>
+<div id="eve"><div class="av"></div><div class="bd"><div class="who"><span>EVE · Earth Coms</span><b id="eveCash">$0</b></div><div class="tx" id="eveTx"></div></div><button class="ov" id="eveOver">Over</button><button class="x" id="eveX" aria-label="Skip">×</button></div>
 <div id="point"><b>TAP HERE</b><i></i></div>
 <div id="away"><p>While you were away</p><h3 id="awayAmt">+$0</h3><button id="awayOk">Nice</button></div>
 <svg id="ring" class="ring" viewBox="0 0 46 46"><circle cx="23" cy="23" r="18" fill="#0009" stroke="#ffffff33" stroke-width="5"/><circle id="ringArc" cx="23" cy="23" r="18" fill="none" stroke="#7ff0ff" stroke-width="5" stroke-linecap="round" stroke-dasharray="113.1" stroke-dashoffset="113.1" transform="rotate(-90 23 23)"/></svg>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="./main.js?v=2125"></script>
+<script type="module" src="./main.js?v=2238"></script>
 </body></html>
