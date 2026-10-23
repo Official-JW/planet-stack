@@ -380,15 +380,16 @@ function crewSync(){F.forEach((d,i)=>{const f=st(i),arr=crew[d.id]||(crew[d.id]=
 // v7j foot-locked walkers. A walk sheet with meta.frame_dx_local (v7j male astronaut_*_walk: 16 f @20 fps, 1 pt = 1/0.66 local per frame; v7j female: 12 f @12 fps)
 // is stepped a whole frame at a time (x += frame_dx_local[frame] at fps x crewMul, at most one frame per tick); the drawn frame is the same counter.
 // Turns only mid-idle (a wall hit starts an idle first). Sheets without frame_dx_local keep the old continuous 30 u/s walk.
+const FEM_HI=150;   // Crusher female stays left of the valve wheel (wheel spans floor x ~175-205)
 function femOn(d,ci){return d.id==='crusher'&&ci===0&&ok('crew_female_walk')&&ok('crew_female_idle')}   // v7j female (pink helmet) is the Crusher's first crew
 function walkSheet(id,ci){if(femOn({id},ci))return SPR.crew_female_walk;const d=F[IDX[id]];if(!d)return null;const k='walk_'+((d.crew&&ok('walk_'+d.crew))?d.crew:'worker'),W=SPR[k];return ok(k)&&W.meta&&W.meta.frame_dx_local?W:null}
-function stepTick(a,dt,m,W){const D=W.meta.frame_dx_local,n=D.length;if(a.st!==1){a.st=1;a.acc=0;a.wf=0;a.turn=false;a.x=Math.max(16,Math.min(344,a.x))}
+function stepTick(a,dt,m,W){const D=W.meta.frame_dx_local,n=D.length,HI=a.hi||344;if(a.st!==1||a.x>HI){a.st=1;a.acc=0;a.wf=0;a.turn=false;a.x=Math.max(16,Math.min(HI,a.x))}
  if(a.idle>0){a.idle-=dt;if(a.turn&&a.idle<=a.idleHalf){a.turn=false;a.v=-a.v}if(a.idle<=0){a.idle=0;a.acc=0}return}   // flip at mid-idle
  if(Math.random()<dt*.12){a.idle=1+Math.random()*2;a.idleHalf=a.idle/2;a.turn=Math.random()<.5;a.wf=0;a.acc=0;return}
  a.acc=Math.min(a.acc+dt*(W.fps||20)*m,1.999);if(a.acc<1)return;a.acc-=1;
- const nx=a.x+Math.sign(a.v)*D[a.wf%n];if(nx<16||nx>344){a.idle=1+Math.random()*2;a.idleHalf=a.idle/2;a.turn=true;a.wf=0;a.acc=0;return}   // wall: idle first, flip mid-idle
+ const nx=a.x+Math.sign(a.v)*D[a.wf%n];if(nx<16||nx>HI){a.idle=1+Math.random()*2;a.idleHalf=a.idle/2;a.turn=true;a.wf=0;a.acc=0;return}   // wall: idle first, flip mid-idle
  a.x=nx;a.wf=(a.wf+1)%n}
-function crewTick(dt){const m=crewMul();for(const id in crew)for(const[ci,a]of crew[id].entries()){const W=walkSheet(id,ci);if(W){stepTick(a,dt,m,W);continue}a.st=0;if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
+function crewTick(dt){const m=crewMul();for(const id in crew)for(const[ci,a]of crew[id].entries()){const W=walkSheet(id,ci);if(W){a.hi=femOn({id},ci)?FEM_HI:0;stepTick(a,dt,m,W);continue}a.st=0;if(a.idle>0){a.idle-=dt;continue}a.x+=a.v*dt*m;if(a.x<16||a.x>344){a.v=-a.v;a.x=Math.max(16,Math.min(344,a.x))}if(Math.random()<dt*.12)a.idle=1+Math.random()*2}}
 function render(){if(cv.width<20)resize();else{const box=viewBox();if(box.w>20&&(Math.abs(cv.width-Math.round(box.w*DPR))>40||Math.abs(cv.height-Math.round(box.h*DPR))>80))resize()}if(cv.width<20)return;ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.fillStyle='#16345c';ctx.fillRect(0,0,cv.width,cv.height);const tag=document.getElementById('pvtag');
  ctx.setTransform(DPR*SC,0,0,DPR*SC,Math.round(OX*DPR*SC),0);
  const rx=camX(),sx=((-rx*0.05)%390+390)%390,syy=OY*0.5+cam.y*0.05;
