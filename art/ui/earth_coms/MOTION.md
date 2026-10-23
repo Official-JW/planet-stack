@@ -37,7 +37,10 @@ Other loops: static noise drifts with `steps(4)` over 400 ms at 10 % opacity; th
 ## Interaction rules
 - The call never blocks gameplay: `.ec-root` is `pointer-events: none`; only the toast and the panel take taps.
 - Tap the toast = answer. Tap the panel = finish the line → next line → hang up. × in the header = skip the call (44 pt hit area).
-- The game marks a beat as heard once the panel opens (Director can change this to "after the last line").
+- **Heard = panel opened** (Director ruling). A tutorial step started by a call moves forward only when the panel **closes**.
+- **Tutorial calls** (`data-tutorial` on `.ec-toast`): never time out. The toast keeps pulsing (`ec-tut-pulse`, 1200 ms, `--ec-ease-wave` ease-in-out, infinite: scale 1 → 1.03 plus cyan glow 10 → 22 px) until the player opens it. Covering the HUD while ringing is fine.
+- **Story calls** (no flag): 8000 ms timeout, then the `.is-out` slide-away. The beat stays unheard and the Earth Coms button shows `.ec-badge` (red dot, count in text and `data-count`) until the player plays it back. Hide it at 0.
+- **View shift:** while the panel is open, Coder eases the camera down by the panel's height with `camera.setViewOffset`, 300 ms each way (`--ec-view-shift-ms`). In: `--ec-ease-out-expo`, starting with the panel expand. Out: `--ec-ease-in`, starting with the dismiss. Heights: `--ec-panel-h-2/3/4` = 236 / 256 / 276 px for 2 / 3 / 4 dialogue lines; re-ease if the line count changes on the next tap.
 
 ## Reduced motion (`.ec-reduced` on `.ec-root`, set it when `matchMedia('(prefers-reduced-motion: reduce)')` matches)
 
@@ -52,3 +55,5 @@ Other loops: static noise drifts with `steps(4)` over 400 ms at 10 % opacity; th
 | Chevron | shown, no bob |
 | Dismiss | 150 ms fade-out, no CRT-off, no slide |
 | Live dot | solid, no pulse |
+| Tutorial pulse | no pulse; static cyan ring (2 px + 14 px glow) |
+| View shift | instant offset, no ease |

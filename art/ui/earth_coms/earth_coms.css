@@ -30,6 +30,12 @@
   --ec-ease-pulse: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ec-ease-wave: cubic-bezier(0.45, 0, 0.55, 1);
 
+  /* panel heights per dialogue line count, for the camera.setViewOffset shift (see MOTION.md) */
+  --ec-panel-h-2: 236px;
+  --ec-panel-h-3: 256px;
+  --ec-panel-h-4: 276px;
+  --ec-view-shift-ms: 300ms;   /* camera ease, each way */
+
   --ec-safe-top: env(safe-area-inset-top, 0px);
   --ec-top: calc(var(--ec-safe-top) + 8px);
   position: absolute; inset: 0; pointer-events: none; z-index: 50;
@@ -73,6 +79,15 @@
   transition: transform 160ms var(--ec-ease-in), opacity 160ms linear; pointer-events: none; }
 .ec-toast.is-out { visibility: visible; opacity: 0; transform: translateY(calc(-100% - var(--ec-top)));
   transition: transform 260ms var(--ec-ease-in), opacity 260ms linear; pointer-events: none; }
+/* tutorial call: [data-tutorial] on .ec-toast. Never times out; pulses until opened. */
+.ec-toast[data-tutorial].is-in { animation: ec-tut-pulse 1200ms var(--ec-ease-wave) infinite; }
+@keyframes ec-tut-pulse { 0%,100% { transform: scale(1); box-shadow: 0 0 0 1px rgba(63,224,255,.35), 0 0 10px rgba(63,224,255,.25); }
+  50% { transform: scale(1.03); box-shadow: 0 0 0 2px rgba(63,224,255,.85), 0 0 22px rgba(63,224,255,.55); } }
+/* missed-call badge: .ec-badge inside the Earth Coms button (button needs position: relative). Hidden at count 0. */
+.ec-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--ec-live); color: #fff; font: 700 11px/18px var(--ec-font-text); text-align: center;
+  box-shadow: 0 0 0 2px var(--ec-g900); pointer-events: none; }
+.ec-badge[data-count="0"], .ec-badge:empty { display: none; }
 @keyframes ec-ring { 0% { transform: scale(1); opacity: .75; } 100% { transform: scale(1.45); opacity: 0; } }
 @keyframes ec-btn-breathe { 0%,100% { box-shadow: 0 0 8px rgba(63,224,255,.40), inset 0 -2px 0 rgba(0,0,0,.18); }
   50% { box-shadow: 0 0 18px rgba(63,224,255,.85), inset 0 -2px 0 rgba(0,0,0,.18); } }
@@ -188,6 +203,7 @@
 .ec-reduced .ec-toast .ec-ring { animation: none !important; opacity: .6; transform: scale(1.18); }
 .ec-reduced .ec-toast .ec-ring + .ec-ring { opacity: 0; }
 .ec-reduced .ec-toast__btn { animation: none !important; }
+.ec-reduced .ec-toast[data-tutorial].is-in { animation: none; box-shadow: 0 0 0 2px rgba(63,224,255,.85), 0 0 14px rgba(63,224,255,.45); }
 .ec-reduced .ec-panel.is-open { animation: ec-fade 150ms linear both; }
 .ec-reduced .ec-panel.is-open .ec-row, .ec-reduced .ec-panel.is-open .ec-say { animation: none; }
 .ec-reduced .ec-panel.is-open .ec-feed img { animation: ec-fade 150ms linear both; }

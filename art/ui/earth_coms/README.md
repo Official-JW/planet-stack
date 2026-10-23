@@ -50,7 +50,7 @@ All layers are CSS/inline SVG, with no 9-slice bitmaps. Copy the markup between 
 | 3 | 256 pt | y 323 |
 | 4 | 276 pt | y 343 |
 
-The upgrade sheet (top ≈ y 616) is never touched. The panel overlaps the top of the station focus band (Mine view y 188–572) by up to 155 pt while a call is open. Suggestion for Game Coder: during a call, shift the station framing down with `camera.setViewOffset` by the panel's height, then ease it back on dismiss. The toast (to y 127) clears the focus band.
+The upgrade sheet (top ≈ y 616) is never touched. The panel overlaps the top of the station focus band (Mine view y 188–572) by up to 155 pt while a call is open. Approved by Director: while the panel is open, Coder eases the camera down by the panel's height (`--ec-panel-h-2/3/4`) with `camera.setViewOffset`, 300 ms each way on the panel's curve. See MOTION.md. The toast (to y 127) clears the focus band.
 
 ## Eve's script and text fit
 The lines are the draft script from `TEAM_PLAN.md` § "Eve and Earth Coms", including the updated line 5. They are still awaiting Jacob's OK, so the box is flexible, not fixed. They're measured in the 315 pt text column at 15/20 (Inter as the SF Pro stand-in; Arial and Roboto give the same line counts):
@@ -66,6 +66,11 @@ The lines are the draft script from `TEAM_PLAN.md` § "Eve and Earth Coms", incl
 | 7 | First delivery home | 99 | 3 |
 
 **The longest line is #5, which wraps to 4 lines at 1x** with about 130 pt to spare on the last line (roughly 18 more characters). A line that runs past 4 lines should be split into two taps; the prototype supports multiple lines per beat (`lines[]`).
+
+## Call rules (Director)
+- Tutorial calls: add `data-tutorial` to `.ec-toast`. No timeout; pulses until opened. Try `prototype.html?tutorial=1`.
+- Story calls: 8 s timeout, slide away, then `.ec-badge` on the Earth Coms button shows the missed count (`<span class="ec-badge" data-count="1">1</span>`).
+- Heard = panel opened. The tutorial step advances on panel close.
 
 ## Colours
 

@@ -147,7 +147,9 @@ function reset() {
 function ring(beatIdx) {
   reset(); lines = [BEATS[beatIdx].text]; li = 0;
   void toast.offsetWidth; toast.classList.add("is-in");
-  toastTimer = setTimeout(() => { toast.classList.replace("is-in", "is-out"); }, M.toastTimeout); // untapped: slide away, beat stays unheard
+  if (q.get("tutorial") === "1") { toast.dataset.tutorial = ""; return; } // tutorial call: no timeout, pulses until opened
+  delete toast.dataset.tutorial;
+  toastTimer = setTimeout(() => { toast.classList.replace("is-in", "is-out"); }, M.toastTimeout); // story call: slide away, beat stays unheard, badge +1
 }
 function answer() {
   clearTimeout(toastTimer);
