@@ -16,7 +16,7 @@ Systems:
   * container yard on a sintered pad, gantry crane GC-1 on rails (Crane_Gantry), stacked containers, He-3 canister, armored Pt crate
   * airlock A2 with dust shower, grated mat and brush station
   * power: switchgear SWG-2, power line on masts, solar masts, radiator wing RAD-1
-  * Tank Farm TF-1 beside it behind a low L-berm: cryo tanks LOX-1/2, LH2-1/2, HE3-1, pump skid PS-1, catwalk + stair tower,
+  * Tank Farm TF-1 beside it behind a low L-berm: cryo tanks LOX-1/2, LCH4-1/2, HE3-1, pump skid PS-1, catwalk + stair tower,
     insulated lines with valves running TO LAUNCH PAD
 Game-GLB grouping: objects carry ob['grp'] (Tier_03/05/08/12/20, Crane_Gantry, Dock_Door, Beacon_Lights; default Base);
 pivots + markers are stored as JSON in scene['game_nodes'] for _src/build_game_glb_tiered.py.
@@ -669,8 +669,9 @@ def power_mast(name, x, y, h=10.0, c='Mine'):
     for dy in (-1.4, 0.0, 1.4):
         cyl(name + '_ins', 0.09, 0.5, (x, y + dy, h - 0.25), FOIL, segs=10, c=c); pts.append((x, y + dy, h))
     return pts
-P1 = power_mast('pmast', -24.0, 11.0)
-with grp('Beacon_Lights'): sphere('beacon_mast', 0.17, (-24.0, 11.0, 10.35), REDL, sub=2)
+PMX = -17.4   # feeder mast just left of RAD-1 (was -24: kept the dock inside the phone frame)
+P1 = power_mast('pmast', PMX, 11.0)
+with grp('Beacon_Lights'): sphere('beacon_mast', 0.17, (PMX, 11.0, 10.35), REDL, sub=2)
 wall = [(-HW - 0.75, 11.0 + dy, 8.4) for dy in (-0.6, 0.0, 0.6)]
 for a, b in zip(P1, wall): cable('pline', a, b, 0.025, RUBBER, sag=0.5, n=20)
 box('pline_bushing', (0.5, 1.8, 0.4), (-HW - 0.25, 11.0, 8.4), GRAPH2, bevel=0.03)
@@ -692,13 +693,22 @@ for k, (mx, my) in enumerate(((-6.5, 34.0), (6.5, 34.0))):
 # ====================================================================== TANK FARM TF-1 (beside the dock, behind a low L-berm)
 TR, TZ0, TZ1, TD = 2.4, 1.9, 10.0, 0.45
 TOPZ = TZ1 + TR * TD
-def cryo_tank(tag, x, y, label, sub, band=GRAPH, R=None, Z1=None, lz=None):
-    R = TR if R is None else R; Z1 = TZ1 if Z1 is None else Z1
+def cryo_tank(tag, x, y, label, sub, band=GRAPH, R=None, Z1=None, lz=None, Z0=None, belt=None):
+    R = TR if R is None else R; Z1 = TZ1 if Z1 is None else Z1; TZ0 = globals()['TZ0'] if Z0 is None else Z0
     TOP = Z1 + R * TD
     cyl(tag + '_plinth', R + 0.3, 0.4, (x, y, 0.2), GRAPH, segs=40, bevel=0.03)
-    cyl(tag + '_skirt', R * 0.86, TZ0 - 0.4, (x, y, 0.4 + (TZ0 - 0.4) / 2), GRAPH2, segs=40)
+    cyl(tag + '_skirt', R * 0.86, TZ0 - 0.4, (x, y, 0.4 + (TZ0 - 0.4) / 2), GRAPH2, segs=40 if R < 3 else 48)
     box(tag + '_skirt_door', (0.8, 0.12, 1.0), (x, y - R * 0.86 - 0.02, 0.95), PALE, bevel=0.02)
-    vvessel(tag, (x, y), R, TZ0, Z1, WHITE, bottom='dish', dome=TD, segs=40 if R < 3 else 48, bands=(TZ0 + 0.9, (TZ0 + Z1) / 2 + 0.6, Z1 - 0.5) if R < 3 else (TZ0 + 0.9, TZ0 + (Z1 - TZ0) * 0.36, TZ0 + (Z1 - TZ0) * 0.68, Z1 - 0.5), band_mat=band)
+    if R < 3:
+        vvessel(tag, (x, y), R, TZ0, Z1, WHITE, bottom='dish', dome=TD, segs=40, bands=(TZ0 + 0.9, (TZ0 + Z1) / 2 + 0.6, Z1 - 0.5), band_mat=band)
+    else:   # big LCH4 tank: thick stiffener bands + a wide MLI insulation belt (graphite, cyan pinstripes)
+        vvessel(tag, (x, y), R, TZ0, Z1, WHITE, bottom='dish', dome=TD, segs=48, bands=(), band_mat=band)
+        for zb in (TZ0 + 0.9, Z1 - 0.6):
+            cyl(tag + '_band', R * 1.035, 0.34, (x, y, zb), band, segs=48, bevel=0.03)
+        cyl(tag + '_cyan', R * 1.016, 0.05, (x, y, Z1 - 0.6 + 0.26), CYANL, segs=48)
+        bz, bh = belt
+        cyl(tag + '_belt', R * 1.045, bh, (x, y, bz), band, segs=48, bevel=0.04)
+        for dz in (-bh / 2 - 0.06, bh / 2 + 0.06): cyl(tag + '_belt_cyan', R * 1.016, 0.05, (x, y, bz + dz), CYANL, segs=48)
     for k in range(16):
         a = k * TAU / 16; cyl(tag + '_bolt', 0.05, 0.1, (x + (R + 0.18) * math.cos(a), y + (R + 0.18) * math.sin(a), 0.44), STEEL, segs=6)
     tank_label(tag, label, sub, x, y, R, (TZ0 + Z1) / 2 + 2.2 if lz is None else lz, size=0.78 if R < 3 else 1.0)
@@ -707,25 +717,28 @@ def cryo_tank(tag, x, y, label, sub, band=GRAPH, R=None, Z1=None, lz=None):
         curve_tube(tag + '_cage', [(x - R - 0.3 + 0.42 * math.cos(a), y + 0.42 * math.sin(a), z) for a in [math.pi / 2 + i / 10 * math.pi for i in range(11)]], 0.018, STEELL)
     rod(tag + '_nozzle', (x, y - R + 0.2, TZ0 + 0.5), (x, y - R - 0.55, TZ0 + 0.5), 0.2, STEELL, segs=16)
     rod(tag + '_nozzle_fl', (x, y - R - 0.5, TZ0 + 0.5), (x, y - R - 0.62, TZ0 + 0.5), 0.3, STEEL, segs=16)
-    rod(tag + '_gauge', (x + R + 0.12, y - 0.4, TZ0 + 0.4), (x + R + 0.12, y - 0.4, Z1 - 0.2), 0.06, STEELL, segs=8)
-    box(tag + '_gauge_cyan', (0.04, 0.04, (Z1 - TZ0) * 0.55), (x + R + 0.19, y - 0.4, TZ0 + 0.5 + (Z1 - TZ0) * 0.275), CYANL, bevel=0.0)
+    GX = R + (0.12 if R < 3 else 0.3)
+    rod(tag + '_gauge', (x + GX, y - 0.4, TZ0 + 0.4), (x + GX, y - 0.4, Z1 - 0.2), 0.06, STEELL, segs=8)
+    box(tag + '_gauge_cyan', (0.04, 0.04, (Z1 - TZ0) * 0.55), (x + GX + 0.07, y - 0.4, TZ0 + 0.5 + (Z1 - TZ0) * 0.275), CYANL, bevel=0.0)
     for dx in (-0.6, 0.6):
         cyl(tag + '_relief', 0.12, 0.6, (x + dx, y + 0.5, TOP - 0.05), STEELL, segs=12)
         cyl(tag + '_relief_cap', 0.16, 0.1, (x + dx, y + 0.5, TOP + 0.25), GRAPH, segs=12)
     rod(tag + '_vent', (x + 0.4, y - 0.9, TOP - 0.3), (x + 0.4, y - 0.9, TOP + 1.6), 0.09, STEELL, segs=10)
     lamp(tag + '_lamp', (x - 0.8, y - 0.6, TOP - 0.12), AMBERL, 0.08)
-HDR = {'LOX': (3.0, 1.15, 0.24), 'LH2': (3.7, 1.15, 0.26), 'HE3': (4.4, 1.3, 0.16)}   # header (y, z, r)
+HDR = {'LOX': (3.0, 1.15, 0.24), 'LCH4': (3.7, 1.15, 0.26), 'HE3': (4.4, 1.3, 0.16)}   # header (y, z, r)
 ROWA_Y, ROWB_Y = 8.0, 15.6
-# LH2 is ~3x the LOX volume per tonne of propellant: LOX tanks r 2.4 / shell 1.9-10.0 m (~173 m3),
-# LH2 tanks r 3.3 / shell 1.9-15.05 m (pi*3.3^2*(13.15+0.6*3.3) ~ 518 m3 = 3.0x). They stand in row B behind the gaps of
-# the shorter row A (LOX-1, LOX-2, HE3-1), so every tank (and every tier) reads from the hero and from the phone camera.
-LH2R, LH2Z1 = 3.3, 15.05
-TANKS = {'LOX-1': (16.6, ROWA_Y), 'LOX-2': (23.0, ROWA_Y), 'HE3-1': (19.8, -0.3), 'LH2-1': (19.6, ROWB_Y), 'LH2-2': (27.2, ROWB_Y)}
-GAPX = {'LH2-1': 19.8, 'LH2-2': 26.25}   # where the LH2 drop lines pass between the row-A tanks
+# Fuel is methalox: LOX + liquid methane (LCH4, ~112 K). LOX tanks r 2.4 / shell 1.9-10.0 m (pi*2.4^2*(8.1+0.6*2.4) ~ 173 m3).
+# The big LCH4 tanks keep the earlier 'bigger tank' pass: r 3.6 (1.5x LOX) on a taller skirt / shell 4.0-14.6 m (~520 m3 each).
+# (A methalox load needs only ~0.8x the LOX volume of LCH4; the extra is buffer storage and keeps the methane row readable.)
+# They stand in row B behind the gaps of the shorter row A (LOX-1, LOX-2, HE3-1), so every tank (and every tier) reads on the phone.
+LCH4R, LCH4Z0, LCH4Z1 = 3.6, 4.0, 14.6
+LCH4BELT = (8.4, 1.3)   # wide insulation belt (centre z, height)
+TANKS = {'LOX-1': (16.6, ROWA_Y), 'LOX-2': (23.0, ROWA_Y), 'HE3-1': (19.8, -0.3), 'LCH4-1': (19.4, ROWB_Y), 'LCH4-2': (27.8, ROWB_Y)}
+GAPX = {'LCH4-1': 19.8, 'LCH4-2': 26.25}   # where the LCH4 drop lines pass between the row-A tanks
 cryo_tank('lox1', *TANKS['LOX-1'], 'LOX-1', 'LIQUID OXYGEN  90 K', lz=8.7)
-cryo_tank('lh21', *TANKS['LH2-1'], 'LH2-1', 'LIQUID HYDROGEN  20 K', R=LH2R, Z1=LH2Z1, lz=13.2)
+cryo_tank('lch41', *TANKS['LCH4-1'], 'LCH4-1', 'LIQUID METHANE  112 K', R=LCH4R, Z1=LCH4Z1, Z0=LCH4Z0, belt=LCH4BELT, lz=13.0)
 with grp('Tier_05'): cryo_tank('lox2', *TANKS['LOX-2'], 'LOX-2', 'LIQUID OXYGEN  90 K', lz=8.7)
-with grp('Tier_20'): cryo_tank('lh22', *TANKS['LH2-2'], 'LH2-2', 'LIQUID HYDROGEN  20 K', R=LH2R, Z1=LH2Z1, lz=13.2)
+with grp('Tier_20'): cryo_tank('lch42', *TANKS['LCH4-2'], 'LCH4-2', 'LIQUID METHANE  112 K', R=LCH4R, Z1=LCH4Z1, Z0=LCH4Z0, belt=LCH4BELT, lz=13.0)
 with grp('Tier_12'):   # He-3 cryo sphere (cyan = He-3)
     hx, hy = TANKS['HE3-1']; HR = 3.1; HZ = 4.6
     sphere('he3t', HR, (hx, hy, HZ), WHITE_S, sub=5)
@@ -770,29 +783,34 @@ box('stw_top', (2.4, 2.4, 0.08), (TWX, TWY, CWZ), GRAPH2, bevel=0.01)
 box('stw_cyan', (2.4, 0.04, 0.05), (TWX, TWY - 1.22, CWZ - 0.05), CYANL, bevel=0.0)
 plate('tf_plate', 'TF-1  TANK FARM', (TWX, TWY - 1.25, 2.2), '-y', 1.9, 0.42, 0.2, sub='CRYOGENIC  -  NO OPEN FLAME')
 # insulated headers, tie-ins with valves, pump skid, line out TO LAUNCH PAD
-HDR = {'LOX': (3.0, 1.15, 0.24), 'LH2': (3.7, 1.15, 0.26), 'HE3': (4.4, 1.3, 0.16)}
-HX0, HX1 = 15.0, 44.0
+HDR = {'LOX': (3.0, 1.15, 0.24), 'LCH4': (3.7, 1.15, 0.26), 'HE3': (4.4, 1.3, 0.16)}
+HX0, HX1 = 15.0, 35.0
+VLX, VLY = HX1 + 2.7, -7.3   # buried-line vault where the launch-pad line goes underground
 for nm, (hy_, hz_, hr_) in HDR.items():
     xe = HX1 + 2.0 + (hy_ - 3.0)
-    pipe('hdr_' + nm.lower(), [(HX0, hy_, hz_), (xe, hy_, hz_), (xe, -8.0, hz_)], hr_, WHITE_S, bend=1.2)
+    pipe('hdr_' + nm.lower(), [(HX0, hy_, hz_), (xe, hy_, hz_), (xe, -6.7, hz_), (xe, -6.7, 0.55)], hr_, WHITE_S, bend=1.0)
     for k in range(int((HX1 - HX0) / 1.8)):
         x = HX0 + 0.9 + k * 1.8; rod('hdr_band', (x - 0.1, hy_, hz_), (x + 0.1, hy_, hz_), hr_ * 1.07, GRAPH if nm != 'HE3' else CYANL, segs=16)
-for x in range(16, 45, 3):
+for x in range(16, int(HX1) + 1, 3):
     box('hdr_sleeper', (0.3, 2.2, 0.9), (x, 3.7, 0.45), GRAPH, bevel=0.02)
     beam('hdr_sleeper_cap', (x, 2.6, 0.92), (x, 4.8, 0.92), 0.36, 0.08, STEEL)
-for y in (-2.0, -5.0): box('hdr_sleeper', (2.6, 0.3, 1.2), (46.7, y, 0.3), GRAPH, bevel=0.02)
+for y in (-1.0, -4.0): box('hdr_sleeper', (2.6, 0.3, 1.2), (VLX, y, 0.3), GRAPH, bevel=0.02)
+box('bpl_vault', (3.6, 2.2, 0.6), (VLX, VLY, 0.3), GRAPH2, bevel=0.05)
+box('bpl_vault_lid', (3.2, 1.8, 0.08), (VLX, VLY, 0.62), STEEL, bevel=0.02)
+box('bpl_vault_cyan', (3.62, 0.03, 0.05), (VLX, VLY - 1.11, 0.45), CYANL, bevel=0.0)
 def tie(nm):
-    x, y = TANKS[nm]; hy_, hz_, hr_ = HDR['LOX' if nm.startswith('LOX') else 'LH2']; tag = nm.lower().replace('-', '')
-    if nm.startswith('LH2'):   # row B: out of the nozzle, sideways to the row-A gap, then forward between the front tanks
-        gx = GAPX[nm]; ys = y - LH2R - 0.62; yv = ROWA_Y - TR - 1.2
-        pipe(tag + '_drop', [(x, ys, TZ0 + 0.5), (x, ys - 0.5, TZ0 + 0.5), (gx, ys - 0.5, TZ0 + 0.5), (gx, yv, TZ0 + 0.5), (gx, yv, hz_ + 0.7), (gx, hy_, hz_ + 0.7), (gx, hy_, hz_)], 0.17, FOIL, bend=0.35)
-        valve(tag + '_v', (gx, yv, 1.55), axis='y', r=0.2); return
+    x, y = TANKS[nm]; hy_, hz_, hr_ = HDR['LOX' if nm.startswith('LOX') else 'LCH4']; tag = nm.lower().replace('-', '')
+    if nm.startswith('LCH4'):   # row B: out of the nozzle, sideways to the row-A gap, then forward between the front tanks
+        gx = GAPX[nm]; ys = y - LCH4R - 0.62; yv = ROWA_Y - TR - 1.2
+        nz = LCH4Z0 + 0.5
+        pipe(tag + '_drop', [(x, ys, nz), (x, ys - 0.5, nz), (gx, ys - 0.5, nz), (gx, yv, nz), (gx, yv, hz_ + 0.7), (gx, hy_, hz_ + 0.7), (gx, hy_, hz_)], 0.17, FOIL, bend=0.35)
+        valve(tag + '_v', (gx, (yv + ys - 0.5) / 2, nz), axis='y', r=0.2); return
     pipe(tag + '_drop', [(x, y - TR - 0.62, TZ0 + 0.5), (x, y - TR - 1.2, TZ0 + 0.5), (x, y - TR - 1.2, hz_ + 0.7), (x, hy_, hz_ + 0.7), (x, hy_, hz_)], 0.17, FOIL, bend=0.35)
     valve(tag + '_v', (x, y - TR - 1.2, 1.55), axis='y', r=0.2)
-tie('LOX-1'); tie('LH2-1')
+tie('LOX-1'); tie('LCH4-1')
 with grp('Tier_05'): tie('LOX-2')
-with grp('Tier_20'): tie('LH2-2')
-for i, x in enumerate((21.4, 32.8, 40.0)):
+with grp('Tier_20'): tie('LCH4-2')
+for i, x in enumerate((21.4, 32.8, 34.6)):
     for nm, (hy_, hz_, hr_) in HDR.items():
         if nm == 'HE3' and i < 2: continue
         valve(f'hdr_v_{nm}_{i}', (x, hy_, hz_), axis='x', r=hr_ * 0.85, wheel=(i != 2), actuator=(i == 2))
@@ -812,9 +830,19 @@ for j, m_ in enumerate((GREENL, GREENL, AMBERL)): lamp(f'ps_lamp{j}', (PSX + 2.6
 box('ps_screen', (0.6, 0.03, 0.4), (PSX + 2.9, PSY - 0.01, 1.5), CYANS, bevel=0.0)
 plate('ps_plate', 'PS-1', (PSX - 1.0, PSY - 1.0, 0.8), '-y', 1.2, 0.36, 0.16, sub='CRYO TRANSFER PUMPS')
 for x in (PSX - 1.6, PSX - 0.4): box('ps_plate_post', (0.06, 0.06, 0.62), (x, PSY - 0.98, 0.31), STEEL)
-plate('tlp_plate', 'TO LAUNCH PAD', (45.4, -3.6, 1.9), '-y', 2.2, 0.4, 0.22, bg=GRAPH, fg=INKW, sub='LOX  /  LH2  /  HE-3')
-for x in (44.6, 46.2): box('tlp_post', (0.08, 0.08, 1.8), (x, -3.55, 0.9), STEEL)
-GAME['markers']['Pipe_LaunchPad'] = (47.0, -8.1, 1.2)
+plate('tlp_plate', 'TO LAUNCH PAD', (VLX, VLY - 1.6, 1.5), '-y', 2.2, 0.4, 0.22, bg=GRAPH, fg=INKW, sub='BURIED LINE  LOX / LCH4 / HE-3')
+for x in (VLX - 0.8, VLX + 0.8): box('tlp_post', (0.08, 0.08, 1.4), (x, VLY - 1.55, 0.7), STEEL)
+GAME['markers']['Pipe_LaunchPad'] = (VLX, VLY, 0.66)   # top of the buried-line vault: the launch-pad line goes underground here
+# fuel arrives from the Refinery (to the left) by buried pipeline: it surfaces in a riser vault between the hall and the tank farm
+RVX, RVY = 14.5, 12.6
+box('rfl_vault', (2.4, 1.6, 0.6), (RVX, RVY, 0.3), GRAPH2, bevel=0.04)
+box('rfl_vault_cyan', (2.42, 0.03, 0.05), (RVX, RVY - 0.81, 0.45), CYANL, bevel=0.0)
+pipe('rfl_lox', [(14.0, 12.3, 0.6), (14.0, 12.3, 1.4), (14.0, 11.1, 1.4), (16.6, 11.1, 1.4), (16.6, 10.2, 1.4)], 0.15, FOIL, bend=0.3)
+pipe('rfl_lch4', [(15.1, 12.9, 0.6), (15.1, 12.9, 2.2), (15.1, 15.6, 2.2), (16.2, 15.6, 2.2)], 0.17, FOIL, bend=0.3)
+valve('rfl_v_lox', (14.0, 11.7, 1.4), axis='y', r=0.15)
+plate('rfl_plate', 'FROM REFINERY', (RVX, RVY - 0.82, 1.05), '-y', 1.5, 0.34, 0.15, sub='BURIED LINE  LOX / LCH4')
+for x in (RVX - 0.6, RVX + 0.6): box('rfl_post', (0.06, 0.06, 0.9), (x, RVY - 0.8, 0.7), STEEL)
+GAME['markers']['Pipe_Refinery'] = (RVX, RVY, 0.6)
 
 # ====================================================================== STAGE: shared ground (M_ground), berm, road, far lines
 height = build_stage(keep_flat=((10, 6, 46), (30, 8, 26)))
@@ -826,7 +854,7 @@ for ob in list(coll('Stage').objects):
 def g01(t): t = max(0.0, min(1.0, t)); return t * t * (3 - 2 * t)
 def seg_d(p, a, b):
     ab = b - a; t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared)); return (a + ab * t - p).length
-BERM = [Vector((12.6, 2.6)), Vector((12.6, -5.6)), Vector((36.0, -5.6))]
+BERM = [Vector((12.6, 2.6)), Vector((12.6, -5.6)), Vector((33.4, -5.6))]
 BH_, BC, BRN = 1.5, 0.35, 1.15
 def berm_z(x, y):
     p = Vector((x, y)); d = min(seg_d(p, a, b) for a, b in zip(BERM, BERM[1:]))
@@ -849,7 +877,7 @@ for f in bm.faces:
     if f.normal.z < 0: f.normal_flip()
 _obj(bm, 'tf_berm', gm, c='Mine', smooth=True, angle=180)
 # the headers cross the berm: a graphite culvert box where the pipes pass
-box('berm_culvert', (1.2, 2.6, 1.9), (41.5, 3.7, 0.95), GRAPH2, bevel=0.04)
+pass   # (no culvert: the launch-pad line now goes underground before the berm end)
 # graded access road from the south into the yard (Stage) with cyan reflector posts
 bm = bmesh.new(); rows = []
 for k in range(41):
@@ -878,14 +906,12 @@ for k, (x, y) in enumerate(((-36.0, 9.0), (-48.0, 6.0), (-60.0, 2.5))):
     sphere('beacon_far', 0.17, (x, y, 10.35 + gz_), REDL, sub=2, c='Stage')
     for a, b in zip(prev, pts): cable('pline_far', a, b, 0.025, RUBBER, sag=0.7, n=20, c='Stage')
     prev = pts
-for nm, (hy_, hz_, hr_) in HDR.items():
-    x0 = HX1 + 2.0 + (hy_ - 3.0)
-    path = [(x0, -8.0), (x0, -14.0), (x0 + 22.0, -36.0), (x0 + 60.0, -52.0)]
-    pipe('hdr_far_' + nm.lower(), [(px, py, height(px, py) + hz_) for px, py in path], hr_, WHITE_S, bend=3.0, c='Stage', flanges=False)
-for k in range(14):
+for k in range(14):   # buried launch-pad line: marker posts with cyan caps along its route (Stage only)
     t = k / 13
-    p = Vector((47.0, -14.0)).lerp(Vector((69.0, -36.0)), t * 2) if t < 0.5 else Vector((69.0, -36.0)).lerp(Vector((107.0, -52.0)), (t - 0.5) * 2)
-    box('far_sleeper', (2.8, 0.3, 0.9), (p.x, p.y, height(p.x, p.y) + 0.45), GRAPH, rot=(0, 0, -0.785 if t < 0.5 else -0.4), c='Stage', bevel=0.02)
+    p = Vector((VLX, -10.0)).lerp(Vector((VLX + 22.0, -32.0)), t * 2) if t < 0.5 else Vector((VLX + 22.0, -32.0)).lerp(Vector((VLX + 60.0, -48.0)), (t - 0.5) * 2)
+    gz_ = height(p.x, p.y)
+    box('bpl_post', (0.16, 0.16, 1.0), (p.x, p.y, gz_ + 0.5), GRAPH, c='Stage', bevel=0.01)
+    box('bpl_post_cyan', (0.17, 0.17, 0.12), (p.x, p.y, gz_ + 0.9), CYANL, c='Stage', bevel=0.0)
 
 # ====================================================================== Tier_08: pedestal jib crane JC-2 at the front-left of the yard
 with grp('Tier_08'):
@@ -920,18 +946,18 @@ ld.use_shadow = False
 lo = bpy.data.objects.new('GapFill', ld); coll('Stage').objects.link(lo); lo.location = (16.0, 2.0, 16.0)
 astronaut((2.9, -14.75, ZP), rot_z=0.4)
 astronaut((AX - 0.3, -2.2, MZ), rot_z=-0.2)
-astronaut((19.8, ROWA_Y, CWZ + 0.05), rot_z=-1.4)
+astronaut((22.2, ROWA_Y, CWZ + 0.05), rot_z=-1.4)
 for nm, p in (('Crew_Path_01', (AX, HYH - 0.6, MZ)), ('Crew_Path_02', (AX, -1.6, MZ)), ('Crew_Path_03', (AX, -3.7, ZP)),
               ('Crew_Path_04', (AX - 0.6, -6.0, ZP)), ('Crew_Path_05', (5.6, -14.3, ZP)), ('Crew_Path_06', (2.3, -11.9, ZP)),
               ('Crew_Path_07', (0.0, -6.0, ZP)), ('Crew_Path_08', (0.0, FY0 - 1.4, ZP))):
     GAME['markers'][nm] = p
 # station camera look-at: the phone shots and the game camera aim here (empty, no geometry / no draws).
 # 4 m in front of the origin at the game's lookY 2.5 so the focus sits between the HUD (y~100) and the sheet (y~650) on 393x852.
-CAM_TARGET = tuple(float(v) for v in A.get('ct', '9.0,-2.0,3.0').split(','))
+CAM_TARGET = tuple(float(v) for v in A.get('ct', '12.0,-2.0,6.0').split(','))
 GAME['markers']['Cam_Target'] = CAM_TARGET
 _ct = bpy.data.objects.new('Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
 _ct.location = CAM_TARGET; coll('Mine').objects.link(_ct)
-FRAME_W = float(A.get('fw', 40.0))      # metres of station that span the screen width at Cam_Target (game camera spec)
+FRAME_W = float(A.get('fw', 64.0))      # metres of station that span the screen width at Cam_Target (game camera spec)
 _ct['frame_w'] = FRAME_W; GAME['marker_extras'] = {'Cam_Target': {'frame_w': FRAME_W}}
 bpy.context.scene['game_nodes'] = json.dumps(GAME)
 print('HEIGHTS', [round(height(x, y), 3) for x, y in ((0, -16), (21.5, 7.5), (47, -8), (-24, 11), (0, 20), (31.5, 15.5))], flush=True)
@@ -1003,16 +1029,37 @@ def proj_report(w, h):
     for ob in mine:
         if ob.type != 'MESH': continue
         g = ob.get('grp', 'Base'); e = ob.evaluated_get(dg); me = e.to_mesh()
+        gs = [g] + (['TankRow'] if ob.name.startswith(('lox1', 'lox2', 'lch41', 'lch42', 'he3t')) else []) + (['Hall'] if ob.name.startswith(('hall', 'csd')) else [])
         vs_ = list(me.vertices)
         for v in vs_[::max(1, len(vs_) // 400)]:
             q = world_to_camera_view(sc, cam, e.matrix_world @ v.co); px, py = q.x * w, (1 - q.y) * h
-            b = B.setdefault(g, [1e9, 1e9, -1e9, -1e9]); b[0] = min(b[0], px); b[1] = min(b[1], py); b[2] = max(b[2], px); b[3] = max(b[3], py)
+            for g_ in gs:
+                b = B.setdefault(g_, [1e9, 1e9, -1e9, -1e9]); b[0] = min(b[0], px); b[1] = min(b[1], py); b[2] = max(b[2], px); b[3] = max(b[3], py)
         e.to_mesh_clear()
     for g, b in sorted(B.items()): print('PROJ', g, 'x %.0f..%.0f  y %.0f..%.0f' % (b[0], b[2], b[1], b[3]), 'of', w, 'x', h, flush=True)
 if 'proj' in ONLY:
     convert_curves()
-    for (w, h) in ((393, 852),):
-        d = phone_cam(w, h); print('PHONE dist', round(d, 3), 'frame_w', FRAME_W, 'cam', tuple(round(v, 2) for v in cam.location), flush=True); proj_report(w, h)
+    def _bb(o):
+        cs = [o.matrix_world @ Vector(c) for c in o.bound_box]
+        return [min(c[i] for c in cs) for i in range(3)], [max(c[i] for c in cs) for i in range(3)]
+    if A.get('overlap'):
+        tags = A['overlap'].split(',')
+        obs = [o for o in mine if o.type == 'MESH']
+        for t in tags:
+            for o in obs:
+                if not o.name.startswith(t): continue
+                lo, hi = _bb(o)
+                for o2 in obs:
+                    if o2.name.startswith(t): continue
+                    lo2, hi2 = _bb(o2)
+                    ov = [min(hi[i], hi2[i]) - max(lo[i], lo2[i]) for i in range(3)]
+                    if min(ov) > 0.02: print('OVERLAP', o.name, o2.name, [round(v, 2) for v in ov], flush=True)
+    CFG = [None] if not A.get('ctlist') else [tuple(float(v) for v in c.split(',')) for c in A['ctlist'].split(';')]
+    for cfg in CFG:
+        if cfg:
+            bpy.data.objects['Cam_Target'].location = cfg[:3]; bpy.data.objects['Cam_Target']['frame_w'] = cfg[3]; bpy.context.view_layer.update(); print('CFG', cfg, flush=True)
+        for (w, h) in ((393, 852),):
+            d = phone_cam(w, h); print('PHONE dist', round(d, 3), 'frame_w', bpy.data.objects['Cam_Target']['frame_w'], 'cam', tuple(round(v, 2) for v in cam.location), flush=True); proj_report(w, h)
 if 'phone' in ONLY:
     sc = bpy.context.scene
     w, h = (1179, 2556) if not QUICK else (393, 852)
