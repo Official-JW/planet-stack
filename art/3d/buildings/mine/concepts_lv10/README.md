@@ -45,7 +45,8 @@ These are concept stills for the first big look change: the Mine levels to 50, w
 | mine_lv10_{current,A,B}_393x852.png | Cycles, game station camera exactly as qa3d-next frames the Mine (frame_w 39.9, Cam_Target y 5.6, 38 deg vFOV, 18 deg down) |
 | mine_lv10_{current,A,B}_375x667.png | same camera recipe at 375x667 |
 | mine_lv10_compare_game_{393x852,375x667}.png | current / A / B side by side |
-| mine_lv10_{current,A,B}_hero_1920x1080.png | hero close-up from one shared 3/4 camera (added when rendered) |
+| mine_lv10_{current,A,B}_hero_1920x1080.png | hero close-up, one shared 3/4 camera (26 mm at (-32,-50,20) -> (4,3,15.5)); all buildings inside frame |
+| mine_lv10_compare_hero_1920x1100.png | current / A / B heroes |
 | _check/mask_*.png, _check/edge_check.json | edge check: unlit mask of everything standing > 0.45 m (ground, road and deposits drop out) |
 | _src/lv10_concept.py, _src/sheets.py | scene builder (`--variant current/A/B --shots game,hero,mask,proj,hproj --sizes`) and sheets |
 
@@ -72,10 +73,14 @@ The lowest margin is 18 px (A, right edge, at 393). The analytic projection (`--
 ```
 ebcf7c48 mine_lv10_A_375x667.png
 5a4dee5d mine_lv10_A_393x852.png
+8db683d5 mine_lv10_A_hero_1920x1080.png
 d35ca1db mine_lv10_B_375x667.png
 e26c1b8d mine_lv10_B_393x852.png
+0fad3a41 mine_lv10_B_hero_1920x1080.png
 4030bf5e mine_lv10_compare_game_375x667.png
 853c7944 mine_lv10_compare_game_393x852.png
+0097ba1e mine_lv10_compare_hero_1920x1100.png
 0043ab06 mine_lv10_current_375x667.png
 8f29c0ea mine_lv10_current_393x852.png
+bc5a1215 mine_lv10_current_hero_1920x1080.png
 ```
