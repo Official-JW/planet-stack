@@ -510,22 +510,25 @@ function makeFollowCam(cfg) {
 const CREW_GLB = '../qa3d-next/models/crew_boarding_b989de5a.glb?v=b989de5a';
 const BD = { on: Q.get('board') !== 'off', root: null, mx: null, acts: {}, clips: [], end: 58.5, crew: [], n: 0, inside: [], lead: null, fc: null,
   trig: 35.092, trigSrc: 'extras', walkIn: 3, lift: 58.5, pre: 2, cur: '' };   // trig / lift in board time (tb); clips + inside in crew time (tb − pre)
-const BCAM = { minPx: 20, subjectH: 1.8, margin: 1.3, sig: .5, in: 2.0, hand: 2.0, hold: .8, out: 2.0, cancel: .6, fadeIn: .5, rxFade: 1.0 };   // ladder adapter config
+const BCAM = { minPx: 20, subjectH: 1.8, margin: 1.3, sig: .5, in: 2.0, hand: 2.0, hold: .8, out: 2.0, cancel: .6, fadeIn: 1.0, rxFade: 1.0 };   // ladder adapter config (fadeIn = rxFade: Receiver → climbers crossfade, Director 11:3x)
 function fadeObj(o, a) {              // whole-object opacity (own material copies, made once); a ≤ 0 → hidden, 1 → opaque (no transparency cost)
   if (!o) return; o.visible = a > .003; if (o.userData._fa === a) return; o.userData._fa = a; const tr = a < .999;
   o.traverse(m => { if (!m.isMesh) return; if (!m.userData._fm) { m.material = Array.isArray(m.material) ? m.material.map(x => x.clone()) : m.material.clone(); m.userData._fm = 1; }
     for (const x of [].concat(m.material)) { if (x.transparent !== tr) { x.transparent = tr; x.needsUpdate = true; } x.opacity = tr ? a : 1; } });
 }
-// The Cargo Manager's pad figure (Receiver): on the pad only while the ship is; fades out over the first rxFade s of the boarding (the camera is still
-// easing in, his climber appears at BCAM.in), hidden through launch / away / landing, fades back in at his usual spot from touchdown.
+// The Cargo Manager's pad figure (Receiver): on the pad only while the ship is; stays through the camera's ease-in (BCAM.in) and fades out over the
+// next rxFade s while the climbers fade in (BCAM.fadeIn = rxFade, same smoothstep: alphas sum to 1 every frame, no empty frame, never two opaque),
+// hidden through launch / away / landing, fades back in at his usual spot from touchdown.
 function rxAlpha(c = S.cg, t = nowMs()) { const s = c.sh; if (!BOARD_SEC) return 1;
-  return s.st === 'pad' ? (c.launches ? fss((t - s.t0) / (BCAM.rxFade * 1000)) : 1) : s.st === 'board' ? 1 - fss((t - s.t0) / (BCAM.rxFade * 1000)) : 0; }
+  return s.st === 'pad' ? (c.launches ? fss((t - s.t0) / (BCAM.rxFade * 1000)) : 1) : s.st === 'board' ? 1 - fss((t - s.t0 - BCAM.in * 1000) / (BCAM.rxFade * 1000)) : 0; }
 function crewOnPad() { if (cg3 && cg3.astro) fadeObj(cg3.astro, rxAlpha()); }
 function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = Mine operator, Cargo Manager = Receiver + Crew_1, Mechanic = Crew_2
+  // (Cargo Manager is 2 only inside the boarding crossfade: cmA = his summed opacity, cmFull = his fully opaque figures)
   const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
   const cl = (n) => { const x = BD.root && BD.root.getObjectByName(n); return x && vis(x) && BD.root.userData._fa > .003 ? 1 : 0; };
   return { Miner: vis(op) ? 1 : 0, 'Mine Driver': 0, 'Cargo Manager': (vis(cg3.astro) ? 1 : 0) + cl('Crew_1'), Mechanic: cl('Crew_2'),
-    extraClimbers: BD.root ? ['Crew_3', 'Crew_4'].filter(n => BD.root.getObjectByName(n)).length : 0, rxA: +rxAlpha().toFixed(3), ship: S.cg.sh.st }; }
+    extraClimbers: BD.root ? ['Crew_3', 'Crew_4'].filter(n => BD.root.getObjectByName(n)).length : 0, rxA: +rxAlpha().toFixed(3), ship: S.cg.sh.st,
+    ...(() => { const a = [vis(cg3.astro) ? (cg3.astro.userData._fa ?? 1) : 0, cl('Crew_1') ? BD.root.userData._fa : 0]; return { cmA: +(a[0] + a[1]).toFixed(4), cmFull: a.filter(x => x >= .999).length }; })() }; }
 const BC = { w: 0, tb: -1, lx: 0, ly: 0, lz: 0, k: 1, ph: 'off' };
 const CAMLOOK = { lx: 0, ly: 0, lz: 0, k: 1 };
 // Sim boarding phase (Director 10:55): Launch tap / auto-launch → sh.st 'board' (sh.t0 = its start, shifted by cgShift like every sh timestamp); at
