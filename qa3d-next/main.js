@@ -505,7 +505,7 @@ function makeFollowCam(cfg) {
 // player is on the Launch Pad when the boarding starts; any tap / swipe / dot eases back to the station camera for the rest of that boarding (S.bc, saved).
 const CREW_GLB = '../qa3d-next/models/crew_boarding_b989de5a.glb?v=b989de5a';
 const BD = { on: Q.get('board') !== 'off', root: null, mx: null, acts: {}, clips: [], end: 58.5, crew: [], n: 0, inside: [], lead: null, fc: null,
-  trig: 35.092, trigSrc: 'extras', walkIn: 3, lift: 58.5, cur: '' };
+  trig: 35.092, trigSrc: 'extras', walkIn: 3, lift: 58.5, pre: 2, cur: '' };   // trig / lift in board time (tb); clips + inside in crew time (tb − pre)
 const BCAM = { minPx: 20, subjectH: 1.8, margin: 1.3, sig: .5, in: 2.0, hand: 2.0, hold: .8, out: 2.0, cancel: .6 };   // ladder adapter config
 const BC = { w: 0, tb: -1, lx: 0, ly: 0, lz: 0, k: 1, ph: 'off' };
 const CAMLOOK = { lx: 0, ly: 0, lz: 0, k: 1 };
@@ -520,13 +520,15 @@ function crewPose(tb) {                // pure: tb seconds since the launch
   a.time = clamp(tb - c.t0, 0, c.dur - 1e-4); BD.mx.update(0);
   for (let i = 0; i < BD.n; i++) BD.crew[i].visible = tb < BD.inside[i];
 }
-const crewCamAt = (tb, o = BC) => BD.fc.at(tb, o), crewCamW = (tb) => BD.fc.w(tb);
+// Lead-in: the crew timeline starts BD.pre (= the camera's ease-in, BCAM.in) after the launch, so the follow framing is reached before the first crew
+// frame is drawn (every climber ≥ minPx from their first visible frame); clip timing relative to each other is unchanged.
+const crewCamAt = (tb, o = BC) => BD.fc.at(tb - BD.pre, o), crewCamW = (tb) => BD.fc.w(tb - BD.pre), crewPoseB = (tb) => crewPose(tb - BD.pre);
 const viewingPad = () => S.site === PADI && Math.abs(camX - PX) < 3 && !drag;
 function updCrew() {
   if (!BD.root) return;
   const b = boardOf(), tb = b ? (nowMs() - b.B) / 1000 : -1, act = !!b && tb >= 0 && tb < BD.lift;
-  BD.root.visible = act && tb < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site: no draws
-  if (BD.root.visible) crewPose(tb);
+  BD.root.visible = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site / lead-in: no draws
+  if (BD.root.visible) crewPose(tb - BD.pre);
   if (act && (!S.bc || S.bc.id !== b.id)) { S.bc = { id: b.id, on: viewingPad() ? 1 : 0, x: 0 }; save(); }   // gate: decided once per boarding, saved
   let w = 0;
   if (act && S.bc.on) { crewCamAt(tb, BC); w = S.bc.x ? BD.fc.cancelW() : crewCamW(tb); }
@@ -555,11 +557,11 @@ function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
   if (!ft || !BD.lead) throw new Error('Board_Focus_Top / C1_Hips missing');
   o.updateMatrixWorld(true);
   BD.fc = makeFollowCam({ ...BCAM, sample: (t, v) => { crewPose(t); o.updateMatrixWorld(true); return BD.lead.getWorldPosition(v); },
-    t0: BD.walkIn, t1: BD.end, handY: +tr.threshold_y_m || 14, handAfter: BD.clips[2].t0, handT: +tr.fallback_absolute_s || 35.092,
+    t0: -BCAM.in, t1: BD.end, handY: +tr.threshold_y_m || 14, handAfter: BD.clips[2].t0, handT: +tr.fallback_absolute_s || 35.092,
     final: ft, finalFw: +ft.userData.frame_w || 16.1, release: BD.inside[BD.n - 1] }).build();
-  BD.trig = BD.fc.hand; BD.trigSrc = BD.fc.handSrc; BD.lift = BD.fc.end();   // ship lift-off (visual): crew inside, camera home
+  BD.pre = BCAM.in; BD.trig = BD.pre + BD.fc.hand; BD.trigSrc = BD.fc.handSrc; BD.lift = BD.pre + BD.fc.end();   // ship lift-off (visual, board time): crew inside, camera home
   BD.cur = ''; o.visible = false; scene.add(o); BD.root = o;
-  window.__ps3d.crewBoarding = { n: BD.n, end: BD.end, trig: +BD.trig.toFixed(3), trigSrc: BD.trigSrc, topFw: BD.fc.cfg.finalFw, followFw: +BD.fc.fw().toFixed(2), lift: +BD.lift.toFixed(2), inside: BD.inside.slice() };
+  window.__ps3d.crewBoarding = { n: BD.n, end: BD.end, trig: +BD.trig.toFixed(3), trigSrc: BD.trigSrc, topFw: BD.fc.cfg.finalFw, followFw: +BD.fc.fw().toFixed(2), lift: +BD.lift.toFixed(2), pre: BD.pre, end: BD.pre + BD.end, inside: BD.inside.map(x => +(x + BD.pre).toFixed(3)) };
 }, undefined, (e) => console.warn('crew boarding GLB failed (ship launches without crew)', e)); }
 
 // ===== camera framing (fixed camera, ~14 m wide in portrait)
@@ -2019,7 +2021,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
-Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ BD, BC, BCAM, CAMLOOK, makeFollowCam, boardOf, crewPose, crewCamAt, crewCamW, updCrew, placeCamera, band,
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ BD, BC, BCAM, CAMLOOK, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
 loadRig(); loadTruck(); loadOperator(); loadCrew();
