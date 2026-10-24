@@ -135,6 +135,31 @@ def torus(C, R, r, nu=64, nv=6):
                 e = np.array([math.cos(ph), 0, math.sin(ph)]); L.append(C + e * R); D.append(e * math.cos(th) + np.array([0, 1, 0]) * math.sin(th))
     return np.array(L, np.float32), np.array(D, np.float32)
 
+# --- FAB-01 staging screen + canopy lip over the ring pick-up (A&A option B): hides the jib_return -> ring_lift `stow` swap from the game camera.
+#     Merged into shipyard_base's existing SH_Graphite / SH_White primitives (0 new draws). Ring at pick-up: x 39.2-49.2, y 0.2-6.2, z -26.0..-15.3.
+#     Screen face at z -12.8 (2.5 m in front of the ring), top 10.5 m: the camera rays to the ring's far rim cross z -12.8 below y 10.0.
+CAN_Z = -12.8; CAN_X = (37.0, 50.6); CAN_H = 10.5
+def canopy_tris():
+    g, w = [], []
+    g += box_between((CAN_X[0], 0.1, CAN_Z), (CAN_X[1], 0.1, CAN_Z), 0.3, 2 * CAN_H - 0.2)     # screen (box centred on y 0.1: lower half is below the slab)
+    for x in (CAN_X[0] + 0.3, (CAN_X[0] + CAN_X[1]) / 2, CAN_X[1] - 0.3):
+        g += box_between((x, 0.05, CAN_Z + 1.6), (x, CAN_H + 0.1, CAN_Z + 1.6), 0.45, 0.45)       # front posts
+    for x0, x1 in ((CAN_X[0] + 0.3, (CAN_X[0] + CAN_X[1]) / 2), (CAN_X[1] - 0.3, (CAN_X[0] + CAN_X[1]) / 2)):
+        g += box_between((x0, 1.0, CAN_Z + 1.6), (x1, CAN_H - 1.0, CAN_Z + 1.6), 0.3, 0.3)          # X-braces
+    w += box_between((CAN_X[0] - 0.4, CAN_H + 0.2, CAN_Z + 0.9), (CAN_X[1] + 0.4, CAN_H + 0.2, CAN_Z + 0.9), 3.0, 0.3)   # canopy lip (front overhang)
+    w += box_between((CAN_X[0], 4.0, CAN_Z + 0.2), (CAN_X[1], 4.0, CAN_Z + 0.2), 0.12, 0.6)      # white band
+    return g, w
+def add_canopy(J, B):
+    me = J['meshes'][J['nodes'][node(J, 'shipyard_base')]['mesh']]; n = 0
+    for mname, tris in zip(('SH_Graphite', 'SH_White'), canopy_tris()):
+        pr = next(p for p in me['primitives'] if J['materials'][p['material']]['name'] == mname)
+        P = acc(J, B, pr['attributes']['POSITION']).astype(np.float32); N = acc(J, B, pr['attributes']['NORMAL']).astype(np.float32)
+        I = acc(J, B, pr['indices']).astype(np.uint32) if 'indices' in pr else np.arange(len(P), dtype=np.uint32)
+        cp, cn = tri_soup(tris); n += len(cp) // 3
+        pr['attributes']['POSITION'] = put(J, B, np.vstack([P, cp]), 'VEC3', 34962, True); pr['attributes']['NORMAL'] = put(J, B, np.vstack([N, cn]).astype(np.float32), 'VEC3', 34962)
+        pr['indices'] = put(J, B, np.concatenate([I, np.arange(len(P), len(P) + len(cp), dtype=np.uint32)]), 'SCALAR', 34963)
+    print('FAB-01 canopy tris', n)
+
 def build(J, B):
     global TAN
     jn = node(J, 'Crane_Jib'); P0 = np.array(J['nodes'][jn]['translation']); S = np.array(J['nodes'][node(J, 'Stand_Center')]['translation'])
@@ -253,7 +278,7 @@ def bake_pose(J, B, jn, clip, t):
     J['animations'] = []
 
 if __name__ == '__main__':
-    J, B = read(sys.argv[1]); jn = build(J, B)
+    J, B = read(sys.argv[1]); jn = build(J, B); add_canopy(J, B)
     if '--pose' in sys.argv:
         c, t = sys.argv[sys.argv.index('--pose') + 1].split(':'); bake_pose(J, B, jn, c, float(t))
     write(sys.argv[2], J, B); print('WROTE', sys.argv[2])

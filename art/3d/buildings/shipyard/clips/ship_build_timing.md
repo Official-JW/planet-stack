@@ -74,7 +74,7 @@ and don't play `jib_return`.
 
 ## Checks (three.js r169 GLTFLoader + AnimationMixer on the packed GLB; sampled at 120 Hz for speeds, 30 Hz for the gap)
 See `ship_build_check.txt` for the raw output. Summary:
-- 15 draws, 28,174 tris. Every clip's start key matches the previous clip's end key (jump 0.0000° / 0.0000 weight), including `jib_return → ring_lift`.
+- 15 draws, 28,270 tris (incl. the 96-tri FAB-01 screen). Every clip's start key matches the previous clip's end key (jump 0.0000° / 0.0000 weight), including `jib_return → ring_lift`.
   `ring_weld` first key == last key.
 - Peak jib angular speed: 27.6 °/s measured at 120 Hz (`jib_swing_in`, `jib_return`; analytic smoothstep peak 1.5·140/8 = 26.25 °/s). The ring never spins about its own axis.
 - Gap (BVH closest point, load verts = ring + lift frame + rigging + hoist end vs. base + tiers + doors): ≥ 1.29 m on `ring_lower` (z21/z30 platforms
@@ -85,15 +85,14 @@ See `ship_build_check.txt` for the raw output. Summary:
 - Nothing floats: at pick-up the ring bottom is at y 0.20 on the 0.12 slab, and seated it is at 19.88 = the stack top.
 
 ## FAB-01 pick-up visibility (game camera: Cam_Target (7.7, 23.5, 84.55), frame_w 100, 18° tilt, 38° FOV)
-The ring at the pick-up spot (`ring_lift` t=0 == `jib_return` last frame, identical poses) is **partly visible** behind FAB-01, not hidden:
-raycast to the ring verts = 26.4 % visible at 393x852, 29.8 % at 375x667 (upper bound, self-occlusion ignored); in Workbench, 145 px (393) / 112 px (375)
-of ring/hook pixels show between FAB-01's columns at screen x 293–315, y 374–399 (393) and x 276–294, y 286–309 (375). Proofs: `fab01_pickup_393.png`,
-`fab01_pickup_375.png` (5× crops, ring pixels red). So the `stow` 1→0 swap at the end of `jib_return` is a visible "pop-in" of a few px. Options (NOT applied):
-- **A. Pick-up angle 130° instead of 140°** (PICK only, no geometry). Checked: swing gap 1.815 m, floor 1.497 m, lower/seat unchanged, peak jib 25.4 °/s,
-  framing spare unchanged (63 px at 393). But it only drops the visibility to 15.7 % / 16.7 % (139 / 105 px): still a pop. 120° is worse for clearance (0.26 m to FAB-01).
-- **B. (recommended) A low staging screen/canopy over the pick-up spot**, part of `shipyard_base` in an existing SH_ material (0 draws, ~100 tris), with the
-  ring parked under it. Hides 100 % of the swap; the ring then reads as "coming out of the fab bay". The hook must enter from the open side: re-check the floor/swing gaps when built.
-- C. Keep 140° and accept it: the pop is ≤ 145 px at the bottom of a 852 px screen while the jib is still, under FAB-01's clutter.
+**A&A chose option B: built.** A graphite staging screen with a white canopy lip, 3 front posts, X-braces and a white band stands in front of the pick-up spot
+(x 37.0–50.6, face at z −12.8, 2.5 m in front of the ring, top 10.5 m; glTF coords). It is merged into `shipyard_base`'s existing SH_Graphite / SH_White
+primitives by `_src/post_ship_build.py` (`add_canopy`): **96 tris, 0 new draws**. The hook comes down from above, so the top is open.
+Result for the `stow` swap (`jib_return` last frame == `ring_lift` t=0), at 393x852 and 375x667:
+- raycast to every 3rd ring vertex and to the bbox corners: **0.0 % visible** at both sizes (all hits on `shipyard_base`);
+- Workbench diff, ring present vs stowed, from the game camera: **0 px differ** at both sizes. Proofs: `fab01_pickup_393.png`, `fab01_pickup_375.png` (4× crops; differing px would be red).
+Gaps unchanged: swing 1.796 m, lower 1.293 m, floor 1.496 m; the screen is never the nearest part. Framing spare unchanged: 60 px @393, 14 px @375.
+(Rejected: A, pick-up at 130°, still 15.7 % / 16.7 % visible; C, accept the pop-in.)
 
 ## Rings 2..N — placeholder plan (not built yet)
 Source: SN-07 section bands in `build_starter_ship.py` @ 46a9346 (ship frame z; world y = z + 0.48 = pad top). Ring 1 (built) = crew deck z 19.4–25.1.

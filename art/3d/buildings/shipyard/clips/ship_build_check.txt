@@ -1,4 +1,4 @@
-draws 15 tris 28174 clips Beacon_Lights_Blink:1.000s/1tr hall_door_open:3.600s/1tr ring_lift:9.000s/4tr jib_swing_in:8.000s/4tr ring_lower:6.000s/4tr ring_settle:3.000s/4tr ring_weld:16.000s/4tr seam_cool:6.000s/4tr jib_return:13.000s/4tr
+draws 15 tris 28270 clips Beacon_Lights_Blink:1.000s/1tr hall_door_open:3.600s/1tr ring_lift:9.000s/4tr jib_swing_in:8.000s/4tr ring_lower:6.000s/4tr ring_settle:3.000s/4tr ring_weld:16.000s/4tr seam_cool:6.000s/4tr jib_return:13.000s/4tr
 targets {"load_low":0,"load_seat":1,"hop":2,"sway_px":3,"sway_nx":4,"sway_pz":5,"sway_nz":6,"sweep_p":7,"sweep_n":8,"sparks_a":9,"sparks_b":10,"bead_white":11,"bead_red":12,"stow":13}
 load verts 3109 weld-head verts 216 (heads/sparks/bead excluded from gap: weld contact by design)
 stack-seat tris excluded 4231
