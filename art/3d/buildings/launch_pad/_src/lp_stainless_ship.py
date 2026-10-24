@@ -188,8 +188,10 @@ def build(G):
     for s in (-0.4, 0, 0.4):
         a_ = LU * 4.45 + LU * 0.75 * (1 if s == 0 else 0.6) + LT * s
         out.append(rod('ship_ph_cage_bar', (a_.x, a_.y, TOP + 3.2), (a_.x, a_.y, LAD_TOP), 0.025, SATIN, segs=4))
-    hq = LU * R
-    out.append(rbox('ship_ph_hatch', (0.12, 1.3, 2.0), (hq.x, hq.y, LAD_TOP + 0.9), M['dark'], rot=(0, 0, LAD_A), r=0.04, segs=1))
+    # hatch panel: outer face stays at u 4.06 (doorway / jamb edges unchanged); inner face pushed in to u 3.80 so the panel sits flush with the
+    # faceted hull under its whole width (the flat hull sheet is at u ~3.82-3.89 at |t| 0.65; the old 0.12 m panel left a ~5 cm gap there)
+    HT = 0.26; hq = LU * (R + 0.06 - HT / 2)
+    out.append(rbox('ship_ph_hatch', (HT, 1.3, 2.0), (hq.x, hq.y, LAD_TOP + 0.9), M['dark'], rot=(0, 0, LAD_A), r=0.04, segs=1))
     # ---- hatch landing (art lead 10/24 00:32, option 1): the old solid 1.0 x 1.4 deck (u 4.25-5.25, t +-0.70) is replaced by a U-shaped
     # stainless landing with a ladder well cut through it. Climbers come up through the well, step off sideways onto the wings
     # (stand ~t +-0.9, u 4.3-4.7) and walk along the hull into the hatch. Deck top stays at LAD_TOP (21.85).
