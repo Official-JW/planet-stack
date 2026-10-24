@@ -1,0 +1,1057 @@
+{
+ "meshes": [
+  {
+   "node": "",
+   "tris": 3642,
+   "material": "SHM_GlowCyan",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 9946,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 294,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 635,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 784,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 208,
+   "material": "SHM_GlowCyan",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 1370,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 272,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 685,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 284,
+   "material": "SHM_Paint",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 48,
+   "material": "SHM_DepositRock",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 38,
+   "material": "SHM_DepositGlow",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 48,
+   "material": "SHM_DepositRock",
+   "extras": {}
+  },
+  {
+   "node": "",
+   "tris": 20,
+   "material": "SHM_DepositGlow",
+   "extras": {}
+  }
+ ],
+ "clips": {
+  "conveyor_run": {
+   "duration_s": 1,
+   "targets": {
+    "Conveyor": [
+     "translation"
+    ]
+   },
+   "foreign_targets": []
+  },
+  "dig": {
+   "duration_s": 3,
+   "targets": {
+    "Rig": [
+     "translation"
+    ]
+   },
+   "foreign_targets": []
+  }
+ },
+ "nodes": [
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "",
+   "t": [
+    -13.542,
+    -8.4,
+    -9.037
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": true,
+   "skin": false
+  },
+  {
+   "name": "Base_GlowCyan",
+   "t": [
+    0,
+    0,
+    0
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Base_Paint",
+   "t": [
+    0,
+    0,
+    0
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Cam_Target",
+   "t": [
+    0.62,
+    6,
+    17.72
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "frame_w": 37.6,
+    "fov_y_deg": 38,
+    "pitch_down_deg": 18,
+    "distance_m": 118.37,
+    "camera_side": "+Z (glTF)"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Conveyor",
+   "t": [
+    -0.85,
+    2.55,
+    -2.65
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Crew_Path_01",
+   "t": [
+    -9.4,
+    0.64,
+    0.2
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "crew_path"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Crew_Path_02",
+   "t": [
+    -9,
+    -0.008,
+    1.9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "crew_path"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Crew_Path_03",
+   "t": [
+    -5.6,
+    -0.002,
+    2.7
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "crew_path"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Crew_Path_04",
+   "t": [
+    -2.2,
+    0,
+    2.3
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "crew_path"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Crew_Path_05",
+   "t": [
+    1,
+    0,
+    1.6
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "crew_path"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Crew_Path_06",
+   "t": [
+    5,
+    0,
+    -0.2
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "crew_path"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Crew_Path_07",
+   "t": [
+    8.6,
+    -0.002,
+    -2.9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "crew_path"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Dep_01",
+   "t": [
+    3.5,
+    -0.027,
+    12.5
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "deposit",
+    "label": "main He-3 seam",
+    "radius_m": 2.2,
+    "tap": "the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load",
+    "patch": "node Deposit_01 (origin = this marker): darker ore rock decal (SHM_DepositRock) + faint steady cyan veins (SHM_DepositGlow). Game fades Deposit_01 in over 1 s when available and hides it while used up",
+    "glow": "faint steady cyan veins only, no animation / pulse / flicker, no ring or disc"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Dep_02",
+   "t": [
+    -1.2,
+    -0.014,
+    10.4
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "deposit",
+    "label": "tap deposit",
+    "radius_m": 1.05,
+    "tap": "the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load",
+    "patch": "node Deposit_02 (origin = this marker): darker ore rock decal (SHM_DepositRock) + faint steady cyan veins (SHM_DepositGlow). Game fades Deposit_02 in over 1 s when available and hides it while used up",
+    "glow": "faint steady cyan veins only, no animation / pulse / flicker, no ring or disc"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Operator_Deck",
+   "t": [
+    -4.5,
+    0,
+    6.5
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "prop_anchor",
+    "prop": "art/3d/props/mine_operator/mine_operator_game.glb",
+    "note": "place the mine operator prop root here, rotation identity (deck front faces +Z glTF, toward the camera); scenery only"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Path_Load",
+   "t": [
+    11,
+    0,
+    9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "yaw_deg": 0,
+    "chute_glTF": [
+     9.4,
+     4.35,
+     9
+    ],
+    "bed_centre_glTF": [
+     9.4,
+     1.99,
+     9
+    ],
+    "s_m": 0,
+    "next_leg": "{\"type\": \"straight\", \"length_m\": 1.5}",
+    "note": "bed centre exactly under the chute mouth; reverse in 1.5 m from Path_Load_Approach, play chute_pour (loop) while code raises the fill morph 0->100 %, then drive off forward (+X glTF) dead straight along the outbound lane (glTF z 9): Path_Out_01 (= Road_Entry) -> Path_Out_02 at x 26"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Path_Load_Approach",
+   "t": [
+    12.5,
+    0,
+    9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "yaw_deg": 0,
+    "route": "return (empty)",
+    "reverse_m": 1.5,
+    "s_m": 27.637,
+    "next_leg": "{\"type\": \"straight\", \"length_m\": 1.5, \"reverse\": true}",
+    "note": "on return: Path_Ret_01..03 end here heading +X (end of the U-turn); stop, then reverse 1.5 m straight along -X (glTF) to Path_Load"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Path_Out_01",
+   "t": [
+    12.5,
+    0,
+    9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "yaw_deg": 0,
+    "route": "out (loaded)",
+    "s_m": 1.5,
+    "next_leg": "{\"type\": \"straight\", \"length_m\": 13.5}"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Path_Out_02",
+   "t": [
+    26,
+    0,
+    9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "yaw_deg": 0,
+    "route": "out (loaded)",
+    "s_m": 15,
+    "note": "leaves the Mine at x 26 on the outbound lane (glTF z 9, heading +X) = the Refinery road strip inbound lane",
+    "next_leg": "{\"type\": \"handoff\", \"to\": \"haul_road_seg strip, inbound lane glTF z 9, heading +X (x 26 -> Refinery x -46)\"}"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Path_Ret_01",
+   "t": [
+    26,
+    0,
+    0
+   ],
+   "r": [
+    0,
+    -1,
+    0,
+    0
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "yaw_deg": 180,
+    "route": "return (empty)",
+    "s_m": 0,
+    "next_leg": "{\"type\": \"straight\", \"length_m\": 13.5}"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Path_Ret_02",
+   "t": [
+    12.5,
+    0,
+    0
+   ],
+   "r": [
+    0,
+    -1,
+    0,
+    0
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "yaw_deg": 180,
+    "route": "return (empty)",
+    "s_m": 13.5,
+    "next_leg": "{\"type\": \"arc\", \"turn\": \"left\", \"radius_m\": 4.5, \"centre_glTF\": [12.5, 0.0, 4.5], \"sweep_deg\": 90.0, \"length_m\": 7.069}"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Path_Ret_03",
+   "t": [
+    8,
+    0,
+    4.5
+   ],
+   "r": [
+    0,
+    -0.7071,
+    0,
+    0.7071
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "yaw_deg": -90,
+    "route": "return (empty)",
+    "s_m": 20.569,
+    "next_leg": "{\"type\": \"arc\", \"turn\": \"left\", \"radius_m\": 4.5, \"centre_glTF\": [12.5, 0.0, 4.5], \"sweep_deg\": 90.0, \"length_m\": 7.069}"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Rich_Pop",
+   "t": [
+    9.4,
+    4.877,
+    9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "fx_anchor",
+    "note": "money pop for the rich load: spawn the +value pop here when truck_load_rich plays (truck parked at Path_Load)"
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Rig",
+   "t": [
+    -7.5,
+    8.65,
+    -3.6
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Road_Entry",
+   "t": [
+    12.5,
+    0,
+    9
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "kind": "road_entry",
+    "note": "where the return U-turn joins the outbound lane (= Path_Out_01 = Path_Load_Approach): the loaded lane runs dead straight +X (glTF) at z 9 off the right edge to x 26 (Refinery road strip). The empty return lane comes in at z 0 (Path_Ret_01, x 26)."
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Silo",
+   "t": [
+    10,
+    0,
+    -6
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Tier_03",
+   "t": [
+    3.967,
+    0,
+    2.823
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "tier": 3,
+    "hidden_by_default": true
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Tier_05",
+   "t": [
+    3.999,
+    0,
+    -3.641
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "tier": 5,
+    "hidden_by_default": true
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Tier_08",
+   "t": [
+    -12.091,
+    0,
+    -7.65
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "tier": 8,
+    "hidden_by_default": true
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Tier_12",
+   "t": [
+    10.598,
+    0,
+    -10.611
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "tier": 12,
+    "hidden_by_default": true
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Tier_20",
+   "t": [
+    -7.5,
+    0,
+    -3.595
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "tier": 20,
+    "hidden_by_default": true
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Mine",
+   "t": [
+    0,
+    0,
+    0
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {},
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Deposit_01",
+   "t": [
+    3.5,
+    -0.027,
+    12.5
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "deposit": true,
+    "fade_in_s": 1,
+    "marker": "Dep_01",
+    "radius_m": 2.2,
+    "hide_when_used_up": true,
+    "materials": [
+     "SHM_DepositRock",
+     "SHM_DepositGlow"
+    ],
+    "note": "fade in over 1 s when the deposit becomes available (opacity 0 -> 1 on both primitives); hidden while it is used up. Veins are steady: no pulse."
+   },
+   "mesh": false,
+   "skin": false
+  },
+  {
+   "name": "Deposit_02",
+   "t": [
+    -1.2,
+    -0.014,
+    10.4
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "extras": {
+    "deposit": true,
+    "fade_in_s": 1,
+    "marker": "Dep_02",
+    "radius_m": 1.05,
+    "hide_when_used_up": true,
+    "materials": [
+     "SHM_DepositRock",
+     "SHM_DepositGlow"
+    ],
+    "note": "fade in over 1 s when the deposit becomes available (opacity 0 -> 1 on both primitives); hidden while it is used up. Veins are steady: no pulse."
+   },
+   "mesh": false,
+   "skin": false
+  }
+ ],
+ "extensions": [
+  "EXT_meshopt_compression",
+  "KHR_mesh_quantization"
+ ],
+ "images": 0,
+ "materials": [
+  {
+   "name": "SHM_DepositGlow",
+   "ext": [],
+   "emissive": [
+    0.00511668716,
+    0.138267204,
+    0.180000007
+   ]
+  },
+  {
+   "name": "SHM_GlowCyan",
+   "ext": [],
+   "emissive": [
+    0.02842604,
+    0.768151164,
+    1
+   ]
+  },
+  {
+   "name": "SHM_Paint",
+   "ext": [],
+   "emissive": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "SHM_DepositRock",
+   "ext": [],
+   "emissive": [
+    0,
+    0,
+    0
+   ]
+  }
+ ],
+ "tris": 18274,
+ "draws_all_tiers_visible": 14,
+ "skins": []
+}

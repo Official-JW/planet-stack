@@ -1,7 +1,7 @@
 """Phone-frame proofs of the GAME mesh from the station camera (Cam_Target extras), HT-04 on a truck_pose marker.
   $B -b -P proof_phone.py -- --glb RAW_PRUNED.glb --truck HT04_RAW.glb --out DIR [--at Path_Load] [--fill 1] [--tiers 0|1]
         [--sizes 393x852,1179x2556] [--ps 16] [--name mine] [--clip truck_dump --frame 45]
-        [--sclip dump_dust --sobj OBJ --sframe 20] [--suffix _x]
+        [--sclip dump_dust --sobj OBJ --sframe 20] [--suffix _x] [--hide Deposit_01,Deposit_02] [--frame_w 39.9 --cty 5.6]
 CPU Cycles, low samples, denoiser (OIDN) off, auto-tiling off (box rule). Blender has no meshopt decoder: feed the pruned raw GLB."""
 import bpy, sys, math, os
 from mathutils import Vector
@@ -42,13 +42,20 @@ for m in bpy.data.materials:                       # glTF COLOR_0 multiplies bas
     if not m.use_nodes or m == gm: continue
     nt = m.node_tree; bs = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
     if bs is None or bs.inputs['Base Color'].is_linked: continue
+    # 10/23 23:10: a primitive with no COLOR_0 (e.g. the deposit veins) renders its plain material colour in three.js; Cycles would
+    # read a missing attribute as black, so only multiply when a mesh using this material actually carries vertex colours
+    if not any(o.data.color_attributes for o in bpy.data.objects if o.type == 'MESH' and m.name in [x.name for x in o.data.materials if x]): continue
     ca = nt.nodes.new('ShaderNodeVertexColor'); mix = nt.nodes.new('ShaderNodeMixRGB'); mix.blend_type = 'MULTIPLY'; mix.inputs[0].default_value = 1
     mix.inputs[1].default_value = bs.inputs['Base Color'].default_value; nt.links.new(ca.outputs[0], mix.inputs[2]); nt.links.new(mix.outputs[0], bs.inputs['Base Color'])
     if bs.inputs['Emission Strength'].default_value > 0 and not bs.inputs['Emission Color'].is_linked: nt.links.new(mix.outputs[0], bs.inputs['Emission Color'])
 for o in bpy.data.objects:
     if o.get('hidden_by_default') or o.name.startswith('Tier_'): o.hide_render = A.get('tiers', '0') != '1'
+for _hn in [h for h in A.get('hide', '').split(',') if h]:     # e.g. the used-up deposits: hide the node and everything under it
+    for _o in [bpy.data.objects[_hn]] + list(bpy.data.objects[_hn].children_recursive): _o.hide_render = True
 ct = bpy.data.objects['Cam_Target']; W = ct['frame_w']; FOV = ct['fov_y_deg']; P = math.radians(ct['pitch_down_deg'])
 T = ct.matrix_world.translation.copy()
+if A.get('frame_w'): W = float(A['frame_w'])          # QA3D CAM_OVERRIDE, e.g. 5d16bad Mine: --frame_w 39.9 --cty 5.6 (glTF y = Blender z)
+if A.get('cty'): T.z = float(A['cty'])
 cd = bpy.data.cameras.new('C'); cam = bpy.data.objects.new('C', cd); sc.collection.objects.link(cam); sc.camera = cam
 cd.sensor_fit = 'VERTICAL'; cd.angle_y = math.radians(FOV); cd.clip_end = 3000
 for sz in A.get('sizes', '393x852,1179x2556').split(','):

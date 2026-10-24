@@ -6,14 +6,14 @@ The HT-04 has **no scoop arm**. It only fills under the conveyor chute at `Path_
 
 | | |
 |---|---|
-| **Game GLB** | `mine_game.glb`, **127,620 B (0.13 MB)**, md5 `2123a050afc6861ca4d368089a3b3735` (10/23 21:00 build: darker deposit patches with steady cyan veins, camera refit to the 20:58 iPhone-inset band) |
-| Triangles / draws | **18,274 triangles, 11 draw calls with every tier visible** (11 meshes × 1 primitive; no truck) |
+| **Game GLB** | `mine_game.glb`, **130,444 B (0.13 MB)**, md5 `cc084a9bf89637c8b43a8138517ef6c2` (10/23 23:10: deposits split into their own fadeable nodes `Deposit_01` / `Deposit_02`; look, bounds and camera unchanged from `2123a050`) |
+| Triangles / draws | **18,274 triangles, 14 draw calls with every tier visible** (10 meshes × 1 primitive + `Deposit_01` / `Deposit_02` × 2 primitives each; no truck) |
 | Format | meshopt + quantization (`gltfpack -cc -kn -ke`). Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. **No Draco.** No morph targets, no skins (the truck and its `fill` morph are in the ht04 prop). |
-| Materials | `SHM_Paint` and `SHM_GlowCyan` (`../_shared/shared_materials.json`). Plain metallic/roughness plus emissiveFactor. No transmission, clearcoat or ior. Colour is in `COLOR_0` vertex colours. **No images or textures** and no TEXCOORD. |
+| Materials | `SHM_Paint` and `SHM_GlowCyan` (`../_shared/shared_materials.json`), plus the deposit-only `SHM_DepositRock` and `SHM_DepositGlow` (alphaMode BLEND, alpha 1; every other material is OPAQUE). Plain metallic/roughness plus emissiveFactor. No transmission, clearcoat or ior. Colour is in `COLOR_0` vertex colours. **No images or textures** and no TEXCOORD. |
 | Units / axes | 1 m, Y up. The origin is concept B's world origin. The camera side is +Z. |
 | Bounds (glTF) | (−15.55, −0.14, −14.72) … (26.0, 21.78, 11.8). The +X growth is the two parallel haul lanes (outbound z 9, return z 0) running off the phone frame on the right to x 26; +Z 11.8 is the outbound lane's front berm toe. |
 | No astronauts | The concept-B astronaut is removed. |
-| Budget | Mine station **30k tris / 15 draws including the future operator prop (~3k tris, 2 draws)**, so the Mine itself is held to **≤ 27k tris / ≤ 13 draws**: it uses **18,274 / 11**; with the shared HT-04 at `Path_Load` (3,859 / 1) the station is 22,133 / 12. |
+| Budget | Mine station **30k tris / 15 draws including the future operator prop (~3k tris, 2 draws)**, so the Mine itself is held to **≤ 27k tris / ≤ 13 draws**: it uses **18,274 / 14** since the 23:10 deposit split (was 11; Director 23:01: hard cap 15); with the shared HT-04 at `Path_Load` (3,859 / 1) the station is 22,133 / 15. |
 
 ## Files
 - `mine_game.glb`: the game asset.
@@ -61,9 +61,10 @@ Everything sits under the root `Mine`. gltfpack puts each mesh on an **unnamed c
 
 | Node | What it is | Tris | Material | Pivot (glTF, m) |
 |---|---|---|---|---|
-| `Base_Paint` | static base merged by material: pads, rig skirt, hopper, conveyor frame, silo base, graded roads (outbound + return lanes, not decimated), rocks | 10,042 | SHM_Paint | origin |
+| `Base_Paint` | static base merged by material: pads, rig skirt, hopper, conveyor frame, silo base, graded roads (outbound + return lanes, not decimated), rocks | 9,946 | SHM_Paint | origin |
 | `Base_GlowCyan` | all static cyan glow: light strips | 3,642 | SHM_GlowCyan | origin |
-| `Base_DepVein` | faint cyan veins on the two deposit patches (`dep_vein` strips); low **steady** emissive, no clip | 58 | SHM_DepVein | origin |
+| `Deposit_01` | main seam deposit: ore-rock decal (48 tris, SHM_DepositRock) + its faint steady cyan veins (38 tris, SHM_DepositGlow). Extras `{deposit:true, fade_in_s:1.0, marker:'Dep_01', radius_m:2.2, hide_when_used_up:true}` | 86 | SHM_DepositRock + SHM_DepositGlow | (3.4998, −0.0265, 12.5002), = `Dep_01` snapped to the quantization grid |
+| `Deposit_02` | tap deposit: ore-rock decal (48) + veins (20) | 68 | SHM_DepositRock + SHM_DepositGlow | (−1.1996, −0.0145, 10.4003), = `Dep_02` snapped |
 | `Rig` | bore head and crown block, the moving part of the rig (clip `dig`) | 635 | SHM_Paint | (−7.5, 8.65, −3.6) |
 | `Conveyor` | belt-surface ore lumps on the re-laid belt (clip `conveyor_run`) | 294 | SHM_Paint | (−0.83, 2.56, −2.62), the tail end C0 |
 | `Silo` | ore silo (moved 1.5 m back, clear of the U-turn) | 784 | SHM_Paint | (10.0, 0, −6.0), base centre |
@@ -193,3 +194,13 @@ Each deposit is a **still patch of darker ore rock with faint cyan veins**: a lo
 - **Coder:** the game must not add its own glow disc, ring, gem, pulse or sparkle at `Dep_01` / `Dep_02`, and must not tint or animate `SHM_DepVein`.
 - Proof: `mine_deposit_closeup_phone.png`.
 
+
+## Deposits as their own nodes (10/23 23:10, Director)
+The deposit patch must **fade in over 1 s in code when it becomes available and be hidden while it is used up**. Until `2123a050` the rock decal was merged into `Base_Paint` and the veins were `Base_DepVein`, so code could not fade one deposit on its own. Now (md5 `cc084a9b...`):
+- **`Deposit_01` / `Deposit_02`** (children of `Mine`) each carry that deposit's rock decal and its veins, nothing else. `Base_DepVein` is gone (its 58 vein tris live in the Deposit nodes) and `Base_Paint` lost exactly the 96 patch tris. Total tris unchanged (18,274). Draws 11 -> 14 (each Deposit = 2 primitives, because the rock and the veins need different materials to look the same; minus the old `Base_DepVein`).
+- **Look is identical:** every deposit vertex lands at the same world position as before (max 0.4 µm, float noise), with the same normals and vertex colours, and every other mesh, node, marker, clip, `Cam_Target` and the bounds are unchanged (checked by decoding both GLBs). The Deposit node origins are the `Dep_0N` markers snapped to gltfpack's 2.41 mm position grid (< 0.6 mm off) so the re-packed vertices quantize exactly as before. The 5d16bad camera override (`{ct:{y:5.6}, frame_w:39.9}`) is still valid; only the md5 key changes.
+- **Materials, shared by both Deposit nodes:** `SHM_DepositRock` (copy of SHM_Paint: white base x `COLOR_0` #3f3d3b, roughness 0.42, no emission) and `SHM_DepositGlow` (the old SHM_DepVein renamed: base #1f7f91, emissiveFactor [0.005, 0.138, 0.180], roughness 0.6). Both **alphaMode BLEND with alpha 1**, so they look opaque until code lowers opacity. Veins stay faint and **steady**: no clip, pulse or animated emission. Primitive order in each node is rock, then veins (three.js draws same-position transparents in id order, so the veins stay on top).
+- **Coder:** to fade one deposit, `traverse` its `Deposit_0N` node, clone each mesh's material once (the two materials are shared by both deposits), then animate `opacity` 0 -> 1 over `fade_in_s` (1.0 s); set `visible = false` while it is used up. `Dep_01` / `Dep_02` (tap targets, radius) are unchanged except that their `patch` / `glow` extras now point at the Deposit nodes.
+- **Pipeline:** `_src/pack_mine.sh` now runs `split_deposits.cjs` (2 passes, grid snap) before gltfpack and `set_deposit_blend.py` after it (gltfpack turns alpha-1 BLEND back into OPAQUE). `build_mine.py` itself is unchanged.
+- **Proofs** (393x852, Cycles 128 spp, decoded game GLBs at the 5d16bad override framing): `proofs/mine_deposits_before_393x852.png` (2123a050), `proofs/mine_deposits_after_393x852.png`, `proofs/mine_deposits_hidden_393x852.png` (Deposit nodes hidden: plain ground, no hole) and `proofs/mine_deposits_compare_393x852.png` (all three + |before-after| x8). Before vs after: max 15/255, mean 0.07, render noise only. `proofs/mine_game_verify.json` is the verify dump.
+- **Proof-script fix:** `proof_phone.py` multiplied every material by a vertex-colour node, and Cycles reads a missing `COLOR_0` as black, so earlier proofs drew the veins (no COLOR_0) black. It now skips that for materials whose meshes have no vertex colours, matching three.js. The game look never changed.
