@@ -17,7 +17,8 @@ v4 is checked against the **committed** launch pad at `3d0d489` (flushed hatch; 
 | `proofs/crew_vs_crew_gate15.json` | gate category 15: every pair of crew, every 1/30 s frame of all 3 clips (0–58.5 s), exact triangle-triangle gap ≥ 3 cm, no exemptions: PASS, min 4.70 cm |
 | `proofs/aa2_landing_clear_output.json` | AA2's v2 `landing_clear.mjs`, run unedited vs pad 3d0d489 |
 | `proofs/deck_check_vs_pad_3d0d489.json`, `climber_clearance.json`, `board_focus_fit_v3.json`, `board_focus_trigger.json`, `verify_r186.json` | my measured checks (three r186 skinned playback of the shipped GLB) |
-| `proofs/crew_boarding_strip_gamecam_…`, `…_close_…` | **v2 images (not re-rendered for v3)** |
+| `proofs/crew_boarding_strip_gamecam_393x852_workbench.png`, `…_close_393x852_workbench.png` | **v2 images (not re-rendered for v3)** |
+| `proofs/crew_boarding_strip_{gamecam,closecam}_393x852_cycles.png`, `…_focus2stage_{375x667,393x852}_cycles.png`, `proofs/crew_boarding_preview_2x.mp4` | **v4 heavy renders** (10/24/2026, `_src/run_heavy_renders.sh`): Cycles 48 spp, poses from the shipped v4 GLB (md5 b989de5a…) over committed pad 6b5c76e (3d0d489 geometry + ship tone fix); MP4 = Workbench follow cam, 540x960, 24 fps, 2x speed (29.3 s = 58.5 s of animation) |
 | `crew_boarding_proof.blend` | v3 Workbench proof scene (**not updated for v4**): pad 7e02552 (unpacked) + the 4 crew posed at 44.1 s, camera at Board_Focus_Top (393x852, 50.68 m) |
 | `_src/` | build + verify + render scripts (see below) |
 

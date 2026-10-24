@@ -1,15 +1,16 @@
 #!/bin/bash
-# QUEUED heavy renders for the crew boarding proofs (Cycles strips + MP4), v3. DO NOT RUN while the render hold is on
-# (4:03 AM 10/24/2026: hold back ON for Playtester's full runs on tag 6b2c37b - no Cycles, 4K, turntables or MP4).
+# Heavy renders for the crew boarding proofs (Cycles strips + MP4), v4 (crew_boarding.glb md5 b989de5a20c6e0f28208fca6d88f82b4).
+# Run 10/24/2026 after Playtester's sign-off on QA3D-next 06:18 and Art & Animation's go. Respect any render hold.
+# Poses always come from the shipped GLB via dump_poses.mjs (three r186 skinning); crew_boarding_proof.blend is NOT used.
 # House rule: every heavy job is wrapped as  flock /tmp/planet_stack_heavy.lock nice -n 19 <command> -t 4  (one heavy job box-wide at a time;
 # ffmpeg takes -threads 4). Light pose dumps / strip assembly stay at nice -n 19. This script is sequential.
 # Usage: bash art/3d/crew/boarding/_src/run_heavy_renders.sh      STEP=strip -> Cycles strips only;  STEP=mp4 -> MP4 only
 set -euo pipefail
 B=/workspace/planet-stack/art/3d/crew/boarding; S=$B/_src; BL=/opt/blender-4.2.3-linux-x64/blender
 GT=/home/box/apps/gltftools; W=/tmp/cb_heavy; mkdir -p $W $B/proofs; LOCK=/tmp/planet_stack_heavy.lock
-# pad: committed launch pad 7e02552 (read-only; extracted with git show, unpacked to /tmp, never written back)
-PAD=${PAD:-$W/pad_7e02552.glb}
-[ -f $PAD ] || (cd /workspace/planet-stack && git show 7e02552:art/3d/buildings/launch_pad/launch_pad_game.glb > $PAD)
+# pad: committed launch pad 6b5c76e (= 3d0d489 geometry + ship tone fix; read-only; extracted with git show, unpacked to /tmp, never written back)
+PADREV=${PADREV:-6b5c76e}; PAD=${PAD:-$W/pad_$PADREV.glb}
+[ -f $PAD ] || (cd /workspace/planet-stack && git show $PADREV:art/3d/buildings/launch_pad/launch_pad_game.glb > $PAD)
 # two-stage game camera (crew_boarding.glb nodes; distances from cam_fit_v3.py, plain lookAt, 38 deg vFOV, 18 deg look-down)
 F1=3.854,11.05,-10.775;  F2=3.854,15.861,-10.775          # Board_Focus (frame_w 105.9) / Board_Focus_Top (frame_w 16.1)
 # switch: C1_Hips world y >= 14 m (crew_climb clip-local 12.792 s, absolute 35.092 s)
