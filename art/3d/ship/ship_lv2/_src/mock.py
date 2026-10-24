@@ -4,7 +4,7 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 sc=bpy.context.scene
 def imp(p,dx):
     before=set(bpy.data.objects); bpy.ops.import_scene.gltf(filepath=p); new=[o for o in bpy.data.objects if o not in before]
-    keep=[o for o in new if o.parent and o.parent.name.startswith('Ship_Placeholder') and o.type=='MESH']
+    keep=[o for o in new if o.parent and o.parent.name.startswith(('Ship_Placeholder','Cargo_Door')) and o.type=='MESH']
     for o in keep:
         mw=o.matrix_world.copy(); o.parent=None; o.matrix_world=mw
     for o in new:
@@ -13,9 +13,12 @@ def imp(p,dx):
         o.location.x+=dx; o.location.y+=13.0*0  # glTF z-13 -> blender y +13
         o.location.y-=13.0 if False else 0
     return keep
-A=imp('/workspace/lv2/pad_raw.glb',-11.0); B=imp('/workspace/lv2/pad_lv2_raw.glb',11.0)
+import os
+A=imp(os.environ.get('LV1_GLB','/workspace/lv2/pad_lv1d_raw.glb'),-11.0); B=imp(os.environ.get('LV2_GLB','/workspace/lv2/pad_lv2_raw.glb'),11.0)
+for grp in (A,B):   # centre each ship (hull + its door) on the ship axis together, not per object
+    hull=max(grp,key=lambda o:len(o.data.vertices)); bb=[hull.matrix_world@Vector(c) for c in hull.bound_box]; cy=(min(v.y for v in bb)+max(v.y for v in bb))/2
+    for o in grp: o.location.y-=cy
 for o in A+B:
-    bb=[o.matrix_world@Vector(c) for c in o.bound_box]; cy=(min(v.y for v in bb)+max(v.y for v in bb))/2; o.location.y-=cy
     m=bpy.data.materials.new('vc'); m.use_nodes=True; nt=m.node_tree; bs=nt.nodes['Principled BSDF']
     a=nt.nodes.new('ShaderNodeVertexColor'); a.layer_name=o.data.color_attributes[0].name if o.data.color_attributes else 'Color'
     nt.links.new(a.outputs['Color'],bs.inputs['Base Color']); bs.inputs['Metallic'].default_value=0.5; bs.inputs['Roughness'].default_value=0.42
@@ -39,4 +42,6 @@ bpy.ops.object.light_add(type='SUN',rotation=(math.radians(50),0,math.radians(-3
 w=bpy.data.worlds.new('w'); sc.world=w; w.use_nodes=True; w.node_tree.nodes['Background'].inputs[0].default_value=(0.06,0.065,0.08,1); w.node_tree.nodes['Background'].inputs[1].default_value=4
 bpy.ops.object.camera_add(location=(0,-120,21),rotation=(math.radians(90),0,0)); cam=bpy.context.object; cam.data.type='ORTHO'; cam.data.ortho_scale=46; sc.camera=cam
 sc.render.engine='BLENDER_EEVEE_NEXT'; sc.render.resolution_x=1600; sc.render.resolution_y=1700; sc.view_settings.view_transform='AgX'
+if os.environ.get('CLOSE'):   # cargo-section close-up
+    cam.location=(0,-60,15.0); cam.data.ortho_scale=float(os.environ.get('CLOSE'))
 sc.render.filepath=sys.argv[-1]; bpy.ops.render.render(write_still=True)
