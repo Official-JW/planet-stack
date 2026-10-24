@@ -54,10 +54,14 @@ GAME_NAMES = {
     'crew_path': 'Crew_Path_%02d',
     # in-game phone camera (Game Coder spec): perspective, VERTICAL FOV 38 deg, pitched down 18 deg, no azimuth (camera on -Y looking +Y,
     # glTF looks down -Z), lookAt(Cam_Target); d = (frame_w/2) / (tan19 * aspect). Game Coder safe bands: 393x852 x 12-381, y 144-568
-    # (sheet top 602); 375x667 x 12-363, y 144-383 (sheet top 417). 'target' in Blender coords.
-    'phone_cam': {'target': (-2.0, 8.0, 4.0), 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 80.0},
+    # (A&A 21:49: now y 165-534); 375x667 x 12-363, y 144-383 (sheet top 417). 'target' in Blender coords.
+    # Director 22:34 final: tightest frame with >= 5 px for every pad mesh, the truck at Truck_Stop + boxes, the crane reach over its targets,
+    # the full-height ship and the receiver at Receiver_Spot; the U-turn may sit just off screen. Solved by measure_launch_pad_frame.mjs
+    # = glTF Cam_Target (0, 4, -0.7), frame_w 78.25 (approved 22:45).
+    'phone_cam': {'target': (0.0, 0.7, 4.0), 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 78.25},
 }
-SAFE = {(393, 852): (12, 381, 144, 568), (375, 667): (12, 363, 144, 383)}
+SAFE = {(393, 852): (12, 381, 165, 534), (375, 667): (12, 363, 144, 383)}   # A&A 10/23 21:49: 393 band now y 165-534
+SPARE = 5    # Director: >= 5 px spare inside both bands for every pad mesh, the parked truck, crane reach, ship, receiver (measure_launch_pad_frame.mjs is authoritative)
 _pc = A.get('pcam')   # --pcam x,y,z,W : framing override while tuning
 if _pc:
     v = [float(t) for t in _pc.split(',')]; GAME_NAMES['phone_cam']['target'] = tuple(v[:3]); GAME_NAMES['phone_cam']['frame_w'] = v[3]
@@ -1165,8 +1169,8 @@ if 'check' in ONLY:
         print(f'CHECK {w}x{h} band x {x0}-{x1} y {y0}-{y1}  d {dd:.3f}  cam {tuple(round(v, 2) for v in C)}', flush=True)
         for g, pts in sorted(G.items()):
             pr = project(pts, w, h); xs = [p[0] for p in pr]; ys = [p[1] for p in pr]
-            bad = min(xs) < x0 or max(xs) > x1 or min(ys) < y0 or max(ys) > y1
-            info = g == 'Lanes'      # the U-turn is road, not pad: reported, not required inside the band
+            bad = min(xs) < x0 + SPARE or max(xs) > x1 - SPARE or min(ys) < y0 + SPARE or max(ys) > y1 - SPARE
+            info = g == 'Lanes'      # Director 22:34 final: the U-turn / road may sit just off screen (info only)
             ok &= info or not bad
             print(f'   {g:10s} x {min(xs):6.1f}-{max(xs):6.1f}  y {min(ys):6.1f}-{max(ys):6.1f}  {("(road, info) " if info else "") + ("OUT" if bad else "ok")}', flush=True)
         sp = project([Vector((0, SHIFT, TOP + 40.25)), Vector((0, SHIFT, TOP))], w, h); print(f'   ship top y {sp[0][1]:.1f} (may run above), ship base y {sp[1][1]:.1f}', flush=True)
@@ -1333,7 +1337,7 @@ def dress():
 if A.get('dress') == '1': dress()
 if 'hero' in ONLY:
     w, h = (int(A.get('hw', 3840)), int(A.get('hh', 2160))) if not QUICK else (960, 540)
-    tgt = (2.0, 0.0, 9.0); pos = (-38.0, -92.0, 26.0)
+    tgt = (2.0, 6.0, 9.0); pos = (-38.0, -86.0, 26.0)       # new layout: pad centre at Blender y +13, road at y -13 / -22
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
     shoot(cam, os.path.join(OUT, A.get('pname', 'hero') + '.png'), tgt, pos, w, h, lens=float(A.get('lens', 30)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'portrait' in ONLY:   # the game camera exactly: aimed at Cam_Target, 38 deg vertical FOV, 18 deg down, no azimuth, d from frame_w + aspect
@@ -1345,4 +1349,4 @@ if 'portrait' in ONLY:   # the game camera exactly: aimed at Cam_Target, 38 deg 
     cam.data.sensor_fit = 'AUTO'
 if 'turn' in ONLY:
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
-    turntable(cam, os.path.join(OUT, 'turntable'), (2.0, 0.0, 9.0), 150, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)
+    turntable(cam, os.path.join(OUT, 'turntable'), (0.0, 6.0, 9.0), 150, 22, size=1000 if not QUICK else 400, samples=int(A.get('ts', 48)) if not QUICK else 12)

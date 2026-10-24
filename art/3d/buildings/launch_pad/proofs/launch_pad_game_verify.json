@@ -1,7 +1,7 @@
 {
  "file": "../launch_pad_game.glb",
- "bytes": 291024,
- "md5": "a82251e2e254f745237bd2591ba3e141",
+ "bytes": 290896,
+ "md5": "816f18f3e5181268265210c1e280026a",
  "three": "186",
  "tris": 28024,
  "draws": 15,
@@ -1639,18 +1639,18 @@
  ],
  "cam_target": {
   "at": [
-   -2,
+   0,
    4,
-   -8
+   -0.7
   ],
   "extras": {
    "name": "Cam_Target",
-   "frame_w": 80,
+   "frame_w": 78.25,
    "fov_y_deg": 38,
    "pitch_down_deg": 18,
    "distance_m": {
-    "393x852": 251.846,
-    "375x667": 206.625
+    "393x852": 246.337,
+    "375x667": 202.105
    },
    "camera_side": "+Z (glTF)",
    "note": "lookAt(Cam_Target), d = (frame_w/2) / (tan(fov_y/2) * aspect)"
