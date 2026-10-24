@@ -1,5 +1,6 @@
 """A vs B comparison sheet from the proofs (PIL).  python3 compose_sheet.py -> ../proofs/st10_A_vs_B_sheet.png"""
 import json, os
+SO = json.load(open('proofs/gamecam/shade_offline.json'))['shots']
 from PIL import Image, ImageDraw, ImageFont
 H = os.path.dirname(os.path.abspath(__file__)); P = os.path.normpath(os.path.join(H, '..', 'proofs'))
 F = '/usr/share/fonts/truetype/dejavu/'
@@ -32,7 +33,7 @@ for k, (I, hl, he, g1, g2, c) in enumerate(cols):
     r1, r2 = GC[f'{c}_loaded_393x852'], GC[f'{c}_loaded_375x667']
     rows = [('Footprint', I['footprint']), ('Running gear', I['gear']), ('Cradle', I['cradle']),
             ('Master tris (Blender, bevels)', f"{I['tris_master']:,}"), ('Game GLB estimate', I['game']),
-            ('Game cam 393x852 / 375x667', f"spare {r1['spare_px']} / {r2['spare_px']} px (>=5)  ·  shaded p25 {r1['shaded_p25']} / {r2['shaded_p25']} (60-75)"),
-            ('Preview draws (merged by material)', str(r1['draws']))]
+            ('Game cam 393x852 / 375x667', f"spare {r1['spare_px']} / {r2['spare_px']} px (>=5)  ·  shaded est. p10-p25 {SO[c+'_loaded_393x852']['dark_p10']:.0f}-{SO[c+'_loaded_393x852']['dark_p25']:.0f} (offline; 60-75 target, unverified)"),
+            ('Preview draws (merged by material)', '13 + 4 astronaut (merged by material, names normalised)')]
     for a, bb in rows: d.text((x, y), a, font=f(17, True), fill=DIM); d.text((x + 360, y), bb, font=f(17), fill=INK); y += 27
 img.save(os.path.join(P, 'st10_A_vs_B_sheet.png')); print('sheet', img.size)
