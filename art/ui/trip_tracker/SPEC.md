@@ -28,9 +28,22 @@
 - Flight path: quadratic Bézier P0 (111, 9), P1 (mid-x, 1), P2 (W − RZ − 17, 9). 15 dots, r 0.7.
 - Ship: 10.5 pt, placed at path parameter `u` and rotated to the curve tangent. RETURNING adds 180° so it faces the Moon. AT EARTH: parked level at (Earth x − 11, 6) with no flame, inside a 5.5 pt pulse ring.
 - Divider at x = W − RZ: 1 pt, #C9D3E6 at 25 %, inset 3 pt top and bottom.
-- **Right zone** (W − RZ … W − 6), right-aligned, size 10, tracking .05 em:
-  - Normal: "Back in " #C9D3E6 + "4:12" #EAFCFF.
-  - **Tapped:** "Back at " + "2:47 PM" #EAFCFF + "  ·  in 4:12". That is 104 pt, and the zone holds 109 pt. The worst case, "Back at 12:47 PM · in 1:04:12", is 119 pt, so drop to 9 pt when the text is wider than 109.
+- **Right zone**, right-aligned in a box from W − RZ + 1 to W − 6, which is **109 pt** at both sizes. **11 pt minimum** (Director), tracking .02 em.
+  - Normal: "Back in " #C9D3E6 + "4:12" #EAFCFF (Lv1 max "Back in 10:16" = 53.5 pt).
+  - **Tapped** text (the clock time #EAFCFF, the rest #C9D3E6). Pick the first form that applies:
+    1. Under 1 h left: **"Back at 2:47 PM · in 4:12"**.
+    2. 1 h or more: short form **"Back 12:47 PM · 1:04:12"**.
+    3. If the short form is wider than 109 pt: drop the clock time and show **"Back in 1:04:12"**.
+  - Measure with the real font at runtime (`measureText` or `scrollWidth`) and never go below 11 pt.
+  - Measured at 11 pt, .02 em, with the Barlow Condensed Bold stand-in (`proofs/tapped_text_forms_3x.png`, `measure.json → right_zone`):
+
+| Form | Worst-case text | Width | 375: x (strip-local) | 393: x (strip-local) | Spare in 109 |
+|---|---|---|---|---|---|
+| Under 1 h (Lv1 worst case, 616 s trip) | Back at 12:47 PM · in 10:16 | 107.3 pt | 189.7–297 | 207.7–315 | **+1.7 pt** |
+| 1 h or more | Back 12:47 PM · 1:04:12 | 94.9 pt | 202.1–297 | 220.1–315 | +14.1 pt |
+| Fallback | Back in 1:04:12 | 62.3 pt | 234.7–297 | 252.7–315 | +46.7 pt |
+
+  - The under-1 h worst case fits with only 1.7 pt to spare. If the device's system-ui condensed font comes out wider, reduce tracking to 0 (saves 6 pt) before ever going below 11 pt.
   - The layout never changes size.
 
 ### Lit path dots: always the part behind the ship
@@ -101,7 +114,7 @@ phase left = phaseEnd − e;  Back in = 616 − e   (ceil to whole seconds; m:ss
 | Turn-around | +338.8 | icon rotates 180°, **320 ms easeInOutBack**. Draw it already turned if `e − 338.8 ≥ 0.32`. |
 | Lit dots | every frame | lit set = `t ≤ u` (OUTBOUND), all (AT EARTH), `t ≥ u` (RETURNING). Each dot fades in over **120 ms linear** as the ship passes it. |
 | Landing flash | +616 | flash disc on the Moon, r 6 → 14 pt, opacity .9 → 0, **420 ms easeOutQuad**. Moon scale 1 → 1.12 → 1, **280 ms easeOutBack**. Then, 600 ms later, the strip slides up −8 pt and fades, **240 ms easeInCubic**. |
-| Tap | strip | right zone cross-fades to the arrival time, **150 ms easeOutQuad**. Hairline brightens. Reverts after **3000 ms** or on the next tap. Arrival time comes from the device clock (`Intl.DateTimeFormat`, hour + minute). |
+| Tap | strip | right zone cross-fades to the tapped form (rule above), **150 ms easeOutQuad**. Hairline brightens. Reverts after **3000 ms** or on the next tap. Arrival time comes from the device clock (`Intl.DateTimeFormat`, hour + minute). |
 | Chip | other stations | in: opacity + slide −6 pt, **200 ms easeOutCubic** |
 
 `?speed=10` speeds up only `gameNow`. Effect durations stay at 1× (AT EARTH is about 6.2 s at speed 10, which still fits the pop and pulse).
@@ -133,3 +146,4 @@ phase left = phaseEnd − e;  Back in = 616 − e   (ceil to whole seconds; m:ss
 - `pad_returning_tapped_{375x667,393x852}.png`: "Back at 2:47 PM · in 4:12"
 - `chip_shipyard_375x667.png`
 - `strip_states_3x.png`: every state at 3×
+- `tapped_text_forms_3x.png`: the three tapped forms at 375 and 393 widths, each with a dashed 109 pt box and its measured width

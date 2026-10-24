@@ -146,8 +146,21 @@ def txt(x, y, s, size, col, anchor='start', ls=.12, weight=700):
             f'letter-spacing="{ls*size:.2f}" fill="{col}" text-anchor="{anchor}">{s}</text>')
 
 # Strip-local layouts. Origin = strip top-left. Width 303 pt at both sizes (x 8 .. 311 at 375; 8 .. 329 would be 321 at 393 - kept 303 + right-aligned chip column logic: width = screenW - 72).
-RZ = 116   # right zone (divider at W - RZ): fits the tapped text "Back at 2:47 PM  ·  in 4:12" (104 pt at 10 pt)
-def strip_thin(w, t, tapped=False):
+RZ = 116   # right zone (divider at W - RZ); text box = W-RZ+1 .. W-6 = 109 pt
+RZ_AVAIL = RZ - 7
+RZ_SIZE, RZ_LS = 11, .02   # Director: 11 pt minimum
+def hms(s):
+    s = int(math.ceil(s)); return f'{s//3600}:{s%3600//60:02d}:{s%60:02d}' if s >= 3600 else mmss(s)
+def tapped_parts(secs, clock):
+    """Director's rule: <1 h normal form; >=1 h short form; if short form > 109 pt drop the clock."""
+    if secs < 3600:
+        return 'normal', [('Back at ', C['sub']), (clock, C['text']), (f' · in {hms(secs)}', C['sub'])]
+    pr = [('Back ', C['sub']), (clock, C['text']), (f' · {hms(secs)}', C['sub'])]
+    if sum(tw(t, RZ_SIZE, RZ_LS) for t, _ in pr) <= RZ_AVAIL:
+        return 'short', pr
+    return 'fallback', [('Back in ', C['sub']), (hms(secs), C['text'])]
+def parts_w(pr): return sum(tw(t, RZ_SIZE, RZ_LS) for t, _ in pr)
+def strip_thin(w, t, tapped=False, rz_parts=None):
     W = w - 72; h = THIN['h']
     name, left, u = phase_at(t); col = PH[name]
     s = panel(0, 0, W, h, 5, on=tapped)
@@ -169,10 +182,9 @@ def strip_thin(w, t, tapped=False):
         x, y, a = qbez(p0, p1, p2, u)
         s += ship(x, y, a + (180 if name == 'RETURNING' else 0), 10.5)
     s += f'<rect x="{W-RZ}" y="3" width="1" height="{h-6}" fill="#c9d3e6" opacity=".25"/>'
-    if tapped:
-        s += rich(W - 6, h/2 + 3.4, [('Back at ', C['sub']), ('2:47 PM', C['text']), (f'  ·  in {mmss(TOTAL - t)}', C['sub'])], 10, anchor='end', ls=.05)
-    else:
-        s += rich(W - 6, h/2 + 3.4, [('Back in ', C['sub']), (mmss(TOTAL - t), C['text'])], 10, anchor='end', ls=.05)
+    if rz_parts is None:
+        rz_parts = tapped_parts(TOTAL - t, '2:47 PM')[1] if tapped else [('Back in ', C['sub']), (hms(TOTAL - t), C['text'])]
+    s += rich(W - 6, h/2 + 3.8, rz_parts, RZ_SIZE, anchor='end', ls=RZ_LS)
     return s, W, h, dict(path=[p0, p1, p2], moon=(mx, cy, 5.5), earth=(ex, cy, 6), u=u, lit=lit), name
 
 def chip(t):
@@ -349,6 +361,35 @@ for s, Wd, hh, nm, off in rows:
     body += f'<g transform="translate(12,{y+12+off})">{s}</g>'; y += hh + 22
 render(svg_doc(330, y + 10, body), 3).convert('RGB').quantize(256).save(save('strip_states_3x.png'), optimize=True)
 
+# ---------------- tapped text forms, measured at 375 and 393 ----------------
+FORMS = [('under 1 h (Lv1 worst case)', 616.0, '12:47 PM', 'forced', None),
+         ('1 h or more', 3852.0, '12:47 PM', 'forced', None),
+         ('fallback if short form too wide', 3852.0, '12:47 PM', 'fallback', None)]
+text_forms = {}
+rows = []
+for w in SIZES:
+    for label, secs, clock, mode, _ in FORMS:
+        if label.startswith('under'):
+            pr = tapped_parts(secs, clock)[1]; form = 'normal'
+        elif mode == 'fallback':
+            pr = [('Back in ', C['sub']), (hms(secs), C['text'])]; form = 'fallback'
+        else:
+            pr = [('Back ', C['sub']), (clock, C['text']), (f' · {hms(secs)}', C['sub'])]; form = 'short'
+        s, W, h, meta, _ = strip_thin(w, 400.0, tapped=True, rz_parts=pr)
+        tw_ = parts_w(pr)
+        x0 = W - RZ + 1
+        s += (f'<rect x="{x0}" y="-1.5" width="{RZ_AVAIL}" height="{h+3}" fill="none" stroke="#ff9f43" stroke-width=".4" stroke-dasharray="1.5 1"/>')
+        txt_ = ''.join(t for t, _ in pr)
+        text_forms[f'{form}_{w}'] = dict(text=txt_, size_pt=RZ_SIZE, tracking_em=RZ_LS, width_pt=round(tw_, 1), avail_pt=RZ_AVAIL,
+                                         spare_pt=round(RZ_AVAIL - tw_, 1), fits=tw_ <= RZ_AVAIL, x=(round(W - 6 - tw_, 1), W - 6), strip_w=W)
+        rows.append((s, W, f'{w} · {label}: "{txt_}" = {tw_:.1f} pt of {RZ_AVAIL} ({RZ_AVAIL - tw_:+.1f})'))
+y = 10; SW = 345; body = ''
+for s, Wd, lab in rows:
+    body += f'<text x="10" y="{y+7}" font-family="DejaVu Sans" font-size="6.5" fill="#7f8ea3">{lab}</text>'
+    body += f'<g transform="translate(12,{y+12})">{s}</g>'; y += 16 + 22
+body = f'<rect width="{SW}" height="{y+10}" fill="#05070c"/>' + body
+render(svg_doc(SW, y + 10, body), 3).convert('RGB').quantize(256).save(save('tapped_text_forms_3x.png'), optimize=True)
+
 # ---------------- 3x parts ----------------
 import glob
 for f in glob.glob(f'{OUT}/parts/*.png'): os.remove(f)
@@ -378,5 +419,5 @@ for w in SIZES:
     geo[w] = dict(strip_w=W, path=m['path'], moon=m['moon'], earth=m['earth'], divider_x=W - RZ)
 json.dump(dict(timing=dict(total_s=TOTAL, outbound=(0, T_EARTH), at_earth=(T_EARTH, T_RET), returning=(T_RET, TOTAL), sale_and_pop_at=T_EARTH),
                layout='thin strip only (16 pt)', strip_local=geo, pop=dict(font='Inter 900 15 pt', max_text='+$999,999', max_w_pt=round(pop_w('+$999,999'), 1),
-               w_20000_pt=round(pop_w('+$20,000'), 1)), results=results, parts=P), open(f'{OUT}/_src/measure.json', 'w'), indent=1)
+               w_20000_pt=round(pop_w('+$20,000'), 1)), results=results, right_zone=dict(size_pt=RZ_SIZE, tracking_em=RZ_LS, avail_pt=RZ_AVAIL, forms=text_forms), parts=P), open(f'{OUT}/_src/measure.json', 'w'), indent=1)
 print(json.dumps(results, indent=1)); print(P)
