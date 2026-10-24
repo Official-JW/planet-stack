@@ -24,15 +24,25 @@ def obox(az,yc,w,h,r0,r1,col,faces=(0,1,2)):
             n_=ex[ax]/np.linalg.norm(ex[ax])*sgn; o=[e for k2,e in enumerate(ex) if k2!=ax]
             ctr=c0+ex[ax]*sgn; vs=[ctr-o[0]-o[1],ctr+o[0]-o[1],ctr+o[0]+o[1],ctr-o[0]+o[1]]
             addtri(vs,[n_]*4,col,[(0,1,2),(0,2,3)])
-STEP_H, STEP_R = 0.16, 4.10        # weld step: 16 cm tall ring, 10 cm proud
-STRAKE_AZ=(-40.0,-14.0,24.0)       # vertical strakes on the camera side, clear of door frame top (y<17.53 -> they live in the new section) and the ladder
-POD_AZ=(-27.0,10.0)                # latch pods
+STEP_H, STEP_R = 0.26, 4.10        # weld ring: 26 cm tall (reads ~1.5 px at 375), 10 cm proud
+def lin8(h):
+    c=np.array([int(h[i:i+2],16)/255 for i in (0,2,4)]); c=np.where(c<=0.04045,c/12.92,((c+0.055)/1.055)**2.4); return [*np.round(c*255).astype(int),255]
+# Bolder pass (A&A 13:36): the cargo ring reads as its own section at 375 -> graphite sleeve (value step vs stainless),
+# bright weld rings top + bottom, darker/saturated #687cc4-family band with light-steel edge lines, 3 framed cargo bay panels camera-side.
+GRAPH=lin8('353a42'); WELD=lin8('eef1f4'); BLUE_B=lin8('4a5fc0'); BAY_IN=lin8('2b2f35'); BAY_FR=lin8('eef1f4')
+BAY_AZ=(-32.0,-2.0,28.0)           # camera side, clear of the ladder gap 46..74; 1.7 m wide x 2.5 m tall
+BAY_W, BAY_H, BAY_FW = 1.7, 2.5, 0.10
 if not LV1:
     a0,a1=LADDER_GAP[1],LADDER_GAP[0]+360
-    for yl in (YS, YS+DH-STEP_H): arc_band(yl,yl+STEP_H,STEP_R,STEEL_D,a0,a1,18,top=4.0)
-    arc_band(BAND[0],BAND[1],4.07,BLUE_,a0,a1,24)                       # r 4.07 so the 24-seg chords stay outside the hull facets (no strip-through); skips the ladder
-    for az in STRAKE_AZ: obox(az,YS+DH/2,0.22,DH-2*STEP_H,3.98,4.16,STEEL_M)
-    for az in POD_AZ:    obox(az,YS+DH*0.5,0.55,0.80,3.98,4.22,STEEL_D)
+    arc_band(YS+STEP_H,YS+DH-STEP_H,4.05,GRAPH,a0,a1,28)                 # graphite sleeve; 28 segs -> chord mid 4.028 > hull
+    for yl in (YS, YS+DH-STEP_H): arc_band(yl,yl+STEP_H,STEP_R,WELD,a0,a1,15)   # no ledge (tri budget); the bright face carries the read
+    arc_band(BAND[0],BAND[1],4.08,BLUE_B,a0,a1,28)                       # band over the sleeve (vertex-aligned, 3 cm out)
+    for ye in (BAND[0]-0.05,BAND[1]): arc_band(ye,ye+0.05,4.16,WELD,a0,a1,14)   # thin light-steel edge lines (not cyan)
+    yc=YS+DH/2
+    for az in BAY_AZ:
+        obox(az,yc,BAY_W-2*BAY_FW,BAY_H-2*BAY_FW,4.0,4.10,BAY_IN,faces=(2,))   # recessed dark bay face (flat, behind the frame)
+        for (dx,dy,w,h) in ((0,(BAY_H-BAY_FW)/2,BAY_W,BAY_FW),(0,-(BAY_H-BAY_FW)/2,BAY_W,BAY_FW),(-(BAY_W-BAY_FW)/2,0,BAY_FW,BAY_H),((BAY_W-BAY_FW)/2,0,BAY_FW,BAY_H)):
+            obox(az+np.degrees(dx/4.1),yc+dy,w,h,4.0,4.17,BAY_FR,faces=(2,))   # bright frame bars, 7 cm proud of the face
 # cargo opening fill: Lv1's black [6,7,8] well -> recessed 25 cm, shadow fill #3a3e44 (no black; seen only when the door opens)
 C=np.array(C); blk=(C[:,:3]==[6,7,8]).all(1)
 if blk.any():
