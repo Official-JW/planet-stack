@@ -320,5 +320,72 @@
     4.75
    ]
   }
- ]
+ ],
+ "dock_camera_v2": {
+  "ct_world": [
+   380.95,
+   1.5,
+   25.35
+  ],
+  "ct_dock_local": [
+   7.95,
+   1.5,
+   33.35
+  ],
+  "frame_w": 74.5,
+  "rule": "38 deg vFOV, 18 deg pitch, d=(fw/2)/(tan19*aspect), camera on +Z",
+  "spare_px": {
+   "375x667": {
+    "left": 10.2,
+    "right": 10.4,
+    "top": 58.2,
+    "bottom": 58.2
+   },
+   "393x852": {
+    "left": 8.6,
+    "right": 7.0,
+    "top": 117.2,
+    "bottom": 117.2
+   }
+  },
+  "bands": {
+   "375x667": [
+    144,
+    383
+   ],
+   "393x852": [
+    165,
+    534
+   ]
+  },
+  "subject": "whole dock GLB + 20-box stack + apron + SC-1 crane envelope (all 40 clips incl. carried box) + FB-05 at Truck_Stop_Dock"
+ },
+ "storage_crane": {
+  "glb": "../storage_crane/storage_crane.glb",
+  "place_world": [
+   350.7,
+   0,
+   8.5
+  ],
+  "place_dock_local": [
+   -22.3,
+   0,
+   16.5
+  ],
+  "yaw_deg": 0
+ },
+ "truck_stop_dock": {
+  "world": [
+   352.6,
+   0,
+   13.0
+  ],
+  "dock_local": [
+   -20.4,
+   0,
+   21.0
+  ],
+  "heading": "+X (east, loaded lane z 13)",
+  "note": "FB-05 origin; Bed_Slot_01 -> Pick_A (351.45, 1.9, 13), Bed_Slot_02 -> Pick_B (348.95, 1.9, 13)"
+ }
 }

@@ -37,7 +37,7 @@ Models: Cargo Dock `dock_tankfarm_game.glb` **882c8e27** (git 8ca81ac; this is t
 - `cargo_dock_layout_v2_topdown.png`: the plan, with stations, the haul road, the FB-05 route plus the pad U-turn, the planned ST-10 transport road, the buried fuel lines, the spacing and the slot-numbering diagram. It is a max-height raster of the actual GLBs at these positions (`_src/hmap.mjs` then `_src/layout.py`).
 - `refinery_view_375x667@2x.png`: the Refinery game camera (ct world 318.9, 2.08, 13.55 = local -1.1/2.08/13.55, frame_w 38.25). The dock starts 5.45 m beyond the right edge of this frame, so it is not visible here.
 - `refinery_dock_pair_375x667@2x.png`: ct (342, 3, 2), frame_w 72. Refinery plus bridge, then the full storage apron, then the dock, side by side.
-- `cargo_dock_storage_full_375x667@2x.png`: dock-framed view, ct (359, 3, -1), frame_w 52, with the 20 boxes stacked (storage full). 882c8e27's own Cam_Target is (0, 2.5, 4) with frame_w 15, which is too tight for a station view, so this is a proposed dock frame.
+- `cargo_dock_storage_full_375x667@2x.png` (750×1334) and `cargo_dock_storage_full_393x852@3x.png` (1179×2556): the **v2b dock camera** (Director fix, 12:09). The whole dock GLB, the full 20-box stack, the SC-1 storage crane and the FB-05 at the dock stop all fit inside the framing band. `cargo_dock_storage_full_framing_guides.png` draws the band, the 5 px limit and the subject bounds on both sizes.
 - The game-camera stills come from three.js with the game's camera rule, lights and tone mapping (`_src/game_cam_page.html` + `_src/shot.js`, 375×667 at DPR 2). The road strips are flat proxies.
 
 ## Conflict check (numbers from `_src/chk.py` -> `_src/conflict_bands.txt`)
@@ -61,3 +61,23 @@ Models: Cargo Dock `dock_tankfarm_game.glb` **882c8e27** (git 8ca81ac; this is t
 10. **Dock model version.**
     - 882c8e27 is the older LH2 build, with footprint x -24.75..48 and `Pipe_LaunchPad` at local (47, 1.2, 8.1).
     - The live game uses fd286b9 / 7959ae74 (methalox LCH4, x -18.2..39.5, Cam_Target (12, 6, 2) with frame_w 64). With that build, the same X 373 / z -8 still works: the apron at -29.3 sits outside its -18.2 edge, so the apron edge moves 0 m and the dock body gets 6.6 m narrower.
+
+## Dock camera v2b (replaces the f3478cf dock still's ct (359, 3, -1) / frame_w 52, which cropped the dock)
+- **ct world (380.95, 1.5, 25.35)**, which is **dock-local (7.95, 1.5, 33.35)**, with **frame_w 74.5**. Game rule: 38° vFOV, 18° pitch, camera on +Z.
+  - The look-at point sits out on the road because the framing band's centre is above the screen centre. ct is just the aim point at screen centre.
+  - For a CAM_OVERRIDE, use `ct: {x: 7.95, y: 1.5, z: 33.35}, frame_w: 74.5` relative to the dock origin.
+- **Subject:** every vertex of the dock GLB (882c8e27, x 348.25-421, up to 16.6 m), the 20 boxes, the apron, the SC-1 crane over all 40 clips (with the carried box), and the FB-05 at `Truck_Stop_Dock`. Bounds are measured on the convex hull of all points (`_src/dump_frame_points.mjs` -> `_src/frame_solve.py`, result `dock_camera_v2.json`).
+
+| Size | Band y | Subject px (x0, y0, x1, y1) | Spare L | Spare R | Spare T | Spare B |
+|---|---|---|---|---|---|---|
+| 375×667 | 144-383 | 10.2, 202.2, 364.6, 324.8 | **10.2** | **10.4** | **58.2** | **58.2** |
+| 393×852 | 165-534 | 8.6, 282.2, 386.0, 416.8 | **8.6** | **7.0** | **117.2** | **117.2** |
+
+- Width is the binding limit: the tightest edge is 7.0 px, at the right edge at 393. The smallest frame_w that still keeps 5 px everywhere is 73.8.
+
+## Storage crane and flatbed dock stop
+- **SC-1 storage crane:** `../storage_crane/storage_crane.glb` (3 draws). It stands at world (350.7, 0, 8.5), dock-local (-22.3, 0, 16.5), in front of the stack's centre column. Its footing ends at z 9.2. See `../storage_crane/SPEC.md`.
+- **Flatbed dock stop:** `Truck_Stop_Dock`, world (352.6, 0, 13.0), dock-local (-20.4, 0, 21.0), on the loaded lane z 13, heading +X. Both FB-05 bed slots are within reach (r 4.56 / 4.83).
+  - This answers conflict 2 above: dock to flatbed hand-off is now solved for Lv1.
+  - A crane-reach note remains: future rows beyond the Lv1 rows need SC-2.
+- These values are also in `cargo_dock_slots_lv1.json` (`dock_camera_v2`, `storage_crane`, `truck_stop_dock`).

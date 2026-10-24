@@ -29,7 +29,7 @@ const add = async (u, x, z, opt = {}) => { const gl = await load(u); const o = g
   return { o, gl }; };
 const ok = [];
 await add('ref.glb', 320, 0); await add('bridge.glb', 320, 0, { clip: 'box_path', t: +(Q.get('t') || 18.4) });
-await add('crane.glb', 311, 17.5); await add('fb.glb', 318, 13);
+await add('crane.glb', 311, 17.5); const FB = await add('fb.glb', +(Q.get('fbx') || 318), 13);
 const DX = 373, DZ = -8; await add('dock.glb', DX, DZ); await add('pad.glb', 457, 0);
 // storage apron + 20 boxes
 const SL = await (await fetch('slots.json')).json(); const ap = SL.apron;
@@ -37,6 +37,15 @@ const slab = new THREE.Mesh(new THREE.BoxGeometry(ap[1] - ap[0], 0.12, ap[3] - a
 slab.position.set(DX + (ap[0] + ap[1]) / 2, 0.06, DZ + (ap[2] + ap[3]) / 2); slab.receiveShadow = true; S.add(slab);
 const bx = await load('box.glb'); const N = +(Q.get('fill') || 20);
 for (const s of SL.slots.slice(0, N)) { const b = bx.scene.clone(true); b.position.set(...s.world); b.name = s.name; b.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; }); S.add(b); }
+// SC-1 storage crane + one carried box (clip / t / bed)
+if (Q.get('sc')) { const gl = await load('crane_sc1.glb'); const o = gl.scene; o.position.set(350.7, 0, 8.5); o.traverse(m => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; m.frustumCulled = false; } }); S.add(o);
+  const cn = Q.get('clip'), t = +(Q.get('ct_t') || 0); const ex = o.getObjectByName('StorageCrane').userData;
+  if (cn) { const mx = new THREE.AnimationMixer(o); const c = gl.animations.find(a => a.name === cn); mx.clipAction(c).play(); mx.setTime(t); o.updateMatrixWorld(true);
+    const b = bx.scene.clone(true); b.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+    if (t < ex.pick_t) { const bs = FB.o.getObjectByName(c.extras && c.extras.pick === 'Pick_B' ? 'Bed_Slot_02' : 'Bed_Slot_01'); FB.o.updateMatrixWorld(true); bs.getWorldPosition(b.position); S.add(b); }
+    else if (t < ex.set_t) { o.getObjectByName('Hook_Attach').add(b); b.position.set(0, -1.5, 0); }
+    else { const sl = SL.slots.find(q => q.name === cn.slice(-7)); b.position.set(...sl.world); S.add(b); }
+    console.log('crane clip', cn, 't', t); } }
 // game camera
 const [tx, ty, tz, fw] = Q.get('ct').split(',').map(Number); const asp = W / H; const d = (fw / 2) / (Math.tan(19 * Math.PI / 180) * asp); const p = 18 * Math.PI / 180;
 cam.position.set(tx, ty + d * Math.sin(p), tz + d * Math.cos(p)); cam.lookAt(tx, ty, tz);
