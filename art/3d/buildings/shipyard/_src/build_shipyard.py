@@ -52,7 +52,7 @@ GAME_NAMES = {
     'rot_z': 10.0,   # deg, whole yard about +Z at the origin: the old az -100 view becomes the straight-on az -90 view
     # Director framing box on 393x852: x 18..375, y 230..640 must hold the whole assembly hall (incl. its 'ASSEMBLY HALL · AH-1' label), SN-07 + its whole
     # IS-1 stand (tower top may run off the top) and crew module YC-1. Smallest W that fits with every tier within W (flat) of Cam_Target: 76 m.
-    'phone_cam': {'target': (-14.3, -44.8, 14.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 98.0},   # base + EVERY tier fit: 393x852 y165-534 (Playtester insets), 375x667 y144-383, x12..W-12; 98 = tightest that fits (IS-1 46 m tower + YC-1 bind at 375x667)
+    'phone_cam': {'target': (-7.1, -84.6, 23.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 100.0},   # base + EVERY tier fit: 393x852 y165-534 (Playtester insets), 375x667 y144-383, x12..W-12; 98 = tightest that fits (IS-1 46 m tower + YC-1 bind at 375x667)
 }
 
 # ====================================================================== materials
@@ -256,7 +256,7 @@ def lin(a, b): return Vector(a).lerp(Vector(b), 0.5)
 SHX, SHY = 22.0, 8.0             # integration stand / starter ship
 HX, HY, HW, HD, HH = -20.0, 12.0, 34.0, 26.0, 24.0   # assembly hall AH-1
 WX, WY = -27.0, -21.0            # welding bay W-2
-RFX, RFY = 50.0, -16.0           # foundry FAB-01 (relabelled; ex-REF-01 geometry)
+RFX, RFY = 42.0, -16.0           # foundry FAB-01 (tucked in 8 m from 50.0 so the tanks stay on screen at 375x667)
 CSX, CSY = 4.0, -38.0            # yard control YC-1
 RXr, RXy = -82.0, 52.0           # distant fission plant
 height = build_stage(keep_flat=((5, -4, 62), (5, -4, 62), (RFX, RFY, 28), (RFX, RFY, 28), (CSX, CSY, 18), (-50, -16, 18), (RXr, RXy, 24), (RXr, RXy, 24)))
@@ -297,10 +297,10 @@ def grp_end(s0, g):
 TC = 'Tiers'   # upgrade tiers: own collection, hidden in hero / turntable / master GLB, exported (hidden_by_default) in the game GLB
 _tc = bpy.data.collections.new(TC); bpy.context.scene.collection.children.link(_tc)
 # ====================================================================== YARD SLAB (sintered, everything sits above ground)
-rbox('yard_slab', (112.0, 66.0, 0.7), (8.0, -6.0, YTOP - 0.35), YARD, r=0.25, segs=2)
-for x0, x1, y in ((-48.0, 64.0, -39.1), (-48.0, 64.0, 27.1)):
+rbox('yard_slab', (104.0, 66.0, 0.7), (4.0, -6.0, YTOP - 0.35), YARD, r=0.25, segs=2)
+for x0, x1, y in ((-48.0, 56.0, -39.1), (-48.0, 56.0, 27.1)):   # right edge 64 -> 56 with FAB-01 tucked in
     box('yard_edge_strip', (x1 - x0, 0.12, 0.05), ((x0 + x1) / 2, y, YTOP + 0.01), CYANS, bevel=0)
-for k in range(15):   # painted lane lines between work areas
+for k in range(14):   # painted lane lines between work areas
     box('yard_lane', (3.0, 0.22, 0.01), (-40.0 + k * 7.0, -9.5, YTOP + 0.003), PAINT, bevel=0)
 for k in range(8):
     box('yard_lane', (0.22, 3.0, 0.01), (6.0, -34.0 + k * 7.0, YTOP + 0.003), PAINT, bevel=0)
@@ -425,9 +425,9 @@ box('ist_core_strip', (0.04, 0.2, TH - 4.0), tuple(Vector((TX, TY, Z0 + TH / 2))
 rbox('ist_cap', (TW + 1.2, TW + 1.2, 1.4), (TX, TY, Z0 + TH + 0.7), WHITE, rot=(0, 0, rot_u), r=0.3, segs=4)
 box('ist_cap_strip', (TW + 1.22, TW + 1.22, 0.08), (TX, TY, Z0 + TH + 0.3), CYAN, rot=(0, 0, rot_u), bevel=0)
 text('decal_ist', 'IS-1', tuple(Vector((TX, TY, Z0 + TH + 0.85)) + inward * (TW / 2 + 0.61)), (math.pi / 2, 0, rot_u + math.pi / 2), 0.9, INK, extrude=0.01)
-rod('ist_mast', (TX, TY, Z0 + TH + 1.4), (TX, TY, Z0 + TH + 6.0), 0.12, SATIN, segs=10)
+rod('ist_mast', (TX, TY, Z0 + TH + 1.4), (TX, TY, Z0 + TH + 3.6), 0.12, SATIN, segs=10)
 _gb = grp_begin()   # Beacon_Lights: mast-top beacon + 4 cap-corner obstruction lights, one cluster (scale-blink pivot = cluster centre)
-sphere('ist_beacon', 0.3, (TX, TY, Z0 + TH + 6.1), AMBERG, sub=2)
+sphere('ist_beacon', 0.3, (TX, TY, Z0 + TH + 3.7), AMBERG, sub=2)
 for sx in (-1, 1):
     for sy in (-1, 1):
         sphere('ist_beacon_corner', 0.22, tuple(Vector((TX, TY, Z0 + TH + 1.62)) + inward * (TW / 2 + 0.3) * sx + tang * (TW / 2 + 0.3) * sy), AMBERG, sub=2)
@@ -687,7 +687,7 @@ beam('rf_conveyor_belt', c0_ + Vector((0, 0, 0.2)), c1_ + Vector((0, 0, 0.2)), 0
 for t in (0.3, 0.6):
     p = c0_.lerp(c1_, t); rod('rf_conv_leg', (p.x, p.y, YTOP), (p.x, p.y, p.z - 0.15), 0.1, SATIN, segs=8)
 # propellant transfer line (LOX + LCH4) on low stanchions: tank farm -> umbilical mast UMB-1
-route = [Vector((RFX - 5.0, RFY - 4.0, 0)), Vector((36.0, -6.0, 0)), Vector((36.0, 16.0, 0)), Vector((UMX + 1.0, UMY + 8.0, 0)), Vector((UMX, UMY + 0.8, 0))]
+route = [Vector((RFX - 5.0, RFY - 4.0, 0)), Vector((30.5, RFY - 4.0, 0)), Vector((30.5, -6.0, 0)), Vector((36.0, -6.0, 0)), Vector((36.0, 16.0, 0)), Vector((UMX + 1.0, UMY + 8.0, 0)), Vector((UMX, UMY + 0.8, 0))]
 for a, b in zip(route, route[1:]):
     L = (b - a).length; n = max(1, int(L / 4.0)); ang = math.atan2(b.y - a.y, b.x - a.x)
     for i in range(n + 1):
@@ -844,7 +844,7 @@ rbox('t3_hook', (0.6, 0.6, 0.8), tuple(th - Vector((0, 0, 12.4))), LCH4B, r=0.08
 grp_end(_t, 'Tier_03')
 # Tier_05 - second FAB-01 furnace column (tied into the pipe rack); x = RFX-8.5 keeps it within one frame_w (55 m) of Cam_Target
 _t = grp_begin()
-T5X = RFX - 8.5
+T5X = 41.5   # fixed (was RFX-8.5 with RFX 50); stays clear of the IS-1 pad and the propellant line after FAB-01 moved in
 column(T5X, RFY + 14.0, 1.5, 20.0, 'FURNACE 2', c=TC, sg=32)
 rod('t5_feed', (T5X, RFY + 12.3, YTOP + 3.65), (T5X, PRY + 1.2, YTOP + 3.65), 0.2, SATIN, segs=10, c=TC)
 for t_ in (0.35, 0.7):
