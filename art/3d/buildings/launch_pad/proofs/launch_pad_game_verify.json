@@ -1,9 +1,9 @@
 {
  "file": "../launch_pad_game.glb",
- "bytes": 290896,
- "md5": "816f18f3e5181268265210c1e280026a",
+ "bytes": 306932,
+ "md5": "e9bc88cabe724d186c07346edc1904d2",
  "three": "186",
- "tris": 28024,
+ "tris": 29466,
  "draws": 15,
  "extensions": [
   "KHR_mesh_quantization",
@@ -16,17 +16,17 @@
   [
    "Pad_Base",
    "SHM_Paint",
-   14059
+   12857
   ],
   [
    "Pad_Base",
    "SHM_GlowCyan",
-   766
+   736
   ],
   [
    "Pad_Base",
    "SHM_Metal",
-   538
+   402
   ],
   [
    "Road_UTurn",
@@ -55,12 +55,12 @@
   ],
   [
    "Ship_Placeholder",
-   "SHM_Paint",
-   4200
+   "SHM_Stainless",
+   7010
   ],
   [
    "Cargo_Door",
-   "SHM_Paint",
+   "SHM_Stainless",
    200
   ],
   [
@@ -1700,7 +1700,7 @@
   "rule": "XZ footprint of every pad mesh vs road band (world x 307-481, z 10.2-24.8) and every Road_UTurn triangle: 0 overlaps, min gap >= 1 m",
   "road_pieces": 400,
   "pad_meshes": 14,
-  "pad_tris": 27625,
+  "pad_tris": 29067,
   "overlaps": 0,
   "under_gap": 0,
   "min_gap_m": 1.048,
@@ -1710,16 +1710,16 @@
    "road": "road band (tiles, toe-to-toe)",
    "tri_xz": [
     [
+     476.6,
+     9.09
+    ],
+    [
      466,
      9.15
     ],
     [
      466,
      9.09
-    ],
-    [
-     466,
-     9.15
     ]
    ]
   },
@@ -1730,16 +1730,16 @@
      "road band (tiles, toe-to-toe)",
      [
       [
+       476.6,
+       9.09
+      ],
+      [
        466,
        9.15
       ],
       [
        466,
        9.09
-      ],
-      [
-       466,
-       9.15
       ]
      ]
     ]
@@ -1863,7 +1863,7 @@
    "max": [
     489.25,
     40.5,
-    -4.85
+    -4.84
    ]
   },
   "Cargo_Door": {

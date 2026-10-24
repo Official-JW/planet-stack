@@ -882,54 +882,28 @@ for p in fposts:
 for a, b in zip(fposts, fposts[1:] + [fp[-1]]):
     cable('power_cable_far', (a.x, a.y, gz(a.x, a.y) + 0.95), (b.x, b.y, gz(b.x, b.y) + 0.95), 0.05, RUBBER, sag=0.3, n=10, c='Stage')
 
-# ====================================================================== GRAY PLACEHOLDER SHIP (in the game GLB, starter-ship massing, untextured gray)
+# ====================================================================== STAINLESS STARTER SHIP (game weight; Jacob 10/23 23:43 replaced the gray placeholder)
 # starter ship: 40.25 m tall, 8 m dia, 6 legs, 4 bells; fuel tanks at the bottom, cargo mid-hull (door), crew up top via a caged ladder
+# geometry: lp_stainless_ship.py, built from the 46a9346 starter_ship_master.glb exterior (starter_ship_46a9346_exterior.glb via lp_extract_starter.py);
+# node name stays Ship_Placeholder for qa3d/main.js; ladder, cage, airlock hatch and hatch deck keep the placeholder positions
 _gs = grp_begin()
 SZ0 = TOP + 2.65
-lathe('ship_ph_body', [(0, SZ0), (3.6, SZ0), (SHIP_R, TOP + 3.65), (SHIP_R, TOP + 31.25), (3.75, TOP + 33.5), (3.1, TOP + 35.8), (2.2, TOP + 37.8),
-                       (1.1, TOP + 39.4), (0, TOP + 40.25)], (0, 0, 0), SHIPG, segs=48)
-for k in range(4):
-    a = TAU * k / 4 + math.pi / 4; p = (1.6 * math.cos(a), 1.6 * math.sin(a))
-    lathe('ship_ph_bell', [(0.35, SZ0 + 0.02), (0.45, SZ0 - 0.4), (0.85, SZ0 - 1.55), (0.9, SZ0 - 1.62)], (p[0], p[1], 0), GRAPH, segs=16)
-for k in range(6):
-    a = SHIP_PSI - math.radians(60) + TAU * k / 6; u = Vector((math.cos(a), math.sin(a), 0))     # legs at 0, 60 .. 300 deg
-    hip = u * 4.25 + Vector((0, 0, TOP + 7.65)); foot = u * 8.2 + Vector((0, 0, TOP + 0.35))
-    rod('ship_ph_leg', hip, foot, 0.3, SHIPG, segs=10)
-    rod('ship_ph_strut', u * 3.95 + Vector((0, 0, TOP + 3.4)), foot.lerp(hip, 0.4), 0.16, SHIPG, segs=8)
-    lathe('ship_ph_foot', [(0, 0), (1.05, 0), (0.9, 0.3), (0, 0.35)], (foot.x, foot.y, TOP), SHIPG, segs=16)
-for z in (TOP + 9.4, TOP + 19.6, TOP + 31.25):
-    ring('ship_ph_seam', SHIP_R + 0.01, (0, 0, z), 0.08, GRAPH, w=0.03, segs=48)
 SILL = TOP + 12.4; DOOR_H, DOOR_HW = 4.8, math.radians(23.8)
-lathe('ship_ph_bay_dark', [(SHIP_R + 0.005, SILL + 0.05), (SHIP_R + 0.005, SILL + DOOR_H - 0.05)], (0, 0, 0), GRAPH, segs=8,
-      a0=DOOR_A - DOOR_HW + 0.01, a1=DOOR_A + DOOR_HW - 0.01, smooth=False)                 # dark hold opening behind the door
-# caged crew ladder (no ramp: crew climb down until the Lv1 elevator / prep area exists) + crew hatch at TOP + 21
 LU = Vector((math.cos(LAD_A), math.sin(LAD_A), 0)); LT = Vector((-LU.y, LU.x, 0))
 LAD_TOP = TOP + 21.6
-for s in (-0.28, 0.28):
-    q = LU * 4.45 + LT * s; rod('ship_ph_ladder', (q.x, q.y, TOP), (q.x, q.y, LAD_TOP), 0.035, SATIN, segs=6)
-for i in range(int((LAD_TOP - TOP - 0.3) / 0.6)):
-    q = LU * 4.45; z = TOP + 0.4 + i * 0.6
-    box('ship_ph_rung', (0.05, 0.56, 0.05), (q.x, q.y, z), SATIN, rot=(0, 0, LAD_A), bevel=0)
-for i in range(12):
-    z = TOP + 3.2 + i * 1.6
-    pts = [tuple(LU * 4.45 + LU * 0.75 * math.sin(t) + LT * 0.5 * math.cos(t) + Vector((0, 0, z))) for t in (math.pi * k / 6 for k in range(7))]
-    curve_tube('ship_ph_cage', pts, 0.025, SATIN, res=1)
-for s in (-0.4, 0, 0.4):
-    a_ = LU * 4.45 + LU * 0.75 * (1 if s == 0 else 0.6) + LT * s
-    rod('ship_ph_cage_bar', (a_.x, a_.y, TOP + 3.2), (a_.x, a_.y, LAD_TOP), 0.025, SATIN, segs=4)
-hq = LU * SHIP_R
-rbox('ship_ph_hatch', (0.12, 1.3, 2.0), (hq.x, hq.y, LAD_TOP + 0.9), GRAPH_S, rot=(0, 0, LAD_A), r=0.04, segs=1)
-q = LU * 4.75; rbox('ship_ph_hatch_deck', (1.0, 1.4, 0.1), (q.x, q.y, LAD_TOP - 0.05), GRAPH_S, rot=(0, 0, LAD_A), r=0.02, segs=1)
+if HERE not in sys.path: sys.path.insert(0, HERE)
+import lp_stainless_ship
+_ship_names, SSM = lp_stainless_ship.build(globals())
 LADDER_FOOT = Vector((LU.x * 5.2, LU.y * 5.2, TOP))
 for o in [bpy.data.objects[n] for n in set(bpy.data.objects.keys()) - _gs]:
     o['grp'] = 'Ship'
 # ---- cargo door (own node, origin on the hinge at the sill; opens outward + down into a shelf about local X)
 _gd = grp_begin()
 lathe('cargo_door_panel', [(SHIP_R + 0.02, SILL), (SHIP_R + 0.2, SILL), (SHIP_R + 0.2, SILL + DOOR_H), (SHIP_R + 0.02, SILL + DOOR_H), (SHIP_R + 0.02, SILL)],
-      (0, 0, 0), SHIPG, segs=10, a0=DOOR_A - DOOR_HW, a1=DOOR_A + DOOR_HW, smooth=False)
+      (0, 0, 0), SSM['B'], segs=10, a0=DOOR_A - DOOR_HW, a1=DOOR_A + DOOR_HW, smooth=False)
 for zz in (0.25, DOOR_H - 0.25):
     lathe('cargo_door_rib', [(SHIP_R + 0.2, SILL + zz - 0.08), (SHIP_R + 0.26, SILL + zz - 0.08), (SHIP_R + 0.26, SILL + zz + 0.08), (SHIP_R + 0.2, SILL + zz + 0.08)],
-          (0, 0, 0), GRAPH, segs=10, a0=DOOR_A - DOOR_HW, a1=DOOR_A + DOOR_HW, smooth=False)
+          (0, 0, 0), SSM['band'], segs=10, a0=DOOR_A - DOOR_HW, a1=DOOR_A + DOOR_HW, smooth=False)
 _door_parts = [bpy.data.objects[n] for n in set(bpy.data.objects.keys()) - _gd]
 bpy.ops.object.select_all(action='DESELECT')
 for o in _door_parts: o.select_set(True)
@@ -1183,6 +1157,11 @@ assert not ('game' in ONLY and set(ONLY) & {'hero', 'turn', 'portrait', 'blend',
 if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged per node, <=30k tris, no textures; meshopt + quantization via gltfpack
     SHJ = os.path.normpath(os.path.join(HERE, '..', '..', '_shared', 'shared_materials.json'))
     MM = json.load(open(SHJ))['merged_materials']
+    # local (not in the shared json, which has only SHM_Paint metal 0 and SHM_Metal metal 0.85): brushed stainless for the ship + cargo door,
+    # metal 0.5 / rough 0.42 per the 10/24 spec. qa3d has no scene.environment, so the base stays light (~#d0d4d8 per-face swatches);
+    # ss_fill: small constant emissive lift for the shadow side, #1e2125 approved by the art lead 10/24 ('--ss_fill none' turns it off)
+    MM = dict(MM, SHM_Stainless={'base': '#ffffff', 'metal': float(A.get('ss_metal', 0.5)), 'rough': float(A.get('ss_rough', 0.42)), 'vertex_colors': True,
+                                 **({'emissive': A.get('ss_fill', '#1e2125'), 'emissive_strength': 1.0} if A.get('ss_fill', '#1e2125') != 'none' else {})})
     def shm(n):
         if n in bpy.data.materials and bpy.data.materials[n].get('shm'): return bpy.data.materials[n]
         d = MM[n]; m = bpy.data.materials.get(n) or bpy.data.materials.new(n); m['shm'] = 1; m.use_nodes = True
@@ -1202,10 +1181,15 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
           'LP_Regolith': ('SHM_Paint', '#75787c'), 'LP_Sintered': ('SHM_Paint', '#505055'), 'LP_SinterBlock': ('SHM_Paint', '#5c5b5d'),
           'LP_LoxBand': ('SHM_Paint', '#2f9e63'), 'LP_LCH4Band': ('SHM_Paint', '#c2442c'), 'LP_WhiteFrost': ('SHM_Paint', '#f1f4f7'),
           'LP_HoseFoil': ('SHM_Metal', '#b9bfc7'), 'LP_ShipPlaceholder': ('SHM_Paint', '#8a8d94'), 'LP_ApronSinter': ('SHM_Paint', '#4e5054'),
-          'LP_SolarCell': ('SHM_Paint', '#152a4a'), 'LP_LaneVC': ('SHM_Paint', None), 'SHM_Paint': ('SHM_Paint', None), 'SHM_GlowCyan': ('SHM_GlowCyan', None)}
+          'LP_SolarCell': ('SHM_Paint', '#152a4a'), 'LP_LaneVC': ('SHM_Paint', None), 'SHM_Paint': ('SHM_Paint', None), 'SHM_GlowCyan': ('SHM_GlowCyan', None),
+          # stainless ship swatches (game): per-sheet tone A/B/C, welds, steel bands, heat-tinted aft, solar band, hold opening
+          'LP_StainlessA': ('SHM_Stainless', A.get('ss_a', '#d0d4d8')), 'LP_StainlessB': ('SHM_Stainless', A.get('ss_b', '#d9dde1')),
+          'LP_StainlessC': ('SHM_Stainless', A.get('ss_c', '#c6cacf')), 'LP_StainlessWeld': ('SHM_Stainless', A.get('ss_weld', '#8f959c')),
+          'LP_SteelBand': ('SHM_Stainless', A.get('ss_band', '#b2b7bd')), 'LP_StainlessHeat': ('SHM_Stainless', '#77736f'),
+          'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#6fdcef')}
     # one material per node except Pad_Base (4) and Crane (2): forced node materials
     NODE_MAT = {'Hose_LOX': 'SHM_Metal', 'Hose_LCH4': 'SHM_Metal', 'Tier_03': 'SHM_Paint', 'Tier_05': 'SHM_Paint', 'Tier_08': 'SHM_Paint',
-                'Tier_12': 'SHM_GlowWhite', 'Tier_20': 'SHM_Paint', 'Ship': 'SHM_Paint', 'Door': 'SHM_Paint', 'Road': 'SHM_Paint'}
+                'Tier_12': 'SHM_GlowWhite', 'Tier_20': 'SHM_Paint', 'Ship': 'SHM_Stainless', 'Door': 'SHM_Stainless', 'Road': 'SHM_Paint'}
     NODE_NAME = {'Road': 'Road_UTurn', 'Base': GAME_NAMES['base'], 'Ship': GAME_NAMES['ship'], 'Door': GAME_NAMES['door'], 'Crane': GAME_NAMES['crane_mesh']}
     NODE_NAME.update({g: v[0] for g, v in GAME_NAMES['hoses'].items()}); NODE_NAME.update({g: v[0] for g, v in GAME_NAMES['tiers'].items()})
     KEEP_TEXT = ('decal_lox', 'decal_lch4', 'stencil_pad', 'stencil_bay')            # big readable labels stay in the game GLB
@@ -1263,12 +1247,12 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
         nodes[g] = G
     nodes['Crane'] = CRANE_MESH
     tri = lambda G: sum(len(p.vertices) - 2 for p in G.data.polygons)
-    T0 = sum(tri(G) for G in nodes.values()); TGT = int(A.get('tris', 28500))
+    T0 = sum(tri(G) for G in nodes.values()); TGT = int(A.get('tris', 29900))
     def dec(G, ratio):
         bpy.ops.object.select_all(action='DESELECT'); G.select_set(True); bpy.context.view_layer.objects.active = G
         md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.03, min(1.0, ratio)); md.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=md.name)
-    CAP = {'Road': 400, 'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': 4200, 'Door': 300}
+    CAP = {'Road': 400, 'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': int(A.get('ship_cap', 7100)), 'Door': 300}
     for g, G in nodes.items():
         cap = CAP.get(g, 1000 if g.startswith('Tier_') else None)
         if cap and tri(G) > cap: dec(G, cap / tri(G))
@@ -1288,7 +1272,7 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
             G['fuel'] = GAME_NAMES['hoses'][g][1]; G['attach_to'] = GAME_NAMES['markers']['Fuel_Hookup']
         if g == 'Ship': G.data.transform(Matrix.Translation(-SH)); G.location = SH
         if g == 'Road': G['road'] = 'U-turn at the east end of the flatbed road (not pad surface): joins the road tiles at world x 481, centre world (481, 17.5), r 4.5'
-        if g == 'Ship': G['placeholder'] = 'gray massing until Jacob approves the ship art'; G['size_m'] = [8.0, 40.25, 8.0]
+        if g == 'Ship': G['ship'] = 'stainless starter ship, game weight (lp_stainless_ship.py from the 46a9346 starter_ship_master.glb); node keeps the Ship_Placeholder name for qa3d'; G['size_m'] = [8.0, 40.25, 8.0]
     if 'grp' in CRANE: del CRANE['grp']
     PC = GAME_NAMES['phone_cam']; T = Vector(PC['target'])
     cam_e = mark(GAME_NAMES['markers']['Cam_Target'], T, {'frame_w': PC['frame_w'], 'fov_y_deg': PC['fov_y'], 'pitch_down_deg': PC['pitch'],
