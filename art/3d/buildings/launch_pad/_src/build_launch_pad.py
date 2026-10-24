@@ -1187,9 +1187,11 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
           'LP_StainlessA': ('SHM_Stainless', A.get('ss_a', '#d0d4d8')), 'LP_StainlessB': ('SHM_Stainless', A.get('ss_b', '#d9dde1')),
           'LP_StainlessC': ('SHM_Stainless', A.get('ss_c', '#c6cacf')), 'LP_StainlessWeld': ('SHM_Stainless', A.get('ss_weld', '#8f959c')),
           'LP_SteelBand': ('SHM_Stainless', A.get('ss_band', '#b2b7bd')), 'LP_StainlessHeat': ('SHM_Stainless', '#77736f'),
-          'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#2fe3ff')}
-    # ship solar band: navy #152a4a -> mid blue (Director 10/24, ship tone fix). #687cc4 also keeps the band's anti-aliased edge against the cyan
-    # SolarGlowLo trim outside qa3d-next's ring-albedo tolerance (|rgb - #2fe3ff| <= 48), so the 4 cyan rings are still the only ring bands found
+          'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#2fe3ff'),
+          'LP_ShipSolar': ('SHM_Stainless', A.get('ss_solar', '#687cc4'))}
+    # ship solar band LP_ShipSolar: navy #152a4a -> mid blue #687cc4 (Director 10/24, ship tone fix). #687cc4 also keeps the band's anti-aliased edge
+    # against the cyan SolarGlowLo trim outside qa3d-next's ring-albedo tolerance (|rgb - #2fe3ff| <= 48), so the 4 cyan rings stay the only ring bands.
+    # SHIP_SWATCH: ship-only overrides (pad solar masts keep the navy LP_SolarCell).
     SHIP_SWATCH = {'LP_SolarCell': A.get('ss_solar', '#687cc4')}
     # one material per node except Pad_Base (4) and Crane (2): forced node materials
     NODE_MAT = {'Hose_LOX': 'SHM_Metal', 'Hose_LCH4': 'SHM_Metal', 'Tier_03': 'SHM_Paint', 'Tier_05': 'SHM_Paint', 'Tier_08': 'SHM_Paint',

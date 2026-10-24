@@ -35,7 +35,7 @@ def build(G):
         'dark': M_paint('LP_ShipDark', '#454b52', rough=0.45, metal=0.5, bevel=0.0),
         'bay': M_paint('LP_ShipBay', '#1c1f23', rough=0.6, metal=0.2, bevel=0.0),
         'glow': M_paint('LP_ShipGlow', '#5fd9ef', rough=0.4, metal=0.2, bevel=0.0),
-        'solar': CELL,
+        'solar': M_paint('LP_ShipSolar', '#687cc4', rough=0.35, metal=0.3, bevel=0.0),   # mid-blue solar band (Director 10/24 ship tone fix; was the navy LP_SolarCell)
     }
     SLOT = ['A', 'B', 'C', 'weld', 'band', 'heat', 'dark', 'bay', 'glow', 'solar']
     # ---- import the starter exterior parts (temp collection, removed afterwards)
