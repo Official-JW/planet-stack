@@ -1,0 +1,99 @@
+{
+ "camera": "38 deg vFOV, 18 deg look-down, game yaw (looking down -Z), plain lookAt at the node (no setViewOffset); distance from frame_w as in qa3d-next fitSite()",
+ "spare_req_px": 5.0,
+ "trigger_abs_s": 35.092,
+ "fit_views": [
+  "375x667 band 144-383 (HUD bottom 120 + 24; bar)",
+  "393x852 band 184-489 (375 band scaled by 852/667)"
+ ],
+ "nodes": {
+  "Board_Focus": {
+   "translation": [
+    3.854,
+    11.05,
+    -10.775
+   ],
+   "frame_w": 105.9,
+   "content": "whole ladder + every climber, crew_climb start .. trigger",
+   "views": {
+    "375x667 band 144-383 (HUD bottom 120 + 24; bar)": {
+     "distance_m": 273.52,
+     "crew_px": 6.1,
+     "spare_top_px": 152.4,
+     "spare_bottom_px": 5.0,
+     "content_x_px": [
+      186.8,
+      198.3
+     ],
+     "fits": true
+    },
+    "393x852 band 184-489 (375 band scaled by 852/667)": {
+     "distance_m": 333.38,
+     "crew_px": 6.4,
+     "spare_top_px": 203.2,
+     "spare_bottom_px": 16.5,
+     "content_x_px": [
+      195.8,
+      207.8
+     ],
+     "fits": true
+    },
+    "393x852 band 165-534 (qa3d-next band() with iPhone safe-area insets 59/34)": {
+     "distance_m": 333.38,
+     "crew_px": 6.4,
+     "spare_top_px": 222.2,
+     "spare_bottom_px": 61.5,
+     "content_x_px": [
+      195.8,
+      207.8
+     ],
+     "fits": true
+    }
+   }
+  },
+  "Board_Focus_Top": {
+   "translation": [
+    3.854,
+    15.861,
+    -10.775
+   ],
+   "frame_w": 16.1,
+   "content": "ladder above 14 m + every crew vertex above 14 m + hatch landing, trigger .. end",
+   "views": {
+    "375x667 band 144-383 (HUD bottom 120 + 24; bar)": {
+     "distance_m": 41.58,
+     "crew_px": 40.3,
+     "spare_top_px": 5.6,
+     "spare_bottom_px": 5.1,
+     "content_x_px": [
+      157.6,
+      208.6
+     ],
+     "fits": true
+    },
+    "393x852 band 184-489 (375 band scaled by 852/667)": {
+     "distance_m": 50.68,
+     "crew_px": 42.3,
+     "spare_top_px": 51.0,
+     "spare_bottom_px": 16.5,
+     "content_x_px": [
+      165.4,
+      218.4
+     ],
+     "fits": true
+    },
+    "393x852 band 165-534 (qa3d-next band() with iPhone safe-area insets 59/34)": {
+     "distance_m": 50.68,
+     "crew_px": 42.3,
+     "spare_top_px": 70.0,
+     "spare_bottom_px": 61.5,
+     "content_x_px": [
+      165.4,
+      218.4
+     ],
+     "fits": true
+    }
+   }
+  }
+ }
+}

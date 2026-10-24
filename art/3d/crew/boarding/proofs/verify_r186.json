@@ -1,0 +1,71 @@
+{
+ "file": "/tmp/bp_v3m.glb",
+ "bytes": 249416,
+ "three": "186",
+ "extensionsUsed": [
+  "KHR_mesh_quantization",
+  "EXT_meshopt_compression"
+ ],
+ "images": 0,
+ "textures": 0,
+ "forbidden": [],
+ "draws": 4,
+ "tris": 10772,
+ "materials": [
+  "SHM_Paint"
+ ],
+ "clips": [
+  {
+   "name": "crew_call",
+   "duration": 3,
+   "tracks": 80
+  },
+  {
+   "name": "crew_walk_to_pad",
+   "duration": 19.3,
+   "tracks": 80
+  },
+  {
+   "name": "crew_climb",
+   "duration": 36.2,
+   "tracks": 80
+  }
+ ],
+ "planted_foot_slide_percentiles_m": {
+  "p50": 0.0013,
+  "p95": 0.0165,
+  "p99": 0.0256,
+  "max": 0.0552,
+  "n_frames": 3631,
+  "over_5mm": 1060
+ },
+ "frames_played": 1756,
+ "worst_at": {
+  "foot_max_err_vs_ref_m": {
+   "t": 28.47,
+   "crew": 3,
+   "limb": "Foot_L"
+  },
+  "hand_max_err_vs_ref_m": {
+   "t": 24.43,
+   "crew": 4,
+   "limb": "Hand_R"
+  },
+  "planted_foot_slide_max_m": {
+   "t": 12.63,
+   "crew": 4,
+   "limb": "Foot_L"
+  },
+  "gripping_hand_slip_max_m": {
+   "t": 29.87,
+   "crew": 1,
+   "limb": "Hand_L"
+  }
+ },
+ "contacts": {
+  "foot_max_err_vs_ref_m": 0.0918,
+  "hand_max_err_vs_ref_m": 0.0825,
+  "planted_foot_slide_max_m": 0.0552,
+  "gripping_hand_slip_max_m": 0.0027
+ }
+}

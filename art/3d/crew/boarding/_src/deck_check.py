@@ -6,7 +6,7 @@
 # 3) real WIP-pad triangles z 18-25 (ladder stiles/rungs, cage) sampled at 1 cm; gloves vs ladder are grips and are excluded
 # 4) foot plants: a foot is PLANTED when it moves < 0.15 m/s with its sole < 3 cm above a surface; every plant at deck height must be on a wing
 #    (|t| >= 0.68 outside the kerb, inside the deck) and never in the well (u 4.05-5.15, |t| < 0.62); reports each plant's sole box.
-import sys, json, math, numpy as np
+import sys, json, math, os, numpy as np
 from scipy.spatial import cKDTree
 pre, padf = sys.argv[1], sys.argv[2]; m = json.load(open(pre + '.json')); V = m['nverts']; T = np.array(m['times'])
 P = np.memmap(pre + '_pos.bin', np.float32, 'r', shape=(len(T), 4, V, 3)); vj = np.array(m['vjoint']); dt = float(T[1] - T[0])
@@ -44,8 +44,13 @@ def sdf(Q):
     # hull wall (outside the hatch opening) and the opening jambs (|t| = 0.652 between u 3.80 and the hatch face 4.06), z 21.0-23.75
     rr = np.hypot(u, t); hz = (z > 21.0) & (z < 23.75)
     hull = np.where(hz & (np.abs(t) > 0.652), rr - (R - 0.03), 9.0)
-    jam = np.where(hz & (u > 3.80) & (u < 4.06) & (np.abs(t) <= 0.652), 0.652 - np.abs(t), 9.0)
-    out['hull'] = hull; out['hatch_jamb'] = jam
+    # v3: the hatch opening edges = the door box outline measured on the WIP pad tris (outer face u 4.06, |t| <= 0.652, z 21.748-23.752,
+    # box back at u 3.938, carried on into the hull to u 3.80): unsigned distance to the two side faces (|t| = 0.652) and the lintel (z = 23.752)
+    out['hull'] = hull
+    uu = np.clip(u, 3.80, 4.06); at_ = np.abs(t)
+    side = np.sqrt((u - uu) ** 2 + (at_ - 0.652) ** 2 + (z - np.clip(z, 21.748, 23.752)) ** 2)
+    top = np.sqrt((u - uu) ** 2 + (at_ - np.minimum(at_, 0.652)) ** 2 + (z - 23.752) ** 2)
+    out['hatch_edge'] = np.minimum(side, top)
     return out
 # real pad triangles (z 18-25 region): sample
 D = json.load(open(padf)); pts = []; lab = []
@@ -65,7 +70,9 @@ for k in [int(x) - 1 for x in os.environ.get('CREWS', '1,2,3,4').split(',')]:
     r = dict(min_m=9.0, at_s=None, part=None, climb_min_frame_side_m=9.0, hits=0, ladder_nonhand_min_m=9.0, ladder_at=None, ladder_part=None,
              cage_min_m=9.0, cage_at=None, cage_part=None, plants=[], plants_in_well=0, plants_on_kerb=0, sole_min_above_deck_m=9.0)
     cur = {'Foot_L': None, 'Foot_R': None}; prevQ = None
+    STR = int(os.environ.get('STRIDE', '1'))
     for ti, t in enumerate(T):
+        if ti % STR: continue
         if not m['visible'][ti][k]: prevQ = None; continue
         X = np.asarray(P[ti, k], float) - C; Q = np.stack([X @ LU, X @ LT, X[:, 1]], 1)
         if Q[:, 2].max() > 19.8:
@@ -77,7 +84,12 @@ for k in [int(x) - 1 for x in os.environ.get('CREWS', '1,2,3,4').split(',')]:
                         s = np.where(isfoot & (Q[sel][:, 2] > TOP - 0.03), 9.0, s)
                         if isfoot.any(): r['sole_min_above_deck_m'] = round(min(r['sole_min_above_deck_m'], float((Q[sel][isfoot, 2] - TOP)[o[nm][isfoot] < 0.05].min()) if (o[nm][isfoot] < 0.05).any() else 9.0), 3)
                     j = s.argmin(); sv = float(s[j])
-                    pp = res['per_part'].setdefault(nm, dict(min_m=9.0, hits=0)); pp['min_m'] = round(min(pp['min_m'], sv), 3)
+                    pp = res['per_part'].setdefault(nm, dict(min_m=9.0, hits=0))
+                    if sv < pp['min_m']: pp.update(min_m=round(sv, 4), at_s=round(float(t), 3), crew=k + 1, joint=str(vj[sel][j]), utz=[round(float(v), 3) for v in Q[sel][j]])
+                    if nm == 'frame_side':
+                        ph = 'well_frame_climb' if Q[:, 2].min() < 21.0 else 'kerb_deck'
+                        pq = res['per_part'].setdefault(ph, dict(min_m=9.0, hits=0))
+                        if sv < pq['min_m']: pq.update(min_m=round(sv, 4), at_s=round(float(t), 3), crew=k + 1, joint=str(vj[sel][j]), utz=[round(float(v), 3) for v in Q[sel][j]])
                     if sv < 0:
                         pp['hits'] += 1; r['hits'] += 1; hl = r.setdefault('hit_log', {}).setdefault(nm, [])
                         if not hl or t - hl[-1][1] > 0.2: hl.append([round(float(t), 2), round(float(t), 2), str(vj[sel][j]), round(sv, 3), [round(float(v), 3) for v in Q[sel][j]]])
@@ -92,6 +104,8 @@ for k in [int(x) - 1 for x in os.environ.get('CREWS', '1,2,3,4').split(',')]:
             if sel.any():
                 dd, _ = KC.query(Q[sel]); j = dd.argmin()
                 if dd[j] < r['cage_min_m']: r['cage_min_m'] = round(float(dd[j]), 3); r['cage_at'] = round(float(t), 2); r['cage_part'] = str(vj[sel][j])
+                pq = res['per_part'].setdefault('cage_tris', dict(min_m=9.0, hits=0))
+                if dd[j] < pq['min_m']: pq.update(min_m=round(float(dd[j]), 4), at_s=round(float(t), 3), crew=k + 1, joint=str(vj[sel][j]), utz=[round(float(v), 3) for v in Q[sel][j]])
         # planted feet at deck height
         for fj in ('Foot_L', 'Foot_R'):
             fm = vj == fj; F = Q[fm]; sp = 9 if prevQ is None else np.linalg.norm(F.mean(0) - prevQ[fm].mean(0)) / dt

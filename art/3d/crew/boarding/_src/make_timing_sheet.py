@@ -11,17 +11,24 @@ o.append("After `inside_hatch` the crew member's Root is scaled to 1e-4 (hidden)
 o.append('Ladder (measured from launch_pad_game.glb, ship-leg ladder on the +X/+Z side): rungs at y = 0.65 + 0.6·i, i = 0..34 (top rung 21.05 m), stile tops / deck top 21.85 m.\n')
 o.append('Pad-local frame used for the landing (same as Art Assistant 2): u along the 330° ladder axis from Ship_Center (glTF (0, ·, −13)), t sideways (t = (p − C)·(0.5, 0, −0.866)), z = glTF y. The crew root sits at the pad origin.\n')
 if 'board_focus' in d:
-    bf = d['board_focus']; o.append('## Board_Focus (empty node in the GLB, child of CrewBoarding)\n')
-    o.append(f"- world position (glTF, Y up): **{bf['position']}**; mid-ladder point {bf['mid_ladder_point']}")
-    for k, v in bf.get('camera', {}).items(): o.append(f'- {k}: `{json.dumps(v)}`' if not isinstance(v, str) else f'- {k}: {v}')
+    bf = d['board_focus']; o.append('## Board_Focus / Board_Focus_Top (empty nodes in the GLB, children of CrewBoarding)\n')
+    o.append(f"- camera: {bf['camera']}")
+    o.append(f"- switch: {bf['switch']}")
+    for n, v in bf['nodes'].items():
+        o.append(f"- **{n}**: translation {v.get('translation')}, extras frame_w {v.get('extras', {}).get('frame_w')}; trigger `{json.dumps(v.get('extras', {}).get('trigger'))}`")
+    o.append('\n| node | viewport / band | distance m | crew px | spare top px | spare bottom px |\n|---|---|---|---|---|---|')
+    for n, v in bf['fit']['nodes'].items():
+        for vw, f_ in v['views'].items(): o.append(f"| {n} | {vw} | {f_['distance_m']} | {f_['crew_px']} | {f_['spare_top_px']} | {f_['spare_bottom_px']} |")
     o.append('')
+if 'landing_script_timings' in d:
+    o.append('Per-crew timings in the format landing_clear_v3.mjs takes: `' + json.dumps(d['landing_script_timings']) + '`\n')
 o.append('## Phases per crew member\n\n| crew | role | call | walk start | at ladder / queue spot | mount (first reach) | climb start | climb top | on deck (mantle done) | inside hatch (hidden) | ladder time |\n|---|---|---|---|---|---|---|---|---|---|---|')
 for c in d['crew']:
     o.append(f"| {c['crew']} | {c['role']} | {c['call'][0]:.2f}–{c['call'][1]:.2f} | {c['walk_start']:.2f} | {c['arrive_ladder_or_queue']:.2f} | {c['mount']:.2f} | {c['climb_start']:.2f} | {c['climb_top']:.2f} | {c['on_deck']:.2f} | {c['inside_hatch']:.2f} | {c['on_deck'] - c['mount']:.2f} |")
-o.append('\nPhase notes: *call* = Cargo Manager (crew 1) hand to helmet radio 0.2–2.95 s and points to the pad 1.35–3.1 s; crew 2–4 raise a hand to acknowledge. *walk* = planted-foot gait along the shared route around the ship-leg pad; crew 2–4 wait at queue spots by the ladder and step to the ladder foot before their mount (mounts are chained: each is at least one stagger after the previous). *climb* = diagonal pairs (right hand + left foot on even rungs, left hand + right foot on odd rungs), hands swing in 0.42 of the cycle, feet 0.45. *mantle* = see the hatch landing section.\n')
+o.append('\nPhase notes: *call* = Cargo Manager (crew 1) hand to helmet radio 0.2–2.95 s and points to the pad 1.35–3.1 s; crew 2–4 raise a hand to acknowledge. *walk* = planted-foot gait along the shared route around the ship-leg pad; crew 2–4 wait at queue spots by the ladder and step to the ladder foot before their mount (mounts are chained: each is at least one stagger after the previous). *climb* (v3) = the arms do the climbing (hand-over-hand on the rungs, curled grip); the boots trail under the body, toes down, >= 3 cm behind the rungs (AA2 v3 gate: a boot near a rung must be still). *mantle* = see the hatch landing section.\n')
 if any('mantle' in c for c in d['crew']):
     o.append('## Hatch landing: mantle + walk-in per climber (Art Assistant 2 option 1 landing)\n')
-    o.append('Open well u 4.05–5.15, |t| < 0.62 (no deck in front of the hatch); kerb |t| 0.62–0.68 (top z 21.88); wing stand area u 4.3–4.7, |t| 0.75–1.25, deck top z 21.85. Each climber pulls the lead foot back off its rung, lifts it inside the cage and high-steps sideways over the kerb onto the wing, the trail foot follows, then they step toward the hull, cross the outer foot behind over the kerb and through the hatch.\n')
+    o.append('Open well u 4.05–5.15, |t| < 0.62 (no deck in front of the hatch); kerb |t| 0.62–0.68 (top z 21.88); wing stand area u 4.3–4.7, |t| 0.75–1.25, deck top z 21.85. v3: the climb ends low with the gloves on rungs 33/34; the hands move up onto the stiles and the climber presses up; the lead boot goes out through the cage side opening, over the kerb, and is SET DOWN slowly on the wing (still-sole rule), the trail boot follows; walk-in: each wing boot is lifted slowly, crosses the kerb >= 3 cm high and lands in the doorway (0 plants in the well, 0 on the kerb).\n')
     o.append('| crew | step-off side | through-hole start (climb top) | through-hole end (both boots on the wing) | hands off | walk-in end (inside hatch, hidden) |\n|---|---|---|---|---|---|')
     for c in d['crew']:
         mt = c['mantle']; o.append(f"| {c['crew']} | {mt['side']} (lead {mt['lead_foot']}) | {mt['mantle_start_climb_top']:.2f} | {mt.get('through_hole_end_both_boots_on_wing', 0):.2f} | {mt['hands_released']:.2f} | {mt['walk_in_end_inside_hatch']:.2f} |")

@@ -1,0 +1,18 @@
+{
+ "threshold_y_m": 14,
+ "clip": "crew_climb",
+ "clip_offset_s": 22.3,
+ "clip_duration_s": 36.2,
+ "bones": {
+  "C1_Hips": {
+   "clip_local_s": 12.792,
+   "absolute_s": 35.092,
+   "first_30hz_frame_clip_local_s": 12.8
+  },
+  "C1_Head": {
+   "clip_local_s": 12.293,
+   "absolute_s": 34.593,
+   "first_30hz_frame_clip_local_s": 12.3
+  }
+ }
+}

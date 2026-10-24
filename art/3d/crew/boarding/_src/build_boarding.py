@@ -6,8 +6,9 @@ python3 build_boarding.py SUIT.npz OUT_RAW.glb OUT_TIMING.json [--rung-pair-s 1.
 All positions are Launch-Pad-local glTF (pad GLB root = identity): +Y up, the game camera looks from +Z.
 Ladder / hatch numbers were measured read-only from launch_pad_game.glb (md5 816f18f3...): rungs y 0.65 + 0.6 i (i 0..34),
 rails top / hatch deck y 21.85, ladder axis = Ship_Center (0, -13) + LU * 4.45 with LU = (0.866, 0, 0.5)."""
-import sys, json, math, struct
+import sys, json, math, struct, os
 import numpy as np
+from scipy.interpolate import PchipInterpolator
 
 ARGS = sys.argv[1:]
 def opt(k, d):
@@ -29,9 +30,25 @@ LAD_R = 4.45                                    # ladder plane radius from the s
 def lad(r, lat=0.0, y=0.0): return SHIP_C + LU * r + LT * lat + np.array([0, y, 0])
 STAND = lad(4.95, 0.0, PAD_Y)                   # where a climber stands, facing the ladder (-LU), before mounting
 DECK_U = 4.53                                   # deck foot spot (AA2: solid deck at t +/-0.9, u 4.3-4.7)
-DECK_T = 0.92
+DECK_T = 0.89                                   # v3: 3 cm in from 0.92 (lead-side arm clears the guard rail by >= 3 cm)
+TRAIL_U = 4.60                                  # v3: trail (inner) boot plants a little aft so the outer boot can step past it to the hull side
+WALKIN_U = 4.22                                 # v3: outer boot's spot on the wing beside the hull before the doorway step
 SIDES = [float(x) for x in opt('--mantle-sides', '1,-1,1,-1').split(',')]   # mantle step-off side per climber (+1 = +t)
-CLIMB_R = 4.74                                  # body (root) radius while on the ladder
+ELAT_K = float(os.environ.get('ELAT_K', 0.36)); ELBOW_Z = float(os.environ.get('ELBOW_Z', -1.2)); KNEE_V = [float(x) for x in os.environ.get('KNEE_V', '1.0,0.1,0.0').split(',')]
+FOOT_BACK = 0.13; HAND_BACK = 0.11
+FOOT_DU = float(os.environ.get('FOOT_DU', 0.20)); FOOT_T = 0.12; HAND_T = float(os.environ.get('HAND_T', 0.12))
+FOL_U = float(os.environ.get('FOL_U', 4.70)); FOL_T = float(os.environ.get('FOL_T', 0.11)); FOL_L = float(os.environ.get('FOL_L', 0.80)); FOL_A = float(os.environ.get('FOL_A', 0.025)); FOL_K = float(os.environ.get('FOL_K', 0.0)); FOL_P = float(os.environ.get('FOL_P', 1.0)); FOL_T0 = 0.25; FOL_BL = 0.9
+YTOP = float(os.environ.get('YTOP', 20.10))
+MANT_Y = float(os.environ.get('MANT_Y', 20.93)); RAIL_TOPG = float(os.environ.get('RAIL_TOPG', 21.79)); REL_BK = float(os.environ.get('REL_BK', 0.12))     # mantle press height (y_b) while the lead boot steps over
+MK = [float(x) for x in os.environ.get('MK', '-1.0,0.5,0.0').split(',')]
+MKT = [float(x) for x in os.environ.get('MKT', '-0.8,0.5,0.0').split(',')]; KW = [float(os.environ.get('KW', 0.6))]
+RAIL_EL = float(os.environ.get('RAIL_EL', -0.4))
+FOL_MU = float(os.environ.get('FOL_MU', 0.06))
+MANT_STAND = float(os.environ.get('MANT_STAND', 5.0))
+PATH_PF = float(os.environ.get('PATH_PF', 0.85))
+L34_Y = float(os.environ.get('L34_Y', 19.55))
+LF_U = float(os.environ.get('LF_U', 4.52)); LF_T = float(os.environ.get('LF_T', 0.80))
+CLIMB_R = 4.69                                  # body (root) radius while on the ladder (v3: the suit pack fits the 0.75 m cage only at 4.69-4.71)
 # crew path markers in the pad GLB (Crew_Path_01..05): airlock AL-2 door -> receiver spot -> apron -> pad -> Ladder_Foot
 CP = {1: (-11.19, 0.30, 7.94), 2: (-7.85, 0.30, 8.20), 3: (-2.40, 0.10, 2.20), 4: (3.20, 0.25, -3.40), 5: (4.50, 0.25, -10.40)}
 # the straight Crew_Path_04 -> Ladder_Foot line crosses the ship-leg foot pad at (4.1, -5.9) (r 1.05), so the file goes round it on the outside
@@ -42,6 +59,53 @@ LEG_FEET = [np.array((4.10, 0.25, -5.90)), np.array((8.20, 0.25, -13.0))]
 S = np.load(SUIT)
 JP = {str(k): v.astype(float) for k, v in zip(S['jnames'], S['jpos'])}
 HEADC = S['headc'].astype(float)
+
+# ---- v3 grip glove (my copy of the suit only; AA2/ship crew.py untouched).  The pass-3 glove is 5 closed pieces + 42 zero-thickness flaps,
+# so any rod through the hand crosses skin.  Replace each glove with a closed, thick hook: a C-shaped finger wrap (inner r 37 mm,
+# outer r 60 mm, 204 deg, 100 mm wide) on a palm block.  In the grip frame (body axes: +x left, +y up, +z toward the ladder; wrist at 0)
+# the wrap centre is GRIP_C and the opening faces straight down, so a rung (50 mm box, 35.4 mm half-diagonal) drops into the wrap with
+# 0-2 mm contact and its axis never crosses the glove skin.  Bind-space glove = GRIP_RG^T * grip-space, so a hand bone set to
+# R_root @ GRIP_RG puts the wrap exactly on the rung.
+GRIP_RG = None   # filled below once Rx exists
+GRIP_C = np.array([0.0, -0.03, float(os.environ.get("GRIP_Z", 0.12))]); GRIP_RI, GRIP_RO, GRIP_W = 0.037, 0.060, 0.05
+def _glove_tris():
+    import math as _m
+    T = []
+    def quad(a, b, c, d, out):
+        n = np.cross(b - a, c - a)
+        if n @ out < 0: a, b, c, d = a, d, c, b
+        T.extend([(a, b, c), (a, c, d)])
+    al = [_m.radians(-12 + 204 * k / 10) for k in range(11)]
+    P_ = lambda r, a, x: GRIP_C + np.array([x, r * _m.sin(a), r * _m.cos(a)])
+    rad = lambda a: np.array([0, _m.sin(a), _m.cos(a)])
+    for a0, a1 in zip(al[:-1], al[1:]):
+        am = (a0 + a1) / 2
+        quad(P_(GRIP_RO, a0, -GRIP_W), P_(GRIP_RO, a1, -GRIP_W), P_(GRIP_RO, a1, GRIP_W), P_(GRIP_RO, a0, GRIP_W), rad(am))
+        quad(P_(GRIP_RI, a0, -GRIP_W), P_(GRIP_RI, a1, -GRIP_W), P_(GRIP_RI, a1, GRIP_W), P_(GRIP_RI, a0, GRIP_W), -rad(am))
+        for x in (-GRIP_W, GRIP_W):
+            quad(P_(GRIP_RI, a0, x), P_(GRIP_RI, a1, x), P_(GRIP_RO, a1, x), P_(GRIP_RO, a0, x), np.array([np.sign(x), 0, 0]))
+    for a_, sg in ((al[0], -1), (al[-1], 1)):
+        tg = np.array([0, _m.cos(a_), -_m.sin(a_)]) * sg
+        quad(P_(GRIP_RI, a_, -GRIP_W), P_(GRIP_RO, a_, -GRIP_W), P_(GRIP_RO, a_, GRIP_W), P_(GRIP_RI, a_, GRIP_W), tg)
+    lo, hi = np.array([-0.048, -0.045, -0.035]), np.array([0.048, 0.022, GRIP_C[2] - 0.045])   # palm / back-of-hand block (wrist cuff side)
+    cn = lambda i, j, k: np.array([(lo, hi)[i][0], (lo, hi)[j][1], (lo, hi)[k][2]])
+    for ax in range(3):
+        for sd in (0, 1):
+            idx = [(i, j, k) for i in (0, 1) for j in (0, 1) for k in (0, 1) if (i, j, k)[ax] == sd]
+            a, b, d, c = [cn(*q) for q in idx]
+            o = np.zeros(3); o[ax] = 1 if sd else -1; quad(a, b, c, d, o)
+    return np.array(T)
+SU = {k: S[k] for k in S.files}
+def _swap_gloves(SU):
+    gn = [str(x) for x in SU['gnames']]; G0 = SU['G']; keep = np.ones(len(G0), bool)
+    for h in ('Hand_L', 'Hand_R'): keep &= np.array(gn)[G0] != h
+    Pn, Nn, Cn, Gn = [SU['P'][keep]], [SU['N'][keep]], [SU['C'][keep]], [G0[keep]]
+    tri = _glove_tris(); RGt = GRIP_RG.T
+    for h in ('Hand_L', 'Hand_R'):
+        w = JP[h]; V = tri.reshape(-1, 3) @ RGt.T + w
+        n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]); n = n / np.linalg.norm(n, axis=1, keepdims=True); n = np.repeat(n @ RGt.T, 3, 0)
+        Pn.append(V.astype(SU['P'].dtype)); Nn.append(n.astype(SU['N'].dtype)); Cn.append(np.full(len(V), 1, SU['C'].dtype)); Gn.append(np.full(len(V), gn.index(h), G0.dtype))
+    SU.update(P=np.concatenate(Pn), N=np.concatenate(Nn), C=np.concatenate(Cn), G=np.concatenate(Gn))
 JOINTS = ['Root', 'Hips', 'Spine', 'Chest', 'Neck', 'Head', 'UpperArm_L', 'Forearm_L', 'Hand_L', 'UpperArm_R', 'Forearm_R', 'Hand_R',
           'Thigh_L', 'Shin_L', 'Foot_L', 'Thigh_R', 'Shin_R', 'Foot_R']
 PARENT = {'Root': None, 'Hips': 'Root', 'Spine': 'Hips', 'Chest': 'Spine', 'Neck': 'Chest', 'Head': 'Neck',
@@ -72,6 +136,13 @@ def sstep(x): x = min(max(x, 0.0), 1.0); return x * x * (3 - 2 * x)
 def s5(x): x = min(max(x, 0.0), 1.0); return x * x * x * (x * (6 * x - 15) + 10)
 def frame(a, n):
     a = nrm(a); n = nrm(n - a * (n @ a)); return np.stack([a, n, np.cross(a, n)], 1)
+GRIP_RG = Rx(-1.0)
+if os.environ.get('OLD_GLOVE') is None: _swap_gloves(SU)
+# v3 (my suit copy): the trouser cuff ring sits inside the boot 3.1 cm above the sole; on a planted boot it came within 3 cm of the
+# wing deck (AA2 'shins over the deck').  Pull the hidden Shin-group verts below CUFF_Y up to CUFF_Y (still inside the boot shell).
+CUFF_Y = float(os.environ.get('CUFF_Y', 0.13))
+for _h in ('Shin_L', 'Shin_R'):
+    _m = SU['G'] == [str(x) for x in SU['gnames']].index(_h); _P = SU['P'].copy(); _P[_m, 1] = np.maximum(_P[_m, 1], CUFF_Y); SU['P'] = _P
 def mat2q(M):
     t = np.trace(M)
     if t > 0:
@@ -178,7 +249,7 @@ class Crew:
         t0 = self.t; yawL = yaw_of(-LU)
         cyc = RUNG_PAIR_S; v = 1.2 / cyc
         mount = 0.9; ramp = 0.8
-        yb0 = PAD_Y; ytop = 20.45                         # body (feet reference) height when the mantle starts
+        yb0 = PAD_Y; ytop = YTOP                         # body (feet reference) height when the mantle starts
         # body height y_b(t): rest during the mount, accelerate over `ramp`, constant v, decelerate into ytop
         dist = ytop - yb0; tc = t0 + mount
         Tconst = (dist - v * ramp) / v                            # accel + decel each cover v*ramp/2
@@ -192,9 +263,11 @@ class Crew:
             return ytop
         # limb moves, derived from the body trajectory so every grip lands at the same height relative to the body:
         # diagonal pairs (right hand + left foot, then left hand + right foot), each limb moves 2 rungs per cycle.
-        W = {'hand': 0.42, 'foot': 0.45}
-        TOPREL = {'hand': 1.85, 'foot': 0.78}                     # wrist / ankle height above y_b when the grip lands
-        OFF = {'hand': -0.03, 'foot': 0.107}
+        # v3: the body sits 0.25 m behind the rungs (pack vs cage), so a bent knee would reach the rungs: the arms do the climbing
+        # (2 rungs per reach) and the legs stay long, knees turned out inside the cage, boots tapping every other rung (toes on the rung top).
+        W = {'hand': float(os.environ.get('W_HAND', 0.62)), 'foot': float(os.environ.get('W_FOOT', 0.92))}
+        TOPREL = {'hand': float(os.environ.get('TR_HAND', 1.70)), 'foot': float(os.environ.get('TR_FOOT', 0.155))}   # wrist / ankle height above y_b when the grip lands
+        OFF = {'hand': 0.03, 'foot': 0.025 + ANK + 0.001}
         PAR = {'hand_R': 0, 'foot_L': 0, 'hand_L': 1, 'foot_R': 1}
         tg = np.arange(t0, t_end + 2.0, 0.002); yg = np.array([yb(t) for t in tg])
         moves = {k: [] for k in PAR}
@@ -202,10 +275,10 @@ class Crew:
             kind, sd_ = k.split('_'); w = W[kind] * cyc
             top = 34 if kind == 'foot' else 35
             pre = None
-            for idx in range(par, top + 1, 2) if kind == 'foot' else list(range(par, 35, 2)) + [35]:
+            for idx in range(par, top + 1, 2) if kind == 'foot' else list(range(par, 35, 2)):
                 ry = (RUNG_Y[idx] if idx < 35 else DECK_Y + 0.02) + OFF[kind]
                 need = ry - TOPREL[kind] - OFF[kind] + OFF[kind]
-                need = (RUNG_Y[idx] if idx < 35 else DECK_Y + 0.02) - TOPREL[kind] + (0.107 if kind == 'foot' else -0.03)
+                need = (RUNG_Y[idx] if idx < 35 else DECK_Y + 0.02) - TOPREL[kind] + OFF[kind]
                 if need <= yb0 + 1e-6:
                     pre = idx; continue
                 if need > ytop + 1e-6: break
@@ -225,71 +298,103 @@ class Crew:
                 if moves[k][i][0] < moves[k][i - 1][1] + 0.05:
                     moves[k][i][0] = moves[k][i - 1][1] + 0.05
                     moves[k][i][1] = max(moves[k][i][1], moves[k][i][0] + 0.3)
+            if k == 'hand_L' and moves[k] and moves[k][-1][2] == 33:
+                # v3: YTOP is low, so the left glove on rung 33 would be dragged off it (arm over-stretched): it joins the right one on rung 34
+                bt = float(tg[np.searchsorted(yg, L34_Y)]); a_ = max(moves[k][-1][1] + 0.05, bt - 0.5)
+                moves[k].append([a_, max(bt, a_ + 0.45), 34])
             moves[k] = [tuple(m) for m in moves[k]]
+        def hand_frame(s, idx):   # glove frame (columns = glove x / y / z in the world); rungs: the root frame (wrap axis along the rung)
+            if isinstance(idx, tuple) and idx[0] == 'rail':
+                rs = -SIDE[s]; return np.column_stack([-rs * np.array([0, 1.0, 0]), -rs * LT, -LU])   # wrap axis vertical, opening outward
+            return Ry(yawL)
         def limb_pos(kind, s, idx):
+            if isinstance(idx, tuple) and idx[0] == 'rail':
+                return lad(LAD_R, 0.28 * -SIDE[s], idx[1]) - hand_frame(s, idx) @ GRIP_C
             if not isinstance(idx, (int, np.integer)): return np.asarray(idx, float)
             sd = SIDE[s]
             # the crew member faces -LU, so their left (+X local) is -LT ... left(yawL)
             lt = left(yawL)
-            if kind == 'foot':
-                return lad(LAD_R, 0, 0) + lt * 0.12 * sd + LU * 0.14 + np.array([0, RUNG_Y[idx] + 0.107, 0])
-            if idx >= 35:   # rail tops / deck edge
-                return lad(LAD_R, 0, 0) + lt * 0.27 * sd + LU * 0.05 + np.array([0, DECK_Y + 0.02, 0])
-            return lad(LAD_R, 0, 0) + lt * 0.2 * sd + LU * 0.07 + np.array([0, RUNG_Y[idx] - 0.03, 0])
-        for k, mv in moves.items():
-            kind, s = k.split('_')
-            if kind == 'foot':
-                for a, b, idx in mv:
-                    self.feet[s].append(dict(t0=a, t1=b, pos=limb_pos('foot', s, idx), yaw=yawL, kind='climb', arc=LU * 0.16 + np.array([0, 0.04, 0])))
-        # mantle through the hatch-deck hole (AA2: hole u 4.05-5.15, t +/-0.62; decking to t +/-1.4 with a guard rail):
-        # feet together on the top rung, lead hand to the hatch frame, trail hand pushes on the lead-side ladder rail top,
-        # body rises and slides sideways, lead foot steps sideways onto solid deck (t = S*1.0), then the trail foot (t = S*0.78),
-        # both at u = DECK_U, hands release, walk in along the solid deck and through the hatch.  S = +1 / -1 alternates per climber.
-        tm = t_end; M = MANTLE_S; S = self.side
-        lead = 'R' if S > 0 else 'L'; trail = 'L' if lead == 'R' else 'R'      # the climber faces -LU, so its right hand side is +t
-        # v2 landing (AA2 option 1): open well u 4.05-5.15 |t| < 0.62, kerb |t| 0.62-0.68 (top z 21.88), wing stand area u 4.3-4.7 |t| 0.75-1.25.
-        # Hands are on the stile tops when the climb ends. Lead hand to the hatch jamb; lead foot pulls back off rung 33, rises inside the
-        # cage, then high-steps sideways over the kerb onto the wing; body hauls up and across; trail foot follows the same way off rung 34.
-        MY = [(tm, ytop), (tm + 0.6 * M, ytop + 0.05), (tm + 1.0 * M, 20.75), (tm + 1.3 * M, 21.00), (tm + 1.9 * M, 21.12), (tm + 2.5 * M, 21.65), (tm + 2.9 * M, DECK_Y)]
-        MR = [(tm, CLIMB_R), (tm + 0.6 * M, 4.70), (tm + 1.9 * M, 4.62), (tm + 2.9 * M, DECK_U)]
-        MT = [(tm, 0.0), (tm + 1.3 * M, 0.0), (tm + 1.9 * M, S * 0.25), (tm + 2.5 * M, S * 0.65), (tm + 2.9 * M, S * DECK_T)]
-        self.mantle = (MY, MR, MT)
-        dk = lambda tt: lad(DECK_U, tt, DECK_Y + ANK + SOLE_LIFT)
-        F = [(trail, tm + 0.05 * M, tm + 0.5 * M, limb_pos('foot', trail, 34), LU * 0.14 + np.array([0, 0.03, 0]), 0),
-             (lead, tm + 0.55 * M, tm + 1.0 * M, lad(4.78, S * 0.14, 21.40), LU * 0.15, 0),                 # back off rung 33 and up inside the cage
-             (lead, tm + 1.15 * M, tm + 1.85 * M, dk(S * (DECK_T + 0.10)), np.array([0, 0.40, 0]), 1),       # high step over the kerb onto the wing
-             (trail, tm + 1.85 * M, tm + 2.15 * M, lad(4.76, 0.0, 21.70), LU * 0.06, 0),
-             (trail, tm + 2.15 * M, tm + 2.7 * M, dk(S * (DECK_T - 0.10)), np.array([0, 0.25, 0]), 1)]
-        self.deck_plants = []
-        for s_, a_, b_, p_, arc_, dp_ in F:
-            self.feet[s_].append(dict(t0=a_, t1=b_, pos=p_, yaw=yawL, kind='climb', arc=arc_))
-            if dp_: self.deck_plants.append((s_, round(b_, 3), p_ - np.array([0, ANK, 0]), 'mantle'))
-        HF = lambda tt, y: lad(4.13, tt, y)          # hatch jamb (outer face u 4.06, opening |t| 0.652)
-        KG = lambda u_, y_: lad(u_, S * 0.65, y_)       # gloves on the well kerb top (|t| 0.62-0.68, top z 21.88) on the step-off side
-        Hm = [(lead, tm + 1.6 * M, tm + 2.4 * M, lad(4.12, S * 0.76, 22.95))]   # lead glove: stile top -> flat on the hull beside the hatch
-        for s_, a_, b_, p_ in Hm: moves['hand_' + s_].append((a_, b_, p_))
-        tmd = tm + 3.3 * M
-        # walk-in (AA2 option 1): no deck in front of the hatch.  Step toward the hull on the wing, shift the weight over the inner
-        # foot, cross the outer foot behind it over the kerb and through the hatch (body |t| <= ~0.4 where it crosses the hull line),
-        # then the inner foot follows.  Explicit plants (not the generic walk) so every deck plant stays on the wing.
-        e0 = tmd; Lt = lambda u_, t_: lad(u_, S * t_, DECK_Y + ANK + SOLE_LIFT)
-        yw = lambda v_: yawL + angdiff(yawL, yaw_of(v_))
-        yd1 = yw(-LU * 0.9 - LT * S * 0.45); yd2 = yw(-LU * 0.75 - LT * S * 0.65); yin = yawL
-        E = [(trail, e0, e0 + 0.5, Lt(4.15, 0.87), yd1, np.array([0, 0.10, 0])),
-             (lead, e0 + 0.5, e0 + 0.95, Lt(4.23, 1.10), yd1, np.array([0, 0.10, 0])),
-             (lead, e0 + 1.2, e0 + 1.75, Lt(3.80, 0.24), yd2, LU * 0.40 + np.array([0, 0.21, 0])),   # crossover behind the inner foot, over the kerb
-             (trail, e0 + 1.75, e0 + 2.35, Lt(3.58, 0.08), yin, LU * 0.28 + np.array([0, 0.21, 0])),
-             (lead, e0 + 2.6, e0 + 3.1, Lt(3.30, -0.02), yin, np.array([0, 0.10, 0]))]
-        for s_, a_, b_, p_, y_, arc_ in E:
-            self.feet[s_].append(dict(t0=a_, t1=b_, pos=p_, yaw=y_, kind='climb', arc=arc_))
-            self.deck_plants.append((s_, round(b_, 3), p_ - np.array([0, ANK, 0]), 'walk_in'))
-        MY += [(e0 + 1.2, DECK_Y), (e0 + 1.85, DECK_Y - 0.17), (e0 + 2.5, DECK_Y)]
-        MR += [(e0 + 0.95, 4.25), (e0 + 1.4, 4.20), (e0 + 1.85, 4.10), (e0 + 2.45, 3.75), (e0 + 3.2, 3.40)]
-        MT += [(e0 + 0.95, S * 0.86), (e0 + 1.4, S * 0.55), (e0 + 1.85, S * 0.26), (e0 + 2.45, S * 0.12), (e0 + 3.2, 0.0)]
-        MW = [(tm, yawL), (e0, yawL), (e0 + 0.6, yd1), (e0 + 1.4, yd2), (e0 + 2.4, yin)]
+            if kind == 'foot':   # toes on the rung top: ball/toe (0.17-0.22 ahead of the ankle) over the 50 mm rung, sole 1 mm above it
+                return lad(LAD_R, 0, 0) + lt * FOOT_T * sd + LU * FOOT_DU + np.array([0, RUNG_Y[idx] + OFF['foot'], 0])
+            # glove wrap centred on the rung axis (GRIP_C in the grip frame): wrist sits behind and just above the rung
+            return lad(LAD_R, 0, 0) + lt * HAND_T * sd + np.array([0, RUNG_Y[idx], 0]) - Ry(yawL) @ GRIP_C
+        # v3 (AA2 gate: a boot within 3 cm of a rung must be still, i.e. set down / lifted at < 9 cm/s, which a 1.2 m/s climb
+        # cannot give; and the 0.75 m cage leaves no room for a bent knee): the boots trail under the body, toes pointed down,
+        # >= 3 cm behind the rungs, and the arms do the climbing.  foot_at() reads self.follow between the mount and the mantle.
+        lt_ = left(yawL)
+        def follow(s, t):
+            if t >= t_end and getattr(self, 'mantle', None) is not None:
+                y0_, r0_, tl0_ = kpw(self.mantle[0], t), kpw(self.mantle[1], t), kpw(self.mantle[2], t)
+            else: y0_, r0_, tl0_ = yb(t), CLIMB_R, 0.0
+            if t >= t_end: r0_ = r0_ + FOL_MU * sstep((t - t_end) / 1.0)
+            yh = y0_ + BIND['Hips'][1] - 0.03
+            ph_ = math.sin(TAU * (t - tc) / cyc + (0.0 if s == 'L' else math.pi))
+            Lf = FOL_L + FOL_A * ph_
+            return lad(FOL_U + r0_ - CLIMB_R, tl0_, 0) + lt_ * FOL_T * SIDE[s] + LU * (FOL_K * ph_) + np.array([0, yh - Lf, 0])
+        self.follow = dict(t0=t0 + FOL_T0, fn=follow, yaw=yawL, pitch=FOL_P, tb={})
+        # ---------------------------------------------------------------- v3 mantle + walk-in (AA2 v3 gate)
+        # Hands may only touch rungs / rails, so the climb ends low (y_b YTOP) with the gloves on rungs 33/34; they move up onto the
+        # stiles (C wrap round the vertical rail, opening outward) and the climber presses up.  The lead boot leaves its trailing
+        # pose, goes out through the cage side opening (between the stile and the side bar, above the top hoop), over the kerb and
+        # is SET DOWN on the wing (last 3.5 cm at <= 2.6 mm / frame: AA2's 'still sole' rule); the body rises over the stile tops
+        # and slides onto the wing, the trail boot follows the same way.  Walk-in: every wing boot is lifted the same slow way,
+        # crosses the kerb >= 3 cm high and well clear of the jamb, and lands in the doorway (no surface within 3 cm there).
+        S = self.side; lead = 'R' if S > 0 else 'L'; trail = 'L' if lead == 'R' else 'R'
+        tm = t_end
+        Tc_old = (20.45 - yb0 - v * ramp) / v; tin = tc + 2 * ramp + Tc_old + 6.17       # v2 'inside' time (per-crew PH i) kept
+        Mt = tin - tm
+        o = lambda x: tm + x
+        MS = MANT_STAND
+        ow = lambda x: tm + MS + (x - 4.15) * (Mt - MS) / (6.46 - 4.15)        # walk-in keys stretched to end at tin
+        STAND_Y = DECK_Y + ANK + SOLE_LIFT
+        Lp = lambda u_, t_, y_: lad(u_, S * t_, y_)
+        # body keys (y_b, root u, root t)
+        BK = [(o(0.0), YTOP, CLIMB_R, 0.0), (o(0.70), YTOP + 0.16, CLIMB_R, 0.0), (o(1.10), YTOP + 0.24, CLIMB_R, 0.0), (o(1.45), YTOP + 0.34, CLIMB_R, 0.0),
+              (o(1.80), YTOP + 0.43, CLIMB_R, 0.01), (o(2.15), YTOP + 0.50, 4.69, 0.01), (o(2.60), MANT_Y, 4.68, 0.02), (o(3.60), MANT_Y + 0.02, 4.67, 0.06),
+              (o(4.00), 21.25, 4.62, 0.40), (o(4.45), 21.70, 4.56, 0.66), (o(MS), DECK_Y, 4.54, 0.82),
+              (o(5.50), 21.80, 4.46, 0.70), (o(5.88), 21.70, 4.30, 0.26), (o(6.12), 21.64, 4.05, 0.16), (o(6.32), 21.66, 3.75, 0.10),
+              (tin, 21.75, 3.42, 0.0)]
+        MY = [(k[0], k[1]) for k in BK]; MR = [(k[0], k[2]) for k in BK]; MT = [(k[0], S * k[3]) for k in BK]
+        MW = [(tm, yawL), (tin, yawL)]
         self.mantle = (MY, MR, MT, MW)
-        tin = e0 + 3.2
-        self.segs.append((t0, tin, 'climb', dict(yb=yb, yawL=yawL, moves=moves, limb_pos=limb_pos, tc=tc, t_end=t_end, tm=tm, tmd=tmd)))
+        # hands: rung -> stile, stile -> higher on the stile, then let go (slide off inward) as the body crosses to the wing
+        hR = {lead: o(3.15), trail: o(3.30)}
+        for s_, a_, b_, idx_ in [('L', o(0.0), o(0.40), ('rail', 21.30)), ('R', o(0.30), o(0.70), ('rail', 21.30)), ('L', o(0.75), o(1.10), ('rail', 21.55)),
+                                 ('R', o(1.10), o(1.45), ('rail', 21.65)), ('L', o(1.45), o(1.80), ('rail', RAIL_TOPG)), ('R', o(1.80), o(2.15), ('rail', RAIL_TOPG)),
+                                 (lead, hR[lead], hR[lead] + 0.40, ('free',)), (trail, hR[trail], hR[trail] + 0.40, ('free',))]:
+            le_ = max([m[1] for m in moves['hand_' + s_]] + [-1e9])
+            if le_ > a_ - 0.02:
+                print('WARN shift', self.k, s_, round(a_ - tm, 3), 'last climb move ends', round(le_ - tm, 3)) if os.environ.get('DBGMV') else None
+                d_ = le_ + 0.02 - a_; a_, b_ = a_ + d_, b_ + d_
+            moves['hand_' + s_].append((a_, b_, idx_))
+        for k_ in moves: moves[k_].sort(key=lambda m: m[0])
+        # feet: PCHIP key paths (None = start from the trailing pose); 'slow' = the last / first 3.5 cm at <= 2.6 mm per frame
+        DN = float(os.environ.get('DN', 0.028)); SL = float(os.environ.get('SL', 0.47))   # v3 gate: a sole within 3 cm of the deck must be still (< 3 mm per 1/30 s): 2.8 cm in 0.47 s = 2.0 mm per frame
+        # set-downs: the last key sits 3.6 cm up (so the fast swing ends outside the 3 cm band), then 3.1 cm down in 0.70 s = 1.5 mm per frame
+        DND = float(os.environ.get('DND', 0.031)); SLD = float(os.environ.get('SLD', 0.70))
+        SL_L = float(os.environ.get('SL_L', 0.56)); DN_L = float(os.environ.get('DN_L', 0.027))   # lead lift: 2.7 cm in 0.56 s = 1.6 mm per frame
+        SLD_T = float(os.environ.get('SLD_T', 0.95))   # trail set-down: 2.9 cm in 0.95 s = 1.0 mm per frame (10-bit rotation noise is up to ~2 mm per frame on the boot)
+        def add_path(s_, keys, land=None, lift=None, tag=None, sld=None):
+            sld = SLD if sld is None else sld
+            self.feet[s_].append(dict(t0=keys[0][0], t1=keys[-1][0] + (sld if land is not None else 0.0), pos=(land if land is not None else keys[-1][1]),
+                                      yaw=yawL, kind='path', arc=np.zeros(3), keys=keys, land=land, lift=lift))
+            if land is not None and tag: self.deck_plants.append((s_, round(keys[-1][0] + sld, 3), land - np.array([0, ANK, 0]), tag))
+        self.deck_plants = []
+        LF = Lp(LF_U, LF_T, STAND_Y); TF = Lp(4.74, 0.92, STAND_Y)
+        add_path(lead, [(o(2.20), None), (o(2.40), Lp(4.70, 0.24, 21.30)), (o(2.55), Lp(4.70, 0.43, 21.50)), (o(2.80), Lp(4.62, 0.52, 22.02)), (o(2.95), Lp(LF_U + 0.06, LF_T - 0.08, 22.06)),
+                        (o(3.05), LF + np.array([0, DND, 0]))], land=LF, tag='mantle')
+        add_path(trail, [(o(3.62), None), (o(3.90), Lp(4.74, 0.36, 21.97)), (o(4.04), Lp(4.70, 0.66, 22.08)), (o(4.13), TF + np.array([0, 0.029, 0]))], land=TF, tag='mantle', sld=SLD_T)
+        # walk-in
+        D1 = Lp(3.93, 0.30, STAND_Y); D2 = Lp(3.66, 0.06, STAND_Y); D3 = Lp(3.40, -0.04, STAND_Y)   # v3: D1 u 3.98 -> 3.93 so the doorway sole box (ankle + 0.09) stays off the well edge (u 4.05)
+        # v3: after the slow lift the boot rises clear of the kerb top (21.88) before it moves in over it
+        add_path(trail, [(o(5.10), TF), (o(5.10) + SL, TF + np.array([0, DN, 0])), (o(5.10) + SL + 0.06, Lp(4.70, 0.88, STAND_Y + 0.10)), (o(5.74), Lp(4.44, 0.62, 22.04)), (o(5.88), D1)], lift=True)
+        add_path(lead, [(o(5.52), LF), (o(5.52) + SL_L, LF + np.array([0, DN_L, 0])), (o(5.52) + SL_L + 0.05, LF + np.array([0, 0.10, 0]) - LT * 0.0), (o(6.14), Lp(4.34, 0.55, 22.06)), (o(6.21), Lp(4.26, 0.30, 22.02)), (o(6.32), D2)], lift=True)
+        add_path(trail, [(o(6.33), D1), (o(6.40), Lp(3.70, 0.12, 22.00)), (tin - 0.01, D3)])
+        for p_ in (D1, D2, D3): pass
+        self.walk_in_plants = [(trail, o(5.88), D1), (lead, o(6.32), D2), (trail, tin - 0.01, D3)]
+        for s_ in 'LR': self.follow['tb'][s_] = min([e['t0'] for e in self.feet[s_] if e['t0'] >= tm - 1e-6] + [1e9])
+        tmd = o(MS); yin = yawL
+        self.segs.append((t0, tin, 'climb', dict(yb=yb, yawL=yawL, moves=moves, limb_pos=limb_pos, hand_frame=hand_frame, tc=tc, t_end=t_end, tm=tm, tmd=tmd)))
         self.events.update(mount=t0, climb_start=tc, climb_top=t_end, on_deck=tmd, moves=moves)
         self.pos = lad(3.42, 0.0, DECK_Y); self.yaw = yin; self.t = tin
         self.events['inside'] = self.t
@@ -304,6 +409,39 @@ class Crew:
     def foot_at(self, s, t):
         """ankle world position + foot yaw + pitch (+ = toe down)."""
         ev = self.feet[s]; prev = self.init_plant[s]; pk = None
+        fo = getattr(self, 'follow', None)
+        if fo is not None and t >= fo['t0']:
+            tb = fo['tb'].get(s, 1e9)
+            if t < tb:
+                pf = fo['fn'](s, t); w = Tri(t, fo['t0'], fo['t0'] + FOL_BL)
+                if w < 1:
+                    p0, y0, pt0 = self._foot_ev(s, t)
+                    return p0 * (1 - w) + pf * w, y0 + angdiff(y0, fo['yaw']) * w, pt0 * (1 - w) + fo['pitch'] * w
+                return pf, fo['yaw'], fo['pitch']
+        return self._foot_ev(s, t)
+    def _path_at(self, s, e, t):
+        ks = e['keys']; fo = self.follow
+        if '_pc' not in e:
+            P0 = ks[0][1] if ks[0][1] is not None else fo['fn'](s, ks[0][0])
+            K = [(ks[0][0], np.asarray(P0, float))] + [(a, np.asarray(p, float)) for a, p in ks[1:]]
+            e['_K'] = K; i0 = 1 if e.get('lift') else 0
+            tt = [k[0] for k in K[i0:]]; pp = np.array([k[1] for k in K[i0:]])
+            e['_pc'] = PchipInterpolator(tt, pp, axis=0) if len(tt) >= 3 else None
+            e['_i0'] = i0
+        K = e['_K']; i0 = e['_i0']; tl = K[-1][0]
+        if e.get('lift') and t < K[1][0]:
+            w = (t - K[0][0]) / (K[1][0] - K[0][0]); p = K[0][1] * (1 - w) + K[1][1] * w      # slow linear lift-off
+        elif t >= tl:
+            w = min(1.0, (t - tl) / (e['t1'] - tl)) if e['t1'] > tl else 1.0; p = K[-1][1] * (1 - w) + e['pos'] * w   # slow linear set-down
+        elif e['_pc'] is not None: p = e['_pc'](t)
+        else:
+            a_, b_ = K[i0], K[-1]; w = s5((t - a_[0]) / (b_[0] - a_[0])); p = a_[1] * (1 - w) + b_[1] * w
+        pitch = 0.0
+        if ks[0][1] is None: pitch = fo['pitch'] * (1 - s5((t - K[0][0]) / (PATH_PF * (tl - K[0][0]))))
+        return np.asarray(p, float), e['yaw'], pitch
+    def _foot_ev(self, s, t):
+        ev = self.feet[s]; prev = self.init_plant[s]; pk = None
+        fo = getattr(self, 'follow', None)
         for e in ev:
             if t < e['t0']:
                 # planted on prev; heel-rise before a walking lift-off (pivot on the toe)
@@ -313,20 +451,37 @@ class Crew:
                         Rf = Ry(prev[1]); toe = prev[0] + Rf @ TOE
                         return toe + Rf @ Rx(hr) @ (-TOE), prev[1], hr
                 return prev[0], prev[1], 0.0
+            if t < e['t1'] and e.get('keys') is not None:
+                return self._path_at(s, e, t)
             if t < e['t1']:
                 u = (t - e['t0']) / (e['t1'] - e['t0'])
-                p0 = prev[0]; y0 = prev[1]; pitch0 = 0.0
+                p0 = prev[0]; y0 = prev[1]; pitch0 = 0.0; folp = False
+                if fo is not None and e['t0'] >= fo['tb'].get(s, 1e9) - 1e-6 and fo['t0'] <= e['t0'] and e is next(x for x in ev if x['t0'] >= fo['tb'][s] - 1e-6):
+                    p0 = fo['fn'](s, e['t0']); pitch0 = fo['pitch']; folp = True   # first move after the trailing window starts where the boot hangs
                 if e['kind'] == 'walk':
                     pitch0 = 0.28; Rf = Ry(y0); toe = p0 + Rf @ TOE; p0 = toe + Rf @ Rx(0.28) @ (-TOE)
                 h = sstep(u); p = p0 * (1 - h) + e['pos'] * h + e['arc'] * math.sin(math.pi * u) ** 1.2
+                if e.get('rung'):   # v3 rung-to-rung: lift off the rung top, back away from the ladder, up, in over the target rung, set down
+                    up_ = 0.035; dy = e['pos'][1] - p0[1]
+                    y_ = p0[1] + up_ * sstep(u / 0.12) + dy * sstep((u - 0.08) / 0.74) - up_ * sstep((u - 0.86) / 0.14)
+                    bk = FOOT_BACK * sstep((u - 0.08) / 0.16) * (1 - sstep((u - 0.66) / 0.18))
+                    hh = sstep((u - 0.08) / 0.74); p = p0 * (1 - hh) + e['pos'] * hh + LU * bk; p[1] = y_
+                if e.get('via') is not None:   # v3: quadratic Bezier through `via` at mid-swing (steers the boot round the kerb / door jambs)
+                    cv = 2 * e['via'] - 0.5 * (p0 + e['pos']); p = p0 * (1 - h) ** 2 + cv * 2 * h * (1 - h) + e['pos'] * h * h
                 yw = y0 + angdiff(y0, e['yaw']) * s5(u)
                 if e['kind'] == 'walk': pitch = pitch0 * (1 - sstep(u * 2.2)) - 0.22 * math.sin(math.pi * min(1, max(0, (u - 0.35) / 0.65))) * 0.9
-                elif e['kind'] == 'climb': pitch = -0.25 * math.sin(math.pi * u)
+                elif e['kind'] == 'climb': pitch = 0.0 if e.get('rung') else -0.25 * math.sin(math.pi * u)
                 else: pitch = 0.0
+                if folp: pitch += pitch0 * (1 - s5(u))
                 return p, yw, pitch
             prev = (e['pos'], e['yaw'])
         return prev[0], prev[1], 0.0
 
+def kpw(K, t):   # smoothstep between (time, value) keys
+    if t <= K[0][0]: return K[0][1]
+    if t >= K[-1][0]: return K[-1][1]
+    for (ta, va), (tb, vb) in zip(K[:-1], K[1:]):
+        if t < tb: return va + (vb - va) * sstep((t - ta) / (tb - ta))
 def Tri(t, a, b):   # 0 before a, ramps to 1 at b
     return 0.0 if t <= a else (1.0 if t >= b else sstep((t - a) / (b - a)))
 
@@ -438,7 +593,7 @@ def pose(c, t):
             base = lad(pw(MR, t), pw(MT, t), 0); base[1] = pw(MY, t)
         pos, yaw = base, (pw(c.mantle[3], t) if t >= D['tm'] else yawL)
         mm = (t - D['tm']) / (D['tmd'] - D['tm']) if t >= D['tm'] else 0.0
-        lean = 0.02 * u + 0.18 * math.sin(math.pi * min(1, mm * 1.25)) - 0.02 * Tri(mm, 0.6, 1.0); hips_off = np.array([0, -0.03 * u, 0.0])
+        lean = 0.18 * math.sin(math.pi * min(1, mm * 1.25)) - 0.02 * Tri(mm, 0.6, 1.0); hips_off = np.array([0, -0.03 * u, 0.0])
     R_root = Ry(yaw)
     # head look target
     G = {}; Rg = {}
@@ -449,36 +604,70 @@ def pose(c, t):
     R_c = R_s @ Ry(twist * 0.6) @ Rx(lean * 0.2 - breathe); G['Chest'] = G['Spine'] + R_s @ boff('Chest'); Rg['Chest'] = R_c
     G['Neck'] = G['Chest'] + R_c @ boff('Neck')
     # ---- hands
+    GW = {'L': 0.0, 'R': 0.0}; GF = {}
     if kind == 'climb':
         H = {}
+        FH = free_hands(c, t, R_c, G['Chest'], 0.0, Tri(t, D['tm'] + 3.0, D['tm'] + 4.0) if t >= D['tm'] else 0.0)
+        isfree = lambda i_: isinstance(i_, tuple) and i_[0] == 'free'
+        israil = lambda i_: isinstance(i_, tuple) and i_[0] == 'rail'
         for s in 'LR':
-            mv = D['moves']['hand_' + s]; lp = D['limb_pos']
-            free = free_hands(c, t, R_c, G['Chest'], 0.0, Tri(t, D['tmd'] - 0.3, D['tmd'] + 0.6) if t >= D['tm'] else 0.0)[s][0]
-            prev = None; p = None
+            mv = D['moves']['hand_' + s]; lp = D['limb_pos']; hfr = D['hand_frame']
+            free = FH[s][0]; rs = -SIDE[s]; IN = -LT * rs
+            prev = None; prevG = None; prevI = None; p = None; Gc = None; gw = 0.0
+            idx_c = None
             for (a, b, idx) in mv:
-                tgt = lp('hand', s, idx)
-                if t < a: p = prev if prev is not None else free; break
+                idx_c = idx
+                if isfree(idx): tgt, Gt = free, prevG
+                else: tgt, Gt = lp('hand', s, idx), hfr(s, idx)
+                if t < a:
+                    if prev is None: p, Gc, gw = free, Gt, 0.0
+                    else: p, Gc, gw = (free, prevG, 0.0) if isfree(prevI) else (prev, prevG, 1.0)
+                    break
                 if t < b:
                     src = prev if prev is not None else free
-                    u = s5((t - a) / (b - a))
-                    if prev is None:   # first reach from the relaxed pose: swing the hand out in front (Bezier), never past the shoulder
-                        shp = G['Chest'] + R_c @ (BIND['UpperArm_' + s] - BIND['Chest'])
-                        ctl = shp - LU * 0.62 + left(yawL) * SIDE[s] * 0.12 - np.array([0, 0.05, 0])
-                        p = src * (1 - u) ** 2 + ctl * 2 * u * (1 - u) + tgt * u * u
+                    ur = (t - a) / (b - a); u = s5(ur); Gc = Gt; gw = 1.0
+                    if prev is None:   # first reach from the relaxed pose: up and over, the wrap drops onto the rung from above
+                        # v3: same path as rung-to-rung: rise to a point back from and above the rung (wrist turned on the way),
+                        # come forward over the rung while still above it, then drop straight on
+                        pre1 = tgt + LU * 0.09 + np.array([0, 0.06, 0]); pre2 = tgt + np.array([0, 0.06, 0])
+                        if ur < 0.55: p = src + (pre1 - src) * sstep(ur / 0.55)
+                        elif ur < 0.74: p = pre1 + (pre2 - pre1) * sstep((ur - 0.55) / 0.19)
+                        else: p = pre2 + (tgt - pre2) * sstep((ur - 0.74) / 0.26)
+                        gw = sstep(ur / 0.55)
+                    elif isinstance(idx, (int, np.integer)):   # rung to rung: lift the wrap off, back, up, forward over the rung, drop on
+                        up_ = 0.07; dy = tgt[1] - src[1]
+                        hh = sstep((ur - 0.10) / 0.70); p = src * (1 - hh) + tgt * hh
+                        p[1] = src[1] + up_ * sstep(ur / 0.14) + dy * hh - up_ * sstep((ur - 0.84) / 0.16)
+                        p = p + LU * HAND_BACK * sstep((ur - 0.10) / 0.15) * (1 - sstep((ur - 0.64) / 0.20))
+                    elif israil(idx) and not israil(prevI):   # rung -> stile: lift off the rung, turn the wrap, slide out onto the stile
+                        lifted = src + np.array([0, 0.12, 0]); pre = tgt + IN * 0.10
+                        if ur < 0.2: p = src + (lifted - src) * sstep(ur / 0.2)
+                        elif ur < 0.75: p = lifted + (pre - lifted) * sstep((ur - 0.2) / 0.55)
+                        else: p = pre + (tgt - pre) * sstep((ur - 0.75) / 0.25)
+                        wq = sstep((ur - 0.22) / 0.5); Gc = prevG * (1 - wq) + Gt * wq
+                    elif israil(idx):   # up the stile: slide in off it, up, back out onto it
+                        off = src + IN * 0.10; pre = tgt + IN * 0.10
+                        if ur < 0.25: p = src + (off - src) * sstep(ur / 0.25)
+                        elif ur < 0.75: p = off + (pre - off) * sstep((ur - 0.25) / 0.5)
+                        else: p = pre + (tgt - pre) * sstep((ur - 0.75) / 0.25)
+                    elif isfree(idx):   # let go: slide in off the stile, then the relaxed (tucked) arm
+                        off = src + IN * 0.10 + np.array([0, -0.03, 0]); Gc = prevG
+                        bk = off + (LU * REL_BK if isinstance(prevI, tuple) and prevI[0] == 'rail' else 0.0)   # clear the stile in u before the wrist turns
+                        if ur < 0.30: p = src + (off - src) * sstep(ur / 0.30)
+                        elif ur < 0.55: p = off + (bk - off) * sstep((ur - 0.30) / 0.25)
+                        else: p = bk + (free - bk) * sstep((ur - 0.55) / 0.45)
+                        gw = 1.0 - sstep((ur - 0.55) / 0.35)
                     else:
-                        p = src * (1 - u) + tgt * u + (-LU * 0.04 + left(yawL) * SIDE[s] * 0.09) * math.sin(math.pi * u)
+                        p = src * (1 - u) + tgt * u
                     break
-                prev = tgt
-            if p is None: p = prev
-            if t >= D['tm']:   # mantle: let go of the hatch frame once both boots are on the deck
-                trail_ = s == ('L' if c.side > 0 else 'R')    # trail hand lets go of the kerb as the body stands up on the wing
-                r = Tri(t, D['tm'] + (1.45 if trail_ else 2.55) * MANTLE_S, D['tm'] + (1.85 if trail_ else 3.0) * MANTLE_S); p = p * (1 - r) + free * r
-            elat = 0.55 - (0.45 * Tri(t, D['tm'] + 1.1 * MANTLE_S, D['tm'] + 1.6 * MANTLE_S) if t >= D['tm'] else 0.0)   # mantle: tuck the elbows in, away from the deck rails
-            pole = R_root @ np.array([SIDE[s] * elat, -1.0, 0.3])     # elbows down/in: keeps forearms inside the ladder cage
+                prev, prevG, prevI = tgt, Gt, idx
+            else:
+                p, Gc, gw = (free, prevG, 0.0) if isfree(prevI) else (prev, prevG, 1.0)
+            rw = 1.0 if (israil(prevI) or (p is not None and israil(idx_c))) else 0.0
+            pole = R_root @ np.array([SIDE[s] * 0.55 * (ELAT_K * (1 - rw) + RAIL_EL * rw), -1.0, ELBOW_Z])     # v3: elbows down and back, inside the cage, off the rails
             fpole = R_c @ np.array([SIDE[s] * 0.55, -0.25, -1.0])
-            wv = Tri(t, sg[0], sg[0] + 0.6) * (1 - (Tri(t, D['tm'] + 2.85 * MANTLE_S, D['tm'] + 3.3 * MANTLE_S) if t >= D['tm'] else 0))
-            H[s] = (p, nrm(fpole * (1 - wv) + pole * wv))
-        curl = -0.15 - 0.35 * Tri(t, sg[0], sg[0] + 0.6) * (1 - (Tri(t, D['tm'] + 2.85 * MANTLE_S, D['tm'] + 3.3 * MANTLE_S) if t >= D['tm'] else 0))
+            H[s] = (p, nrm(fpole * (1 - gw) + pole * gw)); GW[s] = gw; GF[s] = Gc if Gc is not None else R_root
+        curl = -0.15
     else:
         H = free_hands(c, t, R_c, G['Chest'], swing); curl = -0.15
     # call gestures
@@ -520,7 +709,14 @@ def pose(c, t):
         ap, fy, fp = c.foot_at(s, t)
         Rf = Ry(fy) @ Rx(fp)
         knee_dir = Ry(fy) @ np.array([SIDE[s] * 0.12, 0, 1.0])
-        if kind == 'climb': knee_dir = R_root @ np.array([SIDE[s] * 0.35, 0.2, 1.0])
+        if kind == 'climb':
+            kc = np.array([SIDE[s] * KNEE_V[0], KNEE_V[1], KNEE_V[2]]); S_ = c.side; ld_ = s == ('R' if S_ > 0 else 'L'); MKs = MK if ld_ else MKT
+            km = np.array([-S_ * MKs[0], MKs[1], MKs[2]]); kw = np.array([S_ * KW[0], 0.0, 1.0])
+            if t >= D['tm']:
+                w1 = Tri(t, D['tm'] + 2.0, D['tm'] + 2.4) if ld_ else Tri(t, D['tm'] + 3.9, D['tm'] + 4.2); w2 = Tri(t, D['tmd'] - 0.2, D['tmd'] + 0.3)
+                w3 = Tri(t, D['tm'] + 3.0, D['tm'] + 3.4) if ld_ else Tri(t, D['tm'] + 4.5, D['tm'] + 4.9)
+                kc = kc * (1 - w1) + km * w1; kc = kc * (1 - w3) + np.array([0.0, 1.0, 0.0]) * w3; kc = kc * (1 - w2) + kw * w2
+            knee_dir = R_root @ nrm(kc)   # v3: knees turned out inside the cage, never toward the rungs
         CTX.update(crew=c.k, t=round(t, 3), limb='leg' + s); R1, R2 = ik2(A, ap, L_TH[s], L_SH[s], knee_dir, IKB['leg' + s])
         G['Thigh_' + s] = A; Rg['Thigh_' + s] = R1; G['Shin_' + s] = A + R1 @ boff('Shin_' + s); Rg['Shin_' + s] = R2
         G['Foot_' + s] = G['Shin_' + s] + R2 @ boff('Foot_' + s); Rg['Foot_' + s] = Rf
@@ -529,6 +725,8 @@ def pose(c, t):
         CTX.update(crew=c.k, t=round(t, 3), limb='arm' + s); R1, R2 = ik2(Ash, hp_, L_UA[s], L_FA[s], pole, IKB['arm' + s])
         G['UpperArm_' + s] = Ash; Rg['UpperArm_' + s] = R1; G['Forearm_' + s] = Ash + R1 @ boff('Forearm_' + s); Rg['Forearm_' + s] = R2
         G['Hand_' + s] = G['Forearm_' + s] + R2 @ boff('Hand_' + s); Rg['Hand_' + s] = R2 @ Rx(curl)
+        if GW[s] > 0:   # v3: on the ladder the glove holds the grip frame (wrap opening down) whatever the forearm does
+            Mb = Rg['Hand_' + s] * (1 - GW[s]) + (GF[s] @ GRIP_RG) * GW[s]; U_, _, Vt_ = np.linalg.svd(Mb); Rg['Hand_' + s] = U_ @ Vt_
     # ---- local TRS
     out = {}
     for n in JOINTS:
@@ -608,7 +806,7 @@ def lin(hx):
     h = hx.lstrip('#'); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
     return np.array([x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c])
 PAL = [lin('#eef1f6'), lin('#2b3039'), lin('#4a4f58'), lin('#f0a22a'), lin('#29c3f2'), lin('#8ff6ff')]
-P = S['P'].astype(float); N = S['N'].astype(float); C = S['C']; Gi = S['G']; gnames = [str(x) for x in S['gnames']]
+P = SU['P'].astype(float); N = SU['N'].astype(float); C = SU['C']; Gi = SU['G']; gnames = [str(x) for x in SU['gnames']]
 key = np.concatenate([np.round(P * 2000), np.round(N * 64), C[:, None]], 1)
 uk, inv = np.unique(key, axis=0, return_inverse=True); inv = inv.ravel()
 nv = len(uk); VP = np.zeros((nv, 3)); VN = np.zeros((nv, 3)); VC = np.zeros(nv, int); VG = np.zeros(nv, int)
@@ -635,6 +833,38 @@ for gi, g in enumerate(gnames):
         WW[sel, 0] = (1 - cc) * (1 - a); WW[sel, 1] = (1 - cc) * a; WW[sel, 2] = cc
     else:
         JW[sel, 0] = JI[g]; WW[sel, 0] = 1.0
+
+# ---- optional fast pose dump (iteration only; the shipped checks re-skin the packed GLB in three r186 with dump_poses.mjs / dp.mjs):
+#   FASTDUMP=prefix,T0,T1 writes the same prefix.json / prefix_pos.bin layout, skinned here in numpy from the 30 fps source frames
+if os.environ.get('FASTDUMP'):
+    _pre, _a, _b = os.environ['FASTDUMP'].split(','); _a, _b = float(_a), float(_b)
+    def _q2m(q):
+        x, y, z, w = q; return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+    _fs = [f for f in range(NF) if _a - 1e-6 <= f / FPS <= _b + 1e-6]
+    _pos = np.zeros((len(_fs), 4, nv, 3), np.float32); _vis = []
+    _vj = [JOINTS[JW[i, int(np.argmax(WW[i]))]] for i in range(nv)]
+    for _i, f in enumerate(_fs):
+        _v = []
+        for ci in range(4):
+            out, sc, _G = frames[f][ci]; Mg = {}
+            for n in JOINTS:
+                T_, q = out[n]; R = _q2m(q); pa = PARENT[n]
+                if pa is None: Mg[n] = (R * sc, np.asarray(T_, float))
+                else: Rp, tp = Mg[pa]; Mg[n] = (Rp @ R, tp + Rp @ np.asarray(T_, float))
+            X = np.zeros((nv, 3))
+            for c_ in range(4):
+                w = WW[:, c_]; m = w > 0
+                if not m.any(): continue
+                for ji in np.unique(JW[m, c_]):
+                    mm = m & (JW[:, c_] == ji); R, tt = Mg[JOINTS[ji]]
+                    X[mm] += w[mm, None] * ((VP[mm] - BIND[JOINTS[ji]]) @ R.T + tt)
+            _pos[_i, ci] = X; _v.append(1 if sc > 0.01 else 0)
+        _vis.append(_v)
+    _pos.tofile(_pre + '_pos.bin')
+    json.dump({'vjoint': _vj, 'times': [round(f / FPS, 4) for f in _fs], 'nverts': int(nv), 'visible': _vis}, open(_pre + '.json', 'w'))
+    print('FASTDUMP', _pre, len(_fs), 'frames')
+    for c in crew: print('EV', c.i if hasattr(c, 'i') else '', 'tm %.3f on_deck %.3f inside %.3f side %d' % (c.events['climb_top'], c.events['on_deck'], c.events['inside'], c.side))
+    if os.environ.get('FASTONLY'): sys.exit(0)
 
 # ----------------------------------------------------------------------------- GLB writer
 buf = bytearray(); views = []; accs = []
@@ -677,7 +907,7 @@ for ci, c in enumerate(crew):
     first_walk = next(s for s in walk_segs if s[0] >= T_CALL - 1)
     rung = {}
     for k, mv in ev['moves'].items():
-        rung[k] = [[r3(a), r3(b), (int(i) if isinstance(i, (int, np.integer)) else ('ladder_rail_top' if np.asarray(i)[1] < 22.0 else 'hatch_frame'))] for a, b, i in mv]
+        rung[k] = [[r3(a), r3(b), (int(i) if isinstance(i, (int, np.integer)) else (('rail_z_%.2f' % i[1]) if isinstance(i, tuple) and i[0] == 'rail' else ('release' if isinstance(i, tuple) else ('ladder_rail_top' if np.asarray(i)[1] < 22.0 else 'hatch_frame'))))] for a, b, i in mv]
     def utz(p_): q = np.asarray(p_, float) - SHIP_C; return [round(float(q @ LU), 3), round(float(q @ LT), 3), round(float(q[1]), 3)]
     mantle = {'side': '+t' if c.side > 0 else '-t', 'lead_foot': 'Foot_R' if c.side > 0 else 'Foot_L', 'mantle_start_climb_top': r3(ev['climb_top']),
               'hands_released': r3(ev['on_deck']), 'walk_in_end_inside_hatch': r3(ev['inside']),
@@ -688,6 +918,75 @@ for ci, c in enumerate(crew):
         'mantle': mantle, 'rung_moves': rung})
 rootn['extras'] = {'clips': timing['clips'], 'note': 'pad-local glTF: put this root at the Launch Pad root. Clips play back to back: crew_call -> crew_walk_to_pad -> crew_climb. Crew_k root scale drops to 1e-4 once inside the hatch (hide the node then).',
                    'inside_hatch_s': {('Crew_%d' % t['crew']): t['inside_hatch'] for t in timing['crew']}}
+# ---- adaptive shared key times (--key-tol metres): from each key, extend the next key as far as possible (<= KEY_MAXGAP frames) while
+# every skipped 30 fps frame, rebuilt the way three.js plays it (slerp rotations, lerp translation), stays within KEY_TOL of the
+# authored pose on a sample of skinned vertices of every visible crew member.  Contact-critical frames therefore get dense keys.
+KEY_TOL = opt('--key-tol', 0.0); KEY_MAXGAP = int(opt('--key-maxgap', 4)); KEY_LOOSE = opt('--key-loose', 0.04); KEY_CLIPS = opt('--key-clips', 'crew_climb').split(',')
+def _q2m_(q):
+    x, y, z, w = q; return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+def _slerp(q0, q1, u):
+    d = float(q0 @ q1)
+    if d < 0: q1, d = -q1, -d
+    if d > 0.9995: q = q0 + (q1 - q0) * u; return q / np.linalg.norm(q)
+    th = np.arccos(min(d, 1.0)); return (np.sin((1 - u) * th) * q0 + np.sin(u * th) * q1) / np.sin(th)
+_KS = np.arange(len(VP))
+_KPTS = opt('--key-pts', '')
+if KEY_TOL > 0 and _KPTS:
+    from scipy.spatial import cKDTree
+    _KTREE = cKDTree(np.fromfile(_KPTS, np.float32).reshape(-1, 3).astype(float))
+_FOOTV = np.array([JOINTS[JW[i, int(np.argmax(WW[i]))]].startswith('Foot') for i in range(len(VP))]); KEY_TOL_FOOT = opt('--key-tol-foot', 0.0003)   # dense keys on a boot near the deck (lifts need them)
+def _utz(X):
+    Y = X - np.array([0.0, 0.0, -13.0]); return np.stack([Y @ LU, Y @ LT, Y[:, 1]], 1)
+_ALW = {}
+def _allow(f, ci):   # per-vertex allowed interpolation error: tight near the ship, loose in open air
+    k = (f, ci)
+    if k not in _ALW:
+        if not _KPTS: _ALW[k] = KEY_TOL
+        else:
+            d, _ = _KTREE.query(_utz(_skin_f(f, ci)), distance_upper_bound=0.2); d = np.minimum(d, 0.2)
+            a_ = np.clip(0.6 * (d - 0.04), KEY_TOL, KEY_LOOSE)
+            Z = _utz(_skin_f(f, ci)); near_deck = _FOOTV & (np.abs(Z[:, 2] - DECK_Y) < 0.045) & (np.abs(Z[:, 1]) > 0.55)
+            a_ = np.where(near_deck, KEY_TOL_FOOT, a_); _ALW[k] = a_
+    return _ALW[k]
+def _skin(out, sc):
+    Mg = {}
+    for n in JOINTS:
+        T_, q = out[n]; R = _q2m_(q); pa = PARENT[n]
+        if pa is None: Mg[n] = (R * sc, np.asarray(T_, float))
+        else: Rp, tp = Mg[pa]; Mg[n] = (Rp @ R, tp + Rp @ np.asarray(T_, float))
+    X = np.zeros((len(_KS), 3)); vp = VP[_KS]
+    for c_ in range(4):
+        w = WW[_KS, c_]; jw = JW[_KS, c_]
+        for ji in np.unique(jw[w > 0]):
+            mm = (w > 0) & (jw == ji); R, tt = Mg[JOINTS[ji]]; X[mm] += w[mm, None] * ((vp[mm] - BIND[JOINTS[ji]]) @ R.T + tt)
+    return X
+_SKC = {}
+def _skin_f(f, ci):
+    k = (f, ci)
+    if k not in _SKC: _SKC[k] = _skin(frames[f][ci][0], frames[f][ci][1])
+    return _SKC[k]
+def _seg_ok(a, b, tol, cis=range(4)):
+    for ci in cis:
+        if frames[a][ci][1] < 0.01 and frames[b][ci][1] < 0.01: continue
+        for f in range(a + 1, b):
+            u = (f - a) / (b - a); out = {}
+            for n in JOINTS:
+                Ta, qa = frames[a][ci][0][n]; Tb, qb = frames[b][ci][0][n]
+                out[n] = (np.asarray(Ta, float) * (1 - u) + np.asarray(Tb, float) * u, _slerp(np.asarray(qa, float), np.asarray(qb, float), u))
+            sc = frames[a][ci][1] if u < 1 else frames[b][ci][1]   # STEP scale
+            if sc < 0.01: continue
+            if (np.linalg.norm(_skin(out, sc) - _skin_f(f, ci), axis=1) > _allow(f, ci)).any(): return False
+    return True
+def adaptive_keys(f0, f1, tol, maxgap, cis=range(4)):
+    ks = [f0]; a = f0
+    vis = lambda f: tuple(frames[f][ci][1] > 0.01 for ci in cis)
+    while a < f1:
+        b = min(a + 1, f1)
+        for g in range(2, maxgap + 1):
+            if a + g > f1 or any(vis(a + k) != vis(a) for k in range(1, g)) or not _seg_ok(a, a + g, tol, cis): break   # keep a key on every hide/show frame
+            b = a + g
+        ks.append(b); a = b
+    return ks
 # animations: one shared uniform time input per clip; the rate per clip is chosen by how fast the motion is
 # (pack with gltfpack -af 0 so these keys are kept as authored). Every node keeps a track in every clip.
 CLIP_STEP = {'crew_call': opt('--call-step', 2), 'crew_walk_to_pad': opt('--walk-step', 2), 'crew_climb': opt('--climb-step', 3)}   # in 30 fps frames
@@ -695,7 +994,12 @@ anims = []; nkeys = 0; DENSE = {}; LSQ_ON = '--no-lsq' not in ARGS
 for name, a, b in CLIPS:
     f0 = int(round(a * FPS)); f1 = int(round(b * FPS)); fr = list(range(f0, f1 + 1, CLIP_STEP[name]))
     if fr[-1] != f1: fr.append(f1)
-    tin = np.array([(f - f0) / FPS for f in fr], np.float32); ai = add(tin[:, None], 5126, 'SCALAR', None, True); nkeys += len(fr)
+    ADP = KEY_TOL > 0 and name in KEY_CLIPS
+    FRC = [adaptive_keys(f0, f1, KEY_TOL, KEY_MAXGAP, [ci]) if ADP else fr for ci in range(4)]   # per-crew key times (each crew its own time input)
+    AIC = []
+    for ci in range(4):
+        tin = np.array([(f - f0) / FPS for f in FRC[ci]], np.float32); AIC.append(add(tin[:, None], 5126, 'SCALAR', None, True)); nkeys += len(FRC[ci])
+    CUR = [0]
     samplers = []; channels = []
     # least-squares key values: the linear-interpolated curve that best fits every 30 fps frame (not just point samples)
     fall = np.arange(f0, f1 + 1); kf = np.array(fr, float); Am = np.zeros((len(fall), len(fr)))
@@ -703,14 +1007,14 @@ for name, a, b in CLIPS:
         j = min(np.searchsorted(kf, f, 'right') - 1, len(kf) - 2); u = (f - kf[j]) / (kf[j + 1] - kf[j]); Am[r_, j] += 1 - u; Am[r_, j + 1] += u
     LSQ = np.linalg.solve(Am.T @ Am, Am.T) if LSQ_ON else None
     def chan(node, path, V, interp='LINEAR'):
-        V = np.asarray(V, float)
+        V = np.asarray(V, float); ai = AIC[CUR[0]]
         if LSQ_ON and interp == 'LINEAR':
             dense = np.array(DENSE[(node, path)], float); V = LSQ @ dense
             if path == 'rotation': V = V / np.linalg.norm(V, axis=1, keepdims=True)
         ao = add(np.asarray(V, np.float32), 5126, 'VEC4' if path == 'rotation' else 'VEC3')
         samplers.append({'input': ai, 'output': ao, 'interpolation': interp}); channels.append({'sampler': len(samplers) - 1, 'target': {'node': node, 'path': path}})
     for ci, c in enumerate(crew):
-        jbase = 1 + ci * (len(JOINTS) + 2)
+        jbase = 1 + ci * (len(JOINTS) + 2); fr = FRC[ci]; CUR[0] = ci
         for n in JOINTS:
             node = jbase + JOINTS.index(n)
             DENSE[(node, 'rotation')] = [frames[f][ci][0][n][1] for f in fall]
@@ -718,15 +1022,15 @@ for name, a, b in CLIPS:
             chan(node, 'rotation', [frames[f][ci][0][n][1] for f in fr])
             if n == 'Root': chan(node, 'translation', [frames[f][ci][0][n][0] for f in fr])
             if n == 'Root': chan(node, 'scale', [[frames[f][ci][1]] * 3 for f in fr], 'STEP')
-    anims.append({'name': name, 'samplers': samplers, 'channels': channels, 'extras': {'key_rate_hz': round(FPS / CLIP_STEP[name], 2)}})
+    anims.append({'name': name, 'samplers': samplers, 'channels': channels, 'extras': ({'keys_per_crew': [len(x) for x in FRC], 'key_tol_m': KEY_TOL, 'key_max_gap_s': round(KEY_MAXGAP / FPS, 4), 'keys': 'adaptive per crew: dense wherever the crew is near the ship'} if ADP else {'key_rate_hz': round(FPS / CLIP_STEP[name], 2)})})
 print('keys per channel total', nkeys)
 mat = {'name': 'SHM_Paint', 'pbrMetallicRoughness': {'metallicFactor': 0.0, 'roughnessFactor': 0.42}}
-# Board_Focus: camera focus empty for the boarding camera push (no camera is baked). Default = mid-ladder point on the ladder axis.
-_fs = opt('--focus', '')
-BF = np.array([float(x) for x in _fs.split(',')]) if _fs else lad(LAD_R, 0, 0.5 * (PAD_Y + DECK_Y))
-_bfx = json.loads(opt('--focus-extras', '{}'))
-_bfx.update({'mid_ladder_point': [round(float(x), 3) for x in lad(LAD_R, 0, 0.5 * (PAD_Y + DECK_Y))], 'note': 'empty; aim the boarding camera here (38 deg vFOV, 18 deg look-down, game yaw). No camera in this GLB.'})
-rootn['children'].append(len(nodes)); nodes.append({'name': 'Board_Focus', 'translation': [round(float(x), 4) for x in BF], 'extras': _bfx})
+# Board_Focus + Board_Focus_Top: camera focus empties for the boarding camera (no camera is baked). Positions, frame_w and the height trigger
+# come from board_focus_extras.json (written from cam_fit_v3.py + focus_trigger.mjs); the nodes are fixed, not fitted.
+_fj = json.load(open(opt('--focus-json', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'board_focus_extras.json'))))
+for _nm in ('Board_Focus', 'Board_Focus_Top'):
+    _e = dict(_fj[_nm]['extras']); _e['mid_ladder_point'] = [round(float(x), 3) for x in lad(LAD_R, 0, 0.5 * (PAD_Y + DECK_Y))]
+    rootn['children'].append(len(nodes)); nodes.append({'name': _nm, 'translation': [round(float(x), 4) for x in _fj[_nm]['translation']], 'extras': _e})
 gl = {'asset': {'version': '2.0', 'generator': 'planet-stack crew boarding (Art Assistant 3)'}, 'scene': 0, 'scenes': [{'name': 'Scene', 'nodes': [0]}],
       'nodes': nodes, 'skins': skins, 'materials': [mat],
       'meshes': [{'name': 'CrewSuit_%d' % (i + 1), 'primitives': [{'attributes': {'POSITION': aP, 'NORMAL': aN, 'COLOR_0': aC, 'JOINTS_0': aJ, 'WEIGHTS_0': aW}, 'indices': aI, 'material': 0}]} for i in range(4)],

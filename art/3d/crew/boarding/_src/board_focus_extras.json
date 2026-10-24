@@ -1,1 +1,54 @@
-{"camera_default": "(a) whole ladder + all 4 climbers in the HUD-free band", "orientation": "38 deg vertical FOV, 18 deg look-down, game yaw (looking down -Z)", "distance_m": 109.7, "ease_s": 1.2, "at_375x667": {"band_y": [144, 383], "content_y": [149, 378], "crew_px": 16.1}, "why_not_mid_ladder": "with plain lookAt the band centre (263.5) is 70 px above screen centre; aiming at the mid-ladder point overflows the band bottom by 64 px", "mid_ladder_alt": "keep the camera aimed at mid_ladder_point and use camera.setViewOffset to shift the image 70 px (667-high) down", "option_c_busy_top": {"focus": [3.854, 15.861, -10.775], "distance_m": 41.6, "crew_px": 42.3, "frames": "ladder z>=14 m + hatch landing only"}}
+{
+ "Board_Focus": {
+  "translation": [
+   3.854,
+   11.05,
+   -10.775
+  ],
+  "extras": {
+   "role": "boarding camera focus, climb start until the height trigger: mid-ladder point on the ladder axis",
+   "frame_w": 105.9,
+   "camera": "plain lookAt at this node (no setViewOffset), 38 deg vFOV, 18 deg look-down, game yaw (looking down -Z); frame_w metres span the screen width at the node depth (distance as qa3d-next fitSite)",
+   "switch_to": "Board_Focus_Top",
+   "trigger": {
+    "bone": "C1_Hips",
+    "alt_bone": "C1_Head",
+    "threshold_y_m": 14.0,
+    "y_space": "this GLB root space (pad-local: ladder foot 0.25, deck 21.85); add the pad root world Y if the GLB is offset",
+    "rule": "use Board_Focus until the bone world Y >= threshold, then ease to Board_Focus_Top",
+    "fallback_clip": "crew_climb",
+    "fallback_clip_local_s": 12.792,
+    "fallback_absolute_s": 35.092,
+    "alt_bone_fallback_clip_local_s": 12.293,
+    "alt_bone_fallback_absolute_s": 34.593,
+    "absolute_time_base": "crew_call 0-3.0 s, crew_walk_to_pad 3.0-22.3 s, crew_climb 22.3-58.5 s played back to back"
+   }
+  }
+ },
+ "Board_Focus_Top": {
+  "translation": [
+   3.854,
+   15.861,
+   -10.775
+  ],
+  "extras": {
+   "role": "boarding camera focus after the height trigger: true centre of the ladder above 14 m + hatch landing",
+   "frame_w": 16.1,
+   "camera": "plain lookAt at this node (no setViewOffset), 38 deg vFOV, 18 deg look-down, game yaw (looking down -Z); frame_w metres span the screen width at the node depth (distance as qa3d-next fitSite)",
+   "switch_from": "Board_Focus",
+   "trigger": {
+    "bone": "C1_Hips",
+    "alt_bone": "C1_Head",
+    "threshold_y_m": 14.0,
+    "y_space": "this GLB root space (pad-local: ladder foot 0.25, deck 21.85); add the pad root world Y if the GLB is offset",
+    "rule": "use Board_Focus until the bone world Y >= threshold, then ease to Board_Focus_Top",
+    "fallback_clip": "crew_climb",
+    "fallback_clip_local_s": 12.792,
+    "fallback_absolute_s": 35.092,
+    "alt_bone_fallback_clip_local_s": 12.293,
+    "alt_bone_fallback_absolute_s": 34.593,
+    "absolute_time_base": "crew_call 0-3.0 s, crew_walk_to_pad 3.0-22.3 s, crew_climb 22.3-58.5 s played back to back"
+   }
+  }
+ }
+}

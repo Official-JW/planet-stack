@@ -1,0 +1,539 @@
+{
+ "frames": 1087,
+ "dt": 0.0333,
+ "pad": "/tmp/ab3/padtris_7e.json",
+ "per_crew": {
+  "Crew_1": {
+   "min_m": 0.04,
+   "at_s": 47.37,
+   "part": "frame_side:Foot_R",
+   "climb_min_frame_side_m": 0.047,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.036,
+   "ladder_at": 40.83,
+   "ladder_part": "Chest",
+   "cage_min_m": 0.034,
+   "cage_at": 43.2,
+   "cage_part": "Shin_R",
+   "plants": [
+    {
+     "foot": "Foot_R",
+     "land_s": 44.57,
+     "u": [
+      4.304,
+      4.613
+     ],
+     "t": [
+      0.733,
+      0.863
+     ],
+     "z": 21.878,
+     "where": "wing",
+     "min_abs_t": 0.733
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 45.57,
+     "u": [
+      4.524,
+      4.833
+     ],
+     "t": [
+      0.853,
+      0.983
+     ],
+     "z": 21.88,
+     "where": "wing",
+     "min_abs_t": 0.853
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 47.27,
+     "u": [
+      3.712,
+      4.021
+     ],
+     "t": [
+      0.233,
+      0.363
+     ],
+     "z": 21.855,
+     "where": "wing",
+     "min_abs_t": 0.233
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 47.7,
+     "u": [
+      3.442,
+      3.751
+     ],
+     "t": [
+      -0.007,
+      0.124
+     ],
+     "z": 21.855,
+     "where": "inside_hatch",
+     "min_abs_t": 0.004
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.005
+  },
+  "Crew_2": {
+   "min_m": 0.044,
+   "at_s": 50.77,
+   "part": "frame_side:Foot_L",
+   "climb_min_frame_side_m": 0.046,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.036,
+   "ladder_at": 44.23,
+   "ladder_part": "Chest",
+   "cage_min_m": 0.035,
+   "cage_at": 44.4,
+   "cage_part": "Chest",
+   "plants": [
+    {
+     "foot": "Foot_L",
+     "land_s": 47.9,
+     "u": [
+      4.302,
+      4.61
+     ],
+     "t": [
+      -0.867,
+      -0.736
+     ],
+     "z": 21.88,
+     "where": "wing",
+     "min_abs_t": 0.736
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 49.0,
+     "u": [
+      4.523,
+      4.832
+     ],
+     "t": [
+      -0.987,
+      -0.857
+     ],
+     "z": 21.88,
+     "where": "wing",
+     "min_abs_t": 0.857
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 50.67,
+     "u": [
+      3.711,
+      4.02
+     ],
+     "t": [
+      -0.366,
+      -0.236
+     ],
+     "z": 21.856,
+     "where": "wing",
+     "min_abs_t": 0.236
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 51.1,
+     "u": [
+      3.441,
+      3.75
+     ],
+     "t": [
+      -0.128,
+      0.003
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.001
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.004
+  },
+  "Crew_3": {
+   "min_m": 0.04,
+   "at_s": 54.17,
+   "part": "frame_side:Foot_R",
+   "climb_min_frame_side_m": 0.047,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.036,
+   "ladder_at": 47.6,
+   "ladder_part": "Chest",
+   "cage_min_m": 0.034,
+   "cage_at": 50.0,
+   "cage_part": "Shin_R",
+   "plants": [
+    {
+     "foot": "Foot_R",
+     "land_s": 51.37,
+     "u": [
+      4.304,
+      4.613
+     ],
+     "t": [
+      0.733,
+      0.863
+     ],
+     "z": 21.878,
+     "where": "wing",
+     "min_abs_t": 0.733
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 52.37,
+     "u": [
+      4.524,
+      4.833
+     ],
+     "t": [
+      0.853,
+      0.983
+     ],
+     "z": 21.88,
+     "where": "wing",
+     "min_abs_t": 0.853
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 54.07,
+     "u": [
+      3.712,
+      4.021
+     ],
+     "t": [
+      0.233,
+      0.363
+     ],
+     "z": 21.855,
+     "where": "wing",
+     "min_abs_t": 0.233
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 54.5,
+     "u": [
+      3.442,
+      3.751
+     ],
+     "t": [
+      -0.007,
+      0.124
+     ],
+     "z": 21.855,
+     "where": "inside_hatch",
+     "min_abs_t": 0.004
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.005
+  },
+  "Crew_4": {
+   "min_m": 0.044,
+   "at_s": 57.57,
+   "part": "frame_side:Foot_L",
+   "climb_min_frame_side_m": 0.046,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.036,
+   "ladder_at": 50.43,
+   "ladder_part": "Chest",
+   "cage_min_m": 0.033,
+   "cage_at": 51.17,
+   "cage_part": "Chest",
+   "plants": [
+    {
+     "foot": "Foot_L",
+     "land_s": 54.7,
+     "u": [
+      4.302,
+      4.61
+     ],
+     "t": [
+      -0.867,
+      -0.736
+     ],
+     "z": 21.88,
+     "where": "wing",
+     "min_abs_t": 0.736
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 55.8,
+     "u": [
+      4.523,
+      4.832
+     ],
+     "t": [
+      -0.987,
+      -0.857
+     ],
+     "z": 21.88,
+     "where": "wing",
+     "min_abs_t": 0.857
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 57.47,
+     "u": [
+      3.711,
+      4.02
+     ],
+     "t": [
+      -0.366,
+      -0.236
+     ],
+     "z": 21.856,
+     "where": "wing",
+     "min_abs_t": 0.236
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 57.9,
+     "u": [
+      3.441,
+      3.75
+     ],
+     "t": [
+      -0.127,
+      0.003
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.001
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.004
+  }
+ },
+ "per_part": {
+  "deck_wing": {
+   "min_m": 0.063,
+   "hits": 0,
+   "at_s": 44.933,
+   "crew": 1,
+   "joint": "Shin_R",
+   "utz": [
+    4.54,
+    0.728,
+    21.913
+   ]
+  },
+  "deck_bridge": {
+   "min_m": 0.1065,
+   "hits": 0,
+   "at_s": 48.7,
+   "crew": 2,
+   "joint": "Shin_R",
+   "utz": [
+    5.052,
+    -0.129,
+    21.892
+   ]
+  },
+  "frame_side": {
+   "min_m": 0.0403,
+   "hits": 0,
+   "at_s": 47.366,
+   "crew": 1,
+   "joint": "Foot_R",
+   "utz": [
+    4.314,
+    0.714,
+    21.901
+   ]
+  },
+  "well_frame_climb": {
+   "min_m": 0.0459,
+   "hits": 0,
+   "at_s": 48.333,
+   "crew": 2,
+   "joint": "Shin_L",
+   "utz": [
+    4.526,
+    -0.688,
+    21.925
+   ]
+  },
+  "frame_outer": {
+   "min_m": 0.0893,
+   "hits": 0,
+   "at_s": 52.133,
+   "crew": 3,
+   "joint": "Shin_L",
+   "utz": [
+    5.108,
+    0.258,
+    21.959
+   ]
+  },
+  "beam_outer": {
+   "min_m": 0.3431,
+   "hits": 0,
+   "at_s": 52.133,
+   "crew": 3,
+   "joint": "Shin_L",
+   "utz": [
+    5.108,
+    0.258,
+    21.959
+   ]
+  },
+  "beam_side": {
+   "min_m": 0.3596,
+   "hits": 0,
+   "at_s": 49.633,
+   "crew": 2,
+   "joint": "Foot_R",
+   "utz": [
+    4.548,
+    -0.989,
+    21.863
+   ]
+  },
+  "lid": {
+   "min_m": 0.1093,
+   "hits": 0,
+   "at_s": 48.733,
+   "crew": 2,
+   "joint": "Shin_R",
+   "utz": [
+    5.131,
+    -0.276,
+    22.029
+   ]
+  },
+  "brace": {
+   "min_m": 0.5846,
+   "hits": 0,
+   "at_s": 53.033,
+   "crew": 3,
+   "joint": "Foot_L",
+   "utz": [
+    4.831,
+    0.983,
+    21.864
+   ]
+  },
+  "rail_post": {
+   "min_m": 0.1966,
+   "hits": 0,
+   "at_s": 49.733,
+   "crew": 2,
+   "joint": "Forearm_L",
+   "utz": [
+    4.684,
+    -1.138,
+    22.938
+   ]
+  },
+  "rail": {
+   "min_m": 0.173,
+   "hits": 0,
+   "at_s": 56.533,
+   "crew": 4,
+   "joint": "Forearm_L",
+   "utz": [
+    4.682,
+    -1.138,
+    22.937
+   ]
+  },
+  "lid_hinge": {
+   "min_m": 0.1144,
+   "hits": 0,
+   "at_s": 45.333,
+   "crew": 1,
+   "joint": "Shin_L",
+   "utz": [
+    5.108,
+    0.258,
+    21.959
+   ]
+  },
+  "lid_rib": {
+   "min_m": 0.149,
+   "hits": 0,
+   "at_s": 48.733,
+   "crew": 2,
+   "joint": "Shin_R",
+   "utz": [
+    5.131,
+    -0.276,
+    22.029
+   ]
+  },
+  "lid_strut": {
+   "min_m": 0.2614,
+   "hits": 0,
+   "at_s": 55.566,
+   "crew": 4,
+   "joint": "Shin_R",
+   "utz": [
+    5.115,
+    -0.474,
+    22.215
+   ]
+  },
+  "hull": {
+   "min_m": 0.285,
+   "hits": 0,
+   "at_s": 50.366,
+   "crew": 2,
+   "joint": "Shin_L",
+   "utz": [
+    4.204,
+    -0.657,
+    22.322
+   ]
+  },
+  "hatch_edge": {
+   "min_m": 0.0785,
+   "hits": 0,
+   "at_s": 47.1,
+   "crew": 1,
+   "joint": "Foot_L",
+   "utz": [
+    4.133,
+    0.624,
+    21.955
+   ]
+  },
+  "cage_tris": {
+   "min_m": 0.0333,
+   "hits": 0,
+   "at_s": 51.166,
+   "crew": 4,
+   "joint": "Chest",
+   "utz": [
+    4.95,
+    0.282,
+    21.042
+   ]
+  },
+  "kerb_deck": {
+   "min_m": 0.0403,
+   "hits": 0,
+   "at_s": 47.366,
+   "crew": 1,
+   "joint": "Foot_R",
+   "utz": [
+    4.314,
+    0.714,
+    21.901
+   ]
+  }
+ },
+ "min_m": 0.04,
+ "hits": 0
+}
