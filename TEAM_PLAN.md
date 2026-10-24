@@ -78,3 +78,7 @@ Approved by Game Director. This is the target the Mine A loop is built toward.
 - Target for the Mine A loop: §Opening (Jacob, 2026-10-22).
 - Jacob approves Eve's lines or edits them.
 - Jacob gives the cue on Eve's portrait.
+
+## Known issues
+
+- Pad queue, 4 flyers (Director, 10/24/2026): a Tier_12 block on the ship (hidden at Lv1, not in the colliders) sits 0.23 m from queue slot 3 (z about -0.63). Once Tier_12 shows, slot 3 is about 0.62 m short of the 0.55 m collider clearance. Art & Animation checks this clearance when Tier_12 is built.
