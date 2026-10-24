@@ -79,6 +79,22 @@ def lineup(raw, layout, out):
         d.text((x - w / 2, y + 2), t, font=f, fill=(244, 246, 249, 255))
     im.convert('RGB').save(out, optimize=True); print('LINEUP', out, im.size)
 
+def game_view(d):
+    """4x nearest-neighbour upscales of the 375x667 in-game proofs + a side-by-side crop sheet (front | back) around the figures."""
+    crops = []
+    for v in ('front', 'back'):
+        im = Image.open(os.path.join(d, f'game_{v}_375x667.png')).convert('RGB')
+        im.resize((1500, 2668), Image.NEAREST).save(os.path.join(d, f'game_{v}_375x667_x4nn.png'), optimize=True)
+        L = json.load(open(os.path.join(d, f'game_{v}_layout.json')))['figures']
+        xs = [f['x'] for f in L]; fy = L[0]['feet_y']
+        box = (int(min(xs) - 30), int(fy - 50), int(max(xs) + 30), int(fy + 14))
+        crops.append(im.crop(box).resize(((box[2] - box[0]) * 8, (box[3] - box[1]) * 8), Image.NEAREST))
+    W = sum(c.width for c in crops) + 24; H = max(c.height for c in crops) + 60
+    sh = Image.new('RGB', (W, H), (20, 23, 28)); dr = ImageDraw.Draw(sh); x = 0
+    for v, c in zip(('FRONT (game camera, 1:1 px shown 8x)', 'BACK'), crops):
+        sh.paste(c, (x, 60)); dr.text((x + 10, 12), v, font=font('SemiBold', 32), fill=(220, 225, 232)); x += c.width + 24
+    sh.save(os.path.join(d, 'game_figures_crop_x8nn.png'), optimize=True); print('GAME', sh.size)
+
 if __name__ == '__main__':
     mode = sys.argv[1]
     if mode == 'cards':
@@ -86,6 +102,7 @@ if __name__ == '__main__':
         for i, k in enumerate([k for k in RT.ORDER if RT.ROLES[k]['tier'] == 1]):
             hp = os.path.join(hd, f'hero_{k}.png')
             if os.path.exists(hp): card(k, hp, os.path.join(od, f'card_{k}_750x1050.png'), i + 1)
+    elif mode == 'game': game_view(sys.argv[2])
     elif mode == 'lineup': lineup(sys.argv[2], sys.argv[3], sys.argv[4])
     elif mode == 'badges':
         od = sys.argv[2]; os.makedirs(od, exist_ok=True)

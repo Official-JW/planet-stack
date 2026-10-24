@@ -6,7 +6,7 @@ sleek white shell, graphite + cyan base, panel lines, light dust/edge wear). A r
 
 | Kit piece | Where it goes |
 |---|---|
-| **Accent colour** | **solid** shoulder plates (pauldrons) + **solid** backpack shell and side tanks, twin helmet crown stripes (brow to nape, read from behind/above), suit accent stripes (shin/thigh/boot/back-of-glove), helmet badge ring, tool trim. Pauldron lames / tank bands flip to white on the coloured plates. |
+| **Accent colour** | **solid** chest plate, upper-arm (bicep) plates and shoulder plates (pauldrons) + **solid** backpack shell and side tanks (clean paint: light dust/wear so the colour stays saturated at phone size), twin helmet crown stripes (brow to nape, read from behind/above), suit accent stripes (shin/thigh/boot/back-of-glove), helmet badge ring, tool trim. Pauldron lames / tank bands / the chest accent flip to white on the coloured plates. |
 | **Hand tool / prop** | right hand, closed power-grip glove wrapped on a 0.0175 m handle |
 | **Helmet badge** | both helmet temples (raycast onto the shell), 0.046 m medallion: accent ring, graphite disc, white symbol |
 | *extras* (optional) | small role-specific add-ons (headset, radio, tool belt, accent gloves) |
@@ -21,14 +21,14 @@ Cyan stays the suit's shared glow / UI colour on every role; accents were picked
 | 1 | **Miner** | `#FFC21A` amber | Rock pick: long graphite haft, rubber grip, steel spike + chisel-adze head, accent collar | - | **Ore chunk**: irregular lumpy rock split into three chipped facets by a thin vein-line gap, plus a small chip (deliberately not gem/crystal-like: crystals are the paid currency) | Mines ore at the Mine. |
 | 2 | **Mine Driver** | `#2FD36B` green | Drive controller: compact handheld twin-grip remote, white face plate with small cyan screen, two thumb sticks, accent bumper + buttons, stub antenna | headset (accent ear cup + boom mic), accent gloves | **Wheel**: three-spoke wheel | Drives the mine truck. |
 | 3 | **Mechanic** | `#F0443A` red | Heavy wrench: open C-jaw top, closed ring end, accent inlay | tool belt (two hip pouches) | **Gear**: eight-tooth gear with a round hole | Upgrades and builds. |
-| 4 | **Cargo Manager** | `#A066FF` violet | Cargo tablet: cyan manifest screen, accent header bar | shoulder radio w/ whip antenna (left shoulder) | **Crate**: isometric cargo cube, three faces split by gaps | Runs cargo and radios the crew. |
+| 4 | **Cargo Manager** | `#A066FF` violet | Cargo tablet: cyan manifest screen, accent header bar | shoulder radio w/ whip antenna (left shoulder) | **Crate**: front-on square cargo crate: frame, diagonal brace, two plank panels (no isometric / rhombus top) | Runs cargo and radios the crew. |
 | 5 | Engineer *(tier 2, defined, tool not built)* | `#FF7A1F` orange | multimeter | - | Bolt (angular power bolt) | Keeps the base powered and running. |
 | 6 | Botanist *(tier 2)* | `#B6E62E` lime | plant sampler | - | Leaf (pointed, with stem) | Grows food in the greenhouse. |
-| 7 | Welder *(tier 2)* | `#FF4FB0` magenta | weld torch | - | Spark (four-point weld spark) | Welds and repairs hull plates. |
+| 7 | Welder *(tier 2)* | `#FF4FB0` magenta | weld torch | - | Torch spray: short angled torch nozzle with five short spark lines spraying from its tip (no star shape) | Welds and repairs hull plates. |
 | 8 | Machinist *(tier 2)* | `#4D6BFF` blue | caliper | - | Nut (hex nut) | Machines parts in the workshop. |
 
 Badges are plain geometric primitives drawn by us (`roles_table.BADGES`) - no agency, brand or game marks, no text.
-**No crystal / diamond / gem shapes anywhere in the crew kit** (crystals are the game's paid currency).
+**No crystal / diamond / gem shapes anywhere in the crew kit** (crystals are the game's paid currency). No rhombus / diamond faces and no 4-point stars either.
 
 ## Files
 

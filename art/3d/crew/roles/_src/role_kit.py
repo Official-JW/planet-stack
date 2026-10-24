@@ -17,6 +17,7 @@ import roles_table as RT
 from mc_common import hexc, _obj, coll, M_glow
 
 TAU = 2 * math.pi
+STRONG = os.environ.get('ROLES_STRONG', '1') == '1'   # v3 phone-size read: chest plate + upper-arm plates in role colour, less dust/wear on the paint
 CUR = {}          # role being built
 GRIP = {}         # grip frame of the tool hand (root space): c (handle centre), ax (handle axis, thumb side), fa, npalm, rh
 TOOL_SIDE = -1    # -X = the crew member's RIGHT (faces -Y)
@@ -28,8 +29,12 @@ def role_mats(key):
     if key in S._M: return S._M[key]
     if key not in RT.ROLES: return _orig_mats(key)
     base = _orig_mats('cyan'); acc = RT.ROLES[key]['accent']
-    paint = S._shell_mat('C_Accent_' + key, acc, 0.24, 0.9, bump=0.2, micro=60.0, dust=0.6, scratch=0.7,
-                         dust_col='#8f8a82', scr_col='#c9ccd0', wear_col='#e8eaed', wear=0.8)
+    if STRONG:   # cleaner, saturated paint so the accent survives AgX + dust at 20 px
+        paint = S._shell_mat('C_Accent_' + key, acc, 0.3, 0.9, bump=0.2, micro=60.0, dust=0.22, scratch=0.35,
+                             dust_col='#8f8a82', scr_col='#c9ccd0', wear_col='#d8dadd', wear=0.25)
+    else:
+        paint = S._shell_mat('C_Accent_' + key, acc, 0.24, 0.9, bump=0.2, micro=60.0, dust=0.6, scratch=0.7,
+                             dust_col='#8f8a82', scr_col='#c9ccd0', wear_col='#e8eaed', wear=0.8)
     S._M[key] = dict(base, paint=paint, glow=base['cyan'])
     return S._M[key]
 S.mats = role_mats
@@ -315,8 +320,8 @@ def badge(K, M, key, center, normal, up, R=0.04, name='Badge'):
     sym = [(p[0],) + tuple([(u_ * R * 0.74, v_ * R * 0.74) for u_, v_ in loop] for loop in p[1:]) for p in RT.BADGES[key]()]
     kprism(K, name + 'Symbol', sym, 0.0075, M['shell'], F @ Matrix.Translation((0, 0, 0.0)), bevel=0.0008)
 
-SOLID_ACCENT = ('Pauldron', 'Backpack', 'BackpackTank', 'BackpackFin')
-ACCENT_TO_SHELL = ('PauldronLame', 'PauldronStripe', 'BackpackTankBand')
+SOLID_ACCENT = ('Pauldron', 'Backpack', 'BackpackTank', 'BackpackFin') + (('ChestPlate', 'BicepPlate') if STRONG else ())
+ACCENT_TO_SHELL = ('PauldronLame', 'PauldronStripe', 'BackpackTankBand') + (('ChestAccent',) if STRONG else ())
 
 def helmet_stripes(K, M, root):
     """twin role-colour stripes over the helmet crown, brow-top to the back of the neck (read from behind and above)."""

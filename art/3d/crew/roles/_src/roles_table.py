@@ -73,14 +73,12 @@ def _gear():       # 8-tooth cog with a round hole
         o.append((r * math.cos(a), r * math.sin(a))); i_.append((0.26 * math.cos(a), 0.26 * math.sin(a)))
     return [('ring', o, i_)]
 
-def _crate():      # isometric cargo cube: three faces with gaps
-    s = 0.62; c30, s30 = math.cos(math.pi / 6) * s, 0.5 * s; g = 0.06
-    top = [(0, g * 0.9), (c30 - g * 1.4, s30 + g * 0.1), (0, 2 * s30 - g * 0.6), (-c30 + g * 1.4, s30 + g * 0.1)]
-    top = [(x, y + 0.08) for x, y in top]
-    left = [(-c30, s30 - g * 0.4), (-g * 0.8, 0 - g * 0.2), (-g * 0.8, -2 * s30 + g * 0.2), (-c30, -s30 + g * 0.6)]
-    right = [(g * 0.8, 0 - g * 0.2), (c30, s30 - g * 0.4), (c30, -s30 + g * 0.6), (g * 0.8, -2 * s30 + g * 0.2)]
-    left = [(x, y + 0.08) for x, y in left]; right = [(x, y + 0.08) for x, y in right]
-    return [('fan', top), ('fan', left), ('fan', right)]
+def _crate():      # front-on cargo crate: square frame + diagonal brace + two plank panels split by gaps (no isometric/rhombus top)
+    sq = lambda x0, y0, x1, y1: [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    return [('ring', sq(-0.64, -0.64, 0.64, 0.64), sq(-0.49, -0.49, 0.49, 0.49)),
+            ('fan', _quad((-0.43, -0.43), (0.43, 0.43), 0.16)),
+            ('fan', [(-0.42, -0.22), (-0.42, 0.42), (0.22, 0.42)]),
+            ('fan', [(0.42, 0.22), (0.42, -0.42), (-0.22, -0.42)])]
 
 def _bolt():       # angular power bolt
     return [('fan', [(0.12, 0.8), (0.42, 0.8), (0.16, 0.12), (0.42, 0.12), (-0.12, -0.8), (0.02, -0.12), (-0.26, -0.12)])]
@@ -93,12 +91,14 @@ def _leaf():       # pointed leaf + stem
         t = j / 16; y = -0.55 + 1.3 * t; L.append((-0.42 * math.sin(math.pi * t) ** 0.8, y))
     return [('fan', [(x * 0.9 + 0.05, y) for x, y in L]), ('fan', _quad((0.0, -0.5), (-0.18, -0.8), 0.1))]
 
-def _spark():      # 4-point weld spark
-    P = []
-    for j in range(8):
-        a = math.pi / 2 + j * math.pi / 4; r = 0.8 if j % 2 == 0 else 0.2
-        P.append((r * math.cos(a), r * math.sin(a)))
-    return [('fan', P)]
+def _spark():      # weld torch: short angled nozzle at lower-left + five short spark lines spraying up-right from its tip (no star)
+    tip = (-0.16, -0.16)
+    out = [('fan', _quad((-0.72, -0.72), (-0.24, -0.24), 0.28)), ('fan', _quad((-0.26, -0.26), (-0.19, -0.19), 0.16))]
+    for ang, L in ((10, 0.52), (30, 0.74), (45, 0.86), (60, 0.74), (80, 0.52)):
+        a = math.radians(ang); r0 = 0.14
+        p0 = (tip[0] + r0 * math.cos(a), tip[1] + r0 * math.sin(a)); p1 = (tip[0] + L * math.cos(a), tip[1] + L * math.sin(a))
+        out.append(('fan', _quad(p0, p1, 0.085)))
+    return out
 
 def _nut():        # hex nut
     o = []; i_ = []
@@ -112,5 +112,5 @@ def _nut():        # hex nut
 
 BADGES = {'ore': _ore, 'wheel': _wheel, 'gear': _gear, 'crate': _crate, 'bolt': _bolt, 'leaf': _leaf, 'spark': _spark, 'nut': _nut}
 BADGE_DESC = {'ore': 'rough ore chunk (irregular lumpy rock, three chipped facets split by a vein-line gap, small chip)', 'wheel': 'three-spoke wheel', 'gear': 'eight-tooth gear with a round hole',
-              'crate': 'isometric cargo cube (three faces split by gaps)', 'bolt': 'angular power bolt', 'leaf': 'pointed leaf with a stem',
-              'spark': 'four-point weld spark', 'nut': 'hex nut'}
+              'crate': 'front-on cargo crate (square frame, diagonal brace, two plank panels)', 'bolt': 'angular power bolt', 'leaf': 'pointed leaf with a stem',
+              'spark': 'weld torch nozzle with five short spark lines spraying from its tip', 'nut': 'hex nut'}
