@@ -1,7 +1,8 @@
 {
- "version": "v2",
+ "version": "v3",
  "units": "world glTF m (+X right, +Z toward camera)",
- "layout": "cargo_dock/layout_v2 f3478cf: Refinery 320 | Cargo Dock 373 z-8 | Launch Pad 457 | Habitat placeholder 800 | Shipyard 960 (shipyard_game.glb c0e9d54e)",
+ "layout": "cargo_dock/layout_v2 f3478cf + v3 order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 373 z-8 | Launch Pad 457 | Shipyard 960 (shipyard_game.glb c0e9d54e) | Habitat 1068 | Engineering 1120",
+ "director": "10/24 13:31: road v2, HB-10 + D-10 (7 cells), pad exit APPROVED; ST-10B picked; Habitat east of the Shipyard, no S-jog",
  "centerline": [
   [
    457.0,
@@ -93,15 +94,117 @@
   }
  ],
  "habitat": {
-  "placeholder": {
-   "x0": 795.5,
-   "x1": 804.5,
+  "origin": [
+   1068.0,
+   0.0
+  ],
+  "footprint": {
+   "x0": 1063.5,
+   "x1": 1072.5,
    "z0": -4.5,
    "z1": 4.5
   },
-  "road_shoulder_edge_z": 7.6,
-  "proposal": "move the gray Habitat placeholder +14.0 m toward the camera (z 9.5..18.5); 1.9 m clear of the shoulder",
-  "fallback": "layout_v2 jog to z -24 = a reverse curve (S); needs a Director waiver of the no-S-bend rule"
+  "size_whd": [
+   9,
+   12,
+   9
+  ],
+  "was": {
+   "origin": [
+    800.0,
+    0.0
+   ],
+   "footprint": {
+    "x0": 795.5,
+    "x1": 804.5,
+    "z0": -4.5,
+    "z1": 4.5
+   },
+   "note": "inside the road corridor (z -33.6..+7.6): removed"
+  },
+  "clear_to_shipyard_east_edge": 41.6,
+  "shipyard_east_edge_x": 1021.9,
+  "clear_to_engineering": 42.5,
+  "road": "no Habitat in the road path: the corridor x 486.4-880.1 is clear, z unchanged (0), no jog / no S-bend"
+ },
+ "engineering": {
+  "origin": [
+   1120.0,
+   0.0
+  ],
+  "footprint": {
+   "x0": 1115.0,
+   "x1": 1125.0,
+   "z0": -4.0,
+   "z1": 4.0
+  },
+  "size_whd": [
+   10,
+   10,
+   8
+  ],
+  "changed": false
+ },
+ "station_x_table": {
+  "note": "Coder: replace origin = i*160 with this per-station table (index = v3 order). qa3d/main.js STATIONS order today is Life Support, Mine, Refinery, Takeoff & Landing, Cargo Space Dock, Habitat, Shipyard, Engineering; the v3 order swaps Pad/Dock and moves Habitat after the Shipyard (SIZES entries move with their names).",
+  "stations": [
+   {
+    "index": 0,
+    "name": "Life Support",
+    "x": 0,
+    "z": 0.0,
+    "note": "unchanged"
+   },
+   {
+    "index": 1,
+    "name": "Mine",
+    "x": 160,
+    "z": 0.0,
+    "note": "unchanged"
+   },
+   {
+    "index": 2,
+    "name": "Refinery",
+    "x": 320,
+    "z": 0.0,
+    "note": "unchanged"
+   },
+   {
+    "index": 3,
+    "name": "Cargo Dock",
+    "x": 373,
+    "z": -8.0,
+    "note": "layout_v2"
+   },
+   {
+    "index": 4,
+    "name": "Launch Pad",
+    "x": 457,
+    "z": 0.0,
+    "note": "layout_v2"
+   },
+   {
+    "index": 5,
+    "name": "Shipyard",
+    "x": 960,
+    "z": 0.0,
+    "note": "unchanged"
+   },
+   {
+    "index": 6,
+    "name": "Habitat",
+    "x": 1068.0,
+    "z": 0.0,
+    "note": "v3: moved from 800 (road corridor) to east of the Shipyard"
+   },
+   {
+    "index": 7,
+    "name": "Engineering",
+    "x": 1120,
+    "z": 0.0,
+    "note": "unchanged (checked: 42.5 m clear of the Habitat)"
+   }
+  ]
  },
  "pad_hits_world": [
   {
