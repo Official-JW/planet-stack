@@ -214,6 +214,7 @@ const CAM_OVERRIDE = {
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
+  'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (480, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
@@ -1497,7 +1498,7 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (480, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../qa3d-next/models/launch_pad_82131aba.glb?v=82131aba';   // Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
+const PAD_GLB = '../qa3d-next/models/launch_pad_db78a6f7.glb?v=db78a6f7';   // plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
 //   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
 function padLoaded(g) {
   const o = g.scene; o.name = 'LaunchPad_Art'; o.position.set(PX, 0, 0);
