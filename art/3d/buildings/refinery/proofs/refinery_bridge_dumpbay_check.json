@@ -19,7 +19,7 @@
    "spare_bottom": 70.9,
    "spare_left": 253,
    "right_overflow_px": 55.6,
-   "frac_pts_offscreen_right": 0.571
+   "frac_pts_offscreen_right": 0.564
   },
   "edge": [
    "y0 z4: x>9.28 (sy 417)",
@@ -67,7 +67,7 @@
    "spare_bottom": 13.8,
    "spare_left": 241.7,
    "right_overflow_px": 51.3,
-   "frac_pts_offscreen_right": 0.572
+   "frac_pts_offscreen_right": 0.565
   },
   "edge": [
    "y0 z4: x>9.17 (sy 325)",
@@ -95,7 +95,7 @@
   344.1,
   319.5
  ],
- "version": "v5",
+ "version": "v5.1",
  "edge_table": {
   "method": "edge-sampled (every triangle edge at <= 2 cm, every clip sample) in the game camera; lowerator spare from the lift-section polygons",
   "393x852": {

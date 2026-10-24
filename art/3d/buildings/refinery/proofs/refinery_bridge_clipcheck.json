@@ -1,5 +1,5 @@
 {
- "version": "v5 (Director option A: box end-on through the lowerator)",
+ "version": "v5.1 (Director option B: slow visible lowerator, <= 1.0 m/s; box_convey 44 s)",
  "box_obb_m": {
   "size": [
    2.4,
@@ -11,13 +11,42 @@
  "result": {
   "frames_touching_box_path": 0,
   "frames_touching_box_convey": 0,
+  "frames_box_over_shaft_without_carriage": [
+   0,
+   0
+  ],
   "min_clearance_m": 0.119,
-  "min_where": "box starting down the lowerator (lower segment, t 22.6 s) beside the west end of the truss (bottom chord / end portal, y ~7.25) at Refinery ~(9.99, 7.25, 16.09)",
+  "min_where": "box starting down the lowerator (lower segment, t 19.7 s in box_path) beside the west end of the truss (bottom chord / end portal, y ~7.25) at Refinery ~(9.99, 7.25, 16.09)",
   "carriage_vs_static_min_m": 0.034,
   "max_yaw_step_deg_per_frame": 4.45,
-  "yaw_note": "yaw 90 constant from the infeed to table_turn; table_turn 32.8-33.8 s smoothstep 90->0 (peak 135 deg/s = 4.5 deg/frame); no other rotation, no snaps"
+  "yaw_note": "yaw 90 constant from the infeed to table_turn; table_turn 32.8-33.8 s smoothstep 90->0; no other rotation, no snaps"
+ },
+ "peak_speed_mps": {
+  "rise_hidden": 0.856,
+  "bridge": 1.5,
+  "lowerator_box_and_carriage": 1.0,
+  "lowerator_plateau": "19.31-24.99 s, box base y 7.6 -> 1.9 (eased 1 s at each end)",
+  "ground_conveyor": 1.5,
+  "carriage_empty_return": 3.0,
+  "max_accel_mps2_box": 2.25
  },
  "timing_s": {
+  "rise": [
+   0.0,
+   9.059
+  ],
+  "bridge": [
+   9.059,
+   18.313
+  ],
+  "lower": [
+   18.313,
+   25.993
+  ],
+  "ground_conveyor": [
+   25.993,
+   32.8
+  ],
   "table_turn": [
    32.8,
    33.8
@@ -31,11 +60,34 @@
   "rc1_latch": [
    34.79,
    35.19
+  ]
+ },
+ "carriage_cycle": {
+  "min_box_start_gap_s": 14.64,
+  "breakdown_s": {
+   "wait_for_box": 2.286,
+   "descent": 7.68,
+   "roll_off": 1.447,
+   "empty_return": 3.227
+  },
+  "carriage_needed_from_s": 16.027,
+  "carriage_free_at_s": 30.667,
+  "box_convey_phase_s": 14.667,
+  "queue_point_refinery_xyz": [
+   10.42,
+   8.1,
+   15.23
   ],
-  "note": "RC-1 latch = cycle start + 0.9..1.3 s (crane_refinery extras). Turn finishes 0.99 s before the latch starts; the box is at rest from 33.887 s"
+  "queue_back_from_lift_centre_m": 2.679,
+  "note": "One carriage serves every box. Box_N+1 may start its timeline no sooner than min_box_start_gap_s after Box_N (box_convey uses phase_s). wait_for_box = from the box coming within 0.05 m (plan) of the carriage deck at the top until it is centred and the descent starts. If boxes come faster, hold the next box on the span rollers with its centre >= queue_back_from_lift_centre_m back from the lift centre (at or before queue_point_refinery_xyz, box on the end of the span conveyor, base y 8.1) until carriage_free_at_s of the previous box, then resume its timeline; never let a box onto the lowerator while the carriage is below the top."
+ },
+ "box_convey_loop": {
+  "duration_s": 44.0,
+  "phase_s": 14.667,
+  "loop_clean": "first and last keys identical for every channel"
  },
  "box_path": {
-  "file": "refinery_bridge.glb (v5)",
+  "file": "refinery_bridge.glb (v5.1)",
   "clip": "box_path",
   "duration_s": 33.9,
   "fps": 30,
@@ -51,7 +103,7 @@
     7.25,
     16.09
    ],
-   "t": 22.6,
+   "t": 19.7,
    "box": "Box_1",
    "seg": "lower"
   },
@@ -77,7 +129,7 @@
      8.42,
      16.87
     ],
-    "t": 21.567,
+    "t": 18.233,
     "box": "Box_1",
     "seg": "bridge"
    },
@@ -89,7 +141,7 @@
      7.25,
      16.09
     ],
-    "t": 22.6,
+    "t": 19.7,
     "box": "Box_1",
     "seg": "lower"
    },
@@ -133,7 +185,7 @@
   "support": {
    "max_rise_of_support_above_base_m": -0.005,
    "at": {
-    "t": 22.167,
+    "t": 18.4,
     "box": "Box_1",
     "src": "Lift_Carriage"
    },
@@ -153,6 +205,11 @@
     18.45
    ]
   },
+  "box_over_shaft_without_carriage": {
+   "frames": 0,
+   "first": null,
+   "note": "frames where a box overlaps the carriage deck in plan by > 5 cm but its base is > 2 cm above the deck top (box over the open shaft), below the span deck level"
+  },
   "max_yaw_step_deg_per_frame": {
    "d": 4.45,
    "t": 33.267,
@@ -160,11 +217,11 @@
   }
  },
  "box_convey": {
-  "file": "refinery_bridge.glb (v5)",
+  "file": "refinery_bridge.glb (v5.1)",
   "clip": "box_convey",
-  "duration_s": 38,
+  "duration_s": 44,
   "fps": 30,
-  "frames": 1141,
+  "frames": 1321,
   "coords": "Refinery-local metres (glTF axes, y up)",
   "method": "Every frame at 30 Hz: each visible box OBB (fitted every frame to its skinned vertices in its bone frame) vs every triangle within 0.5 m of it (static bridge mesh, rollers, lift carriage, other boxes), exact triangle-OBB distance (SAT overlap depth when they intersect). Clearance = distance from the OBB to the part of each triangle above the box base plane + 3 cm (triangles clipped at that plane); below it is the support the box rides on (rollers, carriage deck, turntable). Clearances are capped at 0.5 m (search radius). Carriage vs static: exact triangle-triangle distance every frame.",
   "min_clearance_m": 0.119,
@@ -176,23 +233,23 @@
     7.25,
     16.09
    ],
-   "t": 9.933,
+   "t": 5.033,
    "box": "Box_3",
    "seg": "lower"
   },
   "frames_touching": 0,
   "per_segment_min": {
-   "lower": {
-    "d": 0.119,
+   "ground_conveyor": {
+    "d": 0.148,
     "src": "static",
     "at": [
-     9.99,
-     7.25,
-     16.09
+     7.82,
+     1.46,
+     16.13
     ],
-    "t": 9.933,
-    "box": "Box_3",
-    "seg": "lower"
+    "t": 26.733,
+    "box": "Box_1",
+    "seg": "ground_conveyor"
    },
    "bridge": {
     "d": 0.139,
@@ -202,7 +259,7 @@
      8.42,
      16.87
     ],
-    "t": 21.567,
+    "t": 18.233,
     "box": "Box_1",
     "seg": "bridge"
    },
@@ -218,18 +275,6 @@
     "box": "Box_1",
     "seg": "rise"
    },
-   "ground_conveyor": {
-    "d": 0.148,
-    "src": "static",
-    "at": [
-     7.82,
-     1.46,
-     16.13
-    ],
-    "t": 26.733,
-    "box": "Box_1",
-    "seg": "ground_conveyor"
-   },
    "table_turn": {
     "d": 0.351,
     "src": "static",
@@ -242,15 +287,27 @@
     "box": "Box_1",
     "seg": "table_turn"
    },
+   "lower": {
+    "d": 0.119,
+    "src": "static",
+    "at": [
+     9.99,
+     7.25,
+     16.09
+    ],
+    "t": 5.033,
+    "box": "Box_3",
+    "seg": "lower"
+   },
    "settle": {
     "d": 0.5,
-    "t": 8.5,
+    "t": 4.5,
     "box": "Box_2",
     "seg": "settle"
    },
    "-": {
     "d": 0.5,
-    "t": 8.567,
+    "t": 4.567,
     "box": "Box_2",
     "seg": "-"
    }
@@ -258,7 +315,7 @@
   "support": {
    "max_rise_of_support_above_base_m": -0.005,
    "at": {
-    "t": 22.167,
+    "t": 18.4,
     "box": "Box_1",
     "src": "Lift_Carriage"
    },
@@ -266,7 +323,7 @@
   },
   "carriage_vs_static_min_gap_m": {
    "d": 0.034,
-   "t": 27.4,
+   "t": 42.1,
    "car": [
     8.3,
     1.28,
@@ -278,9 +335,14 @@
     18.45
    ]
   },
+  "box_over_shaft_without_carriage": {
+   "frames": 0,
+   "first": null,
+   "note": "frames where a box overlaps the carriage deck in plan by > 5 cm but its base is > 2 cm above the deck top (box over the open shaft), below the span deck level"
+  },
   "max_yaw_step_deg_per_frame": {
    "d": 4.48,
-   "t": 20.7,
+   "t": 18.7,
    "box": "Box_3"
   }
  }

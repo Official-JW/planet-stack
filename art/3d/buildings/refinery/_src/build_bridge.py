@@ -342,18 +342,16 @@ def run_frac(t, d, T=None):
 def smooth(x): x = min(max(x, 0.0), 1.0); return x * x * (3 - 2 * x)
 def dist(a, b): return (Vector(b) - Vector(a)).length
 TURN = 1.0; SETTLE = 0.087; DWELL = 3.0      # v5: ~1 s ease-in-out table turn 90 -> 0, done 0.087 s before Pickup arrival / RC-1 cycle start
-V_LOW, V_UP = 2.0, 3.0                       # v5 lift carriage: down with the box, back up empty
-T_ARR_TARGET = 33.887             # v3 arrival kept (box_path 33.9 s, box_convey 38 s, phase 12.667 s); the hidden rise in the south shaft takes up the slack
+V_LOW, V_UP = 1.0, 3.0                       # v5.1 (Director option B): heavy lift moves slowly: down with the box at <= 1.0 m/s, back up empty at 3 m/s (both eased)
+T_ARR_TARGET = 33.887             # v3 arrival kept (box_path 33.9 s); the hidden rise in the south shaft takes up the slack
 T_LOW = run_time(dist(P2, P3), V_LOW)
 _t = run_time(dist(P1, P2)) + T_LOW + run_time(dist(P3, P4)) + TURN + SETTLE
 T_RISE = T_ARR_TARGET - _t
-assert run_time(dist(P0, P1)) - 1e-6 < T_RISE < 12.6, T_RISE   # never faster than 1.5 m/s; out of the shaft before the next box appears (phase 12.667)
+assert run_time(dist(P0, P1)) - 1e-6 < T_RISE, T_RISE   # never faster than 1.5 m/s
 SEG = [('rise', P0, P1, T_RISE), ('bridge', P1, P2, run_time(dist(P1, P2))), ('lower', P2, P3, T_LOW),
        ('ground_conveyor', P3, P4, run_time(dist(P3, P4))), ('table_turn', P4, P4, TURN), ('settle', P4, P4, SETTLE)]
 T_ARR = sum(s[3] for s in SEG)                    # arrival on Pickup_Point
 T_PATH = T_ARR + DWELL
-CLIP = round(math.ceil(T_PATH + 0.6), 1)
-OFF = CLIP / 3.0
 ANG = math.degrees(math.atan2(LOW_Y - PICK[1], X0 - XTE))
 def chute_pitch(xc):             # +deg = nose (-x end) down while the box straddles the tip-down kinks
     xa, xb = XTE, X0
@@ -393,8 +391,18 @@ def car_dy_box(t):                # carriage offset below the top (<= 0) on one 
     if t < b: return -H * run_frac(t - a, H, b - a)
     if t < c: return -H
     return -H + H * run_frac(t - c, H, d - c)
-APPROACH = (GW + BHZ + CAR_HZ) / V + 1.0     # conservative: the next box can reach the carriage's shaft at most this long before its 'lower' starts
-assert T_CAR[3] - T_CAR[0] + APPROACH < 38.0 / 3.0, (T_CAR, APPROACH)    # carriage back at the top before the next box (phase 12.667 s) arrives
+# single-carriage cycle: the carriage must be at the top (and stay there) from the moment a box's plan OBB comes within CAR_MARGIN of the
+# carriage deck (T_ENTER, on the span) until it rides down; it is free again when it is back at the top after the empty return.
+CAR_MARGIN = 0.05
+_b0, _b1 = EVF['bridge']
+T_ENTER = next(t for t in (_b0 + k / 1000.0 for k in range(int((_b1 - _b0) * 1000) + 2))
+               if abs(route(t)[0][0] - P2[0]) < BHX + CAR_HX + CAR_MARGIN and abs(route(t)[0][2] - P2[2]) < BHZ + CAR_HZ + CAR_MARGIN)
+QUEUE_S = dist(route(T_ENTER)[0], P2)                       # distance back from the lift centre (along the span) where a box must stop to queue
+CYCLE = T_CAR[3] - T_ENTER                                   # minimum start-to-start gap of two boxes on this timeline
+CLIP = float(math.ceil(3 * CYCLE))                           # box_convey: shortest whole-second loop that fits 3 boxes
+OFF = CLIP / 3.0
+assert OFF >= CYCLE and T_RISE < OFF and T_PATH + 0.3 < CLIP, (CYCLE, OFF, T_RISE)
+print('CYCLE %.3f wait %.3f down %.3f rolloff %.3f up %.3f queue_s %.3f enter %.3f' % (CYCLE, T_CAR[0] - T_ENTER, T_CAR[1] - T_CAR[0], T_CAR[2] - T_CAR[1], T_CAR[3] - T_CAR[2], QUEUE_S, T_ENTER))
 EV['lift_carriage'] = {'down': [round(T_CAR[0], 3), round(T_CAR[1], 3)], 'up': [round(T_CAR[2], 3), round(T_CAR[3], 3)]}
 EV['dwell'] = [round(T_ARR, 3), round(T_PATH, 3)]
 DIST = {name: round(dist(a, b), 3) for name, a, b, d in SEG}
@@ -491,6 +499,16 @@ arm['clearance'] = {'deck_underside_y': UND, 'lowest_vertex_over_lanes_y': 7.249
                     'game_view': 'Refinery camera (313.1, 2.08, 13.55), frame_w 37.5: no bridge vertex inside the dump bay / Truck_Dump / hopper / intake outline (gap >= 6.3 px at 393x852, 10.6 px at 375x667); lowerator fully on screen (right spare 10.3 px / 8.2 px; box in the lift 11.5 / 8.5 px); whole Refinery + bridge + crane top / bottom spare 64.2 / 70.9 px at 393x852, 10.2 / 13.8 px at 375x667; the span beyond it and the south tower run off the right edge',
                     'crane': 'every part of the bridge above y 3.0 is >= 16.9 m from the RC-1 mast (311, 17.5), far outside the 11.25 m jib tip. Inside that radius only the pickup table, the west end of the ground conveyor, end stop, lamp (top y 2.53, z 18.8) and control box, all at or below the box top under the hook path.'}
 arm['draws'] = 4
+_qp = REF(route(T_ENTER)[0])
+arm['carriage_cycle'] = {'min_box_start_gap_s': round(CYCLE, 2), 'breakdown_s': {'wait_for_box': round(T_CAR[0] - T_ENTER, 3), 'descent': round(T_CAR[1] - T_CAR[0], 3),
+                         'roll_off': round(T_CAR[2] - T_CAR[1], 3), 'empty_return': round(T_CAR[3] - T_CAR[2], 3)},
+                         'carriage_needed_from_s': round(T_ENTER, 3), 'carriage_free_at_s': round(T_CAR[3], 3), 'box_convey_phase_s': round(OFF, 3),
+                         'queue_point_refinery_xyz': [round(_qp[0], 2), round(_qp[1], 2), round(_qp[2], 2)], 'queue_back_from_lift_centre_m': round(QUEUE_S, 3),
+                         'note': ('One carriage serves every box. Box_N+1 may start its timeline no sooner than min_box_start_gap_s after Box_N (box_convey uses phase_s). '
+                                  'wait_for_box = from the box coming within %.2f m (plan) of the carriage deck at the top until it is centred and the descent starts. '
+                                  'If boxes come faster, hold the next box on the span rollers with its centre >= queue_back_from_lift_centre_m back from the lift centre '
+                                  '(at or before queue_point_refinery_xyz, box on the end of the span conveyor, base y 8.1) until carriage_free_at_s of the previous box, then '
+                                  'resume its timeline; never let a box onto the lowerator while the carriage is below the top.') % CAR_MARGIN}
 arm['clips'] = {'box_convey': {'duration_s': CLIP, 'loop': True, 'boxes': 3, 'phase_s': round(OFF, 3), 'speed_mps': V, 'lowerator_descent_mps': V_LOW, 'ramp_s': TA,
                                'per_box_events_s': EV, 'pickup_arrive_s': round(T_ARR, 3), 'hidden_after_s': round(T_PATH + 0.05, 3),
                                'note': 'Box_N runs this timeline shifted by (N-1)*phase_s: rises hidden in the south shaft, crosses the bridge, rides the lift carriage down the open lowerator, rides the ground conveyor west (all end-on, yaw 90), turns to yaw 0 on the pickup turntable (table_turn, 1 s ease-in-out) and settles on Pickup_Point, waits dwell, then scales to 0 (show the crane box from Pickup_Point at that moment).'},

@@ -1,7 +1,10 @@
-# CV-3 Refinery Box Bridge — `refinery_bridge.glb` (v5)
+# CV-3 Refinery Box Bridge — `refinery_bridge.glb` (v5.1)
+
+v5.1 is the Director's option B retime of v5. Geometry and camera are unchanged. The heavy lift now moves slowly: the box and carriage come down the visible lowerator at **≤ 1.0 m/s, eased in and out**. The hidden rise is shorter to keep the 33.887 s arrival, and `box_convey` is now **44 s** so the single carriage is back at the top before each next box.
+
 
 v5 is the Director's option A: **the box rides end-on (yaw 90, long axis along z) the whole way and turns to yaw 0 only on the pickup turntable.**
-1. The box turns end-on while hidden in the south lift shaft, then rises (12.4 s, hidden).
+1. The box turns end-on while hidden in the south lift shaft, then rises (9.06 s, hidden).
 2. It crosses the −32° span lengthwise. The span is 2.7 m between the guides (box + 0.15 m a side). The walkway was dropped to make room.
 3. It rides a **moving lift carriage** down the open two-post lowerator in the **flatbed median at Refinery (9.0, 17.5)**. The frame is 2.08 × 3.16 m (box + 0.15 m a side).
 4. It rolls west, still end-on, along the 2.7 m-wide **ground conveyor** to the **3.05 m pickup turntable**.
@@ -45,30 +48,53 @@ This file stands on its own. Do not merge it into `refinery_game.glb`.
   - `Pickup_Point`
 
 ## Clips
-The clip lengths and the pickup arrival time are the same as v4.
-- **`box_convey`**, 38.0 s loop. Three boxes, 12.667 s apart, at 1.5 m/s on the rollers with 1 s eased starts and stops. Timeline for one box:
-  - 0–12.399 s: `rise`, hidden in the south shaft. The box is held scaled to 0 for the first 0.25 s, so gltfpack's 10 Hz resample never shows a growing box.
-  - 12.399–21.653 s: `bridge`, 12.38 m, end-on.
-  - 21.653–25.993 s: `lower`, 6.68 m on the carriage, up to 2 m/s.
-  - 25.993–32.8 s: `ground_conveyor`, 8.71 m west, end-on.
-  - 32.8–33.8 s: `table_turn`, 90°→0° smoothstep.
-  - 33.8–33.887 s: `settle`.
-  - 33.887–36.887 s: `dwell`.
-  - Hidden from 36.937 s.
-  - `lift_carriage`: down 21.653–25.993 s, back up 27.44–30.667 s (3 m/s). It is at the top again before the next box arrives.
-  - Coder: start the RC-1 cycle at 33.89 s plus the box offset. RC-1 latches 0.9–1.3 s into its cycle (34.79–35.19 s), so the turn has finished 0.99 s before the latch.
-- **`box_path`**, 33.9 s, no loop. A single box (Box_1, scrubbable): time = progress × duration. It uses the same events and ends on `Pickup_Point` at yaw 0. The carriage moves with it.
-- **`roller_spin`**, 0.4 s loop. 18 roller bones. Surface speed is about 1.41 m/s.
+`box_path` keeps the 33.887 s arrival. `box_convey` is stretched to 44 s for the slow lift.
+
+Timeline for one box (both clips):
+
+| stretch | time (s) | length | peak speed |
+|---|---|---|---|
+| `rise` (hidden in the south shaft) | 0–9.059 | 6.9 m | 0.86 m/s |
+| `bridge` (end-on) | 9.059–18.313 | 12.38 m | 1.5 m/s |
+| `lower` (on the carriage) | 18.313–25.993 | 6.68 m | **1.0 m/s**, held 19.31–24.99 s (box base y 7.6 → 1.9) |
+| `ground_conveyor` (end-on) | 25.993–32.8 (unchanged) | 8.71 m | 1.5 m/s |
+| `table_turn` | 32.8–33.8 | 90° → 0° smoothstep | 135°/s at mid-turn |
+| `settle` | 33.8–33.887 | | |
+| `dwell` | 33.887–36.887 | | |
+
+- Every move eases over 1 s (cubic ramp), so speed never jumps. The largest box acceleration is 2.25 m/s².
+- `lift_carriage`: down with the box 18.313–25.993 s at ≤ 1.0 m/s. It waits at the bottom until the box has rolled clear, then returns up empty 27.44–30.667 s, eased, peak 3.0 m/s.
+- RC-1: start the cycle at 33.89 s plus the box offset. It latches 0.9–1.3 s into the cycle (34.79–35.19 s), so the turn is done 0.99 s before the latch.
+
+- **`box_convey`**, **44.0 s** loop. Three boxes, 14.667 s apart. Each box is hidden at the infeed for the first 0.25 s and again from 36.937 s. The first and last keys match on every channel, so the loop is clean.
+- **`box_path`**, 33.9 s, no loop. A single box (Box_1, scrubbable): time = progress × duration. It ends on `Pickup_Point` at yaw 0. The carriage moves with it, and Box_2 and Box_3 are scaled to 0.
+- **`roller_spin`**, 0.4 s loop. 18 roller bones, surface speed about 1.41 m/s.
+
+### Single-carriage cycle (also in the `carriage_cycle` extras)
+Box N+1 must start its timeline **at least 14.64 s** after box N. The breakdown:
+- **Wait for the box, 2.286 s.** The carriage must be at the top from the moment the box comes within 0.05 m (in plan) of the carriage deck (16.027 s) until the box is centred and the descent starts (18.313 s).
+- **Descent, 7.680 s.**
+- **Roll-off, 1.447 s.** This runs until the box is 0.05 m clear of the carriage.
+- **Empty return, 3.227 s.** The carriage is free at 30.667 s.
+
+`box_convey` uses 14.667 s, which leaves 0.027 s of slack.
+
+If boxes come faster than this:
+- Hold the next box on the **span conveyor**, with its centre at least **2.68 m back from the lift centre**: at or before Refinery (10.42, 8.1, 15.23), base y 8.1.
+- Keep it there until the previous box's carriage is back at the top (30.667 s on that box's timeline), then resume its timeline.
+- Never let a box onto the lowerator while the carriage is below the top.
+- Further boxes can queue behind it on the span, at least 2.9 m centre to centre (the box is 2.75 m long along the span, plus a gap), or wait hidden in the south shaft.
 
 ## Clip check (`proofs/refinery_bridge_clipcheck.json`)
-The check runs every frame at 30 Hz over the full 33.9 s `box_path` and over the 38 s `box_convey` loop (all three boxes):
+The check runs every frame at 30 Hz over the full 33.9 s `box_path` and over the 44 s `box_convey` loop (all three boxes):
 - Each box's OBB is fitted per frame to its skinned vertices.
 - Each OBB is tested against every real triangle within 0.5 m: static mesh, rollers, lift carriage and the other boxes.
 - Distances are exact triangle-to-OBB. Geometry below the box base + 3 cm counts as support.
 
 Results:
 - **0 frames touching.**
-- **Minimum clearance 0.119 m.** It occurs at t 22.6 s, as the box starts down the lowerator beside the west end of the truss (y ≈ 7.25).
+- **0 frames with a box over the open shaft without the carriage under it.**
+- **Minimum clearance 0.119 m.** It occurs at t 19.7 s, as the box starts down the lowerator beside the west end of the truss (y ≈ 7.25).
 - Per-segment minimum clearance (m):
 
   | rise | bridge | lower | ground_conveyor | table_turn | settle |
@@ -80,11 +106,11 @@ Results:
 
 ## Budget
 - 3,752 tris, 4 draws: `Bridge_Static` and `Bridge_Moving` with SHM_Paint + SHM_GlowCyan each.
-- 69,712 B.
+- 71,244 B.
 - Extensions: KHR_mesh_quantization and EXT_meshopt_compression only. No Draco, images, textures, transmission, clearcoat or ior.
 
 ## Game view (Cam_Target (313.1, 2.08, 13.55), frame_w 37.5; camera unchanged)
-All numbers are edge-sampled over every clip sample (`proofs/refinery_bridge_dumpbay_check.json`). The dump bay outline is drawn orange in the proofs.
+All numbers are edge-sampled over every clip sample (re-measured for v5.1: unchanged) (`proofs/refinery_bridge_dumpbay_check.json`). The dump bay outline is drawn orange in the proofs.
 
 | | 393×852 | 375×667 |
 |---|---|---|
@@ -100,7 +126,7 @@ The v4 edge-sampled numbers, for comparison: 393 gap 3.5 px, lowerator right 1.4
 - Build: `blender -b -P _src/build_bridge.py -- raw.glb [--box /tmp/cargo_box_plain.glb]`. The env vars `BR_LX` (lowerator centre x, default 9.0), `BR_EE` (span end set-back, default 1.6) and `BR_LOWDUMP` (dump the lift-section polygons as JSON). Make the box input with `gltfpack -i art/3d/props/cargo_box/cargo_box_game.glb -o /tmp/cargo_box_plain.glb -noq -kn -ke`.
 - Pack: `gltfpack -i raw.glb -o refinery_bridge.glb -cc -kn -ke -af 10`.
 - Proofs: `_src/render_bridge_proofs.py` (`--phone` for the game camera, `--clip box_convey|box_path`).
-  - `proofs/refinery_bridge_393x852.png` and `_375x667.png`: box_convey at t 28 s, with band lines and the dump bay outline.
-  - `_before_after.png`: v4 (613e1c9) vs v5 at both sizes, 2× size.
+  - `proofs/refinery_bridge_393x852.png` and `_375x667.png`: box_convey at t 22 s (box on the carriage, mid-descent), with band lines and the dump bay outline. For v5.1 these are light Eevee renders (16 samples) because of the render hold. A Cycles re-render is queued.
+  - `_before_after.png`: v5 (3eb9b42, t 28) vs v5.1 (t 22) at both sizes, 2× size.
   - `_clipcheck.json`: the 30 Hz box-vs-geometry clip check (box_path and box_convey).
   - `_closeup_4k.png` is **still the v1 image**. A v5 4K close-up is queued until the shared box is free (QA until about 1:50 AM PT).
