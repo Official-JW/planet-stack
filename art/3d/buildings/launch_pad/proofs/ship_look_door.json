@@ -1,0 +1,226 @@
+{
+ "what": "cargo door CD-1: shiplook (qa3d-next local copy of 982c3e3, stopgap code absent/off), before = launch_pad_game.glb 82131aba, after = launch_pad_game_lv1door.glb c527d5e3 (main.js PAD_GLB + CAM_OVERRIDE key swapped only)",
+ "runner": "/workspace/playtest/qnext run_next.sh MODS=shiplook SIZES=\"393 375\", stats via ex.py",
+ "targets": {
+  "shaded_p25": "60-75",
+  "near_black": "<1%",
+  "ge250": "<=~2%",
+  "rings": "4/4"
+ },
+ "before": {
+  "393": {
+   "status": "pass",
+   "p25": 68,
+   "p05": 57,
+   "p50": 105,
+   "p90": 174,
+   "p99": 220,
+   "max": 239,
+   "black": 0,
+   "hullPx": 40443,
+   "rings": "4/4",
+   "ring_bands": [
+    [
+     923,
+     937,
+     237,
+     231,
+     0.975
+    ],
+    [
+     1006,
+     1019,
+     152,
+     146,
+     0.961
+    ],
+    [
+     1116,
+     1130,
+     200,
+     195,
+     0.975
+    ],
+    [
+     1224,
+     1241,
+     135,
+     127,
+     0.941
+    ]
+   ],
+   "ge250_hull": 0.0,
+   "ge250_ship": 0.0,
+   "mean_hull": 113.3,
+   "my_p25": 68,
+   "pad_net": [
+    [
+     "models/launch_pad_82131aba.glb?v=82131aba",
+     "82131aba",
+     200
+    ]
+   ]
+  },
+  "375": {
+   "status": "pass",
+   "p25": 69,
+   "p05": 57,
+   "p50": 104,
+   "p90": 174,
+   "p99": 221,
+   "max": 239,
+   "black": 0,
+   "hullPx": 16314,
+   "rings": "4/4",
+   "ring_bands": [
+    [
+     442,
+     450,
+     119,
+     118,
+     0.992
+    ],
+    [
+     495,
+     502,
+     72,
+     70,
+     0.972
+    ],
+    [
+     564,
+     573,
+     91,
+     90,
+     0.989
+    ],
+    [
+     633,
+     643,
+     52,
+     52,
+     1
+    ]
+   ],
+   "ge250_hull": 0.0,
+   "ge250_ship": 0.0,
+   "mean_hull": 113.7,
+   "my_p25": 69,
+   "pad_net": [
+    [
+     "models/launch_pad_82131aba.glb?v=82131aba",
+     "82131aba",
+     200
+    ]
+   ]
+  }
+ },
+ "after": {
+  "393": {
+   "status": "pass",
+   "p25": 67,
+   "p05": 57,
+   "p50": 103,
+   "p90": 174,
+   "p99": 220,
+   "max": 239,
+   "black": 0,
+   "hullPx": 40450,
+   "rings": "4/4",
+   "ring_bands": [
+    [
+     923,
+     937,
+     237,
+     231,
+     0.975
+    ],
+    [
+     1006,
+     1019,
+     152,
+     146,
+     0.961
+    ],
+    [
+     1116,
+     1130,
+     200,
+     196,
+     0.98
+    ],
+    [
+     1224,
+     1241,
+     135,
+     127,
+     0.941
+    ]
+   ],
+   "ge250_hull": 0.0,
+   "ge250_ship": 0.0,
+   "mean_hull": 112.3,
+   "my_p25": 67,
+   "pad_net": [
+    [
+     "models/launch_pad_c527d5e3.glb?v=c527d5e3",
+     "c527d5e3",
+     200
+    ]
+   ]
+  },
+  "375": {
+   "status": "pass",
+   "p25": 67,
+   "p05": 57,
+   "p50": 101,
+   "p90": 174,
+   "p99": 221,
+   "max": 239,
+   "black": 0,
+   "hullPx": 16314,
+   "rings": "4/4",
+   "ring_bands": [
+    [
+     442,
+     450,
+     119,
+     118,
+     0.992
+    ],
+    [
+     495,
+     502,
+     72,
+     70,
+     0.972
+    ],
+    [
+     564,
+     573,
+     91,
+     90,
+     0.989
+    ],
+    [
+     633,
+     643,
+     52,
+     52,
+     1
+    ]
+   ],
+   "ge250_hull": 0.0,
+   "ge250_ship": 0.0,
+   "mean_hull": 112.7,
+   "my_p25": 67,
+   "pad_net": [
+    [
+     "models/launch_pad_c527d5e3.glb?v=c527d5e3",
+     "c527d5e3",
+     200
+    ]
+   ]
+  }
+ }
+}

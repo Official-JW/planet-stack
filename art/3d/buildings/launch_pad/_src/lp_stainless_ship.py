@@ -127,8 +127,10 @@ def build(G):
     for (ra, za), (rb, zb), A, B in zip(prof, prof[1:], rr, rr[1:]):
         for k in range(nA):
             k2 = (k + 1) % nA
+            tg = ftag(za, zb, ra, rb, k)
+            if tg == 'bay' and G.get('DOOR_V'): continue        # --door 1: the opening is left open for the closed cargo door CD-1 (lp_cargo_door.py)
             f = bm.faces.new((A[0], B[k], B[k2]) if len(A) == 1 else (A[k], A[k2], B[0]) if len(B) == 1 else (A[k], A[k2], B[k2], B[k]))
-            f.material_index = SLOT.index(ftag(za, zb, ra, rb, k))
+            f.material_index = SLOT.index(tg)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     hull = _obj(bm, 'ship_ss_hull', M[SLOT[0]], smooth=True, bevel=0.0, angle=40)
     for s in SLOT[1:]: hull.data.materials.append(M[s])

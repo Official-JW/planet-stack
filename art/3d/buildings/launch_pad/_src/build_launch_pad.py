@@ -41,6 +41,9 @@ from mc_common import _obj, _nodes
 
 A = argv(); OUT = os.path.abspath(A.get('out', '/tmp/lp_out')); os.makedirs(OUT, exist_ok=True)
 QUICK = A.get('quick') == '1'
+LEVEL = int(A.get('level', '0'))
+DOOR_V = A.get('door', '1' if LEVEL >= 1 else '0') == '1'   # 1 = closed cargo door CD-1 (lp_cargo_door.py, Director 10/24 11:22); 0 = Lv0 door (default at --level 0, unchanged)
+# LEVEL 0 = Lv0 (default, unchanged). 1 = Lv1 add-on (lv1/_src/lp_lv1.py): tidied tank farm TF-1 + closed cargo door; ladder, cage and hatch landing unchanged
 reset(); rr = random.Random(101)
 TAU = math.tau
 NAME = 'launch_pad'
@@ -898,13 +901,16 @@ LADDER_FOOT = Vector((LU.x * 5.2, LU.y * 5.2, TOP))
 for o in [bpy.data.objects[n] for n in set(bpy.data.objects.keys()) - _gs]:
     o['grp'] = 'Ship'
 # ---- cargo door (own node, origin on the hinge at the sill; opens outward + down into a shelf about local X)
-_gd = grp_begin()
-lathe('cargo_door_panel', [(SHIP_R + 0.02, SILL), (SHIP_R + 0.2, SILL), (SHIP_R + 0.2, SILL + DOOR_H), (SHIP_R + 0.02, SILL + DOOR_H), (SHIP_R + 0.02, SILL)],
+_gd = grp_begin(); _cd_ship = []
+if DOOR_V:
+    import lp_cargo_door; _cd_door, _cd_ship = lp_cargo_door.build(globals())
+    for o in _cd_ship: o['grp'] = 'Ship'
+if not DOOR_V: lathe('cargo_door_panel', [(SHIP_R + 0.02, SILL), (SHIP_R + 0.2, SILL), (SHIP_R + 0.2, SILL + DOOR_H), (SHIP_R + 0.02, SILL + DOOR_H), (SHIP_R + 0.02, SILL)],
       (0, 0, 0), SSM['B'], segs=10, a0=DOOR_A - DOOR_HW, a1=DOOR_A + DOOR_HW, smooth=False)
-for zz in (0.25, DOOR_H - 0.25):
+for zz in ((0.25, DOOR_H - 0.25) if not DOOR_V else ()):
     lathe('cargo_door_rib', [(SHIP_R + 0.2, SILL + zz - 0.08), (SHIP_R + 0.26, SILL + zz - 0.08), (SHIP_R + 0.26, SILL + zz + 0.08), (SHIP_R + 0.2, SILL + zz + 0.08)],
           (0, 0, 0), SSM['band'], segs=10, a0=DOOR_A - DOOR_HW, a1=DOOR_A + DOOR_HW, smooth=False)
-_door_parts = [bpy.data.objects[n] for n in set(bpy.data.objects.keys()) - _gd]
+_door_parts = [bpy.data.objects[n] for n in set(bpy.data.objects.keys()) - _gd if bpy.data.objects[n] not in _cd_ship]
 bpy.ops.object.select_all(action='DESELECT')
 for o in _door_parts: o.select_set(True)
 bpy.context.view_layer.objects.active = _door_parts[0]
@@ -1068,6 +1074,9 @@ CRANE['joints'] = ('Slew: rotation.y = theta (rad) about +Y, jib direction (cos 
                    'If slew_keep_out_rad is not empty, never slew through it.')
 CRANE['poses'] = json.dumps({k: [round(x, 4) for x in v] for k, v in POSES.items()})   # [slew, trolley r, hoist L, hook yaw] per pose
 CRANE['clips'] = ', '.join('%s %.1fs' % (k, v[2]) for k, v in CLIPS.items())
+if LEVEL >= 1:
+    sys.path.insert(0, os.path.normpath(os.path.join(HERE, '..', 'lv1', '_src'))); import lp_lv1; lp_lv1.build(globals())
+
 # ====================================================================== stage cleanup + lights + crew
 EXCL = [((0, 0), 34.0)] + [((x, y), 4.0) for x, y, _, _ in SOL] + [((RXr, RYr), 18.0)] + [((x, -30.5), 10.0) for x in range(-30, -72, -6)] + [((x, -30.5), 10.0) for x in range(-24, 12, 6)]
 for ob in list(coll('Stage').objects):
@@ -1188,7 +1197,8 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
           'LP_StainlessC': ('SHM_Stainless', A.get('ss_c', '#c6cacf')), 'LP_StainlessWeld': ('SHM_Stainless', A.get('ss_weld', '#8f959c')),
           'LP_SteelBand': ('SHM_Stainless', A.get('ss_band', '#b2b7bd')), 'LP_StainlessHeat': ('SHM_Stainless', '#77736f'),
           'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#2fe3ff'),
-          'LP_ShipSolar': ('SHM_Stainless', A.get('ss_solar', '#687cc4'))}
+          'LP_ShipSolar': ('SHM_Stainless', A.get('ss_solar', '#687cc4')),
+          'LP_DoorPanel': ('SHM_Stainless', '#8a9097'), 'LP_ShipGraphite': ('SHM_Stainless', '#2b2f35')}   # cargo door CD-1 (--door 1)
     # ship solar band LP_ShipSolar: navy #152a4a -> mid blue #687cc4 (Director 10/24, ship tone fix). #687cc4 also keeps the band's anti-aliased edge
     # against the cyan SolarGlowLo trim outside qa3d-next's ring-albedo tolerance (|rgb - #2fe3ff| <= 48), so the 4 cyan rings stay the only ring bands.
     # SHIP_SWATCH: ship-only overrides (pad solar masts keep the navy LP_SolarCell).
@@ -1197,6 +1207,7 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
     NODE_MAT = {'Hose_LOX': 'SHM_Metal', 'Hose_LCH4': 'SHM_Metal', 'Tier_03': 'SHM_Paint', 'Tier_05': 'SHM_Paint', 'Tier_08': 'SHM_Paint',
                 'Tier_12': 'SHM_GlowWhite', 'Tier_20': 'SHM_Paint', 'Ship': 'SHM_Stainless', 'Door': 'SHM_Stainless', 'Road': 'SHM_Paint'}
     NODE_NAME = {'Road': 'Road_UTurn', 'Base': GAME_NAMES['base'], 'Ship': GAME_NAMES['ship'], 'Door': GAME_NAMES['door'], 'Crane': GAME_NAMES['crane_mesh']}
+    NODE_NAME.update(globals().get('LV1_NODES', {}))   # Lv1 mockup nodes only (empty at Lv0)
     NODE_NAME.update({g: v[0] for g, v in GAME_NAMES['hoses'].items()}); NODE_NAME.update({g: v[0] for g, v in GAME_NAMES['tiers'].items()})
     KEEP_TEXT = ('decal_lox', 'decal_lch4', 'stencil_pad', 'stencil_bay')            # big readable labels stay in the game GLB
     meshes = [o for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT')]
@@ -1259,7 +1270,7 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
         bpy.ops.object.select_all(action='DESELECT'); G.select_set(True); bpy.context.view_layer.objects.active = G
         md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.03, min(1.0, ratio)); md.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=md.name)
-    CAP = {'Road': 400, 'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': int(A.get('ship_cap', 7900)), 'Door': 300}
+    CAP = {'Road': 400, 'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': int(A.get('ship_cap', 7900)), 'Door': int(A.get('door_cap', 300))}
     for g, G in nodes.items():
         cap = CAP.get(g, 1000 if g.startswith('Tier_') else None)
         if cap and tri(G) > cap: dec(G, cap / tri(G))
