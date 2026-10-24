@@ -1,6 +1,6 @@
 # HT-04 haul truck — shared prop (Mine + Refinery)
 
-`ht04_game.glb`: **134,096 B, md5 `4222799b2801d40f26a313a62c42b43e`, 10,560 tris, 1 draw** (10/24 01:10 ore v3: load lifted to sRGB (100,97,92), see *Ore v3* below; 01:00 v2 was 134,292 B / md5 `5ba7c9da...`; ore v2: deposit-grey dumped pile, see *Ore v2* below; 00:40 v1 was 134,588 B / md5 `62c32238...` / 10,536 tris; 10/24 00:40 truck_pass: regolith ore + glass merged into the paint, see *Ore load / 1 draw* below; 10/23 PM detail pass was 124,876 B / 8,308 tris / 2 draws, md5 `5e5c9fe1...`; before that 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
+`ht04_game.glb`: **134,888 B, md5 `71fe624efe176b3f6f3bd31bbcc51e95`, 10,560 tris, 1 draw** (10/24 06:15 ore v4: load COLOR_0 only, sRGB (120,119,117), see *Ore v4* below; 01:10 ore v3 was 134,096 B / md5 `4222799b...`, load sRGB (100,97,92), see *Ore v3* below; 01:00 v2 was 134,292 B / md5 `5ba7c9da...`; ore v2: deposit-grey dumped pile, see *Ore v2* below; 00:40 v1 was 134,588 B / md5 `62c32238...` / 10,536 tris; 10/24 00:40 truck_pass: regolith ore + glass merged into the paint, see *Ore load / 1 draw* below; 10/23 PM detail pass was 124,876 B / 8,308 tris / 2 draws, md5 `5e5c9fe1...`; before that 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
 materials `SHM_Paint` + `SHM_Glass` (see Detail pass), colours in COLOR_0, no textures). It uses EXT_meshopt_compression + KHR_mesh_quantization (gltfpack -cc -kn -ke) and no Draco.
 The budget was ≤ 4k tris and ≤ 3 draws; the detail pass takes it to ~8.3k tris (approved scope: "trucks lack detail"), draws stay ≤ 3. The no-scoop body has no arm.
 
@@ -92,3 +92,24 @@ Director: (13,12,11) read as coal. The whole load (heap, 26 rocks, chute_pour / 
 - target **sRGB (100, 97, 92)** -> COLOR_0 is linear: **(0.1274, 0.1195, 0.1070)** = u8 ~(32.5, 30.5, 27.3); stored u8 (31..34, 29..32, 26..29), i.e. the v2 shade steps compressed + a positional hash, clamped to +-6 %; R >= G > B on every vertex (0 blue / cyan verts of 2,974 load verts). Mean = sRGB (100, 97, 92).
 - Neutral-light check (Workbench FLAT, Standard view): ore renders sRGB (101, 98, 93), Deposit (102, 99, 94).
 - Geometry, morph, joints, clips, nodes, material, tris (10,560) and draws (1) unchanged: the triangle set (positions + fill target + joints) is identical to v2 (gltfpack only re-orders vertices).
+
+## Ore v4 colour (10/24 06:15; Playtester sign-off run 1 on qa3d-next 6b2c37b failed the ore: lum 54-61 < 60, sat up to 0.215)
+
+Director targets: in-game (three, qa3d-next 6b2c37b lighting + tone mapping, ship tint stopgap off) **lum >= 65 and sat <= 0.17 at 25 / 60 / 100 % fill, at 393 and 375**, matte grey-brown, no blown highlights.
+- **Colour only.** The load vertices (JOINTS_0 = Truck_Load* / Truck_Pour* / Truck_Rich*, 2,099 verts) keep their v3 per-vertex variation and are scaled per channel from the v3 mean sRGB (100,97,92) to **sRGB (120, 119, 117)** = linear (0.1878, 0.1845, 0.1779), scale (1.474, 1.543, 1.662); stored u8 (46..50, 45..49, 43..48), R >= G > B on every vertex (slightly warm grey; the warm in-game light keeps it grey-brown, b-r ~ -7).
+- Done in place on the packed GLB: only the COLOR_0 meshopt stream is decoded, edited, re-encoded (meshopt v0, ATTRIBUTES) and spliced back; all other streams are byte-identical (decoded diff vs 4222799b: only accessor 2 / COLOR_0 differs; the identity splice reproduces md5 4222799b exactly). Geometry, `fill` morph, joints, clips, SHM_Paint (roughness 0.42), 10,560 tris, 1 draw unchanged. +792 B (colour stream).
+- Not changed: the Mine. `mine_game.glb` does not share this material (separate GLB; its SHM_Paint / SHM_DepositRock are their own) and has no stockpile, but Deposit_01/02 and the conveyor lumps still carry the v3 recipe colour (100,97,92), so the truck load now reads lighter than the deposits.
+- Measured with Playtester's harness (`/workspace/playtest/qnext/run_next.sh`, MODS=ore, mods_v3.js, ORE_LUM_MIN=65 ORE_SAT_MAX=0.17) against a LOCAL copy of qa3d-next 6b2c37b (main f4bc6cb8, index d8e9fce9) with this GLB in place of models/ht04_4222799b.glb:
+
+| size | fill | before lum / sat (4222799b) | after lum / sat (v4) |
+|---|---|---|---|
+| 393 | 25 % | 58.0 / 0.181 | 74.5 / 0.124 (76.6-76.8 / 0.117-0.123 in 3 more runs) |
+| 393 | 60 % | 58.7 / 0.183 | 78.5 / 0.118 (79.0-79.3 / 0.121-0.122) |
+| 393 | 100 % | 60.6 / 0.188 | 80.6 / 0.124 |
+| 375 | 25 % | 55.7 / 0.214 | 76.7 / 0.146 (78.2 / 0.137) |
+| 375 | 60 % | 57.5 / 0.199 | 79.0 / 0.136 (80.5 / 0.134) |
+| 375 | 100 % | 60.5 / 0.198 | 81.8 / 0.131 (81.2 / 0.132) |
+
+  Before = Playtester's 6b2c37b numbers (393 from run 1, 375 from the Director-limits re-run). Highlights: brightest ore pixel 130 (393) / 135 (375), 0 px >= 250. Bed fit: 0 verts outside the bed at every fill.
+  Harness note: at 393 / 100 % the mask frame is sometimes taken after the truck has driven off (all ore px "outside the bed outline", colour sampled from ground); it also happens on unmodified 4222799b (local base run). The 393 / 100 % row above is from an aligned run.
+- Proof: `proofs/ore_v4_before_after_ingame_2304x480.png` (top: before, Playtester run 1 frames and their run 1 numbers, 375 = 54.4/0.215, 59.9/0.199, 60.8/0.198; bottom: after; 393 at 25/60/100 then 375 at 25/60/100).
