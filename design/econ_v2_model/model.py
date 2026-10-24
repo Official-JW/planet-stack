@@ -10,7 +10,10 @@ def tank(R): return 100+10*(R-1)         # tank farm storage %
 def trip_s(E): return TRIP0*(1-0.005*max(0,E-1))
 def hold(N): return 10+2*(N-1)
 def seats(N): return 4+N//2
-def dock(L): return 20+4*(L-1) if L<=10 else 56+int(1.6*(L-10))
+def dock(L): return 20 if L<5 else 40+int((L-5)*80/45+1e-9)   # 1 crane = 20 slots (Lv1-4); 2nd crane at Lv5 -> 40; 120 at Lv50
+def cranes(L): return 1 if L<5 else 2
+def stack(L):
+    c=dock(L); return 1 if c<=20*cranes(L) else 2 if c<=40*cranes(L) else 3
 def ships(S,P): return 1+(S>=20 and P>=20)+(S>=40 and P>=40)
 def spec(H,LS): return min(2*H, 2*(LS-1)) if H>0 else 0
 def boxval(M,R,E,H,LS): return BOX0*(1+0.02*(M-1))*(1+0.03*(R-1))*(1+0.01*max(0,E-1))*(1+0.01*spec(H,LS))

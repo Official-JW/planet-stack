@@ -1,7 +1,7 @@
 import sys; sys.argv=['x']
 import sim3 as S
 from model import *
-S.P.update(G=1.17)
+S.P.update(G=1.17,GMR=1.19,KNEE=10)
 def money(v): return '$'+format(int(round(v)),',')
 def price(b,L): return S.cost(b,L-1)   # buy level L
 Ls=[2,5,10,20,30,40,50]

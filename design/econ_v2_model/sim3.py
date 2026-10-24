@@ -1,8 +1,12 @@
 import sys, copy, json
 import os; sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 from model import *
-P=dict(G=1.15, NEW2=3e6, NEW3=6e7, BUILD_SY=10000, SHIP0=8000, SHIPG=1.7, start=3000)
-def cost(b,L): return sig(B[b]*P['G']**(L-1)*(1.5 if (L+1)%10==0 else 1))
+P=dict(GMR=1.17, KNEE=10, G=1.15, NEW2=3e6, NEW3=6e7, BUILD_SY=10000, SHIP0=8000, SHIPG=1.7, start=3000)
+def growth(b,L):  # multiplier for L -> L+1 (before the look bump)
+    if b in ('Mine','Refinery'):
+        k=int(P['KNEE']); return P['G']**(min(L,k)-1)*P['GMR']**max(0,L-k)
+    return P['G']**(L-1)
+def cost(b,L): return sig(B[b]*growth(b,L)*(1.5 if (L+1)%10==0 else 1))
 def shipcost(N): return sig(P['SHIP0']*P['SHIPG']**(N-1))
 def build(b): return {'Shipyard':P['BUILD_SY'],'Habitat':40000,'Engineering':80000}[b]
 def storage(st): return dock(st['Cargo Dock'])+8+2+12

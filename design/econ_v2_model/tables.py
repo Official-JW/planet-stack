@@ -1,7 +1,7 @@
 import sys; sys.argv=['x']
 import sim3 as S
 from model import *
-S.P.update(G=1.17,NEW2=1e7,NEW3=2e8)
+S.P.update(G=1.17,GMR=1.19,KNEE=10,NEW2=1e7,NEW3=2e8)
 cost=S.cost
 def money(v):
     return '$'+format(int(round(v)),',')
@@ -36,13 +36,11 @@ print('|---|---|---|---|---|')
 for N in range(1,11):
     print(f'| Lv{N} | {hold(N)} | {seats(N)} | {money(S.shipcost(N-1)) if N>1 else "starter"} | {"—" if N==1 else f"Lv{N}"} |')
 print('### storage')
-print('| Dock Lv | Dock cap | Cranes | Stack height | Total buffer (dock+pallet 8+flatbed 2+bay 12) | Hours of Mine output it holds (Mine same level) |')
-print('|---|---|---|---|---|---|')
-def cranes(L):
-    c=dock(L); return (1,1) if c<=20 else (1,2) if c<=40 else (2,2) if c<=80 else (2,3)
-for L in [1,2,3,5,6,7,10,15,20,25,26,30,40,50]:
-    c=dock(L); cr,h=cranes(L); buf=c+22
-    print(f'| {L} | {c} | {cr} | {h} high | {buf} | {buf/mine_bph(L):.1f} h |')
+print('| Dock Lv | Dock cap | Cranes | Stack height | Total buffer (dock+pallet 8+flatbed 2+bay 12) | Hours to fill, Mine same level | Hours to fill with Mine Lv1 + parked Lv1 hold |')
+print('|---|---|---|---|---|---|---|')
+for L in [1,2,3,4,5,6,10,20,27,28,30,40,50]:
+    c=dock(L); buf=c+22
+    print(f'| {L} | {c} | {cranes(L)} | {stack(L)} high | {buf} | {buf/mine_bph(L):.1f} h | {(buf+10)/mine_bph(1):.1f} h |')
 print('### fuel')
 print('| Level | Pump (Launch Pad) %/min | Full refuel by pump | Fuel line (Refinery) %/min | Line: one tank takes | Tank farm stores | Refuel at landing (both at this level) |')
 print('|---|---|---|---|---|---|---|')
