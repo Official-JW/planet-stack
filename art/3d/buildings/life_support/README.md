@@ -57,6 +57,14 @@ The in-game station camera (`qa3d/main.js`: fov 38° vertical, 18° down, look-a
 - `life_support_hero_3840x2160.png`: hero render (Cycles, OIDN, AgX Punchy)
 - `turntable/turn_000..315.png` and `life_support_turntable_sheet.png`: 8 angles at 45° steps, plus the contact sheet
 
+## Solar masts moved in + new camera (game GLB post-pass `_src/ls_masts.py`)
+The SA-1/SA-2 masts (`Tier_20`, still 15.5 m tall) now stand beside the main building instead of 40 m behind it: SA-1 at x −13.4…−8.2, z −1.0…4.9;
+SA-2 at x 7.2…12.4, z 3.0…8.9 (`Tier_20` pivot (0, 0, 6.0)). New `Cam_Target` (0, −4.63, −12.5), `extras.frame_w` **38.5** (was the code override
+{ct:{y:−3.58}, frame_w:47.6}). The main building (base, no tiers) is 190 px wide at 375x667 (was 146). Spare inside the bands (all tiers, both clips, paint apron),
+measured with the `_audit/_src/mine_ls_override` method: 393x852 top 79.7 / bottom 68.1 / left 36.5 / right 36.3 px; 375x667 top 9.1 / bottom 9.2 / left 29.1 / right 25.4 px.
+GLB: 11 draws, 23,795 tris (unchanged). Proofs: `proofs_masts/` (Eevee).
+The .blend / master GLB / Cycles renders still show the old mast position (Cycles is on hold).
+
 ## Game GLB nodes
 All under the root `LifeSupport`. Glows on tier parts are folded into `SHM_Paint` (cyan kept as vertex colour) so each tier is exactly one draw.
 
@@ -67,7 +75,7 @@ All under the root `LifeSupport`. Glows on tier parts are folded into `SHM_Paint
 | `Tier_05` | second O2 storage sphere O2-2 with legs, pads, band, girder | 1,436 | SHM_Paint | (−3.30, 0, −28.60) |
 | `Tier_08` | CO2 scrubber beds C and D (+ their ribs, valves, actuators) | 598 | SHM_Paint | (5.29, 0, 6.25) |
 | `Tier_12` | third water tank H2O-3 | 952 | SHM_Paint | (7.40, 0, −23.40) |
-| `Tier_20` | both solar masts SA-1/SA-2 with arrays, gimbals, combiners, cables | 690 | SHM_Paint | (0, 0, −39.31) |
+| `Tier_20` | both solar masts SA-1/SA-2 with arrays, gimbals, combiners, cables (beside the main building) | 690 | SHM_Paint | (0, 0, 6.00) |
 | `Fan_Scrubber` | CO2 blower fan, pivot at the hub, spins about local +X | 284 | SHM_Paint | (3.13, 0.70, 4.75) |
 | `Beacon_Lights` | roof beacon + two vent-stack lamps | 240 | SHM_GlowWhite | (−3.00, 8.17, 1.40) |
 
