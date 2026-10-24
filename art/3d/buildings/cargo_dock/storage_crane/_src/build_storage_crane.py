@@ -1,13 +1,14 @@
-"""SC-1 storage crane for the Cargo Dock (layout v2). Writes storage_crane.glb (one skinned mesh, 3 materials = 3 draws).
+"""SC-1 storage crane for the Cargo Dock (layout v3). Writes storage_crane.glb (one skinned mesh, 3 materials = 3 draws).
 Crane-local frame = glTF metres, origin = pillar base ground centre, +X = jib at rest, +Z = toward the road/camera.
-Placed in the dock layout at world (350.7, 0, 8.5) yaw 0 (dock-local (-22.3, 0, 16.5) with the dock at (373, 0, -8))."""
+Placed in layout v3 at world (384.6, 0, 8.5) yaw 0 (dock-local (24.6, 0, 16.5) of cargo_dock_compact_v3.glb with the dock at (360, 0, -8)).
+Layout v2 used world (350.7, 0, 8.5) with the dock at (373, 0, -8); the crane-local slot/stop offsets are identical."""
 import json, math, struct, sys, numpy as np
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else 'storage_crane.glb'
-CRANE_W = np.array([350.7, 0.0, 8.5])          # world placement used by layout v2
-DOCK_W = np.array([373.0, 0.0, -8.0])
+CRANE_W = np.array([384.6, 0.0, 8.5])          # world placement used by layout v3
+DOCK_W = np.array([360.0, 0.0, -8.0])
 SLOTS = json.load(open(sys.argv[2]))['slots'] if len(sys.argv) > 2 else None
-TRUCK_STOP_W = np.array([352.6, 0.0, 13.0])     # FB-05 origin at the dock stop (lane z 13, heading +X)
+TRUCK_STOP_W = np.array([386.5, 0.0, 13.0])     # FB-05 origin at the dock stop (lane z 13, heading +X)
 BED = {'A': np.array([-1.15, 1.9, 0.0]), 'B': np.array([-3.65, 1.9, 0.0])}   # FB-05 Bed_Slot_01 / _02 (box Base)
 HOOKPT = 1.5                                     # CargoBox Hook_Point above Base
 SLEW_Y, TROL_DY = 6.3, 0.5                       # Slew joint y; trolley joint above slew joint (jib underside = 6.8)
@@ -205,7 +206,7 @@ nodes = [
 ]
 def empty(name, pos, ex):
     nodes.append({'name': name, 'translation': [round(float(v), 4) for v in pos], 'extras': ex}); nodes[0]['children'].append(len(nodes) - 1)
-empty('Truck_Stop_Dock', to_local(TRUCK_STOP_W), {'kind': 'flatbed_stop', 'note': 'FB-05 origin here, heading +X, on lane z 13 (world 352.6, 0, 13)'})
+empty('Truck_Stop_Dock', to_local(TRUCK_STOP_W), {'kind': 'flatbed_stop', 'note': 'FB-05 origin here, heading +X, on lane z 13 (world %.1f, 0, 13)' % TRUCK_STOP_W[0]})
 for k, p in pick_pts.items(): empty('Pick_' + k, p, {'kind': 'pick', 'bed_slot': 'Bed_Slot_0' + ('1' if k == 'A' else '2'), 'note': 'CargoBox Base on the parked FB-05'})
 slot_params = []
 for name, p in slot_pts:
@@ -229,7 +230,7 @@ for k, pk in pick_pts.items():
         anims.append({'name': f'Store_{k}_{name}', 'samplers': samplers, 'channels': chans,
                       'extras': {'pick': 'Pick_' + k, 'slot': name, 'duration_s': DUR, 'pick_t': PICK_T, 'set_t': SET_T}})
 nodes[0]['extras'] = {
-    'prop': 'SC-1 Cargo Dock storage crane (layout v2)', 'origin': 'pillar base ground centre', 'place_world': CRANE_W.tolist(), 'place_dock_local': (CRANE_W - DOCK_W).tolist(), 'yaw_deg': 0,
+    'prop': 'SC-1 Cargo Dock storage crane (layout v3)', 'origin': 'pillar base ground centre', 'place_world': CRANE_W.tolist(), 'place_dock_local': (CRANE_W - DOCK_W).tolist(), 'yaw_deg': 0,
     'joints': 'SC_Slew rotY = slew; SC_Trolley x = radius (y 0.5); SC_Hook y = hook_y - 6.8, rotY = -slew (box stays yaw 0); Hook_Attach = box Hook_Point',
     'rest': {'slew_deg': 0, 'radius_m': R_REST, 'hook_y_m': CARRY}, 'carry_hook_y_m': CARRY, 'trolley_y_m': TROLLEY_Y, 'radius_range_m': [1.9, 6.95],
     'timeline_s': {k: list(v) for k, v in T.items()}, 'pick_t': PICK_T, 'set_t': SET_T, 'duration_s': DUR, 'easing': 'smoothstep per segment',

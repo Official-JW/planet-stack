@@ -1,0 +1,137 @@
+{
+ "ct_world": [
+  369.5,
+  1.5,
+  8.6
+ ],
+ "ct_dock_local": [
+  9.5,
+  1.5,
+  16.6
+ ],
+ "frame_w": 48.0,
+ "rule": "38 deg vFOV, 18 deg pitch, d=(fw/2)/(tan19*aspect), camera at ct + d*(0, sin18, cos18) looking at ct (ct = screen centre, no view offset)",
+ "dock_glb": "cargo_dock_compact_v3.glb",
+ "dock_origin_world": [
+  360.0,
+  0,
+  -8.0
+ ],
+ "cam_override_main_js_hint": {
+  "ct_offset_from_dock_origin": [
+   9.5,
+   1.5,
+   16.6
+  ],
+  "frame_w": 48.0
+ },
+ "subject": "whole Lv1 dock (no Tier_* nodes) + 20-box stack + apron + SC-1 envelope over all 40 clips incl. carried box + FB-05 at Truck_Stop_Dock",
+ "sizes": {
+  "375x667": {
+   "band_y": [
+    144,
+    383
+   ],
+   "subject_px": [
+    7.9,
+    166.1,
+    367.1,
+    360.8
+   ],
+   "spare_px": {
+    "left": 7.9,
+    "right": 7.9,
+    "top": 22.1,
+    "bottom": 22.2
+   },
+   "per_group_px": {
+    "dock": [
+     7.9,
+     166.1,
+     289.9,
+     347.5
+    ],
+    "truck": [
+     282.9,
+     324.9,
+     356.8,
+     360.8
+    ],
+    "storage": [
+     243.8,
+     309.1,
+     358.3,
+     342.1
+    ],
+    "crane": [
+     247.9,
+     273.8,
+     367.1,
+     346.1
+    ]
+   }
+  },
+  "393x852": {
+   "band_y": [
+    165,
+    534
+   ],
+   "subject_px": [
+    8.3,
+    241.9,
+    384.0,
+    454.4
+   ],
+   "spare_px": {
+    "left": 8.3,
+    "right": 9.0,
+    "top": 76.9,
+    "bottom": 79.6
+   },
+   "per_group_px": {
+    "dock": [
+     8.3,
+     241.9,
+     309.7,
+     440.7
+    ],
+    "truck": [
+     296.0,
+     417.0,
+     372.4,
+     454.4
+    ],
+    "storage": [
+     256.7,
+     399.9,
+     375.8,
+     435.1
+    ],
+    "crane": [
+     259.7,
+     363.0,
+     384.0,
+     439.2
+    ]
+   }
+  }
+ },
+ "metrics": {
+  "375x667": {
+   "box_w_px_min": 19.2,
+   "box_w_px_max": 20.7,
+   "crane_h_px": 63.4,
+   "jib_px_min": 14.8,
+   "jib_px_max": 58.7,
+   "px_per_m_at_ct": 7.81
+  },
+  "393x852": {
+   "box_w_px_min": 20.0,
+   "box_w_px_max": 21.3,
+   "crane_h_px": 66.3,
+   "jib_px_min": 16.0,
+   "jib_px_max": 61.0,
+   "px_per_m_at_ct": 8.19
+  }
+ }
+}

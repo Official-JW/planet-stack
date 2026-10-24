@@ -1,5 +1,7 @@
 # Cargo Dock layout v2: Refinery | Cargo Dock | Launch Pad (proposal, stills only)
 
+> **Superseded for framing by `../layout_v3/` (10/24): compact dock `cargo_dock_compact_v3.glb`, dock camera frame_w 48.** The v2b camera below was rejected.
+
 Jacob's new order: the **Cargo Dock sits directly right of the Refinery with nothing between them**, and the Launch Pad comes next.
 The Cargo Dock stores refined cargo boxes that are not on the ship. **The Lv1 cap is locked at 20 boxes.** No game GLB changed.
 All numbers are world glTF metres (+X right, +Z toward the camera).

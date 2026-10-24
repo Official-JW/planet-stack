@@ -1,0 +1,7 @@
+{"cell":0.5,"x0":250,"x1":1030,"z0":-80,"z1":60,"out":"/tmp/wmap_v3","items":[
+{"name":"Refinery","f":"../../../../../../art/3d/buildings/refinery/refinery_game.glb","x":320,"hide":"^Tier_","nodes":"Truck_|Cam_Target|Road_|Pipe"},
+{"name":"Bridge","f":"../../../../../../art/3d/buildings/refinery/refinery_bridge.glb","x":320,"nodes":"Lift|Bridge"},
+{"name":"Crane","f":"/workspace/bridgework/crane_plain.glb","x":311,"z":17.5,"nodes":"Pallet_Slot_01"},
+{"name":"Dock","f":"../cargo_dock_compact_v3.glb","x":360,"z":-8,"hide":"^Tier_","nodes":"Cam_Target|Road_Entry|Pipe|Dock_Door|Crane_Gantry"},
+{"name":"LaunchPad","f":"../../../../../../art/3d/buildings/launch_pad/launch_pad_game.glb","x":430,"hide":"^Tier_","nodes":"Truck_Stop|Turn_Start|Ship|Road_|Pipe|Cam_Target|Fuel|Bay_Slot_01$|Receiver"},
+{"name":"Shipyard","f":"../../../../../../art/3d/buildings/shipyard/shipyard_game.glb","x":960,"hide":"^Tier_","nodes":"Hall_Door|Road_|Cam_Target"}]}

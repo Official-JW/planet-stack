@@ -1,0 +1,386 @@
+{
+ "what": "Cargo Dock storage slots (layout v3), Lv1 cap 20. Slot_NN = CargoBox Base (bottom centre), yaw 0 (box long axis +X). Dock-local glTF metres of cargo_dock_compact_v3.glb; world = local + dock origin.",
+ "dock_glb": "cargo_dock_compact_v3.glb",
+ "dock_origin_world": [
+  360.0,
+  0.0,
+  -8.0
+ ],
+ "launch_pad_origin_world": [
+  430.0,
+  0,
+  0
+ ],
+ "box": [
+  2.4,
+  1.5,
+  1.34
+ ],
+ "col_x": [
+  19.2,
+  21.9,
+  24.6,
+  27.3,
+  30.0
+ ],
+ "rows_z": [
+  14.5,
+  12.75
+ ],
+ "tier_y": [
+  0.12,
+  1.62
+ ],
+ "apron": [
+  17.6,
+  31.6,
+  1.0,
+  15.6
+ ],
+ "apron_top_y": 0.12,
+ "future_rows": [
+  10.95,
+  9.2,
+  7.45,
+  5.7,
+  3.95
+ ],
+ "slots": [
+  {
+   "name": "Slot_01",
+   "tier": 1,
+   "local": [
+    19.2,
+    0.12,
+    14.5
+   ],
+   "world": [
+    379.2,
+    0.12,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_02",
+   "tier": 1,
+   "local": [
+    21.9,
+    0.12,
+    14.5
+   ],
+   "world": [
+    381.9,
+    0.12,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_03",
+   "tier": 1,
+   "local": [
+    24.6,
+    0.12,
+    14.5
+   ],
+   "world": [
+    384.6,
+    0.12,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_04",
+   "tier": 1,
+   "local": [
+    27.3,
+    0.12,
+    14.5
+   ],
+   "world": [
+    387.3,
+    0.12,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_05",
+   "tier": 1,
+   "local": [
+    30.0,
+    0.12,
+    14.5
+   ],
+   "world": [
+    390.0,
+    0.12,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_06",
+   "tier": 1,
+   "local": [
+    19.2,
+    0.12,
+    12.75
+   ],
+   "world": [
+    379.2,
+    0.12,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_07",
+   "tier": 1,
+   "local": [
+    21.9,
+    0.12,
+    12.75
+   ],
+   "world": [
+    381.9,
+    0.12,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_08",
+   "tier": 1,
+   "local": [
+    24.6,
+    0.12,
+    12.75
+   ],
+   "world": [
+    384.6,
+    0.12,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_09",
+   "tier": 1,
+   "local": [
+    27.3,
+    0.12,
+    12.75
+   ],
+   "world": [
+    387.3,
+    0.12,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_10",
+   "tier": 1,
+   "local": [
+    30.0,
+    0.12,
+    12.75
+   ],
+   "world": [
+    390.0,
+    0.12,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_11",
+   "tier": 2,
+   "local": [
+    19.2,
+    1.62,
+    14.5
+   ],
+   "world": [
+    379.2,
+    1.62,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_12",
+   "tier": 2,
+   "local": [
+    21.9,
+    1.62,
+    14.5
+   ],
+   "world": [
+    381.9,
+    1.62,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_13",
+   "tier": 2,
+   "local": [
+    24.6,
+    1.62,
+    14.5
+   ],
+   "world": [
+    384.6,
+    1.62,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_14",
+   "tier": 2,
+   "local": [
+    27.3,
+    1.62,
+    14.5
+   ],
+   "world": [
+    387.3,
+    1.62,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_15",
+   "tier": 2,
+   "local": [
+    30.0,
+    1.62,
+    14.5
+   ],
+   "world": [
+    390.0,
+    1.62,
+    6.5
+   ]
+  },
+  {
+   "name": "Slot_16",
+   "tier": 2,
+   "local": [
+    19.2,
+    1.62,
+    12.75
+   ],
+   "world": [
+    379.2,
+    1.62,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_17",
+   "tier": 2,
+   "local": [
+    21.9,
+    1.62,
+    12.75
+   ],
+   "world": [
+    381.9,
+    1.62,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_18",
+   "tier": 2,
+   "local": [
+    24.6,
+    1.62,
+    12.75
+   ],
+   "world": [
+    384.6,
+    1.62,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_19",
+   "tier": 2,
+   "local": [
+    27.3,
+    1.62,
+    12.75
+   ],
+   "world": [
+    387.3,
+    1.62,
+    4.75
+   ]
+  },
+  {
+   "name": "Slot_20",
+   "tier": 2,
+   "local": [
+    30.0,
+    1.62,
+    12.75
+   ],
+   "world": [
+    390.0,
+    1.62,
+    4.75
+   ]
+  }
+ ],
+ "storage_crane": {
+  "glb": "../storage_crane/storage_crane.glb",
+  "place_world": [
+   384.6,
+   0.0,
+   8.5
+  ],
+  "place_dock_local": [
+   24.6,
+   0.0,
+   16.5
+  ],
+  "yaw_deg": 0
+ },
+ "truck_stop_dock": {
+  "world": [
+   386.5,
+   0.0,
+   13.0
+  ],
+  "dock_local": [
+   26.5,
+   0.0,
+   21.0
+  ],
+  "heading": "+X (east, loaded lane z 13)",
+  "note": "FB-05 origin; Bed_Slot_01 -> Pick_A (385.35, 1.9, 13), Bed_Slot_02 -> Pick_B (382.85, 1.9, 13)"
+ },
+ "dock_camera_v3": {
+  "ct_world": [
+   369.5,
+   1.5,
+   8.6
+  ],
+  "ct_dock_local": [
+   9.5,
+   1.5,
+   16.6
+  ],
+  "frame_w": 48.0,
+  "rule": "38 deg vFOV, 18 deg pitch, d=(fw/2)/(tan19*aspect), camera at ct + d*(0, sin18, cos18) looking at ct (ct = screen centre, no view offset)",
+  "spare_px": {
+   "375x667": {
+    "left": 7.9,
+    "right": 7.9,
+    "top": 22.1,
+    "bottom": 22.2
+   },
+   "393x852": {
+    "left": 8.3,
+    "right": 9.0,
+    "top": 76.9,
+    "bottom": 79.6
+   }
+  }
+ }
+}
