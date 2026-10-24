@@ -201,6 +201,39 @@ class Path:
 
 # ----------------------------------------------------------------------------- crew timeline model
 WALK = dict(Ls=0.55, Tst=0.40, sw=0.80, lift=0.11, hip=-0.065)
+# v4.1 hotfix (Playtester 11:56): walk feet follow the real Pad_Base top (pad 82131aba) instead of the straight Crew_Path line, so the
+# boots step down the 0.30 -> 0.09 deck lip before Crew_Path_03 and up the ramp to the 0.25 pad. Heightfield from _src/terrain_hf.py
+# (HF = max height under a 12 cm sole disc). A plant is raised only where its sole would sink > 8 mm; timing / xz untouched.
+TERRAIN_HF = os.environ.get('TERRAIN_HF', '/tmp/hf_grid.npz')
+_HFD = np.load(TERRAIN_HF) if TERRAIN_HF and os.path.exists(TERRAIN_HF) else None
+def ground_hf(x, z):
+    if _HFD is None: return -9.0
+    i = int(round((x - float(_HFD['x0'])) / float(_HFD['dx']))); j = int(round((z - float(_HFD['z0'])) / float(_HFD['dx'])))
+    HF = _HFD['HF']
+    if 0 <= i < HF.shape[0] and 0 <= j < HF.shape[1]: return float(HF[i, j])
+    return -9.0
+RUNG_FEET = int(os.environ.get('RUNG_FEET', 1)); TERR_SNAP = int(os.environ.get('TERR_SNAP', 1)); BODY_DY_W = float(os.environ.get('BODY_DY_W', 0.2)); TERR_TOL = 0.008; TERR_SOLE = 0.0015; TERR_SWING = 0.03
+def ground_raw(x, z):
+    if _HFD is None: return -9.0
+    i = int(round((x - float(_HFD['x0'])) / float(_HFD['dx']))); j = int(round((z - float(_HFD['z0'])) / float(_HFD['dx']))); H_ = _HFD['H']
+    return float(H_[i, j]) if 0 <= i < H_.shape[0] and 0 <= j < H_.shape[1] else -9.0
+_SOLE = [np.array((x_, 0.0, z_)) for x_ in (-0.06, 0.0, 0.06) for z_ in (-0.10, -0.04, 0.03, 0.10, 0.17, 0.23)]   # v4.1d: boot sole footprint (foot space)
+def sole_ground(p, yaw):
+    R_ = Ry(yaw); g = max(ground_raw(*(np.asarray(p) + R_ @ q)[[0, 2]]) for q in _SOLE)
+    return g
+def terrain_plant(p, yaw=None):
+    p = np.array(p, float); g = ground_hf(p[0], p[2]) if yaw is None else sole_ground(p, yaw)
+    if g > -1.0 and (TERR_SNAP or p[1] - ANK < g - TERR_TOL): p[1] = g + ANK + TERR_SOLE   # v4.1c: snap every walk plant to the surface (no sink, no float)
+    return p
+def swing_arc(p0, p1, lift, yaw=None):
+    """scale the swing arc so the sole clears every lip / slope between the two plants by TERR_SWING."""
+    k = lift; lo = min(p0[1], p1[1]) - ANK
+    for u in np.linspace(0.04, 0.96, 24):
+        h = sstep(u); q = p0 * (1 - h) + p1 * h; g = ground_hf(q[0], q[2]) if yaw is None else sole_ground(q, yaw) + 0.012
+        if g > lo + 0.005:
+            sn = math.sin(math.pi * u) ** 1.2
+            if sn > 1e-3: k = max(k, (g + TERR_SWING - (q[1] - ANK)) / sn)
+    return np.array([0, k, 0])
 class Crew:
     def __init__(self, k, name, pos, yaw):
         self.k = k; self.name = name; self.segs = []           # (t0, t1, kind, data)
@@ -237,8 +270,9 @@ class Crew:
             s = order[(j - 1) % 2]; a = t0 + (j - 1) * Tst; b = a + Tsw
             sj = st[j]; yj = path.yaw(sj) if j <= N else path.yaw(path.L, 0.6)
             if j == N + 1: yj = path.yaw(path.L - 0.3, 0.3)
-            p = path.at(sj) + left(yj) * 0.11 * SIDE[s] + np.array([0, ANK, 0])
-            self.feet[s].append(dict(t0=a, t1=b, pos=p, yaw=yj, kind='walk', arc=np.array([0, WALK['lift'], 0])))
+            p0_ = path.at(sj) + left(yj) * 0.11 * SIDE[s] + np.array([0, ANK, 0]); p = terrain_plant(p0_, yj)
+            pp_ = self.last_plant(s)[0]
+            self.feet[s].append(dict(t0=a, t1=b, pos=p, yaw=yj, kind='walk', arc=swing_arc(np.asarray(pp_, float), p, WALK['lift'], yj), dy=float(p[1] - p0_[1])))
             steps.append((a, b, s, sj))
         t1 = t0 + N * Tst + Tsw
         self.segs.append((t0, t1, 'walk', dict(path=path, steps=steps, Tst=Tst, Tsw=Tsw, look=look)))
@@ -265,8 +299,8 @@ class Crew:
         # diagonal pairs (right hand + left foot, then left hand + right foot), each limb moves 2 rungs per cycle.
         # v3: the body sits 0.25 m behind the rungs (pack vs cage), so a bent knee would reach the rungs: the arms do the climbing
         # (2 rungs per reach) and the legs stay long, knees turned out inside the cage, boots tapping every other rung (toes on the rung top).
-        W = {'hand': float(os.environ.get('W_HAND', 0.62)), 'foot': float(os.environ.get('W_FOOT', 0.92))}
-        TOPREL = {'hand': float(os.environ.get('TR_HAND', 1.70)), 'foot': float(os.environ.get('TR_FOOT', 0.155))}   # wrist / ankle height above y_b when the grip lands
+        W = {'hand': float(os.environ.get('W_HAND', 0.62)), 'foot': float(os.environ.get('W_FOOT', 0.68))}
+        TOPREL = {'hand': float(os.environ.get('TR_HAND', 1.70)), 'foot': float(os.environ.get('TR_FOOT', 0.45))}   # wrist / ankle height above y_b when the grip lands
         OFF = {'hand': 0.03, 'foot': 0.025 + ANK + 0.001}
         PAR = {'hand_R': 0, 'foot_L': 0, 'hand_L': 1, 'foot_R': 1}
         tg = np.arange(t0, t_end + 2.0, 0.002); yg = np.array([yb(t) for t in tg])
@@ -286,7 +320,7 @@ class Crew:
                 moves[k].append([bt - w, bt, idx])
             if pre is not None and (kind == 'hand' or moves[k] == [] or True):
                 # initial grip / first rung taken during the mount
-                st = t0 + (0.15 if k == 'hand_R' else 0.35 if k == 'hand_L' else 0.55 if k == 'foot_L' else 0.75)
+                st = t0 + (0.15 if k == 'hand_R' else 0.35 if k == 'hand_L' else 0.55 if k == 'foot_L' else float(os.environ.get('FR_ST', 0.85)))
                 moves[k].insert(0, [st, st + 0.45, pre])
             # top of the ladder: the decel ramp spreads the last move away from the previous one (limb left behind -> stretch);
             # pull the final move in to <= 0.55 cycle after the previous one ends (also keeps the hands alternating onto the stile tops)
@@ -331,7 +365,12 @@ class Crew:
             ph_ = math.sin(TAU * (t - tc) / cyc + (0.0 if s == 'L' else math.pi))
             Lf = FOL_L + FOL_A * ph_
             return lad(FOL_U + r0_ - CLIMB_R, tl0_, 0) + lt_ * FOL_T * SIDE[s] + LU * (FOL_K * ph_) + np.array([0, yh - Lf, 0])
-        self.follow = dict(t0=t0 + FOL_T0, fn=follow, yaw=yawL, pitch=FOL_P, tb={})
+        self.follow = dict(t0=(1e9 if RUNG_FEET else t0 + FOL_T0), fn=follow, yaw=yawL, pitch=FOL_P, tb={})
+        if RUNG_FEET:   # v5 (Director 1:42): real rung-to-rung feet; every planted boot stands on a rung top (no trailing boots)
+            for s_ in 'LR':
+                for (a_, b_, idx_) in moves['foot_' + s_]:
+                    if isinstance(idx_, (int, np.integer)):
+                        self.feet[s_].append(dict(t0=a_, t1=b_, pos=limb_pos('foot', s_, idx_), yaw=yawL, kind='climb', rung=True, arc=np.zeros(3), ridx=int(idx_)))
         # ---------------------------------------------------------------- v3 mantle + walk-in (AA2 v3 gate)
         # Hands may only touch rungs / rails, so the climb ends low (y_b YTOP) with the gloves on rungs 33/34; they move up onto the
         # stiles (C wrap round the vertical rail, opening outward) and the climber presses up.  The lead boot leaves its trailing
@@ -388,13 +427,28 @@ class Crew:
                                       yaw=yawL, kind='path', arc=np.zeros(3), keys=keys, land=land, lift=lift))
             if land is not None and tag: self.deck_plants.append((s_, round(keys[-1][0] + sld, 3), land - np.array([0, ANK, 0]), tag))
         self.deck_plants = []
+        def rung_up(s_, t_leave):   # v5: keep stepping up while the body presses up, so the boot on the rung is always reachable
+            if not RUNG_FEET: return
+            ev_ = [e for e in self.feet[s_] if e.get('rung')]
+            if not ev_: return
+            last = ev_[-1]; idx = last['ridx']; ta = last['t1'] + 0.05
+            tg_ = np.linspace(tm, t_leave, 400); yg_ = np.array([kpw(MY, x) for x in tg_])
+            while idx + 2 <= 34:
+                need = RUNG_Y[idx + 2] - TOPREL['foot'] + OFF['foot']
+                if yg_[-1] < need - 0.02: break
+                tb_ = float(tg_[min(len(tg_) - 1, np.searchsorted(yg_, need))]); a_ = max(ta, tb_ - W['foot'] * cyc)
+                b_ = max(tb_, a_ + 0.45)
+                if b_ > t_leave - 0.08: break
+                idx += 2; self.feet[s_].append(dict(t0=a_, t1=b_, pos=limb_pos('foot', s_, idx), yaw=yawL, kind='climb', rung=True, arc=np.zeros(3), ridx=idx)); ta = b_ + 0.05
+        rung_up(lead, o(2.20)); rung_up(trail, o(3.62 + float(os.environ.get('TR_DT', -0.15))))
         LF = Lp(LF_U, LF_T, STAND_Y); TF = Lp(4.74, 0.92, STAND_Y)
         add_path(lead, [(o(2.20), None), (o(2.40), Lp(4.70, 0.24, 21.30)), (o(2.55), Lp(4.70, 0.43, 21.50)), (o(2.80), Lp(4.62, 0.52, 22.02)), (o(2.95), Lp(LF_U + 0.06, LF_T - 0.08, 22.06)),
                         (o(3.05), LF + np.array([0, DND, 0]))], land=LF, tag='mantle')
         TDT = float(os.environ.get('TR_DT', -0.15))   # v4: the trail boot leaves the shaft column earlier (crew vs crew: the next climber's head rises under it)
         add_path(trail, [(o(3.62 + TDT), None), (o(3.90 + TDT), Lp(4.74, 0.36, 21.97)), (o(4.04 + TDT), Lp(4.70, 0.66, 22.08)), (o(4.13 + TDT), TF + np.array([0, float(os.environ.get('DND_T', 0.032)), 0]))], land=TF, tag='mantle', sld=SLD_T)
         # walk-in
-        D1 = Lp(3.93, 0.30, STAND_Y); D2 = Lp(3.66, 0.06, STAND_Y); D3 = Lp(3.40, -0.04, STAND_Y)   # v3: D1 u 3.98 -> 3.93 so the doorway sole box (ankle + 0.09) stays off the well edge (u 4.05)
+        SILL_Y = float(os.environ.get('SILL_Y', 21.748)) + ANK + SOLE_LIFT   # v5: doorway sill top (raycast 21.748) not the wing deck (21.849)
+        D1 = Lp(3.93, 0.30, SILL_Y); D2 = Lp(3.66, 0.06, SILL_Y); D3 = Lp(3.40, -0.04, SILL_Y)   # v3: D1 u 3.98 -> 3.93 so the doorway sole box (ankle + 0.09) stays off the well edge (u 4.05)
         # v3: after the slow lift the boot rises clear of the kerb top (21.88) before it moves in over it
         add_path(trail, [(o(5.10), TF), (o(5.10) + SL, TF + np.array([0, DN, 0])), (o(5.10) + SL + 0.06, Lp(4.70, 0.88, STAND_Y + 0.10)), (o(5.74), Lp(4.44, 0.62, 22.04)), (o(5.88), D1)], lift=True)
         add_path(lead, [(o(5.52), LF), (o(5.52) + SL_L, LF + np.array([0, DN_L, 0])), (o(5.52) + SL_L + 0.05, LF + np.array([0, 0.10, 0]) - LT * 0.0), (o(6.14), Lp(4.34, 0.55, 22.06)), (o(6.21), Lp(4.26, 0.30, 22.02)), (o(6.32), D2)], lift=True)
@@ -417,6 +471,13 @@ class Crew:
         return self.segs[-1] if t >= self.segs[-1][0] else self.segs[0]
     def foot_at(self, s, t):
         """ankle world position + foot yaw + pitch (+ = toe down)."""
+        p, yw, pt = self._foot_at0(s, t)
+        if _HFD is not None and p[1] < 1.2:   # v4.1c: no toe / heel below the Pad_Base top (mount: the hanging boots used to dip 12 cm into the deck)
+            low = p[1] - ANK * math.cos(pt) - (0.24 * math.sin(pt) if pt > 0 else -0.11 * math.sin(pt)) - 0.014 * min(1.0, abs(pt) / 0.3)   # v4.1d: up to +1.4 cm on a pitched boot (measured mesh vs model)
+            g = ground_hf(p[0], p[2])
+            if g > -1.0 and low < g + TERR_SOLE - 1e-4: p = np.array(p, float); p[1] += g + TERR_SOLE - low
+        return p, yw, pt
+    def _foot_at0(self, s, t):
         ev = self.feet[s]; prev = self.init_plant[s]; pk = None
         fo = getattr(self, 'follow', None)
         if fo is not None and t >= fo['t0']:
@@ -431,7 +492,9 @@ class Crew:
     def _path_at(self, s, e, t):
         ks = e['keys']; fo = self.follow
         if '_pc' not in e:
-            P0 = ks[0][1] if ks[0][1] is not None else fo['fn'](s, ks[0][0])
+            if ks[0][1] is not None: P0 = ks[0][1]
+            elif RUNG_FEET: P0 = max([x for x in self.feet[s] if x['t1'] <= ks[0][0] + 1e-6], key=lambda x: x['t1'])['pos']
+            else: P0 = fo['fn'](s, ks[0][0])
             K = [(ks[0][0], np.asarray(P0, float))] + [(a, np.asarray(p, float)) for a, p in ks[1:]]
             e['_K'] = K; i0 = 1 if e.get('lift') else 0
             tt = [k[0] for k in K[i0:]]; pp = np.array([k[1] for k in K[i0:]])
@@ -446,7 +509,7 @@ class Crew:
         else:
             a_, b_ = K[i0], K[-1]; w = s5((t - a_[0]) / (b_[0] - a_[0])); p = a_[1] * (1 - w) + b_[1] * w
         pitch = 0.0
-        if ks[0][1] is None: pitch = fo['pitch'] * (1 - s5((t - K[0][0]) / (PATH_PF * (tl - K[0][0]))))
+        if ks[0][1] is None and not RUNG_FEET: pitch = fo['pitch'] * (1 - s5((t - K[0][0]) / (PATH_PF * (tl - K[0][0]))))
         return np.asarray(p, float), e['yaw'], pitch
     def _foot_ev(self, s, t):
         ev = self.feet[s]; prev = self.init_plant[s]; pk = None
@@ -583,7 +646,16 @@ def pose(c, t):
                 else: break
             ss.append(sv)
         sb = (ss[0] + ss[1]) / 2
-        pos = P.at(sb); yaw = P.yaw(sb)
+        pos = P.at(sb).copy(); yaw = P.yaw(sb)
+        dys = []
+        for s in 'LR':   # v4.1: pelvis rides up / down with the terrain-lifted plants (mean of both feet, eased over each swing)
+            dv = 0.0
+            for e in c.feet[s]:
+                if e['t1'] <= t: dv = e.get('dy', 0.0)
+                elif e['t0'] < t: dv = dv + (e.get('dy', 0.0) - dv) * s5((t - e['t0']) / (e['t1'] - e['t0'])); break
+                else: break
+            dys.append(dv)
+        pos[1] += (1 - BODY_DY_W) * min(dys) + BODY_DY_W * max(dys)   # v4.1b: pelvis sits nearer the lower boot at the lip (no over-stretch on the step down)
         x = (t - sg[0]) / Tst; amp = Tri(t, sg[0], sg[0] + Tst * 1.2) * (1 - Tri(t, sg[1] - Tst * 1.2, sg[1]))
         hips_off = np.array([0.0, -0.012 + (WALK['hip'] + 0.012 + 0.016 * math.sin(math.pi * x) ** 2) * amp, 0.0])
         swing = math.sin(math.pi * x) * amp * (1 if int(x) % 2 == 0 else -1)
@@ -750,6 +822,18 @@ def pose(c, t):
 NF = int(math.ceil(T_END * FPS)) + 1
 T_WALK_END = math.ceil(T_WALK_END * FPS) / FPS; T_END = math.ceil(T_END * FPS) / FPS
 CLIPS = [('crew_call', 0.0, T_CALL), ('crew_walk_to_pad', T_CALL, T_WALK_END), ('crew_climb', T_WALK_END, T_END)]
+if os.environ.get('PLAN_ONLY'):   # quick plan check: IK stretch over the climb + foot events at the top
+    STRETCH['max'] = 0; STRETCH['n'] = 0
+    worst = {}
+    for f in range(int(22 * FPS), NF):
+        for ci, c in enumerate(crew):
+            m0 = STRETCH['max']; STRETCH['max'] = 0; pose(c, f / FPS)
+            if STRETCH['max'] > worst.get(ci, (0,))[0]: worst[ci] = (round(STRETCH['max'], 4), round(f / FPS, 3), STRETCH.get('where'))
+    for ci in worst: print('PLAN stretch', ci + 1, worst[ci])
+    for ci, c in enumerate(crew[:2]):
+        for s_ in 'LR': print('PLAN feet', ci + 1, s_, [(round(e['t0'], 2), round(e['t1'], 2), e.get('ridx', e['kind'])) for e in c.feet[s_] if e['t0'] > c.events['mount'] - 0.5])
+        print('PLAN ev', ci + 1, {k: round(v, 3) for k, v in c.events.items() if isinstance(v, float)})
+    sys.exit(0)
 frames = []
 for f in range(NF):
     t = f / FPS; fr = []
