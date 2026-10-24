@@ -724,21 +724,13 @@ function makeDeposit(mk, claimed = false) {
   const gem = new THREE.Object3D(); gem.visible = false;   // no gem (Jacob 10/23, Director 20:35); kept as an empty stub so old QA reads of d.gem stay valid
   const d = { id: ++depSeq, mk, x, z, r, rs: r, disc, gem, age: claimed ? 1 : 0, claimed, dig: 0 }; deposits.push(d); return d;
 }
-function removeDeposit(d) { if (!d || !deposits.includes(d)) return; if (d.qr) d.qr.style.display = 'none'; deposits.splice(deposits.indexOf(d), 1); depShow(d.mk, null); }   // used up: patch hidden
+function removeDeposit(d) { if (!d || !deposits.includes(d)) return; deposits.splice(deposits.indexOf(d), 1); depShow(d.mk, null); }   // used up: patch hidden
 function restoreDeposits() {          // rich loads queued while the truck was away (saved in S.tk.qd) re-show with their ring until the truck is back
   for (const mk of S.tk.qd) if (MK[mk] && !MK[mk].fb && !deposits.some(d => d.mk === mk)) { const d = makeDeposit(mk, true); d.tkq = true; }
 }
-// 'queued' ring: a deposit tapped while the truck is away; its rich load drops into the next fill the moment the truck is back under the chute
-const qRings = [];
-function qRingEl(k) { let el = qRings[k]; if (!el) { el = qRings[k] = document.createElement('div'); el.className = 'qring'; el.innerHTML = '<b>QUEUED</b>'; document.body.appendChild(el); } return el; }
+// queued deposits (tapped while the truck is away) get no ring any more (Director 10/24 00:00): the queue (S.tk.q / S.tk.qd) still drops into the next fill; QA reads stay
 function updQueued() {
-  let k = 0; const live = S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden;
-  for (const d of deposits) {
-    d.queued = !!d.tkq; if (!d.queued || !live) continue;
-    const el = d.qr = qRingEl(k++), h = depTapR(d), r = Math.round(Math.max(30, h.glow * 1.05));
-    el.style.display = 'block'; el.style.left = h.x.toFixed(1) + 'px'; el.style.top = h.y.toFixed(1) + 'px'; el.style.width = el.style.height = 2 * r + 'px'; el.style.margin = -r + 'px 0 0 ' + -r + 'px';
-  }
-  for (; k < qRings.length; k++) qRings[k].style.display = 'none';
+  for (const d of deposits) d.queued = !!d.tkq;
   window.__ps3d.queued = deposits.filter(d => d.queued).map(d => d.mk);
 }
 function updDeposits(dt, time) {
@@ -1337,6 +1329,22 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
 const PAD_GLB = '../qa3d-next/models/launch_pad_816f18f3.glb?v=816f18f3';   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
+// Director 10/24 00:00 stopgap: Art's gray ship massing (LP_ShipPlaceholder #8a8d94 baked into COLOR_0) reads near-black on the shaded side with no env light.
+// One-time at load, ship meshes only (Ship_Placeholder + Cargo_Door): COLOR_0 texels matching #8a8d94 (linear, ±0.012) → #d9dcdf; LP_Graphite trim and
+// everything else untouched. Gated on the pad GLB version (?v= md5 prefix, same key as CAM_OVERRIDE/camOvFor): only 816f18f3, so Art's real ship GLB turns it off.
+const SHIP_TINT = { v: '816f18f3', from: new THREE.Color(0x8a8d94), to: new THREE.Color(0xd9dcdf), tol: 0.012 };
+function shipTint(rig) {
+  const ov = /[?&]v=([0-9a-f]{8})/.exec(PAD_GLB), R = window.__ps3d.shipTint = { on: !!ov && ov[1] === SHIP_TINT.v, meshes: 0, changed: 0, total: 0 };
+  if (!R.on) return R;
+  const F = SHIP_TINT.from, T = SHIP_TINT.to, tol = SHIP_TINT.tol;
+  for (const n of ['Ship_Placeholder', 'Cargo_Door']) { const root = rig.getObjectByName(n); if (!root) continue;
+    root.traverse(m => { if (!m.isMesh || !m.geometry.attributes.color) return;
+      m.geometry = m.geometry.clone();                                   // never write into a geometry/attribute another mesh might share
+      const c = m.geometry.attributes.color; R.meshes++; R.total += c.count;
+      for (let i = 0; i < c.count; i++) if (Math.abs(c.getX(i) - F.r) <= tol && Math.abs(c.getY(i) - F.g) <= tol && Math.abs(c.getZ(i) - F.b) <= tol) { c.setXYZ(i, T.r, T.g, T.b); R.changed++; }
+      c.needsUpdate = true; }); }
+  return R;
+}
 function padLoaded(g) {
   const o = g.scene; o.name = 'LaunchPad_Art'; o.position.set(PX, 0, 0);
   o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
@@ -1347,6 +1355,7 @@ function padLoaded(g) {
   const hull = o.getObjectByName('Ship_Placeholder'), rig = new THREE.Group(); rig.name = 'Ship_Rig'; rig.position.copy(hull.position); o.add(rig); rig.updateMatrixWorld(true);
   for (const n of ['Ship_Placeholder', 'Cargo_Door', 'Hold_Door', ...Array.from({ length: CG.holdCap }, (_, i) => 'Hold_' + String(i + 1).padStart(2, '0'))]) rig.attach(o.getObjectByName(n));
   rig.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
+  shipTint(rig);
   const crane = o.getObjectByName('Crane'); crane.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   for (const n of ['Slew', 'Trolley', 'Hoist', 'Hook']) { const j = crane.getObjectByName(n); j.userData.q0 = j.quaternion.clone(); }
   // swap the gray placeholder group (slab, bay, crane, ship, gauge) out
@@ -1629,7 +1638,7 @@ function updConveyor() { const on = TS.ph === 'fill' && TS.fill < 1 && !sheetOpe
 // ===== Earth Coms (Art's kit, art/ui/earth_coms): bubble + incoming-call toast + panel (Task / Updates / Calls) + call view.
 // Tutorial calls ring until opened; story calls time out after 8 s and leave a missed-call badge. Motion constants mirror MOTION.md.
 const EVE_BEATS = [
-  { id: 'mine_first_view', tut: true, point: 'deposit', lines: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",
+  { id: 'mine_first_view', tut: true, point: null, lines: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",
     "Tap the dark ore patch and the drill drops a rich load into the bed. Over."] },
   { id: 'first_deposit', tut: false, point: null, lines: ["Rich load, nice. Once that truck is full it hauls to the Refinery and pays as the bed tips. Over."] },
   { id: 'upgrade_ready', tut: true, point: 'upgrade', lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."] },
@@ -1753,9 +1762,6 @@ function updEve() {
   if (!EC.ring && !EC.call && !ecIsOpen()) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }
   let p = null;
   if (pointBeat && !pointerDone) {
-    if (pointBeat === 'deposit' && S.site === MINE) { const d = deposits.find(d => !d.claimed); if (d) {
-      const h = depTapR(d); p = _pt; p.x = h.x; p.l = 'TAP HERE'; p.up = true;
-      const lim = nameEl.getBoundingClientRect().top - POINT_UP_H - 12; p.y = Math.min(h.y + h.glow + 6, lim); } }
     if (pointBeat === 'launch') { if (S.cg.launches > 0) pointerDone = true; else if (launchEl.classList.contains('on')) { const r = launchEl.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 2; p.l = 'LAUNCH'; p.up = false; } }
     if (pointBeat === 'upgrade') { const r = grab.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 4; p.l = 'UPGRADE'; p.up = false; }
   }
