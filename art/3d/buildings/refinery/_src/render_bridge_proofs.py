@@ -2,8 +2,9 @@
 All inputs unpacked with `gltfpack -noq -kn -ke` first (Blender has no meshopt decoder).
 blender -b -P render_bridge_proofs.py -- --ref REF_PLAIN [--bridge BRIDGE_PLAIN --t S] [--crane CRANE_PLAIN] [--fb FB_PLAIN] [--road ROAD_PLAIN]
     [--ht04 HT04_GAME_GLB] --out PNG --w W --h H --samples N (--phone tx,ty,tz,fw (world glTF) | --cam az,el,dist,tx,ty,tz --lens mm (Blender world))
-World: Refinery at x 320; bridge GLB scene at the same place (its root already carries Refinery (-22, 0, 4.8)); crane (311, 0, 17.5);
-FB-05 at Truck_Park (318, 0, 13); flatbed road tiles from x 307 on z 13; HT-04 tipping at Truck_Dump and a second HT-04 under the bridge (inbound lane z 9)."""
+World: Refinery at x 320; bridge GLB scene at the same place (its root already carries its Refinery offset); crane (311, 0, 17.5);
+FB-05 at Truck_Park (318, 0, 13); flatbed road tiles from x 307 on z 13 (both lanes); HT-04 tipping (bed up) at Truck_Dump, under the span,
+and a second HT-04 on the inbound lane z 9. --clip box_convey|box_path picks the bridge clip."""
 import bpy, sys, os, math
 from mathutils import Vector, Matrix, Euler
 A = sys.argv[sys.argv.index('--') + 1:]
@@ -68,7 +69,7 @@ if arg('bridge'):
     barm = next(o for o in bn if o.type == 'ARMATURE')
     if barm.animation_data is None: barm.animation_data_create()
     for tr in list(barm.animation_data.nla_tracks): barm.animation_data.nla_tracks.remove(tr)
-    act = next(a for a in bacts if a.name.startswith('box_convey')); barm.animation_data.action = act
+    act = next(a for a in bacts if a.name.startswith(arg('clip', 'box_convey'))); barm.animation_data.action = act
     print('BRIDGE', barm.name, barm.matrix_world.translation, 'action', act.name, act.frame_range)
 if arg('crane'):
     cn, cacts = imp(arg('crane'), (311, 0, 17.5))
@@ -80,7 +81,7 @@ if arg('road'):
 if arg('ht04'):
     from place_ht04 import place_ht04
     place_ht04(arg('ht04'), sc.collection, frame=40, at=(320, 0, 0), yaw_deg=180.0, tmp='/tmp/brp_ht04a.glb')
-    place_ht04(arg('ht04'), sc.collection, frame=0, at=tuple(g2b((320 - 23.0, 0, 9))), yaw_deg=0.0, tmp='/tmp/brp_ht04b.glb')
+    place_ht04(arg('ht04'), sc.collection, frame=0, at=tuple(g2b((320 - 16.0, 0, 9))), yaw_deg=0.0, tmp='/tmp/brp_ht04b.glb')
 sc.frame_set(F)
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
 if arg('phone'):
