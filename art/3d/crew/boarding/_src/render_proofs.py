@@ -1,7 +1,8 @@
 # Proof renders for crew_boarding.glb over the (read-only, unpacked) launch pad.
 # Poses come from dump_poses.mjs (three r186 CPU skinning of the shipped GLB), so the proofs show exactly what the game plays.
 # blender -b -t 4 -P render_proofs.py -- --pad /tmp/lp_plain.glb --poses /tmp/bpose6 --engine WORKBENCH|BLENDER_EEVEE_NEXT|CYCLES
-#     --cam game|close|follow --out DIR [--w 393 --h 852 --samples 24 --save-blend X.blend --fw 78.25]
+#     --cam game|close|follow|focus --out DIR [--w 393 --h 852 --samples 24 --save-blend X.blend --fw 78.25]
+#     focus cam: --focus X,Y,Z (glTF, = Board_Focus) --dist D : game orientation (38 deg vFOV, 18 deg look-down, game yaw) at distance D from the focus
 # game cam: 38 deg vertical FOV, 18 deg look-down, aimed at Cam_Target glTF (0,4,-0.7), framed to frame_w across the portrait width.
 import bpy, sys, json, math, os
 import numpy as np
@@ -49,7 +50,7 @@ sun.data.energy = 4.0; sun.rotation_euler = (math.radians(50), math.radians(10),
 wd = bpy.data.worlds.new('W'); sc.world = wd; wd.use_nodes = True; wd.node_tree.nodes['Background'].inputs[0].default_value = (0.02, 0.022, 0.03, 1); wd.node_tree.nodes['Background'].inputs[1].default_value = 1.0
 # camera
 cd = bpy.data.cameras.new('Cam'); cam = bpy.data.objects.new('Cam', cd); sc.collection.objects.link(cam); sc.camera = cam
-cd.sensor_fit = 'VERTICAL'; cd.angle_y = math.radians(38); cam.rotation_euler = (math.radians(72), 0, 0)
+cd.sensor_fit = 'VERTICAL'; cd.angle_y = math.radians(38); cd.clip_end = 1000.0; cam.rotation_euler = (math.radians(72), 0, 0)
 asp = W / H; TGT = g2b([0, 4, -0.7])
 def place(tgt_b, fw):
     d = (fw / 2) / (math.tan(math.radians(19)) * asp)
@@ -96,7 +97,10 @@ sc.view_settings.view_transform = 'Standard' if ENG == 'BLENDER_WORKBENCH' else 
 FW = float(A.get('fw', 78.25 if CAM == 'game' else 14.0))
 for ti, t in enumerate(T):
     set_pose(ti)
-    place(TGT if CAM == 'game' else cent[ti] + np.array([0, 0, 2.0]), FW)
+    if CAM == 'focus':
+        F = g2b([float(v) for v in A['focus'].split(',')]); d = float(A['dist'])
+        cam.location = (F[0], F[1] - d * math.cos(math.radians(18)), F[2] + d * math.sin(math.radians(18)))
+    else: place(TGT if CAM == 'game' else cent[ti] + np.array([0, 0, 2.0]), FW)
     r.filepath = os.path.join(OUT, A.get('pattern', 'f_%04d.png') % ti); bpy.ops.render.render(write_still=True)
     print('RENDERED', t, r.filepath, flush=True)
 if 'save-blend' in A:

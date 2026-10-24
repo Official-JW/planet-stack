@@ -1,0 +1,119 @@
+{
+ "frame": "pad-local; u,t,z about Ship_Center along the 330 deg ladder axis",
+ "ship_center": [
+  0,
+  0.25,
+  -13
+ ],
+ "ladder_foot_utz": [
+  5.2,
+  0,
+  0.25
+ ],
+ "glb_landing_vertices": 376,
+ "glb_max_offset_from_solids_m": 0.031,
+ "glb_vertices_left_in_well": 0,
+ "minClear": 0.004,
+ "per_crew": {
+  "Crew_1": {
+   "min_m": 0.004,
+   "at_s": 44.17,
+   "part": "deck_wing",
+   "hits": 0,
+   "hit_s": [
+    1000000000,
+    -1000000000
+   ],
+   "climb_min_m": 0.004,
+   "after_mantle_min_m": 1000000000,
+   "over_well_after_mantle_s": [
+    43.7,
+    43.7
+   ]
+  },
+  "Crew_2": {
+   "min_m": 0.004,
+   "at_s": 46.7,
+   "part": "deck_wing",
+   "hits": 0,
+   "hit_s": [
+    1000000000,
+    -1000000000
+   ],
+   "climb_min_m": 0.004,
+   "after_mantle_min_m": 1000000000,
+   "over_well_after_mantle_s": [
+    47.1,
+    47.1
+   ]
+  },
+  "Crew_3": {
+   "min_m": 0.004,
+   "at_s": 50.97,
+   "part": "deck_wing",
+   "hits": 0,
+   "hit_s": [
+    1000000000,
+    -1000000000
+   ],
+   "climb_min_m": 0.004,
+   "after_mantle_min_m": 1000000000,
+   "over_well_after_mantle_s": [
+    50.5,
+    50.5
+   ]
+  },
+  "Crew_4": {
+   "min_m": 0.004,
+   "at_s": 53.5,
+   "part": "deck_wing",
+   "hits": 0,
+   "hit_s": [
+    1000000000,
+    -1000000000
+   ],
+   "climb_min_m": 0.004,
+   "after_mantle_min_m": 1000000000,
+   "over_well_after_mantle_s": [
+    53.9,
+    53.9
+   ]
+  }
+ },
+ "per_part": {
+  "brace": {
+   "min_m": 0.678,
+   "hits": 0
+  },
+  "frame_outer": {
+   "min_m": 0.065,
+   "hits": 0
+  },
+  "beam_outer": {
+   "min_m": 0.903,
+   "hits": 0
+  },
+  "frame_side": {
+   "min_m": 0.013,
+   "hits": 0
+  },
+  "lid": {
+   "min_m": 0.276,
+   "hits": 0
+  },
+  "deck_wing": {
+   "min_m": 0.004,
+   "hits": 0
+  },
+  "rail_post": {
+   "min_m": 0.15,
+   "hits": 0
+  },
+  "rail": {
+   "min_m": 0.017,
+   "hits": 0
+  }
+ },
+ "hits": 0,
+ "frames": 880
+}

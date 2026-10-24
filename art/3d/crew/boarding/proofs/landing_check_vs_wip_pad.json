@@ -1,0 +1,623 @@
+{
+ "frames": 1087,
+ "dt": 0.0333,
+ "pad": "/tmp/padtris_wip.json",
+ "per_crew": {
+  "Crew_1": {
+   "min_m": 0.0,
+   "at_s": 46.47,
+   "part": "hatch_jamb:Foot_L",
+   "climb_min_frame_side_m": 0.189,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.0,
+   "ladder_at": 40.07,
+   "ladder_part": "Foot_R",
+   "cage_min_m": 0.011,
+   "cage_at": 39.53,
+   "cage_part": "Chest",
+   "plants": [
+    {
+     "foot": "Foot_R",
+     "land_s": 43.33,
+     "u": [
+      4.315,
+      4.624
+     ],
+     "t": [
+      0.953,
+      1.084
+     ],
+     "z": 21.856,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.953
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 44.13,
+     "u": [
+      4.313,
+      4.622
+     ],
+     "t": [
+      0.754,
+      0.884
+     ],
+     "z": 21.852,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.754
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 45.13,
+     "u": [
+      3.927,
+      4.256
+     ],
+     "t": [
+      0.724,
+      0.965
+     ],
+     "z": 21.854,
+     "where": "wing",
+     "min_abs_t": 0.724
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 45.6,
+     "u": [
+      4.007,
+      4.336
+     ],
+     "t": [
+      0.954,
+      1.196
+     ],
+     "z": 21.855,
+     "where": "wing",
+     "min_abs_t": 0.954
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 46.07,
+     "u": [
+      3.929,
+      4.258
+     ],
+     "t": [
+      0.716,
+      0.958
+     ],
+     "z": 21.868,
+     "where": "wing",
+     "min_abs_t": 0.716
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 46.4,
+     "u": [
+      3.594,
+      3.906
+     ],
+     "t": [
+      0.065,
+      0.347
+     ],
+     "z": 21.855,
+     "where": "inside_hatch",
+     "min_abs_t": 0.065
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 47.0,
+     "u": [
+      3.363,
+      3.672
+     ],
+     "t": [
+      0.013,
+      0.143
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.013
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 47.73,
+     "u": [
+      3.083,
+      3.392
+     ],
+     "t": [
+      -0.087,
+      0.044
+     ],
+     "z": 21.856,
+     "where": "inside_hatch",
+     "min_abs_t": 0.009
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.002
+  },
+  "Crew_2": {
+   "min_m": 0.0,
+   "at_s": 49.27,
+   "part": "hatch_jamb:Chest",
+   "climb_min_frame_side_m": 0.189,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.0,
+   "ladder_at": 42.87,
+   "ladder_part": "Forearm_L",
+   "cage_min_m": 0.011,
+   "cage_at": 42.93,
+   "cage_part": "Chest",
+   "plants": [
+    {
+     "foot": "Foot_L",
+     "land_s": 46.73,
+     "u": [
+      4.313,
+      4.622
+     ],
+     "t": [
+      -1.088,
+      -0.957
+     ],
+     "z": 21.854,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.957
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 47.53,
+     "u": [
+      4.314,
+      4.622
+     ],
+     "t": [
+      -0.888,
+      -0.757
+     ],
+     "z": 21.853,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.757
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 48.53,
+     "u": [
+      3.945,
+      4.257
+     ],
+     "t": [
+      -0.961,
+      -0.716
+     ],
+     "z": 21.856,
+     "where": "wing",
+     "min_abs_t": 0.716
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 49.0,
+     "u": [
+      4.019,
+      4.338
+     ],
+     "t": [
+      -1.191,
+      -0.947
+     ],
+     "z": 21.854,
+     "where": "wing",
+     "min_abs_t": 0.947
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 49.47,
+     "u": [
+      3.947,
+      4.26
+     ],
+     "t": [
+      -0.953,
+      -0.708
+     ],
+     "z": 21.869,
+     "where": "wing",
+     "min_abs_t": 0.708
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 49.8,
+     "u": [
+      3.61,
+      3.909
+     ],
+     "t": [
+      -0.344,
+      -0.052
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.052
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 50.4,
+     "u": [
+      3.363,
+      3.672
+     ],
+     "t": [
+      -0.147,
+      -0.017
+     ],
+     "z": 21.855,
+     "where": "inside_hatch",
+     "min_abs_t": 0.017
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 51.13,
+     "u": [
+      3.083,
+      3.392
+     ],
+     "t": [
+      -0.047,
+      0.083
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.009
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.002
+  },
+  "Crew_3": {
+   "min_m": 0.0,
+   "at_s": 52.83,
+   "part": "hatch_jamb:UpperArm_R",
+   "climb_min_frame_side_m": 0.189,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.0,
+   "ladder_at": 46.87,
+   "ladder_part": "Foot_R",
+   "cage_min_m": 0.012,
+   "cage_at": 47.67,
+   "cage_part": "Chest",
+   "plants": [
+    {
+     "foot": "Foot_R",
+     "land_s": 50.13,
+     "u": [
+      4.315,
+      4.624
+     ],
+     "t": [
+      0.953,
+      1.084
+     ],
+     "z": 21.856,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.953
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 50.93,
+     "u": [
+      4.313,
+      4.622
+     ],
+     "t": [
+      0.754,
+      0.884
+     ],
+     "z": 21.852,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.754
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 51.93,
+     "u": [
+      3.927,
+      4.256
+     ],
+     "t": [
+      0.724,
+      0.965
+     ],
+     "z": 21.854,
+     "where": "wing",
+     "min_abs_t": 0.724
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 52.4,
+     "u": [
+      4.007,
+      4.336
+     ],
+     "t": [
+      0.954,
+      1.196
+     ],
+     "z": 21.855,
+     "where": "wing",
+     "min_abs_t": 0.954
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 52.87,
+     "u": [
+      3.929,
+      4.258
+     ],
+     "t": [
+      0.716,
+      0.958
+     ],
+     "z": 21.868,
+     "where": "wing",
+     "min_abs_t": 0.716
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 53.2,
+     "u": [
+      3.594,
+      3.906
+     ],
+     "t": [
+      0.065,
+      0.347
+     ],
+     "z": 21.855,
+     "where": "inside_hatch",
+     "min_abs_t": 0.065
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 53.8,
+     "u": [
+      3.363,
+      3.672
+     ],
+     "t": [
+      0.013,
+      0.143
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.013
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 54.53,
+     "u": [
+      3.083,
+      3.392
+     ],
+     "t": [
+      -0.087,
+      0.044
+     ],
+     "z": 21.856,
+     "where": "inside_hatch",
+     "min_abs_t": 0.009
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.002
+  },
+  "Crew_4": {
+   "min_m": 0.0,
+   "at_s": 56.13,
+   "part": "hatch_jamb:Hips",
+   "climb_min_frame_side_m": 0.188,
+   "hits": 0,
+   "ladder_nonhand_min_m": 0.0,
+   "ladder_at": 50.27,
+   "ladder_part": "Foot_R",
+   "cage_min_m": 0.012,
+   "cage_at": 51.07,
+   "cage_part": "Chest",
+   "plants": [
+    {
+     "foot": "Foot_L",
+     "land_s": 53.53,
+     "u": [
+      4.313,
+      4.622
+     ],
+     "t": [
+      -1.088,
+      -0.957
+     ],
+     "z": 21.854,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.957
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 54.33,
+     "u": [
+      4.314,
+      4.622
+     ],
+     "t": [
+      -0.888,
+      -0.757
+     ],
+     "z": 21.853,
+     "where": "wing_stand_area",
+     "min_abs_t": 0.757
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 55.33,
+     "u": [
+      3.945,
+      4.257
+     ],
+     "t": [
+      -0.961,
+      -0.716
+     ],
+     "z": 21.856,
+     "where": "wing",
+     "min_abs_t": 0.716
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 55.8,
+     "u": [
+      4.019,
+      4.338
+     ],
+     "t": [
+      -1.191,
+      -0.947
+     ],
+     "z": 21.854,
+     "where": "wing",
+     "min_abs_t": 0.947
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 56.27,
+     "u": [
+      3.947,
+      4.26
+     ],
+     "t": [
+      -0.953,
+      -0.708
+     ],
+     "z": 21.869,
+     "where": "wing",
+     "min_abs_t": 0.708
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 56.6,
+     "u": [
+      3.61,
+      3.909
+     ],
+     "t": [
+      -0.344,
+      -0.052
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.052
+    },
+    {
+     "foot": "Foot_R",
+     "land_s": 57.2,
+     "u": [
+      3.363,
+      3.672
+     ],
+     "t": [
+      -0.147,
+      -0.017
+     ],
+     "z": 21.855,
+     "where": "inside_hatch",
+     "min_abs_t": 0.017
+    },
+    {
+     "foot": "Foot_L",
+     "land_s": 57.93,
+     "u": [
+      3.083,
+      3.392
+     ],
+     "t": [
+      -0.047,
+      0.083
+     ],
+     "z": 21.854,
+     "where": "inside_hatch",
+     "min_abs_t": 0.009
+    }
+   ],
+   "plants_in_well": 0,
+   "plants_on_kerb": 0,
+   "sole_min_above_deck_m": 0.002
+  }
+ },
+ "per_part": {
+  "deck_wing": {
+   "min_m": 0.007,
+   "hits": 0
+  },
+  "deck_bridge": {
+   "min_m": 0.065,
+   "hits": 0
+  },
+  "frame_side": {
+   "min_m": 0.013,
+   "hits": 0
+  },
+  "frame_outer": {
+   "min_m": 0.065,
+   "hits": 0
+  },
+  "beam_outer": {
+   "min_m": 0.295,
+   "hits": 0
+  },
+  "beam_side": {
+   "min_m": 0.172,
+   "hits": 0
+  },
+  "lid": {
+   "min_m": 0.144,
+   "hits": 0
+  },
+  "brace": {
+   "min_m": 0.642,
+   "hits": 0
+  },
+  "rail_post": {
+   "min_m": 0.111,
+   "hits": 0
+  },
+  "rail": {
+   "min_m": 0.016,
+   "hits": 0
+  },
+  "lid_hinge": {
+   "min_m": 0.132,
+   "hits": 0
+  },
+  "lid_rib": {
+   "min_m": 0.258,
+   "hits": 0
+  },
+  "lid_strut": {
+   "min_m": 0.436,
+   "hits": 0
+  },
+  "hull": {
+   "min_m": 0.007,
+   "hits": 0
+  },
+  "hatch_jamb": {
+   "min_m": 0.0,
+   "hits": 0
+  }
+ },
+ "min_m": 0.0,
+ "hits": 0
+}

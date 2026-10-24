@@ -1,0 +1,90 @@
+{
+ "viewport": [
+  393,
+  852
+ ],
+ "band_y": [
+  184,
+  490
+ ],
+ "spare_req_px": 6,
+ "frames": 1087,
+ "clip_window_s": [
+  22.3,
+  58.5
+ ],
+ "mid_ladder_point": [
+  3.854,
+  11.05,
+  -10.775
+ ],
+ "a_fit_whole": {
+  "focus": [
+   3.854,
+   3.093,
+   -10.775
+  ],
+  "distance_m": 109.09,
+  "crew_px_at_mid_ladder": 20.7,
+  "spare_top_px": 6.0,
+  "spare_bottom_px": 6.0,
+  "x_px": [
+   181.8,
+   231.5
+  ],
+  "focus_below_mid_ladder_m": 7.96
+ },
+ "a_at_mid_ladder_focus": {
+  "y_px": [
+   283.7,
+   571.4
+  ],
+  "spare_top_px": 99.7,
+  "spare_bottom_px": -81.4
+ },
+ "req_40px": {
+  "distance_m": 54.1,
+  "ladder_px_tall": 475.3,
+  "band_px": 294,
+  "conflict": true
+ },
+ "b_40px_tracking": {
+  "distance_m": 54.1,
+  "max_group_spread_px": 325.8,
+  "at_s": 40.87,
+  "fits_band": false
+ },
+ "c_busy_z>=8": {
+  "focus": [
+   3.854,
+   11.146,
+   -10.775
+  ],
+  "distance_m": 66.45,
+  "crew_px": 32.8,
+  "spare_top_px": 6.0,
+  "spare_bottom_px": 6.0
+ },
+ "c_busy_z>=11": {
+  "focus": [
+   3.854,
+   13.512,
+   -10.775
+  ],
+  "distance_m": 53.92,
+  "crew_px": 40.8,
+  "spare_top_px": 6.0,
+  "spare_bottom_px": 6.0
+ },
+ "c_busy_z>=14": {
+  "focus": [
+   3.854,
+   15.892,
+   -10.775
+  ],
+  "distance_m": 41.32,
+  "crew_px": 54.3,
+  "spare_top_px": 6.0,
+  "spare_bottom_px": 6.0
+ }
+}

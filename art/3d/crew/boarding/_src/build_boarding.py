@@ -24,9 +24,13 @@ LT = np.array([0.5, 0.0, -0.8660254])           # ladder lateral
 PAD_Y = 0.25
 RUNG_Y = [0.65 + 0.6 * i for i in range(35)]
 DECK_Y = 21.85
+SOLE_LIFT = 0.005   # boot soles skin ~2-3 mm below the ankle target plane when the foot rolls: plant deck feet 5 mm high so no sole sinks into the wing deck
 LAD_R = 4.45                                    # ladder plane radius from the ship axis
 def lad(r, lat=0.0, y=0.0): return SHIP_C + LU * r + LT * lat + np.array([0, y, 0])
 STAND = lad(4.95, 0.0, PAD_Y)                   # where a climber stands, facing the ladder (-LU), before mounting
+DECK_U = 4.53                                   # deck foot spot (AA2: solid deck at t +/-0.9, u 4.3-4.7)
+DECK_T = 0.92
+SIDES = [float(x) for x in opt('--mantle-sides', '1,-1,1,-1').split(',')]   # mantle step-off side per climber (+1 = +t)
 CLIMB_R = 4.74                                  # body (root) radius while on the ladder
 # crew path markers in the pad GLB (Crew_Path_01..05): airlock AL-2 door -> receiver spot -> apron -> pad -> Ladder_Foot
 CP = {1: (-11.19, 0.30, 7.94), 2: (-7.85, 0.30, 8.20), 3: (-2.40, 0.10, 2.20), 4: (3.20, 0.25, -3.40), 5: (4.50, 0.25, -10.40)}
@@ -88,12 +92,15 @@ for s in 'LR':
     IKB['leg' + s] = ik_bind(BIND['Thigh_' + s], BIND['Shin_' + s], BIND['Foot_' + s], np.array([0, 0, 1.0]))
     e = BIND['Forearm_' + s]; sh = BIND['UpperArm_' + s]; hd = BIND['Hand_' + s]
     IKB['arm' + s] = ik_bind(sh, e, hd, e - (sh + hd) / 2)
-STRETCH = {'max': 0.0}
+STRETCH = {'max': 0.0}; CTX = {}
 def ik2(A, T, l1, l2, pole, bind):
     d = T - A; L = np.linalg.norm(d); u = d / L
     Lmax = (l1 + l2) * 0.9995
     if L > Lmax:
-        STRETCH['max'] = max(STRETCH['max'], L / (l1 + l2)); L = Lmax
+        rr = L / (l1 + l2)
+        if rr > STRETCH['max']: STRETCH['where'] = dict(CTX, A=[round(float(x), 2) for x in A], T=[round(float(x), 2) for x in T])
+        STRETCH['max'] = max(STRETCH['max'], rr); L = Lmax
+        if rr > 1.02: STRETCH['n'] = STRETCH.get('n', 0) + 1; STRETCH.setdefault('list', []).append((CTX.get('crew'), CTX.get('t'), CTX.get('limb'), round(rr, 3)))
     L = max(L, abs(l1 - l2) + 1e-3)
     v = nrm(pole - u * (pole @ u)); n = nrm(np.cross(u, v))
     ca = (l1 * l1 + L * L - l2 * l2) / (2 * l1 * L); sa = math.sqrt(max(0.0, 1 - ca * ca))
@@ -208,6 +215,11 @@ class Crew:
                 # initial grip / first rung taken during the mount
                 st = t0 + (0.15 if k == 'hand_R' else 0.35 if k == 'hand_L' else 0.55 if k == 'foot_L' else 0.75)
                 moves[k].insert(0, [st, st + 0.45, pre])
+            # top of the ladder: the decel ramp spreads the last move away from the previous one (limb left behind -> stretch);
+            # pull the final move in to <= 0.55 cycle after the previous one ends (also keeps the hands alternating onto the stile tops)
+            if kind == 'foot' and len(moves[k]) >= 2:
+                pa, pb, _ = moves[k][-2]; a_, b_, i_ = moves[k][-1]
+                if a_ > pb + 0.55 * cyc: moves[k][-1] = [pb + 0.55 * cyc, pb + 0.55 * cyc + (b_ - a_), i_]
             # keep moves of one limb sequential
             for i in range(1, len(moves[k])):
                 if moves[k][i][0] < moves[k][i - 1][1] + 0.05:
@@ -229,22 +241,57 @@ class Crew:
             if kind == 'foot':
                 for a, b, idx in mv:
                     self.feet[s].append(dict(t0=a, t1=b, pos=limb_pos('foot', s, idx), yaw=yawL, kind='climb', arc=LU * 0.16 + np.array([0, 0.04, 0])))
-        # mantle (explicit keys): feet together on the top rung, hands to the hatch frame, step onto the deck one foot at a time
-        tm = t_end; lt = left(yawL)
-        MY = [(tm, ytop), (tm + 0.6, ytop + 0.2), (tm + 1.5, 21.00), (tm + 2.05, 21.08), (tm + 2.8, DECK_Y)]
-        MR = [(tm, CLIMB_R), (tm + 0.6, CLIMB_R), (tm + 1.5, 4.62), (tm + 2.1, 4.60), (tm + 2.75, 4.55)]
-        self.mantle = (MY, MR)
-        deck = lambda s, r=4.6: lad(r, 0, 0) + lt * 0.11 * SIDE[s] + np.array([0, DECK_Y + ANK, 0])
-        self.feet['R'].append(dict(t0=tm + 0.05, t1=tm + 0.6, pos=limb_pos('foot', 'R', 34), yaw=yawL, kind='climb', arc=LU * 0.14 + np.array([0, 0.03, 0])))
-        self.feet['L'].append(dict(t0=tm + 1.5, t1=tm + 2.1, pos=deck('L'), yaw=yawL, kind='climb', arc=LU * 0.2 + np.array([0, 0.15, 0])))
-        self.feet['R'].append(dict(t0=tm + 2.05, t1=tm + 2.6, pos=deck('R'), yaw=yawL, kind='climb', arc=LU * 0.2 + np.array([0, 0.15, 0])))
-        for s_, (a_, b_, y_) in (('L', (tm + 0.9, tm + 1.4, 22.55)), ('R', (tm + 1.1, tm + 1.6, 22.55)), ('L', (tm + 2.15, tm + 2.55, 23.2)), ('R', (tm + 2.35, tm + 2.75, 23.2))):
-            moves['hand_' + s_].append((a_, b_, lad(4.2, 0, 0) + lt * 0.3 * SIDE[s_] + np.array([0, y_, 0])))   # hatch frame grips
-        tmd = tm + 3.25
-        self.segs.append((t0, tmd, 'climb', dict(yb=yb, yawL=yawL, moves=moves, limb_pos=limb_pos, tc=tc, t_end=t_end, tm=tm, tmd=tmd)))
+        # mantle through the hatch-deck hole (AA2: hole u 4.05-5.15, t +/-0.62; decking to t +/-1.4 with a guard rail):
+        # feet together on the top rung, lead hand to the hatch frame, trail hand pushes on the lead-side ladder rail top,
+        # body rises and slides sideways, lead foot steps sideways onto solid deck (t = S*1.0), then the trail foot (t = S*0.78),
+        # both at u = DECK_U, hands release, walk in along the solid deck and through the hatch.  S = +1 / -1 alternates per climber.
+        tm = t_end; M = MANTLE_S; S = self.side
+        lead = 'R' if S > 0 else 'L'; trail = 'L' if lead == 'R' else 'R'      # the climber faces -LU, so its right hand side is +t
+        # v2 landing (AA2 option 1): open well u 4.05-5.15 |t| < 0.62, kerb |t| 0.62-0.68 (top z 21.88), wing stand area u 4.3-4.7 |t| 0.75-1.25.
+        # Hands are on the stile tops when the climb ends. Lead hand to the hatch jamb; lead foot pulls back off rung 33, rises inside the
+        # cage, then high-steps sideways over the kerb onto the wing; body hauls up and across; trail foot follows the same way off rung 34.
+        MY = [(tm, ytop), (tm + 0.6 * M, ytop + 0.05), (tm + 1.0 * M, 20.75), (tm + 1.3 * M, 21.00), (tm + 1.9 * M, 21.12), (tm + 2.5 * M, 21.65), (tm + 2.9 * M, DECK_Y)]
+        MR = [(tm, CLIMB_R), (tm + 0.6 * M, 4.70), (tm + 1.9 * M, 4.62), (tm + 2.9 * M, DECK_U)]
+        MT = [(tm, 0.0), (tm + 1.3 * M, 0.0), (tm + 1.9 * M, S * 0.25), (tm + 2.5 * M, S * 0.65), (tm + 2.9 * M, S * DECK_T)]
+        self.mantle = (MY, MR, MT)
+        dk = lambda tt: lad(DECK_U, tt, DECK_Y + ANK + SOLE_LIFT)
+        F = [(trail, tm + 0.05 * M, tm + 0.5 * M, limb_pos('foot', trail, 34), LU * 0.14 + np.array([0, 0.03, 0]), 0),
+             (lead, tm + 0.55 * M, tm + 1.0 * M, lad(4.78, S * 0.14, 21.40), LU * 0.15, 0),                 # back off rung 33 and up inside the cage
+             (lead, tm + 1.15 * M, tm + 1.85 * M, dk(S * (DECK_T + 0.10)), np.array([0, 0.40, 0]), 1),       # high step over the kerb onto the wing
+             (trail, tm + 1.85 * M, tm + 2.15 * M, lad(4.76, 0.0, 21.70), LU * 0.06, 0),
+             (trail, tm + 2.15 * M, tm + 2.7 * M, dk(S * (DECK_T - 0.10)), np.array([0, 0.25, 0]), 1)]
+        self.deck_plants = []
+        for s_, a_, b_, p_, arc_, dp_ in F:
+            self.feet[s_].append(dict(t0=a_, t1=b_, pos=p_, yaw=yawL, kind='climb', arc=arc_))
+            if dp_: self.deck_plants.append((s_, round(b_, 3), p_ - np.array([0, ANK, 0]), 'mantle'))
+        HF = lambda tt, y: lad(4.13, tt, y)          # hatch jamb (outer face u 4.06, opening |t| 0.652)
+        KG = lambda u_, y_: lad(u_, S * 0.65, y_)       # gloves on the well kerb top (|t| 0.62-0.68, top z 21.88) on the step-off side
+        Hm = [(lead, tm + 1.6 * M, tm + 2.4 * M, lad(4.12, S * 0.76, 22.95))]   # lead glove: stile top -> flat on the hull beside the hatch
+        for s_, a_, b_, p_ in Hm: moves['hand_' + s_].append((a_, b_, p_))
+        tmd = tm + 3.3 * M
+        # walk-in (AA2 option 1): no deck in front of the hatch.  Step toward the hull on the wing, shift the weight over the inner
+        # foot, cross the outer foot behind it over the kerb and through the hatch (body |t| <= ~0.4 where it crosses the hull line),
+        # then the inner foot follows.  Explicit plants (not the generic walk) so every deck plant stays on the wing.
+        e0 = tmd; Lt = lambda u_, t_: lad(u_, S * t_, DECK_Y + ANK + SOLE_LIFT)
+        yw = lambda v_: yawL + angdiff(yawL, yaw_of(v_))
+        yd1 = yw(-LU * 0.9 - LT * S * 0.45); yd2 = yw(-LU * 0.75 - LT * S * 0.65); yin = yawL
+        E = [(trail, e0, e0 + 0.5, Lt(4.15, 0.87), yd1, np.array([0, 0.10, 0])),
+             (lead, e0 + 0.5, e0 + 0.95, Lt(4.23, 1.10), yd1, np.array([0, 0.10, 0])),
+             (lead, e0 + 1.2, e0 + 1.75, Lt(3.80, 0.24), yd2, LU * 0.40 + np.array([0, 0.21, 0])),   # crossover behind the inner foot, over the kerb
+             (trail, e0 + 1.75, e0 + 2.35, Lt(3.58, 0.08), yin, LU * 0.28 + np.array([0, 0.21, 0])),
+             (lead, e0 + 2.6, e0 + 3.1, Lt(3.30, -0.02), yin, np.array([0, 0.10, 0]))]
+        for s_, a_, b_, p_, y_, arc_ in E:
+            self.feet[s_].append(dict(t0=a_, t1=b_, pos=p_, yaw=y_, kind='climb', arc=arc_))
+            self.deck_plants.append((s_, round(b_, 3), p_ - np.array([0, ANK, 0]), 'walk_in'))
+        MY += [(e0 + 1.2, DECK_Y), (e0 + 1.85, DECK_Y - 0.17), (e0 + 2.5, DECK_Y)]
+        MR += [(e0 + 0.95, 4.25), (e0 + 1.4, 4.20), (e0 + 1.85, 4.10), (e0 + 2.45, 3.75), (e0 + 3.2, 3.40)]
+        MT += [(e0 + 0.95, S * 0.86), (e0 + 1.4, S * 0.55), (e0 + 1.85, S * 0.26), (e0 + 2.45, S * 0.12), (e0 + 3.2, 0.0)]
+        MW = [(tm, yawL), (e0, yawL), (e0 + 0.6, yd1), (e0 + 1.4, yd2), (e0 + 2.4, yin)]
+        self.mantle = (MY, MR, MT, MW)
+        tin = e0 + 3.2
+        self.segs.append((t0, tin, 'climb', dict(yb=yb, yawL=yawL, moves=moves, limb_pos=limb_pos, tc=tc, t_end=t_end, tm=tm, tmd=tmd)))
         self.events.update(mount=t0, climb_start=tc, climb_top=t_end, on_deck=tmd, moves=moves)
-        self.pos = lad(4.62, 0, DECK_Y); self.yaw = yawL; self.t = tmd
-        self.walk([lad(3.95, 0, DECK_Y), lad(3.3, 0, DECK_Y)])
+        self.pos = lad(3.42, 0.0, DECK_Y); self.yaw = yin; self.t = tin
         self.events['inside'] = self.t
         self.segs.append((self.t, 1e9, 'hidden', dict(pos=self.pos.copy(), yaw=self.yaw)))
         self.t_hide = self.t
@@ -291,10 +338,15 @@ STARTS = [(CM_POS, yaw_of(np.array([-1, 0, 0.35]))),
           ((-10.05, 0.30, 6.35), yaw_of(np.array([0.7, 0, -0.6]))),
           ((-9.05, 0.30, 10.35), yaw_of(np.array([-0.3, 0, -1.0])))]
 crew = [Crew(i + 1, CREW_NAMES[i], p, y) for i, (p, y) in enumerate(STARTS)]
+for i, c in enumerate(crew): c.side = SIDES[i]
 T_CALL = 3.0
 FILE_GAP = 1.55            # s between walkers in the file (~2.1 m)
-CLIMB_GAP = opt('--climb-gap', 5.5)   # s between climbers: >= 3 m between one climber's boots and the next one's gloves
-QUEUE = [None, lad(6.15, 0.95, PAD_Y), lad(6.55, -0.85, PAD_Y), lad(7.35, 0.35, PAD_Y)]
+CLIMB_GAP = opt('--climb-gap', 5.5)
+MANTLE_S = opt('--mantle-scale', 1.0)
+QUEUE_LEAD = opt('--queue-lead', 2.8)   # s before its mount that a queued climber starts walking to the ladder foot
+# per-crew lead (crew 2,3,4): each arrives at the ladder foot just as its slot opens, so nobody stands under the boots of the climber above
+QUEUE_LEADS = [None] + [float(x) for x in (sys.argv[sys.argv.index('--queue-leads') + 1].split(',') if '--queue-leads' in sys.argv else '1.85,2.4,2.85'.split(','))]
+QUEUE = [None, lad(5.65, 0.75, PAD_Y), lad(6.55, -0.85, PAD_Y), lad(7.35, 0.35, PAD_Y)]
 JOIN = [None, np.array((-6.35, 0.28, 6.85)), np.array((-6.9, 0.29, 7.6)), np.array((-6.6, 0.29, 7.9))]
 look_cm = lambda: crew[0].pos + np.array([0, 1.6, 0])
 # crew_call: CM radios (hand to the helmet), the others turn to her and acknowledge
@@ -312,13 +364,14 @@ for i, c in enumerate(crew[1:], 1):
     c.walk(route)
 T_WALK_END = cm.t
 # crew_climb: staggered climbs; queued crew step up to STAND when their slot comes
+cm.idle(cm.t + opt('--cm-wait', 0.8))   # CM checks the ladder while the file closes up
 cm.climb()
 mount_t = [cm.events['mount']]
 for i, c in enumerate(crew[1:], 1):
-    tm = mount_t[0] + CLIMB_GAP * i
+    tm = mount_t[-1] + CLIMB_GAP          # chained: a late arrival never shortens the next gap
     # face the ladder while waiting
-    c.turn(yaw_of(STAND - c.pos), dur=0.7)
-    tw = tm - 3.0
+    c.turn(yaw_of(STAND - c.pos), dur=max(0.25, 0.7 * abs(angdiff(c.yaw, yaw_of(STAND - c.pos))) / (math.pi / 2)))
+    tw = tm - (QUEUE_LEADS[i] if '--queue-lead' not in sys.argv else QUEUE_LEAD)
     c.idle(max(c.t, tw))
     c.walk([STAND])
     c.turn(yaw_of(-LU), dur=0.6)
@@ -330,12 +383,13 @@ for c in crew:
     c.segs[-1] = (c.segs[-1][0], T_END + 1, 'hidden', c.segs[-1][3])
 
 # ----------------------------------------------------------------------------- per-frame pose
-def free_hands(c, t, R_chest, chest_pos, swing):
-    """relaxed arms: hands at the hip sides, swinging fore/aft opposite to the legs."""
+def free_hands(c, t, R_chest, chest_pos, swing, tuck=0.0):
+    """relaxed arms: hands at the hip sides, swinging fore/aft opposite to the legs. tuck 0..1 pulls them in to the thighs
+    (walking in along the hull to the hatch, so no glove passes into the hull wall)."""
     out = {}
     for s in 'LR':
         sd = SIDE[s]; sh = chest_pos + R_chest @ (BIND['UpperArm_' + s] - BIND['Chest'])
-        loc = np.array([sd * 0.075, -0.50, 0.10 + swing * (-sd) * 0.17])
+        loc = np.array([sd * (0.075 - 0.09 * tuck), -0.50, 0.10 - 0.14 * tuck + swing * (-sd) * 0.17])
         loc[1] += 0.04 * abs(swing)
         out[s] = (sh + R_chest @ loc, R_chest @ np.array([sd * 0.55, -0.25, -1.0]))
     return out
@@ -376,13 +430,13 @@ def pose(c, t):
         u = Tri(t, sg[0], sg[0] + 0.7)
         base = STAND * (1 - u) + lad(CLIMB_R, 0, 0) * u; base[1] = yb if t < D['tm'] else D['yb'](t)
         if t >= D['tm']:   # mantle
-            MY, MR = c.mantle
+            MY, MR, MT, MW = c.mantle
             def pw(K, t):
                 if t >= K[-1][0]: return K[-1][1]
                 for (ta, va), (tb, vb) in zip(K[:-1], K[1:]):
                     if t < tb: return va + (vb - va) * sstep((t - ta) / (tb - ta))
-            base = lad(pw(MR, t), 0, 0); base[1] = pw(MY, t)
-        pos, yaw = base, yawL
+            base = lad(pw(MR, t), pw(MT, t), 0); base[1] = pw(MY, t)
+        pos, yaw = base, (pw(c.mantle[3], t) if t >= D['tm'] else yawL)
         mm = (t - D['tm']) / (D['tmd'] - D['tm']) if t >= D['tm'] else 0.0
         lean = 0.02 * u + 0.18 * math.sin(math.pi * min(1, mm * 1.25)) - 0.02 * Tri(mm, 0.6, 1.0); hips_off = np.array([0, -0.03 * u, 0.0])
     R_root = Ry(yaw)
@@ -399,7 +453,7 @@ def pose(c, t):
         H = {}
         for s in 'LR':
             mv = D['moves']['hand_' + s]; lp = D['limb_pos']
-            free = free_hands(c, t, R_c, G['Chest'], 0.0)[s][0]
+            free = free_hands(c, t, R_c, G['Chest'], 0.0, Tri(t, D['tmd'] - 0.3, D['tmd'] + 0.6) if t >= D['tm'] else 0.0)[s][0]
             prev = None; p = None
             for (a, b, idx) in mv:
                 tgt = lp('hand', s, idx)
@@ -412,17 +466,19 @@ def pose(c, t):
                         ctl = shp - LU * 0.62 + left(yawL) * SIDE[s] * 0.12 - np.array([0, 0.05, 0])
                         p = src * (1 - u) ** 2 + ctl * 2 * u * (1 - u) + tgt * u * u
                     else:
-                        p = src * (1 - u) + tgt * u + (-LU * 0.04 + left(yawL) * SIDE[s] * 0.16) * math.sin(math.pi * u)
+                        p = src * (1 - u) + tgt * u + (-LU * 0.04 + left(yawL) * SIDE[s] * 0.09) * math.sin(math.pi * u)
                     break
                 prev = tgt
             if p is None: p = prev
             if t >= D['tm']:   # mantle: let go of the hatch frame once both boots are on the deck
-                r = Tri(t, D['tm'] + 2.8, D['tm'] + 3.25); p = p * (1 - r) + free * r
-            pole = R_root @ np.array([SIDE[s] * 1.0, -0.9, 0.35])
+                trail_ = s == ('L' if c.side > 0 else 'R')    # trail hand lets go of the kerb as the body stands up on the wing
+                r = Tri(t, D['tm'] + (1.45 if trail_ else 2.55) * MANTLE_S, D['tm'] + (1.85 if trail_ else 3.0) * MANTLE_S); p = p * (1 - r) + free * r
+            elat = 0.55 - (0.45 * Tri(t, D['tm'] + 1.1 * MANTLE_S, D['tm'] + 1.6 * MANTLE_S) if t >= D['tm'] else 0.0)   # mantle: tuck the elbows in, away from the deck rails
+            pole = R_root @ np.array([SIDE[s] * elat, -1.0, 0.3])     # elbows down/in: keeps forearms inside the ladder cage
             fpole = R_c @ np.array([SIDE[s] * 0.55, -0.25, -1.0])
-            wv = Tri(t, sg[0], sg[0] + 0.6) * (1 - (Tri(t, D['tm'] + 2.8, D['tm'] + 3.25) if t >= D['tm'] else 0))
+            wv = Tri(t, sg[0], sg[0] + 0.6) * (1 - (Tri(t, D['tm'] + 2.85 * MANTLE_S, D['tm'] + 3.3 * MANTLE_S) if t >= D['tm'] else 0))
             H[s] = (p, nrm(fpole * (1 - wv) + pole * wv))
-        curl = -0.15 - 0.35 * Tri(t, sg[0], sg[0] + 0.6) * (1 - (Tri(t, D['tm'] + 2.8, D['tm'] + 3.25) if t >= D['tm'] else 0))
+        curl = -0.15 - 0.35 * Tri(t, sg[0], sg[0] + 0.6) * (1 - (Tri(t, D['tm'] + 2.85 * MANTLE_S, D['tm'] + 3.3 * MANTLE_S) if t >= D['tm'] else 0))
     else:
         H = free_hands(c, t, R_c, G['Chest'], swing); curl = -0.15
     # call gestures
@@ -465,12 +521,12 @@ def pose(c, t):
         Rf = Ry(fy) @ Rx(fp)
         knee_dir = Ry(fy) @ np.array([SIDE[s] * 0.12, 0, 1.0])
         if kind == 'climb': knee_dir = R_root @ np.array([SIDE[s] * 0.35, 0.2, 1.0])
-        R1, R2 = ik2(A, ap, L_TH[s], L_SH[s], knee_dir, IKB['leg' + s])
+        CTX.update(crew=c.k, t=round(t, 3), limb='leg' + s); R1, R2 = ik2(A, ap, L_TH[s], L_SH[s], knee_dir, IKB['leg' + s])
         G['Thigh_' + s] = A; Rg['Thigh_' + s] = R1; G['Shin_' + s] = A + R1 @ boff('Shin_' + s); Rg['Shin_' + s] = R2
         G['Foot_' + s] = G['Shin_' + s] + R2 @ boff('Foot_' + s); Rg['Foot_' + s] = Rf
         hp_, pole = H[s]
         Ash = G['Chest'] + R_c @ boff('UpperArm_' + s)
-        R1, R2 = ik2(Ash, hp_, L_UA[s], L_FA[s], pole, IKB['arm' + s])
+        CTX.update(crew=c.k, t=round(t, 3), limb='arm' + s); R1, R2 = ik2(Ash, hp_, L_UA[s], L_FA[s], pole, IKB['arm' + s])
         G['UpperArm_' + s] = Ash; Rg['UpperArm_' + s] = R1; G['Forearm_' + s] = Ash + R1 @ boff('Forearm_' + s); Rg['Forearm_' + s] = R2
         G['Hand_' + s] = G['Forearm_' + s] + R2 @ boff('Hand_' + s); Rg['Hand_' + s] = R2 @ Rx(curl)
     # ---- local TRS
@@ -513,7 +569,7 @@ for ci in range(4):
         for f in range(NF): frames[f][ci][0][n] = (frames[f][ci][0][n][0], Q[f])
 # ---- checks: foot slide (planted ankles), hand slip while gripping, joint pops
 def foot_world(ci, f, s): return frames[f][ci][2]['Foot_' + s]
-chk = {'ik_max_stretch': round(STRETCH['max'], 4)}
+chk = {'ik_max_stretch': round(STRETCH['max'], 4), 'ik_stretch_at': STRETCH.get('where'), 'ik_evals_over_1.02': STRETCH.get('n', 0)}
 slide = 0.0; step = 0.0
 for ci in range(4):
     for s in 'LR':
@@ -545,7 +601,7 @@ for f in range(NF):
                 low_i = min(Gi['Foot_L'][1], Gi['Foot_R'][1]) - ANK; top_j = max(Gj['Hand_L'][1], Gj['Hand_R'][1], Gj['Head'][1] + 0.25)
                 if low_i - top_j < gap: gap = low_i - top_j; GAPAT[:] = [t, i + 1, j + 1]
 chk['min_gap_upper_boots_to_lower_gloves_m'] = round(float(gap), 3); chk['min_gap_at'] = [round(GAPAT[0], 2), GAPAT[1], GAPAT[2]]
-print('CHECKS', chk)
+print('CHECKS', chk); print('STRETCHLIST', STRETCH.get('list', [])[:400])
 
 # ----------------------------------------------------------------------------- mesh -> vertices (one shared mesh, 1 material)
 def lin(hx):
@@ -621,11 +677,15 @@ for ci, c in enumerate(crew):
     first_walk = next(s for s in walk_segs if s[0] >= T_CALL - 1)
     rung = {}
     for k, mv in ev['moves'].items():
-        rung[k] = [[r3(a), r3(b), (int(i) if isinstance(i, (int, np.integer)) else 'hatch_frame')] for a, b, i in mv]
+        rung[k] = [[r3(a), r3(b), (int(i) if isinstance(i, (int, np.integer)) else ('ladder_rail_top' if np.asarray(i)[1] < 22.0 else 'hatch_frame'))] for a, b, i in mv]
+    def utz(p_): q = np.asarray(p_, float) - SHIP_C; return [round(float(q @ LU), 3), round(float(q @ LT), 3), round(float(q[1]), 3)]
+    mantle = {'side': '+t' if c.side > 0 else '-t', 'lead_foot': 'Foot_R' if c.side > 0 else 'Foot_L', 'mantle_start_climb_top': r3(ev['climb_top']),
+              'hands_released': r3(ev['on_deck']), 'walk_in_end_inside_hatch': r3(ev['inside']),
+              'deck_foot_plants': [{'foot': 'Foot_' + s_, 'land_t': r3(t_), 'sole_center_utz': utz(p_), 'phase': ph_} for s_, t_, p_, ph_ in sorted(c.deck_plants, key=lambda x: x[1])]}
     timing['crew'].append({'crew': c.k, 'role': c.name, 'node': 'Crew_%d' % c.k,
         'call': [0.0, T_CALL], 'walk_start': r3(first_walk[0]), 'arrive_ladder_or_queue': r3(first_walk[1]),
         'mount': r3(ev['mount']), 'climb_start': r3(ev['climb_start']), 'climb_top': r3(ev['climb_top']), 'on_deck': r3(ev['on_deck']), 'inside_hatch': r3(ev['inside']),
-        'rung_moves': rung})
+        'mantle': mantle, 'rung_moves': rung})
 rootn['extras'] = {'clips': timing['clips'], 'note': 'pad-local glTF: put this root at the Launch Pad root. Clips play back to back: crew_call -> crew_walk_to_pad -> crew_climb. Crew_k root scale drops to 1e-4 once inside the hatch (hide the node then).',
                    'inside_hatch_s': {('Crew_%d' % t['crew']): t['inside_hatch'] for t in timing['crew']}}
 # animations: one shared uniform time input per clip; the rate per clip is chosen by how fast the motion is
@@ -661,6 +721,12 @@ for name, a, b in CLIPS:
     anims.append({'name': name, 'samplers': samplers, 'channels': channels, 'extras': {'key_rate_hz': round(FPS / CLIP_STEP[name], 2)}})
 print('keys per channel total', nkeys)
 mat = {'name': 'SHM_Paint', 'pbrMetallicRoughness': {'metallicFactor': 0.0, 'roughnessFactor': 0.42}}
+# Board_Focus: camera focus empty for the boarding camera push (no camera is baked). Default = mid-ladder point on the ladder axis.
+_fs = opt('--focus', '')
+BF = np.array([float(x) for x in _fs.split(',')]) if _fs else lad(LAD_R, 0, 0.5 * (PAD_Y + DECK_Y))
+_bfx = json.loads(opt('--focus-extras', '{}'))
+_bfx.update({'mid_ladder_point': [round(float(x), 3) for x in lad(LAD_R, 0, 0.5 * (PAD_Y + DECK_Y))], 'note': 'empty; aim the boarding camera here (38 deg vFOV, 18 deg look-down, game yaw). No camera in this GLB.'})
+rootn['children'].append(len(nodes)); nodes.append({'name': 'Board_Focus', 'translation': [round(float(x), 4) for x in BF], 'extras': _bfx})
 gl = {'asset': {'version': '2.0', 'generator': 'planet-stack crew boarding (Art Assistant 3)'}, 'scene': 0, 'scenes': [{'name': 'Scene', 'nodes': [0]}],
       'nodes': nodes, 'skins': skins, 'materials': [mat],
       'meshes': [{'name': 'CrewSuit_%d' % (i + 1), 'primitives': [{'attributes': {'POSITION': aP, 'NORMAL': aN, 'COLOR_0': aC, 'JOINTS_0': aJ, 'WEIGHTS_0': aW}, 'indices': aI, 'material': 0}]} for i in range(4)],

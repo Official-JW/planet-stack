@@ -1,0 +1,1 @@
+{"frames": 1087, "t_range": [22.3, 58.4996], "min_mesh_gap_m": 0.069, "min_mesh_gap_at_t_crewA_crewB": [29.1666, 2, 3], "min_boot_to_glove_m": 0.254, "min_boot_to_glove_at_t_upper_lower": [49.5664, 2, 3], "frames_under_10cm": 13, "frames_touching_under_2cm": 0}

@@ -1,0 +1,332 @@
+{
+ "job": "hatch landing (art lead option 1, 10/24 00:32) - WORKING TREE ONLY, not committed (hold until Art Assistant 3 new mantle)",
+ "before": {
+  "md5": "0a5806f425cf552adbf06cf0567ea89b",
+  "bytes": 307664,
+  "tris": 29479,
+  "hatch_deck_u_t_z": [
+   [
+    4.249,
+    5.251
+   ],
+   [
+    -0.702,
+    0.702
+   ],
+   [
+    21.748,
+    21.849
+   ]
+  ]
+ },
+ "after": {
+  "md5": "9e44959341d7f57bf1b3bd21b826b940",
+  "bytes": 307228,
+  "tris": 29493,
+  "draws": 15
+ },
+ "landing": {
+  "frame": "pad-local, u along ladder axis LU (330 deg) from ship centre, t = LT, z up (glTF y)",
+  "deck_u_t_z": [
+   [
+    3.717,
+    5.45
+   ],
+   [
+    -1.4,
+    1.4
+   ],
+   [
+    21.75,
+    21.85
+   ]
+  ],
+  "well_u_t_z": [
+   [
+    4.05,
+    5.15
+   ],
+   [
+    -0.62,
+    0.62
+   ],
+   [
+    21.75,
+    21.85
+   ]
+  ],
+  "frame_u_t_z": [
+   [
+    3.912,
+    5.21
+   ],
+   [
+    -0.6799999999999999,
+    0.6799999999999999
+   ],
+   [
+    21.66,
+    21.88
+   ]
+  ],
+  "stand_area_u_t_z": [
+   [
+    4.3,
+    4.7
+   ],
+   [
+    "+-0.75",
+    "+-1.25"
+   ],
+   21.85
+  ],
+  "rail_u_t_z": [
+   [
+    4.15,
+    5.4
+   ],
+   [
+    "+-0.76..1.34"
+   ],
+   [
+    21.85,
+    22.932000000000002
+   ]
+  ],
+  "lid_hinge_u_z": [
+   5.245,
+   21.9
+  ],
+  "lid_open_deg": 100,
+  "lid_t": [
+   -0.65,
+   0.65
+  ]
+ },
+ "unchanged_check_before_after": {
+  "tip_z": [
+   40.498,
+   40.498
+  ],
+  "base_z": [
+   0.251,
+   0.251
+  ],
+  "footprint_r": [
+   9.263,
+   9.265
+  ],
+  "ladder_rails_utz": [
+   [
+    [
+     4.416,
+     4.486
+    ],
+    [
+     -0.31,
+     0.312
+    ],
+    [
+     0.251,
+     21.849
+    ]
+   ],
+   [
+    [
+     4.416,
+     4.486
+    ],
+    [
+     -0.31,
+     0.312
+    ],
+    [
+     0.251,
+     21.849
+    ]
+   ]
+  ],
+  "cage_utz": [
+   [
+    [
+     4.815,
+     5.224
+    ],
+    [
+     -0.456,
+     0.457
+    ],
+    [
+     3.427,
+     21.849
+    ]
+   ],
+   [
+    [
+     4.815,
+     5.224
+    ],
+    [
+     -0.456,
+     0.457
+    ],
+    [
+     3.427,
+     21.849
+    ]
+   ]
+  ],
+  "hatch_outer_face_utz": [
+   [
+    [
+     4.06,
+     4.06
+    ],
+    [
+     -0.652,
+     0.652
+    ],
+    [
+     23.752,
+     23.752
+    ]
+   ],
+   [
+    [
+     4.06,
+     4.06
+    ],
+    [
+     -0.652,
+     0.652
+    ],
+    [
+     23.752,
+     23.752
+    ]
+   ]
+  ],
+  "ladder_foot_rel": [
+   [
+    4.503,
+    -2.6,
+    0.25
+   ],
+   [
+    4.503,
+    -2.6,
+    0.25
+   ]
+  ]
+ },
+ "current_clip_clearance": {
+  "min_m": 0.048,
+  "hits": 0,
+  "per_crew": {
+   "Crew_1": {
+    "min_m": 0.048,
+    "at_s": 52.9,
+    "part": "frame_side",
+    "hits": 0,
+    "hit_s": [
+     1000000000,
+     -1000000000
+    ],
+    "climb_min_m": 0.048,
+    "after_mantle_min_m": 0.435,
+    "over_well_after_mantle_s": [
+     53.433,
+     54.7
+    ]
+   },
+   "Crew_2": {
+    "min_m": 0.053,
+    "at_s": 58.43,
+    "part": "frame_side",
+    "hits": 0,
+    "hit_s": [
+     1000000000,
+     -1000000000
+    ],
+    "climb_min_m": 0.053,
+    "after_mantle_min_m": 0.435,
+    "over_well_after_mantle_s": [
+     58.9,
+     60.233
+    ]
+   },
+   "Crew_3": {
+    "min_m": 0.048,
+    "at_s": 63.9,
+    "part": "frame_side",
+    "hits": 0,
+    "hit_s": [
+     1000000000,
+     -1000000000
+    ],
+    "climb_min_m": 0.048,
+    "after_mantle_min_m": 0.435,
+    "over_well_after_mantle_s": [
+     64.433,
+     65.7
+    ]
+   },
+   "Crew_4": {
+    "min_m": 0.053,
+    "at_s": 69.43,
+    "part": "frame_side",
+    "hits": 0,
+    "hit_s": [
+     1000000000,
+     -1000000000
+    ],
+    "climb_min_m": 0.053,
+    "after_mantle_min_m": 0.435,
+    "over_well_after_mantle_s": [
+     69.9,
+     71.233
+    ]
+   }
+  },
+  "per_part": {
+   "brace": {
+    "min_m": 0.621,
+    "hits": 0
+   },
+   "frame_outer": {
+    "min_m": 0.065,
+    "hits": 0
+   },
+   "beam_outer": {
+    "min_m": 0.873,
+    "hits": 0
+   },
+   "frame_side": {
+    "min_m": 0.048,
+    "hits": 0
+   },
+   "lid": {
+    "min_m": 0.197,
+    "hits": 0
+   },
+   "rail_post": {
+    "min_m": 0.813,
+    "hits": 0
+   },
+   "rail": {
+    "min_m": 0.793,
+    "hits": 0
+   },
+   "deck_wing": {
+    "min_m": 0.597,
+    "hits": 0
+   }
+  }
+ },
+ "notes_for_art_assistant_3": [
+  "deck top unchanged at z 21.85; ladder rails, cage, hatch (outer face u 4.06, t +-0.652) and Ladder_Foot unchanged",
+  "the well is open from the hull (u 3.95-4.05) out to u 5.15 for |t| < 0.62: there is no deck in front of the hatch any more",
+  "new mantle: step off sideways onto a wing (stand t +-0.75..1.25, u 4.30-4.70, z 21.85), then walk along the hull (u ~3.75-4.1) and turn into the hatch over the 3 cm frame kerb at |t| 0.62-0.68",
+  "keep bodies outside: frame kerb |t| 0.62-0.68 (z 21.66-21.88), outer frame u 5.15-5.21, lid inner face from u ~5.22 at z 21.9 leaning outboard 10 deg up to z ~23.05, rails at |t| 1.28-1.37 and u 5.37-5.43 (|t| >= 0.73)"
+ ]
+}
