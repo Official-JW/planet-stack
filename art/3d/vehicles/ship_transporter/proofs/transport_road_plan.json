@@ -1,0 +1,455 @@
+{
+ "units": "m, pad-local glTF (+X right toward Shipyard, +Z toward camera). World = pad-local + Launch Pad origin (qa3d x=480).",
+ "layout_assumed": "Director: Refinery | 20-slot Cargo Dock | Launch Pad | Shipyard = pad+160 m",
+ "centerline": [
+  [
+   0.0,
+   -13.0
+  ],
+  [
+   29.4,
+   -13.0
+  ],
+  [
+   120.1,
+   -13.0
+  ]
+ ],
+ "turns": 0,
+ "s_bends": 0,
+ "running_width": 36.0,
+ "graded_width_incl_shoulders": 41.2,
+ "crawler_lanes_abs_dz": [
+  9.7,
+  13.3
+ ],
+ "cross_fall_pct": 0.5,
+ "max_grade_pct": 0.0,
+ "length_pad_edge_to_hall_west_door": 90.7,
+ "ship_axis_travel_pad_centre_to_hall_centre": 137.1,
+ "refit_apron_x": [
+  62.0,
+  119.1
+ ],
+ "refit_apron_z": [
+  -35.0,
+  9.0
+ ],
+ "hall_west_wall_x": 120.1,
+ "hall_corners": [
+  [
+   123.82,
+   7.85
+  ],
+  [
+   157.3,
+   1.95
+  ],
+  [
+   152.8,
+   -23.65
+  ],
+  [
+   119.31,
+   -17.76
+  ]
+ ],
+ "transporter_footprint": {
+  "length": 29.1,
+  "width": 28.4
+ },
+ "shipyard_items_between_apron_and_west_wall": [
+  {
+   "x": 118,
+   "z": -20,
+   "h": 25.6
+  },
+  {
+   "x": 118,
+   "z": -18,
+   "h": 24.2
+  },
+  {
+   "x": 118,
+   "z": -14,
+   "h": 23.9
+  },
+  {
+   "x": 118,
+   "z": -2,
+   "h": 3.3
+  },
+  {
+   "x": 118,
+   "z": 0,
+   "h": 2.8
+  },
+  {
+   "x": 118,
+   "z": 2,
+   "h": 3.2
+  }
+ ],
+ "pad_clearance_hits": {
+  "A": [
+   {
+    "node": "Pad_Base",
+    "x0": -11.5,
+    "x1": -10.6,
+    "z0": -26.3,
+    "z1": -23.1,
+    "ymax": 0.86,
+    "n": 69,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -9.4,
+    "x1": -9.4,
+    "z0": -3.3,
+    "z1": -3.1,
+    "ymax": 0.37,
+    "n": 8,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -9.4,
+    "x1": -9.4,
+    "z0": -22.9,
+    "z1": -22.7,
+    "ymax": 0.37,
+    "n": 9,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -7.8,
+    "x1": -4.7,
+    "z0": -2.2,
+    "z1": -0.3,
+    "ymax": 0.37,
+    "n": 70,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -7.8,
+    "x1": -4.7,
+    "z0": -25.7,
+    "z1": -23.8,
+    "ymax": 0.37,
+    "n": 72,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -3,
+    "x1": 3,
+    "z0": -26.6,
+    "z1": -25.9,
+    "ymax": 0.37,
+    "n": 104,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -3,
+    "x1": 3,
+    "z0": -0.1,
+    "z1": 0.6,
+    "ymax": 0.37,
+    "n": 108,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 4.7,
+    "x1": 7.8,
+    "z0": -25.7,
+    "z1": -23.8,
+    "ymax": 0.37,
+    "n": 70,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 4.7,
+    "x1": 7.8,
+    "z0": -2.2,
+    "z1": -0.3,
+    "ymax": 0.37,
+    "n": 72,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 9.4,
+    "x1": 9.4,
+    "z0": -22.9,
+    "z1": -22.7,
+    "ymax": 0.37,
+    "n": 9,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 9.4,
+    "x1": 9.4,
+    "z0": -3.3,
+    "z1": -3.1,
+    "ymax": 0.37,
+    "n": 9,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_08",
+    "x0": 10.1,
+    "x1": 15.1,
+    "z0": -26.7,
+    "z1": -22.8,
+    "ymax": 5.2,
+    "n": 145,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 11.7,
+    "x1": 16.7,
+    "z0": -5.1,
+    "z1": -0.9,
+    "ymax": 11.24,
+    "n": 805,
+    "where": "band + cross"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 14.4,
+    "x1": 19,
+    "z0": -18.5,
+    "z1": -14.2,
+    "ymax": 12.04,
+    "n": 722,
+    "where": "cross member"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 17.1,
+    "x1": 26.2,
+    "z0": -26.7,
+    "z1": -22.8,
+    "ymax": 3.38,
+    "n": 179,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 21.1,
+    "x1": 26.1,
+    "z0": -3.3,
+    "z1": -1.5,
+    "ymax": 1.27,
+    "n": 57,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 23.5,
+    "x1": 23.6,
+    "z0": -8.8,
+    "z1": -8.7,
+    "ymax": 4.39,
+    "n": 28,
+    "where": "cross member"
+   }
+  ],
+  "B": [
+   {
+    "node": "Pad_Base",
+    "x0": -11.7,
+    "x1": -10.6,
+    "z0": -27.1,
+    "z1": -23.1,
+    "ymax": 1,
+    "n": 109,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": -11.5,
+    "x1": -8.1,
+    "z0": 1,
+    "z1": 1.1,
+    "ymax": 0.3,
+    "n": 29,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -9.4,
+    "x1": -9.4,
+    "z0": -3.3,
+    "z1": -3.1,
+    "ymax": 0.37,
+    "n": 8,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -9.4,
+    "x1": -9.4,
+    "z0": -22.9,
+    "z1": -22.7,
+    "ymax": 0.37,
+    "n": 9,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -7.8,
+    "x1": -4.7,
+    "z0": -2.2,
+    "z1": -0.3,
+    "ymax": 0.37,
+    "n": 70,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -7.8,
+    "x1": -4.7,
+    "z0": -25.7,
+    "z1": -23.8,
+    "ymax": 0.37,
+    "n": 72,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": -6.9,
+    "x1": -3.6,
+    "z0": 1,
+    "z1": 1.1,
+    "ymax": 0.3,
+    "n": 33,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -3,
+    "x1": 3,
+    "z0": -26.6,
+    "z1": -25.9,
+    "ymax": 0.37,
+    "n": 104,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": -3,
+    "x1": 3,
+    "z0": -0.1,
+    "z1": 0.6,
+    "ymax": 0.37,
+    "n": 108,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 4.7,
+    "x1": 7.8,
+    "z0": -25.7,
+    "z1": -23.8,
+    "ymax": 0.37,
+    "n": 70,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 4.7,
+    "x1": 7.8,
+    "z0": -2.2,
+    "z1": -0.3,
+    "ymax": 0.37,
+    "n": 72,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 9.4,
+    "x1": 9.4,
+    "z0": -22.9,
+    "z1": -22.7,
+    "ymax": 0.37,
+    "n": 9,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_12",
+    "x0": 9.4,
+    "x1": 9.4,
+    "z0": -3.3,
+    "z1": -3.1,
+    "ymax": 0.37,
+    "n": 9,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Tier_08",
+    "x0": 10.1,
+    "x1": 15.1,
+    "z0": -27.1,
+    "z1": -22.8,
+    "ymax": 5.2,
+    "n": 147,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 11.7,
+    "x1": 16.7,
+    "z0": -3.6,
+    "z1": -0.9,
+    "ymax": 11.24,
+    "n": 633,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 16.5,
+    "x1": 26.2,
+    "z0": -27.2,
+    "z1": -22.8,
+    "ymax": 3.38,
+    "n": 204,
+    "where": "track/deck band"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 17.2,
+    "x1": 17.5,
+    "z0": -16.6,
+    "z1": -16.2,
+    "ymax": 12.04,
+    "n": 18,
+    "where": "cross member"
+   },
+   {
+    "node": "Pad_Base",
+    "x0": 21.1,
+    "x1": 26.1,
+    "z0": -3.3,
+    "z1": -1.5,
+    "ymax": 1.27,
+    "n": 57,
+    "where": "track/deck band"
+   }
+  ]
+ },
+ "keep_out": {
+  "haul_road": "Refinery left side (Road_Entry/Exit x=-206), >230 m away",
+  "flatbed_lanes": "z +13 / +22, x -173..+1 (south of road edge z +5.6 by 7.4 m)",
+  "pad_uturn": "x 1..8.3, z 10.2..24.8 (road edge z +5.6 -> 4.6 m clear)",
+  "cargo_dock": "pad LEFT (x<-29), road is pad RIGHT: never adjacent"
+ }
+}

@@ -1,0 +1,16 @@
+import fs from 'fs';
+const NM = '/home/box/apps/gltftools/node_modules';
+const THREE = await import(NM + '/three/build/three.module.js');
+const { GLTFLoader } = await import(NM + '/three/examples/jsm/loaders/GLTFLoader.js');
+const { MeshoptDecoder } = await import(NM + '/three/examples/jsm/libs/meshopt_decoder.module.js');
+await MeshoptDecoder.ready;
+const f = process.argv[2];
+const b = fs.readFileSync(f); const g = await new Promise((res, rej) => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), '', res, rej));
+const S = g.scene; S.updateMatrixWorld(true);
+const NN = o => { while (o && o !== S && !o.name.replace(/^mesh_\d+(_\d+)?$/, '')) o = o.parent; return o && o !== S ? o.name : '?'; };
+const G = {}; const v = new THREE.Vector3(); let tris = 0, draws = 0;
+S.traverse(o => { if (!o.isMesh) return; draws++; tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+  const k = NN(o); const bb = G[k] || (G[k] = new THREE.Box3()); const p = o.geometry.attributes.position;
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); v.applyMatrix4(o.matrixWorld); bb.expandByPoint(v); } });
+for (const k in G) console.log(k.padEnd(28), G[k].min.toArray().map(a => a.toFixed(1)).join(','), '|', G[k].max.toArray().map(a => a.toFixed(1)).join(','));
+console.log('tris', tris, 'draws', draws, 'clips', g.animations.map(a => a.name).join(','));

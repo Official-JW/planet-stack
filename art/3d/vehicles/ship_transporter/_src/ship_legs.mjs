@@ -1,0 +1,15 @@
+import fs from 'fs';
+const NM = '/home/box/apps/gltftools/node_modules';
+const THREE = await import(NM + '/three/build/three.module.js');
+const { GLTFLoader } = await import(NM + '/three/examples/jsm/loaders/GLTFLoader.js');
+const { MeshoptDecoder } = await import(NM + '/three/examples/jsm/libs/meshopt_decoder.module.js');
+await MeshoptDecoder.ready;
+const b = fs.readFileSync('../../../buildings/launch_pad/launch_pad_game.glb'); const g = await new Promise((res, rej) => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), '', res, rej));
+const S = g.scene; S.updateMatrixWorld(true); const sh = S.getObjectByName('Ship_Placeholder'); const v = new THREE.Vector3();
+const H = {}; const R = {};
+sh.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position;
+ for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); v.applyMatrix4(o.matrixWorld); const x = v.x, z = v.z + 13, r = Math.hypot(x, z);
+  const yb = Math.floor(v.y); R[yb] = Math.max(R[yb] || 0, r);
+  if (r > 4.6) { const a = Math.round(Math.atan2(x, z) * 180 / Math.PI / 5) * 5; const k = a; H[k] = H[k] || [99, 0, 0]; H[k][0] = Math.min(H[k][0], v.y); H[k][1] = Math.max(H[k][1], v.y); H[k][2] = Math.max(H[k][2], r); } } });
+console.log('max r per 1m height', JSON.stringify(Object.fromEntries(Object.entries(R).map(([k, x]) => [k, +x.toFixed(2)]))));
+console.log('az(deg from +Z toward +X): ymin,ymax,rmax for r>4.6'); for (const k of Object.keys(H).map(Number).sort((a, b) => a - b)) console.log(k, H[k].map(x => x.toFixed(2)).join(' '));
