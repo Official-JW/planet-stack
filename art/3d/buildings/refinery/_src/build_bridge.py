@@ -1,15 +1,16 @@
-"""CV-3 box bridge for the Refinery (separate GLB: refinery_bridge.glb), v3 (10/24 Director review of 5ecf708).
-A Warren-truss gantry at yaw 32 deg, slid +X past the dump bay: the clad south lift tower stands east of the RB-1 hopper / intake
-(Refinery (11.6, 7.0), between the U-turn and flatbed lane E), the span crosses ONLY flatbed lane E (z 13) to an open lowerator in the
-flatbed median (17.63, 17.5, toward the Cargo Dock), which lowers each HELIUM-3 box and turns it to yaw 0; a ground conveyor in the median
-then runs it west 17.3 m to the pickup table inside RC-1 reach (r 9.3 m, theta 0); the crane drops it on FB-05.
+"""CV-3 box bridge for the Refinery (separate GLB: refinery_bridge.glb), v4 (10/24 Director review of 2c30bf1: mirror the yaw to -32 deg).
+A Warren-truss gantry at yaw -32 deg: the open lowerator stands in the flatbed median at Refinery (9.15, 17.5), just right of the dump bay
+outline and fully inside the game view at 393x852 and 375x667; the span heads back to the RIGHT from it, crossing ONLY flatbed lane E (z 13),
+to the clad south lift tower at (16.24, 7.0) (between the U-turn / dump bay and lane E, off the right edge). The lowerator lowers each
+HELIUM-3 box and turns it to yaw 0; a ground conveyor in the median runs it west 8.9 m to the pickup table inside RC-1 reach (r 9.3, theta 0).
 In the Refinery game view (Cam_Target (313.1, 2.08, 13.55), frame_w 37.5) nothing of the bridge overlaps the dump bay / Truck_Dump /
-hopper / intake (>= 6.5 px gap); most of the span and the lowerator run off the right edge (Director: allowed, right band waived).
+hopper / intake (>= 5.1 px gap at 393x852, 9.6 px at 375x667); the span beyond the lowerator runs off the right edge.
 Concept B: white panels, graphite structure, cyan light strips, panel lines, light weathering.
-blender -b -P build_bridge.py -- OUT_RAW.glb [--box BOX_PLAIN.glb]     (env BR_SX / BR_SZ override the south tower centre)
+blender -b -P build_bridge.py -- OUT_RAW.glb [--box BOX_PLAIN.glb]     (env BR_LX = lowerator centre x, BR_SZ = south tower centre z)
   BOX_PLAIN = art/3d/props/cargo_box/cargo_box_game.glb unpacked with `gltfpack -noq -kn -ke` (the existing HELIUM-3 crate is reused as-is).
-Coordinates: glTF metres. 'Span frame' (x' across, y, z' along the span, south -> north) is mapped into the GLB frame by a reflection
-(+x' -> camera side n, +z' -> span direction d); median parts are built directly in the GLB frame (= Refinery axes, origin ROOT)."""
+Coordinates: glTF metres. 'Span frame' (x' across, y, z' along the span, south -> north) is mapped into the GLB frame with +x' -> camera
+side n, +z' -> span direction d (a rotation at -32 deg, a reflection at +32: REFLECT handles windings / text); median parts are built
+directly in the GLB frame (= Refinery axes, origin ROOT)."""
 import bpy, bmesh, sys, os, math
 from mathutils import Vector, Matrix, Euler, Quaternion
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'props', '_shared_src'))
@@ -22,24 +23,26 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene; sc.render.fps = 30
 
 # ---------------------------------------------------------------- layout (Refinery coords: origin Truck_Dump; world = Refinery + (320, 0, 0))
-PHI = math.radians(32.0)            # span yaw off the Refinery z axis (Director: 30-40 deg)
+PHI = math.radians(-32.0)           # span yaw off the Refinery z axis: v4 mirrored to -32 deg (span heads back to the RIGHT from the lowerator)
 DV = (math.sin(PHI), math.cos(PHI))  # span direction d (x, z), south tower -> lowerator
-NV = (-math.cos(PHI), math.sin(PHI)) # +x' (conveyor / light side) -> camera side n
-CX = 0.45                           # conveyor centre line x' (walkway on -x', away from the camera)
-S_REF = (float(os.environ.get('BR_SX', 11.6)), float(os.environ.get('BR_SZ', 7.0)))   # south tower centre: east of the dump bay / RB-1 hopper / intake
-                                    # (screen-right of them in the game view), between the U-turn and flatbed lane E (toe z 10.2; rotated footing to z 9.69)
-S_Z = S_REF[1]
-_TZ0 = (17.5 - 0.45 * math.sin(PHI) - S_Z) / (2 * math.cos(PHI))
-NT_REF = (round(S_REF[0] - 0.45 * math.cos(PHI) + 2 * _TZ0 * math.sin(PHI), 3), 17.5)   # lowerator centre (flatbed median z 15.8..19.2)
+_SG = 1.0 if PHI >= 0 else -1.0
+NV = (-_SG * math.cos(PHI), _SG * math.sin(PHI))   # +x' (conveyor / light side) -> camera side n (always +z)
+REFLECT = (NV[0] * DV[1] - NV[1] * DV[0]) < 0      # v2/v3 (+32): span map is a reflection; v4 (-32): a rotation
+WS = 1.0                            # walkway side x' sign (v4: +x' so the truss stays inside the lowerator's left face; v2/v3 -1)
+CX = -0.45 * WS                     # conveyor centre line x' (lowerator centre on this line)
+S_Z = float(os.environ.get('BR_SZ', 7.0))   # south tower centre z: between the U-turn and flatbed lane E (toe z 10.2; rotated footing to z 9.69)
+_TZ0 = (17.5 - CX * NV[1] - S_Z) / (2 * DV[1])
+NT_REF = (float(os.environ.get('BR_LX', 9.15)), 17.5)   # lowerator centre in the flatbed median: right of the dump bay outline, fully on screen
+S_REF = (round(NT_REF[0] - CX * NV[0] - 2 * _TZ0 * DV[0], 3), S_Z)                    # south tower centre (east, back right)
 TZ = (NT_REF[1] - CX * NV[1] - S_Z) / (2 * DV[1])        # half distance between the tower centres along the span
 M_REF = (NT_REF[0] - CX * NV[0] - TZ * DV[0], NT_REF[1] - CX * NV[1] - TZ * DV[1])   # span midpoint
 ROOT = (round(M_REF[0], 2), 0.0, round(M_REF[1], 2))     # GLB root in Refinery coords (yaw 0)
 MO = (M_REF[0] - ROOT[0], M_REF[1] - ROOT[2])            # span midpoint in the GLB frame
 TH = 1.55                           # south tower half width; truss half width
-THN = 1.4                           # lowerator half width (footing 3.2 m fits the 3.4 m median)
+THN = 1.2                           # lowerator half width (v4 1.2: fully on screen right of the dump bay; box turn radius 1.374 < 1.386 to the 0.22 m legs)
 UND = 7.25                          # truss underside (HT-04 bed fully up = 5.75 m, + 1 m = 6.75 -> 0.45 m extra)
 BC_T = 7.5; DECK = 7.6; RTOP = 8.1; TC = 10.4
-SPAN0, SPAN1 = -(TZ - TH), TZ - 0.42                      # truss ends: south tower face .. inside the lowerator frame
+SPAN0, SPAN1 = -(TZ - TH), TZ - 0.42                      # truss ends: south tower face .. at the lowerator frame (v4: walkway corner kept clear of the dump bay outline)
 NT = (NT_REF[0] - ROOT[0], NT_REF[1] - ROOT[2])           # lowerator centre, GLB frame
 PICK_REF = (0.3, 1.0, 17.5)                               # pickup table box Base (median, crane-local (9.3, 1.0, 0))
 PICK = (PICK_REF[0] - ROOT[0], PICK_REF[1], PICK_REF[2] - ROOT[2])
@@ -62,10 +65,10 @@ class G(MB):
     def _add(self, verts, faces, col, mat, bone):
         if XF['span']:
             verts = [_xf_b(Vector(v)) for v in verts]
-            if XF['tm'] is None: faces = [tuple(reversed(list(f))) for f in faces]
+            if REFLECT and XF['tm'] is None: faces = [tuple(reversed(list(f))) for f in faces]
         MB._add(self, verts, faces, col, mat, bone)
     def text(self, body, size, loc, rot, col, mat=1, bone='root', res=1, align='CENTER'):
-        if XF['span']: XF['tm'] = -Vector(loc).y
+        if XF['span'] and REFLECT: XF['tm'] = -Vector(loc).y
         MB.text(self, body, size, loc, rot, col, mat=mat, bone=bone, res=res, align=align)
         XF['tm'] = None
     def gbox(self, size, c, col, mat=0, bone='root', rot_y=0.0):
@@ -155,9 +158,9 @@ for zp in (ZP_E,):                                        # clearance plate over
     S.text('CLR 7.2m', 0.21, B((TH + 0.075, UND + 0.19, zp)), (math.pi / 2, 0, math.pi / 2), WHITE2, mat=0)
 for z in zs: S.gseg((-(TH - 0.12), BC_T - 0.12, z), ((TH - 0.12), BC_T - 0.12, z), 0.12, 0.2, GRAPH)
 S.gbox((2 * TH - 0.3, 0.1, SL), (0, DECK - 0.05, SM), GRAPH2)
-S.gbox((1.05, 0.02, SL), (-0.86, DECK + 0.01, SM), GRATE)
-for z in [SPAN0 + 1.0 * k for k in range(1, int(SL))]: S.gbox((1.05, 0.012, 0.03), (-0.86, DECK + 0.025, z), GRAPH)
-xr = -(TH - 0.2)
+S.gbox((1.05, 0.02, SL), (WS * 0.86, DECK + 0.01, SM), GRATE)
+for z in [SPAN0 + 1.0 * k for k in range(1, int(SL))]: S.gbox((1.05, 0.012, 0.03), (WS * 0.86, DECK + 0.025, z), GRAPH)
+xr = WS * (TH - 0.2)
 S.gseg((xr, DECK + 1.05, SPAN0), (xr, DECK + 1.05, SPAN1), 0.05, 0.05, AMBER)
 S.gseg((xr, DECK + 0.55, SPAN0), (xr, DECK + 0.55, SPAN1), 0.04, 0.04, SATIN)
 S.gbox((0.02, 0.12, SL), (xr, DECK + 0.06, SM), AMBER)
@@ -182,7 +185,7 @@ R_R = 0.09
 ROLL = []    # (bone name, head glTF GLB frame, axis (glTF), sign)
 k = 0; z = SPAN0 + 0.25
 while z < SPAN1 - 0.1:
-    k += 1; nme = 'Roller_B%02d' % k; ROLL.append((nme, SP((CX, RTOP - R_R, z)), (NV[0], 0.0, NV[1]), -1.0))
+    k += 1; nme = 'Roller_B%02d' % k; ROLL.append((nme, SP((CX, RTOP - R_R, z)), (NV[0], 0.0, NV[1]), -1.0 if REFLECT else 1.0))
     M.gcyl((CX - 0.72, RTOP - R_R, z), (CX + 0.72, RTOP - R_R, z), R_R, SATIN, segs=6, bone=nme, caps=False)
     z += 1.2                     # 1.2 m pitch: always 2 rollers under a 2.4 m box; the side guards hide them from the game camera
 XF['span'] = False
@@ -193,11 +196,11 @@ def L(x, y, z): return (nx + x, y, nz + z)      # lowerator-local -> GLB frame
 top = 11.05
 S.gbox((3.2, 0.22, 3.2), L(0, 0.11, 0), CONC)
 S.gbox((2.95, 0.12, 2.95), L(0, 0.28, 0), CONC2)
-lg = THN - 0.12
+lg = THN - 0.11
 for sx in (-1, 1):
     for sz in (-1, 1):
         S.gbox((0.46, 0.06, 0.46), L(sx * lg, 0.37, sz * lg), STEEL)
-        S.gbox((0.26, top - 0.4, 0.26), L(sx * lg, 0.4 + (top - 0.4) / 2, sz * lg), GRAPH)
+        S.gbox((0.22, top - 0.4, 0.22), L(sx * lg, 0.4 + (top - 0.4) / 2, sz * lg), GRAPH)
 for y in (0.55, 3.2, BC_T - 0.15, top - 0.35):                # ring beams
     for sz in (-1, 1): S.gbox((2 * THN - 0.1, 0.16, 0.16), L(0, y, sz * lg), GRAPH2)
     for sx in (-1, 1): S.gbox((0.16, 0.16, 2 * THN - 0.1), L(sx * lg, y, 0), GRAPH2)
@@ -213,10 +216,10 @@ S.gbox((1.4, LOW_Y - 0.62, 1.4), L(0, 0.4 + (LOW_Y - 0.62) / 2, 0), GRAPH1)
 S.gbox((2 * THN + 0.1, 1.0, 0.08), L(0, 1.0, -THN + 0.04), WHITE)                      # low skirts on the far sides (-z, +x)
 S.gbox((0.08, 1.0, 2 * THN + 0.1), L(THN - 0.04, 1.0, 0), WHITE)
 # head house over the deck entry: canopy + white cheeks (open toward the camera and the span)
-S.gbox((0.08, 1.8, 2 * THN - 0.2), L(THN - 0.04, top - 1.3, 0), WHITE)
-S.gbox((0.08, 0.7, 2 * THN - 0.2), L(-THN + 0.04, top - 0.75, 0), WHITE)
+S.gbox((0.08, 1.8, 2 * THN - 0.2), L(-_SG * (THN - 0.04), top - 1.3, 0), WHITE)
+S.gbox((0.08, 0.7, 2 * THN - 0.2), L(_SG * (THN - 0.04), top - 0.75, 0), WHITE)
 S.gbox((2 * THN - 0.2, 0.7, 0.08), L(0, top - 0.75, THN - 0.04), WHITE)
-S.gbox((2 * THN + 0.2, 0.18, 2 * THN + 0.2), L(0, top - 0.16, 0), GRAPH2)
+S.gbox((2 * THN + 0.02, 0.18, 2 * THN + 0.02), L(0, top - 0.16, 0), GRAPH2)
 S.gbox((2 * THN - 0.2, 0.12, 2 * THN - 0.2), L(0, top - 0.01, 0), WHITE2)
 S.gbox((0.9, 0.5, 0.7), L(0.4, top + 0.3, -0.2), WHITE)
 S.gbox((0.92, 0.04, 0.72), L(0.4, top + 0.57, -0.2), GRAPH2)
@@ -228,10 +231,9 @@ for sx in (-1, 1): S.gbox((0.05, 5.5, 0.03), L(sx * lg, 4.6, lg + 0.14), CYAN, m
 S.gbox((2 * THN - 0.6, 0.06, 0.025), L(0, top - 0.55, THN + 0.012), CYAN, mat=1)
 S.gbox((0.025, 0.06, 2 * THN - 0.6), L(-THN - 0.012, top - 0.55, 0), CYAN, mat=1)
 S.text('CV-3', 0.34, B(L(-THN - 0.006, top - 0.78, 0)), (math.pi / 2, 0, -math.pi / 2), CYAN, mat=1)
-lx = nx + THN + 0.3                                       # ladder on the far (+x) face, ground to the deck
-for dz in (-0.25, 0.25): S.gbox((0.05, 7.4, 0.05), (lx, 0.4 + 3.7, nz + dz), SATIN)
-for y in [0.9 + 0.6 * k for k in range(12)]: S.gbox((0.04, 0.04, 0.5), (lx, y, nz), SATIN)
-S.gbox((0.04, 7.3, 0.04), (lx + 0.32, 0.4 + 3.65, nz), SATIN)
+lx = nx + THN + 0.06                                      # flush ladder on the far (+x) face, ground to under the deck (stays inside the median and the screen)
+for dz in (-0.25, 0.25): S.gbox((0.05, 6.8, 0.05), (lx, 0.4 + 3.4, nz + dz), SATIN)
+for y in [0.9 + 0.6 * k for k in range(11)]: S.gbox((0.04, 0.04, 0.5), (lx, y, nz), SATIN)
 # ground conveyor (west, -x, gently falling 1.42 -> 1.0) back to the pickup table inside RC-1 reach, all in the flatbed median
 X0 = nx - THN                    # chute top at the lowerator's west face
 XTE, XTW = PICK[0] + 1.35, PICK[0] - 1.4   # pickup table east / west ends
@@ -302,7 +304,8 @@ def bone(n, head_g, parent=None):
     if parent: eb.parent = ad.edit_bones[parent]
     return eb
 bone('Bridge_Base', (0, 0, 0))
-YAW_B = math.degrees(math.atan2(-DV[1], DV[0]))      # box yaw with its long axis along the span (-58 deg)
+YAW_B = math.degrees(math.atan2(-DV[1], DV[0]))      # box yaw with its long axis along the span
+if YAW_B < -90: YAW_B += 180.0                       # same axis, shortest turn to 0 on the turntable (v4: +58 deg)
 P0 = SP((0.0, 1.2, -TZ)); P1 = SP((CX, RTOP, -TZ)); P2 = SP((CX, RTOP, TZ)); P3 = (nx, LOW_Y, nz); P4 = PICK
 BOX_REST = {'Box_1': (PICK, 0.0), 'Box_2': (SP((CX, RTOP, 0.0)), YAW_B), 'Box_3': (P0, YAW_B)}
 for nme, (p, yaw) in BOX_REST.items(): bone(nme, p, 'Bridge_Base')
@@ -322,20 +325,24 @@ ob_s = S.build('Bridge_Static'); ob_s.parent = arm; ob_s.location = (0, 0, 0)
 
 # ---------------------------------------------------------------- box route + timing
 V = 1.5; TA = 1.0
-def run_time(d): return d / V + TA
-def run_frac(t, d):
-    T = run_time(d)
+def run_time(d, v=None): return d / (v or V) + TA
+def run_frac(t, d, T=None):
+    T = T or run_time(d); vv = d / (T - TA)
     if t <= 0: return 0.0
     if t >= T: return 1.0
-    def ramp_dist(u): x = u / TA; return V * TA * (x ** 3 - 0.5 * x ** 4)
+    def ramp_dist(u): x = u / TA; return vv * TA * (x ** 3 - 0.5 * x ** 4)
     if t < TA: s = ramp_dist(t)
     elif t > T - TA: s = d - ramp_dist(T - t)
-    else: s = ramp_dist(TA) + V * (t - TA)
+    else: s = ramp_dist(TA) + vv * (t - TA)
     return s / d
 def smooth(x): x = min(max(x, 0.0), 1.0); return x * x * (3 - 2 * x)
 def dist(a, b): return (Vector(b) - Vector(a)).length
-TURN = 1.2; DWELL = 3.0
-SEG = [('rise', P0, P1, run_time(dist(P0, P1))), ('bridge', P1, P2, run_time(dist(P1, P2))), ('lower', P2, P3, run_time(dist(P2, P3))),
+TURN = 1.6; DWELL = 3.0
+T_ARR_TARGET = 33.887             # v3 arrival kept (box_path 33.9 s, box_convey 38 s, phase 12.667 s); the lowerator lift descent takes up the slack
+_t = run_time(dist(P0, P1)) + run_time(dist(P1, P2)) + TURN + run_time(dist(P3, P4))
+T_LOW = T_ARR_TARGET - _t
+assert T_LOW > run_time(dist(P2, P3)) - 1e-6 and T_LOW < 12.0, T_LOW   # never faster than 1.5 m/s; next box reaches the top later
+SEG = [('rise', P0, P1, run_time(dist(P0, P1))), ('bridge', P1, P2, run_time(dist(P1, P2))), ('lower', P2, P3, T_LOW),
        ('turn', P3, P3, TURN), ('ground_conveyor', P3, P4, run_time(dist(P3, P4)))]
 T_ARR = sum(s[3] for s in SEG)                    # arrival on Pickup_Point
 T_PATH = T_ARR + DWELL
@@ -353,7 +360,7 @@ def route(t):                    # t in [0, T_PATH]: (pos, yaw, pitch)
         if t < t0 + d:
             u = t - t0
             if name == 'turn': return a, YAW_B + (0.0 - YAW_B) * smooth(u / d), 0.0
-            f = run_frac(u, dist(a, b)); p = Vector(a).lerp(Vector(b), f)
+            f = run_frac(u, dist(a, b), d); p = Vector(a).lerp(Vector(b), f)
             if name == 'ground_conveyor':
                 p.y = max(PICK[1], 0.5 * (chute_y(p.x - 1.15) + chute_y(p.x + 1.15)) if p.x < X0 + 1.15 else LOW_Y)
                 return tuple(p), 0.0, chute_pitch(p.x)
@@ -443,20 +450,20 @@ FOOT = {'south_tower_footing_xz': rot_fp(SC_REF[0], SC_REF[1], 1.95), 'south_tow
         'span_yaw_deg': round(math.degrees(PHI), 2), 'span_tower_to_tower_m': round(2 * TZ, 3), 'truss_length_m': round(SL, 3),
         'deck_underside_y': UND, 'top_y': 11.9}
 print('FOOT', FOOT, 'ROOT', ROOT, 'TZ', TZ)
-arm['prop'] = 'CV-3 box bridge v3: 32 deg diagonal truss gantry east of the dump bay, crossing only flatbed lane E; box conveyor to an open lowerator in the flatbed median, then a ground conveyor west to the pickup table beside RC-1'
+arm['prop'] = 'CV-3 box bridge v4: -32 deg diagonal truss gantry from a south tower back-right of the dump bay, crossing only flatbed lane E, to an open lowerator in the flatbed median right of the dump bay (fully on screen); then a ground conveyor west to the pickup table beside RC-1'
 arm['origin_note'] = ('This GLB root node "Refinery_Bridge" is already translated to Refinery-local (%.2f, 0, %.2f), yaw 0. Add the GLB scene as a child of the '
                       'Refinery root (or at the Refinery station position, world (320, 0, 0) for station 2) with no extra offset. GLB axes = Refinery axes '
-                      '(glTF, Y up); the span itself runs at yaw %.0f deg from the south tower (east of the RB-1 hopper, Refinery z %.1f) to the lowerator in the flatbed median '
-                      '(Refinery (%.1f, %.1f), +X = Cargo Dock / Launch Pad side).' % (ROOT[0], ROOT[2], math.degrees(PHI), SC_REF[1], NT_REF[0], NT_REF[1]))
+                      '(glTF, Y up); the span itself runs at yaw %.0f deg from the south tower (east of the dump bay, Refinery (%.1f, %.1f)) to the lowerator in the flatbed median '
+                      '(Refinery (%.1f, %.1f), +X = Cargo Dock / Launch Pad side).' % (ROOT[0], ROOT[2], math.degrees(PHI), SC_REF[0], SC_REF[1], NT_REF[0], NT_REF[1]))
 arm['placement_refinery'] = {'position': list(ROOT), 'yaw_deg': 0}
 arm['placement_world'] = {'position': [ROOT[0] + 320, 0, ROOT[2]], 'yaw_deg': 0, 'assumes_refinery_at': [320, 0, 0]}
 arm['footprint_refinery'] = FOOT
 arm['clearance'] = {'deck_underside_y': UND, 'lowest_vertex_over_lanes_y': 7.27, 'ht04_bed_up_max_y': 5.75, 'required_y': 6.75, 'spare_m': round(UND - 6.75, 2),
-                    'lanes': 'span crosses only flatbed lane E z 13 (10.2..15.8); lowest bridge vertex over it 7.27 (truss underside 7.25). RD-1 outbound z 0, U-turn, inbound z 9 and the HT-04 dump pose (bed up 5.75): no bridge part inside or over them. Flatbed W z 22 (19.2..24.8): untouched. Footings: south tower x 8.91..14.29 z 4.31..9.69, lowerator + ground conveyor slab in the median z 15.9..19.1',
-                    'game_view': 'Refinery camera (313.1, 2.08, 13.55), frame_w 37.5: no bridge vertex inside the dump bay / Truck_Dump / hopper / intake outline (gap >= 6.5 px at 393x852, 7.9 px at 375x667); span + lowerator run off the right edge (Director-approved)',
-                    'crane': 'every part of the bridge above y 3.0 is >= 21.3 m from the RC-1 mast (311, 17.5), far outside the 11.25 m jib tip. Inside that radius only the pickup table, the west end of the ground conveyor, end stop, lamp (top y 2.53, z 18.8) and control box, all at or below the box top under the hook path.'}
+                    'lanes': 'span crosses only flatbed lane E z 13 (10.2..15.8); lowest bridge vertex over it 7.27 (truss underside 7.25). RD-1 outbound z 0, U-turn, inbound z 9 and the HT-04 dump pose (bed up 5.75): no bridge part inside or over them. Flatbed W z 22 (19.2..24.8): untouched. Footings: south tower x %.2f..%.2f z %.2f..%.2f, lowerator + ground conveyor slab in the median z 15.9..19.1' % tuple(FOOT['south_tower_footing_xz'][0] + FOOT['south_tower_footing_xz'][1]),
+                    'game_view': 'Refinery camera (313.1, 2.08, 13.55), frame_w 37.5: no bridge vertex inside the dump bay / Truck_Dump / hopper / intake outline (gap >= 5.1 px at 393x852, 9.6 px at 375x667); lowerator fully on screen (right spare 3.1 px / 0.1 px); the span beyond it and the south tower run off the right edge',
+                    'crane': 'every part of the bridge above y 3.0 is >= 16.9 m from the RC-1 mast (311, 17.5), far outside the 11.25 m jib tip. Inside that radius only the pickup table, the west end of the ground conveyor, end stop, lamp (top y 2.53, z 18.8) and control box, all at or below the box top under the hook path.'}
 arm['draws'] = 4
-arm['clips'] = {'box_convey': {'duration_s': CLIP, 'loop': True, 'boxes': 3, 'phase_s': round(OFF, 3), 'speed_mps': V, 'ramp_s': TA,
+arm['clips'] = {'box_convey': {'duration_s': CLIP, 'loop': True, 'boxes': 3, 'phase_s': round(OFF, 3), 'speed_mps': V, 'lowerator_descent_mps': round(dist(P2, P3) / (T_LOW - TA), 3), 'ramp_s': TA,
                                'per_box_events_s': EV, 'pickup_arrive_s': round(T_ARR, 3), 'hidden_after_s': round(T_PATH + 0.05, 3),
                                'note': 'Box_N runs this timeline shifted by (N-1)*phase_s: rises hidden in the south shaft, crosses the bridge, drops in the open lowerator, turns to yaw 0 on the turntable, rides the ground conveyor west, stops on Pickup_Point, waits dwell, then scales to 0 (show the crane box from Pickup_Point at that moment).'},
                 'box_path': {'duration_s': round(NF3 / FPS, 3), 'loop': False, 'boxes': 1, 'box': 'Box_1', 'events_s': {k_: v_ for k_, v_ in EV.items() if k_ != 'dwell'},
