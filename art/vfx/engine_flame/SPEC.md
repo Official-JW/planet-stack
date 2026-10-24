@@ -232,7 +232,7 @@ const fx = createEngineFlames(engines, { groundY: padTopY });   // the flame use
   1. The ship GLB keeps (or gets) an empty `Engine_Ring_Mount` at its base centre and drops its own bells, aft skirt and legs. (Starter ship and ship_lv2 belong to AA2/AA; they add the empty and remove those parts on their next export. I don't edit those files.)
   2. Game: `const sk = await loader.loadAsync(`aft_skirt/aft_skirt_N${String(n).padStart(2,'0')}.glb`); ship.getObjectByName('Engine_Ring_Mount').add(sk.scene);` On a level-up that changes N, remove the old one and add the new one. The flame follows: `fx.setEngines(findEngineNozzles(ship))`, `fx.setThrustLevel(thrustLevelForLevel(lv))`.
   3. Until the ship exports carry the mount, the preview does the swap in the render scene only: `collapseMergedBells` and `collapseOldLegs` (in `index.html`) move the Lv1 hull's merged bell and leg triangles to a point inside the hull, and the module is mounted 0.9 m below the old exit plane. **This is a preview hack, not for the game.**
-- **Cost:** one mesh, one material (`M_AftSkirt`, vertex colours from the hull-white / steel / graphite sets, metallic 0.35, roughness 0.5), no textures. 7,953 verts / 10,688 tris at N = 6, 10,968 verts at N = 11 (float32, unpacked: 0.43–0.60 MB; run gltfpack/meshopt before it ships).
+- **Cost:** one mesh, one material (`M_AftSkirt`, vertex colours from the hull-white / steel / graphite sets, metallic 0.35, roughness 0.5), no textures. 8,657 verts / 10,688 tris at N = 6, 11,672 verts / 15,008 tris at N = 11 (float32, unpacked: 0.46–0.60 MB; run gltfpack/meshopt before it ships).
 
 ## 10. Landing gear (in the aft skirt module)
 
