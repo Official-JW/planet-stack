@@ -12,10 +12,11 @@ async function page(q, w, h, dpr) {
   await pg.waitForFunction(() => window.__ef && window.__ef.ready, null, { timeout: 120000 }); return pg;
 }
 const M = {};
-const shot = async (pg, t, ph, file) => { const r = await pg.evaluate(([t, ph]) => window.__ef.frame(t, ph), [t, ph]); await pg.screenshot({ path: `${OUT}/${file}` }); return r; };
+const shot = async (pg, t, ph, file) => { const r = await pg.evaluate(([t, ph]) => window.__ef.frame(t, ph), [t, ph]); await pg.screenshot({ path: `${OUT}/${file}`, timeout: 300000 }); return r; };
 if (only.includes('stills')) for (const [w, h] of [[375, 667], [393, 852]]) for (const dpr of [1, 2]) {
   const pg = await page('view=pad', w, h, dpr), sfx = dpr === 2 ? '@2x' : '';
-  M[`full_thrust_${w}x${h}${sfx}`] = await shot(pg, 3800, 'launch', `full_thrust_${w}x${h}${sfx}.png`);
+  M[`full_thrust_${w}x${h}${sfx}`] = await shot(pg, 4400, 'launch', `full_thrust_${w}x${h}${sfx}.png`);
+  fs.writeFileSync(`${OUT}/axis_full_thrust_${w}x${h}${sfx}.json`, JSON.stringify(await pg.evaluate(() => window.__ef.axisPx())));
   M[`ignition_dust_${w}x${h}${sfx}`] = await shot(pg, -1300, 'launch', `ignition_dust_${w}x${h}${sfx}.png`);
   // worst-case rumble frame: ship pushed to +SHAKE_PX and -SHAKE_PX at full rumble; pad/camera bbox measured
   if (dpr === 1) { await pg.evaluate(() => window.__ef.frame(-3500)); const rest = await pg.evaluate(() => ({ pad: window.__ef.bbox('pad'), ship: window.__ef.bbox('ship') }));
@@ -27,16 +28,32 @@ if (only.includes('stills')) for (const [w, h] of [[375, 667], [393, 852]]) for 
 }
 if (only.includes('stills')) { const pg = await page('view=close', 600, 600, 2); M.closeup = await shot(pg, 3500, 'launch', 'nozzle_closeup.png');
   M.closeup_ign = await shot(pg, -1500, 'launch', 'nozzle_closeup_ignition.png'); M.closeup_land = await shot(pg, -1200, 'land', 'nozzle_closeup_landing.png'); await pg.close(); }
+if (only.includes('stills') || only.includes('lv10')) { const pg = await page('view=close&lv=10', 600, 600, 2);   // Lv10: 11 engines, thrust step 4
+  M.lv10 = await pg.evaluate(() => { const S = window.__ef; const c = [S.countCalls(3500, 'launch'), S.countCalls(-1300, 'launch'), S.countCalls(-400, 'land')];
+    let mp = 0, ml = 0; for (let i = 0; i < 60; i++) { mp = Math.max(mp, S.frame(-1790 + i * 120, 'launch').particles); ml = Math.max(ml, S.frame(-2400 + i * 80, 'land').particles); }
+    return { engines: S.fx.N, thrust: S.thrust, calls: c, particlesPeakLaunch: mp, particlesPeakLand: ml, shakePx: 1.0, drawCallsAddedByFlame: c[0].added }; });
+  M.lv10.frame = await shot(pg, 3500, 'launch', 'nozzle_closeup_lv10_11eng.png'); await pg.close();
+  const p1 = await page('view=pad&lv=10', 375, 667, 2); await shot(p1, 4400, 'launch', 'full_thrust_lv10_375x667@2x.png'); await p1.close(); }
 if (only.includes('strips')) { const pg = await page('view=pad', 375, 667, 2);
-  M.strip_launch = []; for (const t of [-2100, -1960, -1800, -1300, -800, 0, 1000, 2500, 3800, 5000, 6500]) M.strip_launch.push(await shot(pg, t, 'launch', `strip_L_${t}.png`));
+  M.strip_launch = []; for (const t of [-2100, -1960, -1800, -1300, -800, 0, 1000, 2500, 4400, 6000, 7500]) M.strip_launch.push(await shot(pg, t, 'launch', `strip_L_${t}.png`));
   M.strip_land = []; for (const t of [-6000, -4000, -2600, -1800, -1000, -300, 0, 120, 300, 700, 1500]) M.strip_land.push(await shot(pg, t, 'land', `strip_D_${t}.png`));
   await pg.close(); }
-if (only.includes('video')) { const VD = +(process.env.VDPR || 2), pg = await page('view=pad', 375, 667, VD); let i = 0; const shot = async (f) => { if (!fs.existsSync(f)) await pg.screenshot({ path: f }); };
+// landing gear (aft skirt module): 375 pad-camera frames + gear close-ups for retract and deploy, and the measured flame clearance at 6 and 11 engines
+export const GEAR_R = [500, 1600, 2700, 4400], GEAR_D = [-7500, -6400, -5000, -3000, 0];
+if (only.includes('gear')) { M.gear = { frames: {}, clearance: {} };
+  for (const [q, tag] of [['view=pad', 'pad'], ['view=gear&gaz=-40', 'close']]) { const [w, h] = tag === 'pad' ? [375, 667] : [600, 600]; const pg = await page(q, w, h, 2);
+    for (const [ph, ts] of [['launch', GEAR_R], ['land', GEAR_D]]) for (const t of ts) { const r = await shot(pg, t, ph, `gear_${tag}_${ph}_${t}.png`);
+      M.gear.frames[`${tag}_${ph}_${t}`] = { gear: await pg.evaluate(() => window.__ef.gear.last), alt: r.st.alt, calls: r.calls, ship: tag === 'pad' ? await pg.evaluate(() => window.__ef.bbox('ship')) : null }; }
+    if (tag === 'pad') M.gear.calls = await pg.evaluate(() => [window.__ef.countCalls(4400, 'launch'), window.__ef.countCalls(-1300, 'launch')]);
+    await pg.close(); }
+  for (const q of ['n=6', 'lv=10']) { const pg = await page('view=gear&' + q, 160, 160, 1); M.gear.clearance[q] = await pg.evaluate(() => window.__ef.gearScan(33)); await pg.close(); }
+  const pg = await page('view=pad&gear=0', 375, 667, 2); M.gear.calls_ring_only = await pg.evaluate(() => [window.__ef.countCalls(4400, 'launch')]); await pg.close(); }
+if (only.includes('video')) { const VD = +(process.env.VDPR || 2), pg = await page('view=pad', 375, 667, VD); let i = 0; const shot = async (f) => { if (!fs.existsSync(f)) await pg.screenshot({ path: f, timeout: 300000 }); };
   for (let t = -3000; t <= 8000; t += 1000 / 30) { const f = `${OUT}/video/L_${String(i++).padStart(4, '0')}.png`; if (fs.existsSync(f)) continue; await pg.evaluate((t) => window.__ef.frame(Math.round(t), 'launch'), t); await shot(f); }
   i = 0; for (let t = -6000; t <= 2500; t += 1000 / 30) { const f = `${OUT}/video/D_${String(i++).padStart(4, '0')}.png`; if (fs.existsSync(f)) continue; await pg.evaluate((t) => window.__ef.frame(Math.round(t), 'land'), t); await shot(f); }
   await pg.close(); }
 if (only.includes('metrics')) { const pg = await page('view=pad', 375, 667, 2);
-  M.calls = await pg.evaluate(() => [window.__ef.countCalls(3800, 'launch'), window.__ef.countCalls(-1300, 'launch'), window.__ef.countCalls(400, 'land')]);
+  M.calls = await pg.evaluate(() => [window.__ef.countCalls(4400, 'launch'), window.__ef.countCalls(-1300, 'launch'), window.__ef.countCalls(400, 'land')]);
   M.timing = await pg.evaluate(() => { const S = window.__ef, gl = S.renderer.getContext(); const run = (on, n) => { const ts = []; for (let i = 0; i < n; i++) { const t = -1300 + (i % 40) * 10;
       const a = performance.now(); if (on) S.frame(t, 'launch'); else { S.frame(-3500, 'launch'); } gl.finish(); ts.push(performance.now() - a); } ts.sort((x, y) => x - y); return { median: ts[n >> 1], p90: ts[Math.floor(n * 0.9)] }; };
     run(true, 10); const off = run(false, 60), on = run(true, 60);

@@ -12,10 +12,16 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { createHatchClose, HATCH } from './hatch_close.js';
+import { findEngineNozzles } from './engine_flame.js';
+import { ENGINE_RING, engineCountForLevel, thrustLevelForLevel, ringFile, mountEngineRing, collapseMergedBells } from './aft_skirt/engine_ring.js';
+import { createGear, GEAR_T } from './aft_skirt/gear.js';
 import { FLAME, createEngineFlames, launchState, landState, launchBursts, landBursts } from './engine_flame.js';
 const Q = new URLSearchParams(location.search);
 const W = +(Q.get('w') || innerWidth), H = +(Q.get('h') || innerHeight), DPR = +(Q.get('dpr') || Math.min(devicePixelRatio, 2));
 const VIEW = Q.get('view') || 'pad';
+// ship level -> engine ring (Lv1 6 engines .. Lv10 11) and thrust steps; &n= overrides the count, &n=0 = the old 4 merged bells
+const GEAR = Q.get('gear') !== '0';   // aft skirt module (ring + folding gear); &gear=0 = the bare engine ring
+const LV = +(Q.get('lv') || 1), NENG = Q.has('n') ? +Q.get('n') : engineCountForLevel(LV), TLV = Q.has('thrust') ? +Q.get('thrust') : thrustLevelForLevel(LV);
 if (Q.get('ui') === '0') document.getElementById('ui').classList.add('hide');
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -64,21 +70,51 @@ const engWorld = acc.map((a, k) => { const ys = a.pts.map(p => p[1]).sort((x, y)
   return { pos: new THREE.Vector3(ring.length ? cx : pred[k].x, yMin, ring.length ? cz : pred[k].z), r: rr, n: ring.length, pred: pred[k] }; });
 const padTopY = (() => { let y = 0; const r = new THREE.Raycaster(new THREE.Vector3(sc.x + 0.01, 1.3, sc.z + 0.01), new THREE.Vector3(0, -1, 0));
   const hits = r.intersectObject(pad, true).filter(h => !shipMesh.includes(h.object)); return hits.length ? hits[0].point.y : sc.y; })();
-const engines = engWorld.map(e => ({ pos: ship.worldToLocal(e.pos.clone()) }));
-const fx = createEngineFlames(engines, { groundY: padTopY }); fx.attach(ship, padRoot);
+// render scene only: the Lv1 hull's 6 fixed legs (build 0/60/../300 deg = world +60) are merged into Ship_Placeholder too (flat-shaded
+// triangle soup). Collapse every triangle that pokes out past the hull skin (max r > 4.1 m) below base + 8.7 m within +-14 deg of an
+// old leg: struts, braces, pads, hip fairings, knuckles. Hull panels (r <= 4.06), the ladder (270) and the hoist (215) are outside every window.
+function collapseOldLegs(meshes, c, baseY) {
+  const v = new THREE.Vector3(), inv = new THREE.Matrix4(); let moved = 0; const legA = [0, 60, 120, 180, 240, 300].map(d => THREE.MathUtils.degToRad(d + 60)), win = THREE.MathUtils.degToRad(14);
+  const angOff = (a) => Math.min(...legA.map(b => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)))));
+  for (const m of meshes) { m.updateMatrixWorld(true); inv.copy(m.matrixWorld).invert(); const p = m.geometry.attributes.position, idx = m.geometry.index; if (!idx) continue;
+    const W = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); W.set([v.x - c.x, v.y, v.z - c.z], i * 3); }
+    let hit = false; const done = new Uint8Array(p.count);
+    for (let t = 0; t < idx.count; t += 3) { const ids = [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)];
+      let rMax = 0, yMin = 1e9, ax = 0, az = 0; for (const i of ids) { const x = W[i * 3], y = W[i * 3 + 1], z = W[i * 3 + 2]; rMax = Math.max(rMax, Math.hypot(x, z)); yMin = Math.min(yMin, y); ax += x; az += z; }
+      if (rMax <= 4.1 || yMin > baseY + 8.7) continue; const a = Math.atan2(-az, ax); if (angOff(a) > win) continue;
+      v.set(c.x + 3.0 * Math.cos(a), baseY + 4, c.z - 3.0 * Math.sin(a)).applyMatrix4(inv);
+      for (const i of ids) { p.setXYZ(i, v.x, v.y, v.z); if (!done[i]) { done[i] = 1; moved++; } } hit = true; }
+    if (hit) { p.needsUpdate = true; m.geometry.computeBoundingSphere(); } }
+  return moved;
+}
+// ---- render scene only: swap the Lv1 hull's merged 4-bell section for the N-engine ring (aft_skirt/engine_ring_N*.glb)
+const shipBaseY = engWorld.reduce((a, e) => Math.min(a, e.pos.y), 1e9) - ENGINE_RING.EXIT_Y;
+if (NENG >= ENGINE_RING.MIN_N) {
+  S.bellVertsCollapsed = collapseMergedBells(shipMesh, engWorld.map(e => e.pos), { radius: 1.3, bottomY: shipBaseY + 0.5, topY: shipBaseY + 3.9, sinkY: shipBaseY + 3.3 });
+  if (GEAR) S.legVertsCollapsed = collapseOldLegs(shipMesh, sc, shipBaseY);
+  const rg = await loader.loadAsync('./aft_skirt/' + (GEAR ? `aft_skirt_N${String(NENG).padStart(2, '0')}.glb` : ringFile(NENG)));
+  const tmp = new THREE.Group(); tmp.position.set(sc.x, shipBaseY, sc.z); tmp.rotation.y = THREE.MathUtils.degToRad(60); scene.add(tmp); tmp.updateMatrixWorld(true);
+  const ring = mountEngineRing(tmp, rg); ship.attach(ring); scene.remove(tmp); S.ring = ring; S.ringN = NENG;
+  if (GEAR) { S.gear = createGear(ring); ring.traverse(n => { if (n.isSkinnedMesh) { S.gearMesh = n; n.frustumCulled = false; } }); }
+}
+const engines = findEngineNozzles(ship) || engWorld.map(e => ({ pos: ship.worldToLocal(e.pos.clone()) }));   // markers first, mesh fallback (pad 82131aba has none)
+S.engineSource = findEngineNozzles(ship) ? 'Engine_Nozzle markers' : 'mesh (no markers in this GLB)';
+const fx = createEngineFlames(engines, { groundY: padTopY }); fx.attach(ship, padRoot); S.thrust = fx.setThrustLevel(TLV); S.lv = LV;
 S.engines = engWorld.map(e => ({ x: +e.pos.x.toFixed(3), y: +e.pos.y.toFixed(3), z: +e.pos.z.toFixed(3), r: +e.r.toFixed(3), verts: e.n, predX: +e.pred.x.toFixed(3), predZ: +e.pred.z.toFixed(3) }));
 S.padTopY = padTopY;
 // crew-hatch lid: clip from hatch_close.glb drives the lid vertices inside the ship mesh (0 extra draw calls)
 const hatch = createHatchClose(shipMesh, await loader.loadAsync('./hatch_close.glb')); S.hatch = hatch.found;
 // ---- official pad camera: lookAt(Cam_Target), d = (frame_w/2)/(tan(fov/2)*aspect), 18 deg down, +Z side
 // close-up proof only: hide pad props in front of the engines (crane, tanks, hoses, door) so the nozzles read; ship + deck stay
-if (VIEW === 'close' || VIEW === 'hatch') for (const o of pad.children) if (!['Pad_Base', 'Ship_Placeholder', 'Cargo_Door'].includes(o.name)) o.visible = false;
+if (VIEW === 'close' || VIEW === 'hatch' || VIEW === 'gear') for (const o of pad.children) if (!['Pad_Base', 'Ship_Placeholder', 'Cargo_Door', 'Engine_Ring'].includes(o.name)) o.visible = false;
 const target = ct.getWorldPosition(new THREE.Vector3()), FW = ct.userData.frame_w || 78.25;
 function placeCamera() {
   if (VIEW === 'hatch') { const h = ship.localToWorld(new THREE.Vector3(4.5423, 21.9, 2.6225)), out = new THREE.Vector3(0.866, 0, 0.5);
     camera.fov = 30; camera.position.copy(h).addScaledVector(out, 8.5).add(new THREE.Vector3(-3.2, 3.4, 3.0)); camera.lookAt(h.x - 0.5, h.y + 0.1, h.z - 0.3); }
-  else if (VIEW === 'close') { const c = sc.clone(); c.y = (ship.position.y - ship0.y) + engWorld[0].pos.y; camera.fov = 30; const d = 30;
-    camera.position.set(c.x - d * 0.34, Math.max(2.5, c.y - 3.0), c.z + d * 0.94); camera.lookAt(c.x, c.y - 4.2, c.z); }
+  else if (VIEW === 'gear') { const c = sc.clone(); c.y = (ship.position.y - ship0.y) + shipBaseY + 3.0; camera.fov = 30; const d = +(Q.get('gd') || 34), az = THREE.MathUtils.degToRad(+(Q.get('gaz') || 0));
+    camera.position.set(c.x + d * Math.sin(az - 0.34), c.y + 3.5, c.z + d * Math.cos(az - 0.34)); camera.lookAt(c.x, c.y, c.z); }
+  else if (VIEW === 'close') { const c = sc.clone(); c.y = (ship.position.y - ship0.y) + engWorld[0].pos.y; camera.fov = 30; const d = 22;
+    camera.position.set(c.x - d * 0.34, Math.max(2.0, c.y + 0.5), c.z + d * 0.94); camera.lookAt(c.x, c.y + 0.4, c.z); }
   else { camera.fov = 38; const d = (FW / 2) / (Math.tan(THREE.MathUtils.degToRad(19)) * camera.aspect), e = THREE.MathUtils.degToRad(18);
     camera.position.set(target.x, target.y + d * Math.sin(e), target.z + d * Math.cos(e)); camera.lookAt(target); }
   camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
@@ -92,10 +128,11 @@ S.frame = (t, ph = phase, tSecOverride) => {
   phase = ph; tRel = t;
   const st = ph === 'land' ? landState(t) : launchState(t), bursts = ph === 'land' ? landBursts(t) : launchBursts(t);
   ship.position.copy(ship0); ship.position.y += st.alt;
-  hatch.update(ph === 'land' ? 0 : (t + FLAME.HATCH_TO_LIFTOFF_MS) / 1000);   // launch: t rel lift-off, hatch closes at LO - 3 s; landing: stays closed
+  if (S.gear) S.gear.update(ph, t, st.alt);   // gear runs off the same clock: launch t rel lift-off, landing t rel touchdown
+  hatch.update(ph === 'land' ? 0 : (t + FLAME.HATCH_TO_LIFTOFF_MS) / 1000);   // launch: t rel lift-off, hatch closes at LO - 2.8 s; landing: stays closed
   const amp = FLAME.SHAKE_PX * mPerPx() * st.shake, sx = shakeSign ? shakeSign : nzl(t * 0.06);
   ship.position.x += amp * sx;                    // ship + its flames only; camera and pad never move
-  if (VIEW === 'close' || VIEW === 'hatch') placeCamera();           // close-up only: follows the ship (the game camera never moves)
+  if (VIEW === 'close' || VIEW === 'hatch' || VIEW === 'gear') placeCamera();           // close-up only: follows the ship (the game camera never moves)
   const pxScale = H * DPR / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 0.42;
   S.gain = fx.setScreenScale(H * DPR / (2 * camera.position.distanceTo(ship.getWorldPosition(new THREE.Vector3())) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))));
   const n = fx.update(st, tSecOverride ?? (t / 1000), bursts, pxScale, 7 * DPR);
@@ -115,6 +152,31 @@ S.bbox = (which = 'pad') => { const b = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }
       const x = (pv.x + 1) / 2 * W, y = (1 - pv.y) / 2 * H; if (pv.z > 1) continue; b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.y0 = Math.min(b.y0, y); b.y1 = Math.max(b.y1, y); } });
   return b; };
 S.setShake = (s) => { shakeSign = s; };
+// screen points (CSS px) along each engine's thrust axis, every 0.1 m from the bell exit to CORE_LEN (for the diamond-count measurement)
+S.axisPx = (len = FLAME.CORE_LEN) => engines.map(e => { const out = []; for (let x = 0; x <= len + 1e-6; x += 0.1) {
+  const p = ship.localToWorld(e.pos.clone().add(new THREE.Vector3(0, -x, 0))).project(camera); out.push([+x.toFixed(2), +((p.x + 1) / 2 * W).toFixed(2), +((1 - p.y) / 2 * H).toFixed(2)]); } return out; });
+// landing-gear clearance to the flame, measured: every skinned gear vertex (legs, feet, doors; joint > 0) in world space against the
+// plume as the vertex shader builds it (outer cone r(x) = R_exit*k*(1 + s*(1.25 + 6*expand)) with +5% wobble and +5% lip shimmer,
+// the exit disk above it, and the deck splash sheet clamped to uSplashR from the cluster centre). Returns metres, worst frame first.
+S.gearClearance = (ph, t) => { const r = S.frame(t, ph); if (!S.gearMesh || !fx.outer.visible) return null;
+  const gm = S.gearMesh, si = gm.geometry.attributes.skinIndex, pv = new THREE.Vector3(), u = fx.outer.material.uniforms, L = u.uLen.value, e = u.uExpand.value, gy = u.uGround.value, R0 = u.uRexit.value;
+  const im = new THREE.Matrix4(), wm = new THREE.Matrix4(), ep = new THREE.Vector3(), eq = new THREE.Quaternion(), es = new THREE.Vector3(); const E = [];
+  for (let k = 0; k < fx.outer.count; k++) { fx.outer.getMatrixAt(k, im); wm.multiplyMatrices(fx.outer.matrixWorld, im); wm.decompose(ep, eq, es); E.push({ x: ep.x, y: ep.y, z: ep.z, R: R0 * es.x }); }
+  const cx = E.reduce((a, q) => a + q.x, 0) / E.length, cz = E.reduce((a, q) => a + q.z, 0) / E.length, SR = u.uSplashR.value;
+  let best = { c: 1e9 }; const by = {}; const keep = (o) => { if (o.c < best.c) best = o; if (!by[o.src] || o.c < by[o.src].c) by[o.src] = o; }; const names = gm.skeleton.bones.map(b => b.name);
+  for (let i = 0; i < si.count; i++) { const j = si.getX(i); if (j === 0) continue; gm.getVertexPosition(i, pv); pv.applyMatrix4(gm.matrixWorld);
+    for (const q of E) { const x = q.y - pv.y, rho = Math.hypot(pv.x - q.x, pv.z - q.z); let c;
+      if (x < 0) c = Math.hypot(-x, Math.max(0, rho - q.R * 1.1));
+      else if (x <= Math.min(L, q.y - gy)) c = rho - q.R * (1 + (x / L) * (1.25 + 6 * e)) * 1.05 * 1.05;
+      else c = 1e9;
+      if (c < (by.plume?.c ?? 1e9)) keep({ c: +c.toFixed(3), part: names[j], src: 'plume', engine: E.indexOf(q) }); }
+    if (E[0].y - gy < L) { const cs = Math.hypot(Math.max(0, Math.hypot(pv.x - cx, pv.z - cz) - SR), pv.y - (gy + 0.04)); if (cs < (by.splash?.c ?? 1e9)) keep({ c: +cs.toFixed(3), part: names[j], src: 'splash' }); } }
+  return { t, ph, by, c: +best.c.toFixed(3), part: best.part, src: best.src, alt: +r.st.alt.toFixed(2), gear: S.gear.last };
+};
+S.gearScan = (step = 33) => { const out = { N: S.ringN, frames: 0 };   // worst frame per phase and per flame part (plume cone vs deck splash)
+  for (const [ph, a, b] of [['launch', -2000, 8000], ['land', -8000, 220]]) for (let t = a; t <= b; t += step) { const g = S.gearClearance(ph, t); if (!g) continue; out.frames++;
+    for (const src of ['plume', 'splash']) { const c = g.by[src]; const key = ph + '_' + src; if (c && (!out[key] || c.c < out[key].c)) out[key] = { t, alt: g.alt, ...c, gear: g.gear }; } }
+  return out; };
 S.renderer = renderer; S.fx = fx; S.THREE = THREE; S.ship = ship; S.shipMesh = shipMesh; S.W = W; S.H = H;
 S.frame(tRel, phase);
 S.ready = true;

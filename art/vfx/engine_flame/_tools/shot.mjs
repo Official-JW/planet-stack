@@ -10,5 +10,5 @@ pg.on('console', m => console.log('[page]', m.text())); pg.on('pageerror', e => 
 await pg.goto(`http://127.0.0.1:${process.env.PORT || 8731}/art/vfx/engine_flame/index.html?ui=0&${q}`);
 await pg.waitForFunction(() => window.__ef && window.__ef.ready, null, { timeout: 120000 });
 if (js) console.log(JSON.stringify(await pg.evaluate(js)));
-await pg.screenshot({ path: out });
+if (out !== '-') await pg.screenshot({ path: out });
 await b.close();

@@ -23,7 +23,7 @@ gl = {
       'drives': 'lid + 2 ribs (rotate with the hinge), 2 hold-open struts (follow the lid, foot fixed); all are islands in the merged ship mesh, no separate nodes',
       'vertex_ranges_mesh_5_md5_82131aba': {'lid': [8392, 8399], 'ribs': [8400, 8415], 'struts': [8428, 8443], 'hinge_rod_static': [8416, 8427]},
       'select_rule': 'islands with centroid in hinge frame (u = LU, t = axis, z = up): |t| < 0.66, -0.1 < u < 0.3, 0.15 < z < 0.8, <= 16 verts; max z > 0.9 -> lid/rib, else strut',
-      'timing': 'start at hatch close = Launch tap + 53.19 s; done 53.99 s; ignition 54.19 s; lift-off 56.19 s',
+      'timing': 'start at hatch close = Launch tap + 53.19 s; done 53.99 s; ignition 53.99 s (as the lid seats); lift-off 55.99 s; climb ends 63.99 s; landing burn 663.99 s; touchdown 671.99 s',
       'easing': 'easeInOutCubic baked into LINEAR keys', 'draw_calls_added': 0}}],
   'animations': [{'name': 'hatch_close', 'channels': [{'sampler': 0, 'target': {'node': 0, 'path': 'rotation'}}],
                   'samplers': [{'input': 0, 'output': 1, 'interpolation': 'LINEAR'}]}],

@@ -1,0 +1,175 @@
+{
+ "measured": "2026-10-24 ~14:30 PT, headless Chrome SwiftShader, pad view, aft skirt mounted",
+ "draw_calls": {
+  "N6": {
+   "off": 12,
+   "on": 16,
+   "added": 4
+  },
+  "N11": {
+   "off": 12,
+   "on": 16,
+   "added": 4
+  },
+  "bare_ring_N6": {
+   "off": 12,
+   "on": 16
+  },
+  "gear_added": 0
+ },
+ "particles_peak": {
+  "launch_N6": 149,
+  "launch_N11": 149,
+  "cap": 150
+ },
+ "shake_px": 1.0,
+ "diamonds_full_thrust": {
+  "375x667": [
+   4,
+   3,
+   4,
+   4,
+   4,
+   4
+  ],
+  "393x852": [
+   4,
+   3,
+   4,
+   4,
+   5,
+   3
+  ]
+ },
+ "thrust_lv10": {
+  "gain": 1.3605,
+  "len": 1.3605,
+  "diamond_sp_m": 1.955
+ },
+ "gear_clearance": {
+  "N6": {
+   "N": 6,
+   "frames": 551,
+   "launch_plume": {
+    "t": -2000,
+    "alt": 0,
+    "c": 1.663,
+    "part": "Gear_Door_0a",
+    "src": "plume",
+    "engine": 0,
+    "gear": {
+     "door": 0,
+     "knee": 0,
+     "swing": 0,
+     "bounce": 0,
+     "ext": 0
+    }
+   },
+   "launch_splash": {
+    "t": -2000,
+    "alt": 0,
+    "c": 0.613,
+    "part": "Gear_Foot_0",
+    "src": "splash",
+    "gear": {
+     "door": 0,
+     "knee": 0,
+     "swing": 0,
+     "bounce": 0,
+     "ext": 0
+    }
+   },
+   "land_plume": {
+    "t": -8000,
+    "alt": 160,
+    "c": 1.663,
+    "part": "Gear_Door_0a",
+    "src": "plume",
+    "engine": 0,
+    "gear": {
+     "door": 0,
+     "knee": 1,
+     "swing": 1,
+     "bounce": 0,
+     "ext": 1
+    }
+   },
+   "land_splash": {
+    "t": -179,
+    "alt": 0,
+    "c": 0.613,
+    "part": "Gear_Foot_0",
+    "src": "splash",
+    "gear": {
+     "door": 0,
+     "knee": 0,
+     "swing": 0,
+     "bounce": 0,
+     "ext": 0.035845868750000176
+    }
+   }
+  },
+  "N11": {
+   "N": 11,
+   "frames": 551,
+   "launch_plume": {
+    "t": -2000,
+    "alt": 0,
+    "c": 1.638,
+    "part": "Gear_Door_0b",
+    "src": "plume",
+    "engine": 1,
+    "gear": {
+     "door": 0,
+     "knee": 0,
+     "swing": 0,
+     "bounce": 0,
+     "ext": 0
+    }
+   },
+   "launch_splash": {
+    "t": -2000,
+    "alt": 0,
+    "c": 0.613,
+    "part": "Gear_Foot_0",
+    "src": "splash",
+    "gear": {
+     "door": 0,
+     "knee": 0,
+     "swing": 0,
+     "bounce": 0,
+     "ext": 0
+    }
+   },
+   "land_plume": {
+    "t": -8000,
+    "alt": 160,
+    "c": 1.638,
+    "part": "Gear_Door_0b",
+    "src": "plume",
+    "engine": 1,
+    "gear": {
+     "door": 0,
+     "knee": 1,
+     "swing": 1,
+     "bounce": 0,
+     "ext": 1
+    }
+   },
+   "land_splash": {
+    "t": -179,
+    "alt": 0,
+    "c": 0.613,
+    "part": "Gear_Foot_0",
+    "src": "splash",
+    "gear": {
+     "door": 0,
+     "knee": 0,
+     "swing": 0,
+     "bounce": 0,
+     "ext": 0.035845868750000176
+    }
+   }
+  }
+ }
+}
