@@ -1,6 +1,6 @@
 # HT-04 haul truck — shared prop (Mine + Refinery)
 
-`ht04_game.glb`: 124,876 B, md5 `5e5c9fe19fe8a1d5cbec5e9708c3c824`, **8,308 tris, 2 draws** (10/23 PM detail pass; was 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
+`ht04_game.glb`: **134,588 B, md5 `62c32238e15b5f86f9dba471260b8377`, 10,536 tris, 1 draw** (10/24 00:40 truck_pass: regolith ore + glass merged into the paint, see *Ore load / 1 draw* below; 10/23 PM detail pass was 124,876 B / 8,308 tris / 2 draws, md5 `5e5c9fe1...`; before that 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
 materials `SHM_Paint` + `SHM_Glass` (see Detail pass), colours in COLOR_0, no textures). It uses EXT_meshopt_compression + KHR_mesh_quantization (gltfpack -cc -kn -ke) and no Draco.
 The budget was ≤ 4k tris and ≤ 3 draws; the detail pass takes it to ~8.3k tris (approved scope: "trucks lack detail"), draws stay ≤ 3. The no-scoop body has no arm.
 
@@ -68,3 +68,12 @@ glTF level to the existing skinned mesh, so **node names, joints, rest pose / IB
 - bbox grows from (−3.60…3.69, 0…3.79, ±1.90) to (−3.70…3.75, −0.02…4.21, ±1.95).
 - Build: `_src/build_ht04.sh` now packs the base body to `$W/ht04_base.glb` and runs the detail pass into `ht04_game.glb`.
 - Proofs: `proofs/ht04_detail_closeup_3840x2160.png`, `proofs/ht04_detail_front.png`, `proofs/ht04_detail_rear.png`, `proofs/trucks_before_393x852.png` / `proofs/trucks_after_393x852.png` (game camera 38° / 18°). Renderer: `_src/render_truck_proof.py`.
+
+
+## Ore load / 1 draw (10/24 00:40, `_src/truck_pass.py --ore --merge-glass`)
+Director: the load must not read as cyan gems (crystals are the paid currency). Now:
+- **Bed heap (`Truck_Load`, `fill` morph):** per-face regolith palette matching the Mine deposit rock (#3f3d3b 42 %, #47443f, #373531, #504c46; 5 % faint vein faces #2f5a63), plus **26 rounded, matte rock lumps** (noisy icospheres, r 0.15-0.27 m, flattened) skinned to `Truck_Load`. Every lump vertex carries the heap's `fill` delta (IDW from the 4 nearest heap-top vertices), so the lumps stay seated at every fill value (proof `proofs/ore_after_fill025_060_1600x450.png`).
+- **`chute_pour` / `truck_load_rich` chunks** (`Truck_Pour_01..07`, `Truck_Rich_01..05`): the 20-tri faceted icosahedra are replaced by rounded grey rocks with the same bind centre / size; He-3 and rich chunks keep 1-2 faint cyan veins only. Dust chunks unchanged.
+- **Glass merged:** the SHM_Glass primitive is appended to the paint primitive with COLOR_0 = glass base x 1.25 (dark tinted windows, now matte-ish SHM_Paint roughness). Material `SHM_Glass` is gone: **1 primitive, 1 draw**.
+- Names, joints, IBMs, `fill` morph, clips (`chute_pour`, `truck_drive`, `truck_dump`, `truck_load_rich`) unchanged; only three's auto `mesh_0_1` child disappears. Tris 8,308 -> 10,536 (+2.2k for the lumps; still well inside the prop budget).
+- Proofs (Workbench, render hold): `proofs/ore_before_close_1600x900.png` / `proofs/ore_after_close_1600x900.png` (fill 1, `chute_pour` frame 18), phone view on the Mine `Path_Load`: `../../buildings/mine/proofs/mine_road_before_393x852.png` / `mine_road_after_393x852.png`.

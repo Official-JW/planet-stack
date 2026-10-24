@@ -14,7 +14,7 @@ The build is fully standalone: it reads no Mine markers, layout or GLB (`REFINER
 |---|---|
 | Master | `refinery_master.blend` (10/23 22:41 rebuild with `_src/intake_db2.py`, incl. stage and the placed HT-04, Blender 4.2, procedural shading) |
 | Master GLB | `refinery_master.glb` (10/23 23:17, DB-2 / intake upgrade + shared HT-04), 3,137,720 B, md5 `b301255d3d1c8aad709535e32f06a546`, 397,420 tris, `gltfpack -cc -kn -km -vpf` (meshopt + quantization, float positions because of the 370 m stage; no Draco), then clearcoat / transmission / ior stripped from the JSON (no images). Review asset, not for the game |
-| **Game GLB** | `refinery_game.glb`, **260,192 B**, md5 `ea5ab7af54134c312cdd43f284fac642` (10/24 00:06: PL-1 marker posts white + cyan band, on top of the 10/23 PM DB-2 / intake upgrade). **29,356 tris and 15 draws with every tier visible** (budget 30k / 15; draws now at the cap) |
+| **Game GLB** | `refinery_game.glb`, **265,392 B**, md5 `93c44166ecc39031966a9be130dfc093` (10/24 00:40: road ruts / tread / dust in vertex colour + Base_Paint skin merge, see *Road paint + draw merge* at the end). **29,356 tris and 13 draws with every tier visible**, so with HT-04 + FB-05 at 1 draw each the station is 15. CAM_OVERRIDE must be re-keyed. Before: 260,192 B, md5 `ea5ab7af54134c312cdd43f284fac642`, 15 draws |
 | Game GLB format | `EXT_meshopt_compression` + `KHR_mesh_quantization` only (no Draco). 4 shared materials `SHM_Paint`, `SHM_GlowCyan`, `SH_GlowRed`, `SH_Dust` (dust only: `alphaMode` BLEND, alpha from `COLOR_0`.a), each only `pbrMetallicRoughness` + `emissiveFactor` (no transmission / clearcoat / ior / emissive_strength), no images or textures. Colour comes from `COLOR_0` vertex colours. **No truck geometry** (only the `Truck_*` markers), no astronauts. `strings refinery_game.glb \| grep -i lh2` is empty (same for the master GLB) |
 | Units / axes / origin | 1 m, Y up. **Origin = `Truck_Dump`** (HT-04 centre while tipping). No rotation: place it like any station, `position.set(i*GAP, 0, 0)` |
 | Station camera | **`Cam_Target` glTF (−6.90, 2.08, 5.45)**, extras `frame_w` **34.4**, `fov_y_deg` 38, `pitch_down_deg` 18, `distance_m_393x852` 108.29 (refit 10/23 21:05 for the iPhone-inset band, see Fit). Camera on +Z looking down −Z |
@@ -130,7 +130,7 @@ The road runs off the left edge to x −46 (by design); nothing else leaves the 
 - **Stale (older layout, not re-rendered):** `refinery_process_diagram.png`.
 
 ## Game GLB nodes
-All under the root `Refinery` (extras: origin, road and layout notes, `draws_all_tiers` 15, `truck_times`). gltfpack puts each mesh on an unnamed child of its named node.
+All under the root `Refinery` (extras: origin, road and layout notes, `draws_all_tiers` 13 (was 15), `truck_times`). gltfpack puts each mesh on an unnamed child of its named node.
 
 | Node | What it is | Tris | Material | Pivot (glTF, m) |
 |---|---|---|---|---|
@@ -199,3 +199,9 @@ The 7 buried-pipeline marker posts `plm0..plm6` are now **white with one cyan gl
 **0 extra draws**, same materials, clips, nodes and extras), so the rest of the decimated station is untouched. `build_refinery.py` has the same change at the source
 (`plm{k}_pole` WHITE_S, new `plm{k}_band` CYANL), so a full rebuild matches. `refinery_master.glb` / `.blend` and the hero/turntable renders still show red posts (not rebuilt).
 Proofs: `proofs/refinery_markerposts_before_393x852.png` / `_after_393x852.png` (station camera) and `proofs/refinery_markerposts_before_closeup_1600x1000.png` / `_after_closeup_1600x1000.png`.
+
+
+## Road paint + draw merge (10/24 00:40, `../_shared/road/_src/paint_station_roads.py refinery IN OUT --skin-merge Conveyor_Fuel,Conveyor_He3`)
+- **Road:** 1,463 of 1,599 existing road vertices recoloured (COLOR_0 only, haul_road_seg palette): ruts with tread alternation where rows are ≤ 0.6 m apart (near the bay, median row spacing 0.48 m), mid-tone ruts on the coarse rows, worn shoulders, crown polish, dusty edges. No new geometry.
+- **-2 draws:** the conveyor belt meshes (`Conveyor_Fuel`, `Conveyor_He3`, both SHM_Paint) are merged into `Base_Paint` as **one SkinnedMesh** (joints `Base_Paint`, `Conveyor_Fuel`, `Conveyor_He3`; IBM = inv(joint world) x Base_Paint world). The clips still drive the same named nodes, so `conveyor_fuel_run` / `conveyor_he3_run` move exactly as before (checked to ~2 mm under three r186). Note for Coder: `Conveyor_Fuel` / `Conveyor_He3` now have no mesh children (they are bones), and `Base_Paint`'s mesh is a SkinnedMesh (the loader already sets `frustumCulled = false` on skinned meshes). Look, camera and `Cam_Target` unchanged. Non-skinned merges were not clean (different clips, the Beacon blink, GlowCyan vs GlowRed, code-toggled tiers). More headroom if needed: `Intake_Grate`, `Kiln_Drum`, `Sizer_Flywheel` can join the same skin (-1 draw each).
+- Proofs: `proofs/refinery_road_{before,after}_393x852.png` (Cycles 16 samples, HT-04 on `Truck_Path_02`), `proofs/refinery_road_{before,after}_close_1600x900.png` (Workbench).

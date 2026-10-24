@@ -18,4 +18,9 @@ grep -E "WHEEL_R|TRUCK RAW" "$W/build.log"
 GP=${GLTFPACK:-/home/box/apps/gltftools/node_modules/.bin/gltfpack}
 "$GP" -i "$W/ht04_base.glb" -o "$W/ht04_base_plain.glb" -noq -kn -ke
 python3 "$REPO/art/3d/props/ht04/_src/detail_pass.py" ht04 "$W/ht04_base_plain.glb" "$W/ht04_detail_raw.glb"
-"$GP" -i "$W/ht04_detail_raw.glb" -o "$REPO/art/3d/props/ht04/ht04_game.glb" -cc -kn -ke
+"$GP" -i "$W/ht04_detail_raw.glb" -o "$W/ht04_detail.glb" -cc -kn -ke
+# 10/24 00:40 truck_pass: regolith ore (grey rock lumps riding the fill morph, rock Pour/Rich chunks) + SHM_Glass merged into SHM_Paint (1 draw).
+# FB-05 gets the same glass merge: truck_pass.py FB05_DETAIL_PLAIN.glb OUT_raw.glb --merge-glass, then gltfpack -cc -kn -ke.
+"$GP" -i "$W/ht04_detail.glb" -o "$W/ht04_detail_plain.glb" -noq -kn -ke
+python3 "$REPO/art/3d/props/ht04/_src/truck_pass.py" "$W/ht04_detail_plain.glb" "$W/ht04_ore_raw.glb" --ore --merge-glass
+"$GP" -i "$W/ht04_ore_raw.glb" -o "$REPO/art/3d/props/ht04/ht04_game.glb" -cc -kn -ke

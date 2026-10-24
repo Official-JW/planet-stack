@@ -87,3 +87,7 @@ blender -b -P _src/proof_seams.py -- --mine mine_plain.glb --ref refinery_game_p
 - **Seams unchanged:** the cross-section heights are v1's and the x 0 / x 8 rows carry exactly the v1 positions and colours (checked on the decoded GLB: 60/60 end vertices identical; 8 extra rut-centre end vertices sit on the same −2 cm line with the average rut colour), so the Mine x 26 and Refinery x −46 joins stay flush.
 - The station roads themselves (Mine stub in mine_game.glb, Refinery RD-1) still have the v1 look; the chevron rows would add ~1–2k tris to stations at their budgets, so that is a follow-up.
 - Proofs: `proofs/haul_road_before_393x852.png` / `proofs/haul_road_after_393x852.png` (game camera, with both trucks), `proofs/haul_road_before_close_1600x900.png` / `proofs/haul_road_after_close_1600x900.png`.
+
+
+## Station roads (10/24 00:40)
+`_src/paint_station_roads.py mine|refinery IN_plain OUT_raw [--skin-merge A,B]` paints this segment's rut / tread / dust palette onto the roads already inside `mine_game.glb` and `refinery_game.glb` (vertex colour only; lane centre lines and rut columns per station in the script). Tread only reads where the station road rows are ≤ 0.6 m apart; see the Mine and Refinery READMEs.

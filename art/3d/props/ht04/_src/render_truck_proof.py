@@ -1,7 +1,9 @@
 """Truck / road proof renders (CPU Cycles, OIDN). Inputs must be unpacked first: gltfpack -i X.glb -o X_plain.glb -noq -kn -ke
 blender -b -P render_truck_proof.py -- --out PNG --w W --h H --samples N --glb PLAIN[@x,z,yaw_deg] [--glb ...]
-   [--road SEG_PLAIN --road_tiles x0,n,z] (--cam az,el,dist,tx,ty,tz --lens mm | --phone tx,ty,tz,frame_w)   (cam/phone targets in glTF coords)
---phone = game camera: 38 deg vertical FOV, 18 deg look-down, distance = (frame_w/2)/(tan 19 deg * aspect)."""
+   [--road SEG_PLAIN --road_tiles x0,n,z] [--engine wb] [--fill 0..1] [--anim CLIP@FRAME] (--cam az,el,dist,tx,ty,tz --lens mm | --phone tx,ty,tz,frame_w)   (cam/phone targets in glTF coords)
+--phone = game camera: 38 deg vertical FOV, 18 deg look-down, distance = (frame_w/2)/(tan 19 deg * aspect).
+--engine wb (10/24, QA render hold): Workbench instead of Cycles (vertex colours, studio light, sun shadow, cavity) - a light review proof.
+--fill: value of every 'fill' shape key (HT-04 bed heap); --anim: pose every armature with that clip at that frame (30 fps)."""
 import bpy, sys, math
 from mathutils import Vector, Matrix, Euler
 A = sys.argv[sys.argv.index('--') + 1:]
@@ -16,6 +18,7 @@ def imp(path):
     before = set(bpy.data.objects); bpy.ops.import_scene.gltf(filepath=path); new = [o for o in bpy.data.objects if o not in before]
     for o in new:
         if o.name.startswith('Icosphere'): o.hide_render = True
+        if o.get('hidden_by_default') or o.name.startswith('Tier_'): [setattr(x, 'hide_render', True) for x in [o] + list(o.children_recursive)]   # station tiers off (as proof_phone --tiers 0)
         if o.type == 'MESH':
             for slot in o.material_slots:
                 m = slot.material; rough = 0.42
@@ -69,4 +72,34 @@ else:
     cam.location = tgt + dv * dist; cam.rotation_euler = (tgt - cam.location).to_track_quat('-Z', 'Y').to_euler()
     if arg('lens'): cam.data.lens = float(arg('lens'))
     else: cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(38)
+if arg('fill') is not None:
+    for o in bpy.data.objects:
+        kb = o.data.shape_keys.key_blocks if o.type == 'MESH' and o.data.shape_keys else []
+        for k in kb:
+            if k.name == 'fill': k.value = float(arg('fill'))
+for o in bpy.data.objects:
+    if o.type == 'ARMATURE' and o.animation_data:
+        if arg('anim'):
+            nm, _, fr = arg('anim').partition('@'); act = bpy.data.actions.get(nm) or next((a for a in bpy.data.actions if a.name.startswith(nm)), None)
+            o.animation_data.action = act; sc.frame_set(int(fr or 0))
+        else:
+            o.animation_data.action = None
+            for pb in o.pose.bones: pb.matrix_basis.identity()
+if arg('engine') == 'wb':
+    sc.render.engine = 'BLENDER_WORKBENCH'; sh = sc.display.shading; sh.light = 'STUDIO'; sh.color_type = 'VERTEX'
+    sh.show_shadows = True; sh.shadow_intensity = 0.55; sh.show_cavity = True; sh.cavity_type = 'WORLD'; sh.show_specular_highlight = False
+    sc.display.light_direction = (0.45, -0.5, 0.75); sc.display.render_aa = '8'
+    sc.view_settings.view_transform = 'Standard'; sc.view_settings.look = 'None'
+    gme = gnd.data; ca = gme.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
+    for d in ca.data: d.color = lin('#8a8c90')
+    for o in bpy.data.objects:
+        if o.type == 'MESH' and o is not gnd and not o.data.color_attributes:   # glow / glass parts without COLOR_0: show their material colour
+            m = o.material_slots[0].material if o.material_slots else None
+            c = list(m.diffuse_color) if m else [1, 1, 1, 1]
+            try:
+                for nd in m.node_tree.nodes:
+                    if nd.type == 'EMISSION': c = list(nd.inputs['Color'].default_value)
+            except Exception: pass
+            a_ = o.data.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER')
+            for d in a_.data: d.color = c
 sc.render.filepath = arg('out'); bpy.ops.render.render(write_still=True); print('RENDERED', arg('out'))

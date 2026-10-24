@@ -6,14 +6,14 @@ The HT-04 has **no scoop arm**. It only fills under the conveyor chute at `Path_
 
 | | |
 |---|---|
-| **Game GLB** | `mine_game.glb`, **130,444 B (0.13 MB)**, md5 `cc084a9bf89637c8b43a8138517ef6c2` (10/23 23:10: deposits split into their own fadeable nodes `Deposit_01` / `Deposit_02`; look, bounds and camera unchanged from `2123a050`) |
+| **Game GLB** | `mine_game.glb`, **132,104 B**, md5 `54578c530450481b97389af666cf7872` (10/24 00:40: road ruts / tread / dust painted in vertex colour only, see *Road paint* at the end; same tris, draws, nodes, clips, Cam_Target; CAM_OVERRIDE must be re-keyed to the new md5). Before: 130,444 B, md5 `cc084a9bf89637c8b43a8138517ef6c2` (10/23 23:10: deposits split into their own fadeable nodes `Deposit_01` / `Deposit_02`; look, bounds and camera unchanged from `2123a050`) |
 | Triangles / draws | **18,274 triangles, 14 draw calls with every tier visible** (10 meshes × 1 primitive + `Deposit_01` / `Deposit_02` × 2 primitives each; no truck) |
 | Format | meshopt + quantization (`gltfpack -cc -kn -ke`). Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. **No Draco.** No morph targets, no skins (the truck and its `fill` morph are in the ht04 prop). |
 | Materials | `SHM_Paint` and `SHM_GlowCyan` (`../_shared/shared_materials.json`), plus the deposit-only `SHM_DepositRock` and `SHM_DepositGlow` (alphaMode BLEND, alpha 1; every other material is OPAQUE). Plain metallic/roughness plus emissiveFactor. No transmission, clearcoat or ior. Colour is in `COLOR_0` vertex colours. **No images or textures** and no TEXCOORD. |
 | Units / axes | 1 m, Y up. The origin is concept B's world origin. The camera side is +Z. |
 | Bounds (glTF) | (−15.55, −0.14, −14.72) … (26.0, 21.78, 11.8). The +X growth is the two parallel haul lanes (outbound z 9, return z 0) running off the phone frame on the right to x 26; +Z 11.8 is the outbound lane's front berm toe. |
 | No astronauts | The concept-B astronaut is removed. |
-| Budget | Mine station **30k tris / 15 draws including the future operator prop (~3k tris, 2 draws)**, so the Mine itself is held to **≤ 27k tris / ≤ 13 draws**: it uses **18,274 / 14** since the 23:10 deposit split (was 11; Director 23:01: hard cap 15); with the shared HT-04 at `Path_Load` (3,859 / 1) the station is 22,133 / 15. |
+| Budget | Mine station **30k tris / 15 draws including the future operator prop (~3k tris, 2 draws)**, so the Mine itself is held to **≤ 27k tris / ≤ 13 draws**: it uses **18,274 / 14** since the 23:10 deposit split (was 11; Director 23:01: hard cap 15); with the shared HT-04 at `Path_Load` (10/24: 10,536 tris / 1 draw) the station is 28,810 / 15. |
 
 ## Files
 - `mine_game.glb`: the game asset.
@@ -204,3 +204,9 @@ The deposit patch must **fade in over 1 s in code when it becomes available and 
 - **Pipeline:** `_src/pack_mine.sh` now runs `split_deposits.cjs` (2 passes, grid snap) before gltfpack and `set_deposit_blend.py` after it (gltfpack turns alpha-1 BLEND back into OPAQUE). `build_mine.py` itself is unchanged.
 - **Proofs** (393x852, Cycles 128 spp, decoded game GLBs at the 5d16bad override framing): `proofs/mine_deposits_before_393x852.png` (2123a050), `proofs/mine_deposits_after_393x852.png`, `proofs/mine_deposits_hidden_393x852.png` (Deposit nodes hidden: plain ground, no hole) and `proofs/mine_deposits_compare_393x852.png` (all three + |before-after| x8). Before vs after: max 15/255, mean 0.07, render noise only. `proofs/mine_game_verify.json` is the verify dump.
 - **Proof-script fix:** `proof_phone.py` multiplied every material by a vertex-colour node, and Cycles reads a missing `COLOR_0` as black, so earlier proofs drew the veins (no COLOR_0) black. It now skips that for materials whose meshes have no vertex colours, matching three.js. The game look never changed.
+
+
+## Road paint (10/24 00:40, `../_shared/road/_src/paint_station_roads.py mine`)
+Tyre ruts, tread and dusty edges painted into the **existing** road vertices of `Base_Paint` (COLOR_0 only; haul_road_seg.glb palette). No new vertices, tris, images or draws: **18,274 tris / 14 draws** as before; with the 1-draw HT-04 the station is **15 draws**. 968 road vertices recoloured; Deposit_01/02, SHM_DepositRock/Glow (alphaMode BLEND re-set after gltfpack with `_src/set_deposit_blend.py`), extras and clips unchanged.
+**Mesh too coarse for tread on the straights:** the road rows are ~1 m apart there (row spacing p25/50/75 = 0.59 / 0.96 / 0.96 m), so dark/light tread alternation would alias into big blotches; it is only painted where rows are ≤ 0.6 m (the U-turn arc, `proofs/mine_road_after_top_1600x900.png`). Straights get a mid-tone rut, worn shoulders and dusty berm toes. Moving vertices can't add frequency; the cheapest real fix is to resample only the visible rut rows (≈ +600-900 tris, 0 draws) or accept ruts without tread.
+Proofs (Workbench close-ups, Cycles 16-sample phone): `proofs/mine_road_{before,after}_393x852.png`, `proofs/mine_road_{before,after}_close_1600x900.png`, `proofs/mine_road_{before,after}_top_1600x900.png`.
