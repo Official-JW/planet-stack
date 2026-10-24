@@ -1,0 +1,120 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Planet Stack - engine flame look proof</title>
+<style>html,body{margin:0;background:#05060b;overflow:hidden;font:12px system-ui;color:#cfd6e6}canvas{display:block}
+#ui{position:fixed;left:6px;bottom:6px;background:#0009;padding:6px;border-radius:6px}#ui.hide{display:none}</style>
+<script type="importmap">{"imports":{"three":"../../../qa3d/vendor/three.module.min.js","three/addons/":"../../../qa3d/vendor/addons/"}}</script>
+</head><body><canvas id="c"></canvas>
+<div id="ui">launch <input id="tl" type="range" min="-3500" max="8000" value="-3500" step="10" style="width:200px"> <button id="play">play launch</button> <button id="playL">play landing</button> <span id="info"></span></div>
+<script type="module">
+// Preview: ?w=375&h=667 (CSS px) &dpr=1 &view=pad|close &phase=launch|land &t=<ms rel lift-off or touchdown> &ui=0 &margins=1
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { FLAME, createEngineFlames, launchState, landState, launchBursts, landBursts } from './engine_flame.js';
+const Q = new URLSearchParams(location.search);
+const W = +(Q.get('w') || innerWidth), H = +(Q.get('h') || innerHeight), DPR = +(Q.get('dpr') || Math.min(devicePixelRatio, 2));
+const VIEW = Q.get('view') || 'pad';
+if (Q.get('ui') === '0') document.getElementById('ui').classList.add('hide');
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(DPR); renderer.setSize(W, H);
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x05060b);
+const camera = new THREE.PerspectiveCamera(38, W / H, 0.5, 3000);
+scene.add(new THREE.HemisphereLight(0x9fb4d8, 0x2a2a30, 0.55));
+const sun = new THREE.DirectionalLight(0xfff4e2, 2.6); sun.position.set(-30, 45, 25); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 160 }); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03;
+scene.add(sun);
+// ground like qa3d (Lambert, vertex-colour value noise + craters; the game's KTX2 M_ground is not loaded here)
+{ const g = new THREE.PlaneGeometry(900, 900, 260, 260); g.rotateX(-Math.PI / 2); const p = g.attributes.position, c = new Float32Array(p.count * 3);
+  const rnd = (a) => { const s = Math.sin(a * 127.1) * 43758.5453; return s - Math.floor(s); };
+  const cr = []; for (let i = 0; i < 160; i++) { const x = (rnd(i + .3) - .5) * 600, z = (rnd(i + 7.7) - .5) * 600; if (Math.hypot(x, z + 13) > 30) cr.push([x, z, 1.5 + rnd(i + 3.1) * 6]); }
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i);
+    let v = 0.42 + 0.02 * Math.sin(x * .23 + z * .11) + 0.015 * Math.sin(x * .07 - z * .19) + (rnd(x * 3.1 + z * 7.3) - .5) * 0.04;
+    for (const [cx, cz, r] of cr) { const d = Math.hypot(x - cx, z - cz) / r; if (d < 1.25) v += d < 1 ? -0.10 * (1 - d * d) : 0.07 * (1.25 - d) * 4 * (d - 1); }
+    c.set([v, v, v * 1.03], i * 3); }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3)); const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; m.position.y = -0.01; scene.add(m); }
+
+const padRoot = new THREE.Group(); scene.add(padRoot);
+const S = window.__ef = { ready: false };
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const gltf = await loader.loadAsync('../../3d/buildings/launch_pad/launch_pad_game.glb');   // md5 82131aba (today's pad, untouched)
+const pad = gltf.scene; padRoot.add(pad);
+pad.traverse(n => { if (n.isMesh) { n.castShadow = n.receiveShadow = true; } if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
+pad.updateMatrixWorld(true);
+const ship = pad.getObjectByName('Ship_Placeholder'), ct = pad.getObjectByName('Cam_Target');
+const ship0 = ship.position.clone();
+// preview only: the pad GLB keeps Cargo_Door as a pad-level node; carry it with the ship so it doesn't hang in the air after lift-off
+{ const cd = pad.getObjectByName('Cargo_Door'); if (cd) ship.attach(cd); }
+// ---- find the 4 bell exits in the merged ship mesh: predicted axes from build_starter_ship.py (ENG_R 2.25, 45+90k deg, pad yaw +60),
+// then refined from the mesh (lowest vertex ring near each axis = exit plane).
+const shipMesh = []; ship.traverse(n => n.isMesh && shipMesh.push(n));
+const sc = pad.getObjectByName('Ship_Center').getWorldPosition(new THREE.Vector3());
+const pred = [0, 1, 2, 3].map(k => { const a = (45 + 90 * k + 60) * Math.PI / 180; return new THREE.Vector3(sc.x + 2.25 * Math.cos(a), 0, sc.z - 2.25 * Math.sin(a)); });
+const acc = pred.map(() => ({ minY: 1e9, sx: 0, sz: 0, n: 0, pts: [] })), v = new THREE.Vector3();
+for (const m of shipMesh) { const p = m.geometry.attributes.position; m.updateMatrixWorld(true);
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y > sc.y + 4) continue;
+    pred.forEach((q, k) => { const d = Math.hypot(v.x - q.x, v.z - q.z); if (d < 1.0) acc[k].pts.push([v.x, v.y, v.z, d]); }); } }
+const engWorld = acc.map((a, k) => { const ys = a.pts.map(p => p[1]).sort((x, y) => x - y); const yMin = ys[0] ?? sc.y + 0.9;
+  const ring = a.pts.filter(p => p[1] < yMin + 0.12); const cx = ring.reduce((s, p) => s + p[0], 0) / (ring.length || 1), cz = ring.reduce((s, p) => s + p[2], 0) / (ring.length || 1);
+  const rr = ring.reduce((s, p) => s + Math.hypot(p[0] - cx, p[2] - cz), 0) / (ring.length || 1);
+  return { pos: new THREE.Vector3(ring.length ? cx : pred[k].x, yMin, ring.length ? cz : pred[k].z), r: rr, n: ring.length, pred: pred[k] }; });
+const padTopY = (() => { let y = 0; const r = new THREE.Raycaster(new THREE.Vector3(sc.x + 0.01, 1.3, sc.z + 0.01), new THREE.Vector3(0, -1, 0));
+  const hits = r.intersectObject(pad, true).filter(h => !shipMesh.includes(h.object)); return hits.length ? hits[0].point.y : sc.y; })();
+const engines = engWorld.map(e => ({ pos: ship.worldToLocal(e.pos.clone()) }));
+const fx = createEngineFlames(engines, { groundY: padTopY }); fx.attach(ship, padRoot);
+S.engines = engWorld.map(e => ({ x: +e.pos.x.toFixed(3), y: +e.pos.y.toFixed(3), z: +e.pos.z.toFixed(3), r: +e.r.toFixed(3), verts: e.n, predX: +e.pred.x.toFixed(3), predZ: +e.pred.z.toFixed(3) }));
+S.padTopY = padTopY;
+// ---- official pad camera: lookAt(Cam_Target), d = (frame_w/2)/(tan(fov/2)*aspect), 18 deg down, +Z side
+// close-up proof only: hide pad props in front of the engines (crane, tanks, hoses, door) so the nozzles read; ship + deck stay
+if (VIEW === 'close') for (const o of pad.children) if (!['Pad_Base', 'Ship_Placeholder', 'Cargo_Door'].includes(o.name)) o.visible = false;
+const target = ct.getWorldPosition(new THREE.Vector3()), FW = ct.userData.frame_w || 78.25;
+function placeCamera() {
+  if (VIEW === 'close') { const c = sc.clone(); c.y = (ship.position.y - ship0.y) + engWorld[0].pos.y; camera.fov = 30; const d = 30;
+    camera.position.set(c.x - d * 0.34, Math.max(2.5, c.y - 3.0), c.z + d * 0.94); camera.lookAt(c.x, c.y - 4.2, c.z); }
+  else { camera.fov = 38; const d = (FW / 2) / (Math.tan(THREE.MathUtils.degToRad(19)) * camera.aspect), e = THREE.MathUtils.degToRad(18);
+    camera.position.set(target.x, target.y + d * Math.sin(e), target.z + d * Math.cos(e)); camera.lookAt(target); }
+  camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+}
+placeCamera(); S.camDist = camera.position.distanceTo(target);
+// metres per screen px at the ship's depth (for the ship-only rumble amplitude)
+const mPerPx = () => { const d = camera.position.distanceTo(ship.getWorldPosition(new THREE.Vector3())); return 2 * d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / H; };
+const nzl = (x) => Math.sin(x * 1.7) * 0.5 + Math.sin(x * 3.1 + 1.1) * 0.3 + Math.sin(x * 5.3 + 2.3) * 0.2;   // in [-1, 1]
+let phase = Q.get('phase') || 'launch', tRel = +(Q.get('t') ?? -3500), shakeSign = Q.get('shake') === 'max' ? 1 : 0;
+S.frame = (t, ph = phase, tSecOverride) => {
+  phase = ph; tRel = t;
+  const st = ph === 'land' ? landState(t) : launchState(t), bursts = ph === 'land' ? landBursts(t) : launchBursts(t);
+  ship.position.copy(ship0); ship.position.y += st.alt;
+  const amp = FLAME.SHAKE_PX * mPerPx() * st.shake, sx = shakeSign ? shakeSign : nzl(t * 0.06);
+  ship.position.x += amp * sx;                    // ship + its flames only; camera and pad never move
+  if (VIEW === 'close') placeCamera();           // close-up only: follows the ship (the game camera never moves)
+  const pxScale = H * DPR / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 0.42;
+  S.gain = fx.setScreenScale(H * DPR / (2 * camera.position.distanceTo(ship.getWorldPosition(new THREE.Vector3())) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))));
+  const n = fx.update(st, tSecOverride ?? (t / 1000), bursts, pxScale, 7 * DPR);
+  renderer.render(scene, camera);
+  S.last = { t, ph, st, particles: n, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, shakePx: +(FLAME.SHAKE_PX * st.shake).toFixed(3) };
+  document.getElementById('info').textContent = `${ph} t=${t}ms alt=${st.alt.toFixed(1)}m p=${n} calls=${renderer.info.render.calls}`;
+  return S.last;
+};
+// draw-call count with the effect hidden vs shown (same frame)
+S.countCalls = (t = 3000, ph = 'launch') => { S.frame(t, ph); const on = renderer.info.render.calls;
+  const vis = [fx.outer, fx.core, fx.dust, fx.glow].map(o => o.visible); [fx.outer, fx.core, fx.dust, fx.glow].forEach(o => o.visible = false);
+  renderer.render(scene, camera); const off = renderer.info.render.calls; [fx.outer, fx.core, fx.dust, fx.glow].forEach((o, i) => o.visible = vis[i]); return { on, off, added: on - off }; };
+// projected screen bbox of the pad (ship excluded, static) and the ship, in CSS px
+S.bbox = (which = 'pad') => { const b = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }; const pv = new THREE.Vector3();
+  pad.traverse(m => { if (!m.isMesh) return; let q = m; for (; q; q = q.parent) if (!q.visible) return; const inShip = shipMesh.includes(m); if ((which === 'ship') !== inShip) return;
+    const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i += 1) { pv.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld).project(camera);
+      const x = (pv.x + 1) / 2 * W, y = (1 - pv.y) / 2 * H; if (pv.z > 1) continue; b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.y0 = Math.min(b.y0, y); b.y1 = Math.max(b.y1, y); } });
+  return b; };
+S.setShake = (s) => { shakeSign = s; };
+S.renderer = renderer; S.fx = fx; S.W = W; S.H = H;
+S.frame(tRel, phase);
+S.ready = true;
+// interactive
+const tl = document.getElementById('tl'); tl.oninput = () => S.frame(+tl.value, 'launch');
+let raf = 0; const play = (ph, a, b) => { cancelAnimationFrame(raf); const t0 = performance.now(); const step = () => { const t = a + (performance.now() - t0); S.frame(Math.min(t, b), ph); if (t < b) raf = requestAnimationFrame(step); }; step(); };
+document.getElementById('play').onclick = () => play('launch', -3500, 8000);
+document.getElementById('playL').onclick = () => play('land', -8000, 2500);
+</script></body></html>
