@@ -1186,7 +1186,7 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
           'LP_StainlessA': ('SHM_Stainless', A.get('ss_a', '#d0d4d8')), 'LP_StainlessB': ('SHM_Stainless', A.get('ss_b', '#d9dde1')),
           'LP_StainlessC': ('SHM_Stainless', A.get('ss_c', '#c6cacf')), 'LP_StainlessWeld': ('SHM_Stainless', A.get('ss_weld', '#8f959c')),
           'LP_SteelBand': ('SHM_Stainless', A.get('ss_band', '#b2b7bd')), 'LP_StainlessHeat': ('SHM_Stainless', '#77736f'),
-          'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#6fdcef')}
+          'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#2fe3ff')}
     # one material per node except Pad_Base (4) and Crane (2): forced node materials
     NODE_MAT = {'Hose_LOX': 'SHM_Metal', 'Hose_LCH4': 'SHM_Metal', 'Tier_03': 'SHM_Paint', 'Tier_05': 'SHM_Paint', 'Tier_08': 'SHM_Paint',
                 'Tier_12': 'SHM_GlowWhite', 'Tier_20': 'SHM_Paint', 'Ship': 'SHM_Stainless', 'Door': 'SHM_Stainless', 'Road': 'SHM_Paint'}
@@ -1252,7 +1252,7 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
         bpy.ops.object.select_all(action='DESELECT'); G.select_set(True); bpy.context.view_layer.objects.active = G
         md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.03, min(1.0, ratio)); md.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=md.name)
-    CAP = {'Road': 400, 'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': int(A.get('ship_cap', 7100)), 'Door': 300}
+    CAP = {'Road': 400, 'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': int(A.get('ship_cap', 7900)), 'Door': 300}
     for g, G in nodes.items():
         cap = CAP.get(g, 1000 if g.startswith('Tier_') else None)
         if cap and tri(G) > cap: dec(G, cap / tri(G))

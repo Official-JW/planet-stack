@@ -1,9 +1,9 @@
 {
  "file": "../launch_pad_game.glb",
- "bytes": 306932,
- "md5": "e9bc88cabe724d186c07346edc1904d2",
+ "bytes": 307664,
+ "md5": "0a5806f425cf552adbf06cf0567ea89b",
  "three": "186",
- "tris": 29466,
+ "tris": 29479,
  "draws": 15,
  "extensions": [
   "KHR_mesh_quantization",
@@ -16,17 +16,17 @@
   [
    "Pad_Base",
    "SHM_Paint",
-   12857
+   12540
   ],
   [
    "Pad_Base",
    "SHM_GlowCyan",
-   736
+   718
   ],
   [
    "Pad_Base",
    "SHM_Metal",
-   402
+   346
   ],
   [
    "Road_UTurn",
@@ -56,7 +56,7 @@
   [
    "Ship_Placeholder",
    "SHM_Stainless",
-   7010
+   7414
   ],
   [
    "Cargo_Door",
@@ -1700,7 +1700,7 @@
   "rule": "XZ footprint of every pad mesh vs road band (world x 307-481, z 10.2-24.8) and every Road_UTurn triangle: 0 overlaps, min gap >= 1 m",
   "road_pieces": 400,
   "pad_meshes": 14,
-  "pad_tris": 29067,
+  "pad_tris": 29080,
   "overlaps": 0,
   "under_gap": 0,
   "min_gap_m": 1.048,

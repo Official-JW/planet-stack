@@ -57,7 +57,8 @@ def build(G):
             out.append((min(zs), max(zs), max(rs)))
         return sorted(out)
     BANDS, WELDS = rings('SteelBand'), rings('WeldRing')
-    SOL = zr('SolarBand'); GLOWS = [zr(n) for n in ('SkirtGlow', 'DeckGlow', 'BayGlow', 'UpperGlow', 'SolarGlowLo')]
+    SOL = zr('SolarBand'); GLOWS = [zr('SolarGlowLo')]                  # solar-band edge glow stays a hull row
+    RINGS = [zr(n) for n in ('SkirtGlow', 'DeckGlow', 'BayGlow', 'UpperGlow')]   # 4 starter glow rings -> raised cyan rings (Director 10/24 00:26)
     HZ0, HZ1, _ = zr('Hull')
     # nose profile (Nose + NoseCap): max radius per z slice, resampled to 10 rows; tip clamped to the placeholder tip TOP + 40.25
     pts = [(v.co.z, math.hypot(v.co.x, v.co.y)) for n in ('Nose', 'NoseCap') for me in parts[n] for v in me.vertices]
@@ -105,7 +106,7 @@ def build(G):
     prof += [(rad(z), z) for z in ev if z > sk1 + 1e-3] + NOSE + [(0.0, TOP + 40.25 - ZS)]       # apex on the placeholder tip (starter cap 39.95 -> 40.0)
     prof = [(r, z + ZS) for r, z in prof]
     assert max(z for _, z in prof) <= TOP + 40.25 + 1e-3, 'nose tip above the placeholder tip'
-    rnd = random.Random(46); tone = {}
+    rnd = random.Random(46); tone = {}; hull_rings = []
     def ftag(z0, z1, r0, r1, ai):
         zm = (z0 + z1) / 2 - ZS; am = (angs[ai] + angs[(ai + 1) % len(angs)] + (TAU if ai == len(angs) - 1 else 0)) / 2
         if zm < HZ0 - 0.02: return 'heat' if max(r0, r1) < skr - 0.05 or zm < sk0 + 0.04 else 'dark'
@@ -131,7 +132,16 @@ def build(G):
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     hull = _obj(bm, 'ship_ss_hull', M[SLOT[0]], smooth=True, bevel=0.0, angle=40)
     for s in SLOT[1:]: hull.data.materials.append(M[s])
-    out = [hull]; print('SHIPHULL tris', sum(len(p.vertices) - 2 for p in hull.data.polygons), 'rows', len(prof), 'cols', nA, flush=True)
+    # ---- 4 cyan glow rings: 0.18 m tall, 0.03 m proud of the steel band they sit on (outer r 4.06, 6 cm off the bare hull), 32 sides.
+    # They clear the ladder (rails at u 4.42+), the hatch (z TOP+21.5..23.5) and the cargo door opening (z SILL..SILL+DOOR_H), so no breaks are needed.
+    RING_H, RING_P = 0.18, 0.03
+    for z0, z1, _ in RINGS:
+        zc = (z0 + z1) / 2 + ZS; rb = rad(zc - ZS); ro = rb + RING_P
+        assert not (SILL - 0.05 < zc + RING_H / 2 and zc - RING_H / 2 < SILL + DOOR_H + 0.05) and not (LAD_TOP - 0.2 < zc + RING_H / 2 and zc - RING_H / 2 < LAD_TOP + 2.0)
+        hull_rings.append(lathe('ship_ss_glow_ring', [(rb - 0.01, zc - RING_H / 2), (ro, zc - RING_H / 2), (ro, zc + RING_H / 2), (rb - 0.01, zc + RING_H / 2)],
+                                (0, 0, 0), M['glow'], segs=32, smooth=False))
+    print('SHIPRINGS', [(round(o.data.vertices[0].co.z, 3)) for o in hull_rings], 'h', RING_H, 'proud', RING_P, flush=True)
+    out = [hull] + hull_rings; print('SHIPHULL tris', sum(len(p.vertices) - 2 for p in hull.data.polygons), 'rows', len(prof), 'cols', nA, flush=True)
     # ---- starter meshes: rotate +60 deg, lift, merge per group, decimate to the group budget
     ROT = Matrix.Rotation(PSI, 4, 'Z')
     LEGK = 1.0 + DZ / 8.2                                             # legs: pads stay on the pad top, hips follow the hull up
