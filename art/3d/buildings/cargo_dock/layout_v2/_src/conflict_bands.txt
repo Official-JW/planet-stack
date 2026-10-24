@@ -1,0 +1,17 @@
+== FB road band (lanes z13/22, x west U-turn..pad U-turn) (290.5, 462.5, 10.2, 24.8)
+  Refinery  cells     5 x 319.0..321.0 z 10.0..11.0 hmax 0.28
+  Bridge    cells   258 x 318.0..336.0 z 10.0..19.5 hmax 11.24
+  Crane     cells   212 x 302.0..322.5 z 15.5..19.5 hmax 13.70
+  LaunchPad cells    63 x 457.5..462.5 z 10.5..24.5 hmax 0.30
+== FB 1 m clear strip z 9.2-10.2 between Refinery and pad (340, 429, 9.2, 10.2)
+== transport road band (ship axis z -13 +-13.3), pad centre -> shipyard edge (457, 908, -26.3, 0.3)
+  LaunchPad cells  2319 x 457.0..486.0 z -26.5..0.0 hmax 40.50
+== shipyard left approach x908-945 z-5..30 (908, 945, -5, 30)
+  Shipyard  cells  2262 x 912.0..945.0 z -5.0..30.0 hmax 25.62
+== Refinery|Dock seam (330, 352, -45, 20)
+  Refinery  cells     3 x 330.0..334.5 z -19.0..-18.5 hmax 0.80
+  Bridge    cells   214 x 330.0..338.5 z 4.0..19.5 hmax 11.94
+  Dock      cells    24 x 348.0..350.0 z -21.0..-17.0 hmax 10.52
+== Dock|Pad seam (419, 430, -50, 25)
+  Dock      cells   101 x 419.0..421.0 z -13.0..0.0 hmax 2.10
+  LaunchPad cells   106 x 428.0..430.0 z -22.5..-3.5 hmax 1.73
