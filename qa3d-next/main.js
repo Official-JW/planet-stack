@@ -190,7 +190,7 @@ const STATION_GLB = [
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: 4, url: 'models/dock_tankfarm_fd286b9.glb?v=7959ae74', loops: ['Beacon_Lights_Blink', 'crane_gantry_move'], onLoad: (o) => {   // Cam_Target (12, 6, 2), frame_w 64; dock door stays shut
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; } },
-  { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink', 'crane_jib_swing'], pingPong: ['crane_jib_swing'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // jib clip is one-way 90°→0°: ping-pong so it swings back instead of snapping
+  { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Director 00:25: old jib held still in its GLB rest pose (no crane_jib_swing) until Shipyard bcbd0934 replaces it
 ];
 // Shipyard hall door (Director 20:58): plays hall_door_open once and holds it open (LoopOnce + clampWhenFinished). 2d57b95's clip is 1.2 s;
 // 8c9cee7's is a 3.6 s loop — only its first CFG.hallDoor.openSec (the open move) is used, so it works unchanged with either GLB.
