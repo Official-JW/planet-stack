@@ -1,0 +1,4 @@
+level  landing  sill   top    width  height  azimuth  trigger_y(C1_Hips)  Board_Focus_Top (xyz ; frame_w)
+Lv1    21.85    22.11  24.90  2.15   2.79    50       14.0                (3.854, 15.861, -10.775) ; 16.1
+Lv2    25.45    25.71  28.50  2.15   2.79    50       17.6                (3.854, 19.461, -10.775) ; 16.1
+added height 3.60 m (cargo ring y 18.30-21.90), +6 rungs, crew climb +3.0 s
