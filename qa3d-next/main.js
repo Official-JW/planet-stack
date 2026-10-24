@@ -40,9 +40,11 @@ const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide 
 
 const Q = new URLSearchParams(location.search);
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
-const MINE_GLB = '../qa3d-next/models/mine_cc084a9b.glb?v=cc084a9b';  // Art 12bdb4a (Director 23:10): Deposit_01/_02 split into their own fadeable nodes (look unchanged), own copy under qa3d-next/; was 'models/mine_2123a050.glb'
+const MINE_GLB = '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1';   // Art 449757b (Director 01:18): painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b
+//  // Art 12bdb4a (Director 23:10): Deposit_01/_02 split into their own fadeable nodes (look unchanged), own copy under qa3d-next/; was 'models/mine_2123a050.glb'
 //  // Art a4f93eb (Director 21:17): ore patches + veins baked, 2-lane haul road, fewer Path_* legs; previous: 'models/mine_219e774.glb'
-const REFINERY_GLB = 'models/refinery_b45b4649.glb?v=b45b4649';   // Art f4d4a2c (Director 21:17): dump bay, r 4.5 U-turn at x −3.5, 3.5 m reverse, dump_dust; previous: 'models/refinery_bb5eed2.glb'
+const REFINERY_GLB = '../qa3d-next/models/refinery_93c44166.glb?v=93c44166';   // Art d6389a7 (Director 00:51): 13 draws, conveyors merged into skinned Base_Paint, sizer_spin, dump_dust opacity_curve, white/cyan posts, painted ruts; was b45b4649
+//   // Art f4d4a2c (Director 21:17): dump bay, r 4.5 U-turn at x −3.5, 3.5 m reverse, dump_dust; previous: 'models/refinery_bb5eed2.glb'
 const TURN_SPEED = 4.0;   // m/s through curves (Mine 4.5 m arcs on Path_Out_*/Path_Ret_*, Refinery U-turn Truck_Path_01..07); straights stay TV.v = 8.33
 const TURN_R_MAX = 25;    // m: any stretch turning tighter than this radius counts as a curve
 const TURN_ACC = 2.5;     // m/s²: max acceleration AND braking anywhere (pull-away, curves, stops, reverse moves) — Playtester B2/B3 20:58
@@ -187,10 +189,10 @@ const DOCK = { pipeLaunchPad: [37.70, 0.66, 7.30] };   // Dock-local glTF; read 
 const STATION_GLB = [
   { i: 0, url: 'models/life_support_adfaac9.glb?v=e8427ec4', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Cam_Target (0, 2.5, -12.5), frame_w 34
   { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
-    loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
+    loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: 4, url: 'models/dock_tankfarm_fd286b9.glb?v=7959ae74', loops: ['Beacon_Lights_Blink', 'crane_gantry_move'], onLoad: (o) => {   // Cam_Target (12, 6, 2), frame_w 64; dock door stays shut
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; } },
-  { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Director 00:25: old jib held still in its GLB rest pose (no crane_jib_swing) until Shipyard bcbd0934 replaces it
+  { i: 6, url: '../qa3d-next/models/shipyard_bcbd0934.glb?v=bcbd0934', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Shipyard f2ebfe6 (Director 00:25 cleared; own Cam_Target (7.7, 23.5, 84.55) frame_w 100). Its crane_jib_swing is still the old 6 s idle loop (snaps), so the jib stays held in its GLB rest pose until the ship-build Shipyard bcbd0934 replaces it
 ];
 // Shipyard hall door (Director 20:58): plays hall_door_open once and holds it open (LoopOnce + clampWhenFinished). 2d57b95's clip is 1.2 s;
 // 8c9cee7's is a 3.6 s loop — only its first CFG.hallDoor.openSec (the open move) is used, so it works unchanged with either GLB.
@@ -207,11 +209,14 @@ const _ct = new THREE.Vector3();
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
+  'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'cc084a9b': { glb: 'mine 12bdb4a (re-keyed from 2123a050, same framing)', ct: { y: 5.6 }, frame_w: 39.9 },                            // Art 5d16bad: Cam_Target y 6.0 → 5.6 (x, z unchanged), W 37.6 → 39.9; ~9 px spare top+bottom at 375×667 (drill rig / Dep_01)
-  '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 2.5 } },                                  // Director 21:25: Cam_Target y → 2.5 (x, z unchanged)
+  '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
+  '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (480, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
+  '93c44166': { glb: 'refinery d6389a7 (re-keyed from b45b4649, same 3c5e6f8 framing)', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },
   'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },   // Art 3c5e6f8 final: Cam_Target world (313.1, 2.08, 13.55), W 37.5
 };
 const camOvFor = (url) => { const m = /[?&]v=([0-9a-f]{8})/.exec(url || ''); return m && CAM_OVERRIDE[m[1]] ? Object.assign({ md5: m[1] }, CAM_OVERRIDE[m[1]]) : null; };
@@ -225,7 +230,13 @@ const RMK = {};               // Refinery markers, Refinery-local { x, z }
   for (let k = 0; k <= 4; k++) { const p = -Math.PI / 2 + Math.PI * k / 4; RMK['Truck_Path_0' + (3 + k)] = { x: -3.5 + 4.5 * Math.cos(p), z: 4.5 - 4.5 * Math.sin(p) }; }   // U-turn r 4.5 about (−3.5, 4.5) (f4d4a2c)
   RMK.Truck_Dump = { x: 0, z: 0 }; RMK.Truck_Exit = { x: -46, z: 0 };
 })();
-const refActs = {};
+const refActs = {}, refDust = { node: null, curve: null, mats: [], a: 0 };
+function curveAt(cv, t) { if (t <= cv[0][0]) return cv[0][1]; for (let i = 1; i < cv.length; i++) if (t <= cv[i][0]) { const [t0, a0] = cv[i - 1], [t1, a1] = cv[i]; return t1 > t0 ? a0 + (a1 - a0) * (t - t0) / (t1 - t0) : a1; } return cv[cv.length - 1][1]; }
+function updRefDust() {               // after the mixers: visible only while dump_dust plays; opacity from the extras curve (else the material's own alpha)
+  const n = refDust.node, a = refActs.dump_dust; if (!n) return;
+  const on = !!(a && a.isRunning()); n.visible = on; if (!on) { refDust.a = 0; return; }
+  const k = refDust.curve ? clamp(curveAt(refDust.curve, a.time), 0, 1) : 1; refDust.a = k; for (const e of refDust.mats) e.m.opacity = e.a0 * k;
+}
 function refineryLoaded(o, mx, gltf) {
   o.traverse(n => { if (n !== o && /^(Truck|HT04|HT-04)($|_Mesh|_Root)/i.test(n.name)) n.visible = false; });   // hide any baked truck (none in 4a70acf)
   let moved = false;
@@ -239,6 +250,13 @@ function refineryLoaded(o, mx, gltf) {
     const near = mkW.find(([nm, x, z]) => Math.hypot(lx - x, lz - z) < 1.2);
     const red = [].concat(n.material).some(m => m && m.color && m.color.r > .5 && m.color.g < .3 && m.color.b < .3);
     if (round && (near || red)) { n.visible = false; sus.push({ name: n.name || '(unnamed)', parent: n.parent && n.parent.name, at: [+lx.toFixed(2), +c3.y.toFixed(2), +lz.toFixed(2)], size: +mx3.toFixed(2), near: near && near[0], red }); } });
+  // Art 9db5b33: Dump_Dust (8 puffs, clip dump_dust 1.5 s once per tip, rest scale 0.001) — hidden while idle; extras.opacity_curve [[t, a], …] honoured if present
+  refDust.node = o.getObjectByName('Dump_Dust'); refDust.curve = null; refDust.mats = [];
+  if (refDust.node) { const cv = refDust.node.userData && refDust.node.userData.opacity_curve;
+    if (Array.isArray(cv) && cv.length >= 2 && cv.every(k => Array.isArray(k) && isFinite(k[0]) && isFinite(k[1]))) refDust.curve = cv.map(k => [+k[0], +k[1]]).sort((a, b) => a[0] - b[0]);
+    refDust.node.traverse(m => { if (!m.isMesh) return; m.material = m.material.clone(); m.material.transparent = true; refDust.mats.push({ m: m.material, a0: m.material.opacity }); });
+    refDust.node.visible = false; }
+  Object.assign(window.__ps3d, { refDust, refActs, refMixer: mx, refSizer: mx.existingAction && (gltf.animations.find(c => c.name === 'sizer_spin') ? mx.existingAction(gltf.animations.find(c => c.name === 'sizer_spin')) : null) });
   window.__ps3d.refMarkerSpheres = sus; if (sus.length) console.warn('Refinery: hid marker-like spheres (ask Art to re-export without them)', JSON.stringify(sus));
   if (moved) buildRoute();             // the GLB's own markers replace the README fallback (before anything has settled: B1)
   window.__ps3d.refinery = o; routeReady('ref');
@@ -269,7 +287,7 @@ function fitSite(i) {
 for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
   const o = gltf.scene; o.position.set(G.i * GAP, 0, 0);
   o.traverse(n => {
-    if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
+    if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; if (n.isSkinnedMesh) n.frustumCulled = false; }   // Refinery 93c44166: Base_Paint is skinned
     if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false;
   });
   scene.add(o); o.updateMatrixWorld(true); stationObjs[G.i] = o; o.userData.camTarget = camTargetOf(o); o.userData.camOv = camOvFor(G.url);
@@ -372,7 +390,7 @@ $('coverRetry').addEventListener('click', () => {
 // ===== HT-04 haul truck prop (Art c0452bd, md5 16eccb4d…): root 'Truck' at the ground centre, +X forward at yaw 0; world-space object
 let truck = null, truckRoot = null, truckDone = false, tMixer = null, fillArcNode = null;
 const tActs = {}, wheels = [], fillMeshes = [];
-function loadTruck() { loader.load('models/ht04_c0452bd.glb?v=16eccb4d', (gltf) => {
+function loadTruck() { loader.load('../qa3d-next/models/ht04_4222799b.glb?v=4222799b', (gltf) => {
   truckRoot = gltf.scene; truck = truckRoot.getObjectByName('Truck') || truckRoot;
   truckRoot.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     if (o.morphTargetDictionary && 'fill' in o.morphTargetDictionary) fillMeshes.push([o, o.morphTargetDictionary.fill]); } });
@@ -622,7 +640,7 @@ const cashTarget = () => moneyEl;
 function bumpMoney() { const el = cashTarget(); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
 function pop(text, x, y, cls = '') {
   const el = document.createElement('div'); el.className = 'pop ' + cls; el.textContent = text;
-  el.style.left = x + 'px'; el.style.top = y + 'px'; document.body.appendChild(el); setTimeout(() => el.remove(), 1150);
+  el.style.left = x + 'px'; el.style.top = y + 'px'; document.body.appendChild(el); el.addEventListener('animationend', () => el.remove(), { once: true }); setTimeout(() => el.remove(), 4000);   // remove when the fade has really finished (a hitch can't cut it short); 4 s fallback if animations never run
 }
 function moneyXY() { const r = cashTarget().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
 function popXY() { const m = moneyXY(); return { x: m.x, y: m.y + 30 }; }   // under the HUD money
@@ -880,7 +898,7 @@ function buildRoute() {
 let roadMesh = null;
 // Art's 8 m haul-road strip (shared/road 6f06c39, md5 661e3582…, pending Director review): 11 unscaled tiles at Mine-local x 26 + 8i, both lanes (z +9 / z 0).
 // Swap back to the flat temp tiles with ?road=temp (or set ROAD_GLB to null).
-const ROAD_GLB = Q.get('road') === 'temp' ? null : 'models/haul_road_seg_661e358.glb?v=661e3582';
+const ROAD_GLB = Q.get('road') === 'temp' ? null : '../qa3d-next/models/haul_road_seg_b3c636f9.glb?v=b3c636f9';
 let roadSeg = null;
 if (ROAD_GLB) loader.load(ROAD_GLB, (g) => { g.scene.updateMatrixWorld(true); g.scene.traverse(o => { if (!roadSeg && o.isMesh) roadSeg = { geo: o.geometry, mat: o.material, m: o.matrixWorld.clone() }; }); buildTempRoad(); },
   undefined, (e) => console.warn('haul road strip failed, keeping the temp road', e));
@@ -1328,7 +1346,8 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (480, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../qa3d-next/models/launch_pad_816f18f3.glb?v=816f18f3';   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
+const PAD_GLB = '../qa3d-next/models/launch_pad_0a5806f4.glb?v=0a5806f4';   // Art 97763ba (Director-cleared): detailed starter ship; shipTint turns itself off (gated on 816f18f3)
+//   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
 // Director 10/24 00:00 stopgap: Art's gray ship massing (LP_ShipPlaceholder #8a8d94 baked into COLOR_0) reads near-black on the shaded side with no env light.
 // One-time at load, ship meshes only (Ship_Placeholder + Cargo_Door): COLOR_0 texels matching #8a8d94 (linear, ±0.012) → #d9dcdf; LP_Graphite trim and
 // everything else untouched. Gated on the pad GLB version (?v= md5 prefix, same key as CAM_OVERRIDE/camOvFor): only 816f18f3, so Art's real ship GLB turns it off.
@@ -1384,7 +1403,7 @@ function cartSwap(oldO, newO) { if (oldO && oldO.parent) oldO.parent.remove(oldO
 function loadCargoArt() {
   const L = (key, url, fn) => loader.load(url, (g) => { try { fn(g); CART.ok[key] = true; cgBind(); } catch (e) { CART.err.push(key + ': ' + e.message); console.warn('cargo art ' + key + ' bind failed (placeholder stays)', e); } },
     undefined, (e) => { CART.err.push(key + ': load'); console.warn('cargo art ' + key + ' failed to load (placeholder stays)', e); });
-  L('fb05', 'models/fb05_d526d526.glb?v=d526d526', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  L('fb05', '../qa3d-next/models/fb05_195461ef.glb?v=195461ef', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     o.position.copy(cg3.fb.position); o.rotation.copy(cg3.fb.rotation); cartSwap(cg3.fb, o); cg3.fb = o; FBS.wx = null; });
   L('box', 'models/cargo_box_66a3a00c.glb?v=66a3a00c', (g) => { const o = g.scene; o.updateMatrixWorld(true); const parts = [];
     o.traverse(m => { if (m.isMesh) { const im = new THREE.InstancedMesh(m.geometry, m.material, 64); im.name = 'CargoBoxes_' + (m.material.name || parts.length); im.castShadow = true; im.receiveShadow = true; im.count = 0;
@@ -1872,7 +1891,7 @@ function frame() {
   updOperator(gdt);
   for (const m of stationMixers) m.update(gdt);
   updFillArc();
-  updDeposits(gdt, time); updQueued(); updChunks(dt); updFx(dt); updTiers(dt);
+  updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updTiers(dt);
   updEve(); updConveyor();
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
