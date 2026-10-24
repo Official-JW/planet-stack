@@ -52,7 +52,7 @@ GAME_NAMES = {
     'rot_z': 10.0,   # deg, whole yard about +Z at the origin: the old az -100 view becomes the straight-on az -90 view
     # Director framing box on 393x852: x 18..375, y 230..640 must hold the whole assembly hall (incl. its 'ASSEMBLY HALL · AH-1' label), SN-07 + its whole
     # IS-1 stand (tower top may run off the top) and crew module YC-1. Smallest W that fits with every tier within W (flat) of Cam_Target: 76 m.
-    'phone_cam': {'target': (-4.91, -26.14, 12.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 150.0},   # base + EVERY tier fit Coder bands: 393x852 y144-568, 375x667 y144-383, x12..W-12
+    'phone_cam': {'target': (-14.3, -44.8, 14.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 98.0},   # base + EVERY tier fit: 393x852 y165-534 (Playtester insets), 375x667 y144-383, x12..W-12; 98 = tightest that fits (IS-1 46 m tower + YC-1 bind at 375x667)
 }
 
 # ====================================================================== materials
@@ -336,7 +336,7 @@ def stringers(z0, z1, n=24, skip=(), mat=None, ctr=SC, c='Mine'):
 SHIP_SRC = os.environ.get('SY_SHIP_SRC') or os.path.normpath(os.path.join(HERE, '..', '..', '..', 'ship', 'starter_ship', 'starter_ship_master.blend'))   # AA2's ship master (git 46a9346)
 SHIP_YAW = math.radians(45.0)      # ship-frame yaw on the stand: open cargo door toward the game camera; legs + radiator wings clear of the tower
 SHIP_CUT = (19.4, 25.1)            # ship-frame z: cargo-bay top band | crew-deck top band
-SHIP_LIFT = 4.2                    # the crew-deck ring hangs 4.2 m above the open top of the stack
+SHIP_LIFT = 13.2                   # crew-deck ring hangs 13.2 m above the open top: the whole ring clears the z30 C-platform (>=1 m) across the swing; shorter hoist
 SHIP_DROP = ('LightMast', 'PowerMast', 'Umb', 'Crate', 'HoistLoadLine', 'HoistHook', 'HoistSling', 'HoistTagLine')   # AA2's pad kit / cargo, not the ship
 SHIP_WHOLE = ('RadiatorWing', 'RadiatorTube', 'RadiatorHeader', 'RadiatorGlow', 'RadBracket')                       # installed whole with the stack
 SHIP_GAME_TRIS = {'stack': 4500, 'ring': 1100}   # game GLB: SN-07 pieces decimated to these before merging (stack -> base, ring -> Crane_Jib)
@@ -879,17 +879,18 @@ rbox('t12_umb_mast', (1.2, 1.2, 10.0), (U2X, U2Y, TOP + 5.0), WHITE, r=0.12, seg
 for s_ in (-1, 1):
     cable('t12_umb_hose', (U2X - 0.3 * s_, U2Y + 0.6, TOP + 9.2), (SHX + 1.4 + 0.3 * s_, SHY - SR * 0.93, TOP + 8.0), 0.13, FOIL, sag=0.9, n=12, c=TC)
 grp_end(_t, 'Tier_12')
-# Tier_20 - tall Mars-class stand (pad + 72 m tower + jib) on a new sintered pad north of IS-1, past the yard edge
+# Tier_20 - tall Mars-class stand (pad + 49 m tower + jib; was 72 m, shortened for the phone frame - still tops IS-1 and the SN-07 stack) on a new sintered pad north of IS-1, past the yard edge
 #           (within one frame_w of Cam_Target; 13 m pad with a skirt down to the bare ground so it sits on the regolith)
 _t = grp_begin()
 MSX, MSY = 6.0, 35.5
 lathe('t20_pad', [(0, -0.35), (13.0, -0.35), (13.0, YTOP), (12.5, YTOP + 0.4), (0, YTOP + 0.4)], (MSX, MSY, 0), SINTER, segs=48, smooth=False, c=TC)
 MTa = math.radians(45); MTX, MTY = MSX + math.cos(MTa) * 9.0, MSY + math.sin(MTa) * 9.0
-lattice_tower('t20_tower', MTX, MTY, 5.0, 72.0, 8.0, MTa, col_w=0.8)
-rbox('t20_cap', (6.4, 6.4, 1.4), (MTX, MTY, YTOP + 72.7), WHITE, rot=(0, 0, MTa), r=0.15, segs=1, c=TC)
+T20H = 49.0
+lattice_tower('t20_tower', MTX, MTY, 5.0, T20H, 7.0, MTa, col_w=0.8)
+rbox('t20_cap', (6.4, 6.4, 1.4), (MTX, MTY, YTOP + T20H + 0.7), WHITE, rot=(0, 0, MTa), r=0.15, segs=1, c=TC)
 mu = -Vector((math.cos(MTa), math.sin(MTa), 0))
-beam('t20_jib', Vector((MTX, MTY, YTOP + 74.0)) - mu * 5.0, Vector((MTX, MTY, YTOP + 74.0)) + mu * 12.0, 1.1, 1.3, WHITE, bevel=0, c=TC)
-for z in (20.0, 36.0, 52.0):
+beam('t20_jib', Vector((MTX, MTY, YTOP + T20H + 2.0)) - mu * 5.0, Vector((MTX, MTY, YTOP + T20H + 2.0)) + mu * 12.0, 1.1, 1.3, WHITE, bevel=0, c=TC)
+for z in (14.0, 28.0, 42.0):
     a0, a1 = MTa - math.radians(60), MTa + math.radians(60)
     lathe('t20_platform', [(5.4, YTOP + z), (7.6, YTOP + z), (7.6, YTOP + z + 0.3), (5.4, YTOP + z + 0.3), (5.4, YTOP + z)], (MSX, MSY, 0), GRAPH_S, segs=14, a0=a0, a1=a1, smooth=False, c=TC)
 for k in range(4):
@@ -1032,10 +1033,11 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
     SWING = math.radians(90)
     G = nodes['Crane_Jib']; set_origin(G, RZ((TX, TY, JZ)))   # mesh stays in the turned frame -> clip values unchanged
     G.animation_data_create(); act = bpy.data.actions.new(MV['Crane_Jib'][1]); G.animation_data.action = act
-    # seamless 6.0 s loop @25 fps: swing in 1.6 s (ease), damped settle wobble (+-2.5 deg, real keys), hold; swing out 1.6 s, wobble, hold
+    # seamless 6.0 s loop @25 fps: swing in 2.4 s (ease, peak < 60 deg/s), damped settle wobble (+-2.5 deg, real keys), short hold;
+    # swing out 2.4 s, wobble, short hold. Keys: frames 0-60 in, 64/68/72 wobble, hold to 75; 75-135 out, 139/143/147 wobble, 150 = frame 0
     W1, W2 = math.radians(2.5), math.radians(1.0)
-    JK = [(0, SWING), (40, 0.0), (46, -W1), (52, W2), (58, 0.0), (65, 0.0),
-          (105, SWING), (111, SWING + W1), (117, SWING - W2), (123, SWING), (150, SWING)]   # first key == last key exactly
+    JK = [(0, SWING), (60, 0.0), (64, -W1), (68, W2), (72, 0.0), (75, 0.0),
+          (135, SWING), (139, SWING + W1), (143, SWING - W2), (147, SWING), (150, SWING)]   # first key == last key exactly
     for f, v in JK:
         G.rotation_euler = (0, 0, v); G.keyframe_insert('rotation_euler', index=2, frame=f)
     ease(act); G.rotation_euler = (0, 0, SWING); push(G, act)
@@ -1088,6 +1090,16 @@ if 'hero' in ONLY:
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
     shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 26)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 master (393x852 downscale made with PIL)
+    # RENDER-ONLY stage apron: the shared 260 m stage ends inside the frame_w 150 phone view -> square ring (inner 125 m tucked under the
+    # stage edge, outer 4 km) with the SAME shared M_ground, slightly below z 0 so it never shows through craters. Never exported (portrait only).
+    bm = bmesh.new(); R0, R1, YB, ZA = 112.0, 4000.0, 55.0, -0.05   # front band + two side bands; nothing behind the hills (sky stays black)
+    for x0, y0, x1, y1 in ((-R1, -R1, R1, -R0), (-R1, -R0, -R0, YB), (R0, -R0, R1, YB)):
+        bmesh.ops.create_grid(bm, x_segments=8, y_segments=8, size=0.5, matrix=Matrix.Translation(((x0 + x1) / 2, (y0 + y1) / 2, ZA)) @ Matrix.Diagonal((x1 - x0, y1 - y0, 1, 1)))
+    bm.transform(RZM) if hasattr(bm, 'transform') else bmesh.ops.transform(bm, matrix=RZM, verts=bm.verts[:])
+    me = bpy.data.meshes.new('Stage_Apron'); bm.to_mesh(me); bm.free()
+    for f in me.polygons:
+        if f.normal.z < 0: f.flip()
+    ap = bpy.data.objects.new('Stage_Apron', me); ap.data.materials.append(bpy.data.objects['Ground'].data.materials[0]); coll('Stage').objects.link(ap)
     PC = GAME_NAMES['phone_cam']   # same camera as the game: aimed at Cam_Target, 38 deg vertical FOV, distance from frame_w
     half = math.radians(PC['fov_y'] / 2); pw, ph = (int(A['pw']), int(A['ph'])) if 'pw' in A else ((1179, 2556) if not QUICK else (393, 852))
     dd = (PC['frame_w'] / 2) / (math.tan(half) * pw / ph)
