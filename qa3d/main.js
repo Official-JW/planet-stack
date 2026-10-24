@@ -23,15 +23,15 @@ const CFG = {
   roverBonus: 8, roverMax: 2, roverCost: 60,
   crew0: 4,                             // starting crew; the Mine operator (Operator_Deck) is one of them
   depositMax: 2, depositEvery: 8,
-  offlineRate: 0.5, offlineCapSec: 4 * 3600, awayCardMin: 5,
+  offlineRate: 0.5, offlineCapSec: 4 * 3600, awayCardMin: 5, offlineAfterSec: 300,   // Director 10/23: the 50% cut + away card only after 5 min away; shorter locks catch up at full rate
   saveEvery: 3,
 };
 const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide in portrait, 18° down
 
 const Q = new URLSearchParams(location.search);
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
-const MINE_GLB = 'models/mine_8a0bfe6.glb';             // Art 8a0bfe6 (md5 699164bb…); Path_Out_*/Path_Ret_* markers drive the route
-const REFINERY_GLB = 'models/refinery_0358ffa.glb';     // Art 0358ffa (md5 41ac6c5a…); previous: 'models/refinery_4a70acf.glb'
+const MINE_GLB = 'models/mine_219e774.glb';             // Art 219e774 levelled road end; previous: 'models/mine_8a0bfe6.glb'
+const REFINERY_GLB = 'models/refinery_bb5eed2.glb';     // Art bb5eed2 road starts at world x 274; previous: 'models/refinery_0358ffa.glb'
 const ROAD_LAST_SCALE = 1.0;   // haul road: 10 full 8 m tiles + a last tile scaled along X only. 1.0 = 11 full tiles ending at world x 274 (Art's trimmed Refinery road);
                                // 0.75 = ends at x 272, where Refinery 0358ffa's own road starts
 const DEV = Q.get('dev') === '1';
@@ -642,7 +642,7 @@ function spawnDeposit(name) {
 function makeDeposit(mk, claimed = false) {
   const m = MK[mk], x = MX + m.x, z = m.z, r = Math.max(1.6, (m.e.radius_m || 1.4) * 1.15);
   const disc = new THREE.Mesh(discGeo, discMat); disc.position.set(x, DISC_Y, z); disc.renderOrder = 2;
-  const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(x, GEMY, z); gem.castShadow = false;
+  const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(x, GEMY, z); gem.castShadow = false; gem.visible = false;   // Jacob 10/23: no floating diamonds on the Mine; the glowing ground disc is the tap target
   scene.add(disc, gem);
   const d = { id: ++depSeq, mk, x, z, r, rs: r, disc, gem, age: claimed ? 1 : 0, claimed, dig: 0 }; deposits.push(d); return d;
 }
@@ -818,7 +818,7 @@ function payPend(T, acc) {
   for (let i = S.pend.length - 1; i >= 0; i--) { const p = S.pend[i]; if (p.at > T) continue; S.pend.splice(i, 1); S.money += p.v; if (acc) acc.rich += p.v; else richPop(p.v); window.__ps3d.richPaid = (window.__ps3d.richPaid || []).concat({ at: p.at, paidAt: nowMs(), v: p.v }).slice(-10); }
 }
 function payBase(v, acc) {
-  const amt = acc ? v * CFG.offlineRate : v; S.money += amt; S.loads++;
+  const amt = acc && !acc.full ? v * CFG.offlineRate : v; S.money += amt; S.loads++;
   logU('truck', `Truck dropped a load at the Refinery, +${fmt(amt)}`);
   window.__ps3d.dumps = (window.__ps3d.dumps || []).concat({ at: nowMs(), amt, off: !!acc }).slice(-20);
   if (acc) { acc.base += amt; acc.n++; return; }
@@ -1148,14 +1148,19 @@ awayEl.addEventListener('pointerdown', (e) => e.stopPropagation());
 function catchUp(card) {
   const now = nowMs(), el = (now - S.rt) / 1000;
   if (!(el > 0)) { S.rt = now; window.__ps3d.lastAway = { sec: Math.round(el), X: 0 }; return 0; }   // clock set backward: nothing
-  const acc = { base: 0, rich: 0, n: 0 }, capEnd = S.rt + CFG.offlineCapSec * 1000;
+  const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
   S.rt = now; save();
   const X = acc.base + acc.rich;
-  if (card && el > CFG.awayCardMin && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t); catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }
-  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n };
+  if (card && !acc.full && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t); catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }
+  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, full: acc.full };
   return X;
 }
+function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
+  if (document.hidden) return; const t = nowMs(); if (t < S.rt - 1000) { S.rt = t; return; }
+  if ((t - S.rt) / 1000 > 60) catchUp(true); else { settleTo(t, null); S.rt = t; }
+}
+for (const ev of ['resume', 'pageshow', 'focus']) (ev === 'resume' ? document : window).addEventListener(ev, resync);   // iOS freeze/thaw and bfcache restores
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) save(); else { catchUp(true); clock.getDelta(); }
 });
@@ -1197,7 +1202,7 @@ function frame() {
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS,
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue,
-  buildRoute, MK, poseNow: () => { updTruck(); if (tMixer) tMixer.update(0); },
+  buildRoute, MK, poseNow: () => { resync(); updTruck(); if (tMixer) tMixer.update(0); },
   warpTo: (t) => { if (t > nowMs()) { if (HOLD !== null) HOLD = t; else WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } },
   hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
