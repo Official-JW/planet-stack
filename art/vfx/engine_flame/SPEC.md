@@ -8,6 +8,7 @@ It doesn't touch the 4 PM build, qa3d-next, or any existing timing.
   - Query options: `?w=375&h=667&dpr=2&phase=launch|land&t=<ms>&view=pad|close|hatch`. The bottom bar has play buttons.
 - **Hatch clip:** `art/vfx/engine_flame/hatch_close.glb` (animation only, 2,004 bytes, md5 `033bdb77c18939b8370bdf53ef4aa0d9`) + `hatch_close.js` (applies it, 0 draw calls). Source: `_src/build_hatch_clip.py`.
 - **Proofs:** `art/vfx/engine_flame/proofs/`
+  - Videos: `liftoff.mp4` (HC → LO + 8 s, i.e. tap 53.19 → 64.19 s, 331 frames) and `landing.mp4` (TD − 6 s → TD + 2.5 s, 256 frames). H.264 yuv420p, 30 fps, 375×667 CSS px at 1×, padded by 1 px to 376×668 because H.264 needs even sizes, official pad camera.
 
 ## 1. Director's rulings (firm)
 

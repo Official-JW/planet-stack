@@ -31,9 +31,9 @@ if (only.includes('strips')) { const pg = await page('view=pad', 375, 667, 2);
   M.strip_launch = []; for (const t of [-2100, -1960, -1800, -1300, -800, 0, 1000, 2500, 3800, 5000, 6500]) M.strip_launch.push(await shot(pg, t, 'launch', `strip_L_${t}.png`));
   M.strip_land = []; for (const t of [-6000, -4000, -2600, -1800, -1000, -300, 0, 120, 300, 700, 1500]) M.strip_land.push(await shot(pg, t, 'land', `strip_D_${t}.png`));
   await pg.close(); }
-if (only.includes('video')) { const pg = await page('view=pad', 375, 667, 2); let i = 0;
-  for (let t = -3000; t <= 8000; t += 1000 / 30) { await pg.evaluate((t) => window.__ef.frame(Math.round(t), 'launch'), t); await pg.screenshot({ path: `${OUT}/video/L_${String(i++).padStart(4, '0')}.png` }); }
-  i = 0; for (let t = -6000; t <= 2500; t += 1000 / 30) { await pg.evaluate((t) => window.__ef.frame(Math.round(t), 'land'), t); await pg.screenshot({ path: `${OUT}/video/D_${String(i++).padStart(4, '0')}.png` }); }
+if (only.includes('video')) { const VD = +(process.env.VDPR || 2), pg = await page('view=pad', 375, 667, VD); let i = 0; const shot = async (f) => { if (!fs.existsSync(f)) await pg.screenshot({ path: f }); };
+  for (let t = -3000; t <= 8000; t += 1000 / 30) { const f = `${OUT}/video/L_${String(i++).padStart(4, '0')}.png`; if (fs.existsSync(f)) continue; await pg.evaluate((t) => window.__ef.frame(Math.round(t), 'launch'), t); await shot(f); }
+  i = 0; for (let t = -6000; t <= 2500; t += 1000 / 30) { const f = `${OUT}/video/D_${String(i++).padStart(4, '0')}.png`; if (fs.existsSync(f)) continue; await pg.evaluate((t) => window.__ef.frame(Math.round(t), 'land'), t); await shot(f); }
   await pg.close(); }
 if (only.includes('metrics')) { const pg = await page('view=pad', 375, 667, 2);
   M.calls = await pg.evaluate(() => [window.__ef.countCalls(3800, 'launch'), window.__ef.countCalls(-1300, 'launch'), window.__ef.countCalls(400, 'land')]);
