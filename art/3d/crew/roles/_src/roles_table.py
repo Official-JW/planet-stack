@@ -16,8 +16,8 @@ Fields
 """
 ROLES = {
     'miner':         dict(name='Miner',         job='Mines ore at the Mine.',              accent='#ffc21a', tool='rock_pick',    extras=[],
-                          badge='crystal', arm_r=(0.26, 0.22, 0.95), roll=0.38, card_az=-14, tier=1),
-    'mine_driver':   dict(name='Mine Driver',   job='Drives the mine truck.',              accent='#2fd36b', tool='drive_yoke',   extras=['headset', 'accent_gloves'],
+                          badge='ore', arm_r=(0.26, 0.22, 0.95), roll=0.38, card_az=-14, tier=1),
+    'mine_driver':   dict(name='Mine Driver',   job='Drives the mine truck.',              accent='#2fd36b', tool='drive_controller',   extras=['headset', 'accent_gloves'],
                           badge='wheel',   arm_r=(0.16, 0.30, 0.85), tier=1),
     'mechanic':      dict(name='Mechanic',      job='Upgrades and builds.',                accent='#f0443a', tool='big_wrench',   extras=['tool_belt'],
                           badge='gear',    arm_r=(0.2, 0.36, 1.3), roll=0.28, card_az=-15, tier=1),
@@ -44,12 +44,19 @@ def _quad(p0, p1, w):
     (x0, y0), (x1, y1) = p0, p1; dx, dy = x1 - x0, y1 - y0; L = math.hypot(dx, dy); nx, ny = -dy / L * w / 2, dx / L * w / 2
     return [(x0 + nx, y0 + ny), (x0 - nx, y0 - ny), (x1 - nx, y1 - ny), (x1 + nx, y1 + ny)]
 
-def _crystal():    # faceted ore crystal: tall gem + a smaller one leaning on it
-    big = [(0.0, 0.78), (0.3, 0.38), (0.3, -0.36), (0.0, -0.7), (-0.3, -0.36), (-0.3, 0.38)]
-    small = [(-0.38, 0.22), (-0.2, -0.02), (-0.24, -0.52), (-0.46, -0.6), (-0.6, -0.12)]
-    small = [(x - 0.06, y) for x, y in small]
-    big = [(x + 0.1, y) for x, y in big]
-    return [('fan', big), ('fan', small)]
+def _ore():        # rough ore chunk: irregular lumpy rock split into three chipped facets by thin gaps (the gaps read as a vein line) + a small chip
+    A, B, C, D, E = (-0.16, 0.6), (0.2, 0.64), (0.5, 0.42), (0.68, 0.06), (0.6, -0.36)
+    F, G, H, I, J = (0.22, -0.6), (-0.28, -0.6), (-0.6, -0.34), (-0.7, 0.06), (-0.5, 0.42)
+    P, Q = (0.0, 0.16), (0.3, -0.1)
+    lump = lambda a, b, k: ((a[0] + b[0]) / 2 + k * (b[1] - a[1]), (a[1] + b[1]) / 2 - k * (b[0] - a[0]))   # bulge an edge outward
+    def piece(pts, sc=0.92):
+        cx = sum(p[0] for p in pts) / len(pts); cy = sum(p[1] for p in pts) / len(pts)
+        return [(cx + (x - cx) * sc, cy + (y - cy) * sc) for x, y in pts]
+    top = [A, lump(A, B, 0.12), B, C, P, J, lump(J, A, 0.1)]
+    right = [C, lump(C, D, 0.1), D, E, Q, P]
+    low = [P, Q, E, lump(E, F, 0.12), F, G, lump(G, H, 0.08), H, I, J]
+    chip = [(0.52, 0.62), (0.66, 0.56), (0.62, 0.44)]
+    return [('fan', piece(top)), ('fan', piece(right)), ('fan', piece(low, 0.95)), ('fan', chip)]
 
 def _wheel():      # tyre ring + hub + 3 spokes
     out = [('ring', _circle(0.74, 40), _circle(0.52, 40)), ('fan', _circle(0.17, 20))]
@@ -103,7 +110,7 @@ def _nut():        # hex nut
         aa = a0 + (a1 - a0) * f; i_.append((0.32 * math.cos(aa), 0.32 * math.sin(aa)))
     return [('ring', o, i_)]
 
-BADGES = {'crystal': _crystal, 'wheel': _wheel, 'gear': _gear, 'crate': _crate, 'bolt': _bolt, 'leaf': _leaf, 'spark': _spark, 'nut': _nut}
-BADGE_DESC = {'crystal': 'faceted ore crystal (tall gem with a smaller one beside it)', 'wheel': 'three-spoke wheel', 'gear': 'eight-tooth gear with a round hole',
+BADGES = {'ore': _ore, 'wheel': _wheel, 'gear': _gear, 'crate': _crate, 'bolt': _bolt, 'leaf': _leaf, 'spark': _spark, 'nut': _nut}
+BADGE_DESC = {'ore': 'rough ore chunk (irregular lumpy rock, three chipped facets split by a vein-line gap, small chip)', 'wheel': 'three-spoke wheel', 'gear': 'eight-tooth gear with a round hole',
               'crate': 'isometric cargo cube (three faces split by gaps)', 'bolt': 'angular power bolt', 'leaf': 'pointed leaf with a stem',
               'spark': 'four-point weld spark', 'nut': 'hex nut'}

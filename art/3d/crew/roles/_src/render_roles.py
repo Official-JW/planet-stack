@@ -119,5 +119,39 @@ elif MODE == 'preview':
         for nm, tgt, pos, lens, wh in views:
             shoot(cam, os.path.join(OUT, f'pv_{k}_{nm}.png'), tgt, pos, *wh, lens=lens)
         for ob in [root] + list(root.children_recursive): bpy.data.objects.remove(ob, do_unlink=True)
+elif MODE == 'game':
+    # in-game-size proof: game camera 38 deg vertical FOV, 18 deg look-down, figures ~20 px tall at 375x667, on open lunar rock
+    bpy.data.objects.remove(cyc, do_unlink=True)
+    for o in [o for o in st.objects if o.type == 'LIGHT']: bpy.data.objects.remove(o, do_unlink=True)
+    bm = bmesh.new(); bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=400.0)
+    me = bpy.data.meshes.new('Ground'); bm.to_mesh(me); bm.free(); gnd = bpy.data.objects.new('Ground', me); st.objects.link(gnd); me.materials.append(gm)
+    sd = bpy.data.lights.new('Sun', 'SUN'); sd.energy = 3.2; sd.angle = math.radians(4); so = bpy.data.objects.new('Sun', sd); st.objects.link(so)
+    so.rotation_euler = (math.radians(48), 0, math.radians(-35))
+    bg.inputs['Strength'].default_value = 0.9
+    sp = float(A.get('spacing', 2.4)); n = len(ROLES)
+    for i, k in enumerate(ROLES): RK.role_member(k, ((i - (n - 1) / 2) * sp, 0, 0), 0.0)
+    if ENG == 'WORKBENCH': preview_colors()
+    cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 24.0
+    lens = 24.0 / (2 * math.tan(math.radians(19)))
+    H = 1.86; px = float(A.get('px', 21)); d = 667 * H / (px * 2 * math.tan(math.radians(19)))
+    tilt = math.radians(18); tgt = Vector((0, 0, 0.9))
+    for view, sgn in (('front', -1), ('back', 1)):
+        pos = tgt + Vector((0, sgn * d * math.cos(tilt), d * math.sin(tilt)))
+        shoot(cam, os.path.join(OUT, f'game_{view}_375x667.png'), tuple(tgt), tuple(pos), 375, 667, lens=lens, samples=SAMP)
+        bpy.context.view_layer.update()
+        hs = []
+        for i, k in enumerate(ROLES):
+            x = (i - (n - 1) / 2) * sp
+            a_ = world_to_camera_view(sc, cam, Vector((x, 0, 0))); b_ = world_to_camera_view(sc, cam, Vector((x, 0, H)))
+            hs.append(dict(role=k, x=a_.x * 375, feet_y=(1 - a_.y) * 667, h_px=(b_.y - a_.y) * 667))
+        json.dump(dict(dist_m=d, lens=lens, figures=hs), open(os.path.join(OUT, f'game_{view}_layout.json'), 'w'), indent=1)
+elif MODE == 'badges':
+    # close-up of the helmet badge (crew member's right temple) on each role, one 480x480 tile per role
+    for i, k in enumerate(ROLES):
+        x = i * 4.0; RK.role_member(k, (x, 0, 0), 0.0)
+    if ENG == 'WORKBENCH': preview_colors()
+    for i, k in enumerate(ROLES):
+        x = i * 4.0; tgt = Vector((x - 0.08, 0.0, 1.67)); pos = Vector((x - 1.15, -0.7, 1.86))
+        shoot(cam, os.path.join(OUT, f'badge_tile_{k}.png'), tuple(tgt), tuple(pos), 480, 480, lens=85, samples=SAMP)
 if A.get('save-blend') and MODE == 'lineup': bpy.ops.wm.save_as_mainfile(filepath=A['save-blend'], compress=True)
 print('DONE', MODE, flush=True)

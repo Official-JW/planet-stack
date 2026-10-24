@@ -6,7 +6,7 @@ sleek white shell, graphite + cyan base, panel lines, light dust/edge wear). A r
 
 | Kit piece | Where it goes |
 |---|---|
-| **Accent colour** | pauldron lames, suit accent stripes (shin/thigh/boot/back-of-glove), helmet badge ring, tool trim |
+| **Accent colour** | **solid** shoulder plates (pauldrons) + **solid** backpack shell and side tanks, twin helmet crown stripes (brow to nape, read from behind/above), suit accent stripes (shin/thigh/boot/back-of-glove), helmet badge ring, tool trim. Pauldron lames / tank bands flip to white on the coloured plates. |
 | **Hand tool / prop** | right hand, closed power-grip glove wrapped on a 0.0175 m handle |
 | **Helmet badge** | both helmet temples (raycast onto the shell), 0.046 m medallion: accent ring, graphite disc, white symbol |
 | *extras* (optional) | small role-specific add-ons (headset, radio, tool belt, accent gloves) |
@@ -18,8 +18,8 @@ Cyan stays the suit's shared glow / UI colour on every role; accents were picked
 
 | # | Role | Accent | Tool (right hand) | Extras | Badge (original geometric symbol) | Job line |
 |---|---|---|---|---|---|---|
-| 1 | **Miner** | `#FFC21A` amber | Rock pick: long graphite haft, rubber grip, steel spike + chisel-adze head, accent collar | - | **Crystal**: tall faceted ore gem + a smaller one beside it | Mines ore at the Mine. |
-| 2 | **Mine Driver** | `#2FD36B` green | Drive yoke: round steering rim, three T spokes, hub with cyan display | headset (accent ear cup + boom mic), accent gloves | **Wheel**: three-spoke wheel | Drives the mine truck. |
+| 1 | **Miner** | `#FFC21A` amber | Rock pick: long graphite haft, rubber grip, steel spike + chisel-adze head, accent collar | - | **Ore chunk**: irregular lumpy rock split into three chipped facets by a thin vein-line gap, plus a small chip (deliberately not gem/crystal-like: crystals are the paid currency) | Mines ore at the Mine. |
+| 2 | **Mine Driver** | `#2FD36B` green | Drive controller: compact handheld twin-grip remote, white face plate with small cyan screen, two thumb sticks, accent bumper + buttons, stub antenna | headset (accent ear cup + boom mic), accent gloves | **Wheel**: three-spoke wheel | Drives the mine truck. |
 | 3 | **Mechanic** | `#F0443A` red | Heavy wrench: open C-jaw top, closed ring end, accent inlay | tool belt (two hip pouches) | **Gear**: eight-tooth gear with a round hole | Upgrades and builds. |
 | 4 | **Cargo Manager** | `#A066FF` violet | Cargo tablet: cyan manifest screen, accent header bar | shoulder radio w/ whip antenna (left shoulder) | **Crate**: isometric cargo cube, three faces split by gaps | Runs cargo and radios the crew. |
 | 5 | Engineer *(tier 2, defined, tool not built)* | `#FF7A1F` orange | multimeter | - | Bolt (angular power bolt) | Keeps the base powered and running. |
@@ -28,6 +28,7 @@ Cyan stays the suit's shared glow / UI colour on every role; accents were picked
 | 8 | Machinist *(tier 2)* | `#4D6BFF` blue | caliper | - | Nut (hex nut) | Machines parts in the workshop. |
 
 Badges are plain geometric primitives drawn by us (`roles_table.BADGES`) - no agency, brand or game marks, no text.
+**No crystal / diamond / gem shapes anywhere in the crew kit** (crystals are the game's paid currency).
 
 ## Files
 
@@ -38,12 +39,16 @@ roles/
   _src/role_kit.py      <- builds a crew member + kit: role_member(key, loc, rot_z, variant)  (monkeypatches suit_base, does not edit it)
   _src/suit_base.py     <- frozen copy of crew_pass3.py
   _src/badge2d.py       <- flat badge icon (PIL) for UI: badge_icon(key, accent, size)
-  _src/render_roles.py  <- --mode lineup | card | preview  (Cycles / WORKBENCH)
+  _src/render_roles.py  <- --mode lineup | card | game | badges | preview  (Cycles / WORKBENCH)
+                           game  : in-game-size proof (38 deg vFOV, 18 deg look-down, ~20 px figures at 375x667, front + back)
+                           badges: helmet-badge close-up tiles
   _src/make_cards.py    <- composites role cards, lineup captions, badge icons (PIL + Rajdhani)
   _src/export_kit.py    <- role-kit GLB (tools + badges, vertex colours)
   proofs/lineup_roles_1920x1080.png      captioned Cycles lineup  (proofs/_raw/lineup_raw.png = uncaptioned)
   proofs/cards/card_<role>_750x1050.png   pick-screen cards
   proofs/badges/badge_<key>_256.png       flat badge icons
+  proofs/game/                             20 px in-game proof (375x667 front/back + 4x nearest upscales)
+  proofs/helmet_badges_1600x400.png        helmet badge close-up strip
   glb/role_kit_tier1.glb                  meshopt + quantized kit props
 ```
 

@@ -12,7 +12,7 @@ from badge2d import badge_icon, hex2rgb
 FD = '/usr/share/fonts/truetype/sand-box/google/Rajdhani/'
 def font(w, size): return ImageFont.truetype(FD + f'Rajdhani-{w}.ttf', size)
 CW, CH = 750, 1050
-TOOL_LABEL = {'rock_pick': 'Rock pick', 'drive_yoke': 'Drive yoke + headset', 'big_wrench': 'Heavy wrench', 'cargo_tablet': 'Cargo tablet + radio'}
+TOOL_LABEL = {'rock_pick': 'Rock pick', 'drive_controller': 'Drive controller + headset', 'big_wrench': 'Heavy wrench', 'cargo_tablet': 'Cargo tablet + radio'}
 
 def chamfer(x0, y0, x1, y1, c):
     return [(x0 + c, y0), (x1, y0), (x1, y1 - c), (x1 - c, y1), (x0, y1), (x0, y0 + c)]

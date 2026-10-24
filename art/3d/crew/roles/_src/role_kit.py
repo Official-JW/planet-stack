@@ -260,6 +260,24 @@ def tool_drive_yoke(K, M, F):
     kcyl(K, 'YokeDisplay', (0, 0, 0.024), (0, 0, 0.029), 0.028, 0.028, M['glow'], C0, n=24)
     kcyl(K, 'YokeShaft', (0, 0, -0.07), (0, 0, -0.02), 0.022, 0.026, M['steel'], C0, n=20, bevel=0.002)
 
+def tool_drive_controller(K, M, F):
+    """Mine Driver: compact handheld drive controller (remote rig for the mine truck). Held by its right grip; the body runs
+       outward (frame -Y) to a twin grip. Front face (frame +X = finger side) carries a cyan screen; accent bumper + buttons."""
+    W, Hh, T = 0.25, 0.10, 0.05                     # width (Y), height (Z), thickness (X)
+    yc, zc = -W / 2 + 0.03, 0.085
+    grip_sleeve(K, M, F, -0.075, 0.035)
+    kcyl(K, 'CtrlGrip2', (0, yc * 2 + 0.0, -0.075), (0, yc * 2, 0.035), RH, RH, M['rubber'], F, n=20)
+    kcyl(K, 'CtrlGrip2Cap', (0, yc * 2, -0.085), (0, yc * 2, -0.07), RH + 0.004, RH + 0.003, M['graph'], F, n=20, bevel=0.002)
+    kbox(K, 'CtrlBody', (T, W + 0.035, Hh), (0, yc, zc), M['graph'], F, bevel=0.014, segs=3)
+    kbox(K, 'CtrlFace', (0.008, W - 0.01, Hh - 0.022), (T / 2 + 0.001, yc, zc), M['shell'], F, bevel=0.004, segs=2)
+    kbox(K, 'CtrlScreen', (0.006, 0.11, 0.05), (T / 2 + 0.005, yc, zc + 0.006), M['screen'], F, bevel=0.0, segs=1)
+    kbox(K, 'CtrlBumper', (T + 0.008, W + 0.02, 0.016), (0, yc, zc + Hh / 2 + 0.002), M['paint'], F, bevel=0.005, segs=2)
+    for yy in (yc + 0.085, yc - 0.085):
+        kcyl(K, 'CtrlButton', (T / 2, yy, zc - 0.012), (T / 2 + 0.012, yy, zc - 0.012), 0.011, 0.01, M['paint'], F, n=14)
+        kcyl(K, 'CtrlStick', (T / 2, yy, zc + 0.022), (T / 2 + 0.016, yy, zc + 0.022), 0.008, 0.012, M['rubber'], F, n=12)
+    kcyl(K, 'CtrlAntenna', (0, yc - 0.09, zc + Hh / 2), (0, yc - 0.09, zc + Hh / 2 + 0.07), 0.005, 0.0035, M['graph'], F, n=8)
+    S.ellip(K, 'CtrlAntennaTip', tuple(F @ Vector((0, yc - 0.09, zc + Hh / 2 + 0.074))), (0.007, 0.007, 0.007), M['aglow'], sub=1)
+
 def tool_cargo_tablet(K, M, F):
     """Cargo Manager: rugged cargo tablet held by its armoured side grip, screen facing out (frame +X), cyan manifest UI with
        accent header bar; a bumper frame in white with graphite corners."""
@@ -281,7 +299,7 @@ def tool_cargo_tablet(K, M, F):
     kbox(K, 'TabletGripArm', (0.02, RH + 0.02, 0.05), (0.0, (RH + 0.02) / 2 + 0.004, 0.07), M['graph'], F, bevel=0.004)
     kbox(K, 'TabletGripArm', (0.02, RH + 0.02, 0.05), (0.0, (RH + 0.02) / 2 + 0.004, -0.07), M['graph'], F, bevel=0.004)
 
-TOOLS = {'rock_pick': tool_rock_pick, 'big_wrench': tool_big_wrench, 'drive_yoke': tool_drive_yoke, 'cargo_tablet': tool_cargo_tablet}
+TOOLS = {'rock_pick': tool_rock_pick, 'drive_controller': tool_drive_controller, 'big_wrench': tool_big_wrench, 'drive_yoke': tool_drive_yoke, 'cargo_tablet': tool_cargo_tablet}
 
 # ---------------------------------------------------------------- badges + extras
 def _surface_hit(origin, direction, names=None):
@@ -296,6 +314,20 @@ def badge(K, M, key, center, normal, up, R=0.04, name='Badge'):
     kprism(K, name + 'Ring', [('ring', S_circle(R * 1.0, 40), S_circle(R * 0.86, 40))], 0.0065, M['paint'], F @ Matrix.Translation((0, 0, 0.0)))
     sym = [(p[0],) + tuple([(u_ * R * 0.74, v_ * R * 0.74) for u_, v_ in loop] for loop in p[1:]) for p in RT.BADGES[key]()]
     kprism(K, name + 'Symbol', sym, 0.0075, M['shell'], F @ Matrix.Translation((0, 0, 0.0)), bevel=0.0008)
+
+SOLID_ACCENT = ('Pauldron', 'Backpack', 'BackpackTank', 'BackpackFin')
+ACCENT_TO_SHELL = ('PauldronLame', 'PauldronStripe', 'BackpackTankBand')
+
+def helmet_stripes(K, M, root):
+    """twin role-colour stripes over the helmet crown, brow-top to the back of the neck (read from behind and above)."""
+    hp = next(o for o in root.children if o.name.startswith('HelmetPivot')); Hm = hp.matrix_basis
+    for sx in (-1, 1):
+        pts = []
+        for i in range(15):
+            a = math.radians(62 + (208 - 62) * i / 14)
+            d = Vector((sx * 0.30, -math.cos(a), math.sin(a))).normalized()
+            pts.append(Hm @ (S._hsurf(d) * 1.012))
+        S.hose(K, 'HelmetStripe', pts, 0.0105, M['paint'], n=10)
 
 def helmet_badges(K, M, key, root):
     hp = next(o for o in root.children if o.name.startswith('HelmetPivot'))
@@ -374,11 +406,14 @@ def role_member(key, loc=(0, 0, 0), rot_z=0.0, variant='A', name=None, tool=True
     M = kit_mats(key)
     # accent pauldron lames: the biggest accent read at phone size
     for ob in root.children_recursive:
-        if ob.type == 'MESH' and ob.name.split('.')[0] in ('PauldronLame',):
-            ob.data.materials[0] = M['paint']
+        if ob.type != 'MESH': continue
+        nm = ob.name.split('.')[0]
+        if nm in SOLID_ACCENT: ob.data.materials[0] = M['paint']           # solid role colour: shoulder plates + backpack shell
+        elif nm in ACCENT_TO_SHELL: ob.data.materials[0] = M['shell']      # trim on those plates flips to white so they still read as panels
     bpy.context.view_layer.update()
     K = Kit(root)
     helmet_badges(K, M, R['badge'], root)
+    helmet_stripes(K, M, root)
     for ex in R['extras']:
         if ex in EXTRAS: EXTRAS[ex](K, M, root, R)
     if CUR['grip'] and GRIP:
