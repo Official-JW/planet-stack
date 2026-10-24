@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><defs><radialGradient id="halo" cx="32" cy="32" r="30" gradientUnits="userSpaceOnUse">
+ <stop offset="0" stop-color="#3EE8FF" stop-opacity=".55"/><stop offset=".55" stop-color="#22CFFF" stop-opacity=".18"/>
+ <stop offset="1" stop-color="#22CFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".5" stop-color="#D5DCE3"/><stop offset="1" stop-color="#8C98A4"/></linearGradient>
+<radialGradient id="face" cx="32" cy="28" r="22" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3B444F"/><stop offset="1" stop-color="#161B21"/></radialGradient>
+<radialGradient id="orb" cx="29.5" cy="29.5" r="10" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".35" stop-color="#9FF6FF"/><stop offset="1" stop-color="#10A8D8"/></radialGradient></defs>
+<circle cx="32" cy="32" r="31" fill="url(#halo)"/>
+<circle cx="32" cy="32" r="28" fill="url(#rim)"/>
+<circle cx="32" cy="32" r="22" fill="url(#face)"/>
+<g stroke="#2A3038" stroke-width="2.4" stroke-linecap="round">
+<path d="M32 7v4M32 53v4M7 32h4M53 32h4"/></g>
+<circle cx="32" cy="32" r="16.5" fill="none" stroke="#2BD8FF" stroke-width="1.6" opacity=".7"/>
+<ellipse cx="32" cy="32" rx="17" ry="6.5" fill="none" stroke="#7FF0FF" stroke-width="2" transform="rotate(-28 32 32)"/>
+<circle cx="32" cy="32" r="13" fill="#22CFFF" opacity=".22"/>
+<circle cx="32" cy="32" r="9" fill="url(#orb)"/>
+<circle cx="45.6" cy="24.3" r="2.2" fill="#E6FDFF"/>
+</svg>
