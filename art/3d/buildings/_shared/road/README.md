@@ -1,6 +1,6 @@
 # Shared haul-road segment (Mine → Refinery), for Game Coder
 
-`haul_road_seg.glb`: **4,100 B**, md5 `661e358273159d7768be39fcf8f3ee5a`, **280 tris, 180 verts, 1 mesh / 1 draw**.
+`haul_road_seg.glb`: **16,540 B**, md5 `b3c636f90b06e1c50c8f2edda37e68e3`, **2,240 tris, 1 mesh / 1 draw** (v2 10/23 PM tyre-track trail; v1 was 4,100 B / 280 tris).
 - Material `SHM_Paint` (pbrMetallicRoughness only, roughness 0.42). Colours are in vertex colours (COLOR_0) only.
 - No textures or images, and no transmission, clearcoat or ior.
 - Packing: `EXT_meshopt_compression` + `KHR_mesh_quantization` (`gltfpack -cc -kn -ke -vpf`: float positions so the ends sit exactly at x 0 and 8.0; normals and colours quantized), no Draco.
@@ -79,3 +79,11 @@ blender -b -P _src/proof_road_tiles.py -- --mine mine_plain.glb --ref refinery_g
 # seam proof (real spacing, both joins): writes mine_top / mine_low / ref_top / ref_low, then composite 2x2
 blender -b -P _src/proof_seams.py -- --mine mine_plain.glb --ref refinery_game_plain.glb --seg seg_plain.glb --outdir /tmp/seams --samples 16
 ```
+
+## v2 look (10/23 PM, Jacob: "make the truck path more like tire track trails with better texturing")
+- Two dark compacted wheel ruts per lane with **tread chevrons** in vertex colour (rut rows every 0.19 m = half the HT-04 tread pitch, alternating dark/light, rut centre row shifted 0.09 m so each band reads as a V pointing the lane heading).
+- Dusty, lighter scuffed berms and shoulders, compacted crown, low-frequency 8 m-periodic colour variation; 92 low pebbles (≤ 7 cm proud, max y 0.30, ≥ 0.4 m from both ends, never on the ruts).
+- Still flat and still ≤ 0.30 m (POSITION y −0.040…0.300), so it stays out of the framing band check.
+- **Seams unchanged:** the cross-section heights are v1's and the x 0 / x 8 rows carry exactly the v1 positions and colours (checked on the decoded GLB: 60/60 end vertices identical; 8 extra rut-centre end vertices sit on the same −2 cm line with the average rut colour), so the Mine x 26 and Refinery x −46 joins stay flush.
+- The station roads themselves (Mine stub in mine_game.glb, Refinery RD-1) still have the v1 look; the chevron rows would add ~1–2k tris to stations at their budgets, so that is a follow-up.
+- Proofs: `proofs/haul_road_before_393x852.png` / `proofs/haul_road_after_393x852.png` (game camera, with both trucks), `proofs/haul_road_before_close_1600x900.png` / `proofs/haul_road_after_close_1600x900.png`.

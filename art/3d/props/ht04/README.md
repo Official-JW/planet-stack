@@ -1,8 +1,8 @@
 # HT-04 haul truck — shared prop (Mine + Refinery)
 
-`ht04_game.glb`: 67,344 B, md5 `16eccb4d34c33b2d5093744fadead804`, **3,859 tris, 1 draw** (one skinned mesh `Truck_Mesh`,
-material `SHM_Paint`, colours in COLOR_0, no textures). It uses EXT_meshopt_compression + KHR_mesh_quantization (gltfpack -cc -kn -ke) and no Draco.
-The budget is ≤ 4k tris and ≤ 3 draws. The no-scoop body has no arm.
+`ht04_game.glb`: 124,876 B, md5 `5e5c9fe19fe8a1d5cbec5e9708c3c824`, **8,308 tris, 2 draws** (10/23 PM detail pass; was 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
+materials `SHM_Paint` + `SHM_Glass` (see Detail pass), colours in COLOR_0, no textures). It uses EXT_meshopt_compression + KHR_mesh_quantization (gltfpack -cc -kn -ke) and no Draco.
+The budget was ≤ 4k tris and ≤ 3 draws; the detail pass takes it to ~8.3k tris (approved scope: "trucks lack detail"), draws stay ≤ 3. The no-scoop body has no arm.
 
 ## Root, origin and axes
 - The root node is `Truck`, an armature/skin root. It sits at the **origin = the ground point under the truck centre**: x is between the
@@ -55,3 +55,16 @@ All chunks and dust sit hidden inside the bed (heap base) in the rest pose.
   (`art/3d/buildings/mine/_src/build_mine.py`, which exports the truck via `--tout`).
 - The script then packs `ht04_game.glb` with `art/3d/buildings/mine/_src/pack_mine.sh` (clip prune → gltfpack → verify JSON).
 - The truck budget is `BUD['Truck']` = 3950 in build_mine.py. The heap and chunks are exempt from decimation, and the rest of the body is decimated to fit.
+
+## Detail pass (10/23 PM, Jacob: "autonomous vehicles, but they have cabs cause they can be manually driven")
+`_src/detail_pass.py` (shared by HT-04 and FB-05; `python3 detail_pass.py ht04|fb05 IN_PLAIN.glb OUT_RAW.glb`, then `gltfpack -cc -kn -ke`) appends geometry at
+glTF level to the existing skinned mesh, so **node names, joints, rest pose / IBMs, wheel joints, the `fill` morph and every clip are unchanged** (verified with three r186).
+- Autonomy kit: roof sensor mast + spinning-lidar puck, stereo camera bar, GNSS dome, whip antenna (top y 4.21), cyan status light bar, corner lidar pucks, side camera pods, front lidar + radar panel, rear camera.
+- Manual cab: door seams + gaskets + handles, amber grab handles, 3-rung ladder with amber nosing (x 1.12), mirrors with glass, tinted windshield + side/door glass, wipers, roof hatch and panel lines.
+- Running gear: 14-pitch slanted tyre tread blocks, hub cap + cyan LED ring + 6 lug nuts, mud flaps with chevrons, hazard-chevron front and rear bumpers, tail lights; light dust weathering low on the paint.
+- Paint geometry rides on `SHM_Paint` (COLOR_0, 100 % weight on one joint, zero `fill` deltas). The glass is a **2nd primitive, material `SHM_Glass`**
+  (baseColor 0.018/0.03/0.05, metallic 0, roughness 0.1, opaque, no COLOR_0; zero `fill` target) = **+1 draw**. three loads the mesh node as a Group with 2 SkinnedMeshes
+  (both carry `morphTargetDictionary.fill`, so the loader's fill traversal drives both).
+- bbox grows from (−3.60…3.69, 0…3.79, ±1.90) to (−3.70…3.75, −0.02…4.21, ±1.95).
+- Build: `_src/build_ht04.sh` now packs the base body to `$W/ht04_base.glb` and runs the detail pass into `ht04_game.glb`.
+- Proofs: `proofs/ht04_detail_closeup_3840x2160.png`, `proofs/ht04_detail_front.png`, `proofs/ht04_detail_rear.png`, `proofs/trucks_before_393x852.png` / `proofs/trucks_after_393x852.png` (game camera 38° / 18°). Renderer: `_src/render_truck_proof.py`.

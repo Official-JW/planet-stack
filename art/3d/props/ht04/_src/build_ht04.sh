@@ -11,5 +11,11 @@ B=${BLENDER:-/opt/blender-4.2.3-linux-x64/blender}; S=$REPO/art/3d/buildings/min
 cd "$REPO"
 "$B" -b -P art/3d/mine_concepts/_src/concept_b_sleek.py -P "$S/build_mine.py" -- --arm park --only none --out "$W/gen" \
      --mode game --mout "$W/raw.glb" --tout "$W/ht04_raw.glb" > "$W/build.log" 2>&1
-"$S/pack_mine.sh" "$W/ht04_raw.glb" "$REPO/art/3d/props/ht04/ht04_game.glb"   # clip prune -> gltfpack -cc -kn -ke -> verify
+"$S/pack_mine.sh" "$W/ht04_raw.glb" "$W/ht04_base.glb"   # clip prune -> gltfpack -cc -kn -ke -> verify (base body, pre detail pass)
 grep -E "WHEEL_R|TRUCK RAW" "$W/build.log"
+# 10/23 PM detail pass (autonomy kit, manual cab, treads, chevrons, SHM_Glass), appended at glTF level so joints / IBMs / clips / morph stay exact.
+# FB-05 (props/fb05/_src/build_fb05.py) must be built from $W/ht04_base.glb, then run detail_pass.py fb05 on its unpacked output.
+GP=${GLTFPACK:-/home/box/apps/gltftools/node_modules/.bin/gltfpack}
+"$GP" -i "$W/ht04_base.glb" -o "$W/ht04_base_plain.glb" -noq -kn -ke
+python3 "$REPO/art/3d/props/ht04/_src/detail_pass.py" ht04 "$W/ht04_base_plain.glb" "$W/ht04_detail_raw.glb"
+"$GP" -i "$W/ht04_detail_raw.glb" -o "$REPO/art/3d/props/ht04/ht04_game.glb" -cc -kn -ke

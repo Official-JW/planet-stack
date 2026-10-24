@@ -5,7 +5,8 @@ A flatbed sibling of HT-04. It reuses HT-04's cab, chassis, six wheels and SHM_P
 | | |
 |---|---|
 | File | `fb05_game.glb`: meshopt + KHR_mesh_quantization, no Draco, no images |
-| Budget | **3,500 tris / 1 draw** (SHM_Paint, vertex colours; cyan strips are paint, as on HT-04). Limit ≤4k / ≤3 |
+| Budget | **7,865 tris / 2 draws** (10/23 PM detail pass: SHM_Paint vertex colours + SHM_Glass tinted glass; was 3,500 / 1). Limit ≤8.5k / ≤3 (`verify_props.mjs`) |
+| Packed | 91,140 B, md5 `7de100d5f8196d01ca194e31c5d53f7a` |
 | Root | `FB05` (armature). Origin is ground centre between the axle groups. **+X forward (yaw 0)**, +Y up, left = −Z |
 | Size | 8.8 m long (x −5.09 … +3.69), 3.8 m wide incl. mirrors (z ±1.90), 3.79 m tall, deck top y 1.90 |
 | Clips | none |
@@ -55,3 +56,7 @@ blender -b -P build_fb05.py -- /tmp/ht04_plain.glb /tmp/fb05_raw.glb
 gltfpack -i /tmp/fb05_raw.glb -o ../fb05_game.glb -cc -kn -ke
 node ../../_shared_src/verify_props.mjs fb05 ../fb05_game.glb
 ```
+
+## Detail pass (10/23 PM)
+Same kit as HT-04 (`../ht04/_src/detail_pass.py fb05`, see `../ht04/README.md`): autonomy sensors, manual-cab details, SHM_Glass, treads, hub detail; rear: chevron bumper with lidar pucks, mud-flap chevron bands, rear camera, deck panel lines. Joints, markers (`Bed_Slot_01/02` unchanged) and root extras unchanged. Rebuild: `build_fb05.py` from the **base** HT-04 (`build_ht04.sh` → `$W/ht04_base.glb`), unpack with `gltfpack -noq -kn -ke`, then `detail_pass.py fb05`, then `gltfpack -cc -kn -ke`.
+Proofs: `proofs/fb05_detail_closeup_3840x2160.png`, `proofs/trucks_before_393x852.png` / `proofs/trucks_after_393x852.png`.

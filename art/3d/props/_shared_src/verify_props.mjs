@@ -8,7 +8,7 @@ const { MeshoptDecoder } = await import(NM + '/three/examples/jsm/libs/meshopt_d
 const [kind, f] = process.argv.slice(2); const buf = fs.readFileSync(f);
 await MeshoptDecoder.ready;
 const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder);
-const BUD = { fb05: [4000, 3], box: [700, 2], crane: [3000, 3], receiver: [3000, 2] }[kind];
+const BUD = { fb05: [8500, 3], box: [700, 2], crane: [3000, 3], receiver: [3000, 2] }[kind];
 const fail = []; const r3 = v => v.toArray().map(x => +x.toFixed(3));
 l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (g) => {
   let draws = 0, tris = 0; const mats = new Set();

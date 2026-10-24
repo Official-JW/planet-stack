@@ -14,7 +14,7 @@ The build is fully standalone: it reads no Mine markers, layout or GLB (`REFINER
 |---|---|
 | Master | `refinery_master.blend` (10/23 22:41 rebuild with `_src/intake_db2.py`, incl. stage and the placed HT-04, Blender 4.2, procedural shading) |
 | Master GLB | `refinery_master.glb` (10/23 23:17, DB-2 / intake upgrade + shared HT-04), 3,137,720 B, md5 `b301255d3d1c8aad709535e32f06a546`, 397,420 tris, `gltfpack -cc -kn -km -vpf` (meshopt + quantization, float positions because of the 370 m stage; no Draco), then clearcoat / transmission / ior stripped from the JSON (no images). Review asset, not for the game |
-| **Game GLB** | `refinery_game.glb`, **257,292 B**, md5 `ed75c09e3038ccdb4c8dc4b28bcc2507` (10/23 PM, DB-2 dump bay + RB-2 / AF-1 / SZ-1 / CV-0 intake upgrade). **29,300 tris and 15 draws with every tier visible** (budget 30k / 15; draws now at the cap) |
+| **Game GLB** | `refinery_game.glb`, **260,192 B**, md5 `ea5ab7af54134c312cdd43f284fac642` (10/24 00:06: PL-1 marker posts white + cyan band, on top of the 10/23 PM DB-2 / intake upgrade). **29,356 tris and 15 draws with every tier visible** (budget 30k / 15; draws now at the cap) |
 | Game GLB format | `EXT_meshopt_compression` + `KHR_mesh_quantization` only (no Draco). 4 shared materials `SHM_Paint`, `SHM_GlowCyan`, `SH_GlowRed`, `SH_Dust` (dust only: `alphaMode` BLEND, alpha from `COLOR_0`.a), each only `pbrMetallicRoughness` + `emissiveFactor` (no transmission / clearcoat / ior / emissive_strength), no images or textures. Colour comes from `COLOR_0` vertex colours. **No truck geometry** (only the `Truck_*` markers), no astronauts. `strings refinery_game.glb \| grep -i lh2` is empty (same for the master GLB) |
 | Units / axes / origin | 1 m, Y up. **Origin = `Truck_Dump`** (HT-04 centre while tipping). No rotation: place it like any station, `position.set(i*GAP, 0, 0)` |
 | Station camera | **`Cam_Target` glTF (−6.90, 2.08, 5.45)**, extras `frame_w` **34.4**, `fov_y_deg` 38, `pitch_down_deg` 18, `distance_m_393x852` 108.29 (refit 10/23 21:05 for the iPhone-inset band, see Fit). Camera on +Z looking down −Z |
@@ -175,7 +175,7 @@ Clips (all loop): `kiln_spin` 4.0 s (one turn), `conveyor_he3_run` / `conveyor_f
 | `Crew_Path_01..07` | (−7.3, 0.1, −20.95), (−8.0, 0.1, −20.95), (−10.7, 0.1, −19.55), (−12.5, 5.45, −21.6), (−17.1, 0.1, −19.75), (1.0, 0.1, −20.35), (2.0, 0.1, −5.0) | | airlock → intake |
 
 ## Validation
-- Packed game GLB (10/23 PM): 15 draws, 29,300 tris, extensionsUsed = [KHR_mesh_quantization, EXT_meshopt_compression], 0 images / textures, material keys only
+- Packed game GLB (10/24 00:06, marker posts): 15 draws, 29,356 tris, extensionsUsed = [KHR_mesh_quantization, EXT_meshopt_compression], 0 images / textures, material keys only
   name / pbrMetallicRoughness / emissiveFactor, 7 clips, no truck nodes besides the `Truck_*` markers. `strings refinery_game.glb | grep -i lh2` → empty.
 - Master build: `RELAYOUT moved 1112 neg 0`, `BELOW_GROUND` only `tf_lox` / `tf_lch4` at −0.34 (the intended buried PL-1 risers). Phone `FIT_TIER` all OK.
 - Every proof was read at full size (and the truck / bin crop at 1179 checked: the tipping HT-04 is fully visible, nothing of the bin in front of it).
@@ -192,3 +192,10 @@ Only the dump bay and the intake (hopper, grizzly, feeder, sizer, CV-0 tail) cha
 - Proofs (all in `proofs/`, game GLB + shared HT-04, Cycles 24 samples): bay close-up `refinery_intake_before_3840x2160.png` (HEAD c53013e GLB) / `refinery_intake_after_3840x2160.png` (empty bay); override camera `refinery_station_override_before_{393x852,375x667}.png` / `refinery_station_override_{393x852,375x667}.png`, the same at 2x (`*_before2x_*`, `*_after2x_*`); side-by-side with the safe band drawn and a bay crop: `refinery_dumpbay_before_after_393x852.png` / `_375x667.png`; tip moment with dust mid-clip `refinery_truck_dump_moment.png`.
 - Hero `refinery_hero_3840x2160.png`, `turntable/` and `refinery_turntable_sheet.png` re-rendered 10/23 23:00-23:26 from the upgraded master (no marker balls).
 - In game the green lens rides on `SHM_GlowCyan` (reads cyan-white); amber and red lenses are unlit paint. Small rails, nozzles, posts and stencil text are culled from the game GLB (present in the master).
+
+## PL-1 marker posts (10/24 00:06)
+The 7 buried-pipeline marker posts `plm0..plm6` are now **white with one cyan glow band near the top** (were RF_Red). Done as a game-GLB patch
+(`_src/patch_marker_posts.py`: 168 post vertices recoloured to the station white in Base_Paint, a 4-sided band y 0.66–0.73 per post added to Base_GlowCyan, +56 tris,
+**0 extra draws**, same materials, clips, nodes and extras), so the rest of the decimated station is untouched. `build_refinery.py` has the same change at the source
+(`plm{k}_pole` WHITE_S, new `plm{k}_band` CYANL), so a full rebuild matches. `refinery_master.glb` / `.blend` and the hero/turntable renders still show red posts (not rebuilt).
+Proofs: `proofs/refinery_markerposts_before_393x852.png` / `_after_393x852.png` (station camera) and `proofs/refinery_markerposts_before_closeup_1600x1000.png` / `_after_closeup_1600x1000.png`.
