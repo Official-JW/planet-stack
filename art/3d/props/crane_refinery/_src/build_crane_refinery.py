@@ -123,17 +123,18 @@ m.box((1.6, 0.02, 0.03), (0, -0.6, 0.07), P['cyan'], mat=1, bone=H)
 for sx in (-1, 1):
     for sy in (-1, 1): m.box((0.16, 0.16, 0.08), (sx * 1.0, sy * 0.52, 0.02), lin('#ffb020'), bone=H)   # twistlock pads
 # ---- 8-box pallet (static, Crane_Base), east of the pedestal in the median: 2 x 2 footprint, stacked 2 high
-PAL_X = (4.8, 7.3); PAL_Z = (-0.725, 0.725); PAL_TOP = 0.15; BOX_H_ = 1.5        # glTF slot centres, deck top
-PCX, PL, PW = 6.05, 5.4, 3.2
+PS = -1                                    # pallet side: -1 = west of the mast (crane-local -X), so the mast and pallet stay clear of FB-05 in the game camera
+PAL_X = (PS * 4.8, PS * 7.3); PAL_Z = (-0.725, 0.725); PAL_TOP = 0.15; BOX_H_ = 1.5        # glTF slot centres, deck top
+PCX, PL, PW = PS * 6.05, 5.4, 3.2
 for yb in (-1.1, 0.0, 1.1): m.box((PL, 0.32, 0.09), (PCX, yb, 0.045), GRAPH)                  # skids
 m.box((PL, PW, 0.06), (PCX, 0, 0.12), lin('#8d9096'))                                           # deck plate
-for xb in (3.6, 6.05, 8.5): m.box((0.1, PW + 0.02, 0.02), (xb, 0, 0.155), STEEL)             # deck straps
+for xb in (PS * 3.6, PS * 6.05, PS * 8.5): m.box((0.1, PW + 0.02, 0.02), (xb, 0, 0.155), STEEL)             # deck straps
 m.box((PL - 0.4, 0.02, 0.04), (PCX, -PW / 2 - 0.005, 0.10), P['cyan'], mat=1)                  # cyan edge strip (camera side, glTF +z)
-for k in range(8): m.box((0.28, 0.02, 0.05), (3.6 + k * 0.66, PW / 2 + 0.005, 0.10), lin('#ffb020'))   # amber hazard dashes (back edge)
-for sx in (3.45, 8.65):
+for k in range(8): m.box((0.28, 0.02, 0.05), (PS * (3.6 + k * 0.66), PW / 2 + 0.005, 0.10), lin('#ffb020'))   # amber hazard dashes (back edge)
+for sx in (PS * 3.45, PS * 8.65):
     for sy in (-1.5, 1.5):                                                                      # corner stacking guides (L posts)
         m.box((0.14, 0.05, 0.62), (sx, sy + (0.045 if sy > 0 else -0.045), 0.46), WHITE)
-        m.box((0.05, 0.14, 0.62), (sx + (0.045 if sx > 6 else -0.045), sy, 0.46), WHITE)
+        m.box((0.05, 0.14, 0.62), (sx + (0.045 if abs(sx) > 6 else -0.045) * PS, sy, 0.46), WHITE)
         m.box((0.16, 0.16, 0.03), (sx, sy, 0.78), lin('#ffb020'))
 m.weather(seed=11, z0=0.0, z1=3.0, amt=0.45, noise=0.06)
 print('CRANE TRIS', m.tris())
@@ -163,11 +164,15 @@ ob.parent = arm; md = ob.modifiers.new('Armature', 'ARMATURE'); md.object = arm
 
 # ---------------------------------------------------------------- markers (glTF metres, crane-local; Blender (x, y, z) = glTF (x, -z, y))
 def g2b(x, y, z): return (x, -z, y)
-# Director layout (world): crane origin (318, 0, 17.5) in the median; flatbed lanes z 13 (eastbound, +X) and z 22 (westbound); FB-05 loads at x 318 on z 13
+# Director layout (world): flatbed lanes z 13 (eastbound, +X) and z 22 (westbound); FB-05 loads at x 318 on z 13.
+# Crane root at world (311, 0, 17.5) in the median: with the Refinery game camera (Cam_Target (314.1, 8.5, 3.36), frame_w 30.8) the mast
+# then projects left of the FB-05 tail, so neither bed slot nor the cab is behind the mast (at x 318 the mast hid 27% of a box on Bed_Slot_01).
 PSLOTS = [(x, PAL_TOP + lvl * BOX_H_, z) for lvl in (0, 1) for z in PAL_Z for x in PAL_X]     # 01-04 bottom, 05-08 top
 PICK = PSLOTS[0]                  # Pick_Point = Pallet_Slot_01 (over the pallet); aim at any Pallet_Slot_NN the same way
-PROOF_PICK = PSLOTS[4]            # proof clip lifts the top box over slot 01 (Pallet_Slot_05)
-TRUCK = (0.0, 0.0, -4.5)          # glTF: FB-05 root at Truck_Park = world (318, 0, 13), heading +X
+PROOF_PICK = PSLOTS[4]            # proof clip cycle 1 lifts the top box over slot 01 (Pallet_Slot_05) onto Bed_Slot_01
+PROOF_PICK2 = PSLOTS[5]           # cycle 2: Pallet_Slot_06 onto Bed_Slot_02
+CRANE_WORLD = (311.0, 0.0, 17.5)
+TRUCK = (318.0 - CRANE_WORLD[0], 0.0, 13.0 - CRANE_WORLD[2])   # glTF (7, 0, -4.5): FB-05 root at Truck_Park = world (318, 0, 13), heading +X
 SLOTS = [(TRUCK[0] - 1.15, 1.9, TRUCK[2]), (TRUCK[0] - 3.65, 1.9, TRUCK[2])]
 BOX_H = 1.5
 def solve(x, y_hook, z):
@@ -187,6 +192,9 @@ LIM = {'slew_min_rad': -math.pi, 'slew_max_rad': math.pi, 'trolley_min_m': TR_MI
        'hoist_min_m': round(CABLE_MIN, 3), 'hoist_max_m': round(CABLE_MAX, 3)}
 arm['prop'] = 'RC-1 Refinery loading crane (slewing jib crane on a pedestal)'
 arm['origin'] = 'ground centre of the pedestal, +Y up; jib points +X at Slew = 0'
+arm['world_position'] = list(CRANE_WORLD); arm['world_yaw_deg'] = 0
+arm['layout_note'] = ('place the root at world (311, 0, 17.5), yaw 0 (median of the flatbed road, lanes z 13 / z 22). FB-05 parks at world (318, 0, 13) = Truck_Park. '
+                      'Pallet west of the mast (world x 302.25-307.65). Chosen so the Refinery game camera sees both bed slots and the cab clear of the mast')
 arm.update(LIM) if hasattr(arm, 'update') else None
 for k, v in LIM.items(): arm[k] = v
 arm['hook_drop_m'] = HOOK_DROP; arm['sheave_y'] = SHEAVE_Z; arm['slew_y'] = SLEW_Z; arm['jib_y'] = JIB_Z
@@ -199,20 +207,24 @@ arm['hook_rest_local_y'] = round(SHEAVE_Z - 1.0 - HOOK_DROP - JIB_Z, 4)
 # ---------------------------------------------------------------- optional proof clip crane_load (6 s @ 30 fps, first key == last key)
 def smooth(t): t = min(max(t, 0.0), 1.0); return t * t * t * (t * (6 * t - 15) + 10)
 HOVER = 6.2
-Pth, Pr, _ = solve(PROOF_PICK[0], 0, PROOF_PICK[2]); PD = SLOTS[1]   # proof clip drops on Bed_Slot_02 (left of the mast in the game camera; slot 01 sits behind the mast)
-Dth, Dr, _ = solve(PD[0], 0, PD[2])
-if Dth - Pth > math.pi: Dth -= math.tau
-if Pth - Dth > math.pi: Dth += math.tau
-KEYS = [(0.0, Pth, Pr, HOVER), (0.9, Pth, Pr, PROOF_PICK[1] + BOX_H), (1.3, Pth, Pr, PROOF_PICK[1] + BOX_H), (2.1, Pth, Pr, HOVER),
-        (3.3, Dth, Dr, HOVER), (4.1, Dth, Dr, PD[1] + BOX_H), (4.5, Dth, Dr, PD[1] + BOX_H), (5.0, Dth, Dr, HOVER),
-        (6.0, Pth, Pr, HOVER)]
+def cyc(t0, pick, drop, th_prev):
+    Pth, Pr, _ = solve(pick[0], 0, pick[2]); Dth, Dr, _ = solve(drop[0], 0, drop[2])
+    while Pth - th_prev > math.pi: Pth -= math.tau
+    while th_prev - Pth > math.pi: Pth += math.tau
+    while Dth - Pth > math.pi: Dth -= math.tau
+    while Pth - Dth > math.pi: Dth += math.tau
+    return [(t0 + 0.0, Pth, Pr, HOVER), (t0 + 0.9, Pth, Pr, pick[1] + BOX_H), (t0 + 1.3, Pth, Pr, pick[1] + BOX_H), (t0 + 2.1, Pth, Pr, HOVER),
+            (t0 + 3.3, Dth, Dr, HOVER), (t0 + 4.1, Dth, Dr, drop[1] + BOX_H), (t0 + 4.5, Dth, Dr, drop[1] + BOX_H), (t0 + 5.0, Dth, Dr, HOVER)]
+K1 = cyc(0.0, PROOF_PICK, SLOTS[0], 0.0); K2 = cyc(6.0, PROOF_PICK2, SLOTS[1], K1[-1][1])
+KEYS = K1 + K2 + [(12.0,) + K1[0][1:]]
+CLIP_S = 12.0
 def state(t):
     for (t0, a0, r0, h0), (t1, a1, r1, h1) in zip(KEYS, KEYS[1:]):
         if t <= t1 + 1e-9:
             u = smooth((t - t0) / (t1 - t0)); return a0 + (a1 - a0) * u, r0 + (r1 - r0) * u, h0 + (h1 - h0) * u
     return KEYS[-1][1:]
-if CLIP: arm['crane_load_schedule'] = ('proof-only clip (not in the shipped GLB): 0-0.9 s lower to the top box at Pallet_Slot_05, 0.9-1.3 latch, 1.3-2.1 lift, 2.1-3.3 slew + trolley to Drop_Point_02, '
-                              '3.3-4.1 lower onto Bed_Slot_02, 4.1-4.5 release, 4.5-5.0 lift, 5.0-6.0 return; box attached 0.9-4.5 s')
+if CLIP: arm['crane_load_schedule'] = ('proof-only clip (not in the shipped GLB), 12 s: cycle 1 (0-6 s) Pallet_Slot_05 -> Drop_Point (Bed_Slot_01), cycle 2 (6-12 s) '
+                              'Pallet_Slot_06 -> Drop_Point_02 (Bed_Slot_02). Per cycle: 0.9 s down, 0.9-1.3 latch, 2.1 lifted, 3.3 over the slot, 4.1 landed, 4.1-4.5 release, 5.0 up; box attached 0.9-4.5 s')
 def pose_at(t):
     th, r, hy = state(t); L = SHEAVE_Z - hy - HOOK_DROP
     pb = arm.pose.bones
@@ -226,11 +238,11 @@ def pose_at(t):
     return th, r, L
 if CLIP:
     act = bpy.data.actions.new('crane_load'); arm.animation_data_create(); arm.animation_data.action = act
-    for f in range(0, 181):
+    for f in range(0, int(CLIP_S * 30) + 1):
         pose_at(f / 30.0)
         for bn, path in (('Slew', 'rotation_euler'), ('Trolley', 'location'), ('Hoist', 'scale'), ('Hook', 'location'), ('Hook', 'rotation_euler')):
             arm.pose.bones[bn].keyframe_insert(path, frame=f)
-    sc.frame_start, sc.frame_end = 0, 180
+    sc.frame_start, sc.frame_end = 0, int(CLIP_S * 30)
     for fc in act.fcurves:
         for kp in fc.keyframe_points: kp.interpolation = 'LINEAR'
     bpy.context.view_layer.update()

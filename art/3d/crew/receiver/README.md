@@ -19,7 +19,7 @@ The ground hand at the Refinery cargo hand-off. He walks out of the airlock, mar
 | `Receive_Point` | (0, 0, 0) | where he stands for `guide` + `check_in` (feet centred, facing +Z); `walk_out` ends here, `walk_back` starts here |
 | `Home_Point` | (−3, 0, −1.5), yaw 1.107 rad | airlock/door spot: `walk_out` starts and `walk_back` ends here, facing Receive_Point |
 
-Place the root so Receive_Point sits where he should stand. The walk is baked as root motion inside the clips: the `Receiver` node never moves, and the body travels between Home_Point and Receive_Point. The Home_Point offset then has to land on walkable ground. In the crane proofs he stands in the median at crane-local (−6, 0, −0.4), world (312, 0, 17.1), yaw 180° (facing the truck on the z 13 lane). That puts Home_Point at world (315, 18.6), clear of the pedestal and the lanes. That placement is only a suggestion; the airlock location is the Director's call.
+Place the root so Receive_Point sits where he should stand. The walk is baked as root motion inside the clips: the `Receiver` node never moves, and the body travels between Home_Point and Receive_Point. The Home_Point offset then has to land on walkable ground. In the crane proofs he stands in the median at world (316.5, 0, 17.1), yaw 180°, facing FB-05 on the z 13 lane. That is crane-local (5.5, 0, −0.4) with the crane root at (311, 0, 17.5). That puts Home_Point at world (319.5, 18.6), clear of the pedestal (x ≤ 312.7), the pallet and the lanes. That placement is only a suggestion; the airlock location is the Director's call.
 
 ## Clips (30 fps; chain walk_out → guide (loop) → check_in → walk_back → walk_out)
 | Clip | Duration | Content |

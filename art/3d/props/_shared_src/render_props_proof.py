@@ -1,7 +1,7 @@
 """Proof renders for FB-05 / cargo box / Refinery crane (CPU Cycles, low samples, OIDN, no tiling).
 Inputs are the SHIPPED GLBs unpacked (crane: the --proofclip build, same mesh/markers + proof-only crane_load clip) with `gltfpack -noq -kn -ke` (Blender has no meshopt decoder).
 blender -b -P render_props_proof.py -- --view VIEW --out PNG --w W --h H --samples N --fb FB_PLAIN --box BOX_PLAIN --crane CRANE_PLAIN
-   [--road ROAD_PLAIN --road_tiles x0,n,z,tail] [--pallet N] [--rx RX_PLAIN --rx_at x,z,yaw --rx_clip C --rx_t S] [--t CLIP_TIME] [--cam az,el,dist,tx,ty,tz] (Blender coords) | [--phone tx,ty,tz,frame_w] (glTF coords)"""
+   [--crane_at x,z] [--ref REF_PLAIN --ref_at x] [--road ROAD_PLAIN --road_tiles x0,n,z,tail] [--pallet N] [--rx RX_PLAIN --rx_at x,z,yaw --rx_clip C --rx_t S] [--t CLIP_TIME] [--cam az,el,dist,tx,ty,tz] (Blender coords) | [--phone tx,ty,tz,frame_w] (glTF coords)"""
 import bpy, sys, math
 from mathutils import Vector, Matrix, Euler
 A = sys.argv[sys.argv.index('--') + 1:]
@@ -32,7 +32,7 @@ def g2b(v): return Vector((v[0], -v[2], v[1]))
 def place_at(obj, M):  # obj world = M
     bpy.context.view_layer.update(); obj.matrix_world = M
 # ---- stage: regolith ground, sun, dark sky
-bpy.ops.mesh.primitive_plane_add(size=400, location=(0, 0, -0.002)); gnd = bpy.context.object
+bpy.ops.mesh.primitive_plane_add(size=1600, location=(240, 0, -0.002)); gnd = bpy.context.object   # covers crane-local proofs and world-placed station scenes
 gm = bpy.data.materials.new('ground'); gm.use_nodes = True; nt = gm.node_tree; b = nt.nodes['Principled BSDF']
 nz = nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 0.6; nz.inputs['Detail'].default_value = 8
 cr = nt.nodes.new('ShaderNodeValToRGB'); cr.color_ramp.elements[0].color = lin('#6f7175'); cr.color_ramp.elements[1].color = lin('#9a9ca0')
@@ -50,6 +50,8 @@ view = arg('view'); T = float(arg('t', 3.8))
 crane = fb = None; boxes = []
 if arg('crane'):
     cn = imp(arg('crane')); crane = root_of(cn, 'Crane_Refinery'); carm = next(o for o in cn if o.type == 'ARMATURE')
+    if arg('crane_at'):   # world placement (glTF x,z); everything placed from crane markers (truck, pallet boxes) follows
+        cx_, cz_ = (float(v) for v in arg('crane_at').split(',')); crane.location = g2b((cx_, 0, cz_)); bpy.context.view_layer.update()
     if carm.animation_data is None: carm.animation_data_create()
     act = next((a for a in bpy.data.actions if a.name.startswith('crane_load')), None)
     for tr in list(carm.animation_data.nla_tracks): carm.animation_data.nla_tracks.remove(tr)
@@ -68,22 +70,31 @@ def W(name):
         pos = (carm.matrix_world @ carm.pose.bones['Hook'].matrix).translation; c = crane.matrix_world.translation
         return Matrix.Translation(pos)   # the clip's hook rotator holds the box at world yaw 0
     return bpy.data.objects[name].matrix_world.copy()
-PAL_PICK = 'Pallet_Slot_05'     # the proof clip (crane_load, proof-only build) lifts this top box onto Bed_Slot_01
+# proof-only crane_load (12 s): cycle 1 Pallet_Slot_05 -> Bed_Slot_01 (box on the hook 0.9-4.5 s), cycle 2 Pallet_Slot_06 -> Bed_Slot_02 (6.9-10.5 s)
 if arg('box'):
     if crane and fb:
-        lift = 0.9 <= T <= 4.5
-        add_box(W('Bed_Slot_01'))                                   # earlier load already strapped on slot 01 (behind the mast)
-        if lift: add_box(W('Hook') @ Matrix.Translation((0, 0, -1.5)))   # box Hook_Point (top centre, 1.5 m) on the crane Hook
-        elif T > 4.5: add_box(W('Bed_Slot_02'))                     # proof clip drops on Drop_Point_02 = Bed_Slot_02
+        on_hook = (0.9 <= T <= 4.5) or (6.9 <= T <= 10.5)
+        if T > 4.5: add_box(W('Bed_Slot_01'))
+        if T > 10.5: add_box(W('Bed_Slot_02'))
+        if on_hook: add_box(W('Hook') @ Matrix.Translation((0, 0, -1.5)))   # box Hook_Point (top centre, 1.5 m) on the crane Hook
         npal = int(arg('pallet', 6))
         for i in range(1, npal + 1):
             n = 'Pallet_Slot_%02d' % i
-            if n == PAL_PICK and T >= 0.9: continue
+            if (n == 'Pallet_Slot_05' and T >= 0.9) or (n == 'Pallet_Slot_06' and T >= 6.9): continue
             add_box(W(n))
     elif fb:
         add_box(W('Bed_Slot_01')); add_box(W('Bed_Slot_02'))
     else:
         add_box(Matrix.Identity(4))
+if arg('ref'):    # --ref REFINERY_PLAIN --ref_at x : station GLB at world x, Tier_* and hidden_by_default nodes hidden (as in the game)
+    rn = imp(arg('ref')); bpy.context.view_layer.update()
+    for o in rn:
+        if o.parent is None: o.location = o.location + g2b((float(arg('ref_at', 320)), 0, 0))
+    def hide_tree(o):
+        o.hide_render = True
+        for c in o.children: hide_tree(c)
+    for o in rn:
+        if o.name.split('.')[0].startswith('Tier_') or o.get('hidden_by_default'): hide_tree(o)
 if arg('road'):   # --road_tiles x0,n,z,tail_scale (glTF, tile origin = west end, lane centres at tile z 0 and z +9)
     x0, n, rz, tail = (float(v) for v in arg('road_tiles', '-24,6,-9,0').split(','))
     xs = [(x0 + 8.0 * k, 1.0) for k in range(int(n))] + ([(x0 + 8.0 * int(n), tail)] if tail > 0 else [])
