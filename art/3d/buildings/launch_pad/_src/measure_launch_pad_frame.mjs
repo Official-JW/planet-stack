@@ -54,6 +54,8 @@ T2.updateMatrixWorld(true); T2.traverse(o => { if (o.isMesh) addMesh(o, 'Truck')
 const SKIP = (opt('--skip') || '').split(',').filter(Boolean); for (const k of SKIP) delete G[k];
 const ct = S.getObjectByName('Cam_Target'); let cam = [...W('Cam_Target').toArray(), ct.userData.frame_w];
 if (opt('--cam')) cam = opt('--cam').split(',').map(Number);
+// groups allowed to run off the screen edges: measured and reported under 'exempt', never counted in worst_spare_px or the solver
+const EXEMPT = { Road_UTurn: 'Director ruling 10/24: roads, lanes and the pad U-turn may run off screen edges.' };
 const e = 18 * Math.PI / 180, vt = Math.tan(19 * Math.PI / 180);
 function measure(c, full) {
   const res = {}; let worst = 1e9;
@@ -65,8 +67,8 @@ function measure(c, full) {
       for (let i = 0; i < A.length; i += 3) { const X = A[i], Y = A[i + 1], Z = A[i + 2]; const ww = M[3] * X + M[7] * Y + M[11] * Z + M[15];
         const sx = ((M[0] * X + M[4] * Y + M[8] * Z + M[12]) / ww + 1) / 2 * w, sy = (1 - (M[1] * X + M[5] * Y + M[9] * Z + M[13]) / ww) / 2 * h;
         if (sx < a) a = sx; if (sx > b) b = sx; if (sy < p) p = sy; if (sy > q) q = sy; }
-      const sp = { left: a - x0, right: x1 - b, top: p - y0, bottom: y1 - q }; worst = Math.min(worst, sp.left, sp.right, sp.top, sp.bottom);
-      if (full) r.groups[k] = { px: [+a.toFixed(1), +b.toFixed(1), +p.toFixed(1), +q.toFixed(1)], spare: Object.fromEntries(Object.entries(sp).map(([s, z]) => [s, +z.toFixed(1)])) }; }
+      const sp = { left: a - x0, right: x1 - b, top: p - y0, bottom: y1 - q }; const ex = k in EXEMPT; if (!ex) worst = Math.min(worst, sp.left, sp.right, sp.top, sp.bottom);
+      if (full) (ex ? (r.exempt || (r.exempt = {})) : r.groups)[k] = { px: [+a.toFixed(1), +b.toFixed(1), +p.toFixed(1), +q.toFixed(1)], spare: Object.fromEntries(Object.entries(sp).map(([s, z]) => [s, +z.toFixed(1)])), ...(ex ? { exempt: true, min_edge_px: +Math.min(...Object.values(sp)).toFixed(1), reason: EXEMPT[k] } : {}) }; }
     res[key] = r; }
   return { worst, res };
 }
@@ -85,5 +87,5 @@ if (opt('--solve')) {    // smallest frame_w (whole metres / 0.5) whose best tar
   best[0] = +bt[1].toFixed(2); cam = best; console.log('SOLVED', JSON.stringify(best));
 }
 const m = measure(cam, true);
-const out = { rule: 'spare px inside the safe band, per group, real vertices, qa3d camera math', bands: BANDS, cam_target: cam.slice(0, 3), frame_w: cam[3], worst_spare_px: +m.worst.toFixed(1), sizes: m.res };
+const out = { rule: 'spare px inside the safe band, per group, real vertices, qa3d camera math', bands: BANDS, cam_target: cam.slice(0, 3), frame_w: cam[3], worst_spare_px: +m.worst.toFixed(1), exempt_groups: EXEMPT, sizes: m.res };
 console.log(JSON.stringify(out, null, 1)); if (outp) fs.writeFileSync(outp, JSON.stringify(out, null, 1));
