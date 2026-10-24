@@ -1,0 +1,25 @@
+{
+ "cell": 0.2, "band": [0.35, 2.0], "hole": 0.35,
+ "items": [
+  {"id":"life_support","station":"Life Support","f":"../../../../qa3d/models/life_support_adfaac9.glb","x":0,"z":0,"hide":"^Tier_","markers":"^(Airlock_Door)$",
+   "pos_src":"road plan @ 1df3e3d (road v2 approved) station_x_table (x 0, z 0); GLB = the one qa3d-next loads (models/life_support_adfaac9.glb via <base href=../qa3d/>)"},
+  {"id":"mine","station":"Mine","f":"../../buildings/mine/mine_game.glb","x":160,"z":0,"hide":"^Tier_","markers":"^(Operator_Deck|Rig|Silo|Conveyor|Dep_0\\d|Path_Load|Road_Entry)$",
+   "pos_src":"road plan @ 1df3e3d (road v2 approved) station_x_table (x 160, z 0)"},
+  {"id":"refinery","station":"Refinery","f":"../../buildings/refinery/refinery_game.glb","x":320,"z":0,"hide":"^Tier_","markers":"^(Intake_Grate|Kiln_Drum|Truck_Dump|Road_Entry|Road_Exit|Fuel_Output|He3_Output)$",
+   "pos_src":"road plan @ 1df3e3d (road v2 approved) station_x_table (x 320, z 0)"},
+  {"id":"refinery_bridge","station":"Refinery","f":"../../buildings/refinery/refinery_bridge_v5_3.glb","x":320,"z":0,"hide":"^(Tier_|Box_\\d)","markers":"^(Box_Infeed|Lowerator_Bottom|Pickup_Point|Bridge_Base)$",
+   "pos_src":"bridge v5.3 GLB root is pre-translated to Refinery-local (12.28, 0, 12.25); added under the Refinery station at world (320, 0, 0) per its own placement_world"},
+  {"id":"crane_rc1","station":"Refinery","f":"../../props/crane_refinery/crane_refinery_game.glb","x":311,"z":17.5,"hide":"^(Tier_|Hook|Hoist)$","markers":"^(Pick_Point|Truck_Park)$",
+   "pos_src":"cargo_dock layout_v3 cae8f39 cfg_world_v3 RC-1 (311, 17.5) = qa3d-next CRANE_ART crane [-9, 17.5] from Refinery x 320, yaw 0"},
+  {"id":"cargo_dock","station":"Cargo Dock","f":"../../buildings/cargo_dock/layout_v3/cargo_dock_compact_v3.glb","x":360,"z":-8,"hide":"^Tier_","markers":"^(Dock_Door|Crane_Gantry|Crate_Drop|Container_Stack|Road_Entry)$",
+   "pos_src":"cargo_dock layout_v3 cae8f39 (dock at x 360, z -8; overrides road plan v2's 373)"},
+  {"id":"crane_sc1","station":"Cargo Dock","f":"../../buildings/cargo_dock/storage_crane/storage_crane.glb","x":384.6,"z":8.5,"hide":"^(Tier_|SC_Hook|Hook_Attach)$","markers":"^(Truck_Stop_Dock)$",
+   "pos_src":"cargo_dock layout_v3 cae8f39 cfg_world_v3 SC-1 (384.6, 8.5), yaw 0"},
+  {"id":"launch_pad","station":"Launch Pad","f":"../../buildings/launch_pad/launch_pad_game.glb","x":457,"z":0,"hide":"^(Tier_|Ship_Placeholder|Hook|Hoist)$","markers":"^(Ladder_Foot|Receiver_Spot|Receiver_Home|Truck_Stop|Ship_Center|Fuel_Hookup|Crane|Cargo_Door|Hold_Door|Road_Entry|Road_Exit)$",
+   "pos_src":"road plan @ 1df3e3d (road v2 approved) station_x_table (x 457, z 0); GLB = the committed one qa3d-next loads"},
+  {"id":"launch_pad_ship","station":"Launch Pad","f":"../../buildings/launch_pad/launch_pad_game.glb","x":457,"z":0,"only":"^Ship_Placeholder$","hide":"^Tier_","markers":"^(Ladder_Foot|Ship_Center)$",
+   "dynamic":"only while the ship is on the pad (Ship_Placeholder visible)","pos_src":"Ship_Placeholder inside the pad GLB (Ship_Center pad-local (0, -13)); dynamic: only while the ship is on the pad"},
+  {"id":"shipyard","station":"Shipyard","f":"../../buildings/shipyard/shipyard_game.glb","x":960,"z":0,"hide":"^Tier_","markers":"^(Hall_Door|Hall_Door_Front|Stand_Center|Crate_Drop|Road_Entry)$",
+   "pos_src":"road plan @ 1df3e3d (road v2 approved) station_x_table (x 960, z 0) + its GLB c0e9d54e"}
+ ]
+}
