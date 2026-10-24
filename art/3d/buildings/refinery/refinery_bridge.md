@@ -1,4 +1,14 @@
-# CV-3 Refinery Box Bridge — `refinery_bridge.glb` (v5.1)
+# CV-3 Refinery Box Bridge — `refinery_bridge.glb` (v5.2)
+
+v5.2 makes the carriage visibly attached and lifts the dark areas. Timings, camera and the box route are unchanged from v5.1.
+- **Guide shoe:** two C-clamps on the carriage (bone `Lift_Carriage`) wrap the full-height mast, 0.9 m apart vertically. Each wraps the carriage face, the camera face and a back return. The clamps are open on the −z side, where the west-rail ties and the ground conveyor's north rail land. A bracket joins the shoe to the carriage corner.
+- **Rack strip:** a steel guide/rack strip (y 0.9–9.0) runs on the mast's carriage face, and the shoe rides 2.2 cm off it.
+- **Hoist cable:** a sheave sits under the head beam, with a cable down to the shoe top. Its top vertices are skinned to `Bridge_Base` and its bottom vertices to `Lift_Carriage`, so it stretches with the carriage at no extra draw.
+- **Far-right post: no shoe.** That post stops at y 7.1 under a bearing cap, but the carriage travels from y 8.1 down to 1.42. A clamp could not stay on the post at the top or pass the cap, so the far-right post is left without a shoe.
+- **Lighter underside:** the deck pan is now satin, and the guide beams and the under-strip are now light white. The floor beams went from graphite to mid graphite.
+- **Tower opening:** the span opening in the tower now has light reveals (jambs and head) and a cyan glow strip under the head. No new materials.
+- **Budget:** +156 tris (3,908), still 4 draws.
+
 
 v5.1 is the Director's option B retime of v5. Geometry and camera are unchanged. The heavy lift now moves slowly: the box and carriage come down the visible lowerator at **≤ 1.0 m/s, eased in and out**. The hidden rise is shorter to keep the 33.887 s arrival, and `box_convey` is now **44 s** so the single carriage is back at the top before each next box.
 
@@ -101,16 +111,16 @@ Results:
   |---|---|---|---|---|---|
   | 0.186 | 0.139 | 0.119 | 0.148 | 0.351 | ≥ 0.5 |
 - Support never rises above the box base (max −0.005 m). The tilted box is rested on the chute, so it never sinks in.
-- Carriage vs static: minimum 0.034 m, at the bottom stop.
+- Carriage vs static (carriage, shoes and cable): minimum 0.021 m. This is the shoe's back return passing the mast panel bands. The shoes and cable are also tested against every box, and the box clearances are unchanged from v5.1.
 - The largest yaw step is 4.45°/frame, during `table_turn` only.
 
 ## Budget
-- 3,752 tris, 4 draws: `Bridge_Static` and `Bridge_Moving` with SHM_Paint + SHM_GlowCyan each.
-- 71,244 B.
+- 3,908 tris, 4 draws: `Bridge_Static` and `Bridge_Moving` with SHM_Paint + SHM_GlowCyan each.
+- 72,916 B.
 - Extensions: KHR_mesh_quantization and EXT_meshopt_compression only. No Draco, images, textures, transmission, clearcoat or ior.
 
 ## Game view (Cam_Target (313.1, 2.08, 13.55), frame_w 37.5; camera unchanged)
-All numbers are edge-sampled over every clip sample (re-measured for v5.1: unchanged) (`proofs/refinery_bridge_dumpbay_check.json`). The dump bay outline is drawn orange in the proofs.
+All numbers are edge-sampled over every clip sample (re-measured for v5.2: unchanged from v5.1) (`proofs/refinery_bridge_dumpbay_check.json`). The dump bay outline is drawn orange in the proofs.
 
 | | 393×852 | 375×667 |
 |---|---|---|
@@ -126,7 +136,7 @@ The v4 edge-sampled numbers, for comparison: 393 gap 3.5 px, lowerator right 1.4
 - Build: `blender -b -P _src/build_bridge.py -- raw.glb [--box /tmp/cargo_box_plain.glb]`. The env vars `BR_LX` (lowerator centre x, default 9.0), `BR_EE` (span end set-back, default 1.6) and `BR_LOWDUMP` (dump the lift-section polygons as JSON). Make the box input with `gltfpack -i art/3d/props/cargo_box/cargo_box_game.glb -o /tmp/cargo_box_plain.glb -noq -kn -ke`.
 - Pack: `gltfpack -i raw.glb -o refinery_bridge.glb -cc -kn -ke -af 10`.
 - Proofs: `_src/render_bridge_proofs.py` (`--phone` for the game camera, `--clip box_convey|box_path`).
-  - `proofs/refinery_bridge_393x852.png` and `_375x667.png`: box_convey at t 22 s (box on the carriage, mid-descent), with band lines and the dump bay outline. Cycles, 24 samples, OIDN (v5.1, ea5b99f).
-  - `_before_after.png`: v5 (3eb9b42, t 28) vs v5.1 (t 22) at both sizes, 2× size.
+  - `proofs/refinery_bridge_393x852.png` and `_375x667.png`: box_convey at t 22 s (box on the carriage, mid-descent), with band lines and the dump bay outline. **v5.2: Eevee, 24 samples.** Cycles was on hold during the Playtester runs.
+  - `_before_after.png`: v5.1 vs v5.2, Eevee, t 22, lift crops at 2×.
   - `_clipcheck.json`: the 30 Hz box-vs-geometry clip check (box_path and box_convey).
-  - `_closeup_4k.png`: v5.1 (ea5b99f) 3840×2160 Cycles close-up, 64 samples, OIDN. It shows box_convey at t 22 s with Box_1 on the lift carriage mid-descent, the −32° span into the south tower, and Box_3 on the pickup turntable. Camera `--cam 32,13,33,331.8,-13.8,5.6 --lens 45`.
+  - `_closeup_4k.png`: **still v5.1** (no shoes or cable, old underside). The v5.2 re-render is queued until the heavy-render hold lifts. v5.1 (ea5b99f) 3840×2160 Cycles close-up, 64 samples, OIDN. It shows box_convey at t 22 s with Box_1 on the lift carriage mid-descent, the −32° span into the south tower, and Box_3 on the pickup turntable. Camera `--cam 32,13,33,331.8,-13.8,5.6 --lens 45`.

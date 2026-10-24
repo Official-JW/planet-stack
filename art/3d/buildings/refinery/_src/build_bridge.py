@@ -117,6 +117,11 @@ def south_tower(zc):
             if b - a > 0.01 and d - c > 0.01: S.gbox((d - c, b - a, 0.08), ((c + d) / 2, (a + b) / 2, z), WHITE)
     wall_z(1, [(RTOP - 0.15, RTOP + 1.75, CX - GW - 0.05, CX + GW + 0.05)]); wall_z(-1, [])
     wall_x(1, []); wall_x(-1, [(0.85, 2.6, zc - 0.85, zc + 0.85)])
+    # v5.2: light reveals + a glow strip in the span opening (the opening read as a dark hole)
+    zo, ow = zc + TH - 0.09, GW + 0.05
+    for sx in (-1, 1): S.gbox((0.03, 1.9, 0.6), (CX + sx * (ow + 0.015), RTOP + 0.8, zo - 0.3), WHITE2)
+    S.gbox((2 * ow + 0.06, 0.03, 0.6), (CX, RTOP + 1.765, zo - 0.3), WHITE2)
+    S.gbox((2 * GW - 0.2, 0.025, 0.05), (CX, RTOP + 1.7375, zo - 0.25), CYAN, mat=1)
     S.gbox((2 * TH + 0.2, 0.18, 2 * TH + 0.2), (0, top - 0.16, zc), GRAPH2)
     S.gbox((2 * TH - 0.2, 0.12, 2 * TH - 0.2), (0, top - 0.01, zc), WHITE2)
     S.gbox((0.9, 0.5, 0.7), (-0.5, top + 0.3, zc), WHITE)
@@ -159,24 +164,24 @@ ZP_E = (13.0 - M_REF[1] - CX * NV[1]) / DV[1]           # span z' above flatbed 
 for zp in (ZP_E,):                                        # clearance plate over flatbed lane E
     S.gbox((0.04, 0.34, 1.5), (TH + 0.05, UND + 0.19, zp), GRAPH2)          # on the chord face: nothing hangs below y 7.2
     S.text('CLR 7.2m', 0.21, B((TH + 0.075, UND + 0.19, zp)), (math.pi / 2, 0, math.pi / 2), WHITE2, mat=0)
-for z in zs: S.gseg((-(TH - 0.12), BC_T - 0.12, z), ((TH - 0.12), BC_T - 0.12, z), 0.12, 0.2, GRAPH)
-S.gbox((2 * TH - 0.3, 0.1, SL), (0, DECK - 0.05, SM), GRAPH2)
+for z in zs: S.gseg((-(TH - 0.12), BC_T - 0.12, z), ((TH - 0.12), BC_T - 0.12, z), 0.12, 0.2, GRAPH2)   # v5.2: lighter underside
+S.gbox((2 * TH - 0.3, 0.1, SL), (0, DECK - 0.05, SM), SATIN)   # v5.2: light deck pan (was graphite)
 GL, GR = CX - GW - 0.025, CX + GW + 0.025                 # v5: guide walls 2.71 m apart (inner faces), box + 0.15 m a side across the span
 for gx in (GL, GR):
     go = math.copysign(1.0, gx - CX)               # outward: beam + cap inner faces flush with the guide wall (box + 0.15)
-    S.gbox((0.12, 0.3, SL), (gx + go * 0.035, DECK + 0.2, SM), GRAPH)
+    S.gbox((0.12, 0.3, SL), (gx + go * 0.035, DECK + 0.2, SM), WHITE2)   # v5.2: light guide beams
     S.gbox((0.05, 0.5, SL), (gx, RTOP + 0.2, SM), WHITE)
     S.gbox((0.09, 0.04, SL), (gx + go * 0.02, RTOP + 0.47, SM), GRAPH2)
 for z in [SPAN0 + 2.0 * k + 1.0 for k in range(int(SL / 2.0))]:
     S.gbox((0.03, 0.46, 0.025), (GR + 0.04, RTOP + 0.2, z - 0.98), GRAPH2)
     S.gbox((0.04, 0.08, 0.14), (GR + 0.045, RTOP + 0.34, z), CYAN, mat=1)
 S.gbox((0.02, 0.05, SL - 0.4), (GR + 0.035, RTOP + 0.06, SM), CYAN, mat=1)
-S.gbox((0.3, 0.08, SL), (-0.9, UND + 0.05, SM), GRAPH1)
+S.gbox((0.3, 0.08, SL), (-0.9, UND + 0.05, SM), WHITE2)
 # transfer: the box runs on along d off the truss end onto the lift carriage (waiting at the top); the west guide carries on to the lift
 ZT1 = TZ - 0.6                                             # west guide extension end (just short of the lift's west guide x -0.82 local)
 S.gbox((0.05, 0.5, ZT1 - SPAN1 - 0.05), (GL, RTOP + 0.2, (SPAN1 + ZT1) / 2 - 0.025), WHITE)
 S.gbox((0.09, 0.04, ZT1 - SPAN1 - 0.05), (GL - 0.02, RTOP + 0.47, (SPAN1 + ZT1) / 2 - 0.025), GRAPH2)
-S.gbox((0.12, 0.3, ZT1 - SPAN1 - 0.05), (GL - 0.035, DECK + 0.2, (SPAN1 + ZT1) / 2 - 0.025), GRAPH)
+S.gbox((0.12, 0.3, ZT1 - SPAN1 - 0.05), (GL - 0.035, DECK + 0.2, (SPAN1 + ZT1) / 2 - 0.025), WHITE2)
 # south pack-out hood on the east face (v2's long infeed stub would reach back over the RB-1 hopper / dump bay in the game view)
 S.gbox((0.5, 2.1, 2.0), (-TH - 0.25, 1.45, -TZ), WHITE)          # on the far (-x', east) face: hidden behind the tower in the game view
 S.gbox((0.54, 0.06, 2.04), (-TH - 0.25, 2.52, -TZ), GRAPH2)
@@ -207,6 +212,7 @@ S.gbox((0.36, 0.15, 0.36), L(QX, 7.175, -QZ), GRAPH2)                           
 for y in (2.2, 4.4, 6.6, 8.8):                                                      # panel lines on the mast
     S.gbox((PW + 0.01, 0.03, PW + 0.01), L(-QX, y, QZ), GRAPH2)
 S.gbox((0.05, 6.2, 0.02), L(-QX, 4.9, QZ + PW / 2 + 0.01), CYAN, mat=1)
+S.gbox((0.012, 8.1, 0.07), L(-QX + PW / 2 + 0.006, 4.95, QZ), STEEL)                   # v5.2: guide rack strip on the mast's carriage face (the shoes ride on it)
 # head beam from the mast top to the truss's west top-chord end (the span end hangs off it and the far-right post; above y 10.3 > box top 9.6)
 S.gseg(L(-QX, top - 0.12, QZ), SP((-(TH - 0.12), TC, SPAN1)), 0.18, 0.22, GRAPH2)
 S.gbox((0.4, 0.3, 0.4), L(-QX, top + 0.15, QZ), WHITE)                              # hoist head
@@ -232,6 +238,18 @@ for zz in (-0.8, -0.4, 0.0, 0.4, 0.8): M.gbox((1.3, 0.012, 0.05), L(0, RTOP - 0.
 M.gbox((0.03, 0.04, 2.3), L(CAR_HX + 0.01, RTOP - 0.06, 0), CYAN, mat=1, bone='Lift_Carriage')
 M.gbox((0.16, 0.49, 0.3), L(-0.68, RTOP - 0.385, 1.18), GRAPH, bone='Lift_Carriage')       # arm to the mast (below the deck)
 M.gseg(L(-0.6, RTOP - 0.62, 1.18), L(0.4, RTOP - 0.15, 1.18), 0.1, 0.1, GRAPH, bone='Lift_Carriage')
+# v5.2 guide shoe: two C-clamps round the mast (carriage face, camera face, back return; open on the -z side where the rail ties and the ground conveyor rail land), 1.5 cm off the faces / rack
+SX0, SX1 = -QX + PW / 2 + 0.034, -QX + PW / 2 + 0.069          # carriage-side plate (x -0.786..-0.751; 2.2 cm off the rack strip)
+M.gbox((SX1 - SX0, 0.9, 0.225), L((SX0 + SX1) / 2, RTOP - 0.5, 1.5325), GRAPH2, bone='Lift_Carriage')
+for b0, b1 in ((-0.27, -0.05), (-0.95, -0.73)):
+    yc, hh = RTOP + (b0 + b1) / 2, b1 - b0
+    M.gbox((SX1 + QX + PW / 2 + 0.06, hh, 0.035), L((SX1 - QX - PW / 2 - 0.06) / 2, yc, QZ + PW / 2 + 0.0595), GRAPH2, bone='Lift_Carriage')   # camera-face plate
+    M.gbox((0.035, hh, 0.19), L(-QX - PW / 2 - 0.0425, yc, QZ + PW / 2 + 0.07 - 0.095), GRAPH2, bone='Lift_Carriage')               # back return (z 1.46..1.65: clears the ground conveyor's north rail end at z <= 1.44)
+M.gbox((0.075, 0.44, 0.16), L(-0.7375, RTOP - 0.38, 1.36), GRAPH, bone='Lift_Carriage')        # bracket: carriage corner -> shoe
+# v5.2 hoist cable: sheave under the head beam, cable down the mast's carriage face to the shoe top (top verts on Bridge_Base, bottom on the carriage: it stretches, no extra draw)
+CAB_X = -0.77
+M.gbox((0.09, 0.12, 0.1), L(CAB_X - 0.0, 10.5, QZ), GRAPH2, bone='root')
+M.gbox((0.03, 10.46 - (RTOP - 0.05), 0.03), L(CAB_X, (10.46 + RTOP - 0.05) / 2, QZ), SATIN, bone='CABLE')
 LOW_F1 = len(S.bm.faces)
 if os.environ.get('BR_LOWDUMP'):              # lift body polygons (Refinery coords) for the edge-spare measurement
     import json as _j; S.bm.faces.ensure_lookup_table()
@@ -316,6 +334,12 @@ for nme, h, ax, sg in ROLL: bone(nme, h, 'Bridge_Base')
 bone('Lift_Carriage', (nx, RTOP, nz), 'Bridge_Base')
 bpy.ops.object.mode_set(mode='OBJECT')
 ob_m = M.build('Bridge_Moving')
+if 'CABLE' in ob_m.vertex_groups:      # v5.2: split the cable's skin weights (top end fixed, bottom end on the carriage)
+    gc = ob_m.vertex_groups['CABLE']; gb = ob_m.vertex_groups.get('root') or ob_m.vertex_groups.new(name='root'); gl = ob_m.vertex_groups['Lift_Carriage']
+    ids = [v.index for v in ob_m.data.vertices if any(g.group == gc.index for g in v.groups)]
+    for i in ids: (gb if ob_m.data.vertices[i].co.z > 9.5 else gl).add([i], 1.0, 'REPLACE')
+    ob_m.vertex_groups.remove(gc)
+    print('CABLE VERTS', len(ids))
 gi = {g.index: g.name for g in ob_m.vertex_groups}
 for v in ob_m.data.vertices:
     g = gi[v.groups[0].group]
