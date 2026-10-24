@@ -1,71 +1,247 @@
 {
+ "timing": {
+  "total_s": 616.0,
+  "outbound": [
+   0,
+   277.2
+  ],
+  "at_earth": [
+   277.2,
+   338.8
+  ],
+  "returning": [
+   338.8,
+   616.0
+  ],
+  "sale_and_pop_at": 277.2
+ },
+ "layout": "thin strip only (16 pt)",
+ "strip_local": {
+  "375": {
+   "strip_w": 303,
+   "path": [
+    [
+     111,
+     9.0
+    ],
+    [
+     140.5,
+     1.0
+    ],
+    [
+     170,
+     9.0
+    ]
+   ],
+   "moon": [
+    104,
+    9.0,
+    5.5
+   ],
+   "earth": [
+    177,
+    9.0,
+    6
+   ],
+   "divider_x": 187
+  },
+  "393": {
+   "strip_w": 321,
+   "path": [
+    [
+     111,
+     9.0
+    ],
+    [
+     149.5,
+     1.0
+    ],
+    [
+     188,
+     9.0
+    ]
+   ],
+   "moon": [
+    104,
+    9.0,
+    5.5
+   ],
+   "earth": [
+    195,
+    9.0,
+    6
+   ],
+   "divider_x": 205
+  }
+ },
+ "pop": {
+  "font": "Inter 900 15 pt",
+  "max_text": "+$999,999",
+  "max_w_pt": 86.0,
+  "w_20000_pt": 77.4
+ },
  "results": {
-  "outbound_375_std": {
-   "strip": [
-    105,
-    127
-   ],
-   "caption": [
-    129,
-    139
-   ],
-   "block_bottom": 139,
-   "band_top": 144,
-   "clearance": 5
-  },
-  "at_earth_375_std": {
-   "strip": [
-    105,
-    127
-   ],
-   "caption": [
-    129,
-    139
-   ],
-   "block_bottom": 139,
-   "band_top": 144,
-   "clearance": 5
-  },
-  "returning_375_std": {
-   "strip": [
-    105,
-    127
-   ],
-   "caption": [
-    129,
-    139
-   ],
-   "block_bottom": 139,
-   "band_top": 144,
-   "clearance": 5
-  },
-  "outbound_375_thin": {
+  "outbound_375": {
    "strip": [
     105,
     121
    ],
    "band_top": 144,
-   "clearance": 23
+   "clearance": 23,
+   "hud_bottom": 102,
+   "phase": "OUTBOUND",
+   "t": 162.0,
+   "back_in": "7:34",
+   "u": 0.6311,
+   "lit": "moon"
   },
-  "outbound_393_thin": {
+  "at_earth_375": {
+   "strip": [
+    105,
+    121
+   ],
+   "band_top": 144,
+   "clearance": 23,
+   "hud_bottom": 102,
+   "phase": "AT EARTH",
+   "t": 279.0,
+   "back_in": "5:37",
+   "u": 1.0,
+   "lit": "all",
+   "pop_20000": {
+    "x": [
+     146.3,
+     223.7
+    ],
+    "y": [
+     92.1,
+     103
+    ],
+    "w": 77.4
+   },
+   "pop_999999": {
+    "x": [
+     142.0,
+     228.0
+    ],
+    "y": [
+     92.1,
+     103
+    ],
+    "w": 85.9,
+    "clear_left": 134.0,
+    "clear_right_of_hud_column": 83.0,
+    "clear_strip_top": 2
+   }
+  },
+  "returning_375": {
+   "strip": [
+    105,
+    121
+   ],
+   "band_top": 144,
+   "clearance": 23,
+   "hud_bottom": 102,
+   "phase": "RETURNING",
+   "t": 468.0,
+   "back_in": "2:28",
+   "u": 0.5532,
+   "lit": "earth"
+  },
+  "returning_tapped_375": {
+   "strip": [
+    105,
+    121
+   ],
+   "band_top": 144,
+   "clearance": 23,
+   "hud_bottom": 102,
+   "phase": "RETURNING",
+   "t": 364.0,
+   "back_in": "4:12",
+   "u": 0.9797,
+   "lit": "earth"
+  },
+  "outbound_393": {
    "strip": [
     144,
     160
    ],
    "band_top": 165,
-   "clearance": 5
+   "clearance": 5,
+   "hud_bottom": 141,
+   "phase": "OUTBOUND",
+   "t": 162.0,
+   "back_in": "7:34",
+   "u": 0.6311,
+   "lit": "moon"
   },
-  "outbound_393_std": {
+  "at_earth_393": {
    "strip": [
     144,
-    166
-   ],
-   "caption": [
-    168,
-    178
+    160
    ],
    "band_top": 165,
-   "clearance": -13
+   "clearance": 5,
+   "hud_bottom": 141,
+   "phase": "AT EARTH",
+   "t": 279.0,
+   "back_in": "5:37",
+   "u": 1.0,
+   "lit": "all",
+   "pop_20000": {
+    "x": [
+     164.3,
+     241.7
+    ],
+    "y": [
+     131.1,
+     142
+    ],
+    "w": 77.4
+   },
+   "pop_999999": {
+    "x": [
+     160.0,
+     246.0
+    ],
+    "y": [
+     131.1,
+     142
+    ],
+    "w": 85.9,
+    "clear_left": 152.0,
+    "clear_right_of_hud_column": 83.0,
+    "clear_strip_top": 2
+   }
+  },
+  "returning_393": {
+   "strip": [
+    144,
+    160
+   ],
+   "band_top": 165,
+   "clearance": 5,
+   "hud_bottom": 141,
+   "phase": "RETURNING",
+   "t": 468.0,
+   "back_in": "2:28",
+   "u": 0.5532,
+   "lit": "earth"
+  },
+  "returning_tapped_393": {
+   "strip": [
+    144,
+    160
+   ],
+   "band_top": 165,
+   "clearance": 5,
+   "hud_bottom": 141,
+   "phase": "RETURNING",
+   "t": 364.0,
+   "back_in": "4:12",
+   "u": 0.9797,
+   "lit": "earth"
   },
   "chip_375": {
    "chip": [
@@ -84,121 +260,102 @@
    "clearance": 3
   }
  },
- "path_std": [
-  [
-   137,
-   13.0
-  ],
-  [
-   209.0,
-   0.0
-  ],
-  [
-   280,
-   13.0
-  ]
- ],
- "moon": [
-  128,
-  13.0,
-  7.5
- ],
- "earth": [
-  290,
-  13.0,
-  8
- ],
- "path_thin": [
-  [
-   105,
-   9.0
-  ],
-  [
-   157.5,
-   1.0
-  ],
-  [
-   210,
-   9.0
-  ]
- ],
  "parts": [
   [
-   "moon_15pt",
+   "moon_11pt",
    [
-    45,
-    45
-   ]
+    33,
+    33
+   ],
+   2049
   ],
   [
-   "earth_16pt",
+   "earth_12pt",
    [
-    72,
-    72
-   ]
+    54,
+    54
+   ],
+   3883
   ],
   [
-   "ship_icon_13pt",
+   "ship_icon_10_5pt",
    [
-    45,
-    27
-   ]
+    36,
+    21
+   ],
+   884
   ],
   [
    "ship_glow_flame",
    [
-    33,
-    21
-   ]
+    27,
+    18
+   ],
+   543
   ],
   [
-   "pulse_ring_16pt",
+   "pulse_ring_11pt",
    [
-    48,
-    48
-   ]
+    36,
+    36
+   ],
+   1140
   ],
   [
-   "flash_landing_36pt",
+   "flash_landing_28pt",
    [
-    108,
-    108
-   ]
+    84,
+    84
+   ],
+   7667
   ],
   [
-   "path_dots_std",
-   [
-    909,
-    66
-   ]
-  ],
-  [
-   "strip_bg_std_303x22",
-   [
-    909,
-    66
-   ]
-  ],
-  [
-   "strip_bg_thin_303x16",
+   "path_dots_ref_303x16",
    [
     909,
     48
-   ]
+   ],
+   1734
+  ],
+  [
+   "strip_bg_303x16",
+   [
+    909,
+    48
+   ],
+   5198
+  ],
+  [
+   "strip_bg_tapped_303x16",
+   [
+    909,
+    48
+   ],
+   2666
   ],
   [
    "chip_bg_112x18",
    [
     336,
     54
-   ]
+   ],
+   3824
   ],
   [
    "chip_full_example",
    [
     336,
     54
-   ]
+   ],
+   10910
+  ],
+  [
+   "money_pop_example_20000",
+   [
+    270,
+    60
+   ],
+   6092
   ]
  ]
 }
