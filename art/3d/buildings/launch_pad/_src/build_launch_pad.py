@@ -1159,9 +1159,10 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
     MM = json.load(open(SHJ))['merged_materials']
     # local (not in the shared json, which has only SHM_Paint metal 0 and SHM_Metal metal 0.85): brushed stainless for the ship + cargo door,
     # metal 0.5 / rough 0.42 per the 10/24 spec. qa3d has no scene.environment, so the base stays light (~#d0d4d8 per-face swatches);
-    # ss_fill: small constant emissive lift for the shadow side, #1e2125 approved by the art lead 10/24 ('--ss_fill none' turns it off)
+    # ss_fill: small constant emissive lift for the shadow side ('--ss_fill none' turns it off). #1e2125 (art lead 10/24) read too dark on the
+    # no-envmap qa3d-next view (Playtester sign-off run 1 on 6b2c37b: shaded p25 34, 3.2 % near-black); #3a3e44 lifts the shaded side to p25 ~68
     MM = dict(MM, SHM_Stainless={'base': '#ffffff', 'metal': float(A.get('ss_metal', 0.5)), 'rough': float(A.get('ss_rough', 0.42)), 'vertex_colors': True,
-                                 **({'emissive': A.get('ss_fill', '#1e2125'), 'emissive_strength': 1.0} if A.get('ss_fill', '#1e2125') != 'none' else {})})
+                                 **({'emissive': A.get('ss_fill', '#3a3e44'), 'emissive_strength': 1.0} if A.get('ss_fill', '#3a3e44') != 'none' else {})})
     def shm(n):
         if n in bpy.data.materials and bpy.data.materials[n].get('shm'): return bpy.data.materials[n]
         d = MM[n]; m = bpy.data.materials.get(n) or bpy.data.materials.new(n); m['shm'] = 1; m.use_nodes = True
@@ -1187,6 +1188,9 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
           'LP_StainlessC': ('SHM_Stainless', A.get('ss_c', '#c6cacf')), 'LP_StainlessWeld': ('SHM_Stainless', A.get('ss_weld', '#8f959c')),
           'LP_SteelBand': ('SHM_Stainless', A.get('ss_band', '#b2b7bd')), 'LP_StainlessHeat': ('SHM_Stainless', '#77736f'),
           'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#2fe3ff')}
+    # ship solar band: navy #152a4a -> mid blue (Director 10/24, ship tone fix). #687cc4 also keeps the band's anti-aliased edge against the cyan
+    # SolarGlowLo trim outside qa3d-next's ring-albedo tolerance (|rgb - #2fe3ff| <= 48), so the 4 cyan rings are still the only ring bands found
+    SHIP_SWATCH = {'LP_SolarCell': A.get('ss_solar', '#687cc4')}
     # one material per node except Pad_Base (4) and Crane (2): forced node materials
     NODE_MAT = {'Hose_LOX': 'SHM_Metal', 'Hose_LCH4': 'SHM_Metal', 'Tier_03': 'SHM_Paint', 'Tier_05': 'SHM_Paint', 'Tier_08': 'SHM_Paint',
                 'Tier_12': 'SHM_GlowWhite', 'Tier_20': 'SHM_Paint', 'Ship': 'SHM_Stainless', 'Door': 'SHM_Stainless', 'Road': 'SHM_Paint'}
@@ -1218,6 +1222,7 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
             for p in me.polygons:
                 mn = me.materials[p.material_index].name.split('.')[0] if me.materials else 'LP_White'
                 hx = MT.get(mn, ('SHM_Paint', '#eceff2'))[1] or '#eceff2'
+                if g == 'Ship' and mn in SHIP_SWATCH: hx = SHIP_SWATCH[mn]   # ship-only swatch (pad solar masts keep their navy cells)
                 if mn not in MT: print('UNMAPPED', o.name, mn)
                 c = Vector(hexc(hx)[:3]); z = (Mw @ p.center).z
                 if MT.get(mn, ('SHM_Paint',))[0] == 'SHM_Paint' and z < 1.4 and g not in ('Ship', 'Door'):   # dust creeping up from the ground

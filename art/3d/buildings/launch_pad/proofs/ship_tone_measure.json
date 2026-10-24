@@ -1,0 +1,343 @@
+{
+ "what": "pad ship tone fix (materials only) on qa3d-next 6b2c37b, shiplook module, stopgap OFF",
+ "runner": "cd /workspace/playtest/qnext && MODS=shiplook SIZES='393 375' TAG='QA3D-next \u00b7 03:43' BASE=<local copy of qa3d-next @6b2c37b, pad GLB swapped in> OUTDIR=<own dir> bash run_next.sh (EXP_* from q6b2c37b/run1/run_s1_env.txt)",
+ "targets": {
+  "shaded_p25": "60-75 (script 50-90)",
+  "near_black": "< 1% at both sizes (script < 2%)",
+  "p90": "<= 245",
+  "ge250": "<= ~2% of ship px",
+  "rings": "4/4, #2fe3ff unchanged",
+  "stripe": "navy -> mid blue"
+ },
+ "playtester_run1_reported": {
+  "393x852": {
+   "shaded_p25": 34,
+   "mid_p50": 85,
+   "near_black_lt20": 0.0317
+  },
+  "375x667": {
+   "shaded_p25": 34,
+   "mid_p50": 84,
+   "near_black_lt20": 0.034
+  },
+  "source": "/workspace/playtest/q6b2c37b/run1 s1_*_shiplook_*"
+ },
+ "pads": {
+  "0a5806f4 (repro of Playtester baseline)": {
+   "393x852": {
+    "shaded_p25": 34,
+    "mid_p50": 86,
+    "mean_hull": 93.5,
+    "p05": 24,
+    "p90": 167,
+    "p99": 218,
+    "max": 238,
+    "near_black_lt20": 0.0318,
+    "ge250_share_of_ship_px": 0.0,
+    "ge250_share_of_hull_px": 0.0,
+    "rings": "4/4",
+    "ring_bands_y0_y1_albedoPx_litCyanPx_visFrac": [
+     [
+      923,
+      937,
+      237,
+      166,
+      0.7
+     ],
+     [
+      1006,
+      1019,
+      152,
+      91,
+      0.599
+     ],
+     [
+      1116,
+      1130,
+      200,
+      138,
+      0.69
+     ],
+     [
+      1224,
+      1241,
+      135,
+      95,
+      0.704
+     ]
+    ],
+    "hull_px": 40218,
+    "status": "fail",
+    "served_pad_md5": "0a5806f4"
+   },
+   "375x667": {
+    "shaded_p25": 34,
+    "mid_p50": 84,
+    "mean_hull": 93.7,
+    "p05": 24,
+    "p90": 167,
+    "p99": 219,
+    "max": 239,
+    "near_black_lt20": 0.034,
+    "ge250_share_of_ship_px": 0.0,
+    "ge250_share_of_hull_px": 0.0,
+    "rings": "4/4",
+    "ring_bands_y0_y1_albedoPx_litCyanPx_visFrac": [
+     [
+      442,
+      450,
+      119,
+      91,
+      0.765
+     ],
+     [
+      495,
+      502,
+      72,
+      48,
+      0.667
+     ],
+     [
+      564,
+      573,
+      91,
+      66,
+      0.725
+     ],
+     [
+      633,
+      643,
+      52,
+      36,
+      0.692
+     ]
+    ],
+    "hull_px": 16228,
+    "status": "fail",
+    "served_pad_md5": "0a5806f4"
+   }
+  },
+  "833a339b (HEAD 7edcd85)": {
+   "393x852": {
+    "shaded_p25": 35,
+    "mid_p50": 85,
+    "mean_hull": 93.3,
+    "p05": 24,
+    "p90": 167,
+    "p99": 218,
+    "max": 238,
+    "near_black_lt20": 0.0307,
+    "ge250_share_of_ship_px": 0.0,
+    "ge250_share_of_hull_px": 0.0,
+    "rings": "4/4",
+    "ring_bands_y0_y1_albedoPx_litCyanPx_visFrac": [
+     [
+      923,
+      937,
+      237,
+      165,
+      0.696
+     ],
+     [
+      1006,
+      1019,
+      152,
+      91,
+      0.599
+     ],
+     [
+      1116,
+      1130,
+      199,
+      139,
+      0.698
+     ],
+     [
+      1224,
+      1241,
+      135,
+      95,
+      0.704
+     ]
+    ],
+    "hull_px": 40442,
+    "status": "fail",
+    "served_pad_md5": "833a339b"
+   },
+   "375x667": {
+    "shaded_p25": 34,
+    "mid_p50": 84,
+    "mean_hull": 93.5,
+    "p05": 24,
+    "p90": 167,
+    "p99": 219,
+    "max": 239,
+    "near_black_lt20": 0.0355,
+    "ge250_share_of_ship_px": 0.0,
+    "ge250_share_of_hull_px": 0.0,
+    "rings": "4/4",
+    "ring_bands_y0_y1_albedoPx_litCyanPx_visFrac": [
+     [
+      442,
+      450,
+      119,
+      91,
+      0.765
+     ],
+     [
+      495,
+      502,
+      72,
+      48,
+      0.667
+     ],
+     [
+      564,
+      573,
+      91,
+      66,
+      0.725
+     ],
+     [
+      633,
+      643,
+      52,
+      36,
+      0.692
+     ]
+    ],
+    "hull_px": 16314,
+    "status": "fail",
+    "served_pad_md5": "833a339b"
+   }
+  },
+  "82131aba (this fix)": {
+   "393x852": {
+    "shaded_p25": 68,
+    "mid_p50": 105,
+    "mean_hull": 113.3,
+    "p05": 57,
+    "p90": 174,
+    "p99": 220,
+    "max": 239,
+    "near_black_lt20": 0,
+    "ge250_share_of_ship_px": 0.0,
+    "ge250_share_of_hull_px": 0.0,
+    "rings": "4/4",
+    "ring_bands_y0_y1_albedoPx_litCyanPx_visFrac": [
+     [
+      923,
+      937,
+      237,
+      231,
+      0.975
+     ],
+     [
+      1006,
+      1019,
+      152,
+      146,
+      0.961
+     ],
+     [
+      1116,
+      1130,
+      200,
+      195,
+      0.975
+     ],
+     [
+      1224,
+      1241,
+      135,
+      127,
+      0.941
+     ]
+    ],
+    "hull_px": 40450,
+    "status": "pass",
+    "served_pad_md5": "82131aba"
+   },
+   "375x667": {
+    "shaded_p25": 69,
+    "mid_p50": 104,
+    "mean_hull": 113.7,
+    "p05": 57,
+    "p90": 174,
+    "p99": 221,
+    "max": 239,
+    "near_black_lt20": 0,
+    "ge250_share_of_ship_px": 0.0,
+    "ge250_share_of_hull_px": 0.0,
+    "rings": "4/4",
+    "ring_bands_y0_y1_albedoPx_litCyanPx_visFrac": [
+     [
+      442,
+      450,
+      119,
+      118,
+      0.992
+     ],
+     [
+      495,
+      502,
+      72,
+      70,
+      0.972
+     ],
+     [
+      564,
+      573,
+      91,
+      90,
+      0.989
+     ],
+     [
+      633,
+      643,
+      52,
+      52,
+      1
+     ]
+    ],
+    "hull_px": 16314,
+    "status": "pass",
+    "served_pad_md5": "82131aba"
+   }
+  }
+ },
+ "material_changes": {
+  "SHM_Stainless.emissive (ss_fill)": [
+   "#1e2125",
+   "#3a3e44"
+  ],
+  "ship solar band swatch LP_SolarCell on node Ship only (SHIP_SWATCH / ss_solar)": [
+   "#152a4a",
+   "#687cc4"
+  ],
+  "unchanged": "metal 0.5, rough 0.42, base #ffffff, all other swatches incl. LP_ShipGlow #2fe3ff (rings + SolarGlowLo trim), pad solar masts keep #152a4a, all other materials"
+ },
+ "why_687cc4": "a lighter/greener blue (e.g. #3f6fb0, #3355aa) makes the anti-aliased edge between the band and the cyan SolarGlowLo trim fall inside the ring-albedo tolerance (|rgb-#2fe3ff|<=48) and the detector finds a 5th ring band (rings 5/5 -> FAIL). #687cc4 leaves 3 px (393) / 0 px (375) in that edge, under the 12 px band minimum.",
+ "geometry": {
+  "vs": "833a339b",
+  "triangle_sets_identical_all_15_primitives": true,
+  "winding_preserved": true,
+  "normals_identical": true,
+  "tri_mismatches": 0,
+  "node_transforms_extras_animations": "identical",
+  "ship_vertex_colour_changes": {
+   "mesh5 162a49->687cc4": 780
+  },
+  "pad_paint_dust_jitter_corners": 3297,
+  "note": "byte order of vertices differs (Blender build is not bit-reproducible: rebuilding HEAD source with the old values also differs from 833a339b in vertex order, <= 8/255 random dust jitter on SHM_Paint pad parts (3240 corners) and once a flipped diagonal on hidden Tier_08). Rebuilt until the triangle set matched 833a339b exactly; ship colour change is only the band."
+ },
+ "draws": 15,
+ "tris": 29493,
+ "clearance": "landing_clear.mjs crew_boarding.glb@a749662 (md5 0dbdf59e) v3 timings: PASS 14/14, output identical to proofs/hatch_landing_clearance_v3.json apart from pad path",
+ "frame_spare": "proofs/launch_pad_frame_spare.json regenerated: byte-identical to 7edcd85 (worst 5.3 px; Road_UTurn exempt)",
+ "images": [
+  "proofs/ship_tone_before_after_393x852.png",
+  "proofs/ship_tone_before_after_375x667.png"
+ ],
+ "before_image_note": "before = Playtester run 1 screenshots of 0a5806f4 (older pad: no flushed hatch/landing); 833a339b -> 82131aba is the materials-only step"
+}
