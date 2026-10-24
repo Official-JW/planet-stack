@@ -3,7 +3,8 @@
 // poses the crane by the solve onto Bed_Slot_01 / Bed_Slot_02 (slot 01 already loaded for slot 02), bakes all meshes (skinned too) into one BVH and
 // raycasts 3x3 per pixel over the landing box: share of the box hidden, by part; plus share of the FB-05 cab / truck hidden.
 // Also reports the screen bbox of the concrete pad / loaded pallet / FB-05 / landing box against the safe band (393x852: y 165-534, 375x667: y 144-383).
-// usage: node gamecam_occlusion.mjs CRANE.glb CRANE_X   (needs 'three' r186 + 'three-mesh-bvh' resolvable, e.g. a dir with node_modules/three -> gltftools three, npm i three-mesh-bvh)
+// usage: node gamecam_occlusion.mjs CRANE.glb CRANE_X [CAM_X CAM_Y CAM_Z FRAME_W]   (optional camera override, e.g. Coder's override table; env TIERS=all shows every tier, NO_RECEIVER=1 drops the receiver)
+//    (needs 'three' r186 + 'three-mesh-bvh' resolvable, e.g. a dir with node_modules/three -> gltftools three, npm i three-mesh-bvh)
 import fs from 'fs';
 const NM = '/home/box/apps/gltftools/node_modules';
 import * as THREE from 'three';
@@ -12,16 +13,16 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 await MeshoptDecoder.ready;
 const R = '/workspace/planet-stack/art/3d/';
-const A = process.argv.slice(2); const CRANE = A[0], CX = +A[1], CZ = 17.5;
+const A = process.argv.slice(2); const CRANE = A[0], CX = +A[1], CZ = 17.5; const OV = A.length >= 6 ? A.slice(2, 6).map(Number) : null;
 const load = f => new Promise((res, rej) => { const b = fs.readFileSync(f); const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder); l.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), '', res, rej); });
 const scene = new THREE.Scene();
 const tag = (o, t) => o.traverse(n => n.userData.grp = t);
 const ref = (await load(R + 'buildings/refinery/refinery_game.glb')).scene; ref.position.set(320, 0, 0);
-let ct = null; ref.traverse(n => { if (n.name === 'Cam_Target') ct = n; if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
+let ct = null; ref.traverse(n => { if (n.name === 'Cam_Target') ct = n; if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = process.env.TIERS === 'all' && /^Tier_\d+/.test(n.name); });
 tag(ref, 'refinery'); scene.add(ref);
 const crane = (await load(CRANE)).scene; crane.position.set(CX, 0, CZ); tag(crane, 'crane'); scene.add(crane);
 const fb = (await load(R + 'props/fb05/fb05_game.glb')).scene; fb.position.set(318, 0, 13); tag(fb, 'fb05'); scene.add(fb);
-const rx = (await load(R + 'crew/receiver/receiver_game.glb')).scene; rx.position.set(316.5, 0, 17.1); rx.rotation.y = Math.PI; tag(rx, 'receiver'); scene.add(rx);
+const rx = (await load(R + 'crew/receiver/receiver_game.glb')).scene; rx.position.set(316.5, 0, 17.1); rx.rotation.y = Math.PI; tag(rx, 'receiver'); if (!process.env.NO_RECEIVER) scene.add(rx);
 const boxG = await load(R + 'props/cargo_box/cargo_box_game.glb');
 scene.updateMatrixWorld(true);
 const W_ = n => { const o = scene.getObjectByName(n); return o.getWorldPosition(new THREE.Vector3()); };
@@ -39,7 +40,7 @@ function aimWorld(P) { const L0 = crane.worldToLocal(P.clone()); const H = L0.cl
 const out = {};
 for (const [Wd, Hd] of [[393, 852], [375, 667]]) {
   const asp = Wd / Hd, cam = new THREE.PerspectiveCamera(38, asp, 0.5, 3000);
-  const T = ct.getWorldPosition(new THREE.Vector3()), fw = ct.userData.frame_w;
+  const T = OV ? new THREE.Vector3(OV[0], OV[1], OV[2]) : ct.getWorldPosition(new THREE.Vector3()), fw = OV ? OV[3] : ct.userData.frame_w;
   const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(19)) * asp), el = THREE.MathUtils.degToRad(18);
   cam.position.set(T.x, T.y + d * Math.sin(el), T.z + d * Math.cos(el)); cam.lookAt(T); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
   const BAND = Wd === 393 ? [165, 534] : [144, 383];
@@ -95,4 +96,4 @@ for (const [Wd, Hd] of [[393, 852], [375, 667]]) {
     scene.remove(tgt); for (const x of extra) scene.remove(x);
   }
 }
-console.log(JSON.stringify({ crane_x: CX, cam_target: ct.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)), frame_w: ct.userData.frame_w, ...out }, null, 1));
+console.log(JSON.stringify({ crane_x: CX, cam_target: OV ? OV.slice(0, 3) : ct.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)), frame_w: OV ? OV[3] : ct.userData.frame_w, override: !!OV, tiers: process.env.TIERS === 'all' ? 'all shown' : 'hidden', receiver: !process.env.NO_RECEIVER, ...out }, null, 1));

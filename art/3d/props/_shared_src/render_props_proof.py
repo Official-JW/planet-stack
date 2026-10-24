@@ -1,7 +1,7 @@
 """Proof renders for FB-05 / cargo box / Refinery crane (CPU Cycles, low samples, OIDN, no tiling).
 Inputs are the SHIPPED GLBs unpacked (crane: the --proofclip build, same mesh/markers + proof-only crane_load clip) with `gltfpack -noq -kn -ke` (Blender has no meshopt decoder).
 blender -b -P render_props_proof.py -- --view VIEW --out PNG --w W --h H --samples N --fb FB_PLAIN --box BOX_PLAIN --crane CRANE_PLAIN
-   [--crane_at x,z] [--ref REF_PLAIN --ref_at x] [--road ROAD_PLAIN --road_tiles x0,n,z,tail] [--pallet N] [--rx RX_PLAIN --rx_at x,z,yaw --rx_clip C --rx_t S] [--t CLIP_TIME] [--cam az,el,dist,tx,ty,tz] (Blender coords) | [--phone tx,ty,tz,frame_w] (glTF coords)"""
+   [--crane_at x,z] [--ref REF_PLAIN --ref_at x [--ref_tiers all]] [--road ROAD_PLAIN --road_tiles x0,n,z,tail] [--pallet N] [--rx RX_PLAIN --rx_at x,z,yaw --rx_clip C --rx_t S] [--t CLIP_TIME] [--cam az,el,dist,tx,ty,tz] (Blender coords) | [--phone tx,ty,tz,frame_w] (glTF coords)"""
 import bpy, sys, math
 from mathutils import Vector, Matrix, Euler
 A = sys.argv[sys.argv.index('--') + 1:]
@@ -94,6 +94,7 @@ if arg('ref'):    # --ref REFINERY_PLAIN --ref_at x : station GLB at world x, Ti
         o.hide_render = True
         for c in o.children: hide_tree(c)
     for o in rn:
+        if arg('ref_tiers') == 'all' and o.name.split('.')[0].startswith('Tier_'): continue   # --ref_tiers all: every Tier_* shown (end-game worst case)
         if o.name.split('.')[0].startswith('Tier_') or o.get('hidden_by_default'): hide_tree(o)
 if arg('road'):   # --road_tiles x0,n,z,tail_scale (glTF, tile origin = west end, lane centres at tile z 0 and z +9)
     x0, n, rz, tail = (float(v) for v in arg('road_tiles', '-24,6,-9,0').split(','))

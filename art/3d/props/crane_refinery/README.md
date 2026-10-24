@@ -93,6 +93,27 @@ The Refinery owner re-framed the station camera in f4d4a2c, after the 014d751 ch
 
 **Occlusion recheck with the pad and the f4d4a2c camera:** the mast hides 0% of either landing box, and the crane hides 0% of the cab and truck. Box hidden: slot 01 16.1% (spreader 13.4%, headboard 2.7%), slot 02 15.5% (spreader 13.3%, headboard 2.3%) at 393×852; slot 01 17.2% (spreader 14.6%, headboard 2.6%), slot 02 16.8% (spreader 14.5%, headboard 2.3%) at 375×667. The Refinery hides 0%.
 
+## Refinery camera override for Coder's table (no GLB re-export)
+Director asked for a code override with at least 5 px spare on every side at both sizes and frame_w ≥ 37.5. **Final: Cam_Target (313.1, 2.08, 13.55), frame_w 37.5** (x and y unchanged from f4d4a2c). Distance: 118.05 m at 393×852, 96.86 m at 375×667. The GLB still says (313.1, 2.08, 5.45) / 34.4 until it gets baked in.
+
+Checked with `_src/refinery_override_search.mjs`, which uses the same camera maths as qa3d `fitSite()`/`poseLook()`. The scene is the Refinery f4d4a2c (md5 b45b4649…) with **all tiers shown** and every clip sampled at 25 steps. Ground and road vertices (y ≤ 0.30) are left out because they run off both edges by design. It also has crane 755815ec at (311, 0, 17.5) with its pad, FB-05 at Truck_Park, a full 8-box pallet and both bed boxes. The crane is run through **every real cycle**, 496 poses, each with and without a box on the hook: each of Pallet_Slot_01…08 × Drop_Point / Drop_Point_02, hoisted to carry height, swung over the far side while the trolley runs, then lowered.
+
+| Spare px (top / bottom / left / right) | 393×852 (band y 165–534) | 375×667 (band y 144–383) |
+|---|---|---|
+| Whole station | 64.2 / 67.3 / 47.6 / 22.9 | **10.2 / 10.3** / 43.1 / 29.1 |
+| Refinery (all tiers, clips) | 64.2 / 125.5 / 87.4 / 22.9 | 10.2 / 65.9 / 87.7 / 29.1 |
+| Crane, every pose | 150.9 / 67.3 / 47.6 / 121.7 | 82.9 / 10.3 / 43.1 / 116.0 |
+| FB-05 at park | 239.7 / 83.1 / 194.5 / 106.0 | 169.2 / 25.7 / 185.6 / 101.0 |
+| Concrete pad | 288.2 / 67.4 / 73.7 / 250.6 | 215.6 / 10.4 / 69.2 / 239.3 |
+| 8-box pallet | 257.3 / 71.6 / 80.4 / 257.6 | 186.0 / 14.4 / 75.6 / 246.0 |
+| Bed boxes | 244.0 / 106.1 / 197.0 / 144.7 | 173.3 / 47.7 / 188.0 / 138.1 |
+
+- z 13.55 is the z that gives the largest minimum spare at frame_w 37.5, so the Refinery top and the pad bottom are balanced at 375×667. Any z from 12.15 to at least 17 still gives ≥ 5 px.
+- The last suggestion, (313.1, 2.08, 11.4) / 36.4, had only 0.8 px at the 375×667 bottom (crane / pad). The z was the problem, not the width: 36.4 at z 12.95 would give 6.75 px.
+- **Size on screen (main building, all tiers, height × width px):** 393×852: 176.6 × 282.7 (72% of the width), compared with 184.2 × 293.6 at 36.4 and 203.8 × 320.5 at the GLB's 34.4. 375×667: 160.4 × 258.3, compared with 167.6 × 268.6 and 187.0 × 294.8. That's 96% of the last suggestion and about 86% of the GLB camera.
+- **Occlusion at the new camera** (`_src/gamecam_occlusion.mjs` with the camera override args, `TIERS=all NO_RECEIVER=1`): the mast hides **0%** of either landing box at both sizes, and the crane hides **0%** of the FB-05 cab and truck. Box hidden: slot 01 16.7% / 16.8% and slot 02 16.3% / 16.3% (393 / 375). All of it is the latched spreader (13.3–13.6%) and the FB-05 headboard (2.8–3.4%). The Refinery hides 0%. With the receiver back at (316.5, 17.1), the only change is that it covers 2.4% of the truck.
+- Proofs at t 4.1 s (box landing on Bed_Slot_01, all tiers, 8-box pallet), with the band lines and each group's screen box drawn: `proofs/refinery_override_393x852.png`, `proofs/refinery_override_375x667.png`, `proofs/refinery_override_phone_1179x2556.png` (393×852 @3x; frame_w spans the width, so the station is the same width on screen as at 375 wide), `proofs/refinery_override_phone_1125x2001.png` (375×667 @3x), and `proofs/refinery_override_compare_375x667.png` (GLB camera / last suggestion / final). Renders: `../_shared_src/render_props_proof.py --ref_tiers all --phone 313.1,2.08,13.55,37.5`.
+
 ## Proofs (proof-only crane_load clip, NOT in the shipped GLB)
 The renders use the `--proofclip` build: same mesh and markers plus a 12 s crane_load. Cycle 1 lifts `Pallet_Slot_05` onto Bed_Slot_01, landing at 4.1 s. Cycle 2 lifts `Pallet_Slot_06` onto Bed_Slot_02, landing at 10.1 s. Every proof uses the real game camera, now the f4d4a2c Refinery camera (Cam_Target (313.1, 2.08, 5.45), frame_w 34.4), with that Refinery GLB, the flatbed road tiles, FB-05 at Truck_Park and the receiver (`../../crew/receiver`, suggested spot world (316.5, 0, 17.1), yaw 180°, playing `guide`).
 - `proofs/gamecam_before_x318_slot0{1,2}_{393x852,375x667}.png`: landing frames, old placement (014d751-era camera (314.1, 8.5, 3.36) / 30.8 and Refinery bb5eed2; kept as the record of that check).
