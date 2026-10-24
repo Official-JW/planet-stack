@@ -5,14 +5,16 @@ const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'
 const [inF,outF,DHs]=process.argv.slice(2); const DH=+DHs, RATE=1.2, DT=DH/RATE;
 const doc=await io.read(inF); const an=doc.getRoot().listAnimations().find(a=>a.getName()==='crew_climb');
 const chans=an.listChannels(); const crewOf=ch=>(ch.getTargetNode().getName().match(/^C(\d)_/)||[])[1];
-const sampleAt=(s,tt)=>{const t=s.getInput().getArray(),v=s.getOutput().getArray(),e=s.getOutput().getElementSize();let i=0;while(i<t.length-1&&t[i+1]<tt)i++;
+const sampleAt=(s,tt)=>{const t=F(s.getInput()),v=F(s.getOutput()),e=s.getOutput().getElementSize();let i=0;while(i<t.length-1&&t[i+1]<tt)i++;
   if(tt<=t[0])return Array.from(v.slice(0,e)); if(tt>=t[t.length-1])return Array.from(v.slice((t.length-1)*e,t.length*e));
   const f=(tt-t[i])/(t[i+1]-t[i]); const a=v.slice(i*e,i*e+e),b=v.slice(i*e+e,i*e+2*e);
   if(e===4){let d=0;for(let k=0;k<4;k++)d+=a[k]*b[k];const sg=d<0?-1:1;const o=[];for(let k=0;k<4;k++)o.push(a[k]*(1-f)+sg*b[k]*f);const L=Math.hypot(...o);return o.map(x=>x/L);}
   return Array.from(a).map((x,k)=>x*(1-f)+b[k]*f);};
+// normalized (quantized) accessors: dequantize to floats before any maths (Crew_1 root scale/rotation are int-normalized -> garbage otherwise)
+const F=acc=>{const a=acc.getArray(); if(!acc.getNormalized()) return Float32Array.from(a); const m=a instanceof Int8Array?127:a instanceof Uint8Array?255:a instanceof Int16Array?32767:a instanceof Uint16Array?65535:1; return Float32Array.from(a,x=>Math.max(x/m,-1));};
 const TA={};
 for(const ch of chans){const n=ch.getTargetNode().getName(); if(!/_Root$/.test(n)||ch.getTargetPath()!=='translation')continue;
-  const s=ch.getSampler(),t=s.getInput().getArray(),v=s.getOutput().getArray(); let ta=null; for(let i=0;i<t.length;i++) if(v[i*3+1]>=6.0){ta=t[i];break;}
+  const s=ch.getSampler(),t=F(s.getInput()),v=F(s.getOutput()); let ta=null; for(let i=0;i<t.length;i++) if(v[i*3+1]>=6.0){ta=t[i];break;}
   TA[crewOf(ch)]=ta; const y0=sampleAt(s,ta)[1],y1=sampleAt(s,ta+DT)[1]; console.log(n,'t_a',ta.toFixed(3),'rise over',DT,'s =',(y1-y0).toFixed(4)); }
 let worst=0;
 for(const ch of chans){const k=crewOf(ch); if(!k)continue; const s=ch.getSampler(); if(ch.getTargetPath()==='translation'&&!/_Root$/.test(ch.getTargetNode().getName())) {}
@@ -21,7 +23,7 @@ for(const ch of chans){const k=crewOf(ch); if(!k)continue; const s=ch.getSampler
 console.log('periodicity: max channel diff between t_a and t_a+DT (excl. root y) =',worst.toFixed(5));
 const done=new Set();
 for(const ch of chans){const k=crewOf(ch); const s=ch.getSampler(); if(done.has(s))continue; done.add(s);
-  const ta=k?TA[k]:null; const t=Array.from(s.getInput().getArray()),v=Array.from(s.getOutput().getArray()),e=s.getOutput().getElementSize();
+  const ta=k?TA[k]:null; const t=Array.from(F(s.getInput())),v=Array.from(F(s.getOutput())),e=s.getOutput().getElementSize();
   const isRootT=k&&/_Root$/.test(ch.getTargetNode().getName())&&ch.getTargetPath()==='translation';
   const nt=[],nv=[];
   if(ta==null){ // non-crew channel: just hold; extend time
