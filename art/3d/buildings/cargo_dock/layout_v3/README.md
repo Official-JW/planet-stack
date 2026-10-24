@@ -66,12 +66,10 @@ The edge margins are spare px from the screen edges (x) and from the band lines 
 In v2b the crane was about 43 px tall and the boxes about 12 px wide.
 
 ## Files
-The stills marked * are rendering in the shared heavy-render queue and follow in the next commit.
-
 - `cargo_dock_compact_v3.glb`: the new dock (see above).
-- `cargo_dock_storage_v3_375x667@2x.png`, `cargo_dock_storage_v3_393x852@3x.png`*: full stills, 20 boxes, SC-1 at rest, FB-05 at the stop.
-- `storage_crane_pick_swing_set_strip_v3_375x667@2x.png`*: Store_A_Slot_20 at t 1.50 / 2.95 / 4.30, 19 stored, with x2 details.
-- `cargo_dock_storage_v3_framing_guides.png`*: yellow = band, orange = 5 px limit, green = subject bounds.
+- `cargo_dock_storage_v3_375x667@2x.png`, `cargo_dock_storage_v3_393x852@3x.png`: full stills, 20 boxes, SC-1 at rest, FB-05 at the stop.
+- `storage_crane_pick_swing_set_strip_v3_375x667@2x.png`: Store_A_Slot_20 at t 1.50 / 2.95 / 4.30, 19 stored, with x2 details.
+- `cargo_dock_storage_v3_framing_guides.png`: yellow = band, orange = 5 px limit, green = subject bounds.
 - `cargo_dock_layout_v3_topdown.png`: top-down plan with world positions, gaps, roads, apron, SC-1 reach and the slot plan.
 - `cargo_dock_slots_lv1_v3.json` (slots, crane, stop, camera) and `dock_camera_v3.json`.
 - `_src/`: `compact_dock.mjs` (GLB edit), `make_slots_v3.py`, `layout_v3.py` + `cfg_world_v3.json` + `hmap.mjs` (plan), `dump_pts_v3.mjs` + `frame_solve_v3.py` + `metrics.py` (camera), `game_cam_page_v3.html` + `render_v3.sh` + `compose_v3.py` (stills).
