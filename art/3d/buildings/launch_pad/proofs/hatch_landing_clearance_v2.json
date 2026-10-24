@@ -1,0 +1,1593 @@
+{
+ "summary": {
+  "clip": "art/3d/crew/boarding/crew_boarding.glb @ 3a9718a09c6323d328b9d065bdc44af9888915e3, md5 3fe341d2f4fde7d070f9177751da04e4 (read-only)",
+  "pad": "launch_pad_game.glb md5 9e44959341d7f57bf1b3bd21b826b940",
+  "sample_hz": 30,
+  "frames": 1758,
+  "a_penetrations": {
+   "pass": true,
+   "hits": 0,
+   "min_clearance_m": 0.0021,
+   "per_part_min_m": {
+    "brace": 0.6822,
+    "frame_outer": 0.065,
+    "beam_outer": 0.871,
+    "hull": 0.1033,
+    "frame_side": 0.0125,
+    "lid": 0.2753,
+    "hatch_jamb": 0.0331,
+    "deck_wing": 0.0021,
+    "rail": 0.0164,
+    "rail_post": 0.1504
+   }
+  },
+  "b_support": {
+   "pass": true,
+   "plants": 36,
+   "unsupported_plants": 0,
+   "walk_in_wing_plants": 24,
+   "walk_in_wing_plant_u": [
+    3.9264,
+    4.624
+   ],
+   "walk_in_wing_plant_abs_t": [
+    0.6997,
+    1.1958
+   ]
+  },
+  "c_hatch_edge": {
+   "pass": true,
+   "outer_face_edge_min_m": {
+    "Crew_1": [
+     0.0022,
+     45.9,
+     "Thigh_R"
+    ],
+    "Crew_2": [
+     0.0004,
+     49.267,
+     "Hips"
+    ],
+    "Crew_3": [
+     0.0017,
+     52.967,
+     "Hand_R"
+    ],
+    "Crew_4": [
+     0.0004,
+     56.067,
+     "Hips"
+    ]
+   },
+   "hull_wall_min_m": {
+    "Crew_1": [
+     0.0447,
+     45.1
+    ],
+    "Crew_2": [
+     0.0553,
+     48.767
+    ],
+    "Crew_3": [
+     0.0447,
+     51.9
+    ],
+    "Crew_4": [
+     0.0553,
+     55.567
+    ]
+   },
+   "model": "hull = real Ship-node hull triangles, wall 0.10 m thick; doorway = |t| < 0.652, z 21.75-23.75 (the placeholder hatch panel u 3.94-4.06 is the doorway the crew pass through); jamb edges = hatch outer-face corner lines at u 4.06, |t| 0.652 and the lintel at z 23.75"
+  },
+  "d_sole_gap": {
+   "pass": true,
+   "contact_gap_m": [
+    0.0021,
+    0.0056
+   ],
+   "sinking": 0,
+   "note": "the detector also catches two brief foot pauses that are not contacts: the 46.07 s (Crew 1/3) and 49.47 s (Crew 2/4) shuffle re-plant never touches (min 1.49 / 1.62 cm, under the 2 cm flag), and a 2-frame pause mid-lift just before it at 3.5 cm"
+  }
+ },
+ "frame": "pad-local; u,t,z about Ship_Center along the 330 deg ladder axis",
+ "ship_center": [
+  0,
+  0.25,
+  -13
+ ],
+ "ladder_foot_utz": [
+  5.2,
+  0,
+  0.25
+ ],
+ "glb_landing_vertices": 376,
+ "glb_max_offset_from_solids_m": 0.0309,
+ "glb_vertices_left_in_well": 0,
+ "clip": "/workspace/planet-stack/art/3d/crew/boarding/crew_boarding.glb",
+ "sample_hz": 30,
+ "phases": {
+  "Crew_1": {
+   "s": 41.62,
+   "i": 47.79,
+   "side": 1
+  },
+  "Crew_2": {
+   "s": 45.02,
+   "i": 51.19,
+   "side": -1
+  },
+  "Crew_3": {
+   "s": 48.42,
+   "i": 54.59,
+   "side": 1
+  },
+  "Crew_4": {
+   "s": 51.82,
+   "i": 57.99,
+   "side": -1
+  }
+ },
+ "hull_tris": 54,
+ "frames": 1758,
+ "hits": 0,
+ "minClear": 0.0021,
+ "per_crew": {
+  "Crew_1": {
+   "side": 1,
+   "min_m": 0.0021,
+   "at_s": 44.133,
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 0.065,
+     "at_s": 41.133,
+     "part": "frame_outer"
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 0.0021,
+     "at_s": 44.133,
+     "part": "deck_wing"
+    },
+    "hidden": {
+     "min_m": 0.1592,
+     "at_s": 47.8,
+     "part": "hull"
+    }
+   },
+   "jamb_edge_min_m": 0.0022,
+   "jamb_edge_at_s": 45.9,
+   "jamb_edge_bone": "Thigh_R",
+   "hull_min_m": 0.0447,
+   "hull_at_s": 45.1,
+   "utz": [
+    4.6124,
+    0.7723,
+    21.8521
+   ],
+   "jamb_edge_utz": [
+    4.062,
+    0.6512,
+    22.6022
+   ]
+  },
+  "Crew_2": {
+   "side": -1,
+   "min_m": 0.0022,
+   "at_s": 47.467,
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 0.0665,
+     "at_s": 44.733,
+     "part": "frame_outer"
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 0.0022,
+     "at_s": 47.467,
+     "part": "deck_wing"
+    },
+    "hidden": {
+     "min_m": 0.1403,
+     "at_s": 51.2,
+     "part": "hull"
+    }
+   },
+   "jamb_edge_min_m": 0.0004,
+   "jamb_edge_at_s": 49.267,
+   "jamb_edge_bone": "Hips",
+   "hull_min_m": 0.0553,
+   "hull_at_s": 48.767,
+   "utz": [
+    4.6115,
+    -1.0718,
+    21.8522
+   ],
+   "jamb_edge_utz": [
+    4.0604,
+    -0.6522,
+    22.7864
+   ]
+  },
+  "Crew_3": {
+   "side": 1,
+   "min_m": 0.0021,
+   "at_s": 50.933,
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 0.0674,
+     "at_s": 48.033,
+     "part": "frame_outer"
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 0.0021,
+     "at_s": 50.933,
+     "part": "deck_wing"
+    },
+    "hidden": {
+     "min_m": 0.1592,
+     "at_s": 54.6,
+     "part": "hull"
+    }
+   },
+   "jamb_edge_min_m": 0.0017,
+   "jamb_edge_at_s": 52.967,
+   "jamb_edge_bone": "Hand_R",
+   "hull_min_m": 0.0447,
+   "hull_at_s": 51.9,
+   "utz": [
+    4.6124,
+    0.7723,
+    21.8521
+   ],
+   "jamb_edge_utz": [
+    4.0606,
+    0.6537,
+    22.6379
+   ]
+  },
+  "Crew_4": {
+   "side": -1,
+   "min_m": 0.0022,
+   "at_s": 54.267,
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 0.0681,
+     "at_s": 51.667,
+     "part": "frame_outer"
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 0.0022,
+     "at_s": 54.267,
+     "part": "deck_wing"
+    },
+    "hidden": {
+     "min_m": 0.1403,
+     "at_s": 58,
+     "part": "hull"
+    }
+   },
+   "jamb_edge_min_m": 0.0004,
+   "jamb_edge_at_s": 56.067,
+   "jamb_edge_bone": "Hips",
+   "hull_min_m": 0.0553,
+   "hull_at_s": 55.567,
+   "utz": [
+    4.6115,
+    -1.0718,
+    21.8522
+   ],
+   "jamb_edge_utz": [
+    4.0604,
+    -0.6522,
+    22.7864
+   ]
+  }
+ },
+ "per_part": {
+  "brace": {
+   "min_m": 0.6822,
+   "hits": 0,
+   "at_s": 44.033,
+   "crew": "Crew_2"
+  },
+  "frame_outer": {
+   "min_m": 0.065,
+   "hits": 0,
+   "at_s": 41.133,
+   "crew": "Crew_1"
+  },
+  "beam_outer": {
+   "min_m": 0.871,
+   "hits": 0,
+   "at_s": 50.533,
+   "crew": "Crew_4"
+  },
+  "hull": {
+   "min_m": 0.1033,
+   "hits": 0,
+   "at_s": 50.2,
+   "crew": "Crew_2"
+  },
+  "frame_side": {
+   "min_m": 0.0125,
+   "hits": 0,
+   "at_s": 49.633,
+   "crew": "Crew_2"
+  },
+  "lid": {
+   "min_m": 0.2753,
+   "hits": 0,
+   "at_s": 42.733,
+   "crew": "Crew_1"
+  },
+  "hatch_jamb": {
+   "min_m": 0.0331,
+   "hits": 0,
+   "at_s": 46.2,
+   "crew": "Crew_1"
+  },
+  "deck_wing": {
+   "min_m": 0.0021,
+   "hits": 0,
+   "at_s": 44.133,
+   "crew": "Crew_1"
+  },
+  "rail": {
+   "min_m": 0.0164,
+   "hits": 0,
+   "at_s": 51.067,
+   "crew": "Crew_3"
+  },
+  "rail_post": {
+   "min_m": 0.1504,
+   "hits": 0,
+   "at_s": 52.3,
+   "crew": "Crew_3"
+  }
+ },
+ "worst_hits": {},
+ "plants": {
+  "Crew_1": [
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 44.1,
+    "end_s": 44.567,
+    "u": [
+     4.3125,
+     4.623
+    ],
+    "t": [
+     0.7519,
+     0.8843
+    ],
+    "sole_min_z": 21.8521,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 14,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0021,
+    "where_counts": {
+     "wing": 1358
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 43.3,
+    "end_s": 45.1,
+    "u": [
+     4.311,
+     4.624
+    ],
+    "t": [
+     0.9514,
+     1.0868
+    ],
+    "sole_min_z": 21.8534,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 54,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0034,
+    "where_counts": {
+     "wing": 5238
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 45.567,
+    "end_s": 45.667,
+    "u": [
+     4.0067,
+     4.3375
+    ],
+    "t": [
+     0.9537,
+     1.1958
+    ],
+    "sole_min_z": 21.8547,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0047,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 45.1,
+    "end_s": 45.7,
+    "u": [
+     3.9264,
+     4.2584
+    ],
+    "t": [
+     0.7232,
+     0.9672
+    ],
+    "sole_min_z": 21.8534,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 18,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0034,
+    "where_counts": {
+     "wing": 1746
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 45.9,
+    "end_s": 45.967,
+    "u": [
+     3.9319,
+     4.2625
+    ],
+    "t": [
+     0.707,
+     0.9497
+    ],
+    "sole_min_z": 21.8847,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0347,
+    "where_counts": {
+     "wing": 194
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 46.067,
+    "end_s": 46.167,
+    "u": [
+     3.9273,
+     4.261
+    ],
+    "t": [
+     0.7125,
+     0.9579
+    ],
+    "sole_min_z": 21.8649,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0149,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 46.367,
+    "end_s": 47.167,
+    "u": [
+     3.5939,
+     3.9079
+    ],
+    "t": [
+     0.0621,
+     0.3471
+    ],
+    "sole_min_z": 21.8545,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0045,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 46.967,
+    "end_s": 47.767,
+    "u": [
+     3.3615,
+     3.6728
+    ],
+    "t": [
+     0.011,
+     0.1452
+    ],
+    "sole_min_z": 21.8533,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0033,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 47.7,
+    "end_s": 47.767,
+    "u": [
+     3.0828,
+     3.3928
+    ],
+    "t": [
+     -0.0866,
+     0.0443
+    ],
+    "sole_min_z": 21.8556,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0056,
+    "where_counts": {
+     "hatch_doorway": 194
+    }
+   }
+  ],
+  "Crew_2": [
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 47.5,
+    "end_s": 47.967,
+    "u": [
+     4.3129,
+     4.6237
+    ],
+    "t": [
+     -0.8881,
+     -0.7556
+    ],
+    "sole_min_z": 21.8533,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 14,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0033,
+    "where_counts": {
+     "wing": 1358
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 46.7,
+    "end_s": 48.5,
+    "u": [
+     4.3108,
+     4.6236
+    ],
+    "t": [
+     -1.0901,
+     -0.9554
+    ],
+    "sole_min_z": 21.8522,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 54,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0022,
+    "where_counts": {
+     "wing": 5238
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 48.967,
+    "end_s": 49.067,
+    "u": [
+     4.0187,
+     4.3394
+    ],
+    "t": [
+     -1.191,
+     -0.9463
+    ],
+    "sole_min_z": 21.8535,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0035,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 48.5,
+    "end_s": 49.1,
+    "u": [
+     3.9436,
+     4.2598
+    ],
+    "t": [
+     -0.9627,
+     -0.7158
+    ],
+    "sole_min_z": 21.8546,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 18,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0046,
+    "where_counts": {
+     "wing": 1746
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 49.3,
+    "end_s": 49.367,
+    "u": [
+     3.9501,
+     4.2632
+    ],
+    "t": [
+     -0.9453,
+     -0.6997
+    ],
+    "sole_min_z": 21.8859,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0359,
+    "where_counts": {
+     "wing": 194
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 49.467,
+    "end_s": 49.567,
+    "u": [
+     3.9463,
+     4.2613
+    ],
+    "t": [
+     -0.9536,
+     -0.7049
+    ],
+    "sole_min_z": 21.8662,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0162,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 49.767,
+    "end_s": 50.567,
+    "u": [
+     3.608,
+     3.9104
+    ],
+    "t": [
+     -0.3444,
+     -0.0493
+    ],
+    "sole_min_z": 21.8533,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0033,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 51.1,
+    "end_s": 51.167,
+    "u": [
+     3.0828,
+     3.3923
+    ],
+    "t": [
+     -0.0477,
+     0.0833
+    ],
+    "sole_min_z": 21.8544,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0044,
+    "where_counts": {
+     "hatch_doorway": 194
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 50.367,
+    "end_s": 51.167,
+    "u": [
+     3.3611,
+     3.6738
+    ],
+    "t": [
+     -0.1484,
+     -0.0153
+    ],
+    "sole_min_z": 21.8546,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0046,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   }
+  ],
+  "Crew_3": [
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 50.9,
+    "end_s": 51.367,
+    "u": [
+     4.3125,
+     4.623
+    ],
+    "t": [
+     0.7519,
+     0.8843
+    ],
+    "sole_min_z": 21.8521,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 14,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0021,
+    "where_counts": {
+     "wing": 1358
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 50.1,
+    "end_s": 51.9,
+    "u": [
+     4.311,
+     4.624
+    ],
+    "t": [
+     0.9514,
+     1.0868
+    ],
+    "sole_min_z": 21.8534,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 54,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0034,
+    "where_counts": {
+     "wing": 5238
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 52.367,
+    "end_s": 52.467,
+    "u": [
+     4.0067,
+     4.3375
+    ],
+    "t": [
+     0.9537,
+     1.1958
+    ],
+    "sole_min_z": 21.8547,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0047,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 51.9,
+    "end_s": 52.5,
+    "u": [
+     3.9264,
+     4.2584
+    ],
+    "t": [
+     0.7232,
+     0.9672
+    ],
+    "sole_min_z": 21.8534,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 18,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0034,
+    "where_counts": {
+     "wing": 1746
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 52.7,
+    "end_s": 52.767,
+    "u": [
+     3.9319,
+     4.2625
+    ],
+    "t": [
+     0.707,
+     0.9497
+    ],
+    "sole_min_z": 21.8847,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0347,
+    "where_counts": {
+     "wing": 194
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 52.867,
+    "end_s": 52.967,
+    "u": [
+     3.9273,
+     4.261
+    ],
+    "t": [
+     0.7125,
+     0.9579
+    ],
+    "sole_min_z": 21.8649,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0149,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 53.167,
+    "end_s": 53.967,
+    "u": [
+     3.5939,
+     3.9079
+    ],
+    "t": [
+     0.0621,
+     0.3471
+    ],
+    "sole_min_z": 21.8545,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0045,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 53.767,
+    "end_s": 54.567,
+    "u": [
+     3.3615,
+     3.6728
+    ],
+    "t": [
+     0.011,
+     0.1452
+    ],
+    "sole_min_z": 21.8533,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0033,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 54.5,
+    "end_s": 54.567,
+    "u": [
+     3.0828,
+     3.3928
+    ],
+    "t": [
+     -0.0866,
+     0.0443
+    ],
+    "sole_min_z": 21.8556,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0056,
+    "where_counts": {
+     "hatch_doorway": 194
+    }
+   }
+  ],
+  "Crew_4": [
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 54.3,
+    "end_s": 54.767,
+    "u": [
+     4.3129,
+     4.6237
+    ],
+    "t": [
+     -0.8881,
+     -0.7556
+    ],
+    "sole_min_z": 21.8533,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 14,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0033,
+    "where_counts": {
+     "wing": 1358
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 53.5,
+    "end_s": 55.3,
+    "u": [
+     4.3108,
+     4.6236
+    ],
+    "t": [
+     -1.0901,
+     -0.9554
+    ],
+    "sole_min_z": 21.8522,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 54,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0022,
+    "where_counts": {
+     "wing": 5238
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 55.767,
+    "end_s": 55.867,
+    "u": [
+     4.0187,
+     4.3394
+    ],
+    "t": [
+     -1.191,
+     -0.9463
+    ],
+    "sole_min_z": 21.8535,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0035,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 55.3,
+    "end_s": 55.9,
+    "u": [
+     3.9436,
+     4.2598
+    ],
+    "t": [
+     -0.9627,
+     -0.7158
+    ],
+    "sole_min_z": 21.8546,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 18,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0046,
+    "where_counts": {
+     "wing": 1746
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 56.1,
+    "end_s": 56.167,
+    "u": [
+     3.9501,
+     4.2632
+    ],
+    "t": [
+     -0.9453,
+     -0.6997
+    ],
+    "sole_min_z": 21.8859,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0359,
+    "where_counts": {
+     "wing": 194
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 56.267,
+    "end_s": 56.367,
+    "u": [
+     3.9463,
+     4.2613
+    ],
+    "t": [
+     -0.9536,
+     -0.7049
+    ],
+    "sole_min_z": 21.8662,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 3,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0162,
+    "where_counts": {
+     "wing": 291
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 56.567,
+    "end_s": 57.367,
+    "u": [
+     3.608,
+     3.9104
+    ],
+    "t": [
+     -0.3444,
+     -0.0493
+    ],
+    "sole_min_z": 21.8533,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0033,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 57.9,
+    "end_s": 57.967,
+    "u": [
+     3.0828,
+     3.3923
+    ],
+    "t": [
+     -0.0477,
+     0.0833
+    ],
+    "sole_min_z": 21.8544,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 2,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0044,
+    "where_counts": {
+     "hatch_doorway": 194
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 57.167,
+    "end_s": 57.967,
+    "u": [
+     3.3611,
+     3.6738
+    ],
+    "t": [
+     -0.1484,
+     -0.0153
+    ],
+    "sole_min_z": 21.8546,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 24,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": 0.0046,
+    "where_counts": {
+     "hatch_doorway": 2328
+    }
+   }
+  ]
+ },
+ "plant_summary": {
+  "plants": 36,
+  "unsupported_plants": 0,
+  "hover_gt_2cm": 4,
+  "sinking": 0,
+  "gap_m": [
+   0.0021,
+   0.0359
+  ],
+  "walk_in_wing_plants": [
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 44.1,
+    "u": [
+     4.3125,
+     4.623
+    ],
+    "t": [
+     0.7519,
+     0.8843
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0021
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 43.3,
+    "u": [
+     4.311,
+     4.624
+    ],
+    "t": [
+     0.9514,
+     1.0868
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0034
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 45.567,
+    "u": [
+     4.0067,
+     4.3375
+    ],
+    "t": [
+     0.9537,
+     1.1958
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0047
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 45.1,
+    "u": [
+     3.9264,
+     4.2584
+    ],
+    "t": [
+     0.7232,
+     0.9672
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0034
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 45.9,
+    "u": [
+     3.9319,
+     4.2625
+    ],
+    "t": [
+     0.707,
+     0.9497
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0347
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 46.067,
+    "u": [
+     3.9273,
+     4.261
+    ],
+    "t": [
+     0.7125,
+     0.9579
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0149
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 47.5,
+    "u": [
+     4.3129,
+     4.6237
+    ],
+    "t": [
+     -0.8881,
+     -0.7556
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0033
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 46.7,
+    "u": [
+     4.3108,
+     4.6236
+    ],
+    "t": [
+     -1.0901,
+     -0.9554
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0022
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 48.967,
+    "u": [
+     4.0187,
+     4.3394
+    ],
+    "t": [
+     -1.191,
+     -0.9463
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0035
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 48.5,
+    "u": [
+     3.9436,
+     4.2598
+    ],
+    "t": [
+     -0.9627,
+     -0.7158
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0046
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 49.3,
+    "u": [
+     3.9501,
+     4.2632
+    ],
+    "t": [
+     -0.9453,
+     -0.6997
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0359
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 49.467,
+    "u": [
+     3.9463,
+     4.2613
+    ],
+    "t": [
+     -0.9536,
+     -0.7049
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0162
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 50.9,
+    "u": [
+     4.3125,
+     4.623
+    ],
+    "t": [
+     0.7519,
+     0.8843
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0021
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 50.1,
+    "u": [
+     4.311,
+     4.624
+    ],
+    "t": [
+     0.9514,
+     1.0868
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0034
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 52.367,
+    "u": [
+     4.0067,
+     4.3375
+    ],
+    "t": [
+     0.9537,
+     1.1958
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0047
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 51.9,
+    "u": [
+     3.9264,
+     4.2584
+    ],
+    "t": [
+     0.7232,
+     0.9672
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0034
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 52.7,
+    "u": [
+     3.9319,
+     4.2625
+    ],
+    "t": [
+     0.707,
+     0.9497
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0347
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 52.867,
+    "u": [
+     3.9273,
+     4.261
+    ],
+    "t": [
+     0.7125,
+     0.9579
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0149
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 54.3,
+    "u": [
+     4.3129,
+     4.6237
+    ],
+    "t": [
+     -0.8881,
+     -0.7556
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0033
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 53.5,
+    "u": [
+     4.3108,
+     4.6236
+    ],
+    "t": [
+     -1.0901,
+     -0.9554
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0022
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 55.767,
+    "u": [
+     4.0187,
+     4.3394
+    ],
+    "t": [
+     -1.191,
+     -0.9463
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0035
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 55.3,
+    "u": [
+     3.9436,
+     4.2598
+    ],
+    "t": [
+     -0.9627,
+     -0.7158
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0046
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 56.1,
+    "u": [
+     3.9501,
+     4.2632
+    ],
+    "t": [
+     -0.9453,
+     -0.6997
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0359
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 56.267,
+    "u": [
+     3.9463,
+     4.2613
+    ],
+    "t": [
+     -0.9536,
+     -0.7049
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0162
+   }
+  ]
+ }
+}

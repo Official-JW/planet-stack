@@ -148,7 +148,7 @@ def build(G):
     GROUPS = [  # (name, [(part, material)], z mode, target tris)
         ('ship_ss_bells', [('EngineBell', 'heat'), ('EngineBellLip', 'dark')], 'hull', 320),
         ('ship_ss_legs', [('LegPad', 'dark'), ('LegStrut_body', 'dark'), ('LegStrut_gland', 'band'), ('LegStrut_rod', 'band'),
-                          ('LegBrace', 'dark'), ('LegFairing', 'B'), ('LegKnuckle', 'dark')], 'leg', 900),
+                          ('LegBrace', 'dark'), ('LegFairing', 'B'), ('LegKnuckle', 'dark')], 'leg', 820),   # 900 -> 820: room for the hatch landing (10/24 00:32)
         ('ship_ss_raceway', [('Raceway', 'dark')], 'hull', 120),
         ('ship_ss_rcs', [('RCSBlock', 'dark')], 'hull', 120),
         ('ship_ss_tiles', [('RadiatorTiles', 'dark'), ('AftTilesBack', 'dark')], 'hull', 120),
@@ -190,9 +190,65 @@ def build(G):
         out.append(rod('ship_ph_cage_bar', (a_.x, a_.y, TOP + 3.2), (a_.x, a_.y, LAD_TOP), 0.025, SATIN, segs=4))
     hq = LU * R
     out.append(rbox('ship_ph_hatch', (0.12, 1.3, 2.0), (hq.x, hq.y, LAD_TOP + 0.9), M['dark'], rot=(0, 0, LAD_A), r=0.04, segs=1))
-    q = LU * 4.75; out.append(rbox('ship_ph_hatch_deck', (1.0, 1.4, 0.1), (q.x, q.y, LAD_TOP - 0.05), M['band'], rot=(0, 0, LAD_A), r=0.02, segs=1))
+    # ---- hatch landing (art lead 10/24 00:32, option 1): the old solid 1.0 x 1.4 deck (u 4.25-5.25, t +-0.70) is replaced by a U-shaped
+    # stainless landing with a ladder well cut through it. Climbers come up through the well, step off sideways onto the wings
+    # (stand ~t +-0.9, u 4.3-4.7) and walk along the hull into the hatch. Deck top stays at LAD_TOP (21.85).
+    W_U0, W_U1, W_T = 4.05, 5.15, 0.62           # ladder well (clear opening)
+    D_U1, D_T, D_Z0 = 5.45, 1.40, LAD_TOP - 0.10  # deck outer edge, half width, underside
+    FW, KZ = 0.06, LAD_TOP + 0.03                 # graphite frame width, kerb top
+    hull_u = lambda t: math.sqrt(R * R - t * t) - 0.03   # tuck the inner edge 3 cm into the hull skin
+    P = lambda u, t, z: tuple(LU * u + LT * t + Vector((0, 0, z)))
+    def prism(name, poly, z0, z1, mat):
+        bm = bmesh.new(); lo = [bm.verts.new(P(u, t, z0)) for u, t in poly]; hi = [bm.verts.new(P(u, t, z1)) for u, t in poly]
+        bm.faces.new(hi); bm.faces.new(lo[::-1])
+        for i in range(len(poly)): j = (i + 1) % len(poly); bm.faces.new((lo[i], lo[j], hi[j], hi[i]))
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+        return _obj(bm, name, mat, smooth=False)
+    for sg in (-1, 1):   # deck wings (stainless), inner edge follows the hull
+        ts = [W_T + (D_T - W_T) * k / 3 for k in range(4)]
+        poly = [(hull_u(t), sg * t) for t in ts] + [(D_U1, sg * D_T), (D_U1, sg * W_T)]
+        out.append(prism('ship_ph_hatch_deck', poly if sg > 0 else poly[::-1], D_Z0, LAD_TOP, M['band']))
+    out.append(prism('ship_ph_hatch_deck', [(W_U1, -W_T), (D_U1, -W_T), (D_U1, W_T), (W_U1, W_T)], D_Z0, LAD_TOP, M['band']))   # outer bridge
+    # slim graphite well frame: kerb 3 cm proud of the deck, coaming 9 cm below it
+    for sg in (-1, 1):
+        out.append(prism('ship_ph_hatch_frame', [(hull_u(W_T), sg * W_T), (W_U1 + FW, sg * W_T), (W_U1 + FW, sg * (W_T + FW)), (hull_u(W_T + FW), sg * (W_T + FW))][::sg], LAD_TOP - 0.19, KZ, M['dark']))
+    out.append(prism('ship_ph_hatch_frame', [(W_U1, -W_T), (W_U1 + FW, -W_T), (W_U1 + FW, W_T), (W_U1, W_T)], LAD_TOP - 0.19, KZ, M['dark']))
+    # graphite edge beam under the deck perimeter + two braces back to the hull
+    out.append(prism('ship_ph_hatch_beam', [(D_U1 - 0.07, -D_T), (D_U1, -D_T), (D_U1, D_T), (D_U1 - 0.07, D_T)], LAD_TOP - 0.24, D_Z0, M['dark']))
+    for sg in (-1, 1):
+        out.append(prism('ship_ph_hatch_beam', [(hull_u(D_T - 0.07), sg * (D_T - 0.07)), (D_U1 - 0.07, sg * (D_T - 0.07)), (D_U1 - 0.07, sg * D_T), (hull_u(D_T), sg * D_T)][::sg], LAD_TOP - 0.24, D_Z0, M['dark']))
+        out.append(rod('ship_ph_hatch_brace', P(D_U1 - 0.04, sg * (D_T - 0.04), LAD_TOP - 0.22), P(hull_u(1.0) + 0.02, sg * 1.0, LAD_TOP - 1.35), 0.03, M['dark'], segs=6))
+    # open lid: hinged on the outer well edge, swung 100 deg up so it leans 10 deg outboard and doubles as the back guard
+    HU, HZ, LL, OPEN = W_U1 + FW + 0.035, KZ + 0.02, 1.16, math.radians(100)
+    d = Vector((math.cos(math.pi - OPEN), math.sin(math.pi - OPEN)))           # (u, z) direction hinge -> free edge
+    c = (HU + d.x * LL / 2, HZ + d.y * LL / 2); q = LU * c[0]
+    out.append(rbox('ship_ph_hatch_lid', (LL, 1.30, 0.05), (q.x, q.y, c[1]), M['dark'], rot=(0, -(math.pi - OPEN), LAD_A), r=0.015, segs=1))
+    for tt in (-0.3, 0.3):   # stainless stiffeners on the lid's outboard face
+        nrm = Vector((d.y, -d.x)); a0 = Vector((HU, HZ)) + nrm * 0.035 + d * 0.08; a1 = Vector((HU, HZ)) + nrm * 0.035 + d * (LL - 0.08)
+        out.append(rod('ship_ph_hatch_lid_rib', P(a0.x, tt, a0.y), P(a1.x, tt, a1.y), 0.022, M['band'], segs=4))
+    out.append(rod('ship_ph_hatch_hinge', P(HU, -0.62, HZ), P(HU, 0.62, HZ), 0.035, M['band'], segs=6))
+    for tt in (-0.52, 0.52):  # hold-open struts
+        a1 = Vector((HU, HZ)) + Vector((d.y, -d.x)) * 0.03 + d * 0.62
+        out.append(rod('ship_ph_hatch_strut', P(D_U1 - 0.05, tt, LAD_TOP + 0.01), P(a1.x, tt, a1.y), 0.018, SATIN, segs=4))
+    # guard rail: two L runs (outer edge |t| 0.76-1.34 + wing ends u 4.15-5.40); step-off sides and the hull walkway stay open
+    RU, RT0, RT1, RH = D_U1 - 0.05, 0.76, D_T - 0.06, 1.05
+    for sg in (-1, 1):
+        A_, B_, C_ = (4.15, sg * RT1), (RU, sg * RT1), (RU, sg * RT0)
+        for pu, pt in (A_, ((A_[0] + B_[0]) / 2, A_[1]), B_, C_):
+            out.append(rod('ship_ph_hatch_rail', P(pu, pt, LAD_TOP), P(pu, pt, LAD_TOP + RH), 0.028, SATIN, segs=6))
+        for h, r_ in ((RH, 0.032), (RH * 0.5, 0.024)):
+            out.append(rod('ship_ph_hatch_rail', P(A_[0], A_[1], LAD_TOP + h), P(B_[0], B_[1], LAD_TOP + h), r_, SATIN, segs=6))
+            out.append(rod('ship_ph_hatch_rail', P(B_[0], B_[1], LAD_TOP + h), P(C_[0], C_[1], LAD_TOP + h), r_, SATIN, segs=6))
+    LANDING = {'frame': 'pad-local, u along ladder axis LU (330 deg) from ship centre, t = LT, z up (glTF y)',
+               'deck_u_t_z': [[round(hull_u(D_T), 3), D_U1], [-D_T, D_T], [round(D_Z0, 3), LAD_TOP]],
+               'well_u_t_z': [[W_U0, W_U1], [-W_T, W_T], [round(D_Z0, 3), LAD_TOP]],
+               'frame_u_t_z': [[round(hull_u(W_T + FW), 3), W_U1 + FW], [-(W_T + FW), W_T + FW], [round(LAD_TOP - 0.19, 3), round(KZ, 3)]],
+               'stand_area_u_t_z': [[4.30, 4.70], ['+-0.75', '+-1.25'], LAD_TOP],
+               'rail_u_t_z': [[4.15, RU], ['+-%.2f..%.2f' % (RT0, RT1)], [LAD_TOP, LAD_TOP + RH + 0.032]],
+               'lid_hinge_u_z': [round(HU, 3), round(HZ, 3)], 'lid_open_deg': 100, 'lid_t': [-0.65, 0.65]}
+    print('SHIPLANDING', LANDING, flush=True)
     POS = {'ladder_rails_xy_m': [tuple(round(c, 3) for c in (LU * 4.45 + LT * s).xy) for s in (-0.28, 0.28)], 'ladder_z_m': [TOP, LAD_TOP],
-           'hatch_center_m': tuple(round(c, 3) for c in (LU * R).xy) + (round(LAD_TOP + 0.9, 3),), 'hatch_deck_m': tuple(round(c, 3) for c in (LU * 4.75).xy) + (round(LAD_TOP - 0.05, 3),)}
+           'hatch_center_m': tuple(round(c, 3) for c in (LU * R).xy) + (round(LAD_TOP + 0.9, 3),), 'hatch_deck_m': tuple(round(c, 3) for c in (LU * 4.75).xy) + (round(LAD_TOP - 0.05, 3),), 'hatch_landing': LANDING}
     print('SHIPPOS', POS, flush=True)
     print('SHIPLADDER tris', sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in out[6:] if o.type == 'MESH'), flush=True)
     return [o.name for o in out], M
