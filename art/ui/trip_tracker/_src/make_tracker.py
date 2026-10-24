@@ -148,7 +148,9 @@ def txt(x, y, s, size, col, anchor='start', ls=.12, weight=700):
 # Strip-local layouts. Origin = strip top-left. Width 303 pt at both sizes (x 8 .. 311 at 375; 8 .. 329 would be 321 at 393 - kept 303 + right-aligned chip column logic: width = screenW - 72).
 RZ = 116   # right zone (divider at W - RZ); text box = W-RZ+1 .. W-6 = 109 pt
 RZ_AVAIL = RZ - 7
-RZ_SIZE, RZ_LS = 11, .02   # Director: 11 pt minimum
+RZ_SIZE, RZ_LS = 11, .02   # Director: 11 pt minimum everywhere
+LBL_SIZE, LBL_LS = 11, .08
+CHIP_W = 122
 def hms(s):
     s = int(math.ceil(s)); return f'{s//3600}:{s%3600//60:02d}:{s%60:02d}' if s >= 3600 else mmss(s)
 def tapped_parts(secs, clock):
@@ -167,9 +169,9 @@ def strip_thin(w, t, tapped=False, rz_parts=None):
     s += f'<circle cx="9" cy="{h/2}" r="2.5" fill="{col}"/>'
     if name == 'AT EARTH':
         s += f'<circle cx="9" cy="{h/2}" r="4.5" fill="none" stroke="{col}" stroke-opacity=".45" stroke-width="1"/>'
-    s += txt(15, h/2 + 3.2, name, 9.5, col, ls=.12)
-    lw = tw(name, 9.5, .12)
-    s += txt(15 + lw + 3, h/2 + 3.4, mmss(left), 10.5, C['text'], ls=.02)
+    s += txt(15, h/2 + 3.8, name, LBL_SIZE, col, ls=LBL_LS)
+    lw = tw(name, LBL_SIZE, LBL_LS)
+    s += txt(15 + lw + 3, h/2 + 3.8, mmss(left), LBL_SIZE, C['text'], ls=.02)
     mx, ex, cy = 104, W - RZ - 10, h/2 + 1
     p0, p1, p2 = (mx + 7, cy), ((mx + ex)/2, cy - 8), (ex - 7, cy)
     lit = {'OUTBOUND': 'moon', 'AT EARTH': 'all', 'RETURNING': 'earth'}[name]
@@ -188,10 +190,10 @@ def strip_thin(w, t, tapped=False, rz_parts=None):
     return s, W, h, dict(path=[p0, p1, p2], moon=(mx, cy, 5.5), earth=(ex, cy, 6), u=u, lit=lit), name
 
 def chip(t):
-    h = CHIP_H; w = 112
+    h = CHIP_H; w = CHIP_W
     s = panel(0, 0, w, h, 5)
     s += ship(13, h/2, -90 + 90, 10)  # pointing right = travelling
-    s += rich(24, h/2 + 3.5, [('Ship back in ', C['sub']), (mmss(TOTAL - t), C['text'])], 10.5, ls=.05)
+    s += rich(24, h/2 + 3.8, [('Ship back in ', C['sub']), (hms(TOTAL - t), C['text'])], 11, ls=.02)
     s += f'<path d="M{w-11},{h/2-3.5} l3.5,3.5 l-3.5,3.5" fill="none" stroke="{C["cyan"]}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
     return s, w, h
 
@@ -290,6 +292,39 @@ def pop_place(w, ex, strip_top, s):
     cx = min(max(ex, lo + pw / 2), hi - pw / 2)
     base = strip_top - 2
     return cx, base, (cx - pw / 2, base - POP_CAP, cx + pw / 2, base)
+POP_UP, POP_DN = 13.8, 4.6          # ink incl. 1.5 pt outline: baseline-13.8 .. baseline+4.6 (18.4 pt tall)
+POP_C = (POP_UP - POP_DN) / 2        # ink centre sits 4.6 pt above the baseline
+POP_HALF = (POP_UP + POP_DN) / 2     # 9.2
+POP_OVER = 1.06
+def money_cell(w):
+    r = w - 64; cw = r - 8 - 6; c1 = cw / 2.3
+    return (8, 8 + c1), (8 + c1 + 6, r)          # money x, ore x
+def pop_route(w, ex):
+    """keyframes (ms, cx, cy, scale, opacity); cy = ink centre"""
+    st = block_top(w); sb = st + THIN['h']; band = BAND[w][0]; hb = hud_bottom(w)
+    (m0, m1), _ = money_cell(w)
+    under = sb + 2 + POP_HALF
+    if under + POP_HALF * POP_OVER <= band - 1:
+        route, cy = 'under', under
+    else:
+        route, cy = 'in-strip', st + THIN['h'] / 2
+    mx = (m0 + m1) / 2
+    K = dict(route=route, k0=(ex, cy), k_glide_end=(mx, cy), k_end=(mx, hb),
+             ink_k0=(cy - POP_HALF, cy + POP_HALF), ink_k0_over=(cy - POP_HALF * POP_OVER, cy + POP_HALF * POP_OVER))
+    return route, K
+def ease_ioc(x): return 4*x**3 if x < .5 else 1 - (-2*x + 2)**3 / 2
+def pop_state(K, ms):
+    """centre, scale, opacity at time ms after +277.2"""
+    (x0, y0), (x1, _), (_, y2) = K['k0'], K['k_glide_end'], K['k_end']
+    if ms < 110:  f = 1 - (1 - ms/110)**3; return x0, y0, .6 + (POP_OVER - .6)*f, f
+    if ms < 170:  f = (1 - math.cos(math.pi*(ms-110)/60))/2; return x0, y0, POP_OVER + (1 - POP_OVER)*f, 1
+    if ms < 520:  return x0, y0, 1, 1
+    if ms < 970:  f = ease_ioc((ms-520)/450); return x0 + (x1-x0)*f, y0, 1, 1
+    f = min(1, (ms-970)/300)**3
+    op = 1 if ms < 1150 else max(0, 1 - (ms-1150)/120)
+    return x1, y0 + (y2-y0)*f, 1 - .45*f, op
+def pop_c(cx, cy, s, sc=1, op=1):
+    return f'<g opacity="{op}" transform="translate({cx},{cy}) scale({sc}) translate({-cx},{-cy})">{pop_svg(cx, cy + POP_C, s)}</g>'
 def pop_svg(cx, base, s):
     return (f'<text x="{cx}" y="{base}" font-family="Inter" font-weight="900" font-size="{POP_SIZE}" fill="#3a2200" stroke="#3a2200" stroke-width="3" stroke-linejoin="round" text-anchor="middle">{s}</text>'
             f'<text x="{cx}" y="{base}" font-family="Inter" font-weight="900" font-size="{POP_SIZE}" fill="{C["gold"]}" text-anchor="middle">{s}</text>')
@@ -307,12 +342,16 @@ for w, (key, H) in SIZES.items():
                    t=t, back_in=mmss(TOTAL - t), u=round(meta['u'], 4), lit=meta['lit'])
         ex = X0 + meta['earth'][0]
         if nm == 'at_earth':
-            cx, base, bb = pop_place(w, ex, bt, '+$20,000')
-            body += pop_svg(cx, base, '+$20,000')
-            cx9, base9, bb9 = pop_place(w, ex, bt, '+$999,999')
-            rec['pop_20000'] = dict(x=(round(bb[0], 1), round(bb[2], 1)), y=(round(bb[1], 1), bb[3]), w=round(bb[2] - bb[0], 1))
-            rec['pop_999999'] = dict(x=(round(bb9[0], 1), round(bb9[2], 1)), y=(round(bb9[1], 1), bb9[3]), w=round(bb9[2] - bb9[0], 1),
-                                     clear_left=round(bb9[0] - 8, 1), clear_right_of_hud_column=round((w - 64) - bb9[2], 1), clear_strip_top=bt - bb9[3])
+            route, K = pop_route(w, ex)
+            cx, cy = K['k0']
+            body += pop_c(cx, cy, '+$20,000')
+            w2 = pop_w('+$20,000') + 3; w9 = pop_w('+$999,999') + 3      # ink incl. outline
+            bb9 = (cx - w9/2, cy - POP_HALF, cx + w9/2, cy + POP_HALF)
+            (_, _), (o0, o1) = money_cell(w)
+            rec['pop_k0'] = dict(route=route, centre=(round(cx, 1), round(cy, 1)), ink_y=(round(cy - POP_HALF, 1), round(cy + POP_HALF, 1)),
+                                 x_20000=(round(cx - w2/2, 1), round(cx + w2/2, 1)), x_999999=(round(bb9[0], 1), round(bb9[2], 1)),
+                                 clear_ore_bottom=round(cy - POP_HALF - hud_bottom(w), 1), clear_band=round(bandT - cy - POP_HALF, 1),
+                                 clear_right_of_hud_column=round((w - 64) - bb9[2], 1))
         if tapped:
             body += f'<circle cx="{X0+60}" cy="{bt+h/2}" r="12" fill="#ffffff" fill-opacity=".18" stroke="#ffffff" stroke-opacity=".6"/>'
         compose(key, w, H, body, save(f'pad_{nm}_{w}x{H}.png'))
@@ -324,13 +363,63 @@ for w, (key, H) in SIZES.items():
         if nm == 'at_earth':
             ov += f'<rect x="{bb9[0]:.1f}" y="{bb9[1]:.1f}" width="{bb9[2]-bb9[0]:.1f}" height="{bb9[3]-bb9[1]:.1f}" fill="none" stroke="#ff9a4a" stroke-dasharray="2 1"/>'
             ov += f'<line x1="{w-64}" y1="{SAFE[w]+HUD_T}" x2="{w-64}" y2="{bandT}" stroke="#ff9a4a" stroke-dasharray="2 2"/>'
-            ov += (f'<text x="15" y="{bandT+30}" font-family="DejaVu Sans" font-size="8" fill="#ff9a4a">dashed = widest pop "+$999,999" {bb9[2]-bb9[0]:.1f} pt, x {bb9[0]:.0f}-{bb9[2]:.0f}; HUD column edge x {w-64}</text>')
-            ov += (f'<text x="15" y="{bandT+41}" font-family="DejaVu Sans" font-size="8" fill="#ff9a4a">pop bottom y {bb9[3]} = strip top - 2 · right clearance {(w-64)-bb9[2]:.1f} pt</text>')
-            marks.append((round(bb9[1]), f'pop top {bb9[1]:.0f}', '#ff9a4a'))
+            ov += (f'<text x="15" y="{bandT+30}" font-family="DejaVu Sans" font-size="8" fill="#ff9a4a">dashed = widest pop "+$999,999" ink {bb9[2]-bb9[0]:.1f} pt, x {bb9[0]:.0f}-{bb9[2]:.0f}; HUD column edge x {w-64}</text>')
+            ov += (f'<text x="15" y="{bandT+41}" font-family="DejaVu Sans" font-size="8" fill="#ff9a4a">pop start ({route}) ink y {bb9[1]:.1f}-{bb9[3]:.1f} · ore bottom {hud_bottom(w)} · band {bandT}</text>')
+            marks.append((bb9[1], f'pop top {bb9[1]:.1f}', '#ff9a4a')); marks.append((bb9[3], f'pop bottom {bb9[3]:.1f}', '#ff9a4a'))
         compose(key, w, H, ov, save(f'pad_{nm}_{w}x{H}_overlay.png'))
         y0 = hud_bottom(w) - 18; y1 = bandT + 6
         inset(f'{OUT}/proofs/pad_{nm}_{w}x{H}_overlay.png', y0, y1, marks, 430 if w == 375 else 600, x0=95, x1=220)
         results[f'{nm}_{w}'] = rec
+
+# ---------------- money pop path (375: under the strip; 393: in-strip fallback) ----------------
+pop_path = {}
+for w, (key, H) in SIZES.items():
+    bt = block_top(w); bandT = BAND[w][0]; hb = hud_bottom(w)
+    s, W, h, meta, name = strip_thin(w, 277.9)
+    ex = X0 + meta['earth'][0]
+    route, K = pop_route(w, ex)
+    MID = 745                                         # mid-glide
+    cx, cy, sc, op = pop_state(K, MID)
+    body = status(w) + hud(w, '$41,860') + f'<g transform="translate({X0},{bt})">{s}</g>' + pop_c(cx, cy, '+$20,000', sc, op)
+    tag = f'pad_at_earth_pop_path_{w}x{H}'
+    compose(key, w, H, body, save(tag + '.png'))
+    (m0, m1), (o0, o1) = money_cell(w)
+    ov = body + band_overlay(w)
+    ov += f'<rect x="{o0}" y="{SAFE[w]+HUD_T}" width="{o1-o0}" height="{HUD_H}" fill="#ff5a6a" fill-opacity=".12" stroke="#ff5a6a" stroke-dasharray="3 2"/>'
+    ov += f'<text x="{o0+4}" y="{SAFE[w]+HUD_T-3}" font-family="DejaVu Sans" font-size="7" fill="#ff5a6a">ore panel x {o0:.1f}-{o1}, bottom y {hb} (keep out)</text>'
+    # sweep of the widest pop's ink along the path
+    pts = []; boxes = ''
+    for ms in range(0, 1271, 10):
+        x, y, sc_, o_ = pop_state(K, ms); pts.append((x, y))
+        hw = (pop_w('+$999,999') + 3) / 2 * sc_; hh = POP_HALF * sc_
+        pop_path.setdefault(w, dict(max_ink_bottom=0, min_clear_ore=1e9, route=route))
+        pp = pop_path[w]
+        pp['max_ink_bottom'] = max(pp['max_ink_bottom'], y + hh)
+        if x + hw > o0 and x - hw < o1: pp['min_clear_ore'] = min(pp['min_clear_ore'], y - hh - hb)
+        pp['max_right'] = max(pp.get('max_right', 0), x + hw)
+    ov += '<polyline points="' + ' '.join(f'{x:.1f},{y:.1f}' for x, y in pts) + '" fill="none" stroke="#ffd84d" stroke-width="1.2" stroke-dasharray="3 2"/>'
+    labs = [('K0 0-520 ms pop at Earth', K['k0']), ('K1 970 ms glide end', K['k_glide_end']), ('K2 1270 ms into Money', K['k_end'])]
+    for i, (lab, (x, y)) in enumerate(labs):
+        ov += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.2" fill="#ffd84d" stroke="#000" stroke-width=".6"/>'
+    hw = (pop_w('+$999,999') + 3) / 2
+    for (x, y) in (K['k0'], K['k_glide_end']):
+        ov += f'<rect x="{x-hw:.1f}" y="{y-POP_HALF:.1f}" width="{2*hw:.1f}" height="{2*POP_HALF:.1f}" fill="none" stroke="#ff9a4a" stroke-width=".7" stroke-dasharray="2 1"/>'
+    ov += f'<line x1="{m0}" y1="{hb}" x2="{m1:.1f}" y2="{hb}" stroke="#3aff9c" stroke-width="1.5"/>'
+    pp = pop_path[w]
+    lines = [f'money pop path ({route}); yellow dashes = centre path, orange = widest "+$999,999" ink at K0 / K1',
+             f'K0 ({K["k0"][0]:.1f}, {K["k0"][1]:.1f}) -> K1 ({K["k_glide_end"][0]:.1f}, {K["k_glide_end"][1]:.1f}) -> K2 ({K["k_end"][0]:.1f}, {K["k_end"][1]:.1f}) = Money cell bottom',
+             f'ink max bottom y {pp["max_ink_bottom"]:.1f} vs band {bandT} (clear {bandT-pp["max_ink_bottom"]:.1f})',
+             (f'under ore x-range: ink top >= {hb + pp["min_clear_ore"]:.1f} (ore bottom {hb}, clear {pp["min_clear_ore"]:.1f})' if pp['min_clear_ore'] < 1e8 else 'never inside ore x-range'),
+             f'still = {MID} ms (mid-glide): centre ({cx:.1f}, {cy:.1f})']
+    for i, l in enumerate(lines):
+        ov += f'<text x="10" y="{bandT+28+10*i}" font-family="DejaVu Sans" font-size="6.8" fill="#ffd84d">{l}</text>'
+    compose(key, w, H, ov, save(tag + '_overlay.png'))
+    marks = [(hb, f'HUD/ore bottom {hb}', '#ff5a6a'), (bt, f'strip top {bt}', '#3aff9c'), (bt + h, f'strip bottom {bt+h}', '#3aff9c'),
+             (bandT, f'band top {bandT}', '#ff5a6a'), (K['k0'][1] - POP_HALF, f'pop ink top {K["k0"][1]-POP_HALF:.1f}', '#ff9a4a'),
+             (K['k0'][1] + POP_HALF, f'pop ink bottom {K["k0"][1]+POP_HALF:.1f}', '#ff9a4a')]
+    inset(f'{OUT}/proofs/{tag}_overlay.png', hb - 16, bandT + 6, marks, 430 if w == 375 else 600, x0=0, x1=118 if w == 375 else 160)
+    pop_path[w].update(k0=K['k0'], k1=K['k_glide_end'], k2=K['k_end'], still_ms=MID, still_centre=(round(cx, 1), round(cy, 1)),
+                       ink_k0=K['ink_k0'], ink_k0_overshoot=K['ink_k0_over'], band_top=bandT, ore_x=(round(o0, 1), o1), money_x=(m0, round(m1, 1)), ore_bottom=hb)
 
 # chip on the Shipyard (375) + overlay
 w = 375; bt = block_top(w)
@@ -351,9 +440,8 @@ for nm, t in STILLS:
     s, W, h, meta, name = strip_thin(375, t, tapped=nm.endswith('tapped'))
     extra = ''
     if nm == 'at_earth':
-        cx, base, _ = pop_place(375, X0 + meta['earth'][0], 0, '+$20,000')
-        extra = pop_svg(cx - X0, -2, '+$20,000')
-    rows.append((s + extra, W, 18 + (16 if nm == 'at_earth' else 0), nm, 16 if nm == 'at_earth' else 0))
+        extra = pop_c(meta['earth'][0], 16 + 2 + POP_HALF, '+$20,000')
+    rows.append((s + extra, W, 18 + (22 if nm == 'at_earth' else 0), nm, 0))
 cs, cw, ch = chip(364.0); rows.append((cs, cw, 20, 'chip', 0))
 y = 10; body = f'<rect width="330" height="{sum(r[2]+22 for r in rows)+10}" fill="#05070c"/>'
 for s, Wd, hh, nm, off in rows:
@@ -410,8 +498,8 @@ P.append(part('path_dots_ref_303x16', W, h, dots(p0, p1, p2, 0, 14, .7, split=Fa
 P.append(part('strip_bg_303x16', 303, 16, panel(0, 0, 303, 16, 5)))
 P.append(part('strip_bg_tapped_303x16', 303, 16, panel(0, 0, 303, 16, 5, on=True)))
 cs, cw, ch = chip(364.0)
-P.append(part('chip_bg_112x18', 112, 18, panel(0, 0, 112, 18, 5)))
-P.append(part('chip_full_example', 112, 18, cs))
+P.append(part('chip_bg_122x18', 122, 18, panel(0, 0, 122, 18, 5)))
+P.append(part('chip_full_example', 122, 18, cs))
 P.append(part('money_pop_example_20000', 90, 20, pop_svg(45, 15, '+$20,000')))
 geo = {}
 for w in SIZES:
@@ -419,5 +507,5 @@ for w in SIZES:
     geo[w] = dict(strip_w=W, path=m['path'], moon=m['moon'], earth=m['earth'], divider_x=W - RZ)
 json.dump(dict(timing=dict(total_s=TOTAL, outbound=(0, T_EARTH), at_earth=(T_EARTH, T_RET), returning=(T_RET, TOTAL), sale_and_pop_at=T_EARTH),
                layout='thin strip only (16 pt)', strip_local=geo, pop=dict(font='Inter 900 15 pt', max_text='+$999,999', max_w_pt=round(pop_w('+$999,999'), 1),
-               w_20000_pt=round(pop_w('+$20,000'), 1)), results=results, right_zone=dict(size_pt=RZ_SIZE, tracking_em=RZ_LS, avail_pt=RZ_AVAIL, forms=text_forms), parts=P), open(f'{OUT}/_src/measure.json', 'w'), indent=1)
+               w_20000_pt=round(pop_w('+$20,000'), 1)), results=results, pop_path={str(k): {kk: (tuple(round(x, 2) for x in vv) if isinstance(vv, tuple) else (round(vv, 2) if isinstance(vv, float) else vv)) for kk, vv in v.items()} for k, v in pop_path.items()}, left_label=dict(size_pt=LBL_SIZE, tracking_em=LBL_LS), chip_w=CHIP_W, right_zone=dict(size_pt=RZ_SIZE, tracking_em=RZ_LS, avail_pt=RZ_AVAIL, forms=text_forms), parts=P), open(f'{OUT}/_src/measure.json', 'w'), indent=1)
 print(json.dumps(results, indent=1)); print(P)

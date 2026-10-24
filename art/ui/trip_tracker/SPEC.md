@@ -10,7 +10,7 @@
 ## Layout: one thin strip at every size
 - **Strip:** 16 pt tall. x = 8, width = **screenW − 72** (303 at 375, 321 at 393). Those are the HUD's columns, so it never reaches the Eve bubble.
 - **Top:** `safe-top + 26 + 56 + 3`, i.e. 3 pt under the HUD (`#hud` top = safe-top + 26, height 56).
-- **Chip:** 112 × 18, same top-left as the strip.
+- **Chip:** 122 × 18 (widened from 112 for 11 pt text), same top-left as the strip.
 - Measured with proof safe-top 20 at 375 × 667 and 59 at 393 × 852:
 
 | Screen | HUD bottom | Strip y | Chip y | Framing band top | Strip clearance | Chip clearance |
@@ -22,7 +22,11 @@
 
 ### Inside the strip (strip-local pt; W = strip width; RZ = 116)
 - Phase dot r 2.5 at (9, 8). AT EARTH adds a 4.5 pt ring at 45 %.
-- Phase label at x 15, baseline 11.2, size 9.5, tracking .12 em, phase colour. Phase time left follows 3 pt after it: size 10.5, #EAFCFF, tabular figures.
+- **All strip and chip text is 11 pt minimum** (Director). The strip stays 16 pt tall, with the same clearances.
+- Phase label at x 15, baseline 11.8, **11 pt, tracking .08 em** (was 9.5 pt / .12), phase colour.
+- Phase time left follows 3 pt after it: **11 pt, tracking .02 em** (was 10.5), #EAFCFF, tabular figures.
+- Re-fit: the widest left text, "RETURNING 4:38", ends at x 89.4 (was 84.8). The Moon's left edge is at 98.5, so 9.1 pt stays clear without moving anything. "OUTBOUND 4:38" ends at 86.0 and "AT EARTH 1:02" at 79.8. A future level with a 10:00+ phase ends at 92.7 (5.8 pt clear).
+- Nothing had to give: the Moon, Earth, path, divider and right zone are unchanged.
 - Moon centre (104, 9), r 5.5.
 - Earth centre (W − RZ − 10, 9), r 6: x 177 at 375, x 195 at 393.
 - Flight path: quadratic Bézier P0 (111, 9), P1 (mid-x, 1), P2 (W − RZ − 17, 9). 15 dots, r 0.7.
@@ -54,16 +58,56 @@
 Here `t` is each dot's position along the path, 0 at the Moon and 1 at Earth. The lit section grows behind the ship as it flies and never runs ahead of it.
 
 ### Chip
-112 × 18, chamfer 5. Ship 10 pt at (13, 9) with flame. "Ship back in " #C9D3E6 + "4:12" #EAFCFF, size 10.5, at x 24. Chevron 1.5 pt #7FF3FF at x 101. Tapping it runs the existing station slide to the Launch Pad.
+**122 × 18**, chamfer 5. Ship 10 pt at (13, 9) with flame. "Ship back in " #C9D3E6 + "4:12" #EAFCFF, **11 pt, tracking .02 em**, at x 24, baseline 12.8. Chevron 1.5 pt #7FF3FF at x 111.
+- Lv1 worst case "Ship back in 10:16" (73.6 pt) ends at x 97.6, 13.4 pt clear of the chevron.
+- 1 h+ case "Ship back in 1:04:12" (82.5 pt) ends at x 106.5, 4.5 pt clear.
+- At 112 wide with 11 pt text, the Lv1 text would have touched the chevron, which is why the chip grew. Tapping it runs the existing station slide to the Launch Pad.
 
-### Money pop: real payout
-- **Text and style:** "+$20,000" at Lv1; Coder feeds the real amount. Inter (or system-ui) 900, 15 pt, #FFD84D, with a 3 pt #3A2200 outline drawn as a stroke under the fill.
-- **Placement:** centred on Earth's x. Baseline 2 pt above the strip top (y 92–103 at 375, y 131–142 at 393). Clamp x so the text stays inside the HUD columns with 4 pt margin: left ≥ 12, right ≤ screenW − 68.
-- **Widths:** "+$20,000" is 77.4 pt. **Max width: "+$999,999" = 86 pt**, at x 142–228 (375) and x 160–246 (393).
-  - That leaves 134 / 152 pt on the left and **83 pt before the HUD column edge** (x 311 / 329) on the right.
-  - It clears the strip top by 2 pt.
-  - It overlays the bottom of the HUD's ore cell while it rises, because it is flying to the Money counter.
-- Anything from $1,000,000 up should use the HUD's short form ("+$1.2M"), which is narrower.
+### Money pop: real payout, routed around the ore panel
+**Text and style:**
+- "+$20,000" at Lv1; Coder feeds the real amount.
+- Inter (or system-ui) 900, 15 pt, #FFD84D, with a 3 pt #3A2200 outline drawn as a stroke under the fill.
+- **Ink box, including the outline:** baseline − 13.8 to baseline + 4.6, so 18.4 pt tall. The ink centre sits 4.6 pt above the baseline.
+- **Ink widths:** "+$20,000" 80.4 pt (77.4 pt of glyphs). **Max is "+$999,999": 88.9 pt** (85.9 pt of glyphs).
+- From $1,000,000 up, use the HUD's short form ("+$1.2M").
+
+All positions below are the **ink centre** (cx, cy) in screen pt. Scale is around that centre.
+
+**Route rule (runtime):**
+- **Under:** let `under = stripBottom + 2 + 9.2`. If `under + 9.2 × 1.06 ≤ bandTop − 1`, the pop rides just under the strip.
+- **In-strip:** otherwise it rides centred on the strip, in front of it (`cy = stripTop + 8`).
+
+**Paths:**
+- **375 × 667 (under):** pops just under the strip, centred on Earth, glides left below the HUD panels, then rises into the bottom of the Money counter.
+- **393 × 852 (in-strip; the under route is impossible):** the strip bottom is y 160 and the band top is y 165, a 5 pt gap. The pop is 18.4 pt tall (9.7 pt even at 11 pt with no outline), so it cannot fit under the strip. The closest clean alternative is the in-strip route: the same path, but at the strip's height.
+  - It covers the strip's own content (Earth, ship, phase label) for about 1 s.
+  - It never touches the ore panel and stays above the band.
+
+| Key | ms after +277.2 | 375: (cx, cy), scale, opacity | 393: (cx, cy), scale, opacity | Easing into this key |
+|---|---|---|---|---|
+| K0 start | 0 | (185, 132.2), .6, 0 | (203, 152), .6, 0 | n/a (cx = Earth screen x, clamped so the ink stays inside x 12 … screenW − 68) |
+| overshoot | 110 | same, **1.06**, 1 | same, 1.06, 1 | easeOutCubic (scale and opacity) |
+| settle | 170 | same, 1, 1 | same, 1, 1 | easeInOutSine |
+| hold | 520 | same | same | n/a (hold 350 ms) |
+| K1 glide end | 970 | (72.6, 132.2), 1, 1 | (76.5, 152), 1, 1 | **easeInOutCubic, 450 ms**: x only; cx = Money cell centre ((8 + moneyCellRight) / 2) |
+| (fade starts) | 1150 | on the rise | on the rise | opacity 1 → 0 linear over 120 ms |
+| K2 into Money | 1270 | (72.6, **102**), **.55**, 0 | (76.5, **141**), .55, 0 | **easeInCubic, 300 ms**: y and scale. cy = HUD bottom = Money cell bottom edge |
+
+At 1270 ms: the Money counter adds the amount and plays `.bump` (300 ms). This replaces the old "rise 18 pt + flyChunks". After a reload or catch-up past +277.2, nothing plays.
+
+**Measured clearances** for the widest ("+$999,999") ink across the whole path (sampled every 10 ms; `measure.json → pop_path`):
+
+| | 375 × 667 (under) | 393 × 852 (in-strip) |
+|---|---|---|
+| Ink y at K0 (overshoot) | 123.0–141.4 (122.45–141.95) | 142.8–161.2 (142.25–161.75) |
+| vs strip | 2 pt under the strip bottom (121); 1.45 pt at overshoot | on top of the strip (144–160) |
+| vs band top | 144: **2.6 pt** clear (2.05 pt at overshoot) | 165: **3.8 pt** clear (3.25 pt at overshoot) |
+| vs ore panel (x 143.1–311 / 151–329, bottom 102 / 141) | lowest ink top under it is 122.45: **20.45 pt** below. During the rise the ink is at x ≤ 117.0, **26 pt** left of the ore panel | **1.25 pt** below at overshoot (1.8 pt settled). During the rise the ink is at x ≤ 120.9, **30 pt** left |
+| Ink x at K0 | 140.5–229.5 (81.5 pt inside the HUD column edge x 311) | 158.5–247.5 (81.5 pt inside x 329) |
+| Never overlaps | the ore panel or the band | the ore panel or the band |
+
+- **During the rise at 375** the pop crosses the strip's left end (the phase label and Moon) for about 0.2 s on its way into the Money cell. It is drawn above the strip.
+- **393 is tight above** (1.25 pt from the ore panel at the 1.06 overshoot). If Coder's real ink box is taller than Inter's, drop the overshoot to 1.0 at 393 (1.8 pt clear).
 
 ## Colours
 | Use | Hex |
@@ -109,7 +153,7 @@ phase left = phaseEnd − e;  Back in = 616 − e   (ceil to whole seconds; m:ss
 | Strip in | lift-off (+0) | slide from −8 pt + opacity 0 → 1, **260 ms easeOutCubic** |
 | Engine glow | OUTBOUND, RETURNING | flame scaleX .85 ↔ 1.15, opacity .8 ↔ 1, **140 ms sine loop** (two offset sines). Off while AT EARTH. |
 | Earth pop | +277.2 | Earth scale 1 → 1.18 → 1, **360 ms easeOutBack** (overshoot 1.7). White ring r 6 → 12 pt, opacity .8 → 0, **500 ms easeOutCubic**. |
-| Money pop | +277.2, once per trip (lift-off pays nothing) | scale .6 → 1.1 → 1, **160 ms easeOutBack**. Rises 18 pt, **900 ms easeOutCubic**. Then the existing `flyChunks` to the HUD Money counter, and Money `.bump` (300 ms). After a reload or offline catch-up past +277.2, no pop plays: the money is already paid and is counted in the away summary. |
+| Money pop | +277.2, once per trip (lift-off pays nothing) | keyframes in **Money pop** above: pop in 170 ms, hold 350, glide left 450 easeInOutCubic, rise 300 easeInCubic into the Money cell bottom (fade over the last 120), then Money `.bump` 300 ms. 1.27 s in total. After a reload or offline catch-up past +277.2, no pop plays: the money is already paid and is counted in the away summary. |
 | Pulse | whole of AT EARTH | ring round the parked ship, scale 1 → 1.6, opacity .6 → 0, **1200 ms easeOutSine loop**. Ship bobs ±0.5 pt, **1600 ms sine**. |
 | Turn-around | +338.8 | icon rotates 180°, **320 ms easeInOutBack**. Draw it already turned if `e − 338.8 ≥ 0.32`. |
 | Lit dots | every frame | lit set = `t ≤ u` (OUTBOUND), all (AT EARTH), `t ≥ u` (RETURNING). Each dot fades in over **120 ms linear** as the ship passes it. |
@@ -130,7 +174,7 @@ phase left = phaseEnd − e;  Back in = 616 − e   (ceil to whole seconds; m:ss
 | pulse_ring_11pt | 12 | |
 | flash_landing_28pt | 28 | |
 | path_dots_ref_303x16 | 303 × 16 | reference only; draw the dots in code |
-| chip_bg_112x18, chip_full_example | 112 × 18 | |
+| chip_bg_122x18, chip_full_example | 122 × 18 | |
 | money_pop_example_20000 | 90 × 20 | reference only; render the pop as text |
 
 ## Stills (`proofs/`)
@@ -141,9 +185,10 @@ phase left = phaseEnd − e;  Back in = 616 − e   (ceil to whole seconds; m:ss
 
 **Files** (each has an `_overlay` version with the band, the HUD-bottom line and a 2× zoom with exact y values):
 - `pad_outbound_{375x667,393x852}.png`
-- `pad_at_earth_{375x667,393x852}.png`: "+$20,000". The overlay also boxes "+$999,999" against the HUD column edge.
+- `pad_at_earth_{375x667,393x852}.png`: "+$20,000" at K0 (under the strip at 375, in-strip at 393). The overlay also boxes "+$999,999" against the HUD column edge.
 - `pad_returning_{375x667,393x852}.png`: lit dots run from Earth to the ship.
 - `pad_returning_tapped_{375x667,393x852}.png`: "Back at 2:47 PM · in 4:12"
 - `chip_shipyard_375x667.png`
 - `strip_states_3x.png`: every state at 3×
+- `pad_at_earth_pop_path_375x667.png`: mid-glide (745 ms). Its `_overlay` draws the centre path, K0/K1/K2, the widest ink box, the ore keep-out and the band. `pad_at_earth_pop_path_393x852.png` + `_overlay`: the in-strip alternative.
 - `tapped_text_forms_3x.png`: the three tapped forms at 375 and 393 widths, each with a dashed 109 pt box and its measured width

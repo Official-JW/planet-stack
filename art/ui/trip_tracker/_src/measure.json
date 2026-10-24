@@ -108,30 +108,27 @@
    "back_in": "5:37",
    "u": 1.0,
    "lit": "all",
-   "pop_20000": {
-    "x": [
-     146.3,
-     223.7
+   "pop_k0": {
+    "route": "under",
+    "centre": [
+     185,
+     132.2
     ],
-    "y": [
-     92.1,
-     103
+    "ink_y": [
+     123.0,
+     141.4
     ],
-    "w": 77.4
-   },
-   "pop_999999": {
-    "x": [
-     142.0,
-     228.0
+    "x_20000": [
+     144.8,
+     225.2
     ],
-    "y": [
-     92.1,
-     103
+    "x_999999": [
+     140.5,
+     229.5
     ],
-    "w": 85.9,
-    "clear_left": 134.0,
-    "clear_right_of_hud_column": 83.0,
-    "clear_strip_top": 2
+    "clear_ore_bottom": 21.0,
+    "clear_band": 2.6,
+    "clear_right_of_hud_column": 81.5
    }
   },
   "returning_375": {
@@ -189,30 +186,27 @@
    "back_in": "5:37",
    "u": 1.0,
    "lit": "all",
-   "pop_20000": {
-    "x": [
-     164.3,
-     241.7
+   "pop_k0": {
+    "route": "in-strip",
+    "centre": [
+     203,
+     152.0
     ],
-    "y": [
-     131.1,
-     142
+    "ink_y": [
+     142.8,
+     161.2
     ],
-    "w": 77.4
-   },
-   "pop_999999": {
-    "x": [
-     160.0,
-     246.0
+    "x_20000": [
+     162.8,
+     243.2
     ],
-    "y": [
-     131.1,
-     142
+    "x_999999": [
+     158.5,
+     247.5
     ],
-    "w": 85.9,
-    "clear_left": 152.0,
-    "clear_right_of_hud_column": 83.0,
-    "clear_strip_top": 2
+    "clear_ore_bottom": 1.8,
+    "clear_band": 3.8,
+    "clear_right_of_hud_column": 81.5
    }
   },
   "returning_393": {
@@ -260,6 +254,95 @@
    "clearance": 3
   }
  },
+ "pop_path": {
+  "375": {
+   "max_ink_bottom": 141.95,
+   "min_clear_ore": 20.45,
+   "route": "under",
+   "max_right": 232.14,
+   "k0": [
+    185,
+    132.2
+   ],
+   "k1": [
+    72.57,
+    132.2
+   ],
+   "k2": [
+    72.57,
+    102
+   ],
+   "still_ms": 745,
+   "still_centre": [
+    128.8,
+    132.2
+   ],
+   "ink_k0": [
+    123.0,
+    141.4
+   ],
+   "ink_k0_overshoot": [
+    122.45,
+    141.95
+   ],
+   "band_top": 144,
+   "ore_x": [
+    143.1,
+    311
+   ],
+   "money_x": [
+    8,
+    137.1
+   ],
+   "ore_bottom": 102
+  },
+  "393": {
+   "max_ink_bottom": 161.75,
+   "min_clear_ore": 1.25,
+   "route": "in-strip",
+   "max_right": 250.14,
+   "k0": [
+    203,
+    152.0
+   ],
+   "k1": [
+    76.48,
+    152.0
+   ],
+   "k2": [
+    76.48,
+    141
+   ],
+   "still_ms": 745,
+   "still_centre": [
+    139.7,
+    152.0
+   ],
+   "ink_k0": [
+    142.8,
+    161.2
+   ],
+   "ink_k0_overshoot": [
+    142.25,
+    161.75
+   ],
+   "band_top": 165,
+   "ore_x": [
+    151.0,
+    329
+   ],
+   "money_x": [
+    8,
+    145.0
+   ],
+   "ore_bottom": 141
+  }
+ },
+ "left_label": {
+  "size_pt": 11,
+  "tracking_em": 0.08
+ },
+ "chip_w": 122,
  "right_zone": {
   "size_pt": 11,
   "tracking_em": 0.02,
@@ -425,20 +508,20 @@
    2666
   ],
   [
-   "chip_bg_112x18",
+   "chip_bg_122x18",
    [
-    336,
+    366,
     54
    ],
-   3824
+   4133
   ],
   [
    "chip_full_example",
    [
-    336,
+    366,
     54
    ],
-   10910
+   11186
   ],
   [
    "money_pop_example_20000",
