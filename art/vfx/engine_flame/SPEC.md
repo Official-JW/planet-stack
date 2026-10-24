@@ -5,7 +5,8 @@ It doesn't touch the 4 PM build, qa3d-next, or any existing timing.
 
 - **Effect module:** `art/vfx/engine_flame/engine_flame.js`. Plain ES module that imports `three` (r169, same as qa3d).
 - **Preview:** `art/vfx/engine_flame/index.html`. Serve the repo root, then open `/art/vfx/engine_flame/index.html`. It loads the real pad GLB (md5 82131aba) with the official pad camera.
-  - Query options: `?w=375&h=667&dpr=2&phase=launch|land&t=<ms>&view=pad|close`. The bottom bar has play buttons.
+  - Query options: `?w=375&h=667&dpr=2&phase=launch|land&t=<ms>&view=pad|close|hatch`. The bottom bar has play buttons.
+- **Hatch clip:** `art/vfx/engine_flame/hatch_close.glb` (animation only, 2,004 bytes, md5 `033bdb77c18939b8370bdf53ef4aa0d9`) + `hatch_close.js` (applies it, 0 draw calls). Source: `_src/build_hatch_clip.py`.
 - **Proofs:** `art/vfx/engine_flame/proofs/`
 
 ## 1. Director's rulings (firm)
@@ -14,8 +15,32 @@ It doesn't touch the 4 PM build, qa3d-next, or any existing timing.
 |---|---|---|
 | Timing | Hatch closes (HC). Ignition = HC + 1 s. Lift-off (LO) = HC + 3 s, so there are 2 s of ignition before lift-off. | `FLAME.HATCH_TO_LIFTOFF_MS = 3000`, `FLAME.IGN_AFTER_HATCH_MS = 1000`. The 1000 is a parameter Director can change. The ignition window `ignBeforeLiftoff() = 3000 - 1000 = 2000 ms` must stay at least 1200 ms. |
 | Crew safety | No flame or dust while anyone is outside the ship. | Nothing is drawn before ignition, and ignition is after the hatch closes. Also `launchState(t, crewOutside)` returns "off" whenever `crewOutside` is true. Pass `true` while any climber is on the ladder or pad. |
-| Budget | At most 4 draw calls and at most 150 dust particles. | **Actual: 4 draw calls** (measured: 11 calls → 15 with the flame on). **Actual: 150 particles max.** That's the buffer size, a hard cap, and the measured peak at both lift-off and landing. |
+| Budget | At most 4 draw calls and at most 150 dust particles. | **Actual: 4 draw calls** (measured: 11 calls → 15 with the flame on). **Actual: 150 particles max.** That's the buffer size and a hard cap. Measured peak: 149 at lift-off, 150 at landing. The hatch clip adds 0 draw calls. |
 | Shake | At most 2 px. The 5 px margin must hold at 375 (top spare is 5.3 px). Never move the camera. | **The camera never moves.** The "shake" is a ship-only horizontal rumble of **±1.0 px at 375×667 and ±1.0 px at 393×852**, with 0 px vertical. The pad moves 0 px. The flicker of the pad glow and underside light carries the rest of the "rumble" feel. The top spare stays at 5.3 px, since nothing moves vertically and the camera is fixed. See `proofs/shake_worst_case_*.png`. |
+
+## 1a. Locked timeline (Coder + Director), seconds after the Launch tap
+
+| Tap + s | Event | Effect |
+|---|---|---|
+| < 53.19 | Crew boarding (anyone outside) | Lid open, no flame, no dust, light at 0. |
+| **53.19** | Last climber inside, **hatch closes (HC)** | `hatch_close` clip starts (0.8 s, easeInOutCubic). |
+| **53.99** | Hatch shut (HC + 0.8 s) | Lid flat over the ladder well. 0.2 s of stillness before ignition. |
+| **54.19** | **Ignition** (HC + 1 s = LO − 2 s) | Flicker-on, flash, grit ring at +0.21 s, grows to full thrust. |
+| **56.19** | **Lift-off (LO)** (HC + 3 s) | Existing 8 s climb (`y = 160·u³`). |
+| 64.19 | Climb ends (LO + 8 s) | Flame off; ship off screen from about LO + 6 s. |
+| 64.19 – 664.19 | Away 600 s | Nothing drawn. |
+| 664.19 | Landing burn starts (TD − 8 s) | `landState(-8000)`: lit, wide plume, off screen. |
+| **672.19** | **Touchdown (TD)** = LO + 616 s | Cut-off over 0.22 s (672.41), vapour puff to about 674.9. |
+
+In code: `liftoffAt = tap + 56.19 s`, `touchdownAt = liftoffAt + 616 s`; call `launchState(t − liftoffAt, crewOutside)`, `landState(t − touchdownAt)`, `hatch.update((t − hatchCloseAt) / 1000)` with `hatchCloseAt = tap + 53.19 s`. The hatch stays shut for the whole trip and the landing (it only reopens when crew unload, which is not part of this clip).
+
+## 1b. Hatch-close clip (crew hatch lid)
+
+- **What moves:** the crew-hatch **lid** on the ladder landing (hinged at the outer edge of the ladder well), its 2 stainless ribs, and its 2 hold-open struts. Parked, the lid stands open at 100° (it doubles as the back guard). The clip swings it −100° about the hinge so it lies flat over the ladder well. The struts keep their feet on the deck and stretch to follow the lid. The airlock door panel in the hull is already modelled flush/closed in this GLB (3d0d489 flush fix), so it does not move.
+- **Nodes:** in the current pad GLB (`launch_pad_game.glb` md5 **82131abae3a8e97427635fd2513155fa**, commit 6b5c76e, newer than 3d0d489 / 833a339b) there are **no hatch or lid nodes**: the lid is merged into the `Ship_Placeholder` mesh. I found it as mesh islands (vertex ranges in mesh_5: lid 8392–8399, ribs 8400–8415, struts 8428–8443, hinge rod 8416–8427 stays put). `hatch_close.js` finds them by position, not by index, so it survives a re-export as long as the landing geometry doesn't change.
+- **File:** `hatch_close.glb` = 1 node `Hatch_Lid_Hinge` at the hinge, Ship_Placeholder-local (4.5423, 21.900, 2.6225), axis (0.5, 0, −0.866). 1 clip `hatch_close`: rotation, 25 LINEAR keys over 0.8 s (30 fps) with easeInOutCubic baked in, 0 → −100°. No meshes, no textures, nothing in the existing models was overwritten.
+- **Runtime:** `createHatchClose(shipMeshes, clipGltf)` then `update(secondsSinceHC)` each frame (no-op once closed). It rotates 24 lid vertices + 16 strut vertices in place in the ship's existing geometry and uploads only that vertex range. **0 draw calls, 0 textures**, so the flame budget (+4) is unchanged. Negative time = open, ≥ 0.8 s = shut.
+- **Proof:** `proofs/hatch_close_strip.png` (open, HC +0, +0.2, +0.4, +0.6, +0.8 s, close-up `view=hatch`). At the pad camera the lid is about 5 px across, so the strip uses a close-up.
 
 ## 2. Timeline (ms). Everything is a pure function of time, so reload, offline time and `?speed=10` work the same as today
 
@@ -29,6 +54,7 @@ Existing events stay exactly where they are:
 
 | t (rel LO) | rel HC | Phase | What happens | Easing |
 |---|---|---|---|---|
+| −3000 … −2200 | 0 … +800 | hatch closes | `hatch_close` clip (0.8 s, easeInOutCubic). No flame. | easeInOutCubic |
 | < −2000 | < +1000 | off | Nothing drawn. The light is at intensity 0, but stays in the scene. | – |
 | −2000 … −1790 | +1000 … +1210 | flicker-on | Lit at 0–70 ms, off 70–120, lit 120–160, off 160–210, then lit from 210 on. Short flame (len 0.22→0.30), white **flash** decaying from 1 to 0 over 300 ms, throttle 0.75. | Steps, then linear flash decay |
 | −1790 | +1210 | dust burst | The main grit ring (110 particles) and the radial dust sheet start when the flame catches (ign + 210 ms). | Ballistic, Moon g 1.62 |
@@ -140,7 +166,8 @@ shipRoot.position.x += SHAKE_PX * metresPerPx * st.shake * noise(t);   // option
 ## 6. Measurements (headless Chrome 156, SwiftShader CPU renderer, 750×1334 = 375×667 @2x, box under load from other renders)
 
 - **Draw calls:** 11 with the effect off, 15 with it on. That's **+4**, measured at ignition, full thrust and the landing burn. After cut-off, only the dust is left, so it's **+1**.
-- **Particles:** peak **150** at lift-off and at landing (the 150 buffer is the hard cap).
+- **Particles:** peak **149** at lift-off and **150** at landing (the 150 buffer is the hard cap).
+- **Hatch clip:** +0 draw calls (11 → 11 parked and during the close); it edits 40 vertices of the existing ship mesh for 0.8 s, then stops.
 - **Frame time:** SwiftShader is a CPU rasterizer, so treat these only as relative numbers. Median frame, synced with readPixels:
 
   | Frame | Median |

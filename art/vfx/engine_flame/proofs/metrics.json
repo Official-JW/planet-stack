@@ -820,7 +820,7 @@
  },
  "fx_update_cpu_ms": {
   "median": 0,
-  "p99": 0.20000000298023224
+  "p99": 1.8999999910593033
  },
  "swiftshader_frame_ms_median_750x1334": {
   "off_parked": 184.8,
@@ -833,6 +833,20 @@
   "off": 11,
   "on": 15,
   "added": 4,
-  "after_cutoff_dust_only": 1
+  "after_cutoff_dust_only": 1,
+  "hatch_clip_added": 0
+ },
+ "hatch_close": {
+  "glb": "hatch_close.glb",
+  "md5": "033bdb77c18939b8370bdf53ef4aa0d9",
+  "bytes": 2004,
+  "pad_glb_md5": "82131abae3a8e97427635fd2513155fa",
+  "lid_verts": 24,
+  "strut_verts": 16,
+  "range_mesh_5": [
+   8392,
+   8443
+  ],
+  "draw_calls_added": 0
  }
 }

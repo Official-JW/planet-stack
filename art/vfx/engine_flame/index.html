@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { createHatchClose, HATCH } from './hatch_close.js';
 import { FLAME, createEngineFlames, launchState, landState, launchBursts, landBursts } from './engine_flame.js';
 const Q = new URLSearchParams(location.search);
 const W = +(Q.get('w') || innerWidth), H = +(Q.get('h') || innerHeight), DPR = +(Q.get('dpr') || Math.min(devicePixelRatio, 2));
@@ -67,12 +68,16 @@ const engines = engWorld.map(e => ({ pos: ship.worldToLocal(e.pos.clone()) }));
 const fx = createEngineFlames(engines, { groundY: padTopY }); fx.attach(ship, padRoot);
 S.engines = engWorld.map(e => ({ x: +e.pos.x.toFixed(3), y: +e.pos.y.toFixed(3), z: +e.pos.z.toFixed(3), r: +e.r.toFixed(3), verts: e.n, predX: +e.pred.x.toFixed(3), predZ: +e.pred.z.toFixed(3) }));
 S.padTopY = padTopY;
+// crew-hatch lid: clip from hatch_close.glb drives the lid vertices inside the ship mesh (0 extra draw calls)
+const hatch = createHatchClose(shipMesh, await loader.loadAsync('./hatch_close.glb')); S.hatch = hatch.found;
 // ---- official pad camera: lookAt(Cam_Target), d = (frame_w/2)/(tan(fov/2)*aspect), 18 deg down, +Z side
 // close-up proof only: hide pad props in front of the engines (crane, tanks, hoses, door) so the nozzles read; ship + deck stay
-if (VIEW === 'close') for (const o of pad.children) if (!['Pad_Base', 'Ship_Placeholder', 'Cargo_Door'].includes(o.name)) o.visible = false;
+if (VIEW === 'close' || VIEW === 'hatch') for (const o of pad.children) if (!['Pad_Base', 'Ship_Placeholder', 'Cargo_Door'].includes(o.name)) o.visible = false;
 const target = ct.getWorldPosition(new THREE.Vector3()), FW = ct.userData.frame_w || 78.25;
 function placeCamera() {
-  if (VIEW === 'close') { const c = sc.clone(); c.y = (ship.position.y - ship0.y) + engWorld[0].pos.y; camera.fov = 30; const d = 30;
+  if (VIEW === 'hatch') { const h = ship.localToWorld(new THREE.Vector3(4.5423, 21.9, 2.6225)), out = new THREE.Vector3(0.866, 0, 0.5);
+    camera.fov = 30; camera.position.copy(h).addScaledVector(out, 8.5).add(new THREE.Vector3(-3.2, 3.4, 3.0)); camera.lookAt(h.x - 0.5, h.y + 0.1, h.z - 0.3); }
+  else if (VIEW === 'close') { const c = sc.clone(); c.y = (ship.position.y - ship0.y) + engWorld[0].pos.y; camera.fov = 30; const d = 30;
     camera.position.set(c.x - d * 0.34, Math.max(2.5, c.y - 3.0), c.z + d * 0.94); camera.lookAt(c.x, c.y - 4.2, c.z); }
   else { camera.fov = 38; const d = (FW / 2) / (Math.tan(THREE.MathUtils.degToRad(19)) * camera.aspect), e = THREE.MathUtils.degToRad(18);
     camera.position.set(target.x, target.y + d * Math.sin(e), target.z + d * Math.cos(e)); camera.lookAt(target); }
@@ -87,9 +92,10 @@ S.frame = (t, ph = phase, tSecOverride) => {
   phase = ph; tRel = t;
   const st = ph === 'land' ? landState(t) : launchState(t), bursts = ph === 'land' ? landBursts(t) : launchBursts(t);
   ship.position.copy(ship0); ship.position.y += st.alt;
+  hatch.update(ph === 'land' ? 0 : (t + FLAME.HATCH_TO_LIFTOFF_MS) / 1000);   // launch: t rel lift-off, hatch closes at LO - 3 s; landing: stays closed
   const amp = FLAME.SHAKE_PX * mPerPx() * st.shake, sx = shakeSign ? shakeSign : nzl(t * 0.06);
   ship.position.x += amp * sx;                    // ship + its flames only; camera and pad never move
-  if (VIEW === 'close') placeCamera();           // close-up only: follows the ship (the game camera never moves)
+  if (VIEW === 'close' || VIEW === 'hatch') placeCamera();           // close-up only: follows the ship (the game camera never moves)
   const pxScale = H * DPR / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 0.42;
   S.gain = fx.setScreenScale(H * DPR / (2 * camera.position.distanceTo(ship.getWorldPosition(new THREE.Vector3())) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))));
   const n = fx.update(st, tSecOverride ?? (t / 1000), bursts, pxScale, 7 * DPR);
@@ -109,7 +115,7 @@ S.bbox = (which = 'pad') => { const b = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }
       const x = (pv.x + 1) / 2 * W, y = (1 - pv.y) / 2 * H; if (pv.z > 1) continue; b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.y0 = Math.min(b.y0, y); b.y1 = Math.max(b.y1, y); } });
   return b; };
 S.setShake = (s) => { shakeSign = s; };
-S.renderer = renderer; S.fx = fx; S.W = W; S.H = H;
+S.renderer = renderer; S.fx = fx; S.THREE = THREE; S.ship = ship; S.shipMesh = shipMesh; S.W = W; S.H = H;
 S.frame(tRel, phase);
 S.ready = true;
 // interactive
