@@ -7,8 +7,10 @@ const { MeshoptDecoder } = await import(NM + '/three/examples/jsm/libs/meshopt_d
 await MeshoptDecoder.ready;
 const R = '/workspace/planet-stack/';
 const load = p => new Promise((res, rej) => { const b = fs.readFileSync(p); const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder); l.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), '', res, rej); });
-const ST = [['Refinery', 320, 'qa3d-next/models/refinery_93c44166.glb'], ['LaunchPad', 480, 'qa3d-next/models/launch_pad_82131aba.glb'],
-  ['CargoDock', 640, 'qa3d/models/dock_tankfarm_fd286b9.glb'], ['Shipyard', 960, 'qa3d-next/models/shipyard_bcbd0934.glb']];
+// v2 layout (cargo_dock/layout_v2, f3478cf): Refinery 320 | Cargo Dock 373 (z -8) | Launch Pad 457 | Habitat placeholder 800 | Shipyard 960.
+// x0 is recorded only; the grid stays station-local. Shipyard = art/3d/buildings/shipyard/shipyard_game.glb (c0e9d54e, as used by layout_v2).
+const ST = [['Refinery', 320, 'qa3d-next/models/refinery_93c44166.glb'], ['LaunchPad', 457, 'art/3d/buildings/launch_pad/launch_pad_game.glb'],
+  ['CargoDock', 373, 'qa3d/models/dock_tankfarm_fd286b9.glb'], ['Shipyard', 960, 'art/3d/buildings/shipyard/shipyard_game.glb']];
 const out = {};
 for (const [n, x0, f] of ST) {
   const g = await load(R + f); const S = g.scene; S.updateMatrixWorld(true);

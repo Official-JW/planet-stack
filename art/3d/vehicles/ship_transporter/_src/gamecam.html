@@ -1,0 +1,120 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- ST-10 game-camera proof: qa3d lighting (Hemi 0x9fb4d8/0x2a2a30 0.55 + Dir 0xfff4e2 2.6 from (-30k,22k,18k)), ACES, sRGB, bg 0x05060b,
+     PerspectiveCamera 38 deg vFOV, 18 deg look-down, eye = T + d(0, sin18, cos18), d = (fw/2)/(tan19 * aspect).
+     Scene: Lv1 launch pad (82131aba game GLB) at the origin, transport road (crawler-track canvas texture) on pad-local z = -13,
+     transporter preview GLB (merged by material) + the pad's own Ship_Placeholder/Cargo_Door clone lifted 0.45 m, on the road at x = XT. -->
+<style>html,body{margin:0;height:100%;background:#05060b;overflow:hidden}canvas{display:block}#ov{position:fixed;inset:0;pointer-events:none}</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/addons/"}}</script></head>
+<body><canvas id="c"></canvas><canvas id="ov"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+const Q = new URLSearchParams(location.search);
+const W = innerWidth, H = innerHeight, ELEV = 18, FOV = 38, DPR = +(Q.get('dpr') || 1);
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(DPR); renderer.setSize(W, H, false); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x05060b);
+scene.add(new THREE.HemisphereLight(0x9fb4d8, 0x2a2a30, 0.55));
+const sun = new THREE.DirectionalLight(0xfff4e2, 2.6); scene.add(sun); scene.add(sun.target);
+const SUN = new THREE.Vector3(-30000, 22000, 18000).normalize();
+const gnd = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x5a5a5e })); gnd.position.y = -0.05; scene.add(gnd);
+const camera = new THREE.PerspectiveCamera(FOV, W / H, 0.5, 5000);
+const vt = Math.tan(THREE.MathUtils.degToRad(FOV / 2)), e = THREE.MathUtils.degToRad(ELEV);
+function pose(cam, t, fw) { const d = (fw / 2) / (vt * cam.aspect); cam.position.set(t.x, t.y + d * Math.sin(e), t.z + d * Math.cos(e)); cam.lookAt(t.x, t.y, t.z); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); return d; }
+// ---- road: 36 m running + 2.6 m shoulders, two darker crawler lanes (|dz| 9.7-13.3) with 0.62 m cleat imprints ----
+function roadTex() {
+  const cw = 1024, ch = 512, c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d');
+  const Wm = 41.2, Lm = 8.06, mz = z => (z + Wm / 2) / Wm * cw, mx = x => x / Lm * ch;      // canvas x = across (z), y = along (x)
+  g.fillStyle = '#7d786f'; g.fillRect(0, 0, cw, ch);
+  g.fillStyle = '#9a958b'; g.fillRect(mz(-18), 0, mz(18) - mz(-18), ch);
+  const R = (a => () => (a = (a * 16807) % 2147483647) / 2147483647)(7);
+  for (let i = 0; i < 9000; i++) { const v = 120 + R() * 60 | 0; g.fillStyle = `rgba(${v},${v - 4},${v - 10},0.18)`; g.fillRect(R() * cw, R() * ch, 2 + R() * 3, 2 + R() * 3); }
+  for (const s of [-1, 1]) {
+    const a = mz(s * 9.7), b = mz(s * 13.3), x0 = Math.min(a, b), w = Math.abs(b - a);
+    g.fillStyle = '#6f6a62'; g.fillRect(x0, 0, w, ch);
+    for (let y = 0; y < Lm; y += 0.62) { g.fillStyle = '#5c5851'; g.fillRect(x0 + 3, mx(y), w - 6, mx(0.22)); g.fillStyle = 'rgba(190,184,172,0.35)'; g.fillRect(x0 + 3, mx(y + 0.22), w - 6, 2); }
+  }
+  g.fillStyle = '#e4e2da'; for (const s of [-1, 1]) g.fillRect(mz(s * 18) - 3, 0, 6, ch);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t;
+}
+function addRoad(x0, x1) {
+  const L = x1 - x0, geo = new THREE.PlaneGeometry(41.2, L).rotateX(-Math.PI / 2).rotateY(Math.PI / 2);   // after rotateY: length along X
+  const t = roadTex(); t.repeat.set(1, L / 8.06);
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: t })); m.position.set((x0 + x1) / 2, 0.02, -13); m.name = 'transport_road'; scene.add(m);
+  const pm = new THREE.MeshLambertMaterial({ color: 0x5d6880 }), cm = new THREE.MeshBasicMaterial({ color: 0x3ad0ff }), am = new THREE.MeshBasicMaterial({ color: 0xffb020 });
+  for (let x = x0 + 6; x < x1; x += 12) for (const s of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 8), pm); p.position.set(x, 0.55, -13 - s * 18.4); scene.add(p);
+    const q = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.18, 8), s < 0 ? cm : am); q.position.set(x, 1.15, -13 - s * 18.4); scene.add(q); }
+}
+const L = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+let PAD = null, TRN = null, SHIP = null; const v = new THREE.Vector3();
+let PAL = {};   // game-palette lift (shaded-side p25 60-75): material name -> hex
+function mergeByMaterial(root) {    // game-style: one draw per material
+  root.updateMatrixWorld(true); const groups = new Map();
+  root.traverse(m => { if (!m.isMesh) return; const k = (m.material.name || m.material.uuid).replace(/\.\d+$/, ''); if (!groups.has(k)) groups.set(k, { mat: m.material, geos: [] });
+    let g = m.geometry.clone(); g.applyMatrix4(m.matrixWorld); for (const a of Object.keys(g.attributes)) if (a !== 'position' && a !== 'normal') g.deleteAttribute(a);
+    if (g.index) g = g.toNonIndexed(); groups.get(k).geos.push(g); });
+  const out = new THREE.Group(); let tris = 0;
+  for (const [k, { mat, geos }] of groups) { const g = mergeGeometries(geos); tris += g.attributes.position.count / 3;
+    const mm = new THREE.MeshLambertMaterial({ color: (PAL[k] ? new THREE.Color(PAL[k]) : mat.color), emissive: mat.emissive, emissiveIntensity: mat.emissiveIntensity }); mm.name = k;
+    const me = new THREE.Mesh(g, mm); me.name = k; out.add(me); }
+  return { group: out, draws: [...groups.keys()].filter(k => !k.startsWith('G_M_')).length, draws_astronaut: [...groups.keys()].filter(k => k.startsWith('G_M_')).length, tris };
+}
+window.setup = async (o) => {
+  PAL = o.pal || {};
+  const pad = await L.loadAsync(o.pad); PAD = pad.scene; scene.add(PAD); PAD.updateMatrixWorld(true);
+  addRoad(29.4, 125);
+  const tr = await L.loadAsync(o.trn); const M = mergeByMaterial(tr.scene); TRN = M.group; TRN.position.set(o.xt, 0, -13); scene.add(TRN);
+  if (o.loaded) {   // clone the pad's own ship (Ship_Placeholder + Cargo_Door), lifted 0.45 m by the cradle jacks
+    SHIP = new THREE.Group(); for (const n of ['Ship_Placeholder', 'Cargo_Door']) { const s = PAD.getObjectByName(n); if (s) { const c = s.clone(true); s.getWorldPosition(v); c.position.copy(v); c.quaternion.copy(s.getWorldQuaternion(new THREE.Quaternion())); SHIP.add(c); } }
+    SHIP.position.set(o.xt, 0.45, 0); scene.add(SHIP);
+  }
+  { const s0 = PAD.getObjectByName('Ship_Placeholder'), c0 = PAD.getObjectByName('Cargo_Door'); if (o.loaded) { if (s0) s0.visible = false; if (c0) c0.visible = false; } }   // the ship left the pad
+  return { draws: M.draws, draws_astronaut: M.draws_astronaut, tris: M.tris };
+};
+function pts(objs) { const a = []; for (const o of objs) { if (!o) continue; o.updateMatrixWorld(true); o.traverse(m => { if (!m.isMesh) return; const p = m.geometry.attributes.position; const st = Math.max(1, Math.floor(p.count / 40000));
+  for (let i = 0; i < p.count; i += st) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); a.push(v.x, v.y, v.z); } }); } return a; }
+function bounds(P, t, fw, w, h) { const cam = new THREE.PerspectiveCamera(FOV, w / h, 0.5, 5000); pose(cam, t, fw); let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (let i = 0; i < P.length; i += 3) { v.set(P[i], P[i + 1], P[i + 2]).project(cam); const x = (v.x + 1) / 2 * w, y = (1 - v.y) / 2 * h; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } return { x0, x1, y0, y1 }; }
+// joint solve: one Cam_Target + frame_w that keeps transporter + ship inside both safe bands with >= 5 px spare (bands [x0,x1,y0,y1])
+window.solve = (sizes, spare) => {
+  const P = pts([TRN, SHIP]); const bb = new THREE.Box3().setFromObject(TRN); if (SHIP) bb.union(new THREE.Box3().setFromObject(SHIP));
+  const t = bb.getCenter(new THREE.Vector3()); let fw = 80;
+  for (let it = 0; it < 60; it++) {
+    let need = 0, dy = 0, dx = 0;
+    for (const s of sizes) { const b = bounds(P, t, fw, s.w, s.h), [X0, X1, Y0, Y1] = s.band;
+      need = Math.max(need, (b.x1 - b.x0) / (X1 - X0 - 2 * spare - 2), (b.y1 - b.y0) / (Y1 - Y0 - 2 * spare - 2));
+      const ppm = s.w / fw; dy = Math.max(dy, Math.abs(((b.y0 + b.y1) - (Y0 + Y1)) / 2)) * Math.sign(((b.y0 + b.y1) - (Y0 + Y1)) / 2) || dy;
+      if (s === sizes[sizes.length - 1]) { t.y -= ((b.y0 + b.y1) - (Y0 + Y1)) / 2 / ppm * 0.9; t.x += ((b.x0 + b.x1) - (X0 + X1)) / 2 / ppm * 0.9; } }
+    fw *= 0.5 + 0.5 * need;
+  }
+  const res = sizes.map(s => { const b = bounds(P, t, fw, s.w, s.h), [X0, X1, Y0, Y1] = s.band; return { size: s.w + 'x' + s.h, bb: b, spare: Math.min(b.x0 - X0, X1 - b.x1, b.y0 - Y0, Y1 - b.y1) }; });
+  return { t: { x: t.x, y: t.y, z: t.z }, fw, res };
+};
+window.shot = (t, fw, band, label, bbox) => {
+  camera.aspect = W / H; pose(camera, t, fw); sun.target.position.set(t.x, 0, t.z); sun.position.copy(sun.target.position).addScaledVector(SUN, 3000); sun.updateMatrixWorld();
+  renderer.render(scene, camera);
+  const ov = document.getElementById('ov'); ov.width = W; ov.height = H; const c = ov.getContext('2d');
+  c.strokeStyle = 'rgba(255,51,85,0.9)'; c.lineWidth = 1; c.setLineDash([6, 4]); c.strokeRect(band[0] + .5, band[2] + .5, band[1] - band[0], band[3] - band[2]);
+  if (bbox) { c.setLineDash([]); c.strokeStyle = 'rgba(58,208,255,0.9)'; c.strokeRect(bbox.x0, bbox.y0, bbox.x1 - bbox.x0, bbox.y1 - bbox.y0); }
+  c.fillStyle = '#c9d3e6'; c.font = '11px sans-serif'; label.split('\n').forEach((l, i) => c.fillText(l, 8, 16 + i * 14));
+};
+// shaded-side p25: luminance (0..255, sRGB) of transporter pixels whose world normal faces away from the sun (N.L < 0.05)
+window.p25 = (t, fw) => {
+  camera.aspect = W / H; pose(camera, t, fw); renderer.render(scene, camera);
+  const gl = renderer.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, beauty = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, beauty);
+  const mask = new THREE.ShaderMaterial({ uniforms: { L: { value: SUN } }, vertexShader: 'varying vec3 n; void main(){ n = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
+    fragmentShader: 'uniform vec3 L; varying vec3 n; void main(){ float d = dot(normalize(n), L); gl_FragColor = d < 0.05 ? vec4(1.,0.,0.,1.) : vec4(0.,1.,0.,1.); }' });
+  const black = new THREE.MeshBasicMaterial({ color: 0 }); const saved = []; scene.traverse(m => { if (m.isMesh) { saved.push([m, m.material]); m.material = black; } });
+  TRN.traverse(m => { if (m.isMesh && !(m.material.emissive && saved.find(s => s[0] === m)[1].emissive?.getHex())) m.material = mask; });
+  const tm = renderer.toneMapping, bg = scene.background; renderer.toneMapping = THREE.NoToneMapping; scene.background = new THREE.Color(0); renderer.render(scene, camera);
+  const mk = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, mk);
+  for (const [m, mat] of saved) m.material = mat; renderer.toneMapping = tm; scene.background = bg; renderer.render(scene, camera);
+  const sh = [], li = []; for (let i = 0; i < w * h * 4; i += 4) { const Y = 0.2126 * beauty[i] + 0.7152 * beauty[i + 1] + 0.0722 * beauty[i + 2]; if (mk[i] > 128) sh.push(Y); else if (mk[i + 1] > 128) li.push(Y); }
+  const pc = (a, q) => { if (!a.length) return null; a.sort((x, y) => x - y); return +a[Math.floor(q * (a.length - 1))].toFixed(1); };
+  return { shaded_px: sh.length, shaded_p25: pc(sh, 0.25), shaded_p50: pc(sh, 0.5), lit_px: li.length, lit_p50: pc(li, 0.5) };
+};
+window.READY = true;
+</script></body></html>

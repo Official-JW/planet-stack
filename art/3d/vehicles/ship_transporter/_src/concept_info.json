@@ -1,0 +1,18 @@
+{
+ "a": {"title": "ST-10A  ·  tracked straddle crawler",
+  "lines": ["Four twin-track crawler trucks (3.4 m tall, 10.5 m long) under two white box girders and a rear cross girder;",
+            "two 31 m cradle towers, three clamp arms per side (8.5 / 20 / 29 m) with rubber saddles; swing gate closes the open end."],
+  "footprint": "29.1 L x 27.4 W m, towers 32.5 m (ship 8.9 m dia, legs 18.5 m)",
+  "gear": "4 x twin-track trucks, tracks 3.4 m tall (1.9x astronaut)",
+  "cradle": "6 clamp arms + gate; arms retract 1.6 m when empty",
+  "tris_master": 159684,
+  "game": "~10-12k tris, 7-8 draws (merge by material, track shoes as 1 strip each)"},
+ "b": {"title": "ST-10B  ·  multi-axle wheeled straddle (SPMT style)",
+  "lines": ["Two 4.2 m decks on 7 steerable pendulum axle lines each (28 lunar wheels, 2.5 m dia, grousers); rear portal arch;",
+            "four hydraulic knuckle arms grip the hull at 10 m, an A-frame mast holds a horseshoe stabiliser collar at 24.5 m."],
+  "footprint": "28.2 L x 28.5 W m, portal/collar 25.2 m",
+  "gear": "14 axle lines / 28 wheels, 2.5 m dia (1.4x astronaut)",
+  "cradle": "4 knuckle arms + upper collar (opens to the rear)",
+  "tris_master": 113652,
+  "game": "~11-13k tris, 7-8 draws (wheels as low-poly 12-side, grousers baked to colour)"}
+}

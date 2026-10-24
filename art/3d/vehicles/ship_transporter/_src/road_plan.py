@@ -1,216 +1,218 @@
-"""Top-down plan of the Lv10 ship transport road: Launch Pad (right side, far side) -> Shipyard assembly hall.
-Pad-local metres (glTF): +X right (toward Shipyard), +Z toward the game camera (drawn DOWN). Inputs (read only):
-stations_footprints.json (measure_stations.mjs: 2 m occupancy grids of the real station GLBs) and road_clearance.json (road_clearance.mjs).
-Layout = Director's order: Refinery | 20-slot Cargo Dock | Launch Pad | Shipyard (pad + 160 m).
-python3 road_plan.py  ->  ../proofs/transport_road_plan_topdown.png + ../proofs/transport_road_plan.json"""
+"""Lv10 ship transport road, top-down plan v2 (proposal). WORLD glTF metres: +X right, +Z toward the game camera (drawn DOWN).
+Layout = cargo_dock/layout_v2 (f3478cf): Refinery 320 | Cargo Dock 373 (z -8) | Launch Pad 457 | Habitat placeholder 800 | Shipyard 960.
+Inputs (read only): stations_footprints.json (measure_stations.mjs: 2 m max-height grids of the real GLBs) and road_clearance.json
+(road_clearance.mjs: real pad vertices vs the ST-10A/B swept volumes). Director rulings: road leaves the pad's RIGHT side on the far
+side (-Z), never crosses haul road / flatbed / U-turn, own crawler-track texture; Lv10 Shipyard gets a wider hall door (proposal only,
+the Shipyard GLB is not edited); the pad fuel pipe end moves to the pad's LEFT (~x 430), so VV-1 leaves the corridor.
+python3 road_plan.py -> ../proofs/transport_road_plan_topdown.png + ../proofs/transport_road_plan.json"""
 import json, math, os
 from PIL import Image, ImageDraw, ImageFont
 H = os.path.dirname(os.path.abspath(__file__)); P = os.path.join(H, '..', 'proofs')
-ST = json.load(open(os.path.join(H, 'stations_footprints.json')))
-CL = json.load(open(os.path.join(H, 'road_clearance.json')))
+ST = json.load(open(os.path.join(H, 'stations_footprints.json'))); CL = json.load(open(os.path.join(H, 'road_clearance.json')))
 F = '/usr/share/fonts/truetype/dejavu/'
 def font(s, b=False): return ImageFont.truetype(F + ('DejaVuSans-Bold.ttf' if b else 'DejaVuSans.ttf'), s)
-# ---- layout (pad-local x) ----
-X = {'Refinery': -160, 'CargoDock': -80, 'LaunchPad': 0, 'Shipyard': 160}
-SHIP = (0.0, -13.0)
-ROAD_Z = -13.0; ROAD_HALF = 18.0; SHOULDER = 2.6; LANE = (9.7, 13.3)          # crawler lanes |dz|
-TR = dict(x0=-13.4, x1=15.7, half=14.2)                                      # union of ST-10A / ST-10B footprints (ship axis = 0)
-PAD_EDGE = 29.4
-# Shipyard hall AH-1 from its measured door nodes (rot 10 deg): front wall through Hall_Door, 34 m wide, 26 m deep (toward -Z)
-sy = ST['Shipyard']['nodes']; L, R_, D = sy['Hall_Door_L'], sy['Hall_Door_R'], sy['Hall_Door']
-ux, uz = R_[0] - L[0], R_[2] - L[2]; n = math.hypot(ux, uz); ux, uz = ux / n, uz / n; nx, nz = uz, -ux   # n points to -Z (into hall)
+X = {'Refinery': (320, 0), 'CargoDock': (373, -8), 'LaunchPad': (457, 0), 'Shipyard': (960, 0)}
+PADX = 457.0; SHIP = (PADX, -13.0)
+HAB = dict(x0=795.5, x1=804.5, z0=-4.5, z1=4.5); HAB_MOVE_Z = 14.0      # proposal: placeholder centre z 0 -> +14
+ROAD_Z, HALF, SHOULDER, LANE = -13.0, 18.0, 2.6, (9.7, 13.3)
+TR = dict(x0=-13.4, x1=15.7, half=14.25, height_loaded=40.7)           # union ST-10A / ST-10B; ship top 40.25 + 0.45 lift
+PAD_EDGE = PADX + 29.4
+# Shipyard hall AH-1: door centre from Hall_Door (both versions), hall 34 x 26 m, yaw from bcbd0934 Hall_Door_L/R (-24.61,5.81)/(-14.27,3.99)
+SX = 960.0; D = ST['Shipyard']['nodes']['Hall_Door']
+ux, uz = (-14.27 + 24.61), (3.99 - 5.81); n = math.hypot(ux, uz); ux, uz = ux / n, uz / n; nx, nz = uz, -ux
 if nz > 0: nx, nz = -nx, -nz
-sx0 = X['Shipyard']
-c = (D[0] + sx0, D[2])
+c = (D[0] + SX, D[2])
 HALL = [(c[0] - 17 * ux, c[1] - 17 * uz), (c[0] + 17 * ux, c[1] + 17 * uz), (c[0] + 17 * ux + 26 * nx, c[1] + 17 * uz + 26 * nz), (c[0] - 17 * ux + 26 * nx, c[1] - 17 * uz + 26 * nz)]
-# west gable wall: segment HALL[0] -> HALL[3]; x where the road centreline z=-13 meets it
 (ax, az), (bx, bz) = HALL[0], HALL[3]; t = (ROAD_Z - az) / (bz - az); WEST_X = ax + t * (bx - ax)
-# ---- corridor occupancy at the Shipyard between apron and hall west wall (real grid) ----
-g = ST['Shipyard']['grid']; blk = []
-for k, h in g.items():
-    i, j = map(int, k.split(',')); x, z = 2 * i + sx0, 2 * j
-    if x + 2 > WEST_X - 30 and x < WEST_X - 0.5 and z + 2 > ROAD_Z - ROAD_HALF and z < ROAD_Z + ROAD_HALF and h > 0.5: blk.append((x, z, h))
-# ---- numbers ----
-APRON = (62.0, WEST_X - 1.0)
-road_len_gate_to_door = WEST_X - PAD_EDGE
-haul_len = WEST_X - TR['x0'] - SHIP[0] - 0  # ship axis travels from 0 to (door - front overhang); report axis travel to the hall threshold
-axis_travel = WEST_X + 17 - SHIP[0]   # ship axis: pad centre -> hall centreline (west door + half hall width)
-out = dict(units='m, pad-local glTF (+X right toward Shipyard, +Z toward camera). World = pad-local + Launch Pad origin (qa3d x=480).',
-  layout_assumed="Director: Refinery | 20-slot Cargo Dock | Launch Pad | Shipyard = pad+160 m",
-  centerline=[[0.0, ROAD_Z], [round(PAD_EDGE, 1), ROAD_Z], [round(WEST_X, 1), ROAD_Z]],
-  turns=0, s_bends=0, running_width=2 * ROAD_HALF, graded_width_incl_shoulders=round(2 * (ROAD_HALF + SHOULDER), 1),
-  crawler_lanes_abs_dz=list(LANE), cross_fall_pct=0.5, max_grade_pct=0.0,
-  length_pad_edge_to_hall_west_door=round(road_len_gate_to_door, 1), ship_axis_travel_pad_centre_to_hall_centre=round(axis_travel, 1),
-  refit_apron_x=[APRON[0], round(APRON[1], 1)], refit_apron_z=[ROAD_Z - 22, ROAD_Z + 22],
-  hall_west_wall_x=round(WEST_X, 1), hall_corners=[[round(a, 2), round(b, 2)] for a, b in HALL],
-  transporter_footprint=dict(length=TR['x1'] - TR['x0'], width=2 * TR['half']),
-  shipyard_items_between_apron_and_west_wall=[dict(x=x, z=z, h=round(h, 1)) for x, z, h in sorted(blk)],
-  pad_clearance_hits=CL['pad'], keep_out=dict(haul_road='Refinery left side (Road_Entry/Exit x=-206), >230 m away', flatbed_lanes='z +13 / +22, x -173..+1 (south of road edge z +5.6 by 7.4 m)',
-     pad_uturn='x 1..8.3, z 10.2..24.8 (road edge z +5.6 -> 4.6 m clear)', cargo_dock='pad LEFT (x<-29), road is pad RIGHT: never adjacent'))
+# Lv10 high bay HB-10 (proposal): west extension of AH-1 on the road axis, door D-10 facing the road
+DOOR_W, DOOR_H, BAY_L, BAY_W, BAY_H = 34.0, 46.0, 40.0, 44.0, 52.0
+BAY = (WEST_X - BAY_L, ROAD_Z - BAY_W / 2, WEST_X, ROAD_Z + BAY_W / 2); DOOR_X = BAY[0]
+APRON = (DOOR_X - 44.0, DOOR_X)
+# Shipyard cells (real grid) inside the bay + apron footprint: these must clear for HB-10 (Shipyard owner)
+blk = []
+for k, h in ST['Shipyard']['grid'].items():
+    i, j = map(int, k.split(',')); x, z = 2 * i + SX, 2 * j
+    if x + 2 > APRON[0] and x < WEST_X - 0.5 and z + 2 > BAY[1] and z < BAY[3] and h > 0.5: blk.append((x, z, round(h, 1)))
+road_len = DOOR_X - PAD_EDGE; travel = (BAY[0] + BAY[2]) / 2 - SHIP[0]
+hab_edge = ROAD_Z + HALF + SHOULDER
+pad_hits = []
+for h in CL['pad']['A'] + CL['pad']['B']:
+    if h['ymax'] < 0.5: continue
+    b = (h['x0'] + PADX, h['z0'], h['x1'] + PADX, h['z1'], h['ymax'], h['node'])
+    if not any(abs(b[0] - q[0]) < 1.5 and abs(b[1] - q[1]) < 1.5 for q in pad_hits): pad_hits.append(b)
+out = dict(version='v2', units='world glTF m (+X right, +Z toward camera)',
+  layout='cargo_dock/layout_v2 f3478cf: Refinery 320 | Cargo Dock 373 z-8 | Launch Pad 457 | Habitat placeholder 800 | Shipyard 960 (shipyard_game.glb c0e9d54e)',
+  centerline=[[SHIP[0], ROAD_Z], [round(PAD_EDGE, 1), ROAD_Z], [round(DOOR_X, 1), ROAD_Z], [round((BAY[0] + BAY[2]) / 2, 1), ROAD_Z]],
+  turns=0, s_bends=0, running_width=2 * HALF, graded_width=round(2 * (HALF + SHOULDER), 1), crawler_lanes_abs_dz=list(LANE), grade_pct=0.0, cross_fall_pct=0.5,
+  length_pad_edge_to_D10=round(road_len, 1), ship_travel_pad_centre_to_bay_centre=round(travel, 1),
+  apron_RA1_x=[round(APRON[0], 1), round(APRON[1], 1)],
+  lv10_high_bay_HB10=dict(x=[round(BAY[0], 1), round(BAY[2], 1)], z=[BAY[1], BAY[3]], inner_height=BAY_H, door_D10=dict(x=round(DOOR_X, 1), width=DOOR_W, clear_height=DOOR_H, faces='-X (the road)'),
+     sizing=f'transporter <= {2*TR["half"]:.1f} m wide (A 27.4 / B 28.5) + 2.75 m each side = {DOOR_W} m; loaded height {TR["height_loaded"]} m + 5.3 m = {DOOR_H} m'),
+  existing_door='Hall_Door (940.6, 4.9) faces +Z: 10.3 m between Hall_Door_L/R (bcbd0934), 8-14 m forecourt: unusable for ST-10 (layout_v2 item 9)',
+  shipyard_cells_to_clear=[dict(x=x, z=z, h=h) for x, z, h in sorted(blk)],
+  habitat=dict(placeholder=HAB, road_shoulder_edge_z=hab_edge, proposal=f'move the gray Habitat placeholder +{HAB_MOVE_Z} m toward the camera (z {HAB["z0"]+HAB_MOVE_Z}..{HAB["z1"]+HAB_MOVE_Z}); 1.9 m clear of the shoulder',
+     fallback='layout_v2 jog to z -24 = a reverse curve (S); needs a Director waiver of the no-S-bend rule'),
+  pad_hits_world=[dict(x=[round(b[0], 1), round(b[2], 1)], z=[b[1], b[3]], h=b[4], node=b[5]) for b in pad_hits])
 json.dump(out, open(os.path.join(P, 'transport_road_plan.json'), 'w'), indent=1)
-# ================= drawing =================
+# ===================== drawing =====================
 W = 2400; BG = (11, 14, 22); INK = (220, 228, 240); DIM = (130, 140, 160)
-CY = (58, 208, 255); AM = (255, 176, 32); RED = (255, 80, 70); GRN = (90, 220, 140)
-img = Image.new('RGB', (W, 1980), BG); d = ImageDraw.Draw(img, 'RGBA')
-d.text((40, 24), 'PLANET STACK  ·  Lv10 SHIP TRANSPORT ROAD  ·  top-down plan (proposal)', font=font(34, True), fill=INK)
-d.text((40, 70), f'Straight, zero turns, zero S-bends · running width {2*ROAD_HALF:.0f} m (+{SHOULDER} m graded shoulders = {2*(ROAD_HALF+SHOULDER):.1f} m) · '
-       f'pad edge -> hall west door {road_len_gate_to_door:.0f} m · ship travel pad centre -> hall centre {axis_travel:.0f} m · far side (-Z) of the pad, right side exit',
-       font=font(20), fill=DIM)
+CY = (58, 208, 255); AM = (255, 176, 32); RED = (255, 80, 70); GRN = (90, 220, 140); HABC = (190, 160, 220)
+img = Image.new('RGB', (W, 2300), BG); d = ImageDraw.Draw(img, 'RGBA')
+d.text((40, 24), 'PLANET STACK  ·  Lv10 SHIP TRANSPORT ROAD  ·  top-down plan v2 (proposal)', font=font(34, True), fill=INK)
+d.text((40, 70), f'One straight line, zero turns, zero S-bends · centreline z -13 (ship axis) · running width 36 m (+2.6 m shoulders = 41.2 m) · '
+       f'pad edge -> Lv10 bay door D-10: {road_len:.0f} m · ship travel {travel:.0f} m', font=font(20), fill=DIM)
+d.text((40, 98), 'Layout: cargo_dock/layout_v2 (Refinery 320 | Cargo Dock 373 | Launch Pad 457 | Habitat 800 | Shipyard 960). World metres, +Z (camera side) drawn down.', font=font(18), fill=DIM)
 PANEL = {}
-def panel(ox, oy, pw, ph, x0, x1, z0, z1, title):
+def panel(ox, oy, pw, ph, x0, x1, z0, z1, title, step=20):
     global d
     s = min(pw / (x1 - x0), ph / (z1 - z0))
-    d.text((ox, oy - 30), title, font=font(20, True), fill=INK)
+    d.text((ox, oy - 28), title, font=font(19, True), fill=INK)
     sub = Image.new('RGB', (int((x1 - x0) * s) + 1, int((z1 - z0) * s) + 1), (16, 20, 30))
     PANEL.update(img=sub, ox=ox, oy=oy, main=d); d = ImageDraw.Draw(sub, 'RGBA')
     T = lambda x, z: ((x - x0) * s, (z - z0) * s)
-    for gx in range(int(math.ceil(x0 / 20) * 20), int(x1) + 1, 20):
-        d.line([T(gx, z0), T(gx, z1)], fill=(255, 255, 255, 14))
-    for gz in range(int(math.ceil(z0 / 20) * 20), int(z1) + 1, 20):
-        d.line([T(x0, gz), T(x1, gz)], fill=(255, 255, 255, 14))
-    return s, T
+    for gx in range(int(math.ceil(x0 / step) * step), int(x1) + 1, step): d.line([T(gx, z0), T(gx, z1)], fill=(255, 255, 255, 14))
+    for gz in range(int(math.ceil(z0 / step) * step), int(z1) + 1, step): d.line([T(x0, gz), T(x1, gz)], fill=(255, 255, 255, 14))
+    return s, T, sub.size
 def end_panel():
     global d
     sub = PANEL['img']; ImageDraw.Draw(sub).rectangle([0, 0, sub.width - 1, sub.height - 1], outline=(50, 58, 76), width=2)
     img.paste(sub, (PANEL['ox'], PANEL['oy'])); d = PANEL['main']
-def grid_fp(T, s, name, col):
-    gx0 = X[name]
+def grid_fp(T, name, col):
+    gx0, gz0 = X[name]
     for k, h in ST[name]['grid'].items():
-        i, j = map(int, k.split(',')); x, z = 2 * i + gx0, 2 * j
-        a = int(min(230, 60 + h * 9))
-        d.rectangle([T(x, z), T(x + 2, z + 2)], fill=col + (a,))
+        i, j = map(int, k.split(',')); x, z = 2 * i + gx0, 2 * j + gz0
+        d.rectangle([T(x, z), T(x + 2, z + 2)], fill=col + (int(min(230, 60 + h * 9)),))
     (bx0, _, bz0), (bx1, _, bz1) = ST[name]['all']
-    d.rectangle([T(bx0 + gx0, bz0), T(bx1 + gx0, bz1)], outline=col + (200,), width=2)
-def berm(T, s, gate=True, fill=(150, 140, 120, 150)):
-    pts_o, pts_i = [], []
-    for a in range(60, 301, 2):         # az from +Z toward +X; opening |az|<60 toward camera
-        r = math.radians(a); pts_o.append((SHIP[0] + 29 * math.sin(r), SHIP[1] + 29 * math.cos(r))); pts_i.append((SHIP[0] + 22 * math.sin(r), SHIP[1] + 22 * math.cos(r)))
-    d.polygon([T(*p) for p in pts_o + pts_i[::-1]], fill=fill)
-def road(T, s, x_from, x_to, draw_lanes=True):
-    d.rectangle([T(x_from, ROAD_Z - ROAD_HALF - SHOULDER), T(x_to, ROAD_Z + ROAD_HALF + SHOULDER)], fill=(92, 88, 82, 255))
-    d.rectangle([T(x_from, ROAD_Z - ROAD_HALF), T(x_to, ROAD_Z + ROAD_HALF)], fill=(126, 120, 110, 255))
-    if draw_lanes:
-        for sg in (-1, 1):
-            za, zb = ROAD_Z + sg * LANE[0], ROAD_Z + sg * LANE[1]
-            d.rectangle([T(x_from, min(za, zb)), T(x_to, max(za, zb))], fill=(84, 80, 74, 255))
-            if s > 6:
-                x = x_from
-                while x < x_to:   # crawler cleat marks every 0.62 m drawn every 1.24 m
-                    d.line([T(x, min(za, zb) + 0.2), T(x, max(za, zb) - 0.2)], fill=(60, 57, 53, 255), width=1); x += 1.24
+    d.rectangle([T(bx0 + gx0, bz0 + gz0), T(bx1 + gx0, bz1 + gz0)], outline=col + (200,), width=2)
+def berm(T):
+    po, pi = [], []
+    for a in range(60, 301, 2):
+        r = math.radians(a); po.append((SHIP[0] + 29 * math.sin(r), SHIP[1] + 29 * math.cos(r))); pi.append((SHIP[0] + 22 * math.sin(r), SHIP[1] + 22 * math.cos(r)))
+    d.polygon([T(*p) for p in po + pi[::-1]], fill=(150, 140, 120, 150))
+def road(T, s, x_from, x_to):
+    d.rectangle([T(x_from, ROAD_Z - HALF - SHOULDER), T(x_to, ROAD_Z + HALF + SHOULDER)], fill=(92, 88, 82, 255))
+    d.rectangle([T(x_from, ROAD_Z - HALF), T(x_to, ROAD_Z + HALF)], fill=(126, 120, 110, 255))
     for sg in (-1, 1):
-        d.line([T(x_from, ROAD_Z + sg * ROAD_HALF), T(x_to, ROAD_Z + sg * ROAD_HALF)], fill=(235, 235, 225, 255), width=2)
-        x = x_from + 6
-        while x < x_to:
-            px, pz = T(x, ROAD_Z + sg * (ROAD_HALF + 1.3)); d.ellipse([px - 3, pz - 3, px + 3, pz + 3], fill=CY if sg < 0 else AM); x += 12
-def foot(T, cx, col, lab=None, dash=True):
+        za, zb = sorted((ROAD_Z + sg * LANE[0], ROAD_Z + sg * LANE[1]))
+        d.rectangle([T(x_from, za), T(x_to, zb)], fill=(84, 80, 74, 255))
+        if s > 5:
+            x = x_from
+            while x < x_to: d.line([T(x, za + 0.2), T(x, zb - 0.2)], fill=(60, 57, 53, 255), width=1); x += 1.24
+        d.line([T(x_from, ROAD_Z + sg * HALF), T(x_to, ROAD_Z + sg * HALF)], fill=(235, 235, 225, 255), width=2)
+        if s > 3:
+            x = x_from + 6
+            while x < x_to:
+                px, pz = T(x, ROAD_Z + sg * (HALF + 1.3)); d.ellipse([px - 2.5, pz - 2.5, px + 2.5, pz + 2.5], fill=CY if sg < 0 else AM); x += 12
+def foot(T, cx, col, lab=None):
     a, b = T(cx + TR['x0'], ROAD_Z - TR['half']), T(cx + TR['x1'], ROAD_Z + TR['half'])
-    d.rectangle([a, b], outline=col, width=3)
-    p = T(cx, ROAD_Z); r = 4.49 * (b[0] - a[0]) / (TR['x1'] - TR['x0'])
+    d.rectangle([a, b], outline=col, width=3); p = T(cx, ROAD_Z); r = 4.49 * (b[0] - a[0]) / (TR['x1'] - TR['x0'])
     d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=(200, 205, 215, 255), outline=(40, 40, 50))
-    if lab: d.text((a[0] + 4, a[1] + 4), lab, font=font(15, True), fill=col)
-def label(T, x, z, t, col=INK, sz=16, b=True, anchor='la'):
-    d.text(T(x, z), t, font=font(sz, b), fill=col, anchor=anchor)
-def scalebar(T, s, x, z, L=50):
+    if lab: d.text((a[0] + 4, a[1] + 4), lab, font=font(14, True), fill=col)
+def label(T, x, z, t, col=INK, sz=15, b=True, anchor='la'): d.text(T(x, z), t, font=font(sz, b), fill=col, anchor=anchor)
+def scalebar(T, x, z, L, tick):
     a, b = T(x, z), T(x + L, z); d.line([a, b], fill=INK, width=4)
-    for k in range(0, L + 1, 10): p = T(x + k, z); d.line([p[0], p[1] - 6, p[0], p[1] + 6], fill=INK, width=2)
-    d.text((a[0], a[1] + 10), f'0      {L} m', font=font(15), fill=INK)
-# ---------- Panel 1: overview ----------
-s1, T1 = panel(40, 150, 2320, 460, -215, 245, -62, 40, 'OVERVIEW  ·  Refinery  |  20-slot Cargo Dock  |  Launch Pad  |  Shipyard   (Director layout, 160 m station pitch)')
-for nm, col in (('Refinery', (170, 150, 120)), ('CargoDock', (120, 170, 220)), ('LaunchPad', (200, 205, 215)), ('Shipyard', (180, 200, 150))):
-    grid_fp(T1, s1, nm, col)
-berm(T1, s1)
-for zl in (13, 22): d.line([T1(-173, zl), T1(1, zl)], fill=AM + (230,), width=3)
-d.line([T1(-206, 9), T1(-215, 9)], fill=(200, 120, 60), width=4); d.line([T1(-206, 0), T1(-215, 0)], fill=(200, 120, 60), width=4)
-road(T1, s1, PAD_EDGE, WEST_X, draw_lanes=True)
-foot(T1, 0, CY); foot(T1, APRON[0] + 15.5, CY)
-label(T1, -176, -55, 'REFINERY', (230, 210, 170), 20); label(T1, -176, -49, 'x = pad-160 (qa3d 320)', DIM, 14, False)
-label(T1, -100, -55, 'CARGO DOCK (20-slot)', (150, 200, 255), 20); label(T1, -100, -49, 'between Refinery and Pad', DIM, 14, False)
-label(T1, -26, -57, 'LAUNCH PAD', INK, 20); label(T1, -26, -51, 'origin, qa3d x 480', DIM, 14, False)
-label(T1, 112, -57, 'SHIPYARD', (200, 230, 160), 20); label(T1, 112, -51, 'x = pad+160', DIM, 14, False)
-label(T1, -172, 25, 'flatbed route  Refinery <-> Dock <-> Pad   (lanes z +13 / +22)', AM, 15)
-label(T1, -214, 3, 'haul road ->Mine', (220, 140, 80), 13)
-label(T1, 34, -36, 'SHIP TRANSPORT ROAD (36 m, crawler track)', CY, 16)
-scalebar(T1, s1, 170, 33, 50)
-d.text(T1(232, -60), 'far side (-Z)', font=font(14), fill=DIM, anchor='ra'); d.text(T1(232, 38), 'camera side (+Z)', font=font(14), fill=DIM, anchor='rd')
+    for k in range(0, L + 1, tick): p = T(x + k, z); d.line([p[0], p[1] - 6, p[0], p[1] + 6], fill=INK, width=2)
+    d.text((a[0], a[1] + 9), f'0   {L} m', font=font(14), fill=INK)
+def hab(T, moved=True):
+    d.rectangle([T(HAB['x0'], HAB['z0']), T(HAB['x1'], HAB['z1'])], fill=(190, 160, 220, 60) if moved else (190, 160, 220, 200), outline=RED if moved else HABC, width=2)
+    if moved: d.rectangle([T(HAB['x0'], HAB['z0'] + HAB_MOVE_Z), T(HAB['x1'], HAB['z1'] + HAB_MOVE_Z)], fill=(190, 160, 220, 200), outline=HABC, width=2)
+def hall(T):
+    d.polygon([T(*p) for p in HALL], outline=(220, 240, 180), width=3)
+    dl = (-24.61 + SX, 5.81); dr = (-14.27 + SX, 3.99); d.line([T(*dl), T(*dr)], fill=AM, width=5)
+    d.rectangle([T(BAY[0], BAY[1]), T(BAY[2], BAY[3])], fill=(90, 220, 140, 45), outline=GRN, width=3)
+    d.line([T(DOOR_X, ROAD_Z - DOOR_W / 2), T(DOOR_X, ROAD_Z + DOOR_W / 2)], fill=GRN, width=8)
+# ---------- overview ----------
+s1, T1, sz1 = panel(40, 165, 2320, 420, 262, 1032, -62, 42, 'OVERVIEW  ·  Refinery | Cargo Dock | Launch Pad  ->  transport road  ->  Habitat (placeholder)  ->  Shipyard', step=50)
+for nm, col in (('Refinery', (170, 150, 120)), ('CargoDock', (120, 170, 220)), ('LaunchPad', (200, 205, 215)), ('Shipyard', (180, 200, 150))): grid_fp(T1, nm, col)
+berm(T1)
+for zl in (13, 22): d.line([T1(296, zl), T1(464, zl)], fill=AM + (230,), width=3)
+d.line([T1(274, 9), T1(262, 9)], fill=(220, 140, 80), width=4); d.line([T1(274, 0), T1(262, 0)], fill=(220, 140, 80), width=4)
+road(T1, s1, PAD_EDGE, DOOR_X); hab(T1); hall(T1); foot(T1, SHIP[0], CY)
+for nm, x, col, sub_ in (('REFINERY', 296, (230, 210, 170), 'x 320'), ('CARGO DOCK', 352, (150, 200, 255), 'x 373, 20 slots'), ('LAUNCH PAD', 436, INK, 'x 457'),
+                        ('HABITAT', 780, HABC, 'placeholder x 800'), ('SHIPYARD', 918, (200, 230, 160), 'x 960')):
+    label(T1, x, -58, nm, col, 17); label(T1, x, -51.5, sub_, DIM, 13, False)
+label(T1, 520, -38, f'SHIP TRANSPORT ROAD · 36 m · crawler-track surface · {road_len:.0f} m straight', CY, 16)
+label(T1, 296, 26, 'flatbed route + pad U-turn (z +13 / +22)', AM, 13); label(T1, 263, 3, 'haul rd', (220, 140, 80), 12)
+scalebar(T1, 560, 30, 100, 20)
 end_panel()
-# ---------- Panel 2: detail ----------
-s2, T2 = panel(40, 680, 2320, 860, -44, 186, -58, 34, 'DETAIL  ·  Launch Pad right side  ->  Shipyard assembly hall AH-1   (8 px/m grid = 20 m)')
-grid_fp(T2, s2, 'LaunchPad', (200, 205, 215)); grid_fp(T2, s2, 'Shipyard', (180, 200, 150))
-berm(T2, s2)
-# berm gate cut (required pad change)
+# ---------- detail 1: pad exit ----------
+y2 = 165 + sz1[1] + 60
+s2, T2, sz2 = panel(40, y2, 900, 560, 418, 566, -60, 32, 'A · PAD RIGHT-SIDE EXIT (fuel pipe end moved to pad LEFT ~x 430)', step=10)
+grid_fp(T2, 'LaunchPad', (200, 205, 215)); berm(T2)
 gz0, gz1 = ROAD_Z - TR['half'] - 1.2, ROAD_Z + TR['half'] + 1.2
-d.rectangle([T2(18.5, gz0), T2(PAD_EDGE, gz1)], fill=(255, 80, 70, 70), outline=RED, width=3)
-road(T2, s2, PAD_EDGE, WEST_X)
-d.rectangle([T2(APRON[0], ROAD_Z - 22), T2(APRON[1], ROAD_Z + 22)], outline=(235, 235, 225), width=2)
-label(T2, APRON[0] + 1, ROAD_Z + 22.6, f'REFIT / HOLD APRON RA-1  {APRON[1]-APRON[0]:.0f} x 44 m', INK, 14)
-# conflicts from real-vertex sweep (union A/B)
-seen = []
-for h in CL['pad']['A'] + CL['pad']['B']:
-    if h['ymax'] < 0.5: continue
-    box = (h['x0'], h['z0'], h['x1'], h['z1'])
-    if any(abs(box[0] - b[0]) < 1.5 and abs(box[1] - b[1]) < 1.5 for b in seen): continue
-    seen.append(box); d.rectangle([T2(box[0], box[1]), T2(box[2], box[3])], fill=(255, 80, 70, 110), outline=RED, width=2)
-def tag(x, z, k):
-    p = T2(x, z); d.ellipse([p[0] - 13, p[1] - 13, p[0] + 13, p[1] + 13], fill=RED, outline=(255, 255, 255)); d.text(p, str(k), font=font(16, True), fill=(255, 255, 255), anchor='mm')
-tag(12.6, -30.0, 2); tag(14.2, 2.2, 3); tag(16.7, -20.5, 3); tag(23.55, -6.6, 4); tag(24.0, -29.8, 1)
-CALL = ['1  berm gate G-1: cut 30.8 m in the right arc', '2  Tier_08 pump skid P-2 (5.2 m): move', '3  LOX / LCH4 cryo tanks (to 12 m): move (AA2)', '4  valve vault VV-1 riser 4.4 m: lower < 3 m', '   hoses LOX / LCH4: stow before transport']
-for i, t in enumerate(CALL): label(T2, -42.5, -57 + 2.2 * i, t, RED, 14)
-# pad furniture
-d.ellipse([T2(1, 10.2), T2(8.3, 24.8)], outline=AM, width=3); label(T2, 9.5, 18.5, 'pad U-turn', AM, 14)
-for zl in (13, 22): d.line([T2(-44, zl), T2(1, zl)], fill=AM, width=3)
-label(T2, -43, 25, 'flatbed lanes (from Cargo Dock / Refinery)', AM, 14)
-d.rectangle([T2(-10, 2), T2(-5, 7)], outline=(200, 205, 215), width=2); label(T2, -9.6, 7.6, 'cargo bay', DIM, 13, False)
-d.rectangle([T2(-2.4, 12.4), T2(16.5, 16.1)], outline=(180, 185, 195), width=2); label(T2, 10, 10.6, 'crane PC-1', DIM, 13, False)
-label(T2, -42.5, -44.6, '<- CARGO DOCK side (pad LEFT): road never goes here', (150, 200, 255), 15)
-label(T2, -24, -39.5, 'blast berm (3.4 m)', (200, 190, 160), 13, False)
-foot(T2, 0, CY, 'ST-10 pick-up (ship on transporter)')
-foot(T2, APRON[0] + 15.5, (235, 235, 225), 'hold / turn-back')
-# shipyard
-d.polygon([T2(*p) for p in HALL], outline=(220, 240, 180), width=3)
-cx_, cz_ = sum(p[0] for p in HALL) / 4, sum(p[1] for p in HALL) / 4
-label(T2, cx_, cz_ - 1, 'ASSEMBLY HALL AH-1', (220, 240, 180), 16, anchor='mm'); label(T2, cx_, cz_ + 3, '34 x 26 m, 24 m tall', DIM, 13, False, 'mm')
-dl, dr = (L[0] + sx0, L[2]), (R_[0] + sx0, R_[2]); d.line([T2(*dl), T2(*dr)], fill=AM, width=6)
-label(T2, dl[0] - 1, dl[1] + 3.5, 'existing door 20.9 W x 20.6 H (faces camera, 10 m forecourt)', AM, 13, anchor='ra')
-wa, wb = (WEST_X, ROAD_Z - 16), (WEST_X, ROAD_Z + 16)
-d.line([T2(*wa), T2(*wb)], fill=GRN, width=7)
-label(T2, WEST_X - 1, ROAD_Z - 21, 'ROAD END: proposed Lv10 west high-bay door', GRN, 15, anchor='ra')
-label(T2, WEST_X - 1, ROAD_Z - 18.2, '>= 32 m W x 44 m H (hall high bay >= 46 m)', GRN, 13, False, 'ra')
-for x, z, hgt in blk: d.rectangle([T2(x, z), T2(x + 2, z + 2)], outline=RED, width=1)
-isx = (26 + sx0, 44 + sx0); d.rectangle([T2(isx[0], -26), T2(isx[1], -4)], outline=(220, 240, 180), width=2)
-label(T2, isx[0] + 1, -3.4, 'IS-1 integration stand', DIM, 13, False)
-# dims
-yA = ROAD_Z + ROAD_HALF + SHOULDER + 4.5
-d.line([T2(PAD_EDGE, yA), T2(WEST_X, yA)], fill=INK, width=2)
-for xx in (PAD_EDGE, WEST_X): d.line([T2(xx, yA - 1.2), T2(xx, yA + 1.2)], fill=INK, width=2)
-label(T2, (PAD_EDGE + WEST_X) / 2, yA + 0.6, f'{road_len_gate_to_door:.1f} m  pad edge -> hall west wall  (centreline z = -13, dead straight)', INK, 15, anchor='ma')
-xw = 50
-d.line([T2(xw, ROAD_Z - ROAD_HALF), T2(xw, ROAD_Z + ROAD_HALF)], fill=INK, width=2)
-label(T2, xw + 0.6, ROAD_Z - 2.2, '36 m', INK, 15); label(T2, xw + 0.6, ROAD_Z + 0.6, 'running', DIM, 13, False)
-label(T2, 33, ROAD_Z + LANE[1] + 0.3, 'crawler lane', (60, 50, 40), 12)
-scalebar(T2, s2, 120, 29, 20)
+d.rectangle([T2(PADX + 18.5, gz0), T2(PAD_EDGE, gz1)], fill=(255, 80, 70, 70), outline=RED, width=3)
+road(T2, s2, PAD_EDGE, 566)
+for b in pad_hits: d.rectangle([T2(b[0], b[1]), T2(b[2], b[3])], fill=(255, 80, 70, 110), outline=RED, width=2)
+d.ellipse([T2(458, 10.2), T2(465.3, 24.8)], outline=AM, width=3); label(T2, 466, 18, 'pad U-turn', AM, 13)
+for zl in (13, 22): d.line([T2(418, zl), T2(458, zl)], fill=AM, width=3)
+fh = T2(460.85, -15.0); d.ellipse([fh[0] - 6, fh[1] - 6, fh[0] + 6, fh[1] + 6], outline=AM, width=3)
+pe = T2(430, -9.6); d.ellipse([pe[0] - 6, pe[1] - 6, pe[0] + 6, pe[1] + 6], fill=GRN); label(T2, 431.5, -8.4, 'pipe end (new, ~x 430)', GRN, 12)
+ov = T2(477.3, -9.6); d.line([ov[0] - 6, ov[1] - 6, ov[0] + 6, ov[1] + 6], fill=GRN, width=3); d.line([ov[0] - 6, ov[1] + 6, ov[0] + 6, ov[1] - 6], fill=GRN, width=3)
+foot(T2, SHIP[0], CY, 'ST-10 pick-up')
+def tag(T, x, z, k):
+    p = T(x, z); d.ellipse([p[0] - 12, p[1] - 12, p[0] + 12, p[1] + 12], fill=RED, outline=(255, 255, 255)); d.text(p, str(k), font=font(15, True), fill=(255, 255, 255), anchor='mm')
+tag(T2, PADX + 24.0, -29.8, 1); tag(T2, PADX + 12.6, -30.4, 2); tag(T2, PADX + 14.2, 2.4, 3); tag(T2, PADX + 16.7, -20.5, 3); tag(T2, 460.85, -19.5, 4); tag(T2, PADX + 6.5, -6.0, 5)
+for i, t_ in enumerate(['1 berm gate G-1: cut 30.8 m in the right arc (rack/berm to 3.4-4.3 m)', '2 Tier_08 pump skid P-2 (5.2 m): move left/front',
+                        '3 LOX / LCH4 cryo tanks (to 12 m): move (AA2 is moving them)', '4 Fuel_Hookup (460.85,-15): disconnect + retract before lift',
+                        '5 Hose_LOX / LCH4: retract to the left of x 460', 'x VV-1 riser (477.3,-9.6): gone with the pipe end move']):
+    label(T2, 419.5, -59 + 2.6 * i, t_, RED if i < 5 else GRN, 13)
+scalebar(T2, 530, 28, 20, 5)
+end_panel()
+# ---------- detail 2: habitat ----------
+s3, T3, sz3 = panel(980, y2, 520, 560, 752, 848, -60, 32, 'B · HABITAT PLACEHOLDER (x 800)', step=10)
+road(T3, s3, 752, 848); hab(T3)
+d.line([T3(806, HAB['z0']), T3(806, HAB['z0'] + HAB_MOVE_Z)], fill=HABC, width=2)
+label(T3, 754, 9.5, f'move +{HAB_MOVE_Z:.0f} m toward camera', HABC, 13); label(T3, 754, 12, f'(z {HAB["z0"]+HAB_MOVE_Z:.1f}..{HAB["z1"]+HAB_MOVE_Z:.1f}; shoulder edge z +{hab_edge:.1f})', DIM, 12, False)
+label(T3, 754, -58, 'Today: placeholder z -4.5..4.5 sits inside', RED, 13); label(T3, 754, -55.5, 'the corridor (z -33.6..+7.6).', RED, 13)
+label(T3, 754, -51, 'Fallback (layout_v2): jog to z -24 =', DIM, 12, False); label(T3, 754, -48.7, 'a reverse curve; needs Director waiver.', DIM, 12, False)
+foot(T3, 790, (235, 235, 225), 'in transit')
+end_panel()
+# ---------- detail 3: shipyard ----------
+s4, T4, sz4 = panel(1540, y2, 820, 560, 820, 1000, -60, 40, 'C · SHIPYARD END: Lv10 HIGH BAY HB-10 + DOOR D-10 (proposal)', step=10)
+grid_fp(T4, 'Shipyard', (180, 200, 150)); road(T4, s4, 820, DOOR_X)
+d.rectangle([T4(APRON[0], ROAD_Z - 22), T4(APRON[1], ROAD_Z + 22)], outline=(235, 235, 225), width=2)
+hall(T4)
+for x, z, h in blk: d.rectangle([T4(x, z), T4(x + 2, z + 2)], outline=RED, width=1)
+foot(T4, (BAY[0] + BAY[2]) / 2, CY, 'ST-10 inside HB-10')
+label(T4, DOOR_X - 1, ROAD_Z + DOOR_W / 2 + 1.5, f'D-10  {DOOR_W:.0f} m W x {DOOR_H:.0f} m H', GRN, 15, anchor='ra')
+label(T4, BAY[0] + 1, BAY[1] - 4.5, f'HB-10 {BAY_L:.0f} x {BAY_W:.0f} m, {BAY_H:.0f} m tall', GRN, 14)
+label(T4, APRON[0] + 1, ROAD_Z + 22.8, 'apron RA-1 44 x 44 m', INK, 13)
+hx, hz = sum(p[0] for p in HALL) / 4, sum(p[1] for p in HALL) / 4
+label(T4, hx, hz, 'AH-1 (24 m)', (220, 240, 180), 14, anchor='mm')
+label(T4, 925, 15.5, 'existing door 10.3 m, faces camera,', AM, 12); label(T4, 925, 18, '8-14 m forecourt: not used', AM, 12)
+scalebar(T4, 940, 35, 20, 5)
+end_panel()
+# ---------- door elevation ----------
+y5 = y2 + 600
+s5, T5, sz5 = panel(40, y5, 900, 330, -26, 26, -52, 2, 'D · DOOR D-10 ELEVATION (looking east from the road, ship loaded on ST-10B / ST-10A)', step=10)
+E = lambda x, h: T5(x, -h)
+d.rectangle([E(-DOOR_W / 2, DOOR_H), E(DOOR_W / 2, 0)], outline=GRN, width=4)
+d.rectangle([E(-14.25, 25.2), E(14.25, 0)], outline=CY, width=2); d.rectangle([E(-13.7, 32.5), E(13.7, 0)], outline=(150, 220, 255), width=1)
+d.polygon([E(-4.49, 0.45), E(4.49, 0.45), E(4.49, 33), E(3.0, 38.5), E(0, 40.7), E(-3.0, 38.5), E(-4.49, 33)], fill=(200, 205, 215, 200))
+d.line([E(-9.26, 0.45), E(9.26, 0.45)], fill=(200, 205, 215), width=4)
+d.rectangle([E(-26, 0), E(26, -1.5)], fill=(92, 88, 82))
+label(T5, -DOOR_W / 2 + 0.5, -DOOR_H + 1, f'{DOOR_W:.0f} m clear width', GRN, 14); label(T5, DOOR_W / 2 + 0.5, -DOOR_H / 2, f'{DOOR_H:.0f} m', GRN, 14)
+label(T5, -14, -26.5, 'ST-10B 28.5 m', CY, 12); label(T5, 4.6, -40.5, 'ship top 40.7 m (lifted 0.45)', INK, 12); label(T5, -9.2, -2.6, 'legs 18.5 m', DIM, 12, False)
 end_panel()
 # ---------- notes ----------
 notes = [
- ('ROAD', INK, f'Centreline pad-local z = -13 (ship axis), from the pad edge x 29.4 to the Shipyard hall west wall x {WEST_X:.1f}: {road_len_gate_to_door:.1f} m, zero turns, flat 0% grade, 0.5% cross-fall.'),
- ('', DIM, f'Running width 36 m (transporter 28.5 m + 3.75 m each side) + 2.6 m graded shoulders = 41.2 m. Two darker sintered crawler lanes at |dz| 9.7-13.3 m with 0.62 m cleat imprints (no tyre trails). Cyan (far) / amber (near) reflector posts every 12 m.'),
- ('', DIM, 'Autonomous transporter runs both ways (no cab), so no turnaround loop is needed: in on the road, back out on the same road. Refit/hold apron RA-1 is the passing and staging pad.'),
- ('KEEP-OUT', GRN, 'Haul road: >230 m away (Refinery far left).  Flatbed lanes z +13/+22 and pad U-turn: road edge stays at z <= +5.6 (4.6 m clear of the U-turn, never crosses).  Cargo Dock: pad LEFT; road leaves pad RIGHT.'),
- ('PAD CHANGES', RED, 'Measured on real pad vertices (A and B swept volumes): cut berm gate G-1 in the right arc (z -28.4..+2.4); move LOX/LCH4 tanks (x 11.7-19, to 12 m) and Tier_08 pump skid P-2; lower the VV-1 riser (4.4 m); stow hoses. Lv1 edge lights 0.37 m are drive-over.'),
- ('SHIPYARD', AM, 'Loaded transporter is ~28.5 m wide x 41 m tall: it cannot reach the existing 20.9 x 20.6 m camera-side door (10 m forecourt, Tier_03 and W-2 alongside). Proposal: Lv10 west high-bay door on the gable the road meets.'),
- ('', AM, f'Fallback with no Shipyard change: road ends at apron RA-1 (x 62-{APRON[1]:.0f}) and the ship is rebuilt on its legs there under the Shipyard cranes. Items west of the hall in the road corridor: {len(blk)} cells (red outlines), for the Shipyard owner.'),
- ('LAYOUT FLAG', RED, 'qa3d STATIONS today: Refinery 320, Launch Pad 480, Cargo Space Dock 640, Habitat 800, Shipyard 960. Director order puts the Dock left of the pad and the Shipyard at pad+160. Under today\'s code the road would run +320 m behind Dock and Habitat.'),
+ ('ROAD', INK, f'Centreline world z -13 (the pad ship axis) from the pad edge x {PAD_EDGE:.1f} to door D-10 at x {DOOR_X:.1f}: {road_len:.1f} m, one straight, 0 turns, 0% grade, 0.5% cross-fall. 36 m running + 2.6 m graded shoulders = 41.2 m. Sintered surface with two darker crawler lanes (|dz| 9.7-13.3 m, 0.62 m cleat imprints), no tyre trails; cyan (far) / amber (near) reflector posts every 12 m.'),
+ ('', DIM, 'Autonomous and cab-less, ST-10 runs both ways on the same road (out loaded, back loaded after the rebuild): no turnaround loop. Apron RA-1 in front of D-10 is the staging and passing pad.'),
+ ('KEEP-OUT', GRN, 'Haul road: Refinery left side (x <= 321), 165 m away. Flatbed lanes z +13/+22 and the pad U-turn (x 458-465, z 10-25): road shoulder edge stays at z <= +7.6 and starts at x 486.4, never crosses. Cargo Dock (x 348-421) is LEFT of the pad; the road leaves the pad RIGHT.'),
+ ('(a) PAD', RED, 'Needs the pad owner (AA2), not edited here: cut berm gate G-1 in the right arc (z -28.4..+2.4); move LOX/LCH4 tanks and Tier_08 P-2; retract hoses and Fuel_Hookup left of x 460. VV-1 / Pipe_LaunchPad_End leaves the corridor with the move to the pad left (~x 430). Lv1 edge lights 0.37 m are drive-over.'),
+ ('(b) HABITAT', HABC, f'Gray placeholder at x 795.5-804.5, z +/-4.5 is inside the corridor. Proposal: move it +{HAB_MOVE_Z:.0f} m toward the camera (z {HAB["z0"]+HAB_MOVE_Z:.1f}..{HAB["z1"]+HAB_MOVE_Z:.1f}) so the road stays straight. This needs Coder/Director (placeholder position). The layout_v2 jog to z -24 would be an S-bend, which the road rules forbid.'),
+ ('(c) SHIPYARD', AM, f'Existing door: 10.3 m, faces the camera, 8-14 m forecourt. Proposal (Director ruling): Lv10 high bay HB-10 {BAY_L:.0f} x {BAY_W:.0f} x {BAY_H:.0f} m on the west gable of AH-1, door D-10 {DOOR_W:.0f} m W x {DOOR_H:.0f} m H facing the road, on the road axis.'),
+ ('', AM, f'D-10 sizing: transporter up to 28.5 m wide (B; A 27.4) + 2.75 m each side; ship top 40.7 m + 5.3 m. {len(blk)} Shipyard cells (red) inside HB-10 + RA-1 must clear. This is a Shipyard model change, so it is flagged to the Shipyard owner. The Shipyard GLB is not edited here.'),
 ]
-y = 1580
-for tag, col, t in notes:
-    if tag: d.text((40, y), tag, font=font(17, True), fill=col)
-    # wrap
-    words, line, lines = t.split(), '', []
+y = y5 + 400
+for tg, col, t_ in notes:
+    if tg: d.text((40, y), tg, font=font(17, True), fill=col)
+    words, line, lines = t_.split(), '', []
     for w in words:
         if d.textlength(line + ' ' + w, font=font(16)) > 2120: lines.append(line); line = w
         else: line = (line + ' ' + w).strip()
     lines.append(line)
     for ln in lines: d.text((230, y), ln, font=font(16), fill=INK if col != DIM else DIM); y += 22
-    y += 4
-img = img.crop((0, 0, W, min(1980, y + 20)))
-img.save(os.path.join(P, 'transport_road_plan_topdown.png'))
-print('WEST_X', round(WEST_X, 2), 'len', round(road_len_gate_to_door, 1), 'axis', round(axis_travel, 1), 'blk', len(blk), 'size', img.size)
+    y += 5
+img = img.crop((0, 0, W, y + 20)); img.save(os.path.join(P, 'transport_road_plan_topdown.png'))
+print('WEST_X', round(WEST_X, 1), 'DOOR_X', round(DOOR_X, 1), 'len', round(road_len, 1), 'travel', round(travel, 1), 'blk', len(blk), 'size', img.size)
