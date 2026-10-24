@@ -24,4 +24,6 @@ python3 "$REPO/art/3d/props/ht04/_src/detail_pass.py" ht04 "$W/ht04_base_plain.g
 # FB-05 gets the same glass merge: truck_pass.py FB05_DETAIL_PLAIN.glb OUT_raw.glb --merge-glass, then gltfpack -cc -kn -ke.
 "$GP" -i "$W/ht04_detail.glb" -o "$W/ht04_detail_plain.glb" -noq -kn -ke
 python3 "$REPO/art/3d/props/ht04/_src/truck_pass.py" "$W/ht04_detail_plain.glb" "$W/ht04_ore_raw.glb" --ore --merge-glass
-"$GP" -i "$W/ht04_ore_raw.glb" -o "$REPO/art/3d/props/ht04/ht04_game.glb" -cc -kn -ke
+# 10/24 01:10 ore v3: load lifted to sRGB (100,97,92) together with the Mine deposits / conveyor lumps (shared script)
+python3 "$REPO/art/3d/props/_shared_src/regolith_grey_v3.py" ht04 "$W/ht04_ore_raw.glb" "$W/ht04_ore_v3_raw.glb"
+"$GP" -i "$W/ht04_ore_v3_raw.glb" -o "$REPO/art/3d/props/ht04/ht04_game.glb" -cc -kn -ke

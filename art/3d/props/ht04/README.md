@@ -1,6 +1,6 @@
 # HT-04 haul truck — shared prop (Mine + Refinery)
 
-`ht04_game.glb`: **134,292 B, md5 `5ba7c9dab6dc61fa7174f255aa09839e`, 10,560 tris, 1 draw** (10/24 01:00 ore v2: deposit-grey dumped pile, see *Ore v2* below; 00:40 v1 was 134,588 B / md5 `62c32238...` / 10,536 tris; 10/24 00:40 truck_pass: regolith ore + glass merged into the paint, see *Ore load / 1 draw* below; 10/23 PM detail pass was 124,876 B / 8,308 tris / 2 draws, md5 `5e5c9fe1...`; before that 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
+`ht04_game.glb`: **134,096 B, md5 `4222799b2801d40f26a313a62c42b43e`, 10,560 tris, 1 draw** (10/24 01:10 ore v3: load lifted to sRGB (100,97,92), see *Ore v3* below; 01:00 v2 was 134,292 B / md5 `5ba7c9da...`; ore v2: deposit-grey dumped pile, see *Ore v2* below; 00:40 v1 was 134,588 B / md5 `62c32238...` / 10,536 tris; 10/24 00:40 truck_pass: regolith ore + glass merged into the paint, see *Ore load / 1 draw* below; 10/23 PM detail pass was 124,876 B / 8,308 tris / 2 draws, md5 `5e5c9fe1...`; before that 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
 materials `SHM_Paint` + `SHM_Glass` (see Detail pass), colours in COLOR_0, no textures). It uses EXT_meshopt_compression + KHR_mesh_quantization (gltfpack -cc -kn -ke) and no Draco.
 The budget was ≤ 4k tris and ≤ 3 draws; the detail pass takes it to ~8.3k tris (approved scope: "trucks lack detail"), draws stay ≤ 3. The no-scoop body has no arm.
 
@@ -85,3 +85,10 @@ Director notes on v1 (near-black/blue, shards through the walls at 60%, vertical
 - **Shape:** the `fill` morph's full target is an analytic dumped pile: crown = rim edge + tan(33°) x soft-min distance to the bed walls (soft 0.22 -> rounded crown, y≈3.90 vs rim 3.30-3.38), so it slopes down to all four walls at ~33° repose. Basis is the old flat bed floor; heap rebuilt as a 27x11 grid (520 tris, replaces 496). Rocks ride the pile surface via per-vertex morph deltas.
 - **Spikes:** the morph only moves y, and every heap/rock vertex is clamped in x/z inside the bed box (x -3.24..0.04, |z| ≤ 1.21; walls -3.30/0.10, ±1.28) and y ≥ floor. Verified by sampling: in-build 21 fills and post-pack 51 fills x 1,675 load verts -> **0 violations**, worst overshoot 0.0002 m (quantisation).
 - Names, joints, IBMs, morph name, clips, 1 primitive / SHM_Paint unchanged. Tris 10,536 -> 10,560.
+
+## Ore v3 colour (10/24 01:10, `../_shared_src/regolith_grey_v3.py ht04`; proof `proofs/ore_v3_fill_vs_deposit_1600x1240.png`, game frame `../../buildings/mine/proofs/mine_ht04_full_game_375x667.png`)
+
+Director: (13,12,11) read as coal. The whole load (heap, 26 rocks, chute_pour / truck_load_rich chunks; every vertex skinned to Truck_Load / Truck_Pour_* / Truck_Rich_*) is lifted together with the Mine deposits and conveyor lumps:
+- target **sRGB (100, 97, 92)** -> COLOR_0 is linear: **(0.1274, 0.1195, 0.1070)** = u8 ~(32.5, 30.5, 27.3); stored u8 (31..34, 29..32, 26..29), i.e. the v2 shade steps compressed + a positional hash, clamped to +-6 %; R >= G > B on every vertex (0 blue / cyan verts of 2,974 load verts). Mean = sRGB (100, 97, 92).
+- Neutral-light check (Workbench FLAT, Standard view): ore renders sRGB (101, 98, 93), Deposit (102, 99, 94).
+- Geometry, morph, joints, clips, nodes, material, tris (10,560) and draws (1) unchanged: the triangle set (positions + fill target + joints) is identical to v2 (gltfpack only re-orders vertices).

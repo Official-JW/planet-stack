@@ -86,8 +86,9 @@ for o in bpy.data.objects:
             o.animation_data.action = None
             for pb in o.pose.bones: pb.matrix_basis.identity()
 if arg('engine') == 'wb':
-    sc.render.engine = 'BLENDER_WORKBENCH'; sh = sc.display.shading; sh.light = 'STUDIO'; sh.color_type = 'VERTEX'
+    sc.render.engine = 'BLENDER_WORKBENCH'; sh = sc.display.shading; sh.light = arg('wblight', 'STUDIO'); sh.color_type = 'VERTEX'   # --wblight FLAT: unlit albedo (neutral-light colour check)
     sh.show_shadows = True; sh.shadow_intensity = 0.55; sh.show_cavity = True; sh.cavity_type = 'WORLD'; sh.cavity_ridge_factor = 0.0; sh.show_specular_highlight = False
+    if sh.light == 'FLAT': sh.show_shadows = False; sh.show_cavity = False
     sc.display.light_direction = (0.45, -0.5, 0.75); sc.display.render_aa = '8'
     sc.view_settings.view_transform = 'Standard'; sc.view_settings.look = 'None'
     gme = gnd.data; ca = gme.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
