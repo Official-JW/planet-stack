@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;background:#05060b;overflow:hidden;touch-action:n
 button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #tag{position:fixed;left:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 system-ui;background:#0009;padding:4px 7px;border-radius:6px;z-index:6;pointer-events:none}
-#dev{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:4px 7px;border-radius:6px;z-index:30;pointer-events:none}
+#dev{position:fixed;left:110px;right:auto;max-width:calc(100vw - 120px);white-space:nowrap;overflow:hidden;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:4px 7px;border-radius:6px;z-index:30;pointer-events:none}
 #hud{position:fixed;left:8px;right:calc(env(safe-area-inset-right,0px) + 64px);top:calc(env(safe-area-inset-top) + 26px);height:56px;display:flex;align-items:stretch;gap:6px;z-index:5;pointer-events:none;transition:opacity 150ms linear}
 /* Earth Coms HUD fade hook (kit MOTION.md): 150 ms linear; the toast covers the pills while it rings. Right inset 64 = bubble 48 + 2×8 */
 #hud.ec-hud-dim{opacity:0;pointer-events:none}
@@ -131,10 +131,47 @@ body:not(.sheet-open) #sheet:not(.dragging) .row{opacity:0;transition:opacity .1
 #cover [hidden]{display:none}
 #coverRetry{height:40px;padding:0 24px;border:0;border-radius:10px;background:#2a7fff;color:#fff;font:700 14px/1 system-ui;letter-spacing:0}
 #cover.off{opacity:0;pointer-events:none}
+/* ---- cargo: Launch button (Launch Pad, bottom-right of the safe band) + Storage full chip (Refinery pallet); HUD holo style ---- */
+#launchBtn{position:fixed;right:16px;top:0;z-index:6;min-width:156px;height:54px;padding:0 18px 0 46px;border:0;background:none;color:#eafcff;text-align:left;cursor:pointer;isolation:isolate;display:none;flex-direction:column;justify-content:center;gap:3px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#launchBtn.on{display:flex;animation:lbIn .22s ease-out}
+#launchBtn::before,#launchBtn::after{content:'';position:absolute;z-index:-1;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+#launchBtn::before{inset:0;background:linear-gradient(110deg,#ffb340,#ffe2a8 45%,#3ad0ffcc);filter:drop-shadow(0 0 10px #ffb34066)}
+#launchBtn::after{inset:1.5px;background:linear-gradient(180deg,#1a1f2ef2,#0b101cf2)}
+#launchBtn:active::after{background:linear-gradient(180deg,#2a2a2ef2,#141820f2)}
+#launchBtn:active{transform:translateY(1px)}
+#launchBtn i{position:absolute;left:14px;top:50%;width:22px;height:22px;margin-top:-11px;background:#ffc861;-webkit-mask:var(--ri) center/contain no-repeat;mask:var(--ri) center/contain no-repeat;filter:drop-shadow(0 0 4px #ffb340);
+  --ri:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2c3 2.5 4.5 6 4.5 10l2.5 3v3l-3-1.5-1 1.5h-6l-1-1.5-3 1.5v-3l2.5-3C7.5 8 9 4.5 12 2zm0 6a1.6 1.6 0 1 0 0 3.2A1.6 1.6 0 0 0 12 8zm-2 12h4l-2 2.5z'/%3E%3C/svg%3E")}
+#launchBtn b{font:800 15px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#ffe2a8;text-shadow:0 0 8px #ffb34099}
+#launchBtn small{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.14em;color:#c9d3e6;opacity:.85;white-space:nowrap}
+@keyframes lbIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#storeChip{position:fixed;left:0;top:0;z-index:5;display:none;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;pointer-events:none;isolation:isolate;font:800 10px/1 system-ui;font-stretch:condensed;letter-spacing:.2em;color:#ffd0a0;white-space:nowrap}
+#storeChip.on{display:flex}
+#storeChip::before,#storeChip::after{content:'';position:absolute;z-index:-1;clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px)}
+#storeChip::before{inset:0;background:linear-gradient(110deg,#ff9a4a,#c9d3e699)}
+#storeChip::after{inset:1px;background:#0b101cf0}
+#storeChip i{width:6px;height:6px;background:#ff9a4a;box-shadow:0 0 6px #ff9a4a;transform:rotate(45deg)}
+/* ---- settings: gear under the Eve bubble + small holo popover (Music on/off) ---- */
+#setBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 90px);right:calc(env(safe-area-inset-right,0px) + 14px);width:36px;height:36px;border:0;padding:0;background:none;z-index:6;isolation:isolate;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#setBtn::before{content:'';position:absolute;inset:-4px;}
+#setBtn::after{content:'';position:absolute;inset:0;z-index:-1;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);background:linear-gradient(180deg,#0f1a2ee0,#090f1de0);box-shadow:inset 0 0 0 1px #3ad0ff66}
+#setBtn i{position:absolute;inset:9px;background:#c9d3e6;opacity:.85;-webkit-mask:var(--gi) center/contain no-repeat;mask:var(--gi) center/contain no-repeat;
+  --gi:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M10.3 2h3.4l.5 2.6 1.9.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.9 2.6.5v3.4l-2.6.5-.8 1.9 1.5 2.2-2.4 2.4-2.2-1.5-1.9.8-.5 2.6h-3.4l-.5-2.6-1.9-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.9L2 13.7v-3.4l2.6-.5.8-1.9-1.5-2.2 2.4-2.4 2.2 1.5 1.9-.8zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z'/%3E%3C/svg%3E")}
+body.sheet-open #setBtn{opacity:0;pointer-events:none}
+#setPop{position:fixed;top:calc(env(safe-area-inset-top,0px) + 132px);right:calc(env(safe-area-inset-right,0px) + 14px);z-index:8;display:none;flex-direction:column;gap:8px;min-width:170px;padding:12px 14px;isolation:isolate}
+#setPop.on{display:flex}
+#setPop::before,#setPop::after{content:'';position:absolute;z-index:-1;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+#setPop::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}
+#setPop::after{inset:1px;background:linear-gradient(180deg,#0f1a2ef5,#090f1df5)}
+#setPop .k{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#3ad0ff}
+#musTgl{display:flex;align-items:center;justify-content:space-between;gap:14px;height:44px;margin:-4px 0;border:0;background:none;padding:0;color:#eafcff;font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer}
+#musTgl b{min-width:44px;padding:5px 0;text-align:center;font:800 11px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#3ad0ff;box-shadow:0 0 8px #3ad0ff88;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
+#musTgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
+#musNote{font:600 9px/1 system-ui;letter-spacing:.1em;color:#c9d3e6;opacity:.6}
+#musNote:empty{display:none}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="QA3D · 20:31">
+<body data-tag="QA3D · 21:50">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <script>if(/[?&]dev=1(&|$)/.test(location.search)){var d=document.getElementById('dev');d.hidden=false;d.textContent='measuring…';}</script>
@@ -221,9 +258,13 @@ body:not(.sheet-open) #sheet:not(.dragging) .row{opacity:0;transition:opacity .1
       </div>
     </section>
   </div>
+<button id="launchBtn" aria-label="Launch the cargo ship now"><i></i><b>LAUNCH</b><small></small></button>
+<div id="storeChip" role="status"><i></i>STORAGE FULL</div>
+<button id="setBtn" aria-label="Settings" aria-expanded="false"><i></i></button>
+<div id="setPop" role="dialog" aria-label="Settings"><div class="k">SETTINGS</div><button id="musTgl" role="switch" aria-checked="true">MUSIC<b>ON</b></button><div id="musNote"></div></div>
 <div id="point"><b>TAP HERE</b><i></i></div>
 <div id="away"><p>While you were away</p><h3 id="awayAmt">+$0</h3><button id="awayOk">Nice</button></div>
 <svg id="farc" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#0a1424cc" stroke-width="5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle cx="20" cy="20" r="15" fill="none" stroke="#ffffff2e" stroke-width="2.5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle id="farcV" cx="20" cy="20" r="15" fill="none" stroke="#7ff3ff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 999" transform="rotate(150 20 20)"/><text id="farcT" x="20" y="24">0%</text></svg>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="./main.js?v=2031"></script>
+<script type="module" src="./main.js?v=2150"></script>
 </body></html>

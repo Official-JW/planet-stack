@@ -1,0 +1,32 @@
+Planet Stack - music credits (qa3d/audio/music/)
+All tracks are CC0 1.0 (public domain dedication), from OpenGameArt.org. Picked by Jacob, 10/23/2026.
+Credit is not required under CC0; it is given here anyway.
+Licence pages saved at the time of download: /workspace/planet-stack-music/*.licence.html
+
+1. outer_space_loop.mp3 (main track, plays first)
+   Title:   Outer Space Loop
+   Author:  wipics (attribution notice: "Public Domain")
+   URL:     https://opengameart.org/content/outer-space-loop
+   Licence: CC0
+
+2. space_flight.mp3
+   Title:   Space Flight
+   Author:  wipics (attribution notice: "Public Domain")
+   URL:     https://opengameart.org/content/space-flight
+   Licence: CC0
+
+3. devonair.mp3
+   Title:   Devonair
+   Author:  cinameng; composer James Gargette (attribution notice: "James Gargette")
+   URL:     https://opengameart.org/content/devonair
+   Licence: CC0
+
+4. freame.mp3
+   Title:   Freame
+   Author:  cinameng; composer James Gargette (attribution notice: "James Gargette")
+   URL:     https://opengameart.org/content/freame
+   Licence: CC0
+
+Game edits (all tracks): re-encoded to 96 kbps stereo MP3 (LAME, gapless tag), trimmed to the loop.
+- outer_space_loop, space_flight: GarageBand encoder delay (528 samples) and the trailing digital silence removed.
+- devonair, freame: leading near-silence trimmed; 3 ms equal-power declick at the loop join.

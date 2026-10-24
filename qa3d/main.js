@@ -16,8 +16,8 @@ const CFG = {
   drillCost0: 15, drillCostGrowth: 1.65,// Lv1→2 costs $15, then ×1.65 per level
   drillScalePerLvl: 0.08, drillScaleStop: 6,
   // HT-04 truck loop (Director 10/23): park under the chute, fill, auto-depart when full, 12 s haul leg, tip at the Refinery, 12 s back
-  fill0: 120, chuteMul: 0.89, fillFloor: 15, chuteMax: 19,   // fill s at Lv1; Chute Feed Rate ×0.89/level; 15 s floor (reached at Lv19)
-  chuteCost0: 25, chuteCostGrowth: 1.6,                      // PLACEHOLDER price: not in the Director's numbers
+  fill0: 120, chuteMul: 0.80, fillFloor: 15, chuteMax: 11,   // fill s at Lv1; Chute Feed Rate ×0.80/level (Director 20:58 B8); 15 s floor (reached at Lv11 = max)
+  chuteCost0: 10, chuteCostGrowth: 1.5,                      // Director 20:58 B8: $10, ×1.5 per level
   load0: 12, loadPerLvl: 6,             // base load value: fixed $ per load ($12 at drill Lv1, +$6 per drill level); independent of the fill time, so Chute Feed Rate = more loads/h at the same value
   richFill: 0.25, richBonus: 8, richPayDelay: 1.0,            // deposit tap: +25% bed (tweened over the 1 s truck_load_rich), bonus pays ~1 s later
   roverBonus: 8, roverMax: 2, roverCost: 60,
@@ -25,19 +25,27 @@ const CFG = {
   depositMax: 2, depositEvery: 8,
   offlineRate: 0.5, offlineCapSec: 4 * 3600, awayCardMin: 5, offlineAfterSec: 300,   // Director 10/23: the 50% cut + away card only after 5 min away; shorter locks catch up at full rate
   saveEvery: 3,
+  hallDoor: { clip: 'hall_door_open', openSec: 1.2 },   // Director 20:58: open once and stay open; longer clips (8c9cee7 3.6 s loop) use 0–openSec
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
-  cargo: { sealSec: 4, perTrip: 2, refLoadSec: 6, padUnloadSec: 6, checkSec: 2, walkSec: 3, holdLoadSec: 5, bayCap: 12, holdCap: 10,
-           fuelFillSec: 300, launchSec: 8, awaySec: 600, landSec: 8, boxValue: 25 },
+  // Director 20:34: boxValue 36 (full hold $360), fuel 180 s, away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
+  cargo: { sealSec: 4, perTrip: 2, refLoadSec: 6, padUnloadSec: 6, checkSec: 2, walkOutSec: 4.0, walkBackSec: 4.4, holdLoadSec: 5, bayCap: 12, holdCap: 10, palletCap: 8,
+           fuelFillSec: 180, launchSec: 8, awaySec: 600, landSec: 8, boxValue: 36 },
+  // music (Director 20:35): Every Day Stuff sources CC0 tracks, Jacob picks; list file names found in qa3d/audio/music/ here. Empty = silent.
+  music: { dir: 'audio/music/', tracks: ['outer_space_loop.mp3', 'space_flight.mp3', 'devonair.mp3', 'freame.mp3'],   // rotates; outer_space_loop = main track (Jacob 20:56)
+           vol: 0.28, duckTo: 0.35, dwellSec: 150, xfadeSec: 4 },
+  // Eve stays text-only (no TTS). Optional recorded line audio: { beatId: ['file_for_line_0.mp3', null, …] } under audio/eve/; plays only if listed here.
+  eveVoice: { dir: 'audio/eve/', lines: {} },
 };
 const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide in portrait, 18° down
 
 const Q = new URLSearchParams(location.search);
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
-const MINE_GLB = 'models/mine_219e774.glb';             // Art 219e774 levelled road end; previous: 'models/mine_8a0bfe6.glb'
-const REFINERY_GLB = 'models/refinery_bb5eed2.glb';     // Art bb5eed2 road starts at world x 274; previous: 'models/refinery_0358ffa.glb'
+const MINE_GLB = 'models/mine_2123a050.glb?v=2123a050';  // Art a4f93eb (Director 21:17): ore patches + veins baked, 2-lane haul road, fewer Path_* legs; previous: 'models/mine_219e774.glb'
+const REFINERY_GLB = 'models/refinery_b45b4649.glb?v=b45b4649';   // Art f4d4a2c (Director 21:17): dump bay, r 4.5 U-turn at x −3.5, 3.5 m reverse, dump_dust; previous: 'models/refinery_bb5eed2.glb'
 const TURN_SPEED = 4.0;   // m/s through curves (Mine 4.5 m arcs on Path_Out_*/Path_Ret_*, Refinery U-turn Truck_Path_01..07); straights stay TV.v = 8.33
 const TURN_R_MAX = 25;    // m: any stretch turning tighter than this radius counts as a curve
-const TURN_ACC = 2.5;     // m/s²: braking into / speeding out of a curve
+const TURN_ACC = 2.5;     // m/s²: max acceleration AND braking anywhere (pull-away, curves, stops, reverse moves) — Playtester B2/B3 20:58
+const TURN_GAP = 22;      // m: a straight shorter than this between two bends holds TURN_SPEED through both (Director 20:58 B4)
 const ROAD_LAST_SCALE = 1.0;   // haul road: 10 full 8 m tiles + a last tile scaled along X only. 1.0 = 11 full tiles ending at world x 274 (Art's trimmed Refinery road);
                                // 0.75 = ends at x 272, where Refinery 0358ffa's own road starts
 const DEV = Q.get('dev') === '1';
@@ -48,7 +56,7 @@ let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
 const nowMs = () => (HOLD !== null ? HOLD : rawMs());
-const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], rt: nowMs() };
+const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs() };
 let hadRt = false;
 try { const sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); hadRt = sv.rt > 0;
   if (hadRt && !('chute' in sv) && sv.site >= 2) sv.site++;   // 11:12 and older saves: the Refinery slot (index 2) shifts the later stations by one
@@ -56,6 +64,7 @@ try { const sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); hadRt = sv.r
 for (const k of ['eve', 'calls', 'log', 'pend', 'trips']) if (!Array.isArray(S[k])) S[k] = [];
 if (!(S.chute >= 1)) S.chute = 1; if (!(S.loads >= 0)) S.loads = 0; if (!(S.missed >= 0)) S.missed = 0;
 if (!(S.rt > 0)) S.rt = nowMs();
+if (!S.set || typeof S.set !== 'object') S.set = { music: true };
 // legacy saves: ore left in the old bin and unpaid deposit trips settle exactly once, then the new truck loop starts
 if (S.bin > 0) S.money += Math.floor(S.bin) * CFG.oreValue; delete S.bin;
 for (const tr of S.trips) if (tr && !tr.paid && tr.bonus > 0) { S.money += tr.bonus; S.dep++; }
@@ -75,8 +84,10 @@ const ease = (t) => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 // ===== economy helpers
 const rate = () => CFG.drillRate0 + CFG.drillRatePerLvl * (S.drill - 1);           // ore/min
 const drillCost = () => Math.round(CFG.drillCost0 * CFG.drillCostGrowth ** (S.drill - 1));
-const fillSec = (lv = S.chute) => Math.max(CFG.fillFloor, CFG.fill0 * CFG.chuteMul ** (lv - 1));   // Lv7 = 59.6 s, Lv19 = 15 s
+const fillSec = (lv = S.chute) => Math.max(CFG.fillFloor, CFG.fill0 * CFG.chuteMul ** (lv - 1));   // Lv2 96 s, Lv5 49 s, Lv10 16.1 s, Lv11 15 s (floor)
 const chuteCost = () => Math.round(CFG.chuteCost0 * CFG.chuteCostGrowth ** (S.chute - 1));
+// ORE/MIN (Director 20:58): real throughput over the full cycle = ore per load / (fill + trip incl. reverse/dump/settle) — ≈4 at Lv1; drill and chute upgrades move it
+const oreMin = (dl = S.drill, cl = S.chute) => (loadValue(dl) / CFG.oreValue) * 60 / (fillSec(cl) + (R.tl ? R.tl.trip : 60));
 const loadValue = (lv = S.drill) => CFG.load0 + CFG.loadPerLvl * (lv - 1);   // Director 10/23: fixed per load, scales with drill level only
 const canPay = (c) => DEV || S.money >= c;
 const pay = (c) => { if (!DEV) S.money -= c; };
@@ -178,11 +189,29 @@ const STATION_GLB = [
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: 4, url: 'models/dock_tankfarm_fd286b9.glb?v=7959ae74', loops: ['Beacon_Lights_Blink', 'crane_gantry_move'], onLoad: (o) => {   // Cam_Target (12, 6, 2), frame_w 64; dock door stays shut
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; } },
-  { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink', 'crane_jib_swing'], pingPong: ['crane_jib_swing'] },   // jib clip is one-way 90°→0°: ping-pong so it swings back instead of snapping
+  { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink', 'crane_jib_swing'], pingPong: ['crane_jib_swing'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // jib clip is one-way 90°→0°: ping-pong so it swings back instead of snapping
 ];
+// Shipyard hall door (Director 20:58): plays hall_door_open once and holds it open (LoopOnce + clampWhenFinished). 2d57b95's clip is 1.2 s;
+// 8c9cee7's is a 3.6 s loop — only its first CFG.hallDoor.openSec (the open move) is used, so it works unchanged with either GLB.
+function hallDoor(mx, g) {
+  let c = g.animations.find(a => a.name === CFG.hallDoor.clip); if (!c) return;
+  const end = CFG.hallDoor.openSec; if (c.duration > end + 1e-3) c = THREE.AnimationUtils.subclip(c, c.name + '_open', 0, Math.round(end * 1000), 1000);
+  const a = mx.clipAction(c); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); window.__ps3d.hallDoor = { clip: c.name, dur: +c.duration.toFixed(3), action: a };
+}
 const SITECAM = STATIONS.map(() => ({ k: 1, dx: 0, dz: 0, ly: CAM.lookY }));   // per-station framing; the Mine keeps k=1, dx=dz=0 until its GLB (with Cam_Target) is in
 const stationMixers = [], stationObjs = {};
 const _ct = new THREE.Vector3();
+// ===== per-station camera overrides (Director 21:25): ONE table, keyed by the exact GLB's md5 (first 8 hex, = the ?v= in its URL), so Art can bake
+// the numbers into Cam_Target later and the entry then simply stops matching. ct = Cam_Target replacement in station-local glTF metres (only the
+// given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
+const FW_REF = 39.7;   // Refinery W (Director 21:42: start 37.5, widen to ≥ 5 px in both bands): 39.7 → 375×667 bottom 5.1 px (binding: refinery + RC-1 front), see CAM_OVERRIDE
+const CAM_OVERRIDE = {
+  '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 2.5 } },                                  // Director 21:25: Cam_Target y → 2.5 (x, z unchanged)
+  'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.1 }, frame_w: 46 },                     // Director 21:25
+  '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
+  'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 11.4 }, frame_w: FW_REF },   // Director 21:42: Cam_Target world (313.1, 2.08, 11.4), W widened from 37.5 until both bands keep ≥ 5 px (station + RC-1 + full pallet + FB-05); Art posts final numbers   // Art's frame (z 5.45, W 34.4) puts the full RC-1 pallet stack 23 px under the 375×667 band; this is the smallest W (+ look z) that fits station + crane + full pallet in both bands with ≥ 6 px
+};
+const camOvFor = (url) => { const m = /[?&]v=([0-9a-f]{8})/.exec(url || ''); return m && CAM_OVERRIDE[m[1]] ? Object.assign({ md5: m[1] }, CAM_OVERRIDE[m[1]]) : null; };
 function camTargetOf(o) { let t = null; o.traverse(n => { if (!t && n.name === 'Cam_Target' && n.userData && n.userData.frame_w > 0) t = n; }); return t; }
 // ===== Refinery (index 2): Art's Refinery GLB 0358ffa (md5 41ac6c5a…), origin = Truck_Dump, Cam_Target (-5.9, 8.5, 3.36) frame_w 30.8.
 // The shared HT-04 drives its Truck_Path_01..07 → reverse 4 m → Truck_Dump → Truck_Exit markers (Refinery-local). Values below are the
@@ -190,7 +219,7 @@ function camTargetOf(o) { let t = null; o.traverse(n => { if (!t && n.name === '
 const RMK = {};               // Refinery markers, Refinery-local { x, z }
 (function refineryMarkerFallback() {
   RMK.Truck_Path_01 = { x: -46, z: 9 }; RMK.Truck_Path_02 = { x: -14, z: 9 };
-  for (let k = 0; k <= 4; k++) { const p = -Math.PI / 2 + Math.PI * k / 4; RMK['Truck_Path_0' + (3 + k)] = { x: -4 + 4.5 * Math.cos(p), z: 4.5 - 4.5 * Math.sin(p) }; }   // U-turn r 4.5 about (−4, 4.5)
+  for (let k = 0; k <= 4; k++) { const p = -Math.PI / 2 + Math.PI * k / 4; RMK['Truck_Path_0' + (3 + k)] = { x: -3.5 + 4.5 * Math.cos(p), z: 4.5 - 4.5 * Math.sin(p) }; }   // U-turn r 4.5 about (−3.5, 4.5) (f4d4a2c)
   RMK.Truck_Dump = { x: 0, z: 0 }; RMK.Truck_Exit = { x: -46, z: 0 };
 })();
 const refActs = {};
@@ -198,17 +227,27 @@ function refineryLoaded(o, mx, gltf) {
   o.traverse(n => { if (n !== o && /^(Truck|HT04|HT-04)($|_Mesh|_Root)/i.test(n.name)) n.visible = false; });   // hide any baked truck (none in 4a70acf)
   let moved = false;
   o.traverse(n => { if (RMK[n.name]) { const p = RMK[n.name]; if (Math.hypot(p.x - n.position.x, p.z - n.position.z) > .01) moved = true; RMK[n.name] = { x: n.position.x, z: n.position.z }; } });
-  for (const c of gltf.animations) if (c.name === 'intake_shake') { const a = refActs.intake_shake = mx.clipAction(c); a.setLoop(THREE.LoopOnce, 1); }
-  if (moved) { console.warn('Refinery truck markers differ from the README fallback: route rebuilt'); buildRoute(); }
-  window.__ps3d.refinery = o;
+  for (const c of gltf.animations) if (c.name === 'intake_shake' || c.name === 'dump_dust') { const a = refActs[c.name] = mx.clipAction(c); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; }   // dump_dust: once per tip (rest scale 0.001 = hidden)
+  // Director 21:17: Art's path-marker debug spheres must never show. Any small, roughly round mesh sitting on a Truck_* marker (or a red one near the road) is hidden + reported
+  const mkW = Object.entries(RMK).map(([n, p]) => [n, p.x, p.z]), sus = []; const bb = new THREE.Box3(), c3 = new THREE.Vector3(), sz = new THREE.Vector3();
+  o.updateMatrixWorld(true);
+  o.traverse(n => { if (!n.isMesh || /^Tier_|Base_/.test(n.name) || /^Tier_|Base_/.test(n.parent && n.parent.name || '')) return; bb.setFromObject(n); bb.getCenter(c3); bb.getSize(sz);
+    const lx = c3.x - o.position.x, lz = c3.z, mx3 = Math.max(sz.x, sz.y, sz.z), mn3 = Math.min(sz.x, sz.y, sz.z), round = mx3 < 2.5 && mn3 > .5 * mx3;
+    const near = mkW.find(([nm, x, z]) => Math.hypot(lx - x, lz - z) < 1.2);
+    const red = [].concat(n.material).some(m => m && m.color && m.color.r > .5 && m.color.g < .3 && m.color.b < .3);
+    if (round && (near || red)) { n.visible = false; sus.push({ name: n.name || '(unnamed)', parent: n.parent && n.parent.name, at: [+lx.toFixed(2), +c3.y.toFixed(2), +lz.toFixed(2)], size: +mx3.toFixed(2), near: near && near[0], red }); } });
+  window.__ps3d.refMarkerSpheres = sus; if (sus.length) console.warn('Refinery: hid marker-like spheres (ask Art to re-export without them)', JSON.stringify(sus));
+  if (moved) buildRoute();             // the GLB's own markers replace the README fallback (before anything has settled: B1)
+  window.__ps3d.refinery = o; routeReady('ref');
 }
 function fitSite(i) {
   const o = stationObjs[i]; if (!o || !camera.userData.dist) return;
-  const ct = o.userData.camTarget;
-  if (ct) {   // Art's station camera: aim at Cam_Target (incl. its y), frame_w metres span the screen width at its depth; 38° vFOV, 18° down; edges may crop
-    o.updateMatrixWorld(true); ct.getWorldPosition(_ct);
-    const d = (ct.userData.frame_w / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-    SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - i * GAP, dz: _ct.z, ly: _ct.y, ct: true, d };
+  const ct = o.userData.camTarget, ov0 = o.userData.camOv, ovFull = ov0 && ov0.frame_w > 0 && ov0.ct && ov0.ct.x != null && ov0.ct.y != null && ov0.ct.z != null;
+  if (ct || ovFull) {   // (a full CAM_OVERRIDE entry also frames a GLB that has no usable Cam_Target, e.g. Shipyard 2d57b95)   // Art's station camera: aim at Cam_Target (incl. its y), frame_w metres span the screen width at its depth; 38° vFOV, 18° down; edges may crop
+    o.updateMatrixWorld(true); if (ct) ct.getWorldPosition(_ct); else _ct.copy(o.position); const ov = ov0, fw = ov && ov.frame_w || ct.userData.frame_w;
+    if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
+    const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+    SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - i * GAP, dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
     return;
   }
   // no Cam_Target yet: fit the visible bounds whole inside the band between the HUD and the bar
@@ -230,15 +269,24 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
     if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
     if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false;
   });
-  scene.add(o); o.updateMatrixWorld(true); stationObjs[G.i] = o; o.userData.camTarget = camTargetOf(o);
+  scene.add(o); o.updateMatrixWorld(true); stationObjs[G.i] = o; o.userData.camTarget = camTargetOf(o); o.userData.camOv = camOvFor(G.url);
   if (phBox[G.i]) { scene.remove(phBox[G.i]); phBox[G.i].geometry.dispose(); phBox[G.i] = null; }
   const mx = new THREE.AnimationMixer(o); stationMixers.push(mx);
   for (const c of gltf.animations) if (G.loops.includes(c.name)) { const a = mx.clipAction(c); if ((G.pingPong || []).includes(c.name)) a.setLoop(THREE.LoopPingPong, Infinity); a.play(); }
   if (G.onLoad) G.onLoad(o, mx, gltf);
   fitSite(G.i);
   (window.__ps3d.stationsLoaded = window.__ps3d.stationsLoaded || []).push(STATIONS[G.i]);
-}, undefined, (e) => console.warn('station GLB failed, keeping gray box', G.url, e));
+}, undefined, (e) => { console.warn('station GLB failed, keeping gray box', G.url, e); if (G.i === 2) routeReady('ref'); });
 
+// ===== B1 (Playtester 20:58): the truck timeline is final only once BOTH marker sets are in (Mine Path_Out_*/Path_Ret_*, Refinery Truck_*), or
+// their GLB failed (then the README fallback stands). Until then nothing settles: no offline catch-up, no dumps, no cargo sim on the temp route.
+const RT = { mine: false, ref: false, ready: false, card: false, at: 0 };
+function routeReady(which) {
+  if (which) RT[which] = true; if (RT.ready || !RT.mine || !RT.ref) return;
+  RT.ready = true; RT.at = Math.round(performance.now()); window.__ps3d.routeReadyAt = RT.at;
+  if (hadRt) catchUp(true); else { const t = nowMs(); settleTo(t, null); S.rt = t; }   // credit time away since the last save, on the final route
+  hud(); sheetUI();
+}
 // ===== Mine station GLB (Art 582676b, md5 68e07c01…): rig + conveyor + chute, haul-loop markers, deposits, tiers, Cam_Target. No truck inside.
 let mixer = null, mine = null, rig = null, rigLoaded = false, coverGone = false;
 const acts = {}, MK = {};                  // MK: markers by name, Mine-local { x, y, z, e: extras }
@@ -297,20 +345,21 @@ function loadRig() { loader.load(MINE_GLB, (gltf) => {
   });
   scene.add(mine); mine.updateMatrixWorld(true);
   rig = mine.getObjectByName('Rig');
-  stationObjs[MINE] = mine; mine.userData.camTarget = camTargetOf(mine);
+  stationObjs[MINE] = mine; mine.userData.camTarget = camTargetOf(mine); mine.userData.camOv = camOvFor(MINE_GLB);
   buildTiers(); applyTiers(0);
   mixer = new THREE.AnimationMixer(mine);
   for (const c of gltf.animations) acts[c.name] = mixer.clipAction(c);
   for (const n of ['dig', 'conveyor_run']) if (acts[n]) acts[n].play();
   digOn = null;
   if (Object.keys(MK).some(n => /^Path_(Out|Ret)_/.test(n))) moved.push('Path_Out_*/Path_Ret_*');   // Art's out/return route markers: marker-driven route
-  if (moved.length) { console.warn('Mine haul markers differ from the README fallback: route rebuilt', moved); buildRoute(); }
+  if (moved.length) { buildRoute(); window.__ps3d.routeMoved = moved; }   // marker-driven route, built before anything settles (B1)
+  routeReady('mine');
   applyRigLevel(); fitSite(MINE); restoreDeposits();
   if (op) { const d = MK.Operator_Deck; op.position.set(MX + d.x, 0, d.z); }
   rigLoaded = true; maybeReady();
   Object.assign(window.__ps3d, { mine, rig, MK, clips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
 }, undefined, (e) => {
-  console.error('Mine GLB load failed', e); clearTimeout(coverTimer); coverTimer = 0;
+  console.error('Mine GLB load failed', e); clearTimeout(coverTimer); coverTimer = 0; routeReady('mine');   // fallback route stands
   $('coverTx').textContent = "Couldn't load the Mine"; $('coverSp').hidden = true; $('coverRetry').hidden = false;
 }); }
 $('coverRetry').addEventListener('click', () => {
@@ -559,7 +608,7 @@ function hud() {
   const mt = DEV ? '∞' : fmt(S.money); if (mt !== lastMoneyTxt) { moneyEl.textContent = mt; lastMoneyTxt = mt; moneyEl.classList.toggle('long', mt.length > 10);
     if (S.money > lastMoneyV && !moneyEl.classList.contains('bump')) moneyEl.classList.add('tick'); }   // soft tick on any increase (transform/opacity only, no forced reflow)
   lastMoneyV = S.money;
-  rateEl.textContent = rate();
+  const om = oreMin(); rateEl.textContent = om < 10 ? om.toFixed(1) : Math.round(om);
   if (CFG.showCrystals) cryEl.textContent = S.crystals;   // paid currency (real money only); hidden until the shop lands
   const bf = TS.shown; if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = `scaleX(${bf.toFixed(3)})`; }   // bar = the truck bed
   binEl.classList.toggle('full', TS.ph !== 'fill' && TS.shown >= 1);
@@ -619,27 +668,21 @@ function updChunks(dt) {
 }
 
 
-// ===== deposits: glowing cyan disc + floating gem at Art's Dep_01 / Dep_02 markers (max 2), respawn every ~8 s
-const glowTex = (() => {
-  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
-  const r = g.createRadialGradient(64, 64, 4, 64, 64, 64);
-  r.addColorStop(0, '#e8ffffff'); r.addColorStop(.35, '#58ecffdd'); r.addColorStop(.7, '#1fb8ff66'); r.addColorStop(1, '#1fb8ff00');
-  g.fillStyle = r; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-})();
-const discGeo = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2);
-const discMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });   // y 0.1 + offset: no z-fighting with the road
-discMat.color.setScalar(1.7);           // additive glow pushed past 1.0 so it reads on the bright regolith
-const GEM = 2.2, GEMY = 2.4;          // gem scale / float height: readable at the Mine's ~116 m camera
-const gemGeo = new THREE.OctahedronGeometry(.42, 0); gemGeo.scale(1, 1.5, 1);
-const gemMat = new THREE.MeshStandardMaterial({ color: 0x5ff0ff, emissive: 0x22d0ff, emissiveIntensity: 2.6, roughness: .3, flatShading: true });
-const DEP_MIN_PX = 44, GEM_MIN_PX = 26, GEM_W = 0.84;   // disc ≥ 44 CSS px across (at the pulse low point), gem ≥ 26 px wide; GEM_W = gem width at scale 1 (m)
+// ===== deposits (Director 21:17): the ore patches + faint cyan veins are Art's, baked in the Mine GLB (a4f93eb: dep_patch in Base_Paint, Base_DepVein).
+// The game draws NOTHING at Dep_01 / Dep_02 any more (no disc, decal, glow, pulse or fade): a deposit is just a tap target (max 2, respawn ~8 s).
+// The 1 s fade-in can't be done on the GLB: both patches are merged into Base_Paint and the veins share one mesh, so there is nothing per deposit to fade.
+const depStub = () => { const o = new THREE.Object3D(); o.visible = false; o.material = { opacity: 0, dispose() {} }; return o; };   // keeps old QA reads of d.disc valid
+const DEP_MIN_PX = 44;               // patch ≥ 44 CSS px across at any camera distance (tap target)
 const _dw = new THREE.Vector3();
 const DEP_NAMES = ['Dep_01', 'Dep_02'], DISC_Y = 0.1;
 const deposits = []; let depTimer = 0, depSeq = 0;
-function band() {
-  const top = Math.max(hudEl.getBoundingClientRect().bottom, 120) + 24;   // station title moved to the bottom (above the dots); top of the band = under the HUD/Eve band (unchanged 144 px)
+const SA = { el: null };   // safe-area insets as the CSS sees them (env(safe-area-inset-*)), read off a hidden probe
+function safeArea() { if (!SA.el) { SA.el = document.createElement('div'); SA.el.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px) 0'; document.body.appendChild(SA.el); }
+  const cs = getComputedStyle(SA.el); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; }
+function band() {                     // Playtester 20:58: the safe-area insets are part of the band (59/34 px on a 393×852 iPhone → y 165–534)
+  const sa = safeArea(), top = Math.max(hudEl.getBoundingClientRect().bottom, 120, sa.t) + 24;   // station title moved to the bottom (above the dots); top of the band = under the HUD/Eve band (unchanged 144 px)
   const sheetTop = $('sheetWrap').getBoundingClientRect().top;      // open sheet top edge
-  return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top) - 34, l: 34, r: W - 34 };
+  return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top, innerHeight - sa.b) - 34, l: 34, r: W - 34, sat: sa.t, sab: sa.b };
 }
 function spawnDeposit(name) {
   if (!mine || deposits.length >= CFG.depositMax) return null;
@@ -648,12 +691,11 @@ function spawnDeposit(name) {
 }
 function makeDeposit(mk, claimed = false) {
   const m = MK[mk], x = MX + m.x, z = m.z, r = Math.max(1.6, (m.e.radius_m || 1.4) * 1.15);
-  const disc = new THREE.Mesh(discGeo, discMat); disc.position.set(x, DISC_Y, z); disc.renderOrder = 2;
-  const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(x, GEMY, z); gem.castShadow = false; gem.visible = false;   // Jacob 10/23: no floating diamonds on the Mine; the glowing ground disc is the tap target
-  scene.add(disc, gem);
+  const disc = depStub(); disc.position.set(x, DISC_Y, z);   // invisible: the GLB patch is the deposit
+  const gem = new THREE.Object3D(); gem.visible = false;   // no gem (Jacob 10/23, Director 20:35); kept as an empty stub so old QA reads of d.gem stay valid
   const d = { id: ++depSeq, mk, x, z, r, rs: r, disc, gem, age: claimed ? 1 : 0, claimed, dig: 0 }; deposits.push(d); return d;
 }
-function removeDeposit(d) { if (!d || !deposits.includes(d)) return; scene.remove(d.disc, d.gem); if (d.qr) d.qr.style.display = 'none'; deposits.splice(deposits.indexOf(d), 1); }
+function removeDeposit(d) { if (!d || !deposits.includes(d)) return; scene.remove(d.disc); d.disc.material.dispose(); if (d.qr) d.qr.style.display = 'none'; deposits.splice(deposits.indexOf(d), 1); }
 function restoreDeposits() {          // rich loads queued while the truck was away (saved in S.tk.qd) re-show with their ring until the truck is back
   for (const mk of S.tk.qd) if (MK[mk] && !MK[mk].fb && !deposits.some(d => d.mk === mk)) { const d = makeDeposit(mk, true); d.tkq = true; }
 }
@@ -674,17 +716,15 @@ function updDeposits(dt, time) {
   depTimer += dt;
   if (deposits.length < CFG.depositMax && depTimer >= CFG.depositEvery) { depTimer = 0; spawnDeposit(); }
   if (deposits.length >= CFG.depositMax) depTimer = 0;
-  discMat.color.setScalar(1.5 + .5 * (.5 + .5 * Math.sin(time * 4)));   // shared glow brightens with the pulse
   const tn = nowMs();
   for (const d of [...deposits]) {
     if (d.claimed && d.at) { d.dig = clamp((tn - d.at) / 1000, 0, 1); if (d.dig >= 1) { removeDeposit(d); continue; } }   // drill taps it: shrinks over the 1 s rich drop
-    d.age += dt; const pin = d.age < .35 ? 1 - (1 - d.age / .35) ** 3 * (1 - 1.7 * (d.age / .35)) : 1;
-    const shrink = d.claimed ? 1 - .85 * d.dig : 1, ph = .5 + .5 * Math.sin(time * 4 + d.id), pulse = 1 + .25 * ph;   // 1.0 → 1.25
+    d.age += dt;                       // static (no pulse): a new patch fades in over 1 s (no pop); only the drill tap digs it out (shrinks over the 1 s rich drop)
+    d.disc.material.opacity = clamp(d.age, 0, 1);
+    const shrink = d.claimed ? 1 - .85 * d.dig : 1;
     const pxm = (H / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(1, camera.position.distanceTo(_dw.set(d.x, 0, d.z))));
-    d.rs = Math.max(d.r, DEP_MIN_PX / 2 / pxm); const gs = Math.max(GEM, GEM_MIN_PX / (GEM_W * pxm));
-    d.disc.scale.setScalar(Math.max(.01, pin * pulse * shrink * d.rs));
-    d.gem.scale.setScalar(Math.max(.01, pin * shrink * gs)); d.gem.rotation.y = time * 1.6 + d.id;
-    d.gem.position.y = GEMY + .4 * Math.sin(time * 2.6 + d.id);
+    d.rs = Math.max(d.r, DEP_MIN_PX / 2 / pxm);
+    d.disc.scale.setScalar(Math.max(.01, shrink * d.rs));
   }
 }
 // on-screen tap circle for a deposit: ≥ 44 CSS px radius whatever the camera distance, else 1.1× the projected glow
@@ -701,42 +741,52 @@ function depTapR(d) {
 //   The lanes cross at Path_Ret_04 (Mine x 19.5, z 9). One truck today; with more trucks the loaded (outbound) truck must get priority there.
 const ROAD = { tile: 8, x0: MX + 26, n: 11, zIn: 9, zOut: 0, last: ROAD_LAST_SCALE };   // tiles at world x = 160 + 26 + 8i (i 0..10); tile 10 scaled ROAD_LAST_SCALE along X
 const roadTileM = (i, z = 0) => new THREE.Matrix4().makeTranslation(ROAD.x0 + ROAD.tile * i, 0, z).multiply(new THREE.Matrix4().makeScale(i === ROAD.n - 1 ? ROAD.last : 1, 1, 1));
-const TV = { v: 8.33, ease: 3, brake: 4, revRef: 1.5, dump: 3.0, settle: 0.4, revMine: 2.0, wheelR: 0.853 };
+const TV = { v: 8.33, ease: 3, brake: 4, revRef: 1.5, dump: 3.0, settle: 0.4, revMine: 2.0, wheelR: 0.853 };   // revRef/revMine are recomputed in buildRoute from the reverse distance at ≤ TURN_ACC
+const revSec = (d) => Math.max(1, Math.sqrt(6 * d / TURN_ACC));   // smoothstep move of d metres: peak accel 6d/T² = TURN_ACC
 const R = { pOut: null, pBack: null, kOut: null, kBack: null, legOut: 0, legBack: 0, tl: null, mode: '' };
 const mw = (n) => [MX + MK[n].x, MK[n].z], rw = (n) => [RX + RMK[n].x, RMK[n].z];
 function line(a, b, step = 4) { const n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / step)), o = []; for (let i = 1; i <= n; i++) o.push([a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]); return o; }
 function dedupe(pts) { const o = []; for (const p of pts) { const q = o[o.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > .3) o.push(p); } return o; }
-function samplePath(pts) {          // centripetal Catmull-Rom through the markers, resampled every ~0.2 m by arc length
+const PATH_STEP = .025;             // B2/B3 (21:2x): 2.5 cm samples — at 0.2 m the polyline corners in the r 4.5 turns read as ±0.3 m/s² speed ripple in pose-sampled accel
+function samplePath(pts) {          // centripetal Catmull-Rom through the markers, resampled every ~PATH_STEP m by arc length
   pts = dedupe(pts);
-  const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal'); c.arcLengthDivisions = 6000;
-  const n = Math.ceil(c.getLength() / .2) + 1, sp = c.getSpacedPoints(n - 1), X = new Float64Array(n), Z = new Float64Array(n), C = new Float64Array(n);
+  const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal'); c.arcLengthDivisions = Math.max(20000, Math.ceil(c.getLength() / PATH_STEP * 4));
+  const n = Math.ceil(c.getLength() / PATH_STEP) + 1, sp = c.getSpacedPoints(n - 1), X = new Float64Array(n), Z = new Float64Array(n), C = new Float64Array(n);
   for (let i = 0; i < n; i++) { X[i] = sp[i].x; Z[i] = sp[i].z; if (i) C[i] = C[i - 1] + Math.hypot(X[i] - X[i - 1], Z[i] - Z[i - 1]); }
   return { n, X, Z, C, L: C[n - 1] };
 }
 function sOf(P, p) { let b = 0, bd = Infinity; for (let i = 0; i < P.n; i++) { const d = (P.X[i] - p[0]) ** 2 + (P.Z[i] - p[1]) ** 2; if (d < bd) { bd = d; b = i; } } return P.C[b]; }
 function pathAt(P, s, o) { s = clamp(s, 0, P.L); let lo = 0, hi = P.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P.C[m] <= s) lo = m; else hi = m; }
   const u = (s - P.C[lo]) / Math.max(1e-9, P.C[hi] - P.C[lo]); o.x = P.X[lo] + (P.X[hi] - P.X[lo]) * u; o.z = P.Z[lo] + (P.Z[hi] - P.Z[lo]) * u;
-  const a = Math.max(0, lo - 3), b = Math.min(P.n - 1, hi + 3); o.yaw = Math.atan2(-(P.Z[b] - P.Z[a]), P.X[b] - P.X[a]); return o; }
+  if (!P.H) { P.H = new Float64Array(P.n); const hw = Math.round(.6 / PATH_STEP); for (let i = 0; i < P.n; i++) { const a = Math.max(0, i - hw), b = Math.min(P.n - 1, i + hw); P.H[i] = Math.atan2(-(P.Z[b] - P.Z[a]), P.X[b] - P.X[a]); } }
+  o.yaw = lerpA(P.H[lo], P.H[hi], clamp(u, 0, 1)); return o; }   // B5: tangent per sample, blended between samples (no per-sample heading steps)
 // Speed profile (Director 10/23 evening): 8.33 m/s on straights, TURN_SPEED through curves, eased between them.
 // Built per sample of the path P: limit(s) = min( curve limit, start ease (0→v over da, as before), stop ease (v→0 over the last dd, as before) ),
 // where the curve limit is TURN_SPEED wherever the heading turns tighter than TURN_R_MAX, smoothed by forward/backward passes at TURN_ACC m/s².
 // Each sample-to-sample step has constant acceleration, so position and speed are exact closed forms of time (no jumps, timeline = pure function of t).
 function kin(P, da, dd, v) {
-  const n = P.n, C = P.C, L = P.L, V = new Float64Array(n), T = new Float64Array(n), cl = new Float64Array(n).fill(v), w = 5;
+  // Playtester B2/B3 + Director B4 (20:58): starts and ends at 0, |accel| ≤ TURN_ACC everywhere (da/dd only shorten it further); bends closer
+  // than TURN_GAP m (straight between them) hold TURN_SPEED through the gap instead of a short speed-up.
+  const n = P.n, C = P.C, L = P.L, V = new Float64Array(n), T = new Float64Array(n), cl = new Float64Array(n).fill(v), w = Math.round(1 / PATH_STEP);
   const hd = (i) => { const a = Math.max(0, i - w), b = Math.min(n - 1, i + w); return Math.atan2(P.Z[b] - P.Z[a], P.X[b] - P.X[a]); };
+  let last = -1, bends = 0;
   for (let i = 0; i < n; i++) {                 // curvature from heading change over ±1 m
     const a = Math.max(0, i - w), b = Math.min(n - 1, i + w); if (b - a < 2) continue;
     let dh = hd(b) - hd(a); dh = Math.atan2(Math.sin(dh), Math.cos(dh)); const ds = C[b] - C[a];
-    if (ds > 1e-6 && Math.abs(dh) / ds > 1 / TURN_R_MAX) cl[i] = Math.min(v, TURN_SPEED);
+    if (ds > 1e-6 && Math.abs(dh) / ds > 1 / TURN_R_MAX) {
+      cl[i] = Math.min(v, TURN_SPEED);
+      if (last >= 0 && i - last > 1) { if (C[i] - C[last] < TURN_GAP) for (let j = last + 1; j < i; j++) cl[j] = Math.min(v, TURN_SPEED); else bends++; }
+      if (last < 0) bends++; last = i;
+    }
   }
-  for (let i = 1; i < n; i++) cl[i] = Math.min(cl[i], Math.sqrt(cl[i - 1] ** 2 + 2 * TURN_ACC * (C[i] - C[i - 1])));        // ease out of turns
-  for (let i = n - 2; i >= 0; i--) cl[i] = Math.min(cl[i], Math.sqrt(cl[i + 1] ** 2 + 2 * TURN_ACC * (C[i + 1] - C[i])));    // ease into turns
-  const aS = v * v / (2 * da), aB = v * v / (2 * dd);
-  for (let i = 0; i < n; i++) V[i] = Math.min(cl[i], Math.sqrt(2 * aS * C[i]), Math.sqrt(2 * aB * Math.max(0, L - C[i])));
-  V[0] = 0; V[n - 1] = 0;
+  const aS = Math.min(TURN_ACC, v * v / (2 * da)), aB = Math.min(TURN_ACC, v * v / (2 * dd));
+  cl[0] = 0; for (let i = 1; i < n; i++) cl[i] = Math.min(cl[i], Math.sqrt(cl[i - 1] ** 2 + 2 * aS * (C[i] - C[i - 1])));          // forward: from rest, ≤ aS
+  cl[n - 1] = 0; for (let i = n - 2; i >= 0; i--) cl[i] = Math.min(cl[i], Math.sqrt(cl[i + 1] ** 2 + 2 * aB * (C[i + 1] - C[i])));   // backward: to rest, ≤ aB
+  for (let i = 0; i < n; i++) V[i] = cl[i];
   for (let i = 1; i < n; i++) { const vs = V[i - 1] + V[i]; T[i] = T[i - 1] + (vs > 1e-9 ? 2 * (C[i] - C[i - 1]) / vs : 0); }
-  let vmin = v; for (let i = 1; i < n - 1; i++) if (C[i] > da && C[i] < L - dd) vmin = Math.min(vmin, V[i]);
-  return { L, n, C, V, T: T[n - 1], Ts: T, v, da, dd, vmin };
+  let vmin = v, amax = 0, dmax = 0; for (let i = 1; i < n; i++) { const ds = C[i] - C[i - 1]; if (ds < 1e-9) continue; const ac = (V[i] ** 2 - V[i - 1] ** 2) / (2 * ds); amax = Math.max(amax, ac); dmax = Math.max(dmax, -ac); }
+  for (let i = 1; i < n - 1; i++) if (V[i] > 1e-3 && C[i] > 6 && C[i] < L - 6) vmin = Math.min(vmin, V[i]);
+  return { L, n, C, V, T: T[n - 1], Ts: T, v, da, dd, vmin, amax, dmax, bends };
 }
 function kinAt(k, t, o) {
   if (t <= 0) { o[0] = 0; o[1] = 0; return o; }
@@ -788,6 +838,11 @@ function buildRoute() {
       ...['05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15'].map(k => mw('Path_' + k)), [MX - 2, 4.6], [MX + 2, 4.5], [MX + 5.5, 4.5], AP];
   }
   R.pOut = samplePath(out); R.pBack = samplePath(back);
+  { const a = rw('Truck_Path_07'), b = rw('Truck_Dump'), c = mw('Path_Load_Approach'), d = mw('Path_Load');
+    TV.revRef = +revSec(Math.hypot(b[0] - a[0], b[1] - a[1])).toFixed(3); TV.revMine = +revSec(Math.hypot(d[0] - c[0], d[1] - c[1])).toFixed(3);
+    R.yRev = Math.atan2(-(a[1] - b[1]), a[0] - b[0]); R.yMine = Math.atan2(-(c[1] - d[1]), c[0] - d[0]);   // reversing: the nose points back along the move
+    const _ye = {}; R.yOutEnd = R.pOut.n > 4 ? pathAt(R.pOut, R.pOut.L, _ye).yaw : R.yRev;   // = the path's own end tangent (pathAt), so the reverse starts with no yaw step
+    R.yBackEnd = R.pBack.n > 4 ? pathAt(R.pBack, R.pBack.L, _ye).yaw : R.yMine; }
   const sA = sOf(R.pOut, legA), sB = sOf(R.pOut, legB), sU = sOf(R.pOut, tp(3));
   R.legOut = sB - sA; const v = TV.v;                                   // 8.33 m/s on straights, TURN_SPEED through curves (Director 10/23)
   R.kOut = kin(R.pOut, TV.ease, TV.brake, v);                          // eased only where the truck stops: away from the chute, into the stop before the intake reverse
@@ -796,7 +851,7 @@ function buildRoute() {
   const t1 = R.kOut.T, t2 = t1 + TV.revRef, t3 = t2 + TV.dump, t4 = t3 + TV.settle, t5 = t4 + R.kBack.T, t6 = t5 + TV.revMine;
   R.tl = { t1, t2, tDump: t2, t3, t4, t5, t6, trip: t6 };
   const f = (x) => +x.toFixed(2), tC = kinT(R.kBack, sC), tD = kinT(R.kBack, sD);
-  window.__ps3d.route = { mode: R.mode, legOut: f(R.legOut), legBack: f(R.legBack), v: f(v), vTurn: TURN_SPEED, vMinOut: f(R.kOut.vmin), vMinBack: f(R.kBack.vmin), Lout: f(R.pOut.L), Lback: f(R.pBack.L), tl: Object.fromEntries(Object.entries(R.tl).map(([k, x]) => [k, f(x)])),
+  window.__ps3d.route = { mode: R.mode, legOut: f(R.legOut), legBack: f(R.legBack), v: f(v), vTurn: TURN_SPEED, vMinOut: f(R.kOut.vmin), vMinBack: f(R.kBack.vmin), amax: f(Math.max(R.kOut.amax, R.kBack.amax)), dmax: f(Math.max(R.kOut.dmax, R.kBack.dmax)), revRef: TV.revRef, revMine: TV.revMine, Lout: f(R.pOut.L), Lback: f(R.pBack.L), tl: Object.fromEntries(Object.entries(R.tl).map(([k, x]) => [k, f(x)])),
     phases: { mineOut: f(kinT(R.kOut, sA)), legOut: f(kinT(R.kOut, sB) - kinT(R.kOut, sA)), refIn: f(t1 - kinT(R.kOut, sB)), revRef: TV.revRef, dump: TV.dump, settle: TV.settle,
       refOut: f(tC), legBack: f(tD - tC), mineReturn: f(R.kBack.T - tD), mineReturnM: f(R.pBack.L - sD), revMine: TV.revMine, trip: f(t6) } };
   buildTempRoad();
@@ -827,16 +882,18 @@ function buildTempRoad() {            // haul road across the gap: Art's strip w
 const fillAt = (t) => { const k = S.tk; if (k.dep) return 1; return clamp((t - k.c0) / (fillSec() * 1000) + k.add, 0, 1); };
 const tFull = () => { const k = S.tk; return Math.max(k.c0 + (1 - Math.min(1, k.add)) * fillSec() * 1000, k.lr ? k.lr + CFG.richPayDelay * 1000 : 0); };   // never drive while truck_load_rich runs
 const TS = { ph: 'fill', x: MX + 4.7, z: 4.5, yaw: 0, v: 0, fill: 0, shown: 0, el: 0 };
-const _ka = [0, 0];
+const _ka = [0, 0], YAW_BLEND = 3;
 function poseAt(t, o = TS) {
   const k = S.tk, tl = R.tl;
-  if (!k.dep || t < k.dep) { const p = mw('Path_Load'); o.ph = 'fill'; o.x = p[0]; o.z = p[1]; o.yaw = 0; o.v = 0; o.fill = fillAt(t); o.el = 0; return o; }
+  if (!k.dep || t < k.dep) { const p = mw('Path_Load'); o.ph = 'fill'; o.x = p[0]; o.z = p[1]; o.yaw = R.yMine != null ? R.yMine : 0; o.v = 0; o.fill = fillAt(t); o.el = 0; return o; }
   const el = o.el = (t - k.dep) / 1000; o.fill = 1;
-  if (el < tl.t1) { kinAt(R.kOut, el, _ka); pathAt(R.pOut, _ka[0], o); o.v = _ka[1]; o.ph = 'out'; }
-  else if (el < tl.t2) { const u = fss((el - tl.t1) / TV.revRef), a = rw('Truck_Path_07'), b = rw('Truck_Dump'); o.x = a[0] + (b[0] - a[0]) * u; o.z = a[1] + (b[1] - a[1]) * u; o.yaw = Math.PI; o.v = -1; o.ph = 'rev'; }
-  else if (el < tl.t4) { const b = rw('Truck_Dump'); o.x = b[0]; o.z = b[1]; o.yaw = Math.PI; o.v = 0; o.ph = el < tl.t3 ? 'dump' : 'settle'; if (el >= tl.t3) o.fill = 0; }
-  else if (el < tl.t5) { kinAt(R.kBack, el - tl.t4, _ka); pathAt(R.pBack, _ka[0], o); o.v = _ka[1]; o.ph = 'back'; o.fill = 0; }
-  else { const u = fss((el - tl.t5) / TV.revMine), a = mw('Path_Load_Approach'), b = mw('Path_Load'); o.x = a[0] + (b[0] - a[0]) * u; o.z = a[1] + (b[1] - a[1]) * u; o.yaw = 0; o.v = -1; o.ph = 'revMine'; o.fill = 0; }
+  // B5 (20:58): heading is continuous through every phase change — the reverse moves blend from the path's end tangent into the reverse
+  // heading, and pull-aways blend from the parked heading into the path tangent over the first YAW_BLEND m (no snaps)
+  if (el < tl.t1) { kinAt(R.kOut, el, _ka); pathAt(R.pOut, _ka[0], o); o.v = _ka[1]; o.ph = 'out'; if (_ka[0] < YAW_BLEND) o.yaw = lerpA(R.yMine, o.yaw, fss(_ka[0] / YAW_BLEND)); }
+  else if (el < tl.t2) { const u = fss((el - tl.t1) / TV.revRef), a = rw('Truck_Path_07'), b = rw('Truck_Dump'); o.x = a[0] + (b[0] - a[0]) * u; o.z = a[1] + (b[1] - a[1]) * u; o.yaw = lerpA(R.yOutEnd, R.yRev, u); o.v = -1; o.ph = 'rev'; }
+  else if (el < tl.t4) { const b = rw('Truck_Dump'); o.x = b[0]; o.z = b[1]; o.yaw = R.yRev; o.v = 0; o.ph = el < tl.t3 ? 'dump' : 'settle'; if (el >= tl.t3) o.fill = 0; }
+  else if (el < tl.t5) { kinAt(R.kBack, el - tl.t4, _ka); pathAt(R.pBack, _ka[0], o); o.v = _ka[1]; o.ph = 'back'; o.fill = 0; if (_ka[0] < YAW_BLEND) o.yaw = lerpA(R.yRev, o.yaw, fss(_ka[0] / YAW_BLEND)); }
+  else { const u = fss((el - tl.t5) / TV.revMine), a = mw('Path_Load_Approach'), b = mw('Path_Load'); o.x = a[0] + (b[0] - a[0]) * u; o.z = a[1] + (b[1] - a[1]) * u; o.yaw = lerpA(R.yBackEnd, R.yMine, u); o.v = -1; o.ph = 'revMine'; o.fill = 0; }
   return o;
 }
 const truckOnRoad = () => (TS.ph === 'out' || TS.ph === 'back') && TS.x > MX + 13.5 && TS.x < RX - 46;
@@ -853,6 +910,7 @@ function payBase(v, acc) {
     pop('+' + fmt(amt), sp.x, sp.y - 24, 'bonus big'); flyChunks(8, w, amt, '', true); }   // full pop on the Refinery screen
   else smallPop(amt);
   if (refActs.intake_shake) refActs.intake_shake.reset().play();
+  if (refActs.dump_dust) refActs.dump_dust.reset().play();   // Art f4d4a2c: once at the start of each tip
 }
 function richPop(v) {
   if (S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden) { const r = MK.Rich_Pop, w = new THREE.Vector3(MX + r.x, r.y, r.z), sp = toScreen(w.x, w.y, w.z);
@@ -869,11 +927,11 @@ function arrive(t, acc) {             // back under the chute: the next fill sta
   if (q && !acc) { richTw = { at: t, amt: k.add }; playRich(); }
 }
 function settleTo(T, acc) {
-  const k = S.tk, tl = R.tl; if (!tl) return;
+  const k = S.tk, tl = R.tl; if (!tl || !RT.ready) return;          // B1: nothing settles on the temporary route
   payPend(T, acc);
   for (let g = 0; g < 20000; g++) {
     if (!k.dep) { const tf = tFull(); if (tf > T) break; k.dep = tf; k.paid = false; k.val = loadValue(); continue; }   // full: depart (value frozen now)
-    if (!k.paid) { if (k.dep + tl.tDump * 1000 > T) break; k.paid = true; payBase(k.val, acc); cgMake(k.dep + tl.tDump * 1000); }
+    if (!k.paid) { if (k.dep + tl.tDump * 1000 > T) break; k.paid = true; payBase(k.val, acc); cgSettle(k.dep + tl.tDump * 1000, acc); cgMake(k.dep + tl.tDump * 1000); }
     const end = k.dep + tl.trip * 1000; if (end > T) break;
     arrive(end, acc); payPend(T, acc);
   }
@@ -922,7 +980,7 @@ function updFillArc() {                // slim cyan fill-% arc at Fill_Arc while
       if (k !== farcK) { farcK = k; farcV.setAttribute('stroke-dasharray', (62.83 * TS.shown).toFixed(2) + ' 999'); farcT.textContent = pc + '%'; } } }
   if (farc._on !== on) { farc._on = on; farc.style.display = on ? 'block' : 'none'; }
 }
-setInterval(() => { if (document.hidden) return; const t = nowMs(); if (t - S.rt < 60000 && t >= S.rt - 1000) { settleTo(t, null); S.rt = t; } }, 200);   // payouts keep wall-clock time even when frames stall
+setInterval(() => { if (document.hidden || !RT.ready) return; const t = nowMs(); if (t - S.rt < 60000 && t >= S.rt - 1000) { settleTo(t, null); S.rt = t; } }, 200);   // payouts keep wall-clock time even when frames stall
 // ===== CARGO LOOP (Director spec 10/23, Jacob's request). GRAY-BOX PLACEHOLDERS until Art's GLBs land; every joint/marker is read by name
 // through CARGO_ALIAS, so the GLBs drop in with the same code path.
 //   Refinery dump → 1 sealed He-3 box at the Refinery crane's Pick_Point (after sealSec) → Refinery crane loads 2 onto flatbed FB-05 (Bed_Slot_01/02)
@@ -941,25 +999,50 @@ const CARGO_ALIAS = {        // one table for every name the code looks up (firs
   slew: ['Slew'], trolley: ['Trolley'], hoist: ['Hoist'], hook: ['Hook'], pick: ['Pick_Point'], drop: ['Drop_Point'],   // cranes: no baked clips, code drives the joints
   boxHook: ['Hook_Point'], boxBase: ['Base'],
   hold: (i) => ['Hold_' + String(i).padStart(2, '0')],
-  receive: ['Receive_Point', 'Hand_Point'],
+  receive: ['Receiver_Spot', 'Receive_Point', 'Hand_Point'],   // Receiver_Spot = Art Assistant 2's Launch Pad marker (when it exists)
+  palletSlot: (i) => ['Pallet_Slot_' + String(i).padStart(2, '0')], drop2: ['Drop_Point_02'], wheelNames: ['FL', 'FR', 'ML', 'MR', 'RL', 'RR'].map(k => 'FB05_Wheel_' + k),
   signClips: ['sign_for_delivery', 'astro_sign_delivery', 'sign', 'check_in'], walkClips: ['walk', 'astro_walk'], idleClips: ['idle', 'astro_idle'],
 };
 // Placeholder layout, station-local metres (x from the station origin i·160, z world). Swap a GLB in and its markers replace these.
 const CPH = {
-  lanes: { out: 13, back: 22 }, road: { x0: RX - 8, n: 21, tile: 8 },                        // 21 strip tiles, world x 312–480, lanes z 13 / 22
+  lanes: { out: 13, back: 22 }, road: { x0: RX - 24, n: 23, tile: 8 },                       // 23 strip tiles, world x 296–480, lanes z 13 / 22
   // Refinery side sits inside Art's Cam_Target frame (x ≈ 300–330): FB-05 loads at x 318; the crane + sealed-box pallet stand in the median between the lanes
-  ref: { load: [-2, 13], uturn: [-8, 17.5], crane: [1.5, 17.5], pick: [5.5, 17.5], mast: 9, jib: 8, rest: [-1.2, 0] },   // rest = yaw offset from the pick direction
-  pad: { unload: [-14, 13], uturn: [-4, 17.5], crane: [-7, 5], mast: 12, jib: 12, bay: [-12, 3], ship: [1, 0], padTop: 1,
-         home: [-16.5, 4], receive: [-13.5, 10.8], fuel: [4.4, 4.2] },
-  turnR: 4.5, hookHi: 5.5,
+  // Art affea57 RC-1: crane root world (318, 0, 17.5), Truck_Park (318, 0, 13) heading +X, Pallet_Slot_01..08 (Pick_Point = 01), Drop_Point/_02 over FB-05's bed slots
+  // Art 014d751 RC-1 (Director-cleared 21:10, default): root world (311, 0, 17.5), jib mirrored, pallet WEST of the mast (x 302.25–307.65) so the mast
+  // never hides a box landing on FB-05; the flatbed's west U-turn moves to x 295 (r 4.5, around the whole median island: pallet + concrete pad + pedestal)
+  ref: { load: [-2, 13], uturn: [-25, 17.5], crane: [-9, 17.5], mast: 10, jib: 10.3, rmin: 2.6, rest: [-1.2, 0] },   // rest = yaw offset from the pick direction
+  // Jacob rule (via Art, 21:20): the flatbed never runs over or into the Launch Pad. The whole pad footprint (slab, ship, fuel tank, bay, crane foot)
+  // stays off the road band (world z 10.2–24.8) with ≥ 1 m clear ground (z ≤ 9.2); the bay sits at that roadside edge (z 3.6–9.2) so the pad crane
+  // (foot z 5, reach 15) still picks off FB-05 on the z 13 lane. These are placeholder numbers only: padFromMarkers() reads Truck_Stop / Bay_Slot_01..12 /
+  // Receiver_Spot / Receiver_Home / Ship_Center / Turn_Start from whatever stands at the pad (placeholder empties now, Art's new pad GLB later).
+  pad: { unload: [-14, 13], uturn: [-4, 17.5], crane: [-7, 5], mast: 12, jib: 15, bay: [-12, 6.4], ship: [1, 0], padTop: 1,
+         home: [-16.5, 8.4], receive: [-13.5, 9.6], fuel: [4.4, 4.2] },
+  padRoad: { z0: 10.2, z1: 24.8, clear: 1 },
+  turnR: 4.5, hookHi: 6.4,   // carry height: box bottom 4.9 clears the FB-05 cab (3.8) and a full pallet (3.15)
 };
 const PADI = 3, PX = PADI * GAP;
+// Refinery crane GLBs. CRANE_ART is the default (Art 014d751, md5 d98f602c…); CRANE_ART_AFFEA57 (md5 d1e577ce…, root x 318, pallet east) is kept as the
+// fallback const: ?crane=affea57 swaps it back (its layout numbers included). A GLB's own markers replace these placeholder numbers on load.
+// Art 93590a0 (Director-cleared 21:42, md5 755815ec…): same layout as 014d751 + the concrete pallet pad baked into Crane_Mesh (6.15×3.36×0.12 m, x 301.85–308.0,
+// z 15.82–19.18); pallet markers +0.12 m. bakedPad: no code pad. 014d751 (d98f602c) stays as ?crane=d98f602c, affea57 as ?crane=affea57.
+const CRANE_ART = { url: 'models/crane_refinery_755815ec.glb?v=755815ec', crane: [-9, 17.5], sx: -1, uturn: [-25, 17.5], drop: [5.85, -4.5], drop2: [3.35, -4.5], park: [7, -4.5], bakedPad: true };
+const CRANE_ART_D98F602C = Object.assign({}, CRANE_ART, { url: 'models/crane_refinery_d98f602c.glb?v=d98f602c', bakedPad: false });
+const CRANE_ART_AFFEA57 = { url: 'models/crane_refinery_d1e577ce.glb?v=d1e577ce', crane: [-2, 17.5], sx: 1, uturn: [-8, 17.5], drop: [-1.15, -4.5], drop2: [-3.65, -4.5], park: [0, -4.5] };
+const CRANE = Q.get('crane') === 'affea57' ? CRANE_ART_AFFEA57 : Q.get('crane') === 'd98f602c' ? CRANE_ART_D98F602C : CRANE_ART;
+CPH.ref.crane = CRANE.crane; CPH.ref.uturn = CRANE.uturn; if (CRANE.sx > 0) { CPH.road.x0 = RX - 8; CPH.road.n = 21; }
+const RC_SLOTS = [[4.8, .15, -.725], [7.3, .15, -.725], [4.8, .15, .725], [7.3, .15, .725], [4.8, 1.65, -.725], [7.3, 1.65, -.725], [4.8, 1.65, .725], [7.3, 1.65, .725]].map(([x, y, z]) => [x * CRANE.sx, y, z]);   // crane-local
+// Concrete pad under the pallet (Director 21:10: plain, ≤ 0.15 m). Art will likely add it to the crane GLB; until a mesh named like 'Pallet_Pad' /
+// 'Concrete' is in the GLB this gray 0.12 m placeholder stands under the pallet (+0.5 m in x; z held inside the 3.4 m median, clear of both lanes).
+const PALLET_PAD = { placeholder: !CRANE.bakedPad && Q.get('pad') !== 'off', h: 0.12, margin: 0.5, zMin: 15.8, zMax: 19.2, re: /pallet_?pad|concrete|^pad$/i };
 const findA = (root, names) => { for (const n of names) { const o = root.getObjectByName(n); if (o) return o; } return null; };
 const CG_LOG = [];
 function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (CG_LOG.length > 200) CG_LOG.shift(); }
-function cgInit(t) { return { v: 1, t, ref: [], made: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0,
-  sh: { st: 'pad', t0: t, hold: 0, f0: t } }; }
+// ref = boxes on the Refinery pallet (sealing or sealed: their ready times), full = dumps that made no box because the pallet was full,
+// sh.req = Launch button tap time (partial launch; 0 = none)
+function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0,
+  sh: { st: 'pad', t0: t, hold: 0, f0: t, req: 0 } }; }
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
+if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0;   // a6a00d3 saves
 
 // ---- flatbed route (same speed profile as HT-04: 8.33 m/s straights, TURN_SPEED in the 4.5 m U-turns, same 3 m pull-away / 4 m brake)
 const FB = { pOut: null, pBack: null, kOut: null, kBack: null, S: null, U: null };
@@ -975,18 +1058,23 @@ function buildCargoRoute() {
 
 // ---- event simulation (exactly once). Activities start at an event time; their end is the next event. Box counts move at the start of a
 // lift (off the stack / bed / bay) and land at its end (bed / bay / hold), so one crane never double-counts a box.
-function cgMake(tDump) { const c = S.cg; c.ref.push(tDump + CG.sealSec * 1000); c.made++; cgEv('box_made', tDump); }
+function cgMake(tDump) {           // called at the dump time, after the cargo sim has been settled up to it (so the pallet count is exact)
+  const c = S.cg; if (c.ref.length >= CG.palletCap) { c.full++; cgEv('dump_pallet_full', tDump, { full: c.full }); return; }   // truck still pays; no box
+  c.ref.push(tDump + CG.sealSec * 1000); c.made++; cgEv('box_made', tDump);
+}
 function cgDecide(c, t) {
   for (let g = 0; g < 50; g++) {
     let ch = false; const f = c.fb, s = c.sh;
     if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
-    if (!c.rc && f.st === 'load' && f.bed >= CG.perTrip) { c.fb = { st: 'out', t0: t, bed: f.bed }; ch = true; cgEv('fb_depart', t, { bed: f.bed }); }
+    if (!c.rc && f.st === 'load' && f.bed >= CG.perTrip && c.bay + f.bed <= CG.bayCap) { c.fb = { st: 'out', t0: t, bed: f.bed }; ch = true; cgEv('fb_depart', t, { bed: f.bed }); }
     if (!c.pc.k) {
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
-      else if (s.st === 'pad' && c.bay > 0 && s.hold < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t }; ch = true; cgEv('pad_crane_hold', t, { slot: s.hold + 1 }); }
+      else if (s.st === 'pad' && !s.req && c.bay > 0 && s.hold < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t }; ch = true; cgEv('pad_crane_hold', t, { slot: s.hold + 1 }); }
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
-    if (s.st === 'pad' && s.hold >= CG.holdCap && c.pc.k !== 'hold' && t >= s.f0 + CG.fuelFillSec * 1000) { c.sh = Object.assign({}, s, { st: 'launch', t0: t }); ch = true; cgEv('launch', t, { hold: s.hold }); }
+    if (s.st === 'pad' && c.pc.k !== 'hold' && t >= s.f0 + CG.fuelFillSec * 1000 && (s.hold >= CG.holdCap || (s.req && t >= s.req && s.hold >= 1))) {   // full hold, or the Launch button (partial)
+      c.sh = Object.assign({}, s, { st: 'launch', t0: t, req: 0 }); ch = true; cgEv('launch', t, { hold: s.hold, partial: s.hold < CG.holdCap }); }
+    else if (s.st === 'pad' && s.req && t >= s.req && s.hold < 1) { s.req = 0; ch = true; }
     if (!ch) break;
   }
 }
@@ -994,18 +1082,18 @@ function cgNext(c) {
   let n = Infinity; const T = (x) => { if (x < n) n = x; }, s = c.sh;
   if (c.rc) T(c.rc + CG.refLoadSec * 1000); else if (c.fb.st === 'load' && c.fb.bed < CG.perTrip && c.ref.length && c.ref[0] > c.t) T(c.ref[0]);
   if (c.fb.st === 'out') T(c.fb.t0 + FB.kOut.T * 1000); else if (c.fb.st === 'back') T(c.fb.t0 + FB.kBack.T * 1000);
-  if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + CG.walkSec * 1000);
+  if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
   if (c.pc.k) T(c.pc.t0 + (c.pc.k === 'unload' ? CG.padUnloadSec : CG.holdLoadSec) * 1000);
   if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
-  else if (s.hold >= CG.holdCap && c.pc.k !== 'hold' && s.f0 + CG.fuelFillSec * 1000 > c.t) T(s.f0 + CG.fuelFillSec * 1000);
+  else { if (s.hold >= CG.holdCap && c.pc.k !== 'hold' && s.f0 + CG.fuelFillSec * 1000 > c.t) T(s.f0 + CG.fuelFillSec * 1000); if (s.req > c.t) T(s.req); }
   return n;
 }
 function cgComplete(c, t, acc) {
   if (c.rc && c.rc + CG.refLoadSec * 1000 <= t) { c.rc = 0; c.fb.bed++; cgEv('bed_loaded', t, { bed: c.fb.bed }); }
   if (c.fb.st === 'out' && c.fb.t0 + FB.kOut.T * 1000 <= t) { c.fb = { st: 'unload', t0: t, bed: c.fb.bed }; c.as = { st: 'walk_out', t0: t }; cgEv('fb_at_pad', t, { bed: c.fb.bed }); }
   else if (c.fb.st === 'back' && c.fb.t0 + FB.kBack.T * 1000 <= t) { c.fb = { st: 'load', t0: t, bed: 0 }; cgEv('fb_at_refinery', t); }
-  if (c.as.st === 'walk_out' && c.as.t0 + CG.walkSec * 1000 <= t) { c.as = { st: 'ready', t0: t }; cgEv('astro_ready', t); }
-  else if (c.as.st === 'walk_back' && c.as.t0 + CG.walkSec * 1000 <= t) { c.as = { st: 'home', t0: t }; cgEv('astro_home', t); }
+  if (c.as.st === 'walk_out' && c.as.t0 + CG.walkOutSec * 1000 <= t) { c.as = { st: 'ready', t0: t }; cgEv('astro_ready', t); }
+  else if (c.as.st === 'walk_back' && c.as.t0 + CG.walkBackSec * 1000 <= t) { c.as = { st: 'home', t0: t }; cgEv('astro_home', t); }
   if (c.pc.k && c.pc.t0 + (c.pc.k === 'unload' ? CG.padUnloadSec : CG.holdLoadSec) * 1000 <= t) {
     if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { c.sh.hold++; cgEv('hold_loaded', t, { hold: c.sh.hold }); }
     c.pc = { k: '', t0: 0 };
@@ -1015,9 +1103,9 @@ function cgComplete(c, t, acc) {
     const v = s.hold * CG.boxValue, amt = acc && !acc.full ? v * CFG.offlineRate : v; S.money += amt; c.sold += s.hold; c.earned += amt; c.launches++;
     cgEv('sold', t, { boxes: s.hold, amt }); logU('truck', `Cargo ship sold ${s.hold} He-3 boxes, +${fmt(amt)}`);
     if (acc) acc.cargo = (acc.cargo || 0) + amt; else cargoPop(amt);
-    c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0 };
-  } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0 }; cgEv('landing', t); }
-  else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) { c.sh = { st: 'pad', t0: t, hold: 0, f0: t }; cgEv('landed', t); }   // refuelling starts on touchdown
+    c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0 };
+  } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0 }; cgEv('landing', t); }
+  else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) { c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; cgEv('landed', t); }   // refuelling starts on touchdown
 }
 function cgSettle(T, acc) {
   const c = S.cg; if (!FB.kOut) return;
@@ -1027,8 +1115,15 @@ function cgSettle(T, acc) {
     c.t = Math.max(c.t, nx); cgComplete(c, c.t, acc);
   }
 }
-function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; }
+function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; }
 const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? clamp((t - s.f0) / (CG.fuelFillSec * 1000), 0, 1) : s.st === 'launch' ? 1 : 0; };   // PLACEHOLDER fuel: fills over fuelFillSec from touchdown
+const canLaunch = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };
+function cgLaunch() {                 // Launch button: stored as a timestamp in S.cg (sh.req); the sim launches at it (after a lift into the hold finishes)
+  const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < 60000) { settleTo(t, null); S.rt = t; }
+  if (!canLaunch(t)) return false;
+  S.cg.sh.req = Math.max(t, S.cg.t); cgEv('launch_tap', t, { hold: S.cg.sh.hold }); settleTo(t, null); save();
+  if (pointBeat === 'launch') pointerDone = true; return true;
+}
 function astroPhase(c, t) {
   const a = c.as; if (a.st !== 'ready') return a.st;
   if (c.pc.k === 'unload') { const u = (t - c.pc.t0) / (CG.padUnloadSec * 1000); return u >= 1 - CG.checkSec / CG.padUnloadSec ? 'check_in' : 'guide'; }
@@ -1050,7 +1145,7 @@ const shadowy = (m) => { m.castShadow = m.receiveShadow = true; return m; };
 const cg3 = {};
 function phBoxProp() {     // He-3 cargo box: origin = Base (bottom centre), Hook_Point on top
   const g = new THREE.Group(); g.name = 'CargoBox_He3';
-  const b = new THREE.Object3D(); b.name = 'Base'; const h = new THREE.Object3D(); h.name = 'Hook_Point'; h.position.y = 1.0; g.add(b, h); return g;
+  const b = new THREE.Object3D(); b.name = 'Base'; const h = new THREE.Object3D(); h.name = 'Hook_Point'; h.position.y = 1.5; g.add(b, h); return g;
 }
 function phFlatbed() {
   const g = new THREE.Group(); g.name = 'FB05'; g.userData.wheel_radius = 0.5;
@@ -1058,7 +1153,7 @@ function phFlatbed() {
     geoAt(new THREE.BoxGeometry(5.3, .2, 2.6), -1.0, 1.08, 0)]), fbMat)); body.name = 'FB05_Body'; g.add(body);
   const wg = new THREE.CylinderGeometry(.5, .5, .42, 14).rotateX(Math.PI / 2), wm = new THREE.InstancedMesh(wg, cgDark, 6); wm.name = 'Wheel_All'; wm.castShadow = true; g.add(wm);
   g.userData.wheelPos = [[2.6, .5, 1.2], [2.6, .5, -1.2], [-.7, .5, 1.2], [-.7, .5, -1.2], [-2.5, .5, 1.2], [-2.5, .5, -1.2]];
-  const s1 = new THREE.Object3D(); s1.name = 'Bed_Slot_01'; s1.position.set(-.15, 1.18, 0); const s2 = new THREE.Object3D(); s2.name = 'Bed_Slot_02'; s2.position.set(-1.85, 1.18, 0); g.add(s1, s2);
+  const s1 = new THREE.Object3D(); s1.name = 'Bed_Slot_01'; s1.position.set(-1.15, 1.18, 0); const s2 = new THREE.Object3D(); s2.name = 'Bed_Slot_02'; s2.position.set(-3.65, 1.18, 0); g.add(s1, s2);
   return g;
 }
 function phCrane(name, mastH, jib, markers) {   // root at the mast foot; Slew (yaw) at the mast top → Trolley (+X along the jib) → Hoist (−Y, hook height) → Hook
@@ -1071,22 +1166,24 @@ function phCrane(name, mastH, jib, markers) {   // root at the mast foot; Slew (
   tr.add(new THREE.Mesh(geoAt(new THREE.BoxGeometry(.6, .3, .55), 0, -.1, 0), cgDark));
   const ho = new THREE.Object3D(); ho.name = 'Hoist'; ho.position.y = -3; tr.add(ho);
   const hk = new THREE.Mesh(geoAt(new THREE.BoxGeometry(.5, .35, .5), 0, .18, 0), cgDark); hk.name = 'Hook'; ho.add(hk);
-  for (const [n, p] of Object.entries(markers)) { const m = new THREE.Object3D(); m.name = n; m.position.set(p[0], 0, p[1]); g.add(m); }
+  for (const [n, p] of Object.entries(markers)) { const m = new THREE.Object3D(); m.name = n; if (p.length === 3) m.position.set(p[0], p[1], p[2]); else m.position.set(p[0], 0, p[1]); g.add(m); }
   return g;
 }
 function phShip() {
   const g = new THREE.Group(); g.name = 'Ship_Placeholder';
-  const parts = [geoAt(new THREE.CylinderGeometry(2, 2, 7, 20), 0, 4.1, 0), geoAt(new THREE.ConeGeometry(2, 2.4, 20), 0, 8.8, 0), geoAt(new THREE.BoxGeometry(3.2, .3, 6.2), -3.9, .3, 0)];
+  const parts = [geoAt(new THREE.CylinderGeometry(2, 2, 7, 20), 0, 4.1, 0), geoAt(new THREE.ConeGeometry(2, 2.4, 20), 0, 8.8, 0), geoAt(new THREE.BoxGeometry(3.4, .3, 7.8), -3.9, .3, 0)];
   for (const [x, z] of [[1.7, 1.7], [-1.7, 1.7], [1.7, -1.7], [-1.7, -1.7]]) parts.push(geoAt(new THREE.BoxGeometry(.35, 1.2, .35), x, .6, z));
   g.add(shadowy(new THREE.Mesh(merged(parts), cgMat)));
-  for (let i = 0; i < 10; i++) { const m = new THREE.Object3D(); m.name = 'Hold_' + String(i + 1).padStart(2, '0'); m.position.set(i < 5 ? -3.15 : -4.65, .45, -2.3 + 1.15 * (i % 5)); g.add(m); }
+  for (let i = 0; i < 10; i++) { const m = new THREE.Object3D(), w = i % 6; m.name = 'Hold_' + String(i + 1).padStart(2, '0');   // He-3 boxes (2.3 × 1.5 × 1.3) long axis along z: 2 × 3 × 2 layers
+    m.position.set(w % 2 ? -4.65 : -3.2, .45 + Math.floor(i / 6) * 1.5, (Math.floor(w / 2) - 1) * 2.5); m.rotation.y = Math.PI / 2; g.add(m); }
   return g;
 }
 function buildCargoProps() {
   // Refinery crane + box pallet
-  const rp = CPH.ref, rc = phCrane('Crane_Refinery', rp.mast, rp.jib, { Pick_Point: [rp.pick[0] - rp.crane[0], rp.pick[1] - rp.crane[1]], Drop_Point: [rp.load[0] - rp.crane[0], rp.load[1] - rp.crane[1]] });
+  const rp = CPH.ref, rcm = { Pick_Point: RC_SLOTS[0], Drop_Point: [CRANE.drop[0], 1.18, CRANE.drop[1]], Drop_Point_02: [CRANE.drop2[0], 1.18, CRANE.drop2[1]], Truck_Park: [CRANE.park[0], 0, CRANE.park[1]] }; RC_SLOTS.forEach((p, i) => rcm['Pallet_Slot_0' + (i + 1)] = p);
+  const rc = phCrane('Crane_Refinery', rp.mast, rp.jib, rcm);
   rc.position.set(RX + rp.crane[0], 0, rp.crane[1]); scene.add(rc);
-  const pal = shadowy(new THREE.Mesh(geoAt(new THREE.BoxGeometry(3.4, .15, 2.6), 0, .075, 0), cgDark)); pal.position.set(RX + rp.pick[0], 0, rp.pick[1]); scene.add(pal);
+  const pal = shadowy(new THREE.Mesh(geoAt(new THREE.BoxGeometry(5.4, .15, 3.2), 0, .075, 0), cgDark)); pal.position.set(RX + rp.crane[0] + 6.05 * CRANE.sx, 0, rp.crane[1]); pal.name = 'Pallet_PLACEHOLDER'; scene.add(pal);
   // Launch Pad group (gray slab from the station placeholders + bay + crane + ship + astronaut + fuel gauge); bounds-fit framing
   const pp = CPH.pad, pg = new THREE.Group(); pg.name = 'LaunchPad_Placeholder'; pg.position.set(PX, 0, 0); scene.add(pg);
   if (phBox[PADI]) { scene.remove(phBox[PADI]); phBox[PADI].position.set(0, .5, 0); pg.add(phBox[PADI]); }
@@ -1095,8 +1192,11 @@ function buildCargoProps() {
   const pc = phCrane('Crane_Pad', pp.mast, pp.jib, { Pick_Point: [pp.unload[0] - pp.crane[0], pp.unload[1] - pp.crane[1]], Drop_Point: [pp.bay[0] - pp.crane[0], pp.bay[1] - pp.crane[1]] });
   pc.position.set(pp.crane[0], 0, pp.crane[1]); pg.add(pc);
   const ship = phShip(); ship.position.set(PX + pp.ship[0], pp.padTop, pp.ship[1]); scene.add(ship);
-  const rcv = new THREE.Object3D(); rcv.name = 'Receive_Point'; rcv.position.set(pp.receive[0], 0, pp.receive[1]); pg.add(rcv);
-  const home = new THREE.Object3D(); home.name = 'Astro_Home'; home.position.set(pp.home[0], 0, pp.home[1]); pg.add(home);
+  // marker empties named like Art's Launch Pad GLB (verify json, 92bb381 — not wired: being redone), so its drop-in takes the same path
+  const emp = (n, x, y, z) => { const m = new THREE.Object3D(); m.name = n; m.position.set(x, y, z); pg.add(m); return m; };
+  emp('Receiver_Spot', pp.receive[0], 0, pp.receive[1]); emp('Receiver_Home', pp.home[0], 0, pp.home[1]);
+  emp('Truck_Stop', pp.unload[0], 0, pp.unload[1]); emp('Turn_Start', pp.uturn[0], 0, CPH.lanes.out); emp('Ship_Center', pp.ship[0], pp.padTop, pp.ship[1]);
+  for (let i = 0; i < 12; i++) { const w = i % 6; emp('Bay_Slot_' + String(i + 1).padStart(2, '0'), pp.bay[0] + (w % 2 ? 1.25 : -1.25), .25 + Math.floor(i / 6) * 1.5, pp.bay[1] + (Math.floor(w / 2) - 1) * 1.45); }
   const astro = new THREE.Group(); astro.name = 'Astronaut_Placeholder';
   astro.add(shadowy(new THREE.Mesh(merged([geoAt(new THREE.CapsuleGeometry(.36, 1.0, 4, 10), 0, .86, 0), geoAt(new THREE.BoxGeometry(.4, .22, .3), .22, 1.42, 0)]),
     new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: .6 })))); scene.add(astro);
@@ -1106,31 +1206,59 @@ function buildCargoProps() {
   const frame = new THREE.Mesh(geoAt(new THREE.BoxGeometry(24, 11, 19), -6, 5.5, 4.6), new THREE.MeshBasicMaterial({ visible: false })); frame.name = 'PadFrame'; pg.add(frame);   // framing incl. the ship on the pad and FB-05 at the unload spot
   // flatbed + boxes
   const fb = phFlatbed(); scene.add(fb);
-  const boxes = new THREE.InstancedMesh(new THREE.BoxGeometry(1.4, 1.0, 1.0).translate(0, .5, 0), boxMat, 64); boxes.name = 'CargoBoxes'; boxes.castShadow = true; boxes.count = 0; scene.add(boxes);
-  Object.assign(cg3, { rc, pc, pg, ship, astro, fuelFill, fb, boxes, bay });
-  cgBind(); stationObjs[PADI] = pg; fitSite(PADI);
+  const boxes = new THREE.InstancedMesh(new THREE.BoxGeometry(2.3, 1.5, 1.3).translate(0, .75, 0), boxMat, 64); boxes.name = 'CargoBoxes'; boxes.castShadow = true; boxes.count = 0; scene.add(boxes);
+  Object.assign(cg3, { rc, pc, pg, ship, astro, fuelFill, fb, pal, boxParts: [{ im: boxes, L: null }], bay });
+  padFromMarkers(pg); cgBind(); stationObjs[PADI] = pg; fitSite(PADI); padRoadCheck();
+}
+// Launch Pad markers → layout + flatbed route (the placeholder's empties now; Art's pad GLB later, same names). World x is PX-relative, z is world.
+const PAD_ALIAS = { stop: ['Truck_Stop', 'Truck_Park'], turn: ['Turn_Start'], ship: ['Ship_Center'], recv: ['Receiver_Spot', 'Receive_Point'], home: ['Receiver_Home', 'Astro_Home'],
+  bay: (i) => ['Bay_Slot_' + String(i).padStart(2, '0')] };
+function padFromMarkers(root) {
+  root.updateMatrixWorld(true); const wp = (names) => { const o = findA(root, names); return o ? o.getWorldPosition(new THREE.Vector3()) : null; }, pp = CPH.pad, got = [];
+  const st = wp(PAD_ALIAS.stop); if (st) { pp.unload = [st.x - PX, st.z]; got.push('Truck_Stop'); }
+  const tu = wp(PAD_ALIAS.turn); if (tu) { pp.uturn = [tu.x - PX, pp.uturn[1]]; got.push('Turn_Start'); }
+  const sc = wp(PAD_ALIAS.ship); if (sc) { pp.ship = [sc.x - PX, sc.z]; got.push('Ship_Center'); }
+  const sl = []; for (let i = 1; i <= 12; i++) { const p = wp(PAD_ALIAS.bay(i)); if (p) sl.push(p); }
+  cg3.baySlots = sl.length === 12 ? sl : null; if (cg3.baySlots) got.push('Bay_Slot_01..12');
+  buildCargoRoute(); (window.__ps3d = window.__ps3d || {}).padMarkers = got; return got;
+}
+// Jacob rule: nothing of the pad stands in the road band (+ 1 m). Every ground-level mesh of the pad group, the ship and the station-3 slab is checked;
+// the crane's slewing jib / trolley / hook are overhead (they must swing over FB-05) and are skipped. Result in __ps3d.padRoad; violations are console errors.
+function padRoadCheck() {
+  const B = CPH.padRoad, z0 = B.z0 - B.clear, z1 = B.z1 + B.clear, bb = new THREE.Box3(), hits = [], roots = [cg3.pg, cg3.ship, phBox[PADI]].filter(Boolean);
+  for (const r of roots) { r.updateMatrixWorld(true); r.traverse(n => { if (!n.isMesh || n.material.visible === false) return; for (let q = n; q; q = q.parent) if (q.name === 'Slew') return;
+    bb.setFromObject(n); if (bb.min.y > 2.5) return; if (bb.max.z > z0 && bb.min.z < z1) hits.push({ name: n.name || (n.parent && n.parent.name) || '?', z: [+bb.min.z.toFixed(2), +bb.max.z.toFixed(2)], x: [+bb.min.x.toFixed(1), +bb.max.x.toFixed(1)] }); }); }
+  let zMax = -Infinity; for (const r of roots) r.traverse(n => { if (!n.isMesh || n.material.visible === false) return; for (let q = n; q; q = q.parent) if (q.name === 'Slew') return; bb.setFromObject(n); if (bb.min.y <= 2.5) zMax = Math.max(zMax, bb.max.z); });
+  const res = { ok: !hits.length, hits, padZMax: +zMax.toFixed(2), band: [B.z0, B.z1], clear: B.clear };
+  window.__ps3d.padRoad = res; if (hits.length) console.error('Launch Pad intrudes on the flatbed road band', JSON.stringify(hits)); return res;
 }
 // read every joint / marker through the alias table (the placeholders above are named like the art, so this is the same path a GLB takes)
-const BOXP = { hookY: 1.0 };
+const BOXP = { hookY: 1.5 };
 function cgBind() {
-  const A = CARGO_ALIAS, bp = phBoxProp(), hp = findA(bp, A.boxHook), bb = findA(bp, A.boxBase); BOXP.hookY = hp && bb ? hp.position.y - bb.position.y : 1.0;
+  const A = CARGO_ALIAS, bp = cg3.boxRoot || phBoxProp(), hp = findA(bp, A.boxHook), bb = findA(bp, A.boxBase); BOXP.hookY = hp && bb ? hp.position.y - bb.position.y : 1.5;
   const crane = (root, mast, jib) => { root.updateMatrixWorld(true); const sl = findA(root, A.slew), tr = findA(root, A.trolley), ho = findA(root, A.hoist), hk = findA(root, A.hook), pk = findA(root, A.pick), dp = findA(root, A.drop);
     const wp = (o) => o ? o.getWorldPosition(new THREE.Vector3()) : null, base = root.getWorldPosition(new THREE.Vector3());
-    return { root, sl, tr, ho, hk, cable: tr && tr.userData.cable, base, top: wp(sl).y, jib, pick: wp(pk), drop: wp(dp) }; };
+    const u = root.getObjectByName('Crane_Refinery') && root.getObjectByName('Crane_Refinery').userData, glb = u && u.sheave_y ? { sheave: u.sheave_y, drop: u.hook_drop_m, rest: u.hook_rest_local_y, rmin: u.trolley_min_m, rmax: u.trolley_max_m } : null;
+    const slots = []; for (let i = 1; i <= 8; i++) { const o = findA(root, A.palletSlot(i)); if (o) slots.push(wp(o)); }
+    if (glb) for (const o of [sl, tr, ho, hk]) if (o) o.userData.q0 = o.userData.q0 || o.quaternion.clone();
+    return { root, sl, tr, ho, hk, cable: tr && tr.userData.cable, base, top: wp(sl).y, jib: glb ? glb.rmax : jib, rmin: glb ? glb.rmin : (root === cg3.rc ? CPH.ref.rmin : 1.2), glb, slots: slots.length === 8 ? slots : null, pick: wp(pk), drop: wp(dp) }; };
   cg3.RC = crane(cg3.rc, CPH.ref.mast, CPH.ref.jib); cg3.PC = crane(cg3.pc, CPH.pad.mast, CPH.pad.jib);
   const fb = cg3.fb, s1 = findA(fb, A.bedSlot1), s2 = findA(fb, A.bedSlot2);
-  cg3.slots = [s1 ? s1.position.clone() : new THREE.Vector3(0, 1.2, 0), s2 ? s2.position.clone() : (s1 ? s1.position.clone().add(new THREE.Vector3(...A.bedSlot2Offset)) : new THREE.Vector3(-1.7, 1.2, 0))];
-  cg3.wheelR = fb.userData[A.wheelRadius] || 0.5; fb.traverse(o => { if (o.isInstancedMesh && A.wheel.test(o.name)) cg3.wheels = o; });
-  cg3.holds = []; for (let i = 1; i <= CG.holdCap; i++) { const h = findA(cg3.ship, A.hold(i)); cg3.holds.push(h ? h.position.clone() : new THREE.Vector3(-3.5, .45, 0)); }
-  cg3.pg.updateMatrixWorld(true); const rv = findA(cg3.pg, A.receive), hm = cg3.pg.getObjectByName('Astro_Home');
+  fb.position.set(0, 0, 0); fb.rotation.set(0, 0, 0); fb.updateMatrixWorld(true); const loc = (o) => o.getWorldPosition(new THREE.Vector3());   // slots in the flatbed root's space
+  cg3.slots = [s1 ? loc(s1) : new THREE.Vector3(0, 1.2, 0), s2 ? loc(s2) : (s1 ? loc(s1).add(new THREE.Vector3(...A.bedSlot2Offset)) : new THREE.Vector3(-1.7, 1.2, 0))];
+  const fr = findA(fb, A.flatbed) || fb; cg3.wheelR = fr.userData[A.wheelRadius] || fb.userData[A.wheelRadius] || 0.5; cg3.wheels = null; cg3.wheelNodes = null;
+  fb.traverse(o => { if (o.isInstancedMesh && A.wheel.test(o.name)) cg3.wheels = o; });
+  const wn = A.wheelNames.map(n => fb.getObjectByName(n)).filter(Boolean); if (wn.length) cg3.wheelNodes = wn.map(b => ({ b, q0: b.quaternion.clone() }));   // FB-05: spin about local +X
+  cg3.holds = []; cg3.holdYaw = []; for (let i = 1; i <= CG.holdCap; i++) { const h = findA(cg3.ship, A.hold(i)); cg3.holds.push(h ? h.position.clone() : new THREE.Vector3(-3.5, .45, 0)); cg3.holdYaw.push(h ? h.rotation.y : 0); }
+  cg3.pg.updateMatrixWorld(true); const rv = findA(cg3.pg, A.receive), hm = findA(cg3.pg, PAD_ALIAS.home);
   cg3.receive = rv.getWorldPosition(new THREE.Vector3()); cg3.home = hm.getWorldPosition(new THREE.Vector3());
 }
 // ---- per-frame poses (pure functions of S.cg and now)
-const _Y = new THREE.Vector3(0, 1, 0), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(1, 1, 1), _cp = new THREE.Vector3(), _cm = new THREE.Matrix4(), _cv = new THREE.Vector3();
+const _Y = new THREE.Vector3(0, 1, 0), _cq2 = new THREE.Quaternion(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(1, 1, 1), _cp = new THREE.Vector3(), _cm = new THREE.Matrix4(), _cv = new THREE.Vector3();
 const FBS = { x: 0, z: 0, yaw: 0, v: 0, ph: 'load', wa: 0, wx: null, wz: 0 };
 const lerp = (a, b, k) => a + (b - a) * k;
 const lerpA = (a, b, k) => { let d = b - a; d = Math.atan2(Math.sin(d), Math.cos(d)); return a + d * k; };
-function polar(C, p) { const dx = p.x - C.base.x, dz = p.z - C.base.z; return { a: Math.atan2(-dz, dx), r: clamp(Math.hypot(dx, dz), 1.2, C.jib) }; }
+function polar(C, p) { const dx = p.x - C.base.x, dz = p.z - C.base.z; return { a: Math.atan2(-dz, dx), r: clamp(Math.hypot(dx, dz), C.rmin || 1.2, C.jib) }; }
 // crane cycle u 0..1: reach the pick (0–.15), lower (.15–.3), lift (.3–.45), slew + trolley to the drop (.45–.7), lower (.7–.85), let go, raise and go home (.85–1)
 function cranePose(C, u, P, D, rest) {
   const hi = CPH.hookHi; let a, r, y, carry = false, k;
@@ -1143,14 +1271,20 @@ function cranePose(C, u, P, D, rest) {
     else if (u < .7) { k = seg(.45, .7); a = lerpA(p.a, d.a, k); r = lerp(p.r, d.r, k); y = hi; carry = true; }
     else if (u < .85) { a = d.a; r = d.r; y = lerp(hi, dy, seg(.7, .85)); carry = true; }
     else { k = seg(.85, 1); a = lerpA(d.a, rest.a, k); r = lerp(d.r, rest.r, k); y = lerp(dy, hi, Math.min(1, k * 2)); } }
-  C.sl.rotation.y = a; C.tr.position.x = r; const drop = C.top - y; C.ho.position.y = -drop; if (C.cable) C.cable.scale.y = Math.max(.01, drop);
+  if (C.glb) { const g = C.glb, L = clamp(g.sheave - y - g.drop, .6, 8.3);   // Art RC-1 solve (README): Slew θ, Trolley r, Hoist scale L, Hook y = rest + 1 − L, hook rotator keeps box yaw 0
+    C.sl.quaternion.copy(C.sl.userData.q0).multiply(_cq2.setFromAxisAngle(_Y, a)); C.tr.position.x = r; C.ho.scale.y = L; C.hk.position.y = g.rest + 1 - L;
+    C.hk.quaternion.copy(C.hk.userData.q0).multiply(_cq2.setFromAxisAngle(_Y, -a)); y = g.sheave - L - g.drop; }
+  else { C.sl.rotation.y = a; C.tr.position.x = r; const drop = C.top - y; C.ho.position.y = -drop; if (C.cable) C.cable.scale.y = Math.max(.01, drop); }
   C.hookW = C.hookW || new THREE.Vector3(); C.hookW.set(C.base.x + r * Math.cos(a), y, C.base.z - r * Math.sin(a)); C.u = u;
   return carry;
 }
 let nBox = 0;
-function boxAt(p, yaw = 0) { if (nBox >= 64) return; _cq.setFromAxisAngle(_Y, yaw); cg3.boxes.setMatrixAt(nBox++, _cm.compose(p, _cq, _cs)); }
-const stackPos = (i, o = new THREE.Vector3()) => o.set(cg3.RC.pick.x + (i % 2 ? .75 : -.75), Math.floor(i / 4) * 1.0 + .15, cg3.RC.pick.z + ((i >> 1) % 2 ? .55 : -.55));
-const bayPos = (i, o = new THREE.Vector3()) => { const b = cg3.PC.drop; return o.set(b.x + ((i % 3) - 1) * 1.6, .25 + Math.floor(i / 12) * 1.0, b.z + (Math.floor(i / 3) % 4 - 1.5) * 1.15); };
+const _cm2 = new THREE.Matrix4();
+function boxAt(p, yaw = 0) { if (nBox >= 64) return; _cq.setFromAxisAngle(_Y, yaw); _cm.compose(p, _cq, _cs);   // every part of the box (Art: SHM_Paint + SHM_GlowCyan) shares the instance index
+  for (const b of cg3.boxParts) b.im.setMatrixAt(nBox, b.L ? _cm2.multiplyMatrices(_cm, b.L) : _cm); nBox++; }
+const carryYaw = (u, y0, y1) => u < .45 ? y0 : u < .7 ? lerpA(y0, y1, fss((u - .45) / .25)) : y1;
+const stackPos = (i, o = new THREE.Vector3()) => cg3.RC.slots ? o.copy(cg3.RC.slots[Math.min(i, 7)]) : o.set(cg3.RC.base.x + RC_SLOTS[i & 7][0], RC_SLOTS[i & 7][1], cg3.RC.base.z + RC_SLOTS[i & 7][2]);   // fill 01→08, pick 08→01
+const bayPos = (i, o = new THREE.Vector3()) => { if (cg3.baySlots) return o.copy(cg3.baySlots[i % 12]).setY(cg3.baySlots[i % 12].y + Math.floor(i / 12) * 1.5); const b = cg3.PC.drop, w = i % 6; return o.set(b.x + (w % 2 ? 1.25 : -1.25), .25 + Math.floor(i / 6) * 1.5, b.z + (Math.floor(w / 2) - 1) * 1.45); };   // 2 × 3 × 2 = bayCap 12
 function slotW(i, o = new THREE.Vector3()) { return o.copy(cg3.slots[i]).applyMatrix4(cg3.fb.matrixWorld); }
 const _pk = new THREE.Vector3(), _dp = new THREE.Vector3(), _hw = new THREE.Vector3();
 function fbPoseAt(c, t, o) {
@@ -1158,12 +1292,48 @@ function fbPoseAt(c, t, o) {
   if (f.st === 'load' || f.st === 'unload') { const p = f.st === 'load' ? FB.S : FB.U; o.x = p[0]; o.z = p[1]; o.yaw = 0; o.v = 0; return o; }
   const K = f.st === 'out' ? FB.kOut : FB.kBack, P = f.st === 'out' ? FB.pOut : FB.pBack; kinAt(K, (t - f.t0) / 1000, _ka); pathAt(P, _ka[0], o); o.v = _ka[1]; return o;
 }
+// ===== Art affea57 cargo props (Director-cleared 20:51): FB-05, HELIUM-3 box, RC-1 Refinery crane, Receiver. Each swaps its gray placeholder
+// on load (same alias table / markers, so the sim and poses don't change); a GLB that fails keeps its placeholder.
+const CART = { ok: { fb05: false, box: false, crane: false, receiver: false }, err: [] };
+function cartSwap(oldO, newO) { if (oldO && oldO.parent) oldO.parent.remove(oldO); scene.add(newO); }
+function loadCargoArt() {
+  const L = (key, url, fn) => loader.load(url, (g) => { try { fn(g); CART.ok[key] = true; cgBind(); } catch (e) { CART.err.push(key + ': ' + e.message); console.warn('cargo art ' + key + ' bind failed (placeholder stays)', e); } },
+    undefined, (e) => { CART.err.push(key + ': load'); console.warn('cargo art ' + key + ' failed to load (placeholder stays)', e); });
+  L('fb05', 'models/fb05_d526d526.glb?v=d526d526', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+    o.position.copy(cg3.fb.position); o.rotation.copy(cg3.fb.rotation); cartSwap(cg3.fb, o); cg3.fb = o; FBS.wx = null; });
+  L('box', 'models/cargo_box_66a3a00c.glb?v=66a3a00c', (g) => { const o = g.scene; o.updateMatrixWorld(true); const parts = [];
+    o.traverse(m => { if (m.isMesh) { const im = new THREE.InstancedMesh(m.geometry, m.material, 64); im.name = 'CargoBoxes_' + (m.material.name || parts.length); im.castShadow = true; im.receiveShadow = true; im.count = 0;
+      parts.push({ im, L: m.matrixWorld.clone() }); } });
+    if (!parts.length) throw new Error('no box mesh');
+    for (const b of cg3.boxParts) scene.remove(b.im); for (const b of parts) scene.add(b.im); cg3.boxParts = parts; cg3.boxRoot = o; });
+  L('crane', CRANE.url, (g) => { const o = g.scene; o.name = 'Crane_Refinery_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; } });
+    if (!o.getObjectByName('Slew') || !o.getObjectByName('Hook')) throw new Error('crane joints missing');
+    o.position.set(RX + CPH.ref.crane[0], 0, CPH.ref.crane[1]); cartSwap(cg3.rc, o); cg3.rc = o; if (cg3.pal) { scene.remove(cg3.pal); cg3.pal = null; }   // the pallet is in the crane GLB
+    let artPad = null; o.traverse(n => { if (!artPad && PALLET_PAD.re.test(n.name)) artPad = n; }); cg3.artPad = !!artPad; if (artPad && cg3.pad) { scene.remove(cg3.pad); cg3.pad.geometry.dispose(); cg3.pad = null; } cgPad(); });
+  L('receiver', 'models/receiver_8c49ee31.glb?v=8c49ee31', (g) => { const o = g.scene; o.name = 'Receiver_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; } });
+    const mx = new THREE.AnimationMixer(o), acts = {}; for (const c of g.animations) acts[c.name] = mx.clipAction(c);
+    for (const n of ['walk_out', 'guide', 'check_in', 'walk_back']) if (!acts[n]) throw new Error('clip ' + n + ' missing');
+    cg3.pg.updateMatrixWorld(true); const rv = findA(cg3.pg, CARGO_ALIAS.receive), p = rv.getWorldPosition(new THREE.Vector3()), q = rv.getWorldQuaternion(new THREE.Quaternion());
+    o.position.copy(p); o.quaternion.copy(q);   // Receive_Point at the bay (faces +Z: the flatbed on the z 13 lane); Home_Point = (−3, −1.5) from it
+    cartSwap(cg3.astro, o); cg3.astro = o; cg3.rx = { root: o, mx, acts, cur: '' }; });
+}
+function rxPose(c, t, ap) {           // Receiver clips are sampled from S.cg timestamps (no drift, right after reloads/catch-up): walk_out 4.0 → guide loop → check_in 2.0 → walk_back 4.4
+  const X = cg3.rx, a = c.as, el = (t - a.t0) / 1000; let n, x;
+  if (a.st === 'walk_out') { n = 'walk_out'; x = el; }
+  else if (a.st === 'walk_back') { n = 'walk_back'; x = el; }
+  else if (a.st === 'ready') { if (ap === 'check_in') { n = 'check_in'; x = (t - c.pc.t0) / 1000 - (CG.padUnloadSec - CG.checkSec); } else { n = 'guide'; x = el % X.acts.guide.getClip().duration; } }
+  else { n = 'walk_out'; x = 0; }         // home: walk_out frame 0 = walk_back's last frame (at the Home_Point)
+  const act = X.acts[n], d = act.getClip().duration; x = clamp(x, 0, d - 1e-3);
+  if (X.cur !== n) { X.mx.stopAllAction(); act.play(); act.setEffectiveWeight(1); X.cur = n; }
+  act.time = x; X.mx.update(0);
+}
 function updCargo() {
   if (!cg3.fb || !FB.kOut) return; const c = S.cg, t = nowMs();
   fbPoseAt(c, t, FBS); const fb = cg3.fb; fb.position.set(FBS.x, 0, FBS.z); fb.rotation.set(0, FBS.yaw, 0); fb.updateMatrixWorld(true);
   if (FBS.wx !== null) { const dx = FBS.x - FBS.wx, dz = FBS.z - FBS.wz; if (Math.hypot(dx, dz) < 20) FBS.wa += (dx * Math.cos(FBS.yaw) - dz * Math.sin(FBS.yaw)) / cg3.wheelR; }   // roll by real distance
   FBS.wx = FBS.x; FBS.wz = FBS.z;
-  if (cg3.wheels) { const W = cg3.wheels; fb.userData.wheelPos.forEach((p, i) => { _cq.setFromAxisAngle(_cv.set(0, 0, 1), -FBS.wa); W.setMatrixAt(i, _cm.compose(_cp.set(p[0], p[1], p[2]), _cq, _cs)); }); W.instanceMatrix.needsUpdate = true; }
+  if (cg3.wheelNodes) for (const w of cg3.wheelNodes) w.b.quaternion.copy(w.q0).multiply(_cq2.setFromAxisAngle(_X, FBS.wa));
+  else if (cg3.wheels) { const W = cg3.wheels; fb.userData.wheelPos.forEach((p, i) => { _cq.setFromAxisAngle(_cv.set(0, 0, 1), -FBS.wa); W.setMatrixAt(i, _cm.compose(_cp.set(p[0], p[1], p[2]), _cq, _cs)); }); W.instanceMatrix.needsUpdate = true; }
   // ship
   const s = c.sh, sh = cg3.ship, pp = CPH.pad; let sy = pp.padTop, vis = true;
   if (s.st === 'launch') { const u = clamp((t - s.t0) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; }
@@ -1173,29 +1343,31 @@ function updCargo() {
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
   const ap = astroPhase(c, t), as = cg3.astro, H = cg3.home, Rv = cg3.receive; let ax, az, ay = 0, ayaw;
-  if (c.as.st === 'walk_out' || c.as.st === 'walk_back') { const u = fss((t - c.as.t0) / (CG.walkSec * 1000)), out = c.as.st === 'walk_out'; const A = out ? H : Rv, B = out ? Rv : H;
+  if (cg3.rx) rxPose(c, t, ap); else {
+  if (c.as.st === 'walk_out' || c.as.st === 'walk_back') { const out = c.as.st === 'walk_out', u = fss((t - c.as.t0) / ((out ? CG.walkOutSec : CG.walkBackSec) * 1000)); const A = out ? H : Rv, B = out ? Rv : H;
     ax = lerp(A.x, B.x, u); az = lerp(A.z, B.z, u); ay = .12 * Math.abs(Math.sin(u * Math.PI * 6)); ayaw = Math.atan2(-(B.z - A.z), B.x - A.x); }
   else if (c.as.st === 'ready') { ax = Rv.x; az = Rv.z; ayaw = Math.PI / 2 * -1; if (ap === 'check_in') ay = .05 * Math.sin(t / 90); }   // faces the bed (+z)
   else { ax = H.x; az = H.z; ayaw = Math.PI / 2 * -1; }
-  as.position.set(ax, ay, az); as.rotation.y = ayaw;
+  as.position.set(ax, ay, az); as.rotation.y = ayaw; }
   // cranes + boxes
   nBox = 0; const RC = cg3.RC, PC = cg3.PC, now = t;
   const restR = { a: polar(RC, RC.pick).a + CPH.ref.rest[0], r: 3 }, restP = { a: polar(PC, PC.drop).a, r: 5 };
-  const ready = c.ref.filter(x => x <= now).length;
-  for (let i = 0; i < Math.min(ready, 16); i++) boxAt(stackPos(i, _cp));
+  const ready = c.ref.length;           // the pallet shows every box on it (sealing ones included): up to palletCap, 2 layers of 4
+  for (let i = 0; i < Math.min(ready, 8); i++) boxAt(stackPos(i, _cp));
   let u = -1; if (c.rc) { u = (now - c.rc) / (CG.refLoadSec * 1000); stackPos(ready, _pk); slotW(c.fb.bed, _dp); }
   const carryR = cranePose(RC, u, c.rc ? _pk : null, _dp, restR);
   if (c.rc && u >= 0) boxAt(u < .3 ? _pk : carryR ? _hw.copy(RC.hookW).setY(RC.hookW.y - BOXP.hookY) : _dp);
   for (let i = 0; i < c.fb.bed; i++) boxAt(slotW(i, _cp), FBS.yaw);
   for (let i = 0; i < c.bay; i++) boxAt(bayPos(i, _cp));
-  if (vis) for (let i = 0; i < s.hold; i++) boxAt(_cp.copy(cg3.holds[i]).applyMatrix4(sh.matrixWorld));
+  if (vis) for (let i = 0; i < s.hold; i++) boxAt(_cp.copy(cg3.holds[i]).applyMatrix4(sh.matrixWorld), cg3.holdYaw[i]);
   let v = -1, P = null;
   if (c.pc.k) { v = (now - c.pc.t0) / ((c.pc.k === 'unload' ? CG.padUnloadSec : CG.holdLoadSec) * 1000);
     if (c.pc.k === 'unload') { slotW(c.fb.bed, _pk); bayPos(c.bay, _dp); } else { bayPos(c.bay, _pk); _dp.copy(cg3.holds[s.hold]).applyMatrix4(sh.matrixWorld); } P = _pk; }
   const carryP = cranePose(PC, v, P, _dp, restP);
-  if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp);
-  cg3.boxes.count = nBox; cg3.boxes.instanceMatrix.needsUpdate = true; if (nBox) cg3.boxes.computeBoundingSphere();   // culled with the camera off-site
-  window.__ps3d.cargoFrame = { boxes: nBox, astro: ap, fb: FBS.ph, v: +FBS.v.toFixed(2) };
+  const py0 = c.pc.k === 'unload' ? FBS.yaw : 0, py1 = c.pc.k === 'unload' ? 0 : cg3.holdYaw[s.hold] || 0;
+  if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp, carryYaw(v, py0, py1));
+  for (const b of cg3.boxParts) { b.im.count = nBox; b.im.instanceMatrix.needsUpdate = true; if (nBox) b.im.computeBoundingSphere(); }   // culled with the camera off-site
+  window.__ps3d.cargoFrame = { boxes: nBox, astro: ap, rxClip: cg3.rx ? cg3.rx.cur : null, fb: FBS.ph, v: +FBS.v.toFixed(2), art: Object.keys(CART.ok).filter(k => CART.ok[k]) };
 }
 let cargoRoadMesh = null;
 function buildCargoRoad() {         // Art's haul-road strip tiles (same as the Mine↔Refinery road), lanes z 13 / 22; flat temp tiles if the strip is not in
@@ -1207,10 +1379,35 @@ function buildCargoRoad() {         // Art's haul-road strip tiles (same as the 
   cargoRoadMesh.computeBoundingSphere(); cargoRoadMesh.name = 'CargoRoad'; scene.add(cargoRoadMesh);
 }
 function cgMakeDue() {}   // (boxes are made inside settleTo at the exact dump time)
-function cargoState() { const c = S.cg, t = nowMs(); return { made: c.made, sold: c.sold, launches: c.launches, earned: +c.earned.toFixed(2), refReady: c.ref.filter(x => x <= t).length, refSealing: c.ref.filter(x => x > t).length,
+function cargoState() { const c = S.cg, t = nowMs(); return { made: c.made, dumpsFull: c.full, stack: c.ref.length, palletFull: c.ref.length >= CG.palletCap, bayFull: c.bay >= CG.bayCap,
+  req: c.sh.req, canLaunch: canLaunch(t), launchBtn: !!(launchEl && launchEl.classList.contains('on')), storeChip: !!(storeEl && storeEl.classList.contains('on')), sold: c.sold, launches: c.launches, earned: +c.earned.toFixed(2), refReady: c.ref.filter(x => x <= t).length, refSealing: c.ref.filter(x => x > t).length,
   refCrane: c.rc ? 'loading' : 'idle', bed: c.fb.bed, flatbed: c.fb.st, astro: astroPhase(c, t), padCrane: c.pc.k || 'idle', bay: c.bay, ship: c.sh.st, hold: c.sh.hold, fuel: +fuelAt(t).toFixed(3),
   simT: c.t, tripOut: FB.kOut && +FB.kOut.T.toFixed(2), tripBack: FB.kBack && +FB.kBack.T.toFixed(2), last: CG_LOG.slice(-6).map(e => e.e) }; }
-buildCargoRoute(); buildCargoProps(); buildCargoRoad();
+function cgPad() {                    // placeholder concrete pad under the pallet (see PALLET_PAD); skipped when the crane GLB brings its own
+  if (cg3.pad || cg3.artPad || !PALLET_PAD.placeholder) return;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; const v = new THREE.Vector3();
+  for (let i = 0; i < 4; i++) { stackPos(i, v); x0 = Math.min(x0, v.x - 1.15); x1 = Math.max(x1, v.x + 1.15); z0 = Math.min(z0, v.z - .65); z1 = Math.max(z1, v.z + .65); }
+  x0 -= PALLET_PAD.margin; x1 += PALLET_PAD.margin; z0 = Math.max(PALLET_PAD.zMin, z0 - PALLET_PAD.margin); z1 = Math.min(PALLET_PAD.zMax, z1 + PALLET_PAD.margin);
+  const g = new THREE.BoxGeometry(x1 - x0, PALLET_PAD.h, z1 - z0); g.translate(0, PALLET_PAD.h / 2 - .005, 0);
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x8a8c90, roughness: .97 })); m.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2); m.receiveShadow = true; m.name = 'Pallet_Pad_PLACEHOLDER';
+  scene.add(m); cg3.pad = m; cg3.padBox = { x0: +x0.toFixed(2), x1: +x1.toFixed(2), z0: +z0.toFixed(2), z1: +z1.toFixed(2), h: PALLET_PAD.h };
+}
+buildCargoRoute(); buildCargoProps(); buildCargoRoad(); loadCargoArt(); cgPad();
+const launchEl = $('launchBtn'), storeEl = $('storeChip');
+for (const el of [launchEl, storeEl]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
+launchEl.addEventListener('click', (e) => { e.stopPropagation(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; } });
+const _sp = {};
+function cargoUI() {                  // Launch button (bottom-right of the safe band, Launch Pad only) and the Storage full chip (over the Refinery pallet)
+  const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen && !document.body.classList.contains('sheet-drag'), bd = band();
+  const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && canLaunch(t);
+  if (onPad) { const v = c.sh.hold * CG.boxValue; launchEl.querySelector('small').textContent = `${c.sh.hold}/${CG.holdCap} BOXES · +${fmt(v)}`;
+    launchEl.style.top = Math.round(bd.bot - launchEl.offsetHeight) + 'px'; }
+  launchEl.classList.toggle('on', onPad);
+  const full = live && S.site === REF && Math.abs(camX - RX) < 3 && c.ref.length >= CG.palletCap;
+  if (full && cg3.RC) { const p = toScreen(cg3.RC.pick.x, 2.6, cg3.RC.pick.z, camera, _sp), w = storeEl.offsetWidth || 120;
+    storeEl.style.left = Math.round(clamp(p.x - w / 2, bd.l - 22, W - w - 12)) + 'px'; storeEl.style.top = Math.round(clamp(p.y - 34, bd.top, bd.bot - 30)) + 'px'; }
+  storeEl.classList.toggle('on', !!full);
+}
 
 // ===== upgrade juice: spark burst (1 Points draw, ~0.5 s) + squash-and-bounce (~0.35 s)
 const SPK = 48, spkPos = new Float32Array(SPK * 3), spkVel = new Float32Array(SPK * 3);
@@ -1339,14 +1536,18 @@ function updConveyor() { const on = TS.ph === 'fill' && TS.fill < 1 && !sheetOpe
 // Tutorial calls ring until opened; story calls time out after 8 s and leave a missed-call badge. Motion constants mirror MOTION.md.
 const EVE_BEATS = [
   { id: 'mine_first_view', tut: true, point: 'deposit', lines: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",
-    "Tap the glowing deposit and the drill drops a rich load into the bed. Over."] },
+    "Tap the dark ore patch and the drill drops a rich load into the bed. Over."] },
   { id: 'first_deposit', tut: false, point: null, lines: ["Rich load, nice. Once that truck is full it hauls to the Refinery and pays as the bed tips. Over."] },
   { id: 'upgrade_ready', tut: true, point: 'upgrade', lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."] },
+  // Director 20:34: first launch only. Rings once the first flatbed trip (2 boxes) is in the hold and the tanks are full; points at Launch
+  { id: 'cargo_early', tut: true, point: 'launch', lines: ["Moonbase, Eve here. Your first He-3 boxes are in the ship's hold and the tanks are full.",
+    "Earth needs that shipment now. Don't wait for a full hold: tap Launch and send what's aboard. Over."] },
 ];
 const EVE_TRIG = {
   mine_first_view: () => S.site === MINE && coverGone && Math.abs(camX - MX) < 1,
   first_deposit: () => S.dep >= 1,
   upgrade_ready: () => S.dep >= 1 && canPay(drillCost()) && !sheetOpen,
+  cargo_early: () => S.cg.launches === 0 && S.cg.sh.hold >= CG.perTrip && canLaunch(),
 };
 const ECM = { toastIn: 420, tapOut: 160, typeStart: 420, charMs: 30, commaMs: 120, stopMs: 240, closeCrt: 120, closeSlide: 260, toastTimeout: 8000, rmFade: 150 };
 const ecRoot = $('ec'), ecToast = $('ecToast'), ecPanel = $('ecPanel'), ecTxt = $('ecTxt'), ecTx = $('ecTx'), ecBubble = $('ecBubble'), ecBadge = $('ecBadge');
@@ -1366,7 +1567,7 @@ function addCall(id, missed) { S.calls.unshift({ id, at: nowMs(), missed: !!miss
 function setMissed(n) { S.missed = n; ecBadge.dataset.count = n; ecBadge.textContent = n || '';
   const tb = ecPanel.querySelector('.ec-tab[data-tab="calls"] .ec-badge'); tb.dataset.count = n; tb.textContent = n || ''; }
 function renderTask() {
-  const g = !S.dep ? ['Send a rich load', 'Tap a glowing deposit', S.dep, 1] : S.loads < 3 ? ['Haul 3 loads to the Refinery', 'Loads delivered', S.loads, 3]
+  const g = !S.dep ? ['Send a rich load', 'Tap the dark ore patch', S.dep, 1] : S.loads < 3 ? ['Haul 3 loads to the Refinery', 'Loads delivered', S.loads, 3]
     : S.chute < 3 ? ['Upgrade the Chute Feed Rate to Lv 3', 'Chute level', S.chute, 3] : ["Fill the ship's tanks", 'Oxygen + methane loads', 0, 3];
   $('ecTask').innerHTML = `<div class="ec-kicker">CURRENT GOAL</div><div class="ec-goal">${esc(g[0])}</div><div class="ec-prog"><span>${esc(g[1])}</span><b>${Math.min(g[2], g[3])}/${g[3]}</b></div>`
     + `<div class="ec-bar"><i style="width:${Math.round(100 * Math.min(1, g[2] / g[3]))}%"></i></div><div class="ec-tip">A full truck leaves on its own. Rich loads tapped while it's away drop in when it's back.</div>`;
@@ -1397,8 +1598,17 @@ function ecAnswer(b = EC.ring) {
   if (b.tut && !S.eve.includes(b.id)) { S.eve.push(b.id); addCall(b.id, false); save(); window.__ps3d.eveShown = (window.__ps3d.eveShown || []).concat(b.id); }
   setTimeout(() => sayLine(EC.lines[0]), ecReduced() ? ECM.rmFade : ECM.typeStart);
 }
+// optional recorded line audio (text stays the call; no TTS): plays CFG.eveVoice.lines[beat][line] only if a file is listed there
+const EVA = { el: null };
+function eveVoiceStop() { if (EVA.el) { EVA.el.pause(); EVA.el.onended = EVA.el.onerror = null; EVA.el = null; musicDuck(false); } }
+function eveVoice(id, li) {
+  eveVoiceStop(); const f = ((CFG.eveVoice.lines || {})[id] || [])[li]; if (!f) return;
+  const a = new Audio(CFG.eveVoice.dir + f); a.volume = .9; EVA.el = a; musicDuck(true);
+  a.onended = a.onerror = () => { if (EVA.el === a) { EVA.el = null; musicDuck(false); } };
+  a.play().catch(() => { if (EVA.el === a) { EVA.el = null; musicDuck(false); } });
+}
 function sayLine(s) {
-  if (!EC.call || s == null) return; EC.full = s; ecTxt.textContent = ''; ecPanel.classList.remove('is-waiting');
+  if (!EC.call || s == null) return; EC.full = s; eveVoice(EC.call.id, EC.li); ecTxt.textContent = ''; ecPanel.classList.remove('is-waiting');
   if (ecReduced()) return lineDone();
   ecPanel.classList.add('is-talking'); ecTx.textContent = 'TRANSMITTING'; let i = 0;
   const step = () => { ecTxt.textContent = s.slice(0, ++i); if (i >= s.length) return lineDone(); const c = s[i - 1];
@@ -1407,7 +1617,7 @@ function sayLine(s) {
 }
 function lineDone() { clearTimeout(EC.typing); ecTxt.textContent = EC.full; ecPanel.classList.remove('is-talking'); ecPanel.classList.add('is-waiting'); ecTx.textContent = 'STANDING BY'; }
 function ecHangUp() {
-  const b = EC.call; clearTimeout(EC.typing); EC.call = null;
+  const b = EC.call; clearTimeout(EC.typing); EC.call = null; eveVoiceStop();
   ecPanel.classList.remove('is-talking', 'is-waiting'); ecPanel.classList.add('is-closing');
   setTimeout(() => { ecPanel.classList.remove('is-open'); ecPanel.classList.add('is-out'); }, 0);
   setTimeout(() => { if (!EC.call && !EC.ring) ecResetUI(); }, (ecReduced() ? ECM.rmFade : ECM.closeCrt + ECM.closeSlide) + 30);
@@ -1445,35 +1655,96 @@ function updViewShift() {
   window.__ps3d.viewShift = Math.round(VS.cur);
 }
 function updEve() {
+  if (EC.ring && EC.ring.id === 'cargo_early' && S.cg.launches > 0) { ecResetUI(); EC.ring = null; hudDim(false); if (!S.eve.includes('cargo_early')) S.eve.push('cargo_early'); save(); }   // shipped before the call was answered
   if (!EC.ring && !EC.call && !ecIsOpen()) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }
   let p = null;
   if (pointBeat && !pointerDone) {
     if (pointBeat === 'deposit' && S.site === MINE) { const d = deposits.find(d => !d.claimed); if (d) {
       const h = depTapR(d); p = _pt; p.x = h.x; p.l = 'TAP HERE'; p.up = true;
       const lim = nameEl.getBoundingClientRect().top - POINT_UP_H - 12; p.y = Math.min(h.y + h.glow + 6, lim); } }
+    if (pointBeat === 'launch') { if (S.cg.launches > 0) pointerDone = true; else if (launchEl.classList.contains('on')) { const r = launchEl.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 2; p.l = 'LAUNCH'; p.up = false; } }
     if (pointBeat === 'upgrade') { const r = grab.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 4; p.l = 'UPGRADE'; p.up = false; }
   }
   pointEl.style.display = p ? 'block' : 'none';
   if (p) { pointEl.style.left = p.x + 'px'; pointEl.style.top = p.y + 'px'; if (pointEl.firstChild.textContent !== p.l) pointEl.firstChild.textContent = p.l; if (pointEl._up !== p.up) { pointEl._up = p.up; pointEl.classList.toggle('up', p.up); } }
 }
 
+// ===== music (Director 20:35; tracks picked by Jacob 20:56, CC0, credits in audio/CREDITS.txt). Web Audio: unlocked on the first tap; each track is
+// a buffer loop (sample-exact, gapless: the mp3s are LAME-tagged so decodeAudioData trims encoder delay/padding), played for whole loops ≈ dwellSec
+// (2–3 min) and then crossfaded (xfadeSec) into the next; the list rotates and wraps. Only track 1 loads on the first tap; each next one loads while
+// the current one plays. Quiet under SFX/Eve audio (musicDuck), Settings ▸ Music on/off is saved, suspended while hidden. Empty list = silent.
+const MUS = { ctx: null, gain: null, bufs: [], cur: -1, v: null, switchAt: 0, loading: {}, ducked: false, err: [], started: false, plays: [] };
+const musTracks = () => (CFG.music.tracks || []).filter(Boolean);
+const musVol = () => (S.set.music === false ? 0 : CFG.music.vol * (MUS.ducked ? CFG.music.duckTo : 1));
+function musSetGain(sec = .25) { if (!MUS.gain) return; const g = MUS.gain.gain, t = MUS.ctx.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(musVol(), t + sec); }
+function musLoad(i) {
+  if (MUS.bufs[i] || MUS.loading[i]) return MUS.loading[i] || Promise.resolve(MUS.bufs[i]);
+  return MUS.loading[i] = (async () => { try { const r = await fetch(CFG.music.dir + musTracks()[i]); if (!r.ok) throw new Error('HTTP ' + r.status);
+    MUS.bufs[i] = await MUS.ctx.decodeAudioData(await r.arrayBuffer()); return MUS.bufs[i]; }
+    catch (e) { MUS.err.push(musTracks()[i]); console.warn('music: skipped', musTracks()[i], e.message); return null; } finally { MUS.loading[i] = null; } })();
+}
+const musLoops = (d) => Math.max(1, Math.round(CFG.music.dwellSec / d));     // whole loops ≈ dwellSec
+function musStart(i) {                // fade the current voice out and this one in over xfadeSec; the new one loops until its switch time
+  const C = MUS.ctx, b = MUS.bufs[i], t = C.currentTime + .03, xf = MUS.v ? CFG.music.xfadeSec : .05;
+  const src = C.createBufferSource(), g = C.createGain(); src.buffer = b; src.loop = true; src.connect(g); g.connect(MUS.gain);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + xf); src.start(t);
+  if (MUS.v) { const o = MUS.v; o.g.gain.cancelScheduledValues(t); o.g.gain.setValueAtTime(o.g.gain.value, t); o.g.gain.linearRampToValueAtTime(0, t + xf); o.src.stop(t + xf + .05); }
+  MUS.v = { src, g, i, t0: t }; MUS.cur = i; MUS.plays.push(musTracks()[i]); if (MUS.plays.length > 12) MUS.plays.shift();
+  MUS.switchAt = musTracks().length > 1 ? t + musLoops(b.duration) * b.duration - CFG.music.xfadeSec : Infinity;   // crossfade over the end of the last loop
+  const n = musTracks().length; if (n > 1) musLoad((i + 1) % n);           // lazy: the next track loads while this one plays
+}
+function musTick() {
+  if (!MUS.ctx || !MUS.v || MUS.ctx.state !== 'running' || MUS.ctx.currentTime < MUS.switchAt) return;
+  const n = musTracks().length; let j = (MUS.cur + 1) % n;
+  for (let k = 0; k < n && MUS.err.includes(musTracks()[j]); k++) j = (j + 1) % n;
+  if (j === MUS.cur) { MUS.switchAt = Infinity; return; }
+  if (MUS.bufs[j]) musStart(j); else { musLoad(j); MUS.switchAt += MUS.bufs[MUS.cur].duration; }   // not loaded yet: one more loop of the current track
+}
+setInterval(musTick, 250);
+async function musPlay(i) {
+  const n = musTracks().length;
+  for (let k = 0; k < n; k++) { const j = (i + k) % n, b = await musLoad(j); if (b) { musStart(j); return; } }
+}
+function musUnlock() {                // first tap anywhere: create/resume the context inside the gesture (iOS)
+  if (!musTracks().length || S.set.music === false || document.hidden) return;
+  try { if (!MUS.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; MUS.ctx = new AC(); MUS.gain = MUS.ctx.createGain(); MUS.gain.gain.value = 0; MUS.gain.connect(MUS.ctx.destination); }
+    if (MUS.ctx.state !== 'running') MUS.ctx.resume();
+    if (!MUS.started) { MUS.started = true; musPlay(0); } musSetGain(1.2); } catch (e) { console.warn('music unavailable', e.message); }
+}
+for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, musUnlock, { capture: true, passive: true });
+function musicDuck(on) { MUS.ducked = !!on; musSetGain(on ? .12 : .6); }   // SFX / Eve line audio call this
+function setMusic(on) { S.set.music = !!on; save(); if (on) musUnlock(); else if (MUS.ctx) { musSetGain(.2); setTimeout(() => { if (S.set.music === false && MUS.ctx) MUS.ctx.suspend(); }, 260); } renderSettings(); }
+document.addEventListener('visibilitychange', () => { if (!MUS.ctx) return; if (document.hidden) MUS.ctx.suspend(); else if (S.set.music !== false) { MUS.ctx.resume(); musSetGain(.6); } });
+addEventListener('pagehide', () => { if (MUS.ctx) MUS.ctx.suspend(); });
+// settings (gear under the Eve bubble): Music on/off
+const setBtn = $('setBtn'), setPop = $('setPop'), musTgl = $('musTgl');
+function renderSettings() { const on = S.set.music !== false; musTgl.setAttribute('aria-checked', on); musTgl.querySelector('b').textContent = on ? 'ON' : 'OFF';
+  $('musNote').textContent = musTracks().length ? '' : 'No tracks yet'; }
+for (const el of [setBtn, setPop]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
+setBtn.addEventListener('click', (e) => { e.stopPropagation(); renderSettings(); setPop.classList.toggle('on'); setBtn.setAttribute('aria-expanded', setPop.classList.contains('on')); });
+musTgl.addEventListener('click', (e) => { e.stopPropagation(); setMusic(S.set.music === false); });
+document.addEventListener('pointerdown', (e) => { if (setPop.classList.contains('on') && !e.target.closest('#setPop,#setBtn')) { setPop.classList.remove('on'); setBtn.setAttribute('aria-expanded', false); } });
+renderSettings();
+
 // ===== away catch-up: the truck loop is replayed from its timestamps; loads that tipped while away pay 50%, capped at 4 h
 const awayEl = $('away');
 $('awayOk').addEventListener('click', () => awayEl.classList.remove('on'));
 awayEl.addEventListener('pointerdown', (e) => e.stopPropagation());
 function catchUp(card) {
+  if (!RT.ready) { RT.card = RT.card || card; return 0; }             // B1: replayed once the marker route is final (routeReady)
   const now = nowMs(), el = (now - S.rt) / 1000;
   if (!(el > 0)) { S.rt = now; window.__ps3d.lastAway = { sec: Math.round(el), X: 0 }; return 0; }   // clock set backward: nothing
   const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
   S.rt = now; save();
   const X = acc.base + acc.rich + (acc.cargo || 0);
-  if (card && !acc.full && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t); catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }
+  if (card && !acc.full && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t);
+    const arm = () => { if (!coverGone) { catchUp.t = setTimeout(arm, 100); return; } catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }; arm(); }   // B9: 9 s counted from when the card can be seen
   window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, cargo: +(acc.cargo || 0).toFixed(2), full: acc.full };
   return X;
 }
 function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
-  if (document.hidden) return; const t = nowMs(); if (t < S.rt - 1000) { S.rt = t; return; }
+  if (document.hidden || !RT.ready) return; const t = nowMs(); if (t < S.rt - 1000) { S.rt = t; return; }
   if ((t - S.rt) / 1000 > 60) catchUp(true); else { settleTo(t, null); S.rt = t; }
 }
 for (const ev of ['resume', 'pageshow', 'focus']) (ev === 'resume' ? document : window).addEventListener(ev, resync);   // iOS freeze/thaw and bfcache restores
@@ -1491,7 +1762,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), document.hidden ? 0.1 : 0.25), gdt = dt * SPD; time += gdt; window.__ps3d.frames = (window.__ps3d.frames || 0) + 1;
   const now = nowMs();
   if (now < S.rt - 1000) S.rt = now;                              // clock went backward mid-session: credit nothing
-  if (!document.hidden) { if ((now - S.rt) / 1000 > 60) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
+  if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > 60) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
   updFocus(); updViewShift(); placeCamera();
   updCargo();
@@ -1503,7 +1774,7 @@ function frame() {
   updFillArc();
   updDeposits(gdt, time); updQueued(); updChunks(dt); updFx(dt); updTiers(dt);
   updEve(); updConveyor();
-  uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); }
+  uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
   renderer.render(scene, camera);
   if (DEV) {
@@ -1511,23 +1782,24 @@ function frame() {
     if (acc >= 0.5) { fps = frames / acc; hist.push([performance.now(), fps]); frames = 0; acc = 0;
       while (hist.length && performance.now() - hist[0][0] > 5000) hist.shift();
       const mn = Math.min(...hist.map(h => h[1]));
-      devEl.textContent = `${fps.toFixed(0)} fps · min5s ${mn.toFixed(0)} · ${renderer.info.render.calls} draws · ${(renderer.info.render.triangles / 1000).toFixed(1)}k tris · ${TS.ph}`;
+      devEl.textContent = `${fps.toFixed(0)}fps min${mn.toFixed(0)} · ${renderer.info.render.calls}dc · ${(renderer.info.render.triangles / 1000).toFixed(0)}k · ${TS.ph}`;
+      const tg = $('tag').getBoundingClientRect(); devEl.style.left = (tg.width ? tg.right + 6 : 10) + 'px';   // B10: sits right of the version tag, never over it
       Object.assign(window.__ps3d, { fps, min5: mn, calls: renderer.info.render.calls, tris: renderer.info.render.triangles });
     }
   }
 }
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS,
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
-  ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue,
+  ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); },
-  get cargo() { return cargoState(); }, shiftTk, cg3, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
+  get cargo() { return cargoState(); }, shiftTk, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return EVA.el ? EVA.el.src : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
   warpTo: (t) => { if (t > nowMs()) { if (HOLD !== null) HOLD = t; else WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } },
-  hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
+  hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
   get stationLoops() { return stationMixers.flatMap(m => m._actions.map(a => a.getClip().name + ':' + (a.loop === THREE.LoopPingPong ? 'pingpong' : a.loop === THREE.LoopRepeat ? 'repeat' : a.loop))); },
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
-buildRoute();
-if (hadRt) catchUp(true); else S.rt = nowMs();      // credit time away since the last save
+buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
+setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
 hud(); sheetUI();
 loadRig(); loadTruck(); loadOperator();
 frame();
