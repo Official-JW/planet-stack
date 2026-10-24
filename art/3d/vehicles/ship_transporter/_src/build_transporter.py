@@ -413,9 +413,9 @@ if SHOT != 'none':
     # fill light from the camera side so the shaded faces stay readable (no env map in game either)
     fl = bpy.data.lights.new('Fill', 'AREA'); fl.energy = 60000; fl.size = 60; fl.color = hexc('#c9d3e6')[:3]
     fo = bpy.data.objects.new('Fill', fl); coll('Stage').objects.link(fo); fo.location = (40, -70, 30); fo.rotation_euler = (Vector((0, 0, 8)) - fo.location).to_track_quat('-Z', 'Y').to_euler()
-    tgt = (0.5, 0, 16.0 if LOADED else 8.0)
+    tgt = (0.5, 0, 18.5 if LOADED else 13.0)
     name = f'st10{CON.lower()}_{"loaded" if LOADED else "empty"}'
     if SHOT == 'hero':
-        shoot(cam, os.path.join(OUT, f'{name}_hero_{W}x{H}.png'), tgt, (-58, -78, 30) if LOADED else (-50, -66, 22), W, H, lens=40 if LOADED else 38)
+        shoot(cam, os.path.join(OUT, f'{name}_hero_{W}x{H}.png'), tgt, (-62, -84, 31) if LOADED else (-60, -80, 25), W, H, lens=34)
     elif SHOT == 'side':
         shoot(cam, os.path.join(OUT, f'{name}_34_{W}x{H}.png'), tgt, (-52, -72, 26) if LOADED else (-46, -62, 20), W, H, lens=36)
