@@ -714,7 +714,191 @@
    }
   ],
   "per_box_s": 8,
-  "per_truck_s": 16
+  "per_truck_s": 16,
+  "truck_departs": "store: 0.4 s after box B reaches carry (t 10.95 of the pair); load: 0.4 s after the hook is back at carry over box B; see dwell"
+ },
+ "dwell": {
+  "source": {
+   "file": "qa3d-next/main.js",
+   "commit": "e69ef53",
+   "TV": {
+    "v": 8.33,
+    "ease": 3,
+    "brake": 4,
+    "settle": 0.4
+   },
+   "TURN_SPEED": 4,
+   "TURN_R_MAX": 25,
+   "TURN_ACC": 2.5,
+   "TURN_GAP": 22,
+   "PATH_STEP": 0.025,
+   "cargo": {
+    "perTrip": 2,
+    "refLoadSec": 6,
+    "padUnloadSec": 6,
+    "walkOutSec": 4,
+    "sealSec": 4,
+    "palletCap": 8
+   },
+   "ht04_trip_s": 56.62,
+   "ht04_trip_src": "window.__ps3d.route.tl.trip (playtest q982c3e3 logs; route code unchanged to e69ef53)",
+   "fillFloor": 15,
+   "route": {
+    "RX": 320,
+    "PX": 480,
+    "refLoad": 318,
+    "padUnload": 476.5,
+    "lane": 13,
+    "back": 22,
+    "padUturnX": 481,
+    "refUturnX": 295,
+    "turnR": 4.5
+   }
+  },
+  "truck": {
+   "v_mps": 8.33,
+   "brake_mps2": 2.5,
+   "accel_mps2": 2.5,
+   "brake_s": 3.332,
+   "brake_m": 13.878,
+   "brake_s_profile": 3.332,
+   "pull_away_s": 3.332,
+   "pull_away_m": 13.878,
+   "stop_settle_s": 0.4,
+   "depart_margin_s": 0.4,
+   "leg_ref_to_dock_s": 8.662,
+   "leg_dock_to_pad_s": 17.029,
+   "leg_ref_to_pad_no_stop_s": 22.36,
+   "stop_penalty_s": 3.332
+  },
+  "t_zero": "truck stopped at Truck_Stop_Dock; negative t = braking in",
+  "store": {
+   "case": "store (unload 2 boxes from FB-05 into Slot_N, Slot_N+1)",
+   "rows": [
+    {
+     "t": -3.332,
+     "what": "arrive: start braking 13.88 m before the stop, 8.33 -> 0 m/s at 2.5 m/s^2"
+    },
+    {
+     "t": 0,
+     "what": "stopped at Truck_Stop_Dock (362.4, 0, 13)"
+    },
+    {
+     "t": 0.4,
+     "what": "stop settle 0.4 s (TV.settle) done; Store_A_Slot_N starts"
+    },
+    {
+     "t": 2.35,
+     "what": "pick A (Bed_Slot_01)"
+    },
+    {
+     "t": 6.15,
+     "what": "set A in Slot_N"
+    },
+    {
+     "t": 8.4,
+     "what": "Store_A ends at rest; Store_B_Slot_N+1 starts"
+    },
+    {
+     "t": 10.35,
+     "what": "pick B (Bed_Slot_02): bed empty"
+    },
+    {
+     "t": 10.95,
+     "what": "box B at carry (base 4.5, clears the FB-05 cab 3.8)"
+    },
+    {
+     "t": 11.35,
+     "what": "depart margin 0.4 s done: pull-away starts"
+    },
+    {
+     "t": 14.682,
+     "what": "back at 8.33 m/s, 13.88 m past the stop"
+    },
+    {
+     "t": 16.4,
+     "what": "GC-1 back at rest (box B set in Slot_N+1 at 14.15); the truck does not wait for this"
+    }
+   ],
+   "stationary_s": 11.35,
+   "arrive_to_depart_s": 18.014,
+   "added_trip_time_s": 14.682,
+   "crane_busy_s": 16.4
+  },
+  "load": {
+   "case": "load (2 boxes from Slot_N, Slot_N-1 onto the empty FB-05)",
+   "rows": [
+    {
+     "t": -3.332,
+     "what": "arrive: start braking 13.88 m before the stop"
+    },
+    {
+     "t": 0,
+     "what": "stopped at Truck_Stop_Dock"
+    },
+    {
+     "t": 0.4,
+     "what": "stop settle 0.4 s done; Load_A_Slot_N starts (crane at rest until the truck has stopped)"
+    },
+    {
+     "t": 6.15,
+     "what": "set A on Bed_Slot_01"
+    },
+    {
+     "t": 8.4,
+     "what": "Load_A ends; Load_B_Slot_N-1 starts"
+    },
+    {
+     "t": 14.15,
+     "what": "set B on Bed_Slot_02: bed full"
+    },
+    {
+     "t": 14.75,
+     "what": "hook back at carry (6.0, 2.6 m over the box tops)"
+    },
+    {
+     "t": 15.15,
+     "what": "depart margin 0.4 s done: pull-away starts"
+    },
+    {
+     "t": 16.4,
+     "what": "GC-1 back at rest"
+    },
+    {
+     "t": 18.482,
+     "what": "back at 8.33 m/s"
+    }
+   ],
+   "stationary_s": 15.15,
+   "arrive_to_depart_s": 21.814,
+   "added_trip_time_s": 18.482,
+   "crane_busy_s": 16.4
+  },
+  "throughput": {
+   "crane_boxes_per_min": 7.5,
+   "crane_s_per_box": 8,
+   "crane_s_per_truck": 16,
+   "mining_box_supply_max_per_min": 0.84,
+   "mining_box_supply_hard_cap_per_min": 1.06,
+   "hard_cap_rule": "even with a zero fill (deposit taps) one HT-04 cannot dump more than once per 56.62 s trip",
+   "mining_rule": "1 sealed box per HT-04 dump; fastest dump gap = fill floor 15 s (Chute Lv11) + trip 56.62 s = 71.62 s",
+   "crane_headroom_x": 8.95,
+   "crane_headroom_vs_hard_cap_x": 7.08,
+   "crane_utilisation_at_max_supply": 0.112,
+   "fb05_loop_no_dock_s": 87.77,
+   "fb05_loop_with_store_s": 102.45,
+   "two_box_supply_gap_s": 143.24,
+   "verdict": "GC-1 never halts mining before storage is full: it moves 7.5 boxes/min against at most 0.84 boxes/min supplied, and a store stop keeps the FB-05 loop under the 2-box supply gap, so the Refinery pallet (cap 8) does not back up because of the dock. Mining stops only when the 20 slots are full and the pad/hold cannot take more."
+  }
+ },
+ "approved": {
+  "by": "Director",
+  "at": "10/24 14:25",
+  "items": [
+   "Truck_Stop_Dock world (362.4, 0, 13)",
+   "raised GC-1 runway cantilevered over the loaded lane",
+   "GC-1 peak speeds (bridge 12.9 m/s, hook 12 m/s)"
+  ]
  },
  "road": {
   "band_world_z": [

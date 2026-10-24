@@ -2,6 +2,8 @@
 
 Jacob's change (relayed by Director, 10/24 1:45 PM): all 20 Lv1 boxes are stored under the main dock hall's big gantry crane (GC-1), and that crane moves the **real CargoBox** between the FB-05 flatbed at the dock truck stop and the slots, both ways. SC-1 and the side apron go unless needed. They are not needed, so both are retired.
 
+**Director approved (10/24 2:25 PM):** the stop at world (362.4, 0, 13), the raised GC-1 runway over the loaded lane, and the GC-1 peak speeds. The exact FB-05 dwell is in `SPEC_GC1.md` (Dwell) and the JSON `dwell`: store 11.35 s standing / 18.01 s arrive→depart, load 15.15 s / 21.81 s. GC-1 moves 7.5 boxes/min against ≤ 0.84 boxes/min of mining supply.
+
 Everything else stays as in v3 (cae8f39): dock at world x 360 (origin 360, 0, -8), Launch Pad at 457, camera ct (369.5, 1.5, 8.6) frame_w 48, tank farm behind the hall.
 
 ## Reach answer (does GC-1 reach the truck stop at world 386.5, 0, 13?)
@@ -27,13 +29,14 @@ Options checked:
 | File | What |
 |---|---|
 | `cargo_dock_overhead_v4.glb` | dock GLB v4, md5 see the commit report / `cargo_dock_slots_lv1_v4.json` `dock_glb_md5` |
-| `cargo_dock_slots_lv1_v4.json` | 20 slots (local + world), stop, picks, rig, clip table, timeline, road, verify results |
+| `cargo_dock_slots_lv1_v4.json` | 20 slots (local + world), stop, picks, rig, clip table, timeline, **dwell + throughput**, road, verify results |
 | `SPEC_GC1.md` | GC-1 rig, runway, the 80 clips (timings + easing), limits checked, Lv5 stub |
 | `verify_v4.json` | full output of `_src/verify_v4.mjs` |
 | `cargo_dock_v4_375x667@2x.png`, `cargo_dock_v4_393x852@3x.png` | **queued, not rendered yet** (box held for the crew GLB, 10/24 2:23 PM). Game-camera stills: 18 stored, Store_A_Slot_19 mid-travel, B still on the bed |
 | `gc1_pick_travel_set_strip_375x667@2x.png` | **queued**. Store_A_Slot_19 at t 1.40 / 1.95 / 2.55 / 3.85 / 5.75 / 6.35, full res |
 | `_src/overhead_dock.mjs` | builds v4 from `../layout_v3/cargo_dock_compact_v3.glb` (9fb1ddbe) |
 | `_src/v4_layout.mjs` | all v4 numbers (rig, runway, slots, clip keys) shared by builder / JSON / verifier |
+| `_src/dwell_v4.mjs` | FB-05 dwell + throughput from the game's own flatbed kinematics (imported by make_slots_v4) |
 | `_src/make_slots_v4.mjs`, `_src/verify_v4.mjs`, `_src/render_v4.sh`, `_src/index_v4.html`, `_src/compose_v4.py` | slots JSON, checks, stills |
 
 Build: `node _src/overhead_dock.mjs ../layout_v3/cargo_dock_compact_v3.glb cargo_dock_overhead_v4.glb` (gltf-transform + meshoptimizer; `_src/node_modules` → `/home/box/apps/gltftools/node_modules`).

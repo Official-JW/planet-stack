@@ -1,5 +1,5 @@
 // write cargo_dock_slots_lv1_v4.json (20 slots under the GC-1 runway, stop, picks, rig, clips, timeline). usage: node make_slots_v4.mjs DOCK_V4.glb OUT.json [verify.json]
-import fs from 'fs'; import crypto from 'crypto';
+import fs from 'fs'; import crypto from 'crypto'; import { dwell } from './dwell_v4.mjs';
 import { RIG, RUNWAY, COLS, STOP, PICKS, SLOTS, CLIPS, KT, SEGMENTS, EVENTS, DOCK_WORLD, TIER03, ROWS, BLOCK_X, TIER_Y } from './v4_layout.mjs';
 const [,, GLB, OUT, VER] = process.argv; const md5 = crypto.createHash('md5').update(fs.readFileSync(GLB)).digest('hex');
 const W = p => [+(p[0] + DOCK_WORLD[0]).toFixed(3), +(p[1] + DOCK_WORLD[1]).toFixed(3), +(p[2] + DOCK_WORLD[2]).toFixed(3)];
@@ -22,7 +22,8 @@ const out = {
     easing: 'smoothstep (3s^2 - 2s^3) per segment; baked as CUBICSPLINE with zero tangents (exact smoothstep)', key_times: KT, events: EVENTS, segments: seg,
     heights: { rest_hook_y: RIG.hook_rest, carry_hook_y: RIG.carry, carry_box_base_y: RIG.carry - 1.5, pick_hook_y: PICKS.A.hook[1], slot_hook_y: TIER_Y.map(y => y + 1.5) },
     box_rule: 't < 1.95: box on the bed (Store) or in the slot (Load); 1.95..5.75: child of Hook_Attach at (0,-1.5,0); >= 5.75: in the slot (Store) or on the bed (Load)' },
-  timeline: { unload_truck: [{ clip: 'Store_A_Slot_NN', t: [0, 8] }, { clip: 'Store_B_Slot_NN+1', t: [8, 16] }], load_truck: [{ clip: 'Load_A_Slot_NN', t: [0, 8] }, { clip: 'Load_B_Slot_NN-1', t: [8, 16] }], per_box_s: 8, per_truck_s: 16 },
+  timeline: { unload_truck: [{ clip: 'Store_A_Slot_NN', t: [0, 8] }, { clip: 'Store_B_Slot_NN+1', t: [8, 16] }], load_truck: [{ clip: 'Load_A_Slot_NN', t: [0, 8] }, { clip: 'Load_B_Slot_NN-1', t: [8, 16] }], per_box_s: 8, per_truck_s: 16, truck_departs: 'store: 0.4 s after box B reaches carry (t 10.95 of the pair); load: 0.4 s after the hook is back at carry over box B; see dwell' },
+  dwell: dwell(), approved: { by: 'Director', at: '10/24 14:25', items: ['Truck_Stop_Dock world (362.4, 0, 13)', 'raised GC-1 runway cantilevered over the loaded lane', 'GC-1 peak speeds (bridge 12.9 m/s, hook 12 m/s)'] },
   road: { band_world_z: [10.2, 24.8], clear_strip_world_z_max: 9.2, ground_geometry_in_band: false, overhead: 'runway beams + knee braces cantilever over the loaded lane at >= ' + (V ? V.road.static_surface_min_y_at_z_gt_17_2 : '?') + ' m (accepted precedent: SC-1 jib >= 6.3 m, refinery bridge)' },
   tier03: { note: 'Lv3 extra containers moved to the ground in the freed right area (v3 they topped the removed Lv1 stacks)', centres_local_xz: TIER03 },
   retired: { SC1_storage_crane: 'not needed (GC-1 does all moves); storage_crane.glb kept in repo for reference', side_apron: 'removed', generic_container_stacks_lv1: 'removed', crane_gantry_move: 'removed (GC-1 legs/ground rails gone)' },

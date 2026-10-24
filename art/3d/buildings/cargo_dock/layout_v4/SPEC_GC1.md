@@ -47,7 +47,54 @@ Names are `Store_{A|B}_Slot_NN` (bed → slot) and `Load_{A|B}_Slot_NN` (slot �
 
 Box rule for the game: before 1.95 the box sits at the start (bed for Store, slot for Load). From 1.95 to 5.75 it is a child of Hook_Attach at (0,-1.5,0). From 5.75 it sits at the target. One truck (2 boxes) = Store_A_Slot_N then Store_B_Slot_N+1 = 16 s. Loading out is the reverse: Load_A_Slot_N then Load_B_Slot_N-1 (LIFO).
 
-Peak speeds with these timings (smoothstep peak = 1.5 × distance / time): bridge up to 12.9 m/s on the rest→stop approach, 9.9 m/s on the longest travel (z 21 → 3.8); hook up to 12 m/s on a tier-1 set. That reads arcade-fast. If it looks too quick in game, play the clips with `timeScale` < 1 (events scale with it) rather than re-baking.
+Peak speeds with these timings (smoothstep peak = 1.5 × distance / time): bridge up to 12.9 m/s on the rest→stop approach, 9.9 m/s on the longest travel (z 21 → 3.8); hook up to 12 m/s on a tier-1 set. **Director approved these speeds (10/24 2:25 PM)**, together with the stop at (362.4, 0, 13) and the raised runway. The dwell table above uses timeScale 1. A slower `timeScale` would stretch every crane time in it by 1/timeScale.
+
+## Dwell at the dock stop (FB-05 arrive → depart), exact
+Truck numbers come from the game's own flatbed code (`qa3d-next/main.js` e69ef53: `TV`, `TURN_ACC`, `kin()`), re-run by `_src/dwell_v4.mjs` on the real route (Refinery load x 318 → dock stop x 362.4 → pad unload x 476.5, lane z 13). They are not estimates. FB-05 brakes and pulls away at **2.5 m/s²** from **8.33 m/s**, so the brake-in is **3.332 s over 13.878 m** and the pull-away is the same. It is at full speed when it reaches x 362.4 (cruise from x 331.9). The stop margins use the game's own `TV.settle` = 0.4 s: the crane starts 0.4 s after the truck stops, and the truck leaves 0.4 s after its last bed contact is clear (hook or box back at carry height). The JSON copy is `cargo_dock_slots_lv1_v4.json` → `dwell`.
+
+t = 0 is the truck stopped at `Truck_Stop_Dock`; negative t is braking in.
+
+**Store (2 boxes, bed → Slot_N, Slot_N+1)**
+
+| t (s) | event |
+|---|---|
+| -3.332 | arrive: start braking 13.88 m before the stop, 8.33 -> 0 m/s at 2.5 m/s^2 |
+| 0.000 | stopped at Truck_Stop_Dock (362.4, 0, 13) |
+| 0.400 | stop settle 0.4 s (TV.settle) done; Store_A_Slot_N starts |
+| 2.350 | pick A (Bed_Slot_01) |
+| 6.150 | set A in Slot_N |
+| 8.400 | Store_A ends at rest; Store_B_Slot_N+1 starts |
+| 10.350 | pick B (Bed_Slot_02): bed empty |
+| 10.950 | box B at carry (base 4.5, clears the FB-05 cab 3.8) |
+| 11.350 | depart margin 0.4 s done: pull-away starts |
+| 14.682 | back at 8.33 m/s, 13.88 m past the stop |
+| 16.400 | GC-1 back at rest (box B set in Slot_N+1 at 14.15); the truck does not wait for this |
+
+**Load (2 boxes, Slot_N, Slot_N-1 → empty bed)**
+
+| t (s) | event |
+|---|---|
+| -3.332 | arrive: start braking 13.88 m before the stop |
+| 0.000 | stopped at Truck_Stop_Dock |
+| 0.400 | stop settle 0.4 s done; Load_A_Slot_N starts (crane at rest until the truck has stopped) |
+| 6.150 | set A on Bed_Slot_01 |
+| 8.400 | Load_A ends; Load_B_Slot_N-1 starts |
+| 14.150 | set B on Bed_Slot_02: bed full |
+| 14.750 | hook back at carry (6.0, 2.6 m over the box tops) |
+| 15.150 | depart margin 0.4 s done: pull-away starts |
+| 16.400 | GC-1 back at rest |
+| 18.482 | back at 8.33 m/s |
+
+| | store | load |
+|---|---|---|
+| standing still at the stop | **11.35 s** | **15.15 s** |
+| arrive → depart (brake-in start → back at 8.33 m/s) | **18.014 s** | **21.814 s** |
+| added to the FB-05 trip vs driving past (the same 27.76 m takes 3.332 s at 8.33 m/s) | 14.682 s | 18.482 s |
+| GC-1 busy (settle + 2 clips) | 16.4 s | 16.4 s |
+
+Legs: Refinery → dock 8.662 s, dock → pad 17.029 s, vs 22.36 s straight through (the stop costs 3.332 s of driving plus the standing time). In a store, the truck leaves before GC-1 has set box B (set at 14.15, crane at rest at 16.4). Nothing else uses the bed, so the truck never waits on that.
+
+**Throughput.** GC-1 moves **7.5 boxes/min** (8 s per box, 16 s per 2-box truck), in both directions. Mining supplies at most **0.84 boxes/min** (1 sealed box per HT-04 dump; fastest dump gap = fill floor 15 s (Chute Lv11) + trip 56.62 s = 71.62 s). Even with a zero fill time the cap is 1.06 boxes/min, one dump per HT-04 trip. That gives GC-1 **8.95× headroom** (7.08× against the hard cap), so it is busy at most 11.2% of the time. With a store stop, the FB-05 loop is 87.77 → 102.45 s, still well under the 143.24 s it takes mining to make the next 2 boxes, so the Refinery pallet (cap 8) never backs up because of the dock. **GC-1 is never what halts mining.** Mining stops only when the 20 slots are really full (and the pad side cannot take boxes). Loop figure: 2 × 6 s Refinery load + drive out + 4 s walk-out + 2 × 6 s pad unload + drive back, from the live cargo constants.
 
 ## Limits checked (`_src/verify_v4.mjs`, three.js playback of all 80 clips at 60 Hz)
 - Hook_Attach error at the pick and set events (and the hold edges): **max 3.8e-7 m** (< 1e-6, same limit as SC-1). Box yaw 0° (no rotation channels).
