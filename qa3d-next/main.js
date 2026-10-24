@@ -214,6 +214,7 @@ const CAM_OVERRIDE = {
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
+  '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (480, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
   '93c44166': { glb: 'refinery d6389a7 (re-keyed from b45b4649, same 3c5e6f8 framing)', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },
@@ -390,7 +391,7 @@ $('coverRetry').addEventListener('click', () => {
 // ===== HT-04 haul truck prop (Art c0452bd, md5 16eccb4d…): root 'Truck' at the ground centre, +X forward at yaw 0; world-space object
 let truck = null, truckRoot = null, truckDone = false, tMixer = null, fillArcNode = null;
 const tActs = {}, wheels = [], fillMeshes = [];
-function loadTruck() { loader.load('../qa3d-next/models/ht04_4222799b.glb?v=4222799b', (gltf) => {
+function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe624e', (gltf) => {
   truckRoot = gltf.scene; truck = truckRoot.getObjectByName('Truck') || truckRoot;
   truckRoot.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     if (o.morphTargetDictionary && 'fill' in o.morphTargetDictionary) fillMeshes.push([o, o.morphTargetDictionary.fill]); } });
@@ -1346,24 +1347,8 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (480, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../qa3d-next/models/launch_pad_0a5806f4.glb?v=0a5806f4';   // Art 97763ba (Director-cleared): detailed starter ship; shipTint turns itself off (gated on 816f18f3)
+const PAD_GLB = '../qa3d-next/models/launch_pad_82131aba.glb?v=82131aba';   // Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
 //   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
-// Director 10/24 00:00 stopgap: Art's gray ship massing (LP_ShipPlaceholder #8a8d94 baked into COLOR_0) reads near-black on the shaded side with no env light.
-// One-time at load, ship meshes only (Ship_Placeholder + Cargo_Door): COLOR_0 texels matching #8a8d94 (linear, ±0.012) → #d9dcdf; LP_Graphite trim and
-// everything else untouched. Gated on the pad GLB version (?v= md5 prefix, same key as CAM_OVERRIDE/camOvFor): only 816f18f3, so Art's real ship GLB turns it off.
-const SHIP_TINT = { v: '816f18f3', from: new THREE.Color(0x8a8d94), to: new THREE.Color(0xd9dcdf), tol: 0.012 };
-function shipTint(rig) {
-  const ov = /[?&]v=([0-9a-f]{8})/.exec(PAD_GLB), R = window.__ps3d.shipTint = { on: !!ov && ov[1] === SHIP_TINT.v, meshes: 0, changed: 0, total: 0 };
-  if (!R.on) return R;
-  const F = SHIP_TINT.from, T = SHIP_TINT.to, tol = SHIP_TINT.tol;
-  for (const n of ['Ship_Placeholder', 'Cargo_Door']) { const root = rig.getObjectByName(n); if (!root) continue;
-    root.traverse(m => { if (!m.isMesh || !m.geometry.attributes.color) return;
-      m.geometry = m.geometry.clone();                                   // never write into a geometry/attribute another mesh might share
-      const c = m.geometry.attributes.color; R.meshes++; R.total += c.count;
-      for (let i = 0; i < c.count; i++) if (Math.abs(c.getX(i) - F.r) <= tol && Math.abs(c.getY(i) - F.g) <= tol && Math.abs(c.getZ(i) - F.b) <= tol) { c.setXYZ(i, T.r, T.g, T.b); R.changed++; }
-      c.needsUpdate = true; }); }
-  return R;
-}
 function padLoaded(g) {
   const o = g.scene; o.name = 'LaunchPad_Art'; o.position.set(PX, 0, 0);
   o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
@@ -1374,7 +1359,6 @@ function padLoaded(g) {
   const hull = o.getObjectByName('Ship_Placeholder'), rig = new THREE.Group(); rig.name = 'Ship_Rig'; rig.position.copy(hull.position); o.add(rig); rig.updateMatrixWorld(true);
   for (const n of ['Ship_Placeholder', 'Cargo_Door', 'Hold_Door', ...Array.from({ length: CG.holdCap }, (_, i) => 'Hold_' + String(i + 1).padStart(2, '0'))]) rig.attach(o.getObjectByName(n));
   rig.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
-  shipTint(rig);
   const crane = o.getObjectByName('Crane'); crane.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   for (const n of ['Slew', 'Trolley', 'Hoist', 'Hook']) { const j = crane.getObjectByName(n); j.userData.q0 = j.quaternion.clone(); }
   // swap the gray placeholder group (slab, bay, crane, ship, gauge) out
