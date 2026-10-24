@@ -4,27 +4,30 @@ blender -b -P build_launch_pad.py -- --out .. [--quick 1] [--only blend,glb,chec
        [--pw 1179 --ph 2556] [--tiers 1] [--hs 64] [--ts 48] [--hc x,y,z,tx,ty,tz] [--lens 28] [--pcam x,y,z,W] [--tris 27000]
 
 Lv0 = NO launch tower (the tower is Lv1). Blender coords: Z up, metres, front = -Y (toward the game camera).
-Exported GLB: Y up, front +Z, origin = pad centre on the ground (glTF = (x, z, -y)).
+Exported GLB: Y up, front +Z, origin = station origin on the ground (glTF = (x, z, -y)). Layout 10/23 21:20 (Jacob): the pad is
+built around its own centre and moved 13 m north, so the PAD CENTRE / ship axis is at pad-local glTF (0, 0, -13) = world (480, 0, -13);
+the flatbed road (world z 10.2-24.8, to x 481) and the U-turn stay on plain ground >= 1 m clear of every pad mesh (the truck never drives on the pad).
 Style: Mine concept B (glossy white + graphite, cyan light strips, weathered + dusty). Shared helpers + shared M_ground from
 art/3d/mine_concepts/_src/mc_common.py by import (NOT modified); prop mesh builder from art/3d/props/_shared_src/propgeo.py (NOT modified).
 Fuel = LOX + LCH4 (liquid methane) only. Station order (qa3d): Refinery on the LEFT (-X), Cargo Space Dock on the RIGHT (+X).
 Systems (collection 'Mine' = exported building; 'Stage' = renders only). World placement: qa3d/main.js puts station i at (i * 160, 0, 0);
 Takeoff & Landing is i = 3, so world = pad-local glTF + (480, 0, 0) (no rotation); Blender y = -glTF z.
   * sintered landing pad r 14 m + sintered service apron to r 21 m
-  * blast berm r 22-29 m, 3.4 m high, precast sintered retaining blocks, 100 deg opening at the front-left (192-292 deg) for the lanes
-  * station lanes (Director layout 10/23 20:34, shared haul-road cross-section): eastbound world z 13 (into the pad, +X) and westbound
-    world z 22 (-X), x -48 .. +1 (world 432 .. 481), joined by a right-hand U-turn r 4.5 about (x 1, z 17.5); FB-05 stops at Truck_Stop
-  * pad crane PC-1 at pad-local (x -7, z 5): hammerhead tower crane, one skinned mesh, joints Crane_Base / Slew / Trolley / Hoist / Hook
+  * blast berm r 22-29 m, 3.4 m high, precast sintered retaining blocks, 120 deg opening on the road side (210-330 deg)
+  * station lanes (Director layout 10/23 20:34, shared haul-road cross-section): eastbound world z 13 (+X) and westbound
+    world z 22 (-X), x -48 .. +1 (world 432 .. 481), joined by a right-hand U-turn r 4.5 about (x 1, z 17.5) (node Road_UTurn, road not pad);
+    FB-05 stops at Truck_Stop (world 476.5, z 13) on road ground beside the pad
+  * pad crane PC-1 at pad-local (x 0.6, z 7) (roadside apron, 20 m south of the ship axis, free 360 deg slew): hammerhead tower crane, one skinned mesh, joints Crane_Base / Slew / Trolley / Hoist / Hook
     (RC-1 convention, code-drivable; proof clips crane_lift / crane_swing / crane_lower / crane_lift_bay / crane_swing_hold / crane_lower_hold)
-  * cargo bay CB-1: 12 slots (Bay_Slot_01..12) for the 3 x 2.4 x 2.4 m HELIUM-3 crate; Drop_Point / Pick_Point_Bay in the bay,
+  * cargo bay CB-1: 12 slots (Bay_Slot_01..12, 0.3 m apart) for the 2.3 x 1.3 x 1.5 m cargo_box, at the roadside edge of the pad; Drop_Point / Pick_Point_Bay in the bay,
     Pick_Point (+ Pick_Point_02) on the parked FB-05. Boxes go FB-05 -> bay -> ship cargo-door shelf (Hold_Door) -> hold (Hold_01..10)
   * stand-alone white frosted cryo tanks on the apron: LOX (green bands) and LCH4 · LIQUID METHANE (red-orange bands). No LH2.
   * flexible fuel hoses Hose_LOX / Hose_LCH4 on hose stands from the tank fill valves to the ship's tail fuel ports (Fuel_Hookup)
   * the pad end of the BURIED Pipe_LaunchPad line from the Dock (+X): valve vault VV-1 riser / manifold = Pipe_LaunchPad_End
   * GRAY placeholder ship in the game GLB (starter-ship massing: 40.25 m, 8 m dia, 6 legs, 4 bells, caged crew ladder (no ramp),
-    mid-hull cargo door Cargo_Door with clips cargo_door_open / cargo_door_close, hold Hold_01..10; fuel at the bottom)
+    mid-hull cargo door Cargo_Door with clips cargo_door_open / cargo_door_close, hold Hold_01..10 = 2 decks of 5; fuel at the bottom)
   * power: solar mast SOL-1 behind the berm + PWR-01 junction + distant fission plant behind its own berm (Stage)
-Tiers (extras {tier, hidden_by_default}): Tier_03 cargo pallet + cargo lift (behind the bay), Tier_05 solar mast SOL-2,
+Tiers (extras {tier, hidden_by_default}): Tier_03 cargo pallet + cargo lift (west apron), Tier_05 solar mast SOL-2,
 Tier_08 fuel-transfer pump skid P-2, Tier_12 pad edge lights, Tier_20 landing radar / comms mast LR-1.
 """
 import sys, os, math, random, json
@@ -52,7 +55,7 @@ GAME_NAMES = {
     # in-game phone camera (Game Coder spec): perspective, VERTICAL FOV 38 deg, pitched down 18 deg, no azimuth (camera on -Y looking +Y,
     # glTF looks down -Z), lookAt(Cam_Target); d = (frame_w/2) / (tan19 * aspect). Game Coder safe bands: 393x852 x 12-381, y 144-568
     # (sheet top 602); 375x667 x 12-363, y 144-383 (sheet top 417). 'target' in Blender coords.
-    'phone_cam': {'target': (-3.0, -4.0, 1.4), 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 80.0},
+    'phone_cam': {'target': (-2.0, 8.0, 4.0), 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 80.0},
 }
 SAFE = {(393, 852): (12, 381, 144, 568), (375, 667): (12, 363, 144, 383)}
 _pc = A.get('pcam')   # --pcam x,y,z,W : framing override while tuning
@@ -284,7 +287,7 @@ def wrap_text(o, cx, cy, R):
 
 # ====================================================================== STAGE (shared mc_common stage + shared M_ground, unmodified)
 RXr, RYr = -84.0, 70.0           # distant fission plant (Stage)
-height = build_stage(keep_flat=((0, 0, 44), (0, 0, 44), (RXr, RYr, 24), (RXr, RYr, 24), (-16, 30, 14), (-34, -17.5, 16), (-50, -17.5, 16), (-62, -17.5, 12)))
+height = build_stage(keep_flat=((0, 0, 44), (0, 0, 44), (RXr, RYr, 24), (RXr, RYr, 24), (-16, 30, 14), (-34, -30.5, 16), (-50, -30.5, 16), (-62, -30.5, 12), (-14, -30.5, 14), (6, -30.5, 12)))
 def gz(x, y): return height(x, y)
 def _ridge(x, y, o):
     return (1 - abs(noise.noise(Vector((x, y, o))))) ** 2
@@ -309,18 +312,22 @@ if _bm:
 
 # ====================================================================== PAD r 14 (40 m ship, legs to r 8.2) + service apron to r 21
 PAD_R = 14.0; TOP = 0.25; S = PAD_R / 10.8; APR = 21.0
+SHIFT = 13.0     # Jacob 10/23 21:20: the pad sits fully NORTH of the flatbed road. Built around the pad centre, then moved +13 m in Blender y,
+                 # so the pad centre ends at pad-local glTF (0, 0, -13) = world (480, 0, -13). Road lanes stay at world z 13 / 22.
+GAP_ROAD = 1.0   # min plain ground between the road toes / U-turn and any pad mesh
 # station truck lanes (shared road convention): Blender y = -glTF z. Inbound y -9 (+X), return y 0 (-X), U-turn about U_C (r 4.5)
 # world = pad-local glTF + (480, 0, 0): qa3d/main.js places station i at (i * GAP, 0, 0), GAP 160, Takeoff & Landing = index 3
 LANE_X0, U_X, U_R = -48.0, 1.0, 4.5            # stubs x -48 (world 432 = 54 x 8 m) .. x 1 (world 481), then the U-turn east of x 1
-LANES = [('eastbound', -13.0), ('westbound', -22.0)]   # Blender y = -glTF z: glTF z 13 (into the pad, +X) and z 22 (out, -X)
-U_C = Vector((U_X, -17.5, 0.0))
-BAY_X0, BAY_X1, BAY_Y0, BAY_Y1 = -21.2, -9.4, -9.7, 3.1      # cargo bay CB-1 slab (12 slots, see CARGO BAY below)
+LANES = [('eastbound', -13.0 - SHIFT), ('westbound', -22.0 - SHIFT)]   # pad frame; final Blender y -13 / -22 = world z 13 (+X) / 22 (-X)
+U_C = Vector((U_X, -17.5 - SHIFT, 0.0))
+BAY_X0, BAY_X1, BAY_Y0, BAY_Y1 = -14.2, -3.2, -22.1, -13.9      # pad frame; final y -9.1 .. -0.9 (roadside edge, 1.1 m off the road toe)      # cargo bay CB-1 slab (12 slots, see CARGO BAY below)
 BAY_Z = 0.30
-CORR_Y0, CORR_Y1 = -24.8, -10.2          # flatbed road toe-to-toe (world z 10.2 .. 24.8); the shared road tiles run to x 1 (world 481)
+CORR_Y0, CORR_Y1 = -24.8 - SHIFT, -10.2 - SHIFT   # pad frame: flatbed road toe-to-toe (world z 10.2 .. 24.8); road tiles run to x 1 (world 481)
 CORR_UR = U_R + 2.8                      # U-turn outer toe radius about U_C
 def in_corr(x, y, m=0.0):
     if x <= U_X + m and CORR_Y0 - m <= y <= CORR_Y1 + m: return True
     return x >= U_X and math.hypot(x - U_C.x, y - U_C.y) <= CORR_UR + m
+def in_corr_w(x, y, m=0.0): return in_corr(x, y - SHIFT, m)      # same test in the final (shifted) frame
 def on_road(x, y, m=0.3):
     # lanes, U-turn or the bay slab: rim tiles / edge lights skip these
     if BAY_X0 - m <= x <= BAY_X1 + m and BAY_Y0 - m <= y <= BAY_Y1 + m: return True
@@ -348,7 +355,7 @@ for k in range(12):
     box('target_tick', (0.9 * S, 0.14 * S, 0.008), (7.6 * S * math.cos(a), 7.6 * S * math.sin(a), Z), PAINT, rot=(0, 0, a), bevel=0)
 text('stencil_pad', 'PAD-01', (0, -7.25, Z + 0.002), (0, 0, 0), 1.0 * S, PAINT, extrude=0.002)   # inside the 8.2 m ring (road cut starts at y -10.2)
 text('stencil_pad_b', 'PAD-01', (0, 7.75 * S, Z + 0.002), (0, 0, math.pi), 1.25 * S, PAINT, extrude=0.002)
-annulus('pad_strip', PAD_R - 1.2, PAD_R - 1.0, TOP + 0.005, CYAN, segs=192, a0=math.radians(-58), a1=math.radians(234))   # gap under the lanes
+annulus('pad_strip', PAD_R - 1.2, PAD_R - 1.0, TOP + 0.005, CYAN, segs=192)
 for k in range(64):
     a = TAU * (k + 0.5) / 64
     if on_road((PAD_R + 0.05) * math.cos(a), (PAD_R + 0.05) * math.sin(a), 0.8): continue
@@ -359,9 +366,9 @@ for k in range(4):
 # apron joint lines (sintered slabs)
 for k in range(24):
     a = TAU * k / 24
-    if math.radians(150) < a < math.radians(310): continue      # cargo bay / truck lanes / U-turn
+    if math.radians(220) < a < math.radians(300): continue      # cargo bay + crane on the roadside (south) apron
     box('apron_joint', (APR - PAD_R - 0.6, 0.05, 0.01), ((PAD_R + APR) / 2 * math.cos(a), (PAD_R + APR) / 2 * math.sin(a), 0.105), GRAPH_S, rot=(0, 0, a), bevel=0)
-annulus('apron_joint_r', 17.45, 17.5, 0.105, GRAPH_S, segs=160, a0=math.radians(-52), a1=math.radians(150))
+annulus('apron_joint_r', 17.45, 17.5, 0.105, GRAPH_S, segs=160, a0=math.radians(-60), a1=math.radians(220))
 _g12 = grp_begin()
 for k in range(32):
     a = TAU * k / 32; x, y = (PAD_R - 0.6) * math.cos(a), (PAD_R - 0.6) * math.sin(a)
@@ -372,7 +379,7 @@ grp_end(_g12, 'Tier_12')
 
 # ====================================================================== BLAST BERM r 22-29 with the lane gap on the left (toward the Refinery)
 B_IN, B_OUT, B_H = 22.0, 29.0, 3.4
-GAP_C, GAP_W = math.radians(242), math.radians(50)      # 192..292 deg: front-left opening for both lanes + the U-turn
+GAP_C, GAP_W = math.radians(270), math.radians(60)      # 210..330 deg: open on the road side (the berm never reaches the road band)
 BA0, BA1 = GAP_C + GAP_W, GAP_C - GAP_W + TAU
 berm('blast_berm', 0, 0, B_IN, B_OUT, B_H, BA0, BA1, REGO, seed=9, nseg=260, nrad=18, taper=0.28)
 nblk = 96
@@ -441,7 +448,7 @@ def ribbon(name, samples, li):
             ca.data[li_].color = (c.x, c.y, c.z, 1.0)
     me.materials.append(LANE_M)
     for p in me.polygons: p.use_smooth = False
-    ob = bpy.data.objects.new(name, me); coll('Mine' if name == 'lane_uturn' else 'Stage').objects.link(ob); ob['vc'] = 1; ob['grp'] = 'Base'
+    ob = bpy.data.objects.new(name, me); coll('Mine' if name == 'lane_uturn' else 'Stage').objects.link(ob); ob['vc'] = 1; ob['grp'] = 'Road' if name == 'lane_uturn' else 'Base'
     return ob
 def _xs(x0, x1):
     xs, x = [], x0
@@ -458,20 +465,21 @@ ribbon('lane_uturn', _arc, 2)
 LANE_TOP = {nm: yc for nm, yc in LANES}
 for x in (-6.0, -14.0, -22.0, -30.0, -38.0):      # delineator posts on the outer (camera-side) edge of the westbound lane
     p = (x, LANES[1][1] - 3.2); g = lane_base(*p)
-    rbox('lane_post', (0.16, 0.16, 1.2), (p[0], p[1], g + 0.55), GRAPH_S, r=0.03, segs=1)
-    box('lane_post_tip', (0.17, 0.17, 0.2), (p[0], p[1], g + 1.05), AMBERG, bevel=0)
+    rbox('lane_post', (0.16, 0.16, 1.2), (p[0], p[1], g + 0.55), GRAPH_S, r=0.03, segs=1, c='Stage')
+    box('lane_post_tip', (0.17, 0.17, 0.2), (p[0], p[1], g + 1.05), AMBERG, bevel=0, c='Stage')
 
 # ====================================================================== FB-05 TRUCK STOP (eastbound lane, world z 13) + receiver spot
 FB_BED1, FB_BED2, FB_DECK = -1.15, -3.65, 1.90           # FB-05 Bed_Slot_01/02 local x, deck top (fb05 README)
-CR_X, CR_Y = -7.0, -5.0                                  # pad crane PC-1: pad-local glTF (x -7, z 5) = Blender (-7, -5)
-TS = Vector((CR_X - FB_BED1, LANE_TOP['eastbound'], 0)); TS.z = lane_z(TS.x, TS.y)     # FB-05 root (Bed_Slot_01 under the crane axis line)
+CR_X, CR_Y = 0.6, -20.0                                  # pad crane PC-1 (pad frame): due south of the ship on the roadside apron, 20 m off the ship axis
+TS = Vector((-3.5, LANE_TOP['eastbound'], 0.0))         # FB-05 root on the z 13 lane; its nose (~+4.3 m) stays west of the road end x 1
+assert TS.x + 4.3 <= U_X
 
 # ====================================================================== CARGO BAY CB-1: 12 slots for the 3 x 2.4 x 2.4 m HELIUM-3 crate
-BOX = (3.0, 2.4, 2.4)        # Director / Coder crate size (L x W x H); NB: art/3d/props/cargo_box is 2.3 x 1.3 x 1.5 m
-BAY_COLS = [-19.4, -16.0, -12.6]; BAY_ROWS = [-6.8, -4.0, -1.2, 1.6]   # 3.4 m x 2.8 m pitch, long axis along X (box yaw 0)
+BOX = (2.3, 1.3, 1.5)        # art/3d/props/cargo_box (md5 66a3a00c): 2.3 long (glTF x) x 1.3 deep (glTF z) x 1.5 high; Hook_Point y 1.5
+BAY_COLS = [-10.1, -7.5, -4.9]; BAY_ROWS = [-19.65, -18.05, -16.45, -14.85]   # 2.6 m x 1.6 m pitch = 0.3 m between boxes, long axis along X (box yaw 0)
 BAY_SLOTS = [Vector((x, y, BAY_Z)) for y in BAY_ROWS for x in BAY_COLS]
 BED_MID = Vector((TS.x + (FB_BED1 + FB_BED2) / 2, TS.y, 0.0))      # middle of the FB-05 bed
-RECV = Vector((-10.2, -9.0, BAY_Z))                               # Receive_Point: bay walkway, east end
+RECV = Vector((BED_MID.x - 1.95, (BAY_Y0 + BAY_ROWS[0] - BOX[1] / 2) / 2, BAY_Z))   # Receive_Point: bay walkway, just west of the bed
 RECV_YAW = math.atan2(BED_MID.x - RECV.x, -(BED_MID.y - RECV.y))   # glTF yaw about +Y (receiver faces local +Z)
 HOME_OFF = (-3.0, -1.5); HOME_YAW_LOCAL = 1.107                    # receiver_game.glb Home_Point (x, z), yaw rad, relative to Receive_Point
 _c, _s = math.cos(RECV_YAW), math.sin(RECV_YAW)
@@ -496,7 +504,7 @@ for p in BAY_SLOTS:
         for sy in (-1, 1):   # corner marks
             box('bay_mark', (0.7, 0.1, 0.006), (p.x + sx * (hx - 0.35), p.y + sy * hy, BAY_Z + 0.003), PAINT, bevel=0)
             box('bay_mark', (0.1, 0.6, 0.006), (p.x + sx * hx, p.y + sy * (hy - 0.3), BAY_Z + 0.003), PAINT, bevel=0)
-text('stencil_bay', 'CB-1', (BAY_X0 + 1.6, BAY_Y0 + 0.65, BAY_Z + 0.004), (0, 0, 0), 0.8, PAINT, extrude=0.002)
+text('stencil_bay', 'CB-1', (BAY_X1 - 1.6, BAY_Y0 + 0.85, BAY_Z + 0.004), (0, 0, 0), 0.7, PAINT, extrude=0.002)
 
 # ====================================================================== PAD CRANE PC-1 (hammerhead tower crane, RC-1 joint convention)
 sys.path.insert(0, os.path.normpath(os.path.join(HERE, '..', '..', '..', 'props', '_shared_src')))
@@ -567,7 +575,7 @@ def build_crane():
     m.box((0.7, 0.02, 0.04), (0, -JW / 2 - 0.18, JZ - 0.17), PP['cyan'], mat=1, bone=T)
     m.cyl((0, -0.15, CR_SHEAVE), (0, 0.15, CR_SHEAVE), 0.16, ST, segs=8, bone=T)
     for sx in (-0.08, 0.08): m.cyl((sx, 0, CR_SHEAVE), (sx, 0, CR_SHEAVE - 1.0), 0.024, PP['cable'], segs=4, bone='Hoist', caps=False)
-    H = 'Hook'; D = CR_HOOK_DROP; SX, SY = BOX[0] / 2 - 0.05, BOX[1] / 2 - 0.05      # spreader sized for the 3 x 2.4 crate
+    H = 'Hook'; D = CR_HOOK_DROP; SX, SY = BOX[0] / 2 - 0.05, BOX[1] / 2 - 0.05      # spreader sized for the 2.3 x 1.3 cargo_box
     m.box((0.55, 0.4, 0.44), (0, 0, D - 0.22), plin('#ffb020'), bone=H)
     m.cyl((-0.16, 0, D - 0.1), (0.16, 0, D - 0.1), 0.18, G1, segs=8, bone=H)
     m.box((0.09, 0.09, 0.22), (0, 0, D - 0.55), ST, bone=H)
@@ -932,13 +940,18 @@ Mloc = (Matrix.Translation(HINGE) @ Matrix.Rotation(DOOR_ROT_Z, 4, 'Z'))
 DOOR.data.transform(Mloc.inverted()); DOOR.matrix_world = Mloc; DOOR['grp'] = 'Door'
 DOOR['clips'] = 'cargo_door_open (2 s: rotation about local +X 0 -> 90 deg, top swings out and down into a shelf) / cargo_door_close (2 s: 90 -> 0)'
 DOOR['hinge'] = 'origin = hinge line at the sill (glTF y %.2f), node local +X = hinge axis' % SILL
-# ---- hold: 10 slots for the 3 x 2.4 x 2.4 crate, 3 decks of 2 x 2 (the 8 m hull fits 4 per deck), long axis along the door tangent
+# ---- hold: 10 slots for the 2.3 x 1.3 x 1.5 cargo_box, 2 decks of 5 (Hold_01-05 lower = door sill, Hold_06-10 upper), 0.3 m between boxes.
+# Footprint per deck: 2 x 2 grid (2.6 m along the hinge x 1.6 m radial) + 1 box centred at the back; worst corner r 3.26 m vs hull r 4.0.
 DU = Vector((math.cos(DOOR_A), math.sin(DOOR_A), 0)); DT = Vector((-DU.y, DU.x, 0))
 BOX_YAW_HOLD = DOOR_A + math.pi / 2 - TAU    # 5 deg: crate long axis along the hinge (labels face out of the door)
 HOLD = []
-for dz in (0.0, -2.6, 2.6):
-    for a, b in ((1.22, -1.52), (1.22, 1.52), (-1.22, -1.52), (-1.22, 1.52)):
-        HOLD.append(DU * a + DT * b + Vector((0, 0, SILL + 0.1 + dz)))
+HOLD_DECK_DZ = (0.0, BOX[2] + 0.3 + 0.15)     # lower deck at the sill, upper deck 1.95 m higher (box top SILL + 3.55 < door top SILL + 4.8)
+for dz in HOLD_DECK_DZ:
+    for a, b in ((-2.4, 0.0), (-0.8, -1.3), (-0.8, 1.3), (0.8, -1.3), (0.8, 1.3)):
+        c = DU * a + DT * b
+        for sa in (-1, 1):
+            for sb in (-1, 1): assert (c + DU * sa * BOX[1] / 2 + DT * sb * BOX[0] / 2).length <= SHIP_R - 0.35
+        HOLD.append(c + Vector((0, 0, SILL + 0.1 + dz)))
 HOLD = HOLD[:10]
 _lift = (SHIP_R + 0.02 + 0.09) - math.sqrt((SHIP_R + 0.02) ** 2 - (BOX[0] / 2) ** 2)       # crate ends rest on the curved shelf
 HOLD_DOOR = DU * (SHIP_R + 0.11 + 2.4) + Vector((0, 0, SILL + _lift))
@@ -949,7 +962,7 @@ def mark(n, p, extras=None, yaw=0.0, size=0.5):
     coll('Mine').objects.link(e); e['grp'] = 'Marker'
     for k, v in (extras or {}).items(): e[k] = v
     return e
-def gl(p): return [round(p.x, 3), round(p.z, 3), round(-p.y, 3)]
+def gl(p): return [round(p.x, 3), round(p.z, 3), round(-(p.y + SHIFT), 3)]     # final pad-local glTF
 def target(n, base, yaw, extra=None, note=None):
     hk = Vector(base) + Vector((0, 0, BOX[2])); th, r, L = crane_solve(hk)
     assert CR_TR_MIN - 1e-6 <= r <= CR_TR_MAX + 1e-6 and CR_CABLE_MIN - 1e-6 <= L <= CR_CABLE_MAX + 1e-6, (n, r, L)
@@ -974,7 +987,7 @@ MK.append(target('Hold_Door', HOLD_DOOR, BOX_YAW_HOLD, {'use': 'crane sets the b
                                                         'needs': 'cargo_door_open finished'}))
 for i, p in enumerate(HOLD):
     MK.append(mark('Hold_%02d' % (i + 1), p, {'kind': 'hold_slot', 'box_base': True, 'box_yaw_deg': round(math.degrees(BOX_YAW_HOLD), 2),
-                   'deck': (0, 1, 2)[i // 4] if i < 8 else 2}, BOX_YAW_HOLD))
+                   'deck': i // 5}, BOX_YAW_HOLD))
 MK.append(mark('Receiver_Spot', RECV, {'kind': 'crew_spot', 'rig': 'receiver_game.glb Receive_Point', 'yaw_deg': round(math.degrees(RECV_YAW), 2),
                    'faces': 'FB-05 bed middle %s' % gl(BED_MID), 'home': 'Receiver_Home', 'home_dist_m': round((HOME - RECV).length, 3),
                    'note': 'place the receiver root here with this yaw; walk_out ends / walk_back starts here'}, RECV_YAW))
@@ -987,16 +1000,16 @@ _route = [('Road_Entry', Vector((LANE_X0, LANES[0][1], lane_z(LANE_X0, LANES[0][
           ('Road_Exit', Vector((LANE_X0, LANES[1][1], lane_z(LANE_X0, LANES[1][1]))), 180.0)]
 _nxt = {'Road_Entry': 'Truck_Stop', 'Truck_Stop': 'Turn_Start', 'Turn_Start': 'Turn_End', 'Turn_End': 'Road_Exit', 'Road_Exit': None}
 for n, p, yd in _route:
-    ex = {'kind': 'road_leg', 'yaw_deg': yd, 'next': _nxt[n], 'world_xz': [round(480 + p.x, 2), round(-p.y, 2)]}
+    ex = {'kind': 'road_leg', 'yaw_deg': yd, 'next': _nxt[n], 'world_xz': [round(480 + p.x, 2), round(-(p.y + SHIFT), 2)]}
     if n == 'Turn_Start': ex['turn'] = {'center_gltf': gl(U_C), 'radius_m': U_R, 'dir': 'right (+X -> +Z -> -X)', 'deg': 180}
     MK.append(mark(n, p, ex, math.radians(yd)))
-MK[0]['next'] = 'Turn_Start'; MK[0]['world_xz'] = [round(480 + TS.x, 2), round(-TS.y, 2)]
+MK[0]['next'] = 'Turn_Start'; MK[0]['world_xz'] = [round(480 + TS.x, 2), round(-(TS.y + SHIFT), 2)]
 MK.append(mark(GAME_NAMES['markers']['Ship_Center'], (0, 0, TOP), {'ship_yaw_deg_vs_starter_frame': round(math.degrees(SHIP_PSI), 1)}))
 MK.append(mark(GAME_NAMES['markers']['Fuel_Hookup'], FUEL_HOOKUP, {'LOX': gl(PORT['LOX']), 'LCH4': gl(PORT['LCH4'])}))
 MK.append(mark('Ladder_Foot', LADDER_FOOT, {'kind': 'crew_spot', 'note': 'crew climb the caged ladder to the hatch at y %.1f (no ramp)' % LAD_TOP}))
 MK.append(mark('Crate_Drop', (CX, CY, 0.33), {'tier': 3, 'note': 'Tier_03 cargo pallet (shown when Tier_03 is on)'}))
 MK.append(mark(GAME_NAMES['markers']['Pipe_End'], PIPE_END, {'from': 'Dock Pipe_LaunchPad (buried, +X)', 'line': 'Pipe_LaunchPad'}))
-_crew = [HOME, RECV, Vector((-8.6, -8.8, TOP)), Vector((2.0, -8.6, TOP)), LADDER_FOOT]
+_crew = [HOME, RECV, Vector((-2.4, -15.2, 0.1)), Vector((3.2, -9.6, TOP)), LADDER_FOOT]
 for i, p in enumerate(_crew):
     MK.append(mark(GAME_NAMES['crew_path'] % (i + 1), p, {'kind': 'crew_path'}))
 # ---- crane clips (30 fps, smootherstep): code can ignore these and drive Slew / Trolley / Hoist / Hook itself
@@ -1008,6 +1021,8 @@ def st(base, h, yaw):
     th, r, L = crane_solve(hook_at(base, h)); return [th, r, L, yaw - th]
 def unwrap(a, b, prefer=None):
     """slew from a to b without pointing into the ship: go the way that avoids the hull bearing"""
+    if JIB_FREE:
+        d = (b - a + math.pi) % TAU - math.pi; return a + d
     hull = math.atan2(-CR_Y, -CR_X)
     best = None
     for k in (-1, 0, 1):
@@ -1017,6 +1032,7 @@ def unwrap(a, b, prefer=None):
         if not hits and (best is None or abs(bb - a) < abs(best - a)): best = bb
     assert best is not None, 'no hull-free slew path'
     return best
+JIB_FREE = math.hypot(CR_X, CR_Y) >= CR_JIB_L + SHIP_R + 0.6
 CLIPS = {}
 PL, PH = st(PICK, PICK.z + BOX[2], 0.0), st(PICK, TRAVEL_LO, 0.0)
 DH, DL = st(DROP, TRAVEL_LO, 0.0), st(DROP, DROP.z + BOX[2], 0.0)
@@ -1060,21 +1076,22 @@ for cn, (a0, a1) in (('cargo_door_open', (0.0, math.pi / 2)), ('cargo_door_close
 DOOR.rotation_euler = (0, 0, DOOR_ROT_Z)
 # crane extras (glTF / crane-local metres; crane-local axes = world axes, origin = footing centre on the ground)
 CRANE['prop'] = 'PC-1 pad crane (hammerhead tower crane, RC-1 joint convention)'
-CRANE['origin'] = 'ground centre of the footing at pad-local glTF (x %.1f, z %.1f) = world (%.1f, 0, %.1f); jib points +X at Slew = 0' % (CR_X, -CR_Y, 480 + CR_X, -CR_Y)
+CRANE['origin'] = 'ground centre of the footing at pad-local glTF (x %.1f, z %.1f) = world (%.1f, 0, %.1f); jib points +X at Slew = 0' % (CR_X, -(CR_Y + SHIFT), 480 + CR_X, -(CR_Y + SHIFT))
 for k, v in {'slew_min_rad': -math.pi, 'slew_max_rad': math.pi, 'trolley_min_m': CR_TR_MIN, 'trolley_max_m': CR_TR_MAX,
              'hoist_min_m': round(CR_CABLE_MIN, 3), 'hoist_max_m': round(CR_CABLE_MAX, 3), 'hook_drop_m': CR_HOOK_DROP,
              'sheave_y': CR_SHEAVE, 'slew_y': CR_SLEW_Z, 'jib_y': CR_JIB_Z, 'hook_rest_local_y': round(CR_SHEAVE - 1.0 - CR_HOOK_DROP - CR_JIB_Z, 4),
              'box_size_m': [BOX[0], BOX[2], BOX[1]], 'box_hook_offset_y': BOX[2]}.items(): CRANE[k] = v
 _hb = math.atan2(-CR_Y, -CR_X); _hh = math.asin((SHIP_R + 0.6) / math.hypot(CR_X, CR_Y))
-CRANE['slew_keep_out_rad'] = [round(_hb - _hh, 4), round(_hb + _hh, 4)]
+CRANE['slew_keep_out_rad'] = [] if JIB_FREE else [round(_hb - _hh, 4), round(_hb + _hh, 4)]
+CRANE['slew_note'] = ('free 360 deg: crane is %.1f m from the ship axis, jib tip (15 m) stays %.1f m off the hull' % (math.hypot(CR_X, CR_Y), math.hypot(CR_X, CR_Y) - CR_JIB_L - SHIP_R)) if JIB_FREE else 'see slew_keep_out_rad'
 CRANE['joints'] = ('Slew: rotation.y = theta (rad) about +Y, jib direction (cos theta, 0, -sin theta). Trolley: position.x = r (glTF rest value = trolley_min_m). '
                    'Hoist: scale.y = cable length L (m). Hook: position.y = hook_rest_local_y + 1 - L (Hook world y = sheave_y - L - hook_drop_m), rotation.y = box_yaw - theta. '
                    'Solve for a hook target (x, y, z) in crane space: theta = atan2(-z, x), r = hypot(x, z), L = sheave_y - y - hook_drop_m. '
-                   'Never slew through slew_keep_out_rad (the jib would hit the ship); go the other way round.')
+                   'If slew_keep_out_rad is not empty, never slew through it.')
 CRANE['poses'] = json.dumps({k: [round(x, 4) for x in v] for k, v in POSES.items()})   # [slew, trolley r, hoist L, hook yaw] per pose
 CRANE['clips'] = ', '.join('%s %.1fs' % (k, v[2]) for k, v in CLIPS.items())
 # ====================================================================== stage cleanup + lights + crew
-EXCL = [((0, 0), 34.0)] + [((x, y), 4.0) for x, y, _, _ in SOL] + [((RXr, RYr), 18.0)] + [((x, -17.5), 10.0) for x in range(-30, -72, -6)]
+EXCL = [((0, 0), 34.0)] + [((x, y), 4.0) for x, y, _, _ in SOL] + [((RXr, RYr), 18.0)] + [((x, -30.5), 10.0) for x in range(-30, -72, -6)] + [((x, -30.5), 10.0) for x in range(-24, 12, 6)]
 for ob in list(coll('Stage').objects):
     if ob.name.split('.')[0] in ('boulder', 'pebble', 'slope_boulder'):
         x, y = ob.matrix_world.translation.x, ob.matrix_world.translation.y
@@ -1093,17 +1110,11 @@ astronaut((VV.x - 1.2, VV.y - 2.0, 0.1), rot_z=0.2)                             
 if A.get('dress') != '1': astronaut((RECV.x, RECV.y, BAY_Z), rot_z=RECV_YAW)                              # receiver in the bay walkway, facing the FB-05 bed
 cam = setup_render(64 if not QUICK else 16)
 
-# ====================================================================== ROAD CORRIDOR CARVE: nothing above y 0.02 on the flatbed road
-def _cutter():
-    pts = [(-400.0, CORR_Y1), (-400.0, CORR_Y0), (U_X, CORR_Y0)]
-    for i in range(1, 48):
-        ph = -math.pi / 2 + math.pi * i / 48; pts.append((U_C.x + CORR_UR * math.cos(ph), U_C.y + CORR_UR * math.sin(ph)))
-    pts.append((U_X, CORR_Y1))
-    bm = bmesh.new(); lo = [bm.verts.new((x, y, 0.015)) for x, y in pts]; hi = [bm.verts.new((x, y, 80.0)) for x, y in pts]
-    n = len(pts); bm.faces.new(list(reversed(lo))); bm.faces.new(hi)
-    for i in range(n): bm.faces.new([lo[i], lo[(i + 1) % n], hi[(i + 1) % n], hi[i]])
-    me = bpy.data.meshes.new('road_cutter'); bm.to_mesh(me); ob = bpy.data.objects.new('road_cutter', me); bpy.context.scene.collection.objects.link(ob)
-    ob.hide_render = True; ob.display_type = 'WIRE'; return ob
+# ====================================================================== MOVE THE PAD NORTH (+SHIFT) and prove it never touches the road
+for o in bpy.data.objects:
+    if o.parent is None and o.type not in ('CAMERA', 'LIGHT'): o.location.y += SHIFT
+bpy.context.view_layer.update()
+SH = Vector((0, SHIFT, 0))
 def corr_hits(o, m=0.0):
     dg = bpy.context.evaluated_depsgraph_get(); oe = o.evaluated_get(dg)
     try: me = oe.to_mesh()
@@ -1111,34 +1122,13 @@ def corr_hits(o, m=0.0):
     M = oe.matrix_world; n = 0; tot = len(me.vertices)
     for v in me.vertices:
         w = M @ v.co
-        if w.z > 0.02 and in_corr(w.x, w.y, m): n += 1
+        if in_corr_w(w.x, w.y, m): n += 1
     oe.to_mesh_clear(); return n, tot
-CUT = _cutter(); CARVE_LOG = []
-_skip = {'lane_uturn', 'road_cutter'}
-for o in [o for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT')]:
-    if o.name.split('.')[0] in _skip: continue
-    n, tot = corr_hits(o, 0.02)
-    if not n: continue
-    bb = [o.matrix_world @ Vector(c) for c in o.bound_box]; diag = (Vector(map(max, *bb)) - Vector(map(min, *bb))).length
-    assert o is not CRANE_MESH, 'crane mesh in the road corridor'
-    if o.type == 'MESH' and (diag > 6.0 or n < tot * 0.5):
-        o.data = o.data.copy()
-        for md in list(o.modifiers):
-            bpy.context.view_layer.objects.active = o
-            if md.type != 'ARMATURE': bpy.ops.object.modifier_apply(modifier=md.name)
-        md = o.modifiers.new('RoadCut', 'BOOLEAN'); md.operation = 'DIFFERENCE'; md.object = CUT; md.solver = 'EXACT'
-        bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier=md.name)
-        CARVE_LOG.append(('cut', o.name, n, round(diag, 1)))
-    else:
-        CARVE_LOG.append(('removed', o.name, n, round(diag, 1))); bpy.data.objects.remove(o)
-bpy.data.objects.remove(CUT)
-_left = [(o.name, corr_hits(o, -0.01)[0]) for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT') and o.name.split('.')[0] != 'lane_uturn']
+_left = [(o.name, corr_hits(o, GAP_ROAD)[0]) for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT') and o.get('grp') != 'Road']
 _left = [t for t in _left if t[1]]
-from collections import Counter
-print('CARVE', Counter((a, b.split('.')[0]) for a, b, _, _ in CARVE_LOG).most_common(), flush=True)
-print('CARVE_LEFT', _left, flush=True)
+print('ROAD_GAP_HITS', _left, flush=True)
 assert not _left, _left
-print('RECV', tuple(round(c, 3) for c in RECV), 'yaw', round(math.degrees(RECV_YAW), 2), 'HOME', tuple(round(c, 3) for c in HOME), 'yaw', round(math.degrees(HOME_YAW), 2), 'dist', round((HOME - RECV).length, 3), flush=True)
+print('RECV', gl(RECV), 'yaw', round(math.degrees(RECV_YAW), 2), 'HOME', gl(HOME), 'yaw', round(math.degrees(HOME_YAW), 2), 'dist', round((HOME - RECV).length, 3), flush=True)
 
 ONLY = A.get('only', 'hero').split(',')
 SHOW_TIERS = A.get('tiers') == '1'
@@ -1176,10 +1166,10 @@ if 'check' in ONLY:
         for g, pts in sorted(G.items()):
             pr = project(pts, w, h); xs = [p[0] for p in pr]; ys = [p[1] for p in pr]
             bad = min(xs) < x0 or max(xs) > x1 or min(ys) < y0 or max(ys) > y1
-            if g == 'Lanes': bad = min(ys) < y0 or max(ys) > y1 or max(xs) > x1   # lane stubs run off the LEFT edge on purpose
-            ok &= not bad
-            print(f'   {g:10s} x {min(xs):6.1f}-{max(xs):6.1f}  y {min(ys):6.1f}-{max(ys):6.1f}  {"OUT" if bad else "ok"}', flush=True)
-        sp = project([Vector((0, 0, TOP + 40.25)), Vector((0, 0, TOP))], w, h); print(f'   ship top y {sp[0][1]:.1f} (may run above), ship base y {sp[1][1]:.1f}', flush=True)
+            info = g == 'Lanes'      # the U-turn is road, not pad: reported, not required inside the band
+            ok &= info or not bad
+            print(f'   {g:10s} x {min(xs):6.1f}-{max(xs):6.1f}  y {min(ys):6.1f}-{max(ys):6.1f}  {("(road, info) " if info else "") + ("OUT" if bad else "ok")}', flush=True)
+        sp = project([Vector((0, SHIFT, TOP + 40.25)), Vector((0, SHIFT, TOP))], w, h); print(f'   ship top y {sp[0][1]:.1f} (may run above), ship base y {sp[1][1]:.1f}', flush=True)
     print('CHECK_ALL', 'PASS' if ok else 'FAIL', flush=True)
 
 if 'glb' in ONLY: export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
@@ -1211,8 +1201,8 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
           'LP_SolarCell': ('SHM_Paint', '#152a4a'), 'LP_LaneVC': ('SHM_Paint', None), 'SHM_Paint': ('SHM_Paint', None), 'SHM_GlowCyan': ('SHM_GlowCyan', None)}
     # one material per node except Pad_Base (4) and Crane (2): forced node materials
     NODE_MAT = {'Hose_LOX': 'SHM_Metal', 'Hose_LCH4': 'SHM_Metal', 'Tier_03': 'SHM_Paint', 'Tier_05': 'SHM_Paint', 'Tier_08': 'SHM_Paint',
-                'Tier_12': 'SHM_GlowWhite', 'Tier_20': 'SHM_Paint', 'Ship': 'SHM_Paint', 'Door': 'SHM_Paint'}
-    NODE_NAME = {'Base': GAME_NAMES['base'], 'Ship': GAME_NAMES['ship'], 'Door': GAME_NAMES['door'], 'Crane': GAME_NAMES['crane_mesh']}
+                'Tier_12': 'SHM_GlowWhite', 'Tier_20': 'SHM_Paint', 'Ship': 'SHM_Paint', 'Door': 'SHM_Paint', 'Road': 'SHM_Paint'}
+    NODE_NAME = {'Road': 'Road_UTurn', 'Base': GAME_NAMES['base'], 'Ship': GAME_NAMES['ship'], 'Door': GAME_NAMES['door'], 'Crane': GAME_NAMES['crane_mesh']}
     NODE_NAME.update({g: v[0] for g, v in GAME_NAMES['hoses'].items()}); NODE_NAME.update({g: v[0] for g, v in GAME_NAMES['tiers'].items()})
     KEEP_TEXT = ('decal_lox', 'decal_lch4', 'stencil_pad', 'stencil_bay')            # big readable labels stay in the game GLB
     meshes = [o for o in coll('Mine').all_objects if o.type in ('MESH', 'CURVE', 'FONT')]
@@ -1274,7 +1264,7 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
         bpy.ops.object.select_all(action='DESELECT'); G.select_set(True); bpy.context.view_layer.objects.active = G
         md = G.modifiers.new('Dec', 'DECIMATE'); md.ratio = max(0.03, min(1.0, ratio)); md.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=md.name)
-    CAP = {'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': 4200, 'Door': 300}
+    CAP = {'Road': 400, 'Hose_LOX': 900, 'Hose_LCH4': 900, 'Ship': 4200, 'Door': 300}
     for g, G in nodes.items():
         cap = CAP.get(g, 1000 if g.startswith('Tier_') else None)
         if cap and tri(G) > cap: dec(G, cap / tri(G))
@@ -1290,8 +1280,10 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
             if k in G: del G[k]
         if g in GAME_NAMES['tiers']: G['tier'] = GAME_NAMES['tiers'][g][1]; G['hidden_by_default'] = True
         if g in GAME_NAMES['hoses']:
-            h = HOSE_START[g.split('_')[1]]; G.data.transform(Matrix.Translation(-h)); G.location = h
+            h = HOSE_START[g.split('_')[1]] + SH; G.data.transform(Matrix.Translation(-h)); G.location = h
             G['fuel'] = GAME_NAMES['hoses'][g][1]; G['attach_to'] = GAME_NAMES['markers']['Fuel_Hookup']
+        if g == 'Ship': G.data.transform(Matrix.Translation(-SH)); G.location = SH
+        if g == 'Road': G['road'] = 'U-turn at the east end of the flatbed road (not pad surface): joins the road tiles at world x 481, centre world (481, 17.5), r 4.5'
         if g == 'Ship': G['placeholder'] = 'gray massing until Jacob approves the ship art'; G['size_m'] = [8.0, 40.25, 8.0]
     if 'grp' in CRANE: del CRANE['grp']
     PC = GAME_NAMES['phone_cam']; T = Vector(PC['target'])
@@ -1324,26 +1316,26 @@ def dress():
             coll('Stage').objects.link(o)
         return [o for o in new if o.parent is None]
     tr = imp('fb05_game_raw.glb')
-    for o in tr: o.location = (TS.x, TS.y, 0.0); o.rotation_euler = (math.pi / 2, 0, 0) if abs(o.rotation_euler.x - math.pi / 2) < 1e-3 else o.rotation_euler
+    for o in tr: o.location = (TS.x, TS.y + SHIFT, 0.0); o.rotation_euler = (math.pi / 2, 0, 0) if abs(o.rotation_euler.x - math.pi / 2) < 1e-3 else o.rotation_euler
     BS = (BOX[0] / 2.3, BOX[1] / 1.3, BOX[2] / 1.5)
     def crate(base, yaw):
         for o in imp('cargo_box_game_raw.glb'):
             o.location = tuple(base); o.rotation_euler = (o.rotation_euler.x, o.rotation_euler.y, yaw); o.scale = (o.scale.x * BS[0], o.scale.y * BS[1], o.scale.z * BS[2])
-    crate(PICK2, 0.0)
-    for i in (0, 1, 3, 4, 6): crate(BAY_SLOTS[i], 0.0)
+    crate(PICK2 + SH, 0.0)
+    for i in (0, 1, 3, 4, 6, 7): crate(BAY_SLOTS[i] + SH, 0.0)
     s0, s1, _ = CLIPS['crane_swing']; u = float(A.get('swing_u', 0.55)); sp = [a + (b - a) * smooth(u) for a, b in zip(s0, s1)]
     crane_pose(sp[0], sp[1], sp[2], sp[3] + sp[0]); bpy.context.view_layer.update()
     hw = CRANE.matrix_world @ CRANE.pose.bones['Hook'].head; crate(hw - Vector((0, 0, BOX[2])), sp[3] + sp[0])
     for o in list(coll('Stage').objects):
         if o.name.startswith(('astro', 'helmet', 'visor')) and (o.matrix_world.translation - RECV).length < 1.0: bpy.data.objects.remove(o)
-    for o in imp('receiver_game_raw.glb'): o.location = tuple(RECV); o.rotation_euler = (o.rotation_euler.x, o.rotation_euler.y, RECV_YAW)
+    for o in imp('receiver_game_raw.glb'): o.location = tuple(RECV + SH); o.rotation_euler = (o.rotation_euler.x, o.rotation_euler.y, RECV_YAW)
     print('DRESSED', 'hook', tuple(round(c, 2) for c in hw), flush=True)
 if A.get('dress') == '1': dress()
 if 'hero' in ONLY:
-    w, h = (3840, 2160) if not QUICK else (960, 540)
+    w, h = (int(A.get('hw', 3840)), int(A.get('hh', 2160))) if not QUICK else (960, 540)
     tgt = (2.0, 0.0, 9.0); pos = (-38.0, -92.0, 26.0)
     if HC: v = [float(t) for t in HC.split(',')]; pos, tgt = tuple(v[:3]), tuple(v[3:6])
-    shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 30)), samples=int(A.get('hs', 64)) if not QUICK else 16)
+    shoot(cam, os.path.join(OUT, A.get('pname', 'hero') + '.png'), tgt, pos, w, h, lens=float(A.get('lens', 30)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'portrait' in ONLY:   # the game camera exactly: aimed at Cam_Target, 38 deg vertical FOV, 18 deg down, no azimuth, d from frame_w + aspect
     pw, ph = int(A.get('pw', 1179)), int(A.get('ph', 2556))
     T, C, dd, half = phone_cam(pw, ph)

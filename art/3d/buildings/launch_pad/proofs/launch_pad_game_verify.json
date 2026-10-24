@@ -1,32 +1,37 @@
 {
  "file": "../launch_pad_game.glb",
- "bytes": 288712,
- "md5": "40176c98bd5522e61d658b6b9db95370",
+ "bytes": 291024,
+ "md5": "a82251e2e254f745237bd2591ba3e141",
  "three": "186",
- "tris": 28004,
- "draws": 14,
+ "tris": 28024,
+ "draws": 15,
  "extensions": [
   "KHR_mesh_quantization",
   "EXT_meshopt_compression"
  ],
  "images": 0,
  "textures": 0,
- "nodes": 73,
+ "nodes": 75,
  "meshes": [
   [
    "Pad_Base",
    "SHM_Paint",
-   14725
+   14059
   ],
   [
    "Pad_Base",
    "SHM_GlowCyan",
-   773
+   766
   ],
   [
    "Pad_Base",
    "SHM_Metal",
-   532
+   538
+  ],
+  [
+   "Road_UTurn",
+   "SHM_Paint",
+   399
   ],
   [
    "Crane_Mesh",
@@ -61,7 +66,7 @@
   [
    "Tier_12",
    "SHM_GlowWhite",
-   480
+   768
   ],
   [
    "Tier_03",
@@ -209,15 +214,15 @@
      "track": "Slew.quaternion",
      "first": [
       0,
-      0.7071,
+      0.9107,
       0,
-      -0.7071
+      -0.4131
      ],
      "last": [
       0,
-      0.7071,
+      0.9107,
       0,
-      -0.7071
+      -0.4131
      ],
      "t0": 0,
      "t1": 0
@@ -240,12 +245,12 @@
     {
      "track": "Trolley.position",
      "first": [
-      8,
+      7.9727,
       1,
       0
      ],
      "last": [
-      8,
+      7.9727,
       1,
       0
      ],
@@ -320,12 +325,12 @@
      "track": "Hoist.scale",
      "first": [
       1,
-      14.3999,
+      15.2998,
       1
      ],
      "last": [
       1,
-      12.5,
+      14.2998,
       1
      ],
      "t0": 0,
@@ -335,12 +340,12 @@
      "track": "Hook.position",
      "first": [
       0,
-      -15.7002,
+      -16.5996,
       0
      ],
      "last": [
       0,
-      -13.7998,
+      -15.6001,
       0
      ],
      "t0": 0,
@@ -350,15 +355,15 @@
      "track": "Hook.quaternion",
      "first": [
       0,
-      0.7071,
+      0.9107,
       0,
-      0.7071
+      0.4131
      ],
      "last": [
       0,
-      0.7071,
+      0.9107,
       0,
-      0.7071
+      0.4131
      ],
      "t0": 0,
      "t1": 0
@@ -450,15 +455,15 @@
      "track": "Slew.quaternion",
      "first": [
       0,
-      0.9879,
+      0.9995,
       0,
-      -0.1548
+      0.0318
      ],
      "last": [
       0,
-      0.9879,
+      0.9995,
       0,
-      -0.1548
+      0.0318
      ],
      "t0": 0,
      "t1": 0
@@ -481,12 +486,12 @@
     {
      "track": "Trolley.position",
      "first": [
-      5.8821,
+      5.5112,
       1,
       0
      ],
      "last": [
-      5.8821,
+      5.5112,
       1,
       0
      ],
@@ -561,12 +566,12 @@
      "track": "Hoist.scale",
      "first": [
       1,
-      16,
+      16.9004,
       1
      ],
      "last": [
       1,
-      2.0197,
+      3.042,
       1
      ],
      "t0": 0,
@@ -576,12 +581,12 @@
      "track": "Hook.position",
      "first": [
       0,
-      -17.2998,
+      -18.2002,
       0
      ],
      "last": [
       0,
-      -3.3197,
+      -4.342,
       0
      ],
      "t0": 0,
@@ -591,15 +596,15 @@
      "track": "Hook.quaternion",
      "first": [
       0,
-      0.9879,
+      0.9995,
       0,
-      0.1548
+      -0.0318
      ],
      "last": [
       0,
-      0.9879,
+      0.9995,
       0,
-      0.1548
+      -0.0318
      ],
      "t0": 0,
      "t1": 0
@@ -691,15 +696,15 @@
      "track": "Slew.quaternion",
      "first": [
       0,
-      0.9974,
+      0.9999,
       0,
-      -0.0718
+      0.0162
      ],
      "last": [
       0,
-      0.9974,
+      0.9999,
       0,
-      -0.0718
+      0.0162
      ],
      "t0": 0,
      "t1": 0
@@ -722,12 +727,12 @@
     {
      "track": "Trolley.position",
      "first": [
-      12.5298,
+      10.7056,
       1,
       0
      ],
      "last": [
-      12.5298,
+      10.7056,
       1,
       0
      ],
@@ -802,12 +807,12 @@
      "track": "Hoist.scale",
      "first": [
       1,
-      12.5,
+      14.2998,
       1
      ],
      "last": [
       1,
-      16,
+      16.9004,
       1
      ],
      "t0": 0,
@@ -817,12 +822,12 @@
      "track": "Hook.position",
      "first": [
       0,
-      -13.7998,
+      -15.6001,
       0
      ],
      "last": [
       0,
-      -17.2998,
+      -18.2002,
       0
      ],
      "t0": 0,
@@ -832,15 +837,15 @@
      "track": "Hook.quaternion",
      "first": [
       0,
-      0.9974,
+      0.9999,
       0,
-      0.0718
+      -0.0162
      ],
      "last": [
       0,
-      0.9974,
+      0.9999,
       0,
-      0.0718
+      -0.0162
      ],
      "t0": 0,
      "t1": 0
@@ -932,15 +937,15 @@
      "track": "Slew.quaternion",
      "first": [
       0,
-      -0.0967,
+      0.7078,
       0,
-      0.9953
+      0.7064
      ],
      "last": [
       0,
-      -0.0967,
+      0.7078,
       0,
-      0.9953
+      0.7064
      ],
      "t0": 0,
      "t1": 0
@@ -963,12 +968,12 @@
     {
      "track": "Trolley.position",
      "first": [
-      7.7117,
+      13.5146,
       1,
       0
      ],
      "last": [
-      7.7117,
+      13.5146,
       1,
       0
      ],
@@ -1043,12 +1048,12 @@
      "track": "Hoist.scale",
      "first": [
       1,
-      2.0197,
+      3.042,
       1
      ],
      "last": [
       1,
-      3.2697,
+      4.292,
       1
      ],
      "t0": 0,
@@ -1058,12 +1063,12 @@
      "track": "Hook.position",
      "first": [
       0,
-      -3.3197,
+      -4.342,
       0
      ],
      "last": [
       0,
-      -4.5696,
+      -5.592,
       0
      ],
      "t0": 0,
@@ -1073,15 +1078,15 @@
      "track": "Hook.quaternion",
      "first": [
       0,
-      0.1399,
+      -0.6764,
       0,
-      0.9902
+      0.7366
      ],
      "last": [
       0,
-      0.1399,
+      -0.6764,
       0,
-      0.9902
+      0.7366
      ],
      "t0": 0,
      "t1": 0
@@ -1173,15 +1178,15 @@
      "track": "Slew.quaternion",
      "first": [
       0,
-      0.7071,
+      0.9107,
       0,
-      -0.7071
+      -0.4131
      ],
      "last": [
       0,
-      0.9974,
+      0.9999,
       0,
-      -0.0718
+      0.0162
      ],
      "t0": 0,
      "t1": 3
@@ -1204,12 +1209,12 @@
     {
      "track": "Trolley.position",
      "first": [
-      8,
+      7.9727,
       1,
       0
      ],
      "last": [
-      12.5298,
+      10.7056,
       1,
       0
      ],
@@ -1284,12 +1289,12 @@
      "track": "Hoist.scale",
      "first": [
       1,
-      12.5,
+      14.2998,
       1
      ],
      "last": [
       1,
-      12.5,
+      14.2998,
       1
      ],
      "t0": 0,
@@ -1299,12 +1304,12 @@
      "track": "Hook.position",
      "first": [
       0,
-      -13.7998,
+      -15.6001,
       0
      ],
      "last": [
       0,
-      -13.7998,
+      -15.6001,
       0
      ],
      "t0": 0,
@@ -1314,15 +1319,15 @@
      "track": "Hook.quaternion",
      "first": [
       0,
-      0.7071,
+      0.9107,
       0,
-      0.7071
+      0.4131
      ],
      "last": [
       0,
-      0.9974,
+      0.9999,
       0,
-      0.0718
+      -0.0162
      ],
      "t0": 0,
      "t1": 3
@@ -1414,15 +1419,15 @@
      "track": "Slew.quaternion",
      "first": [
       0,
-      0.9879,
+      0.9995,
       0,
-      -0.1548
+      0.0318
      ],
      "last": [
       0,
-      -0.0967,
+      0.7078,
       0,
-      0.9953
+      0.7064
      ],
      "t0": 0,
      "t1": 3
@@ -1445,12 +1450,12 @@
     {
      "track": "Trolley.position",
      "first": [
-      5.8821,
+      5.5112,
       1,
       0
      ],
      "last": [
-      7.7117,
+      13.5146,
       1,
       0
      ],
@@ -1525,12 +1530,12 @@
      "track": "Hoist.scale",
      "first": [
       1,
-      2.0197,
+      3.042,
       1
      ],
      "last": [
       1,
-      2.0197,
+      3.042,
       1
      ],
      "t0": 0,
@@ -1540,12 +1545,12 @@
      "track": "Hook.position",
      "first": [
       0,
-      -3.3197,
+      -4.342,
       0
      ],
      "last": [
       0,
-      -3.3197,
+      -4.342,
       0
      ],
      "t0": 0,
@@ -1555,15 +1560,15 @@
      "track": "Hook.quaternion",
      "first": [
       0,
-      0.9879,
+      0.9995,
       0,
-      0.1548
+      -0.0318
      ],
      "last": [
       0,
-      0.1399,
+      -0.6764,
       0,
-      0.9902
+      0.7366
      ],
      "t0": 0,
      "t1": 3
@@ -1634,9 +1639,9 @@
  ],
  "cam_target": {
   "at": [
-   -3,
-   1.4,
-   4
+   -2,
+   4,
+   -8
   ],
   "extras": {
    "name": "Cam_Target",
@@ -1652,193 +1657,287 @@
   }
  },
  "truck_stop_world": [
-  474.15,
+  476.5,
   0,
   13
  ],
  "receiver": {
   "spot": [
-   -10.2,
+   -7.85,
    0.3,
-   9
+   8.2
   ],
   "home": [
-   -13.554,
+   -11.194,
    0.3,
-   8.966
+   7.939
   ],
   "dist_m": 3.354,
-  "spot_yaw_deg": 25.99,
-  "home_yaw_deg": 89.42,
+  "spot_yaw_deg": 22.11,
+  "home_yaw_deg": 85.54,
   "rig_home_err_m": 0
  },
  "crane": {
-  "Pick_Point": 0,
-  "Pick_Point_02": 0.0005,
-  "Bay_Slot_01": 0.0005,
-  "Bay_Slot_02": 0.0002,
-  "Bay_Slot_03": 0.0002,
+  "Pick_Point": 0.0004,
+  "Pick_Point_02": 0.0002,
+  "Bay_Slot_01": 0.0003,
+  "Bay_Slot_02": 0.0004,
+  "Bay_Slot_03": 0.0003,
   "Bay_Slot_04": 0.0004,
-  "Bay_Slot_05": 0.0005,
-  "Bay_Slot_06": 0.0004,
-  "Bay_Slot_07": 0.0004,
+  "Bay_Slot_05": 0.0006,
+  "Bay_Slot_06": 0.0005,
+  "Bay_Slot_07": 0.0007,
   "Bay_Slot_08": 0.0004,
-  "Bay_Slot_09": 0.0004,
-  "Bay_Slot_10": 0.0004,
+  "Bay_Slot_09": 0.0002,
+  "Bay_Slot_10": 0.0002,
   "Bay_Slot_11": 0.0006,
   "Bay_Slot_12": 0.0004,
-  "Drop_Point": 0.0005,
-  "Pick_Point_Bay": 0.0002,
-  "Hold_Door": 0.0004
+  "Drop_Point": 0.0003,
+  "Pick_Point_Bay": 0.0003,
+  "Hold_Door": 0.0002
  },
- "road": {
-  "rule": "no vertex above y 0.02 with world x < 480.95 (x 481 = U-turn seam) and world z in [11, 24] (also reported: toe-to-toe z 10.2..24.8)",
-  "meshes": [
-   {
-    "mesh": "mesh_0",
-    "node": "Pad_Base",
-    "offenders": [],
-    "verts_in_strip": 213,
-    "max_y_z11_24": 0.0144,
-    "max_y_z10p2_24p8": 0.2533,
-    "strip_bounds": [
+ "overlap": {
+  "rule": "XZ footprint of every pad mesh vs road band (world x 307-481, z 10.2-24.8) and every Road_UTurn triangle: 0 overlaps, min gap >= 1 m",
+  "road_pieces": 400,
+  "pad_meshes": 14,
+  "pad_tris": 27625,
+  "overlaps": 0,
+  "under_gap": 0,
+  "min_gap_m": 1.048,
+  "nearest": {
+   "node": "Pad_Base",
+   "mesh": "mesh_0_1",
+   "road": "road band (tiles, toe-to-toe)",
+   "tri_xz": [
+    [
+     466,
+     9.15
+    ],
+    [
+     466,
+     9.09
+    ],
+    [
+     466,
+     9.15
+    ]
+   ]
+  },
+  "per_node": {
+   "Pad_Base": {
+    "min_gap_m": 1.048,
+    "nearest": [
+     "road band (tiles, toe-to-toe)",
      [
-      461.576,
-      -0.15,
-      11.165
-     ],
-     [
-      480.85,
-      0.014,
-      21.797
+      [
+       466,
+       9.15
+      ],
+      [
+       466,
+       9.09
+      ],
+      [
+       466,
+       9.15
+      ]
      ]
     ]
    },
-   {
-    "mesh": "mesh_0_1",
-    "node": "Pad_Base",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": 0.2533,
-    "strip_bounds": null
+   "Crane_Mesh": {
+    "min_gap_m": 1.07,
+    "nearest": [
+     "Road_UTurn tri 4",
+     [
+      [
+       481.2,
+       9.14
+      ],
+      [
+       481.2,
+       9.12
+      ],
+      [
+       482.8,
+       9.12
+      ]
+     ]
+    ]
    },
-   {
-    "mesh": "mesh_0_2",
-    "node": "Pad_Base",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Hose_LOX": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_1",
-    "node": "Crane_Mesh",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Hose_LCH4": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_1_1",
-    "node": "Crane_Mesh",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Ship_Placeholder": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_2",
-    "node": "Hose_LOX",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Cargo_Door": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_3",
-    "node": "Hose_LCH4",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Tier_12": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_4",
-    "node": "Ship_Placeholder",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Tier_03": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_5",
-    "node": "Cargo_Door",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Tier_08": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_6",
-    "node": "Tier_12",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Tier_20": {
+    "min_gap_m": "none within 3 m bbox"
    },
-   {
-    "mesh": "mesh_7",
-    "node": "Tier_03",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
-   },
-   {
-    "mesh": "mesh_8",
-    "node": "Tier_08",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
-   },
-   {
-    "mesh": "mesh_9",
-    "node": "Tier_20",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
-   },
-   {
-    "mesh": "mesh_10",
-    "node": "Tier_05",
-    "offenders": [],
-    "verts_in_strip": 0,
-    "max_y_z11_24": null,
-    "max_y_z10p2_24p8": null,
-    "strip_bounds": null
+   "Tier_05": {
+    "min_gap_m": "none within 3 m bbox"
    }
-  ],
-  "seam_row_at_x481": {
-   "verts": 53,
-   "max_y": 0.295,
-   "note": "first cross-section of the U-turn ribbon, meets the last road tile end at world x 481 with the same road profile"
+  }
+ },
+ "node_bounds": {
+  "Pad_Base": {
+   "min": [
+    450.6,
+    -0.15,
+    -46.87
+   ],
+   "max": [
+    509.4,
+    14.03,
+    9.15
+   ]
   },
-  "max_y": 0.0144,
-  "max_y_toe_to_toe": 0.2533
+  "Road_UTurn": {
+   "min": [
+    481,
+    -0.04,
+    10.2
+   ],
+   "max": [
+    488.3,
+    0.3,
+    24.8
+   ]
+  },
+  "Crane_Mesh": {
+   "min": [
+    477,
+    0,
+    5.4
+   ],
+   "max": [
+    495.88,
+    24.86,
+    9.14
+   ]
+  },
+  "Hose_LOX": {
+   "min": [
+    483.59,
+    0.23,
+    -14.37
+   ],
+   "max": [
+    492.97,
+    4.72,
+    -4.76
+   ]
+  },
+  "Hose_LCH4": {
+   "min": [
+    482.8,
+    0.23,
+    -16.44
+   ],
+   "max": [
+    494.3,
+    4.72,
+    -15.37
+   ]
+  },
+  "Ship_Placeholder": {
+   "min": [
+    470.75,
+    0.25,
+    -21.15
+   ],
+   "max": [
+    489.25,
+    40.5,
+    -4.85
+   ]
+  },
+  "Cargo_Door": {
+   "min": [
+    478.63,
+    12.65,
+    -9.48
+   ],
+   "max": [
+    482.05,
+    17.45,
+    -8.74
+   ]
+  },
+  "Tier_12": {
+   "min": [
+    466.4,
+    0.23,
+    -26.6
+   ],
+   "max": [
+    493.6,
+    0.37,
+    0.6
+   ]
+  },
+  "Tier_03": {
+   "min": [
+    460.49,
+    0.1,
+    -19.5
+   ],
+   "max": [
+    470.1,
+    2.83,
+    -16.9
+   ]
+  },
+  "Tier_08": {
+   "min": [
+    490.15,
+    0.09,
+    -27.09
+   ],
+   "max": [
+    496.18,
+    5.2,
+    -18.63
+   ]
+  },
+  "Tier_20": {
+   "min": [
+    469.8,
+    0.1,
+    -30.7
+   ],
+   "max": [
+    472.85,
+    10.14,
+    -28.27
+   ]
+  },
+  "Tier_05": {
+   "min": [
+    457.02,
+    -0.05,
+    -42.87
+   ],
+   "max": [
+    467.42,
+    13.03,
+    -37.13
+   ]
+  }
  },
  "fail": [],
  "pass": true

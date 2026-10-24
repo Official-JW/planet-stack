@@ -50,22 +50,41 @@ l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (
     hook.position.set(q0[3].x, q0[3].y + 1 - cs.hoist_m, q0[3].z); hook.rotation.set(0, cs.hook_yaw_rad, 0); S.updateMatrixWorld(true);
     const err = W('Hook').distanceTo(p); out.crane[o.name] = +err.toFixed(4); if (err > 0.02) fail.push('crane solve ' + o.name); });
   slew.quaternion.copy(q0[0]); tro.position.copy(q0[1]); hoi.scale.copy(q0[2]); hook.position.copy(q0[3]); hook.quaternion.copy(q0[4]); S.updateMatrixWorld(true);
-  // road corridor: every mesh vertex (world space, rest pose) with world x <= 481 and world z 11..24 must sit at y <= 0.02
-  const v = new THREE.Vector3(); out.road = { rule: 'no vertex above y 0.02 with world x < 480.95 (x 481 = U-turn seam) and world z in [11, 24] (also reported: toe-to-toe z 10.2..24.8)', meshes: [] };
-  let worst = -1e9, worstT = -1e9; const seam = [];
-  S.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; let mx = -1e9, mxT = -1e9, n = 0; const bb = new THREE.Box3(); const offenders = [];
-    for (let i = 0; i < pos.count; i++) { o.getVertexPosition ? o.getVertexPosition(i, v) : v.fromBufferAttribute(pos, i); v.applyMatrix4(o.matrixWorld);
-      const wx = v.x + WX; if (wx > 481.0001) continue;
-      if (wx > 480.95) { if (v.z >= 11 && v.z <= 24 && v.y > 0.02) seam.push([+wx.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(2)]); continue; }   // x 481 = U-turn seam row (same profile as the tile end)
-      if (v.z >= 10.2 && v.z <= 24.8) { mxT = Math.max(mxT, v.y); if (v.z >= 11 && v.z <= 24) { mx = Math.max(mx, v.y); n++; if (v.y > 0.02 && offenders.length < 12) offenders.push([+wx.toFixed(2), +v.y.toFixed(3), +v.z.toFixed(2)]); bb.expandByPoint(new THREE.Vector3(wx, v.y, v.z)); } } }
-    out.road.meshes.push({ mesh: o.name, node: NN(o), offenders, verts_in_strip: n, max_y_z11_24: n ? +mx.toFixed(4) : null, max_y_z10p2_24p8: mxT > -1e8 ? +mxT.toFixed(4) : null, strip_bounds: n ? [r3(bb.min), r3(bb.max)] : null });
-    worst = Math.max(worst, mx); worstT = Math.max(worstT, mxT); });
-  out.road.seam_row_at_x481 = { verts: seam.length, max_y: seam.length ? Math.max(...seam.map(p => p[1])) : null, note: 'first cross-section of the U-turn ribbon, meets the last road tile end at world x 481 with the same road profile' };
-  out.road.max_y = +worst.toFixed(4); out.road.max_y_toe_to_toe = +worstT.toFixed(4);
-  if (worst > 0.02) fail.push('road strip blocked (max y ' + worst.toFixed(3) + ')');
+  // ROAD vs PAD footprint check in XZ (world, rest pose). Road = toe-to-toe band world z 10.2..24.8 for x 307..481 (shared road tiles)
+  // + every triangle of Road_UTurn. Pad = every other mesh. Need: zero overlap AND >= 1 m of plain ground between them.
+  const v = new THREE.Vector3(); const GAP = 1.0;
+  const triPolys = (o) => { const pos = o.geometry.attributes.position, idx = o.geometry.index; const P = [];
+    for (let i = 0; i < pos.count; i++) { o.getVertexPosition ? o.getVertexPosition(i, v) : v.fromBufferAttribute(pos, i); v.applyMatrix4(o.matrixWorld); P.push([v.x + WX, v.z, v.y]); }
+    const T = []; const n = idx ? idx.count : pos.count; for (let k = 0; k < n; k += 3) { const a = idx ? idx.getX(k) : k, b = idx ? idx.getX(k + 1) : k + 1, c = idx ? idx.getX(k + 2) : k + 2; T.push([P[a], P[b], P[c]]); }
+    return { P, T }; };
+  const bbOf = (pg) => { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of pg) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } return [x0, x1, z0, z1]; };
+  const segD = (p, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz; let t = L ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dz); };
+  const sat = (A, B) => { for (const Q of [A, B]) for (let i = 0; i < Q.length; i++) { const a = Q[i], b = Q[(i + 1) % Q.length]; const nx = b[1] - a[1], nz = a[0] - b[0]; if (!nx && !nz) continue;
+      let a0 = 1e18, a1 = -1e18, b0 = 1e18, b1 = -1e18; for (const p of A) { const d = p[0] * nx + p[1] * nz; a0 = Math.min(a0, d); a1 = Math.max(a1, d); } for (const p of B) { const d = p[0] * nx + p[1] * nz; b0 = Math.min(b0, d); b1 = Math.max(b1, d); }
+      if (a1 < b0 || b1 < a0) return false; } return true; };
+  const dist = (A, B) => { if (sat(A, B)) return 0; let d = 1e9; for (const p of A) for (let i = 0; i < B.length; i++) d = Math.min(d, segD(p, B[i], B[(i + 1) % B.length])); for (const p of B) for (let i = 0; i < A.length; i++) d = Math.min(d, segD(p, A[i], A[(i + 1) % A.length])); return d; };
+  const road = [{ name: 'road band (tiles, toe-to-toe)', poly: [[307, 10.2], [481, 10.2], [481, 24.8], [307, 24.8]] }];
+  const pads = [];
+  S.traverse(o => { if (!o.isMesh) return; const { T } = triPolys(o); const nn = NN(o);
+    if (nn === 'Road_UTurn') T.forEach((t, k) => road.push({ name: 'Road_UTurn tri ' + k, poly: t.map(p => [p[0], p[1]]) })); else pads.push({ mesh: o.name, node: nn, T }); });
+  road.forEach(r => r.bb = bbOf(r.poly));
+  out.overlap = { rule: 'XZ footprint of every pad mesh vs road band (world x 307-481, z 10.2-24.8) and every Road_UTurn triangle: 0 overlaps, min gap >= ' + GAP + ' m',
+                  road_pieces: road.length, pad_meshes: pads.length, pad_tris: 0, overlaps: 0, under_gap: 0, min_gap_m: 1e9, nearest: null, per_node: {} };
+  for (const m of pads) { let md = 1e9, near = null;
+    for (const t of m.T) { out.overlap.pad_tris++; const tp = t.map(p => [p[0], p[1]]); const tb = bbOf(tp);
+      for (const r of road) { if (tb[0] > r.bb[1] + 3 || tb[1] < r.bb[0] - 3 || tb[2] > r.bb[3] + 3 || tb[3] < r.bb[2] - 3) continue;
+        const d = dist(tp, r.poly); if (d === 0) out.overlap.overlaps++; if (d < GAP) out.overlap.under_gap++; if (d < md) { md = d; near = [r.name, tp.map(p => [+p[0].toFixed(2), +p[1].toFixed(2)])]; } } }
+    const k = m.node; const pn = out.overlap.per_node[k] || { min_gap_m: 1e9 }; if (md < pn.min_gap_m) { pn.min_gap_m = +md.toFixed(3); pn.nearest = near; } out.overlap.per_node[k] = pn;
+    if (md < out.overlap.min_gap_m) { out.overlap.min_gap_m = +md.toFixed(3); out.overlap.nearest = { node: k, mesh: m.mesh, road: near && near[0], tri_xz: near && near[1] }; } }
+  for (const k in out.overlap.per_node) if (out.overlap.per_node[k].min_gap_m > 1e8) out.overlap.per_node[k] = { min_gap_m: 'none within 3 m bbox' };
+  if (out.overlap.overlaps) fail.push('pad overlaps road: ' + out.overlap.overlaps); if (out.overlap.under_gap) fail.push('pad closer than 1 m to road: ' + out.overlap.under_gap);
+  // node bounds (world) - e.g. proves no backdrop hills are in the GLB
+  out.node_bounds = {}; S.traverse(o => { if (!o.isMesh) return; const k = NN(o); const b = out.node_bounds[k] || { min: [1e9, 1e9, 1e9], max: [-1e9, -1e9, -1e9] };
+    const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { o.getVertexPosition ? o.getVertexPosition(i, v) : v.fromBufferAttribute(pos, i); v.applyMatrix4(o.matrixWorld); const w = [v.x + WX, v.y, v.z];
+      for (let a = 0; a < 3; a++) { b.min[a] = Math.min(b.min[a], +w[a].toFixed(2)); b.max[a] = Math.max(b.max[a], +w[a].toFixed(2)); } } out.node_bounds[k] = b; });
   // also sweep the crane clips: lowest point of the crane mesh inside the strip (the hook / box over the truck bed is expected)
   out.fail = fail; out.pass = !fail.length;
   const s = JSON.stringify(out, null, 1); if (outp) fs.writeFileSync(outp, s);
-  console.log(JSON.stringify({ ...out, clips: out.clips.map(c => [c.name, c.duration_s, c.tracks.length]), road: { seam: out.road.seam_row_at_x481, max_y: out.road.max_y, max_y_toe_to_toe: out.road.max_y_toe_to_toe, meshes: out.road.meshes.filter(m => m.verts_in_strip) } }, null, 1));
+  console.log(JSON.stringify({ ...out, clips: out.clips.map(c => [c.name, c.duration_s, c.tracks.length]), overlap: { ...out.overlap, per_node: undefined }, node_bounds: out.node_bounds }, null, 1));
   process.exit(fail.length ? 1 : 0);
 }, err => { console.error(err); process.exit(2); });
