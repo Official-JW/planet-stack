@@ -1,0 +1,1845 @@
+{
+ "file": "../launch_pad_game.glb",
+ "bytes": 288712,
+ "md5": "40176c98bd5522e61d658b6b9db95370",
+ "three": "186",
+ "tris": 28004,
+ "draws": 14,
+ "extensions": [
+  "KHR_mesh_quantization",
+  "EXT_meshopt_compression"
+ ],
+ "images": 0,
+ "textures": 0,
+ "nodes": 73,
+ "meshes": [
+  [
+   "Pad_Base",
+   "SHM_Paint",
+   14725
+  ],
+  [
+   "Pad_Base",
+   "SHM_GlowCyan",
+   773
+  ],
+  [
+   "Pad_Base",
+   "SHM_Metal",
+   532
+  ],
+  [
+   "Crane_Mesh",
+   "SHM_Paint",
+   2724
+  ],
+  [
+   "Crane_Mesh",
+   "SHM_GlowCyan",
+   96
+  ],
+  [
+   "Hose_LOX",
+   "SHM_Metal",
+   900
+  ],
+  [
+   "Hose_LCH4",
+   "SHM_Metal",
+   900
+  ],
+  [
+   "Ship_Placeholder",
+   "SHM_Paint",
+   4200
+  ],
+  [
+   "Cargo_Door",
+   "SHM_Paint",
+   200
+  ],
+  [
+   "Tier_12",
+   "SHM_GlowWhite",
+   480
+  ],
+  [
+   "Tier_03",
+   "SHM_Paint",
+   680
+  ],
+  [
+   "Tier_08",
+   "SHM_Paint",
+   218
+  ],
+  [
+   "Tier_20",
+   "SHM_Paint",
+   576
+  ],
+  [
+   "Tier_05",
+   "SHM_Paint",
+   1000
+  ]
+ ],
+ "empties": [
+  "Bay_Slot_01",
+  "Bay_Slot_02",
+  "Bay_Slot_03",
+  "Bay_Slot_04",
+  "Bay_Slot_05",
+  "Bay_Slot_06",
+  "Bay_Slot_07",
+  "Bay_Slot_08",
+  "Bay_Slot_09",
+  "Bay_Slot_10",
+  "Bay_Slot_11",
+  "Bay_Slot_12",
+  "Cam_Target",
+  "Crate_Drop",
+  "Crew_Path_01",
+  "Crew_Path_02",
+  "Crew_Path_03",
+  "Crew_Path_04",
+  "Crew_Path_05",
+  "Drop_Point",
+  "Fuel_Hookup",
+  "Hold_01",
+  "Hold_02",
+  "Hold_03",
+  "Hold_04",
+  "Hold_05",
+  "Hold_06",
+  "Hold_07",
+  "Hold_08",
+  "Hold_09",
+  "Hold_10",
+  "Hold_Door",
+  "Ladder_Foot",
+  "Pick_Point",
+  "Pick_Point_02",
+  "Pick_Point_Bay",
+  "Pipe_LaunchPad_End",
+  "Receiver_Home",
+  "Receiver_Spot",
+  "Road_Entry",
+  "Road_Exit",
+  "Ship_Center",
+  "Truck_Stop",
+  "Turn_End",
+  "Turn_Start"
+ ],
+ "joints": [
+  "Crane_Base",
+  "Slew",
+  "Trolley",
+  "Hoist",
+  "Hook"
+ ],
+ "clips": [
+  {
+   "name": "crane_lift",
+   "duration_s": 2,
+   "tracks": [
+    {
+     "track": "Crane_Base.position",
+     "first": [
+      0,
+      0,
+      0
+     ],
+     "last": [
+      0,
+      0,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.position",
+     "first": [
+      0,
+      19,
+      0
+     ],
+     "last": [
+      0,
+      19,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.quaternion",
+     "first": [
+      0,
+      0.7071,
+      0,
+      -0.7071
+     ],
+     "last": [
+      0,
+      0.7071,
+      0,
+      -0.7071
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.position",
+     "first": [
+      8,
+      1,
+      0
+     ],
+     "last": [
+      8,
+      1,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.position",
+     "first": [
+      0,
+      -0.35,
+      0
+     ],
+     "last": [
+      0,
+      -0.35,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.scale",
+     "first": [
+      1,
+      14.3999,
+      1
+     ],
+     "last": [
+      1,
+      12.5,
+      1
+     ],
+     "t0": 0,
+     "t1": 2
+    },
+    {
+     "track": "Hook.position",
+     "first": [
+      0,
+      -15.7002,
+      0
+     ],
+     "last": [
+      0,
+      -13.7998,
+      0
+     ],
+     "t0": 0,
+     "t1": 2
+    },
+    {
+     "track": "Hook.quaternion",
+     "first": [
+      0,
+      0.7071,
+      0,
+      0.7071
+     ],
+     "last": [
+      0,
+      0.7071,
+      0,
+      0.7071
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    }
+   ]
+  },
+  {
+   "name": "crane_lift_bay",
+   "duration_s": 3,
+   "tracks": [
+    {
+     "track": "Crane_Base.position",
+     "first": [
+      0,
+      0,
+      0
+     ],
+     "last": [
+      0,
+      0,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.position",
+     "first": [
+      0,
+      19,
+      0
+     ],
+     "last": [
+      0,
+      19,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.quaternion",
+     "first": [
+      0,
+      0.9879,
+      0,
+      -0.1548
+     ],
+     "last": [
+      0,
+      0.9879,
+      0,
+      -0.1548
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.position",
+     "first": [
+      5.8821,
+      1,
+      0
+     ],
+     "last": [
+      5.8821,
+      1,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.position",
+     "first": [
+      0,
+      -0.35,
+      0
+     ],
+     "last": [
+      0,
+      -0.35,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.scale",
+     "first": [
+      1,
+      16,
+      1
+     ],
+     "last": [
+      1,
+      2.0197,
+      1
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Hook.position",
+     "first": [
+      0,
+      -17.2998,
+      0
+     ],
+     "last": [
+      0,
+      -3.3197,
+      0
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Hook.quaternion",
+     "first": [
+      0,
+      0.9879,
+      0,
+      0.1548
+     ],
+     "last": [
+      0,
+      0.9879,
+      0,
+      0.1548
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    }
+   ]
+  },
+  {
+   "name": "crane_lower",
+   "duration_s": 2,
+   "tracks": [
+    {
+     "track": "Crane_Base.position",
+     "first": [
+      0,
+      0,
+      0
+     ],
+     "last": [
+      0,
+      0,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.position",
+     "first": [
+      0,
+      19,
+      0
+     ],
+     "last": [
+      0,
+      19,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.quaternion",
+     "first": [
+      0,
+      0.9974,
+      0,
+      -0.0718
+     ],
+     "last": [
+      0,
+      0.9974,
+      0,
+      -0.0718
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.position",
+     "first": [
+      12.5298,
+      1,
+      0
+     ],
+     "last": [
+      12.5298,
+      1,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.position",
+     "first": [
+      0,
+      -0.35,
+      0
+     ],
+     "last": [
+      0,
+      -0.35,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.scale",
+     "first": [
+      1,
+      12.5,
+      1
+     ],
+     "last": [
+      1,
+      16,
+      1
+     ],
+     "t0": 0,
+     "t1": 2
+    },
+    {
+     "track": "Hook.position",
+     "first": [
+      0,
+      -13.7998,
+      0
+     ],
+     "last": [
+      0,
+      -17.2998,
+      0
+     ],
+     "t0": 0,
+     "t1": 2
+    },
+    {
+     "track": "Hook.quaternion",
+     "first": [
+      0,
+      0.9974,
+      0,
+      0.0718
+     ],
+     "last": [
+      0,
+      0.9974,
+      0,
+      0.0718
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    }
+   ]
+  },
+  {
+   "name": "crane_lower_hold",
+   "duration_s": 1.5,
+   "tracks": [
+    {
+     "track": "Crane_Base.position",
+     "first": [
+      0,
+      0,
+      0
+     ],
+     "last": [
+      0,
+      0,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.position",
+     "first": [
+      0,
+      19,
+      0
+     ],
+     "last": [
+      0,
+      19,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.quaternion",
+     "first": [
+      0,
+      -0.0967,
+      0,
+      0.9953
+     ],
+     "last": [
+      0,
+      -0.0967,
+      0,
+      0.9953
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.position",
+     "first": [
+      7.7117,
+      1,
+      0
+     ],
+     "last": [
+      7.7117,
+      1,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.position",
+     "first": [
+      0,
+      -0.35,
+      0
+     ],
+     "last": [
+      0,
+      -0.35,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.scale",
+     "first": [
+      1,
+      2.0197,
+      1
+     ],
+     "last": [
+      1,
+      3.2697,
+      1
+     ],
+     "t0": 0,
+     "t1": 1.5
+    },
+    {
+     "track": "Hook.position",
+     "first": [
+      0,
+      -3.3197,
+      0
+     ],
+     "last": [
+      0,
+      -4.5696,
+      0
+     ],
+     "t0": 0,
+     "t1": 1.5
+    },
+    {
+     "track": "Hook.quaternion",
+     "first": [
+      0,
+      0.1399,
+      0,
+      0.9902
+     ],
+     "last": [
+      0,
+      0.1399,
+      0,
+      0.9902
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    }
+   ]
+  },
+  {
+   "name": "crane_swing",
+   "duration_s": 3,
+   "tracks": [
+    {
+     "track": "Crane_Base.position",
+     "first": [
+      0,
+      0,
+      0
+     ],
+     "last": [
+      0,
+      0,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.position",
+     "first": [
+      0,
+      19,
+      0
+     ],
+     "last": [
+      0,
+      19,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.quaternion",
+     "first": [
+      0,
+      0.7071,
+      0,
+      -0.7071
+     ],
+     "last": [
+      0,
+      0.9974,
+      0,
+      -0.0718
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Slew.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.position",
+     "first": [
+      8,
+      1,
+      0
+     ],
+     "last": [
+      12.5298,
+      1,
+      0
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Trolley.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.position",
+     "first": [
+      0,
+      -0.35,
+      0
+     ],
+     "last": [
+      0,
+      -0.35,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.scale",
+     "first": [
+      1,
+      12.5,
+      1
+     ],
+     "last": [
+      1,
+      12.5,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.position",
+     "first": [
+      0,
+      -13.7998,
+      0
+     ],
+     "last": [
+      0,
+      -13.7998,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.quaternion",
+     "first": [
+      0,
+      0.7071,
+      0,
+      0.7071
+     ],
+     "last": [
+      0,
+      0.9974,
+      0,
+      0.0718
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Hook.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    }
+   ]
+  },
+  {
+   "name": "crane_swing_hold",
+   "duration_s": 3,
+   "tracks": [
+    {
+     "track": "Crane_Base.position",
+     "first": [
+      0,
+      0,
+      0
+     ],
+     "last": [
+      0,
+      0,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Crane_Base.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.position",
+     "first": [
+      0,
+      19,
+      0
+     ],
+     "last": [
+      0,
+      19,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Slew.quaternion",
+     "first": [
+      0,
+      0.9879,
+      0,
+      -0.1548
+     ],
+     "last": [
+      0,
+      -0.0967,
+      0,
+      0.9953
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Slew.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.position",
+     "first": [
+      5.8821,
+      1,
+      0
+     ],
+     "last": [
+      7.7117,
+      1,
+      0
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Trolley.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Trolley.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.position",
+     "first": [
+      0,
+      -0.35,
+      0
+     ],
+     "last": [
+      0,
+      -0.35,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.quaternion",
+     "first": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "last": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hoist.scale",
+     "first": [
+      1,
+      2.0197,
+      1
+     ],
+     "last": [
+      1,
+      2.0197,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.position",
+     "first": [
+      0,
+      -3.3197,
+      0
+     ],
+     "last": [
+      0,
+      -3.3197,
+      0
+     ],
+     "t0": 0,
+     "t1": 0
+    },
+    {
+     "track": "Hook.quaternion",
+     "first": [
+      0,
+      0.9879,
+      0,
+      0.1548
+     ],
+     "last": [
+      0,
+      0.1399,
+      0,
+      0.9902
+     ],
+     "t0": 0,
+     "t1": 3
+    },
+    {
+     "track": "Hook.scale",
+     "first": [
+      1,
+      1,
+      1
+     ],
+     "last": [
+      1,
+      1,
+      1
+     ],
+     "t0": 0,
+     "t1": 0
+    }
+   ]
+  },
+  {
+   "name": "cargo_door_close",
+   "duration_s": 2,
+   "tracks": [
+    {
+     "track": "Cargo_Door.quaternion",
+     "first": [
+      0.7065,
+      0.0307,
+      -0.0307,
+      0.7064
+     ],
+     "last": [
+      0,
+      0.0435,
+      0,
+      0.9991
+     ],
+     "t0": 0,
+     "t1": 2
+    }
+   ]
+  },
+  {
+   "name": "cargo_door_open",
+   "duration_s": 2,
+   "tracks": [
+    {
+     "track": "Cargo_Door.quaternion",
+     "first": [
+      0,
+      0.0435,
+      0,
+      0.9991
+     ],
+     "last": [
+      0.7065,
+      0.0307,
+      -0.0307,
+      0.7064
+     ],
+     "t0": 0,
+     "t1": 2
+    }
+   ]
+  }
+ ],
+ "cam_target": {
+  "at": [
+   -3,
+   1.4,
+   4
+  ],
+  "extras": {
+   "name": "Cam_Target",
+   "frame_w": 80,
+   "fov_y_deg": 38,
+   "pitch_down_deg": 18,
+   "distance_m": {
+    "393x852": 251.846,
+    "375x667": 206.625
+   },
+   "camera_side": "+Z (glTF)",
+   "note": "lookAt(Cam_Target), d = (frame_w/2) / (tan(fov_y/2) * aspect)"
+  }
+ },
+ "truck_stop_world": [
+  474.15,
+  0,
+  13
+ ],
+ "receiver": {
+  "spot": [
+   -10.2,
+   0.3,
+   9
+  ],
+  "home": [
+   -13.554,
+   0.3,
+   8.966
+  ],
+  "dist_m": 3.354,
+  "spot_yaw_deg": 25.99,
+  "home_yaw_deg": 89.42,
+  "rig_home_err_m": 0
+ },
+ "crane": {
+  "Pick_Point": 0,
+  "Pick_Point_02": 0.0005,
+  "Bay_Slot_01": 0.0005,
+  "Bay_Slot_02": 0.0002,
+  "Bay_Slot_03": 0.0002,
+  "Bay_Slot_04": 0.0004,
+  "Bay_Slot_05": 0.0005,
+  "Bay_Slot_06": 0.0004,
+  "Bay_Slot_07": 0.0004,
+  "Bay_Slot_08": 0.0004,
+  "Bay_Slot_09": 0.0004,
+  "Bay_Slot_10": 0.0004,
+  "Bay_Slot_11": 0.0006,
+  "Bay_Slot_12": 0.0004,
+  "Drop_Point": 0.0005,
+  "Pick_Point_Bay": 0.0002,
+  "Hold_Door": 0.0004
+ },
+ "road": {
+  "rule": "no vertex above y 0.02 with world x < 480.95 (x 481 = U-turn seam) and world z in [11, 24] (also reported: toe-to-toe z 10.2..24.8)",
+  "meshes": [
+   {
+    "mesh": "mesh_0",
+    "node": "Pad_Base",
+    "offenders": [],
+    "verts_in_strip": 213,
+    "max_y_z11_24": 0.0144,
+    "max_y_z10p2_24p8": 0.2533,
+    "strip_bounds": [
+     [
+      461.576,
+      -0.15,
+      11.165
+     ],
+     [
+      480.85,
+      0.014,
+      21.797
+     ]
+    ]
+   },
+   {
+    "mesh": "mesh_0_1",
+    "node": "Pad_Base",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": 0.2533,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_0_2",
+    "node": "Pad_Base",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_1",
+    "node": "Crane_Mesh",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_1_1",
+    "node": "Crane_Mesh",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_2",
+    "node": "Hose_LOX",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_3",
+    "node": "Hose_LCH4",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_4",
+    "node": "Ship_Placeholder",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_5",
+    "node": "Cargo_Door",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_6",
+    "node": "Tier_12",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_7",
+    "node": "Tier_03",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_8",
+    "node": "Tier_08",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_9",
+    "node": "Tier_20",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   },
+   {
+    "mesh": "mesh_10",
+    "node": "Tier_05",
+    "offenders": [],
+    "verts_in_strip": 0,
+    "max_y_z11_24": null,
+    "max_y_z10p2_24p8": null,
+    "strip_bounds": null
+   }
+  ],
+  "seam_row_at_x481": {
+   "verts": 53,
+   "max_y": 0.295,
+   "note": "first cross-section of the U-turn ribbon, meets the last road tile end at world x 481 with the same road profile"
+  },
+  "max_y": 0.0144,
+  "max_y_toe_to_toe": 0.2533
+ },
+ "fail": [],
+ "pass": true
+}

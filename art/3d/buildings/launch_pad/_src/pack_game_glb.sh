@@ -1,10 +1,11 @@
 #!/bin/sh
-# Build launch_pad_game.glb per Game Coder rules (SH_* palette, merge-by-material, <=30k tris, meshopt + quantization, NO Draco).
-# Needs gltfpack (npm i gltfpack). Run from this _src dir. Node/clip/marker names: GAME_NAMES dict at the top of build_launch_pad.py.
-# -kn keeps named nodes (Pad_Base, hoses, tiers, markers), -ke keeps extras {"tier": N, "hidden_by_default": true}.
+# Build launch_pad_game.glb per Game Coder rules (merged SHM_* materials + vertex colours, <=30k tris, <=15 draws,
+# meshopt + quantization, NO Draco, no images). Run from this _src dir. Names: GAME_NAMES at the top of build_launch_pad.py.
+# -kn keeps named nodes (Pad_Base, hoses, tiers, ship, door, crane joints, markers), -ke keeps extras, -ac keeps constant clip tracks.
 set -e
-B=${BLENDER:-/opt/blender-4.2.3-linux-x64/blender}; GP=${GLTFPACK:-gltfpack}
-T=$(mktemp -d)
-"$B" -b -P build_launch_pad.py -- --out "$T" --only game
-"$GP" -cc -kn -ke -i "$T/launch_pad_game_raw.glb" -o ../launch_pad_game.glb
-rm -rf "$T"
+B=${BLENDER:-/opt/blender-4.2.3-linux-x64/blender}
+NM=${NODE_PATH:-/home/box/apps/gltftools/node_modules}; GP=${GLTFPACK:-$NM/.bin/gltfpack}
+T=${LP_TMP:-$(mktemp -d)}
+"$B" -b -t ${THREADS:-4} -P build_launch_pad.py -- --out "$T" --only game
+"$GP" -cc -kn -ke -ac -i "$T/launch_pad_game_raw.glb" -o ../launch_pad_game.glb
+NODE_PATH="$NM" node verify_launch_pad_glb.mjs ../launch_pad_game.glb ../proofs/launch_pad_game_verify.json
