@@ -37,9 +37,12 @@ print('CRYSTALS removed', len(_cr), '| remaining He-3 parts:', sorted({o.name.sp
 # meshes, material B_DepRock -> SH_Rock (no emission, no vein shader, no clip). Dep_01 / Dep_02 markers and their tap radii are unchanged.
 import bmesh as _bmd, random as _rd
 _mdr = bpy.data.materials.new('B_DepRock'); _mdr.use_nodes = True; _bsd = _mdr.node_tree.nodes['Principled BSDF']
-_bsd.inputs['Base Color'].default_value = (0.090, 0.092, 0.096, 1.0); _bsd.inputs['Roughness'].default_value = 0.95
+_bsd.inputs['Base Color'].default_value = (0.050, 0.047, 0.044, 1.0); _bsd.inputs['Roughness'].default_value = 0.95
 _bsd.inputs['Emission Strength'].default_value = 0.0; _mdr.diffuse_color = (0.090, 0.092, 0.096, 1.0)
 _rr = _rd.Random(7)
+_mdv = bpy.data.materials.new('B_DepVein'); _mdv.use_nodes = True; _bsv = _mdv.node_tree.nodes['Principled BSDF']
+_bsv.inputs['Base Color'].default_value = (0.03, 0.30, 0.38, 1.0); _bsv.inputs['Emission Color'].default_value = (0.006, 0.14, 0.19, 1.0)
+_bsv.inputs['Emission Strength'].default_value = 1.0; _mdv.diffuse_color = (0.03, 0.30, 0.38, 1.0)
 for _k, ((_x, _y), _r) in enumerate(((ML.DEP1, 2.2), (ML.DEP2, 1.05))):
     _bm = _bmd.new(); _n = 16; _z0 = LAY['height'](_x, _y)
     _c = _bm.verts.new((_x, _y, _z0 + 0.035)); _ring = []; _base = []
@@ -54,8 +57,28 @@ for _k, ((_x, _y), _r) in enumerate(((ML.DEP1, 2.2), (ML.DEP2, 1.05))):
     for _f in _bm.faces:
         _f.normal_update()
         if _f.normal.z < 0: _f.normal_flip()
-    _obj(_bm, 'dep_patch', _mdr, c='Mine', smooth=False)
-print('DEP PATCHES plain ore rock (B_DepRock -> SH_Rock, no glow / pulse) at', ML.DEP1, ML.DEP2)
+    _po = _obj(_bm, 'dep_patch', _mdr, c='Mine', smooth=False); _po['road'] = 1; _po['grp'] = 'Base'   # road flag: never decimated
+    # 20:50 Director: faint cyan veins, low steady emissive (own material SHM_DepVein, no clip, no pulse), no ring / disc
+    for _v in range(5 if _r > 1.5 else 3):
+        _bv = _bmd.new(); _a0 = _rr.uniform(0, math.tau); _L = _r * _rr.uniform(1.0, 1.5); _n = 7
+        _sx, _sy = _x + _r * 0.55 * math.cos(_a0) * _rr.uniform(-1, 1), _y + _r * 0.55 * math.sin(_a0) * _rr.uniform(-1, 1)
+        _hd = _rr.uniform(0, math.tau); _pts = []
+        for _i in range(_n + 1):
+            _pts.append((_sx, _sy)); _hd += _rr.uniform(-0.5, 0.5); _sx += math.cos(_hd) * _L / _n; _sy += math.sin(_hd) * _L / _n
+        _pts = [(px_, py_) for px_, py_ in _pts if math.hypot(px_ - _x, py_ - _y) < _r * 0.85]
+        if len(_pts) < 3: continue
+        _row = []
+        for _i, (px_, py_) in enumerate(_pts):
+            qa = _pts[max(0, _i - 1)]; qb = _pts[min(len(_pts) - 1, _i + 1)]; tx_, ty_ = qb[0] - qa[0], qb[1] - qa[1]; tl = math.hypot(tx_, ty_) or 1.0
+            wv = 0.05 * (1.0 - abs(2 * _i / (len(_pts) - 1) - 1)) + 0.012
+            zz = LAY['height'](px_, py_) + 0.05
+            _row.append((_bv.verts.new((px_ - ty_ / tl * wv, py_ + tx_ / tl * wv, zz)), _bv.verts.new((px_ + ty_ / tl * wv, py_ - tx_ / tl * wv, zz))))
+        for (a1, b1), (a2, b2) in zip(_row, _row[1:]): _bv.faces.new((a1, b1, b2, a2))
+        for _f in _bv.faces:
+            _f.normal_update()
+            if _f.normal.z < 0: _f.normal_flip()
+        _vo = _obj(_bv, 'dep_vein', _mdv, c='Mine', smooth=False); _vo['road'] = 1; _vo['grp'] = 'Base'
+print('DEP PATCHES darker ore rock (B_DepRock #3f3d3b) + faint steady cyan veins (B_DepVein -> SHM_DepVein, no clip) at', ML.DEP1, ML.DEP2)
 C0, C1, Lc, U, SIDE, UP = LAY['C0'], LAY['C1'], LAY['L'], LAY['u'], LAY['side'], LAY['up']
 base = lambda o: o.name.split('.')[0]
 TROOT = bpy.data.objects['Truck_HT04']; GZ = TROOT.matrix_world.translation.z
@@ -203,6 +226,10 @@ for n, d in MERGED.items():
     if 'emissive' in d:
         b.inputs['Emission Color'].default_value = lin(d['emissive']); b.inputs['Emission Strength'].default_value = d['emissive_strength']
     m.use_backface_culling = True; SH[n] = m
+_m = bpy.data.materials.new('SHM_DepVein'); _m.use_nodes = True; _b = _m.node_tree.nodes['Principled BSDF']   # deposit veins: low STEADY emissive (no clip)
+_b.inputs['Base Color'].default_value = lin('#1f7f91'); _b.inputs['Metallic'].default_value = 0.0; _b.inputs['Roughness'].default_value = 0.6
+_b.inputs['Emission Color'].default_value = [c * 0.18 for c in lin('#2fe3ff')[:3]] + [1.0]; _b.inputs['Emission Strength'].default_value = 1.0
+_m.use_backface_culling = True; SH['SHM_DepVein'] = _m
 MAP = [('B_WhiteSmooth', 'SH_White'), ('B_White', 'SH_White'), ('B_GraphiteSmooth', 'SH_Graphite'), ('B_Graphite', 'SH_Graphite'),
        ('B_Satin', 'SH_Steel'), ('B_Platinum', 'SH_Steel'), ('B_Tire', 'SH_Graphite'), ('B_Belt', 'SH_Graphite'), ('B_InkWhite', 'SH_White'),
        ('B_Ink', 'SH_Graphite'), ('B_CyanSoft', 'SH_GlowCyan'), ('B_Cyan', 'SH_GlowCyan'), ('B_He3', 'SH_GlowCyan'), ('B_Lamp', 'SH_GlowWhite'),
@@ -214,6 +241,8 @@ def shared_for(m):
     if m is not None:
         for p, s_ in MAP:
             if m.name.startswith(p): sw = s_; break
+    if m is not None and m.name.startswith('B_DepVein'): return SH['SHM_DepVein'], [1.0, 1.0, 1.0, 1.0]
+    if m is not None and m.name.startswith('B_DepRock'): return SH['SHM_Paint'], lin('#3f3d3b')   # darker ore rock than SH_Rock
     if sw is None: sw = 'SH_Graphite'; print('UNMAPPED', m.name if m else None)
     mm = S2M[sw]
     col = lin(SW[sw]['base']) if MERGED[mm].get('vertex_colors') else lin(MERGED[mm]['base'])
@@ -764,7 +793,7 @@ print(HT.fmt('RETURN x26 -> Path_Load_Approach', _tr, _lr)); print(HT.fmt('REVER
 print('HAUL', json.dumps(HAUL))
 # deposits + spur (scoop) poses
 for nm, (x, y), r, lab in (('Dep_01', ML.DEP1, 2.2, 'main He-3 seam'), ('Dep_02', ML.DEP2, 1.05, 'tap deposit')):
-    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'tap': 'the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load', 'patch': 'dep_patch in Base_Paint: plain ore-coloured rock (SH_Rock), no glow, no pulse, no gem', 'glow': 'none (10/23 20:34: no glow disc, gem, glint or emissive pulse at the deposits, in the GLB or in code)'})
+    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'tap': 'the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load', 'patch': 'dep_patch in Base_Paint: still, darker ore rock (#3f3d3b) + dep_vein faint cyan veins in Base_DepVein (SHM_DepVein, low steady emissive)', 'glow': 'baked in the GLB only: faint steady cyan veins, no animation / pulse / flicker, no ring or disc; the game draws nothing extra here'})
 emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_entry', 'note': 'where the return U-turn joins the outbound lane (= Path_Out_01 = Path_Load_Approach): the loaded lane runs dead straight +X (glTF) at z 9 off the right edge to x 26 (Refinery road strip). The empty return lane comes in at z 0 (Path_Ret_01, x 26).'})
 CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.0, -1.6, 0.0), (5.0, 0.2, 0.0), (8.6, 2.9, 0.0)]
 for i, p in enumerate(CREW): emp('Crew_Path_%02d' % (i + 1), (p[0], p[1], p[2] if p[2] > 0.3 else H(p[0], p[1])), 0, {'kind': 'crew_path'})
