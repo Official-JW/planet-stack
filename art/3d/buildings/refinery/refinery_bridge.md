@@ -126,7 +126,7 @@ The v4 edge-sampled numbers, for comparison: 393 gap 3.5 px, lowerator right 1.4
 - Build: `blender -b -P _src/build_bridge.py -- raw.glb [--box /tmp/cargo_box_plain.glb]`. The env vars `BR_LX` (lowerator centre x, default 9.0), `BR_EE` (span end set-back, default 1.6) and `BR_LOWDUMP` (dump the lift-section polygons as JSON). Make the box input with `gltfpack -i art/3d/props/cargo_box/cargo_box_game.glb -o /tmp/cargo_box_plain.glb -noq -kn -ke`.
 - Pack: `gltfpack -i raw.glb -o refinery_bridge.glb -cc -kn -ke -af 10`.
 - Proofs: `_src/render_bridge_proofs.py` (`--phone` for the game camera, `--clip box_convey|box_path`).
-  - `proofs/refinery_bridge_393x852.png` and `_375x667.png`: box_convey at t 22 s (box on the carriage, mid-descent), with band lines and the dump bay outline. For v5.1 these are light Eevee renders (16 samples) because of the render hold. A Cycles re-render is queued.
+  - `proofs/refinery_bridge_393x852.png` and `_375x667.png`: box_convey at t 22 s (box on the carriage, mid-descent), with band lines and the dump bay outline. Cycles, 24 samples, OIDN (v5.1, ea5b99f).
   - `_before_after.png`: v5 (3eb9b42, t 28) vs v5.1 (t 22) at both sizes, 2× size.
   - `_clipcheck.json`: the 30 Hz box-vs-geometry clip check (box_path and box_convey).
-  - `_closeup_4k.png` is **still the v1 image**. A v5 4K close-up is queued until the shared box is free (QA until about 1:50 AM PT).
+  - `_closeup_4k.png`: v5.1 (ea5b99f) 3840×2160 Cycles close-up, 64 samples, OIDN. It shows box_convey at t 22 s with Box_1 on the lift carriage mid-descent, the −32° span into the south tower, and Box_3 on the pickup turntable. Camera `--cam 32,13,33,331.8,-13.8,5.6 --lens 45`.
