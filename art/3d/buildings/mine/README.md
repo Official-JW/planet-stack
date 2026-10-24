@@ -6,7 +6,7 @@ The HT-04 has **no scoop arm**. It only fills under the conveyor chute at `Path_
 
 | | |
 |---|---|
-| **Game GLB** | `mine_game.glb`, **127,616 B (0.13 MB)**, md5 `f8d788025adbad4d21741d5f90965aea` (10/23 20:53 build, darker deposit patches with steady cyan veins) |
+| **Game GLB** | `mine_game.glb`, **127,620 B (0.13 MB)**, md5 `2123a050afc6861ca4d368089a3b3735` (10/23 21:00 build: darker deposit patches with steady cyan veins, camera refit to the 20:58 iPhone-inset band) |
 | Triangles / draws | **18,274 triangles, 11 draw calls with every tier visible** (11 meshes × 1 primitive; no truck) |
 | Format | meshopt + quantization (`gltfpack -cc -kn -ke`). Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. **No Draco.** No morph targets, no skins (the truck and its `fill` morph are in the ht04 prop). |
 | Materials | `SHM_Paint` and `SHM_GlowCyan` (`../_shared/shared_materials.json`). Plain metallic/roughness plus emissiveFactor. No transmission, clearcoat or ior. Colour is in `COLOR_0` vertex colours. **No images or textures** and no TEXCOORD. |
@@ -51,10 +51,10 @@ The HT-04 prop is unchanged by this pass (no repack: `art/3d/props/ht04/ht04_gam
 
 ## Station camera (Game Coder spec)
 Perspective, **38° vertical FOV, tilted down 18°, aimed at `Cam_Target`**.
-- **Aim (10/23 PM):** **W = 33.8 m**, `Cam_Target` glTF **(0.85, 6.0, 2.36)** (Blender (0.85, −2.36, 6.0)), extras `{"frame_w": 33.8, "fov_y_deg": 38, "pitch_down_deg": 18, "distance_m": 106.4}`.
-- **Distance** d = (W/2) / (tan 19° · aspect); 106.4 m at 393×852 and 1179×2556 (`Cam_Target` is a look-at point; code recomputes d per aspect, as QA3D does).
-- **Fit (`build_mine.py cam_fit`, after the tiers are built):** Coder's exact tier safe area, **y 144–568 at 393×852 and y 144–383 at 375×667, 0 px side margin**. W is scanned from 22 m in 0.2 m steps and the target height is bisected until every tier vertex sits inside both bands with a 3 px margin and the focus (rig, conveyor, parked truck, silo, bay) stays above y 660. The 375×667 band is the binding one.
-- **Result (all tiers visible):** see the Tiers table; focus box on 393×852 x 23…370, y 231…530.
+- **Aim (10/23 PM):** **(10/23 21:00 refit) W = 37.6 m**, `Cam_Target` glTF **(0.62, 6.0, 17.72)** (Blender (0.62, −17.72, 6.0)), extras `{"frame_w": 37.6, "fov_y_deg": 38, "pitch_down_deg": 18, "distance_m": 118.37}`.
+- **Distance** d = (W/2) / (tan 19° · aspect); 118.4 m at 393×852 and 1179×2556 (`Cam_Target` is a look-at point; code recomputes d per aspect, as QA3D does).
+- **Fit (`build_mine.py cam_fit`, after the tiers are built):** Coder's safe area as of **10/23 20:58 (iPhone insets): EVERYTHING, with every tier visible, inside y 165–534 at 393×852 and y 144–383 at 375×667, 0 px side margin**. W is scanned from 22 m in 0.2 m steps and the target is bisected until every tier vertex AND the station focus (pads, rig, crown, hopper, conveyor, silo, chute, both deposit patches, parked truck tail..cab and its approach pose) sit inside both bands with a 3 px margin. The 375×667 band is the binding one.
+- **Result (all tiers visible), measured on the packed GLB:** tiers + named nodes x 57–306, **y 226–472** at 393×852 and x 59–287, **y 147–377** at 375×667. The whole model incl. `Base_Paint` (roads, deposits) is **y 226–475** at 393×852 and **y 147–380** at 375×667; only the outbound/return roads run off the right edge (x to 446 / 422), by design.
 
 ## Game GLB nodes
 Everything sits under the root `Mine`. gltfpack puts each mesh on an **unnamed child node** of its named node; that child carries the quantization offset and scale. Find meshes under the named node with `traverse`. The names, pivots and extras are on the named nodes.
@@ -87,15 +87,15 @@ The truck, its joints, the `fill` morph (official remap `influence = 0.5 + 0.5 *
 - **Never drive while `chute_pour` or `truck_load_rich` is running**: the chunks are on truck joints and would ride along.
 
 ## Tiers
-**Safe area (Coder, exact): y 144–568 at 393×852 and y 144–383 at 375×667, 0 px side margin, camera from `Cam_Target`.** Checked on the packed `mine_game.glb` by projecting every tier vertex (`/workspace/aa_ps/check.mjs`), and in `mine_tiers_393x852.png` / `mine_tiers_375x667.png`:
+**Safe area (Coder, 10/23 20:58): y 165–534 at 393×852 and y 144–383 at 375×667, 0 px side margin, camera from `Cam_Target`.** Checked on the packed `mine_game.glb` by projecting every tier vertex (`/workspace/aa_ps/check.mjs`), and in `mine_tiers_393x852.png` / `mine_tiers_375x667.png`:
 
-| Tier | 393×852 x | 393×852 y (144–568) | 375×667 x | 375×667 y (144–383) | 1179×2556 y | OK |
+| Tier | 393×852 x | 393×852 y (165–534) | 375×667 x | 375×667 y (144–383) | 1179×2556 y | OK |
 |---|---|---|---|---|---|---|
-| `Tier_03` | 174–299 | 436–450 | 166–287 | 343–356 | 1309–1349 | yes |
-| `Tier_05` | 195–267 | 383–474 | 186–254 | 294–379 | 1150–1421 | yes |
-| `Tier_08` | 23–95 | 375–452 | 25–93 | 286–357 | 1125–1355 | yes |
-| `Tier_12` | 264–327 | 352–450 | 250–309 | 264–356 | 1055–1351 | yes |
-| `Tier_20` | 63–141 | **231**–325 | 61–135 | **148**–238 | 692–975 | yes |
+| `Tier_03` | 180–280 | 391–399 | 172–266 | 301–308 | 1174–1196 | yes |
+| `Tier_05` | 197–256 | 350–422 | 188–242 | 263–330 | 1049–1267 | yes |
+| `Tier_08` | 57–116 | 343–406 | 59–114 | 258–315 | 1030–1219 | yes |
+| `Tier_12` | 254–306 | 325–406 | 240–287 | 241–315 | 975–1217 | yes |
+| `Tier_20` | 91–154 | 226–302 | 90–148 | 147–218 | 677–905 | yes |
 
 Every tier node has `extras {"tier": N, "hidden_by_default": true}` (three.js `userData`). glTF has no hidden flag, so the loader must set `visible = false` on load. Each tier is one draw.
 
@@ -132,11 +132,11 @@ Base 13,742 + moving 1,713 (Rig, Conveyor, Silo) + tiers 2,819 = 18,274 tris (th
 - **`Operator_Deck`** (−4.5, 0, 6.5), rotation identity (deck front faces +Z): root for `art/3d/props/mine_operator/mine_operator_game.glb` (not in this GLB). Moved west, clear of every road; its footprint box on 393×852 is about x 114–150, y 466–513.
 - **`Fill_Arc`**: in the ht04 prop, a child of the truck root at truck-local (2.2, 4.6, 0).
 - **`Rich_Pop`** (9.4, 4.88, 9.0): the money-pop anchor for the rich load, 1.6 m over the bed rim under the chute (valid while the truck is parked at `Path_Load`).
-- **`Dep_01`** (3.5, 0, 12.5), the main He-3 seam (r 2.2 m), moved 10/23 PM to open ground in front of the bay's west end (the U-turn island spot was hidden behind the parked truck on screen; it is now at about (230, 537) px on 393×852), and **`Dep_02`** (−1.2, −0.01, 10.4), the tap deposit (r 1.05 m, about (171, 527) px). The deposits are still patches of darker ore rock in `Base_Paint` with faint cyan veins in `Base_DepVein` (low steady emissive; no animation, ring or disc; see 'Deposit look' below). **No floating crystals:** the concept's He-3 seam crystals over the deposits are deleted in the game build (and a later pass removes any He-3 crystal/gem/shard mesh left), and the antenna tip sphere that floated over the headframe after the antenna rod was culled is dropped too. There is no scoop: `extras.tap` reads "the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load".
+- **`Dep_01`** (3.5, 0, 12.5), the main He-3 seam (r 2.2 m), moved 10/23 PM to open ground in front of the bay's west end (the U-turn island spot was hidden behind the parked truck on screen; it is now at about (226, 466) px on 393×852 after the 21:00 refit), and **`Dep_02`** (−1.2, −0.01, 10.4), the tap deposit (r 1.05 m, about (178, 460) px). The deposits are still patches of darker ore rock in `Base_Paint` with faint cyan veins in `Base_DepVein` (low steady emissive; no animation, ring or disc; see 'Deposit look' below). **No floating crystals:** the concept's He-3 seam crystals over the deposits are deleted in the game build (and a later pass removes any He-3 crystal/gem/shard mesh left), and the antenna tip sphere that floated over the headframe after the antenna rod was culled is dropped too. There is no scoop: `extras.tap` reads "the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load".
 - **Haul edge:** both lanes end at **x 26.0**, outbound z 9 (yaw 0) and return z 0 (yaw 180), flush with the 8 m strip (unchanged from `219e774`: heights within 2 mm, strip colours; `_src/mine_layout.py` `SEAM_*`; proof `../_shared/road/haul_road_seams_proof.png`). On 393×852 the frame's right edge is at about x 17–18 m, so the last ~8 m of both lanes and the join are off screen. Lane profile: 4.0 m graded surface, berm crests ±2.35 m, toes ±2.8 m, tyre tracks 0.4 m wide at ±1.45 m.
 - **`Road_Entry`** (12.5, 0, 9.0), yaw 0: = `Path_Out_01`, where the loaded truck leaves the bay.
 - **`Crew_Path_01..07`**: (−9.4, 0.64, 0.2) at the rig operator pod deck → (−9.0, −0.01, 1.9) → (−5.6, 0, 2.7) → (−2.2, 0, 2.3) → (1.0, 0, 1.6) → (5.0, 0, −0.2) → (8.6, 0, −2.9) at the moved silo.
-- **`Cam_Target`** (0.85, 6.0, 2.36), `frame_w` 33.8. See Station camera. `Path_Out_03/04` and `Path_Ret_04..08` are gone (fewer legs).
+- **`Cam_Target`** (0.62, 6.0, 17.72), `frame_w` 37.6 (refit 10/23 21:00 for the 165–534 band). See Station camera. `Path_Out_03/04` and `Path_Ret_04..08` are gone (fewer legs).
 
 ## Layout changes vs the concept-B master
 These live in `_src/mine_layout.py`. The B look, palette and parts are otherwise unchanged.
@@ -185,7 +185,7 @@ Jacob still saw blinking highlights where the diamonds used to be. In this re-ex
 - **Changed extras on `Dep_01` / `Dep_02`:** `glow` now reads "none (10/23 20:34: no glow disc, gem, glint or emissive pulse at the deposits, in the GLB or in code)", and there is a new `patch` extra. `kind`, `label`, `radius_m` (tap radius) and `tap` are unchanged, and both markers stay in the same place.
 
 ## Deposit look, final (10/23 20:50, Director)
-Each deposit is a **still patch of darker ore rock with faint cyan veins**: a low, steady emissive with **no animation, pulse or flicker, and no ring or disc**. The `Dep_*` markers and their tap radius are unchanged. All diamond and crystal meshes stay removed. This replaces the 'plain rock, no glow' state above. Build md5 `f8d78802...`:
+Each deposit is a **still patch of darker ore rock with faint cyan veins**: a low, steady emissive with **no animation, pulse or flicker, and no ring or disc**. The `Dep_*` markers and their tap radius are unchanged. All diamond and crystal meshes stay removed. This replaces the 'plain rock, no glow' state above. Build md5 `2123a050...` (veins first shipped in 26b0582 as `f8d78802...`; same mesh, camera refit only):
 - `dep_patch` x2: material `B_DepRock` -> `SHM_Paint` with vertex colour **#3f3d3b** (darker than SH_Rock #55575a), in `Base_Paint`. Not decimated.
 - `dep_vein` strips (up to 5 on `Dep_01`, up to 3 on `Dep_02`): thin tapered strips, 2.4–12 cm wide, 1.5 cm above the patch top. Material `B_DepVein` -> **new `SHM_DepVein`**: base #1f7f91, **emissiveFactor [0.005, 0.138, 0.180]** (18% of the #2fe3ff glow; SHM_GlowCyan is [0.028, 0.768, 1.0]). No KHR_materials_emissive_strength. Node `Base_DepVein`, 58 tris, +1 draw (11 total).
 - **Clips:** still only `conveyor_run` and `dig`. Nothing animates `Base_DepVein` or any material.

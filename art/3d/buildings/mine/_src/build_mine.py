@@ -163,7 +163,7 @@ print('LOAD parts: heap base', tuple(round(v, 3) for v in HEAP_C), 'h', round(HE
 # 0 px side margin. Solved AFTER the tiers are built, numerically (numpy pinhole = three.js PerspectiveCamera), smallest frame_w that fits.
 FOV_Y, PITCH, PW, PH = 38.0, 18.0, 393, 852
 TAN_H = math.tan(math.radians(FOV_Y / 2)) * PW / PH
-SIZES = {(393, 852): (144, 568), (375, 667): (144, 383)}
+SIZES = {(393, 852): (165, 534), (375, 667): (144, 383)}   # 10/23 20:58 Coder: iPhone insets -> 393x852 band y 165-534 for EVERYTHING (tiers + station + deposits + truck)
 def cam_pose(tgt, W, pw=PW, ph=PH):
     d = (W / 2) / (math.tan(math.radians(FOV_Y / 2)) * pw / ph); p = math.radians(PITCH)
     pos = Vector(tgt) + Vector((0, -d * math.cos(p), d * math.sin(p)))
@@ -187,11 +187,10 @@ def cam_fit(TP, FP, ZT=6.0, margin=3.0):
             lo, hi = -40.0, 40.0                    # feasible target y interval (screen y grows with target y for points in front)
             def ok_lo(ty):                          # tops: y >= band top on both sizes
                 tg = tgt.copy(); tg[1] = ty
-                return all(proj_np(TP, tg, W, pw, ph)[1].min() >= b0 + margin for (pw, ph), (b0, b1) in SIZES.items())
+                return all(proj_np(np.vstack([TP, FP]), tg, W, pw, ph)[1].min() >= b0 + margin for (pw, ph), (b0, b1) in SIZES.items())
             def ok_hi(ty):
                 tg = tgt.copy(); tg[1] = ty
-                ok = all(proj_np(TP, tg, W, pw, ph)[1].max() <= b1 - margin for (pw, ph), (b0, b1) in SIZES.items())
-                return ok and proj_np(FP, tg, W, PW, PH)[1].max() <= 660
+                return all(proj_np(np.vstack([TP, FP]), tg, W, pw, ph)[1].max() <= b1 - margin for (pw, ph), (b0, b1) in SIZES.items())
             a_, b_ = -40.0, 40.0
             for _ in range(40):
                 m = (a_ + b_) / 2; a_, b_ = (a_, m) if ok_lo(m) else (m, b_)
@@ -202,7 +201,7 @@ def cam_fit(TP, FP, ZT=6.0, margin=3.0):
             yhi = a_
             tgt[1] = (ylo + yhi) / 2
         xs, ys = proj_np(np.vstack([TP, FP]), tgt, W, PW, PH)
-        fx = proj_np(TP, tgt, W, PW, PH)[0]; fx2 = proj_np(TP, tgt, W, 375, 667)[0]
+        fx = proj_np(TP, tgt, W, PW, PH)[0]; fx2 = proj_np(np.vstack([TP, FP]), tgt, W, 375, 667)[0]
         ok = ylo <= yhi and xs.min() >= 0 and xs.max() <= PW and fx2.min() >= 0 and fx2.max() <= 375
         print('FIT W %.1f tgt %s ylo %.2f yhi %.2f x %d..%d %s' % (W, np.round(tgt, 2), ylo, yhi, xs.min(), xs.max(), ok))
         if ok: best = (W, Vector(tuple(tgt)), cam_pose(Vector(tuple(tgt)), W)[1], (xs.min(), xs.max(), ys.min(), ys.max())); break
@@ -336,7 +335,7 @@ _FOC = []
 for o in bpy.data.objects:
     if o.type != 'MESH' or is_truck(o): continue
     b = base(o)
-    if b.startswith(('pad', 'crown', 'ant_tip', 'beacon', 'op_pod', 'hopper', 'silo', 'head_housing', 'dis_chute', 'head_col', 'tail_housing', 'spine')):
+    if b.startswith(('pad', 'crown', 'ant_tip', 'beacon', 'op_pod', 'hopper', 'silo', 'head_housing', 'dis_chute', 'head_col', 'tail_housing', 'spine', 'dep_patch', 'conv', 'rig', 'tower', 'chute')):
         _FOC += [tuple(o.matrix_world @ Vector(c)) for c in o.bound_box]
 for x, y in ((ML.LX - 4.4, ML.LY), (ML.LX + 3.5, ML.LY + 2.0), (ML.U_X + 2.4, ML.LY - 2.0), (ML.U_X, -ML.R_T + ML.R_T + 2.0)):
     _FOC.append((x, y, 0.0))                       # truck at the bay (tail .. cab) + approach pose, kept on screen
