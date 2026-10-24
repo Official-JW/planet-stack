@@ -333,7 +333,7 @@ def stringers(z0, z1, n=24, skip=(), mat=None, ctr=SC, c='Mine'):
         if k in skip: continue
         a = TAU * k / n
         box('stk_stringer', (0.14, 0.26, z1 - z0), (ctr.x + (SR - 0.3) * math.cos(a), ctr.y + (SR - 0.3) * math.sin(a), (z0 + z1) / 2), mat or SATIN, rot=(0, 0, a), bevel=0, c=c)
-SHIP_SRC = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'ship', 'starter_ship', 'starter_ship_master.blend'))   # AA2's ship master (git 46a9346)
+SHIP_SRC = os.environ.get('SY_SHIP_SRC') or os.path.normpath(os.path.join(HERE, '..', '..', '..', 'ship', 'starter_ship', 'starter_ship_master.blend'))   # AA2's ship master (git 46a9346)
 SHIP_YAW = math.radians(45.0)      # ship-frame yaw on the stand: open cargo door toward the game camera; legs + radiator wings clear of the tower
 SHIP_CUT = (19.4, 25.1)            # ship-frame z: cargo-bay top band | crew-deck top band
 SHIP_LIFT = 4.2                    # the crew-deck ring hangs 4.2 m above the open top of the stack
