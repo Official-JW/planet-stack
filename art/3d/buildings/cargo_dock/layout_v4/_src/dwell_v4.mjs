@@ -2,7 +2,7 @@
 // samplePath / kin / kinT / line / arcPts / dedupe and the constants below are copied verbatim from qa3d-next/main.js (e69ef53, 10/24 11:43)
 // so the numbers are the live speed profile, not an estimate. usage: node dwell_v4.mjs  (prints the table); make_slots_v4.mjs imports dwell().
 import * as THREE from 'three';
-import { KT, EVENTS, STOP } from './v4_layout.mjs';
+import { KT, EVENTS, STOP, SEG, DUR } from './v4_layout.mjs';
 export const SRC = { file: 'qa3d-next/main.js', commit: 'e69ef53', TV: { v: 8.33, ease: 3, brake: 4, settle: 0.4 }, TURN_SPEED: 4.0, TURN_R_MAX: 25, TURN_ACC: 2.5, TURN_GAP: 22, PATH_STEP: 0.025,
   cargo: { perTrip: 2, refLoadSec: 6, padUnloadSec: 6, walkOutSec: 4.0, sealSec: 4, palletCap: 8 }, ht04_trip_s: 56.62, ht04_trip_src: 'window.__ps3d.route.tl.trip (playtest q982c3e3 logs; route code unchanged to e69ef53)', fillFloor: 15,
   route: { RX: 320, PX: 480, refLoad: 318, padUnload: 476.5, lane: 13, back: 22, padUturnX: 481, refUturnX: 295, turnR: 4.5 } };
@@ -45,8 +45,8 @@ export function dwell() {
   const a = kIn.aB, v = TV.v, tb = v / a, db = v * v / (2 * a);           // braking into the stop / pull-away (both at TURN_ACC, linear in time)
   const ta = v / kAway.aS, dA = v * v / (2 * kAway.aS);
   const tArriveBrake = kIn.T - kinT(kIn, kIn.L - db), tPull = kinT(kAway, dA);
-  const st = TV.settle, c0 = st, cl = KT[KT.length - 1];                    // first clip starts after the stop settle; clips run back to back
-  const hoistEnd = KT[4], upEnd = KT[8];
+  const st = TV.settle, c0 = st, cl = DUR;                    // first clip starts after the stop settle; clips run back to back
+  const hoistEnd = SEG.hoist[1], upEnd = SEG.up[1];
   const passThrough = (db + dA) / v;                                       // the same 27.8 m driven at 8.33 m/s without the stop
   const mk = (kind, rows, departAt) => { const stationary = departAt, total = tArriveBrake + stationary + tPull;
     rows.sort((x, y) => x.t - y.t); return { case: kind, rows, stationary_s: r3(stationary), arrive_to_depart_s: r3(total), added_trip_time_s: r3(total - passThrough), crane_busy_s: r3(c0 + 2 * cl) }; };
@@ -77,7 +77,11 @@ export function dwell() {
     throughput: { crane_boxes_per_min: r2(crane), crane_s_per_box: cl, crane_s_per_truck: 2 * cl,
       mining_box_supply_max_per_min: r2(supply), mining_box_supply_hard_cap_per_min: r2(60 / SRC.ht04_trip_s), hard_cap_rule: 'even with a zero fill (deposit taps) one HT-04 cannot dump more than once per 56.62 s trip', mining_rule: `1 sealed box per HT-04 dump; fastest dump gap = fill floor ${SRC.fillFloor} s (Chute Lv11) + trip ${SRC.ht04_trip_s} s = ${r2(boxGapMin)} s`,
       crane_headroom_x: r2(crane / supply), crane_headroom_vs_hard_cap_x: r2(crane * SRC.ht04_trip_s / 60), crane_utilisation_at_max_supply: r3(supply / crane),
-      fb05_loop_no_dock_s: r2(fbLoopNoDock), fb05_loop_with_store_s: r2(fbLoopNoDock + store.added_trip_time_s), two_box_supply_gap_s: r2(2 * boxGapMin),
-      verdict: 'GC-1 never halts mining before storage is full: it moves 7.5 boxes/min against at most ' + r2(supply) + ' boxes/min supplied, and a store stop keeps the FB-05 loop under the 2-box supply gap, so the Refinery pallet (cap 8) does not back up because of the dock. Mining stops only when the 20 slots are full and the pad/hold cannot take more.' } };
+      fb05_loop_no_dock_s: r2(fbLoopNoDock), fb05_loop_with_store_s: r2(fbLoopNoDock + store.added_trip_time_s), two_box_supply_gap_s: r2(2 * boxGapMin), fb05_loop_with_load_s: r2(fbLoopNoDock + load.added_trip_time_s),
+      pallet_margin_store_s: r2(2 * boxGapMin - fbLoopNoDock - store.added_trip_time_s), pallet_margin_load_s: r2(2 * boxGapMin - fbLoopNoDock - load.added_trip_time_s),
+      two_box_gap_at_hard_cap_s: r2(2 * SRC.ht04_trip_s), hard_cap_store_deficit_s_per_loop: r2(fbLoopNoDock + store.added_trip_time_s - 2 * SRC.ht04_trip_s),
+      hard_cap_pallet_fill_min: r2((SRC.cargo.palletCap / ((fbLoopNoDock + store.added_trip_time_s) / SRC.ht04_trip_s - 2)) * (fbLoopNoDock + store.added_trip_time_s) / 60),
+      crane_done_before_next_truck: 2 * cl + c0 < fbLoopNoDock,
+      verdict: `GC-1 never halts mining before storage is full: ${r2(crane)} boxes/min against at most ${r2(supply)} (hard cap ${r2(60 / SRC.ht04_trip_s)}) supplied, and it finishes each 2-box truck (${r3(c0 + 2 * cl)} s) before the next FB-05 can arrive (loop >= ${r2(fbLoopNoDock)} s). At the mining peak the FB-05 loop with a dock stop (store ${r2(fbLoopNoDock + store.added_trip_time_s)} s, load ${r2(fbLoopNoDock + load.added_trip_time_s)} s) stays under the ${r2(2 * boxGapMin)} s 2-box supply gap, so the Refinery pallet (cap 8) does not back up. Only in the theoretical zero-fill case (${r2(2 * SRC.ht04_trip_s)} s per 2 boxes) would back-to-back store stops fall ${r2(fbLoopNoDock + store.added_trip_time_s - 2 * SRC.ht04_trip_s)} s behind per loop, filling the pallet after about ${r2((SRC.cargo.palletCap / ((fbLoopNoDock + store.added_trip_time_s) / SRC.ht04_trip_s - 2)) * (fbLoopNoDock + store.added_trip_time_s) / 60)} min; that limit is the flatbed's dwell, not GC-1 capacity.` } };
 }
 if (import.meta.url === 'file://' + process.argv[1]) console.log(JSON.stringify(dwell(), null, 1));

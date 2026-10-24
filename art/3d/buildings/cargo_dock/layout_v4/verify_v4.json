@@ -29,7 +29,7 @@
   "bridge_sweep_clear_m": 0.975,
   "stack_penetration_m": 0,
   "tier2_unsupported": 0,
-  "hook_block_over_truck_m": 2.601
+  "hook_block_over_truck_m": 2.6
  },
  "camera": {
   "375x667": {

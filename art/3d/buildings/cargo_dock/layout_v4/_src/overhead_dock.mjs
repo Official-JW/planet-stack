@@ -5,7 +5,7 @@ import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import { writeFileSync } from 'fs';
-import { RIG, SLOTS, STOP, PICKS, CLIPS, KT, RUNWAY, COLS, TIER03, clipKeys } from './v4_layout.mjs';
+import { RIG, SLOTS, STOP, PICKS, CLIPS, KT, RUNWAY, COLS, TIER03, clipKeys, bake, bakeTimes, DUR, EVENTS, SEGMENTS } from './v4_layout.mjs';
 const [,, IN, OUT] = process.argv;
 await MeshoptDecoder.ready; await MeshoptEncoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder });
@@ -92,7 +92,8 @@ const rig=G(); const cls={}; { const isl=islands(cgm,cprim); const N=cprim.getAt
     if(q[0]>=2.5&&q[3]<=5.5&&q[1]>=10.85) return 'trolley'; return 'bridge'; };
   const ic=new Map(); for(const [r,q] of isl.bb){ const c=classify(q); ic.set(r,c); const s=cls[c]||(cls[c]={n:0,bb:[1e9,1e9,1e9,-1e9,-1e9,-1e9]}); s.n++; for(let j=0;j<3;j++){s.bb[j]=Math.min(s.bb[j],q[j]);s.bb[j+3]=Math.max(s.bb[j+3],q[j+3]);} }
   const map=new Int32Array(isl.n).fill(-1);
-  for(let k=0;k<isl.n;k++){ const c=ic.get(isl.id[k]); if(c[0]==='x') continue; map[k]=rig.p.length; const p=isl.P[k].slice(); let jt=0; if(c==='trolley'){ p[0]-=4.0; jt=1; } // trolley rest x = 0
+  for(let k=0;k<isl.n;k++){ const c=ic.get(isl.id[k]); if(c[0]==='x') continue; map[k]=rig.p.length; const p=isl.P[k].slice(); p[2]+=RIG.bridge_rest-9.0; let jt=0;   // v3 bridge sits at z 9.0; bind it at the v4 rest z
+    if(c==='trolley'){ p[0]-=4.0; jt=1; } // trolley rest x = 0
     N.getElement(k,t); const nn=[t[0],t[1],t[2]]; C.getElement(k,t); rig.p.push(p); rig.n.push(nn); rig.c.push([t[0],t[1],t[2],C.getElementSize()>3?t[3]:1]); rig.j.push(jt); }
   for(let k=0;k<isl.I.length;k+=3){ const a=map[isl.I[k]],b=map[isl.I[k+1]],c=map[isl.I[k+2]]; if(a>=0&&b>=0&&c>=0) rig.i.push(a,b,c); } }
 log.gc_classes=Object.fromEntries(Object.entries(cls).map(([k,v])=>[k,{islands:v.n,bbox:v.bb.map(x=>+x.toFixed(2))}]));
@@ -132,11 +133,11 @@ for (const s of SLOTS) mk(s.name,s.box_base,{ tier:s.tier, block:s.block, row:s.
 // 4) animations: drop crane_gantry_move, bake 80 clips (CUBICSPLINE, zero tangents = smoothstep per segment)
 for (const a of root.listAnimations()) if (a.getName()==='crane_gantry_move') a.dispose();
 cg.dispose(); cgm.getMesh().dispose(); cgm.dispose();
-const tin=doc.createAccessor().setType('SCALAR').setArray(Float32Array.from(KT)).setBuffer(buf);
-for (const c of CLIPS) { const K=clipKeys(c); const an=doc.createAnimation(c.name).setExtras({ duration_s:8.0, events:{ pick:1.95, set:5.75 }, from:c.from, to:c.to, easing:'smoothstep per segment (CUBICSPLINE, zero tangents)' });
-  for (const [node,ch] of [[jB,0],[jT,1],[jH,2]]) { const out=new Float32Array(KT.length*9);
-    K.forEach((k,i)=>{ const v= ch===0?[0,0,k[0]] : ch===1?[k[1],RIG.trolley_y,0] : [0,k[2]-RIG.trolley_y,0]; out.set([0,0,0],i*9); out.set(v,i*9+3); out.set([0,0,0],i*9+6); });
-    const s=doc.createAnimationSampler().setInput(tin).setOutput(doc.createAccessor().setType('VEC3').setArray(out).setBuffer(buf)).setInterpolation('CUBICSPLINE');
+const TIN={ bridge:doc.createAccessor().setType('SCALAR').setArray(Float32Array.from(bakeTimes('bridge'))).setBuffer(buf), hook:doc.createAccessor().setType('SCALAR').setArray(Float32Array.from(bakeTimes('hook'))).setBuffer(buf) };
+const CH=[[jB,'bridge',p=>[0,0,p[0]]],[jT,'bridge',p=>[p[1],RIG.trolley_y,0]],[jH,'hook',p=>[p[3],p[2]-RIG.trolley_y,p[4]]]];
+for (const c of CLIPS) { const an=doc.createAnimation(c.name).setExtras({ duration_s:DUR, events:EVENTS, segments:SEGMENTS, from:c.from, to:c.to, easing:'heavy: easeInOutSine travel, 0.25 m/s landing creep + take-up creep, damped sway settle (CUBICSPLINE, exact tangents)' });
+  for (const [node,ch,f] of CH) { const { out }=bake(c,ch,f);
+    const s=doc.createAnimationSampler().setInput(TIN[ch]).setOutput(doc.createAccessor().setType('VEC3').setArray(Float32Array.from(out)).setBuffer(buf)).setInterpolation('CUBICSPLINE');
     an.addSampler(s).addChannel(doc.createAnimationChannel().setTargetNode(node).setTargetPath('translation').setSampler(s)); } }
 // 5) markers + scene extras
 { const cs=byName('Container_Stack'); const top=SLOTS.find(s=>s.name==='Slot_15'); cs.setTranslation([top.box_base[0],top.box_base[1]+1.5,top.box_base[2]]);

@@ -1,7 +1,7 @@
 {
  "version": "layout_v4",
  "dock_glb": "cargo_dock_overhead_v4.glb",
- "dock_glb_md5": "749193de17e5493aed7f58bc802b647d",
+ "dock_glb_md5": "c16d8565bef3cea94aa51784de8ba865",
  "dock_origin_world": [
   360,
   0,
@@ -84,7 +84,7 @@
   "type": "overhead bridge crane on an elevated runway (was a rail gantry in v3)",
   "node": "GC_Rig",
   "joints": {
-   "GC_Bridge": "translation z (local), rest 9.0, range [3.8, 21.0]",
+   "GC_Bridge": "translation z (local), rest 12.4, range [3.8, 21.0]",
    "GC_Trolley": "translation x, y 11.5, rest 0, range [-5.2, 5.2]",
    "GC_Hook": "translation y relative to trolley; Hook_Attach world y = 11.5 + t.y; rest 7.0, carry 6.0"
   },
@@ -593,79 +593,104 @@
  "clips": {
   "count": 80,
   "names": "Store_{A|B}_Slot_NN (bed -> slot), Load_{A|B}_Slot_NN (slot -> bed). A = Bed_Slot_01, B = Bed_Slot_02",
-  "duration_s": 8,
+  "duration_s": 22,
   "fps_hint": 30,
-  "easing": "smoothstep (3s^2 - 2s^3) per segment; baked as CUBICSPLINE with zero tangents (exact smoothstep)",
+  "easing": "heavy: easeInOutSine bridge/trolley travel; hook main move + 0.25 m/s creep (landing and take-up); damped sway settle at carry before each lower; baked CUBICSPLINE with exact tangents (<= 2 mm from the analytic curve, exact at holds/events)",
   "key_times": [
    0,
-   1.4,
-   1.9,
-   2.05,
-   2.55,
-   5.15,
-   5.7,
-   5.85,
-   6.35,
-   8
+   2.8,
+   3.4,
+   5.8,
+   6.2,
+   8.6,
+   13.6,
+   14.6,
+   17,
+   17.4,
+   19.2,
+   22
   ],
   "events": {
-   "pick": 1.95,
-   "set": 5.75
+   "pick": 6,
+   "set": 17.2
   },
   "segments": [
    {
     "segment": "approach",
     "t0": 0,
-    "t1": 1.4,
-    "moves": "bridge z + trolley x from rest to over the pick; hook 7.0 -> carry 6.0"
+    "t1": 2.8,
+    "dur": 2.8,
+    "moves": "bridge z + trolley x from rest to over the pick (easeInOutSine); hook 7.0 -> carry 6.0"
+   },
+   {
+    "segment": "settle_pick",
+    "t0": 2.8,
+    "t1": 3.4,
+    "dur": 0.6,
+    "moves": "empty hook damped sway (0.04 m, along the approach) dies out at carry"
    },
    {
     "segment": "lower",
-    "t0": 1.4,
-    "t1": 1.9,
-    "moves": "hook carry -> pick"
+    "t0": 3.4,
+    "t1": 5.8,
+    "dur": 2.4,
+    "moves": "hook carry -> pick: main lower, then 0.15 m landing creep at 0.25 m/s, 0.2 s touchdown"
    },
    {
     "segment": "pick_hold",
-    "t0": 1.9,
-    "t1": 2.05,
-    "moves": "hold; pick event 1.95 (parent box to Hook_Attach)"
+    "t0": 5.8,
+    "t1": 6.2,
+    "dur": 0.4,
+    "moves": "latch; pick event 6 (parent box to Hook_Attach)"
    },
    {
     "segment": "hoist",
-    "t0": 2.05,
-    "t1": 2.55,
-    "moves": "hook pick -> carry 6.0"
+    "t0": 6.2,
+    "t1": 8.6,
+    "dur": 2.4,
+    "moves": "hook pick -> carry 6.0: 0.15 m take-up creep at 0.25 m/s, then main hoist"
    },
    {
     "segment": "travel",
-    "t0": 2.55,
-    "t1": 5.15,
-    "moves": "bridge z + trolley x to over the slot, hook at carry 6.0 (box base 4.5)"
+    "t0": 8.6,
+    "t1": 13.6,
+    "dur": 5,
+    "moves": "bridge z + trolley x to over the slot (easeInOutSine), hook at carry 6.0 (box base 4.5)"
+   },
+   {
+    "segment": "settle_set",
+    "t0": 13.6,
+    "t1": 14.6,
+    "dur": 1,
+    "moves": "loaded damped sway (0.07 m, along the travel) dies out at carry"
    },
    {
     "segment": "set_lower",
-    "t0": 5.15,
-    "t1": 5.7,
-    "moves": "hook carry -> slot"
+    "t0": 14.6,
+    "t1": 17,
+    "dur": 2.4,
+    "moves": "hook carry -> slot: main lower, then 0.15 m landing creep at 0.25 m/s"
    },
    {
     "segment": "set_hold",
-    "t0": 5.7,
-    "t1": 5.85,
-    "moves": "hold; set event 5.75 (unparent box at the slot)"
+    "t0": 17,
+    "t1": 17.4,
+    "dur": 0.4,
+    "moves": "unlatch; set event 17.2 (unparent box at the target)"
    },
    {
     "segment": "up",
-    "t0": 5.85,
-    "t1": 6.35,
-    "moves": "hook slot -> carry"
+    "t0": 17.4,
+    "t1": 19.2,
+    "dur": 1.8,
+    "moves": "empty hook target -> carry (easeInOutSine)"
    },
    {
     "segment": "return",
-    "t0": 6.35,
-    "t1": 8,
-    "moves": "bridge/trolley/hook back to rest (z 9.0, x 0, hook 7.0)"
+    "t0": 19.2,
+    "t1": 22,
+    "dur": 2.8,
+    "moves": "bridge/trolley/hook back to rest (z 12.4, x 0, hook 7.0), easeInOutSine"
    }
   ],
   "heights": {
@@ -678,7 +703,7 @@
     3.12
    ]
   },
-  "box_rule": "t < 1.95: box on the bed (Store) or in the slot (Load); 1.95..5.75: child of Hook_Attach at (0,-1.5,0); >= 5.75: in the slot (Store) or on the bed (Load)"
+  "box_rule": "t < 6: box on the bed (Store) or in the slot (Load); 6..17.2: child of Hook_Attach at (0,-1.5,0); >= 17.2: in the slot (Store) or on the bed (Load)"
  },
  "timeline": {
   "unload_truck": [
@@ -686,14 +711,14 @@
     "clip": "Store_A_Slot_NN",
     "t": [
      0,
-     8
+     22
     ]
    },
    {
     "clip": "Store_B_Slot_NN+1",
     "t": [
-     8,
-     16
+     22,
+     44
     ]
    }
   ],
@@ -702,20 +727,20 @@
     "clip": "Load_A_Slot_NN",
     "t": [
      0,
-     8
+     22
     ]
    },
    {
     "clip": "Load_B_Slot_NN-1",
     "t": [
-     8,
-     16
+     22,
+     44
     ]
    }
   ],
-  "per_box_s": 8,
-  "per_truck_s": 16,
-  "truck_departs": "store: 0.4 s after box B reaches carry (t 10.95 of the pair); load: 0.4 s after the hook is back at carry over box B; see dwell"
+  "per_box_s": 22,
+  "per_truck_s": 44,
+  "truck_departs": "store: 0.4 s after box B reaches carry (end of Store_B hoist); load: 0.4 s after the hook is back at carry over box B (end of Load_B up); see dwell"
  },
  "dwell": {
   "source": {
@@ -788,42 +813,42 @@
      "what": "stop settle 0.4 s (TV.settle) done; Store_A_Slot_N starts"
     },
     {
-     "t": 2.35,
+     "t": 6.4,
      "what": "pick A (Bed_Slot_01)"
     },
     {
-     "t": 6.15,
+     "t": 17.6,
      "what": "set A in Slot_N"
     },
     {
-     "t": 8.4,
+     "t": 22.4,
      "what": "Store_A ends at rest; Store_B_Slot_N+1 starts"
     },
     {
-     "t": 10.35,
+     "t": 28.4,
      "what": "pick B (Bed_Slot_02): bed empty"
     },
     {
-     "t": 10.95,
+     "t": 31,
      "what": "box B at carry (base 4.5, clears the FB-05 cab 3.8)"
     },
     {
-     "t": 11.35,
+     "t": 31.4,
      "what": "depart margin 0.4 s done: pull-away starts"
     },
     {
-     "t": 14.682,
+     "t": 34.732,
      "what": "back at 8.33 m/s, 13.88 m past the stop"
     },
     {
-     "t": 16.4,
-     "what": "GC-1 back at rest (box B set in Slot_N+1 at 14.15); the truck does not wait for this"
+     "t": 44.4,
+     "what": "GC-1 back at rest (box B set in Slot_N+1 at 39.6); the truck does not wait for this"
     }
    ],
-   "stationary_s": 11.35,
-   "arrive_to_depart_s": 18.014,
-   "added_trip_time_s": 14.682,
-   "crane_busy_s": 16.4
+   "stationary_s": 31.4,
+   "arrive_to_depart_s": 38.064,
+   "added_trip_time_s": 34.732,
+   "crane_busy_s": 44.4
   },
   "load": {
    "case": "load (2 boxes from Slot_N, Slot_N-1 onto the empty FB-05)",
@@ -841,54 +866,61 @@
      "what": "stop settle 0.4 s done; Load_A_Slot_N starts (crane at rest until the truck has stopped)"
     },
     {
-     "t": 6.15,
+     "t": 17.6,
      "what": "set A on Bed_Slot_01"
     },
     {
-     "t": 8.4,
+     "t": 22.4,
      "what": "Load_A ends; Load_B_Slot_N-1 starts"
     },
     {
-     "t": 14.15,
+     "t": 39.6,
      "what": "set B on Bed_Slot_02: bed full"
     },
     {
-     "t": 14.75,
+     "t": 41.6,
      "what": "hook back at carry (6.0, 2.6 m over the box tops)"
     },
     {
-     "t": 15.15,
+     "t": 42,
      "what": "depart margin 0.4 s done: pull-away starts"
     },
     {
-     "t": 16.4,
+     "t": 44.4,
      "what": "GC-1 back at rest"
     },
     {
-     "t": 18.482,
+     "t": 45.332,
      "what": "back at 8.33 m/s"
     }
    ],
-   "stationary_s": 15.15,
-   "arrive_to_depart_s": 21.814,
-   "added_trip_time_s": 18.482,
-   "crane_busy_s": 16.4
+   "stationary_s": 42,
+   "arrive_to_depart_s": 48.664,
+   "added_trip_time_s": 45.332,
+   "crane_busy_s": 44.4
   },
   "throughput": {
-   "crane_boxes_per_min": 7.5,
-   "crane_s_per_box": 8,
-   "crane_s_per_truck": 16,
+   "crane_boxes_per_min": 2.73,
+   "crane_s_per_box": 22,
+   "crane_s_per_truck": 44,
    "mining_box_supply_max_per_min": 0.84,
    "mining_box_supply_hard_cap_per_min": 1.06,
    "hard_cap_rule": "even with a zero fill (deposit taps) one HT-04 cannot dump more than once per 56.62 s trip",
    "mining_rule": "1 sealed box per HT-04 dump; fastest dump gap = fill floor 15 s (Chute Lv11) + trip 56.62 s = 71.62 s",
-   "crane_headroom_x": 8.95,
-   "crane_headroom_vs_hard_cap_x": 7.08,
-   "crane_utilisation_at_max_supply": 0.112,
+   "crane_headroom_x": 3.26,
+   "crane_headroom_vs_hard_cap_x": 2.57,
+   "crane_utilisation_at_max_supply": 0.307,
    "fb05_loop_no_dock_s": 87.77,
-   "fb05_loop_with_store_s": 102.45,
+   "fb05_loop_with_store_s": 122.5,
    "two_box_supply_gap_s": 143.24,
-   "verdict": "GC-1 never halts mining before storage is full: it moves 7.5 boxes/min against at most 0.84 boxes/min supplied, and a store stop keeps the FB-05 loop under the 2-box supply gap, so the Refinery pallet (cap 8) does not back up because of the dock. Mining stops only when the 20 slots are full and the pad/hold cannot take more."
+   "fb05_loop_with_load_s": 133.1,
+   "pallet_margin_store_s": 20.74,
+   "pallet_margin_load_s": 10.14,
+   "two_box_gap_at_hard_cap_s": 113.24,
+   "hard_cap_store_deficit_s_per_loop": 9.26,
+   "hard_cap_pallet_fill_min": 99.85,
+   "crane_done_before_next_truck": true,
+   "verdict": "GC-1 never halts mining before storage is full: 2.73 boxes/min against at most 0.84 (hard cap 1.06) supplied, and it finishes each 2-box truck (44.4 s) before the next FB-05 can arrive (loop >= 87.77 s). At the mining peak the FB-05 loop with a dock stop (store 122.5 s, load 133.1 s) stays under the 143.24 s 2-box supply gap, so the Refinery pallet (cap 8) does not back up. Only in the theoretical zero-fill case (113.24 s per 2 boxes) would back-to-back store stops fall 9.26 s behind per loop, filling the pallet after about 99.85 min; that limit is the flatbed's dwell, not GC-1 capacity."
   }
  },
  "approved": {
@@ -897,7 +929,7 @@
   "items": [
    "Truck_Stop_Dock world (362.4, 0, 13)",
    "raised GC-1 runway cantilevered over the loaded lane",
-   "GC-1 peak speeds (bridge 12.9 m/s, hook 12 m/s)"
+   "GC-1 speeds (approved 14:25 at the old 8 s timing; re-keyed 14:29 to heavy 22 s per box per the follow-up: bridge peak 5.4 m/s, hook 3.8 m/s main / 0.25 m/s creep)"
   ]
  },
  "road": {
@@ -948,7 +980,7 @@
    "bridge_sweep_clear_m": 0.975,
    "stack_penetration_m": 0,
    "tier2_unsupported": 0,
-   "hook_block_over_truck_m": 2.601
+   "hook_block_over_truck_m": 2.6
   },
   "camera": {
    "375x667": {

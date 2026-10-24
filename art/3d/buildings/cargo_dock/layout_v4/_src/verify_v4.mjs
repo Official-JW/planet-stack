@@ -1,6 +1,6 @@
 // Verify cargo_dock_overhead_v4.glb in three.js playback. usage: node verify_v4.mjs DOCK_V4.glb FB05.glb OUT.json
 import fs from 'fs';
-import { RIG, STOP, PICKS, SLOTS, CLIPS, KT, EVENTS, DOCK_WORLD } from './v4_layout.mjs';
+import { RIG, STOP, PICKS, SLOTS, CLIPS, KT, EVENTS, DOCK_WORLD, DUR, SEG } from './v4_layout.mjs';
 const NM = '/home/box/apps/gltftools/node_modules';
 const THREE = await import(NM + '/three/build/three.module.js');
 const { GLTFLoader } = await import(NM + '/three/examples/jsm/loaders/GLTFLoader.js');
@@ -49,11 +49,11 @@ for (const clip of g.animations) {
   const other = k === 'A' ? PICKS.B : PICKS.A; const otherOnBed = store ? k === 'A' : k === 'B';   // Store A first (B still on bed); Load A first (empty bed), then B (A on bed)
   if (slot.tier === 2 && !stored.some(s => s.block === slot.block && s.row === slot.row && s.tier === 1)) R.tier2_unsupported++;
   mx.stopAllAction(); mx.clipAction(clip).play();
-  for (let i = 0; i <= 480; i++) { const t = i / 60; mx.setTime(t); S.updateMatrixWorld(true); ha.getWorldPosition(v); ha.getWorldQuaternion(q);
+  for (let i = 0; i <= Math.round(DUR * 60); i++) { const t = i / 60; mx.setTime(t); S.updateMatrixWorld(true); ha.getWorldPosition(v); ha.getWorldQuaternion(q);
     const yaw = Math.abs(new THREE.Euler().setFromQuaternion(q, 'YXZ').y) * 180 / Math.PI; R.yaw_max_deg = Math.max(R.yaw_max_deg, yaw);
     const L = [v.x - O[0], v.y, v.z - O[2]];
-    if (Math.abs(t - EVENTS.pick) < 1e-6 || Math.abs(t - 1.9) < 1e-6 || Math.abs(t - 2.05) < 1e-6) { const tg = meta.from.hook; R.pick_err_max_m = Math.max(R.pick_err_max_m, Math.hypot(L[0] - tg[0], L[1] - tg[1], L[2] - tg[2])); }
-    if (Math.abs(t - EVENTS.set) < 1e-6 || Math.abs(t - 5.7) < 1e-6 || Math.abs(t - 5.85) < 1e-6) { const tg = meta.to.hook; R.set_err_max_m = Math.max(R.set_err_max_m, Math.hypot(L[0] - tg[0], L[1] - tg[1], L[2] - tg[2])); }
+    if (Math.abs(t - EVENTS.pick) < 1e-6 || Math.abs(t - SEG.pick_hold[0]) < 1e-6 || Math.abs(t - SEG.pick_hold[1]) < 1e-6) { const tg = meta.from.hook; R.pick_err_max_m = Math.max(R.pick_err_max_m, Math.hypot(L[0] - tg[0], L[1] - tg[1], L[2] - tg[2])); }
+    if (Math.abs(t - EVENTS.set) < 1e-6 || Math.abs(t - SEG.set_hold[0]) < 1e-6 || Math.abs(t - SEG.set_hold[1]) < 1e-6) { const tg = meta.to.hook; R.set_err_max_m = Math.max(R.set_err_max_m, Math.hypot(L[0] - tg[0], L[1] - tg[1], L[2] - tg[2])); }
     // rig envelope (bridge + trolley + hook block) for the camera
     const bz = joints[0].position.z, tx = joints[1].position.x; for (const x of [-7.9, 7.9]) for (const z of [-1.5, 2.3]) envPts.push([x + O[0], 11.5, bz + z + O[2]]); for (const z of [-1.4, 1.4]) envPts.push([tx + 1.45 + O[0], 12.4, bz + z + O[2]], [tx - 1.45 + O[0], 12.4, bz + z + O[2]]);
     envPts.push([v.x, v.y, v.z]);
@@ -67,7 +67,7 @@ for (const clip of g.animations) {
         R.hook_block_over_truck_m = Math.min(R.hook_block_over_truck_m, L[1] - top); }
       continue; }
     for (const p of boxPts(base)) envPts.push([p[0] + O[0], p[1], p[2] + O[2]]);
-    const travel = t >= 2.55 && t <= 5.15;
+    const travel = t >= SEG.hoist[1] && t <= SEG.set_lower[0];   // travel + loaded sway settle at carry
     for (const s of stored) { if (!store && s.name === slot.name) continue; const sb = s.box_base; const ox = Math.min(base[0] + BX, sb[0] + BX) - Math.max(base[0] - BX, sb[0] - BX), oz = Math.min(base[2] + BZ, sb[2] + BZ) - Math.max(base[2] - BZ, sb[2] - BZ);
       if (ox > 0 && oz > 0) { if (travel) R.clear_stack_travel_m = Math.min(R.clear_stack_travel_m, base[1] - (sb[1] + BH)); else if (base[1] < sb[1] + BH - 1e-6) R.stack_penetration_m = Math.max(R.stack_penetration_m, sb[1] + BH - base[1]); }
       else if (base[1] < sb[1] + BH && base[1] + BH > sb[1]) R.gap_neighbour_set_m = Math.min(R.gap_neighbour_set_m, Math.max(-ox, -oz)); }

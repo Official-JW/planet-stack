@@ -2,7 +2,7 @@
 from PIL import Image, ImageDraw, ImageFont
 import sys
 R = '/workspace/dockl/v4/r/'; OUT = sys.argv[1]
-T = [('1.40', 'approach done'), ('1.95', 'PICK event'), ('2.55', 'hoisted to carry'), ('3.85', 'travel'), ('5.75', 'SET event'), ('6.35', 'hook up')]
+T = [('2.8', 'approach done'), ('6.0', 'PICK event'), ('8.6', 'hoisted to carry'), ('11.1', 'travel'), ('17.2', 'SET event'), ('19.2', 'hook up')]
 ims = [Image.open(R + f'clip_{t}.png').convert('RGB') for t, _ in T]; w, h = ims[0].size
 S = Image.new('RGB', (w * len(ims), h + 60), (5, 6, 11)); d = ImageDraw.Draw(S)
 try: F = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 30)
