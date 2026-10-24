@@ -94,3 +94,31 @@ of ring/hook pixels show between FAB-01's columns at screen x 293–315, y 374�
 - **B. (recommended) A low staging screen/canopy over the pick-up spot**, part of `shipyard_base` in an existing SH_ material (0 draws, ~100 tris), with the
   ring parked under it. Hides 100 % of the swap; the ring then reads as "coming out of the fab bay". The hook must enter from the open side: re-check the floor/swing gaps when built.
 - C. Keep 140° and accept it: the pop is ≤ 145 px at the bottom of a 852 px screen while the jib is still, under FAB-01's clutter.
+
+## Rings 2..N — placeholder plan (not built yet)
+Source: SN-07 section bands in `build_starter_ship.py` @ 46a9346 (ship frame z; world y = z + 0.48 = pad top). Ring 1 (built) = crew deck z 19.4–25.1.
+Hang height today: ring bottom at world y 33.08 after `ring_lift`; `jib_swing_in` needs ≥ 1.80 m over whatever is already stacked (ring k−1 top).
+
+| ring | node (installed copy) | section (ship z) | height | seat y (bottom) | stack top after | hang bottom needed (≥ prev top + 1.80) | descent `ring_lower` | offset vs ring 1 seat |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `Ring_Installed_01` | 19.4–25.1 crew deck | 5.7 | 19.88 | 25.58 | 21.68 → uses 33.08 | 13.2 (12.2 + settle 1.0) | 0 |
+| 2 | `Ring_Installed_02` | 25.1–31.0 upper barrel + nose band | 5.9 | 25.58 | 31.48 | 27.38 → uses 33.08 | 7.5 | +5.70 |
+| 3 | `Ring_Installed_03` | 31.0–35.5 lower nose cone | 4.5 | 31.48 | 35.98 | 33.28 → **35.0** (+1.92 hoist) | 3.52 | +11.60 |
+| 4 | `Ring_Installed_04` | 35.5–40.0 nose tip | 4.5 | 35.98 | 40.48 | 37.78 → **38.0** (+4.92 hoist) | 2.02 | +16.10 |
+
+(N = 4. The nose is split at z 35.5 so no hanging piece is taller than 5.9 m: a 9 m nose would put its top at 47 m, into the jib rigging.)
+Highest hang (ring 4): top at 42.5, under the jib (pivot y 48.6) with the hook/spreader above it; check the rig gap ≥ 1.17 m when built.
+The jib's 1.17 m+ clearance must be re-checked per ring with `shipchk` (swing over stack top + platforms at the new hang height; z30 IS-1 handrail is at ~30.9, so rings 3–4 hang clear of it without the hop).
+Framing: the tallest finished stack (nose tip y 40.48) stays below the tower jib (y ≈ 48.6), which already sets the top of the frame → **frame_w 100 unchanged** (framing spare today 60 px @393 / 14 px @375).
+
+**How the game shows the installed stage when `jib_return` starts:** the GLB will carry static nodes `Ring_Installed_01..N` (each a finished ring, already at
+its seat, in SH_ materials, merged per material so all N share the same draws as one node each → +N draws; budget: today 15 → ≤ 15 requires merging them
+into the existing base primitives with per-ring morph `show_k` 0→1 instead, which is 0 draws). Recommended: **one `Ring_Installed` mesh node with morphs
+`show_01..N`** (collapsed at weight 0, like `stow`), and the game sets weight `show_k = 1` on frame 1 of `jib_return` for ring k. Names stay
+`Ring_Installed_01..N` as the morph target names, so code reads `targetNames.indexOf('Ring_Installed_0'+k)`.
+
+**ring_lower end position: node offset vs per-seat clips.** A node offset is not possible: the hanging ring is morph geometry inside `Crane_Jib`, so
+moving the node moves the jib and tower too. **Recommended: per-seat clips** `ring_lift_k`, `ring_lower_k`, `ring_settle_k`, `jib_return_k` (k ≥ 2), driving per-ring
+targets `load_hang_k` (extra hoist) and `load_seat_k` (shorter descent), plus the ring-shape swap `ring_shape_k` (the nose pieces are not cylinders).
+`jib_swing_in`, `ring_weld`, `seam_cool` stay shared only if the weld/bead targets are also offset per seat; otherwise add `ring_weld_k` / `seam_cool_k`
+(same 16 s loop / 6 s). Cost ≈ 4–6 targets per ring on `Crane_Jib` (vertex data, 0 draws); keep ≤ 30k tris. Same chaining recipe, clip name suffixed `_k`.
