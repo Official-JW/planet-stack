@@ -449,7 +449,11 @@ function updOperator(dt) {
   opHead.quaternion.slerp(OP.look, OP.w);
   OP.yaw = yaw; OP.pitch = pitch;
 }
-const CREW = [{ role: 'Mine operator', station: MINE, prop: 'mine_operator' }, { role: 'unassigned' }, { role: 'unassigned' }, { role: 'unassigned' }].slice(0, CFG.crew0);
+// Crew roster (Director 10:55): 4 people. The Miner (Mine operator prop) and the Mine Driver (HT-04; no figure drawn) stay at the Mine; the Cargo Manager
+// (the Launch Pad Receiver figure) and the Mechanic (no ground figure) fly: they board, are away with the ship and come back after it lands.
+// board = the crew_boarding GLB climber they play (the Mechanic = Crew_2: no GLB/doc names a Mechanic; Crew_2 is the next one in the stagger).
+const CREW = [{ role: 'Miner', station: MINE, prop: 'mine_operator' }, { role: 'Mine Driver', station: MINE, prop: 'ht04' },
+  { role: 'Cargo Manager', station: 'pad', prop: 'receiver', flies: 1, board: 'Crew_1' }, { role: 'Mechanic', station: 'pad', flies: 1, board: 'Crew_2' }].slice(0, CFG.crew0);
 // ===== FollowCam: a generic eased, damped follow camera (Director 10:25: one module; today the ladder, a later Lv1 elevator car points the same camera
 // at the car). It follows a target (pure: cfg.sample(t, v) = target world position at time t; or live: cfg.target = an Object3D or () => Vector3), frames
 // it at the HUD-free band centre with plain lookAt + the station elevation, sizes the shot by the min-px rule (fw = W·subjectH / (minPx·margin): the
@@ -499,20 +503,38 @@ function makeFollowCam(cfg) {
 // (3.4 s stagger); Crew_k hides after extras.inside_hatch_s. Boarding time tb = now − launch start, read from S.cg.sh only (boardOf), so a reload, a
 // lock or ?speed=N lands on the exact pose (pure function of state + now, like the Receiver). The cargo sim is untouched (sale at launch + 8 s, away,
 // landing): only the ship's VISUAL lift-off waits until the crew are aboard and the camera is home (BD.lift). ?board=off = no crew, old lift-off.
-// Climbers = the game's crew count (CREW.length, 4 at start); Crew_k beyond it stay hidden.
+// Climbers = the flying crew (CREW[].flies → their GLB climber): 2 (Crew_1 Cargo Manager, Crew_2 Mechanic); the other GLB climbers are removed.
 // Camera (Director 05:01 stage 1) = the ladder adapter for FollowCam: target = the lead climber's pelvis (C1_Hips) sampled from the clips, from the
 // walk-in; hand-off at the trigger's threshold_y_m (14 m) to Board_Focus_Top + its frame_w; release when the last climber is inside. Gate: only if the
 // player is on the Launch Pad when the boarding starts; any tap / swipe / dot eases back to the station camera for the rest of that boarding (S.bc, saved).
 const CREW_GLB = '../qa3d-next/models/crew_boarding_b989de5a.glb?v=b989de5a';
 const BD = { on: Q.get('board') !== 'off', root: null, mx: null, acts: {}, clips: [], end: 58.5, crew: [], n: 0, inside: [], lead: null, fc: null,
   trig: 35.092, trigSrc: 'extras', walkIn: 3, lift: 58.5, pre: 2, cur: '' };   // trig / lift in board time (tb); clips + inside in crew time (tb − pre)
-const BCAM = { minPx: 20, subjectH: 1.8, margin: 1.3, sig: .5, in: 2.0, hand: 2.0, hold: .8, out: 2.0, cancel: .6 };   // ladder adapter config
+const BCAM = { minPx: 20, subjectH: 1.8, margin: 1.3, sig: .5, in: 2.0, hand: 2.0, hold: .8, out: 2.0, cancel: .6, fadeIn: .5, rxFade: 1.0 };   // ladder adapter config
+function fadeObj(o, a) {              // whole-object opacity (own material copies, made once); a ≤ 0 → hidden, 1 → opaque (no transparency cost)
+  if (!o) return; o.visible = a > .003; if (o.userData._fa === a) return; o.userData._fa = a; const tr = a < .999;
+  o.traverse(m => { if (!m.isMesh) return; if (!m.userData._fm) { m.material = Array.isArray(m.material) ? m.material.map(x => x.clone()) : m.material.clone(); m.userData._fm = 1; }
+    for (const x of [].concat(m.material)) { if (x.transparent !== tr) { x.transparent = tr; x.needsUpdate = true; } x.opacity = tr ? a : 1; } });
+}
+// The Cargo Manager's pad figure (Receiver): on the pad only while the ship is; fades out over the first rxFade s of the boarding (the camera is still
+// easing in, his climber appears at BCAM.in), hidden through launch / away / landing, fades back in at his usual spot from touchdown.
+function rxAlpha(c = S.cg, t = nowMs()) { const s = c.sh; if (!BOARD_SEC) return 1;
+  return s.st === 'pad' ? (c.launches ? fss((t - s.t0) / (BCAM.rxFade * 1000)) : 1) : s.st === 'board' ? 1 - fss((t - s.t0) / (BCAM.rxFade * 1000)) : 0; }
+function crewOnPad() { if (cg3 && cg3.astro) fadeObj(cg3.astro, rxAlpha()); }
+function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = Mine operator, Cargo Manager = Receiver + Crew_1, Mechanic = Crew_2
+  const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+  const cl = (n) => { const x = BD.root && BD.root.getObjectByName(n); return x && vis(x) && BD.root.userData._fa > .003 ? 1 : 0; };
+  return { Miner: vis(op) ? 1 : 0, 'Mine Driver': 0, 'Cargo Manager': (vis(cg3.astro) ? 1 : 0) + cl('Crew_1'), Mechanic: cl('Crew_2'),
+    extraClimbers: BD.root ? ['Crew_3', 'Crew_4'].filter(n => BD.root.getObjectByName(n)).length : 0, rxA: +rxAlpha().toFixed(3), ship: S.cg.sh.st }; }
 const BC = { w: 0, tb: -1, lx: 0, ly: 0, lz: 0, k: 1, ph: 'off' };
 const CAMLOOK = { lx: 0, ly: 0, lz: 0, k: 1 };
-function boardOf(c = S.cg) { const s = c && c.sh; if (!s) return null;     // launch start of the boarding in progress (null = none)
-  if (s.st === 'launch') return { B: s.t0, id: c.launches + 1 };
-  if (s.st === 'away') return { B: s.t0 - CG.launchSec * 1000, id: c.launches };   // away.t0 = launch.t0 + launchSec exactly (cgComplete)
-  return null; }
+// Sim boarding phase (Director 10:55): Launch tap / auto-launch → sh.st 'board' (sh.t0 = its start, shifted by cgShift like every sh timestamp); at
+// sh.t0 + BOARD_SEC the existing launch starts (burn, sale at +launchSec, away, land). BOARD_SEC is a constant of the art timing (not of the GLB load),
+// so the sim, offline catch-up and reload never depend on the art: lead-in (camera ease-in) + last flying climber inside + hold + ease-out.
+const BOARD_INSIDE = { Crew_1: 47.79, Crew_2: 51.19, Crew_3: 54.59, Crew_4: 57.99 };   // crew_boarding.glb extras.inside_hatch_s (checked on load)
+const BOARD_FLY = CREW.filter(c => c.flies && c.board);
+const BOARD_SEC = BD.on && BOARD_FLY.length ? BCAM.in + Math.max(...BOARD_FLY.map(c => BOARD_INSIDE[c.board])) + BCAM.hold + BCAM.out : 0;
+function boardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'board' ? { B: s.t0, id: c.launches + 1 } : null; }   // the boarding in progress
 function crewPose(tb) {                // pure: tb seconds since the launch
   const C = BD.clips; let k = 0; while (k < C.length - 1 && tb >= C[k + 1].t0) k++;
   const c = C[k], a = BD.acts[c.name];
@@ -525,10 +547,12 @@ function crewPose(tb) {                // pure: tb seconds since the launch
 const crewCamAt = (tb, o = BC) => BD.fc.at(tb - BD.pre, o), crewCamW = (tb) => BD.fc.w(tb - BD.pre), crewPoseB = (tb) => crewPose(tb - BD.pre);
 const viewingPad = () => S.site === PADI && Math.abs(camX - PX) < 3 && !drag;
 function updCrew() {
-  if (!BD.root) return;
+  if (!BD.root) { crewOnPad(); return; }
   const b = boardOf(), tb = b ? (nowMs() - b.B) / 1000 : -1, act = !!b && tb >= 0 && tb < BD.lift;
-  BD.root.visible = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site / lead-in: no draws
-  if (BD.root.visible) crewPose(tb - BD.pre);
+  const cv = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site / lead-in: no draws
+  fadeObj(BD.root, cv ? fss((tb - BD.pre) / BCAM.fadeIn) : 0);   // the climbers fade in at full follow framing (no pop)
+  if (cv) crewPose(tb - BD.pre);
+  crewOnPad();
   if (act && (!S.bc || S.bc.id !== b.id)) { S.bc = { id: b.id, on: viewingPad() ? 1 : 0, x: 0 }; save(); }   // gate: decided once per boarding, saved
   let w = 0;
   if (act && S.bc.on) { crewCamAt(tb, BC); w = S.bc.x ? BD.fc.cancelW() : crewCamW(tb); }
@@ -550,7 +574,8 @@ function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
   if (BD.clips.length !== 3) throw new Error('crew boarding clips missing');
   BD.clips.sort((a, b) => a.t0 - b.t0); BD.end = BD.clips[2].t0 + BD.clips[2].dur; BD.walkIn = BD.clips[1].t0;
   const all = []; for (let k = 1; o.getObjectByName('Crew_' + k); k++) all.push(o.getObjectByName('Crew_' + k));
-  BD.n = Math.min(all.length, CREW.length); BD.crew = all.slice(0, BD.n); for (let i = BD.n; i < all.length; i++) all[i].visible = false;
+  BD.crew = BOARD_FLY.map(c => o.getObjectByName(c.board)).filter(Boolean); BD.n = BD.crew.length;
+  for (const x of all) if (!BD.crew.includes(x)) x.parent.remove(x);   // not flying: out of the scene (no draws)
   const ins = ex.inside_hatch_s || {}; BD.inside = BD.crew.map((c, i) => +ins[c.name] || BD.end);
   BD.lead = o.getObjectByName('C1_Hips');
   const ft = o.getObjectByName('Board_Focus_Top'), tr = (ft && ft.userData.trigger) || {};
@@ -559,7 +584,8 @@ function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
   BD.fc = makeFollowCam({ ...BCAM, sample: (t, v) => { crewPose(t); o.updateMatrixWorld(true); return BD.lead.getWorldPosition(v); },
     t0: -BCAM.in, t1: BD.end, handY: +tr.threshold_y_m || 14, handAfter: BD.clips[2].t0, handT: +tr.fallback_absolute_s || 35.092,
     final: ft, finalFw: +ft.userData.frame_w || 16.1, release: BD.inside[BD.n - 1] }).build();
-  BD.pre = BCAM.in; BD.trig = BD.pre + BD.fc.hand; BD.trigSrc = BD.fc.handSrc; BD.lift = BD.pre + BD.fc.end();   // ship lift-off (visual, board time): crew inside, camera home
+  BD.pre = BCAM.in; BD.trig = BD.pre + BD.fc.hand; BD.trigSrc = BD.fc.handSrc; BD.lift = BD.pre + BD.fc.end();   // board time: crew inside, camera home = the sim's lift-off
+  if (Math.abs(BD.lift - BOARD_SEC) > .01) console.warn('crew boarding: GLB inside_hatch_s gives lift-off ' + BD.lift + ' s, sim BOARD_SEC ' + BOARD_SEC);
   BD.cur = ''; o.visible = false; scene.add(o); BD.root = o;
   window.__ps3d.crewBoarding = { n: BD.n, end: BD.end, trig: +BD.trig.toFixed(3), trigSrc: BD.trigSrc, topFw: BD.fc.cfg.finalFw, followFw: +BD.fc.fw().toFixed(2), lift: +BD.lift.toFixed(2), pre: BD.pre, end: BD.pre + BD.end, inside: BD.inside.map(x => +(x + BD.pre).toFixed(3)) };
 }, undefined, (e) => console.warn('crew boarding GLB failed (ship launches without crew)', e)); }
@@ -1233,7 +1259,7 @@ function cgDecide(c, t, acc) {      // acc = away catch-up (Director 23:00): the
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (acc && s.st === 'pad' && s.hold >= CG.holdCap && !s.man) { s.man = 1; ch = true; cgEv('full_wait_manual', t, { hold: s.hold }); }   // came full while away: stays on the pad until tapped (also after the return)
     if (s.st === 'pad' && c.pc.k !== 'hold' && t >= s.f0 + CG.fuelFillSec * 1000 && ((s.hold >= CG.holdCap && !acc && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live only), or the Launch button (partial or a full ship that waited)
-      c.sh = Object.assign({}, s, { st: 'launch', t0: t, req: 0, man: 0 }); ch = true; cgEv('launch', t, { hold: s.hold, partial: s.hold < CG.holdCap }); }
+      c.sh = Object.assign({}, s, { st: BOARD_SEC ? 'board' : 'launch', t0: t, req: 0, man: 0 }); ch = true; cgEv(BOARD_SEC ? 'board' : 'launch', t, { hold: s.hold, partial: s.hold < CG.holdCap }); }   // the crew boards first (BOARD_SEC), then the launch
     else if (s.st === 'pad' && s.req && t >= s.req && s.hold < 1) { s.req = 0; ch = true; }
     if (!ch) break;
   }
@@ -1244,7 +1270,7 @@ function cgNext(c) {
   if (c.fb.st === 'out') T(c.fb.t0 + FB.kOut.T * 1000); else if (c.fb.st === 'back') T(c.fb.t0 + FB.kBack.T * 1000);
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
   if (c.pc.k) T(c.pc.t0 + (c.pc.k === 'unload' ? CG.padUnloadSec : CG.holdLoadSec) * 1000);
-  if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
+  if (s.st === 'board') T(s.t0 + BOARD_SEC * 1000); else if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
   else { if (s.hold >= CG.holdCap && c.pc.k !== 'hold' && s.f0 + CG.fuelFillSec * 1000 > c.t) T(s.f0 + CG.fuelFillSec * 1000); if (s.req > c.t) T(s.req); }
   return n;
 }
@@ -1259,7 +1285,8 @@ function cgComplete(c, t, acc) {
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
-  if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold sells
+  if (s.st === 'board' && s.t0 + BOARD_SEC * 1000 <= t) { c.sh = Object.assign({}, s, { st: 'launch', t0: s.t0 + BOARD_SEC * 1000 }); cgEv('launch', s.t0 + BOARD_SEC * 1000, { hold: s.hold, partial: s.hold < CG.holdCap, board: BOARD_SEC }); }   // crew inside: lift-off
+  else if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold sells
     const v = s.hold * CG.boxValue, amt = acc && !acc.full ? v * CFG.offlineRate : v; S.money += amt; c.sold += s.hold; c.earned += amt; c.launches++;
     cgEv('sold', t, { boxes: s.hold, amt }); logU('truck', `Cargo ship sold ${s.hold} He-3 boxes, +${fmt(amt)}`);
     if (acc) acc.cargo = (acc.cargo || 0) + amt; else cargoPop(amt);
@@ -1277,7 +1304,7 @@ function cgSettle(T, acc) {
 }
 function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; }
 const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? clamp((t - s.f0) / (CG.fuelFillSec * 1000), 0, 1) : s.st === 'launch' ? 1 : 0; };   // PLACEHOLDER fuel: fills over fuelFillSec from touchdown
-const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
+const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
 const canLaunch = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };
 function cgLaunch() {                 // Launch button: stored as a timestamp in S.cg (sh.req); the sim launches at it (after a lift into the hold finishes)
   const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < 60000) { settleTo(t, null); S.rt = t; }
@@ -1541,9 +1568,7 @@ function updCargo() {
   else if (cg3.wheels) { const W = cg3.wheels; fb.userData.wheelPos.forEach((p, i) => { _cq.setFromAxisAngle(_cv.set(0, 0, 1), -FBS.wa); W.setMatrixAt(i, _cm.compose(_cp.set(p[0], p[1], p[2]), _cq, _cs)); }); W.instanceMatrix.needsUpdate = true; }
   // ship
   const s = c.sh, sh = cg3.ship, pp = CPH.pad; let sy = cg3.shipY0 != null ? cg3.shipY0 : pp.padTop, vis = true;
-  const lb = BD.root ? boardOf(c) : null;   // crew boarding: the ship's visual lift-off waits for the crew (BD.lift); the sim's launch/sale times are unchanged
-  if (lb) { const u = clamp((t - lb.B - BD.lift * 1000) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; vis = u < 1; }
-  else if (s.st === 'launch') { const u = clamp((t - s.t0) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; }
+  if (s.st === 'launch') { const u = clamp((t - s.t0) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; }
   else if (s.st === 'away') vis = false;
   else if (s.st === 'land') { const u = clamp((t - s.t0) / (CG.landSec * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
   sh.visible = vis; sh.position.y = sy; sh.updateMatrixWorld(true);
@@ -1629,7 +1654,7 @@ function cargoUI() {                  // Launch button (bottom-right of the safe
   const f = fuelGauge(t), q = Math.round(f * 400), pc = Math.floor(f * 100 + 1e-9), st = c.sh.st;
   const k = st === 'pad' ? (f >= 1 ? (c.sh.hold >= 1 ? 'full' : 'wait') : 'fuel') : st;   // fuel / full / wait (full, 0 boxes: same S.cg.sh.hold as canLaunch) / launch / away / land
   if (q !== FG.q) { FG.q = q; fgFill.style.transform = 'scaleX(' + (q / 400) + ')'; }
-  if (k !== FG.k) { FG.k = k; fgEl.classList.toggle('full', k === 'full' || k === 'wait'); fgEl.classList.toggle('wait', k === 'wait'); fgLbl.textContent = k === 'full' ? 'FUEL FULL' : k === 'wait' ? 'AWAITING CARGO' : k === 'launch' ? 'BURN' : k === 'away' ? 'SHIP AWAY' : k === 'land' ? 'LANDING' : 'FUEL'; FG.p = -1; }
+  if (k !== FG.k) { FG.k = k; fgEl.classList.toggle('full', k === 'full' || k === 'wait'); fgEl.classList.toggle('wait', k === 'wait'); fgLbl.textContent = k === 'full' ? 'FUEL FULL' : k === 'wait' ? 'AWAITING CARGO' : k === 'board' ? 'BOARDING' : k === 'launch' ? 'BURN' : k === 'away' ? 'SHIP AWAY' : k === 'land' ? 'LANDING' : 'FUEL'; FG.p = -1; }
   if (pc !== FG.p) { FG.p = pc; fgPct.textContent = k === 'away' || k === 'land' ? '—' : pc + '%'; }
 }
 
@@ -2021,7 +2046,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
-Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ BD, BC, BCAM, CAMLOOK, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band,
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
 loadRig(); loadTruck(); loadOperator(); loadCrew();
