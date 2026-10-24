@@ -63,7 +63,7 @@ function aim(P, yaw = 0) { const H = P.clone().setY(P.y + 1.5);
 ```
 Ease θ, r and the hook height with a shared smootherstep. Carry at hook y ≥ 6.2: the box bottom is then 4.7, which clears the FB-05 cab (3.8) and a full pallet (3.27 on the pad). The pallet→truck swing (θ ≈ 3.0 → 0.66 rad) runs over the far side (−Z) of the mast, away from the camera.
 
-## Game-camera check (real Refinery camera, current Refinery GLB in place)
+## Game-camera check for 014d751 (Refinery bb5eed2 camera: Cam_Target (314.1, 8.5, 3.36), frame_w 30.8)
 Camera: QA3D `fitSite` with the Refinery `Cam_Target` at world (314.1, 8.5, 3.36), frame_w 30.8 (38° vFOV, 18° down, d = (frame_w/2)/(tan 19° · aspect)). I checked it at 393×852 and at 375×667. The scene is the current `refinery_game.glb` (md5 e65968d7…) at +320 with tiers hidden, FB-05 at (318, 0, 13), 6 pallet boxes and the receiver. The crane is posed by the solve onto each bed slot (slot 01 already loaded when slot 02 lands). Measured with `_src/gamecam_occlusion.mjs` (BVH raycast, 3×3 per pixel over the landing box):
 
 | Landing box | Before: crane x 318 (affea57) | After: crane x 311 |
@@ -75,22 +75,28 @@ Camera: QA3D `fitSite` with the Refinery `Cam_Target` at world (314.1, 8.5, 3.36
 
 The Refinery hides 0% in every case. The remaining ~16% is the spreader frame and hook block latched on top of the box, plus FB-05's own bed headboard, both expected. After the move, the crane hides 0% of FB-05 (cab included). Before, the crane hid 13–16% of the truck (1.5–5.2% of the cab), and at slot 02 the mast also covered the slot 01 box already on the bed. The mast stays clear of the slot 02 box up to crane x ≈ 312 (it starts to clip at 312.5), so x 311 keeps about 1.4 m of margin.
 
-## Safe band check (current game camera; NOT met, needs a camera or layout decision)
-The new safe band is y 165–534 at 393×852 (with the iPhone insets) and y 144–383 at 375×667. With the current Refinery `Cam_Target` (314.1, 8.5, 3.36) and frame_w 30.8, the whole loading area sits below it, not just the pad. That includes FB-05 and the landing box, which are both in the lanes the Director set:
+## Safe band check (Refinery camera from f4d4a2c: Cam_Target (313.1, 2.08, 5.45), frame_w 34.4)
+The Refinery owner re-framed the station camera in f4d4a2c, after the 014d751 check above. The checks below use that GLB (md5 b45b4649…) and its camera. The new safe band is y 165–534 at 393×852 (with the iPhone insets) and y 144–383 at 375×667:
 
 | Frame | Safe band | Concrete pad | Loaded pallet | FB-05 | Box landing on Bed_Slot_01 |
 |---|---|---|---|---|---|
-| 393x852 | y 165–534 | y 593–616 (**82 px** below) | y 554–610 (**76 px** below) | y 519–589 (**55 px** below) | y 531–557 (**23 px** below) |
-| 375x667 | y 144–383 | y 496–521 (**138 px** below) | y 459–515 (**132 px** below) | y 424–492 (**109 px** below) | y 435–461 (**78 px** below) |
+| 393x852 | y 165–534 | y 489–506 inside | y 453–502 inside | y 427–487 inside | y 437–459 inside |
+| 375x667 | y 144–383 | y 395–412 (**29 px** below) | y 360–408 (**25 px** below) | y 335–392 (**9 px** below) | y 344–366 inside |
 
-On the ground, the band's bottom edge is at world z ≈ 4.95 at 393×852, and at z < 0 (further back than z 0) at 375×667. That's on or past the RD-1 haul lanes (z 9 / z 0) and inside the Refinery footprint. No pad position that stays in the median, clear of the haul and flatbed lanes, can be inside the band. This is a camera fit, not a crane change. With the same 18° pitch, the bottom of the crane / pallet / FB-05 group would only reach the band bottom with a Cam_Target z shift of about +14.25 m at 393×852 (frame_w 30.8). At 375×667 it would take about +26.75 m (or +22.5 m with frame_w 42). The two frames need different targets, so one `Cam_Target` / `frame_w` can't satisfy both bands. Overlays: `proofs/gamecam_safe_band_{393x852,375x667}.png`.
+- **393×852: everything is inside the band, pad included.**
+- **375×667: the pad is 29 px below the band**, with the pallet 25 px and FB-05 9 px below. The landing box is inside. The band's bottom edge reaches the ground at world z ≈ 12.75, but the whole median (z 15.8…19.2: pedestal, pallet, pad) and FB-05's near side are in front of that. No pad or pallet position in the median, clear of the haul lanes (z 9 berm toe to 11.8) and the flatbed lanes, can be inside the band. Fixing it is a camera change in the Refinery `Cam_Target`, not a crane change. Checked with the current GLBs, these single-camera settings fit both bands:
+  - Cam_Target z +6.4 → (313.1, 2.08, 11.85), frame_w 34.4: crane/pallet/pad/FB-05 y 310–478 at 393×852 and y 220–383 at 375×667, Refinery top y 218 / 144.
+  - Cam_Target z +5.65 → (313.1, 2.08, 11.1), frame_w 36.4: y 319–478 and y 229–383, Refinery top y 228 / 153.
+  
+  Both settings sit right on the 383 line. For a few px of margin, use about +0.3 m more z.
+- Overlays: `proofs/gamecam_safe_band_{393x852,375x667}.png`.
 
-Occlusion recheck with the pad (same tool): the mast still hides 0% of either landing box, and the crane hides 0% of the cab and truck. The landing box is hidden 16.7% / 16.4% at 393×852 and 17.1% / 17.1% at 375×667, all from the latched spreader plus FB-05's headboard. The Refinery hides 0%.
+**Occlusion recheck with the pad and the f4d4a2c camera:** the mast hides 0% of either landing box, and the crane hides 0% of the cab and truck. Box hidden: slot 01 16.1% (spreader 13.4%, headboard 2.7%), slot 02 15.5% (spreader 13.3%, headboard 2.3%) at 393×852; slot 01 17.2% (spreader 14.6%, headboard 2.6%), slot 02 16.8% (spreader 14.5%, headboard 2.3%) at 375×667. The Refinery hides 0%.
 
 ## Proofs (proof-only crane_load clip, NOT in the shipped GLB)
-The renders use the `--proofclip` build: same mesh and markers plus a 12 s crane_load. Cycle 1 lifts `Pallet_Slot_05` onto Bed_Slot_01, landing at 4.1 s. Cycle 2 lifts `Pallet_Slot_06` onto Bed_Slot_02, landing at 10.1 s. Every proof uses the real game camera above, with the current Refinery GLB, the flatbed road tiles, FB-05 at Truck_Park and the receiver (`../../crew/receiver`, suggested spot world (316.5, 0, 17.1), yaw 180°, playing `guide`).
-- `proofs/gamecam_before_x318_slot0{1,2}_{393x852,375x667}.png`: landing frames, old placement.
-- `proofs/gamecam_after_x311_slot0{1,2}_{393x852,375x667}.png`: landing frames, new placement.
+The renders use the `--proofclip` build: same mesh and markers plus a 12 s crane_load. Cycle 1 lifts `Pallet_Slot_05` onto Bed_Slot_01, landing at 4.1 s. Cycle 2 lifts `Pallet_Slot_06` onto Bed_Slot_02, landing at 10.1 s. Every proof uses the real game camera, now the f4d4a2c Refinery camera (Cam_Target (313.1, 2.08, 5.45), frame_w 34.4), with that Refinery GLB, the flatbed road tiles, FB-05 at Truck_Park and the receiver (`../../crew/receiver`, suggested spot world (316.5, 0, 17.1), yaw 180°, playing `guide`).
+- `proofs/gamecam_before_x318_slot0{1,2}_{393x852,375x667}.png`: landing frames, old placement (014d751-era camera (314.1, 8.5, 3.36) / 30.8 and Refinery bb5eed2; kept as the record of that check).
+- `proofs/gamecam_after_x311_slot0{1,2}_{393x852,375x667}.png`: landing frames, crane at 311 with the pad, f4d4a2c camera.
 - `proofs/gamecam_landing_compare.png`: 3× crops of all 8 landing frames, with the box outlined and the numbers above.
 - `proofs/crane_layout_phone_1179x2556.png` and `proofs/crane_layout_phone_393x852.png`: t 4.1 s (box lands on Bed_Slot_01).
 - `proofs/crane_layout_phone_strip_393x852.png`: t 0 / 1.3 / 2.7 / 4.1 / 7.5 / 10.1 / 11.0 s.
