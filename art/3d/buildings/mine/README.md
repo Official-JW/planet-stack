@@ -6,20 +6,20 @@ The HT-04 has **no scoop arm**. It only fills under the conveyor chute at `Path_
 
 | | |
 |---|---|
-| **Game GLB** | `mine_game.glb`, **126,476 B (0.13 MB)**, md5 `33737ff698161c274d0fda22cd7ee53a` (10/23 20:20 build) |
-| Triangles / draws | **18,270 triangles, 10 draw calls with every tier visible** (10 meshes × 1 primitive; no truck) |
+| **Game GLB** | `mine_game.glb`, **126,748 B (0.13 MB)**, md5 `c54c731b51a54d9ea4917e69c041899e` (10/23 20:36 build, deposit glow removed) |
+| Triangles / draws | **18,271 triangles, 10 draw calls with every tier visible** (10 meshes × 1 primitive; no truck) |
 | Format | meshopt + quantization (`gltfpack -cc -kn -ke`). Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. **No Draco.** No morph targets, no skins (the truck and its `fill` morph are in the ht04 prop). |
 | Materials | `SHM_Paint` and `SHM_GlowCyan` (`../_shared/shared_materials.json`). Plain metallic/roughness plus emissiveFactor. No transmission, clearcoat or ior. Colour is in `COLOR_0` vertex colours. **No images or textures** and no TEXCOORD. |
 | Units / axes | 1 m, Y up. The origin is concept B's world origin. The camera side is +Z. |
 | Bounds (glTF) | (−15.55, −0.14, −14.72) … (26.0, 21.78, 11.8). The +X growth is the two parallel haul lanes (outbound z 9, return z 0) running off the phone frame on the right to x 26; +Z 11.8 is the outbound lane's front berm toe. |
 | No astronauts | The concept-B astronaut is removed. |
-| Budget | Mine station **30k tris / 15 draws including the future operator prop (~3k tris, 2 draws)**, so the Mine itself is held to **≤ 27k tris / ≤ 13 draws**: it uses **18,270 / 10**; with the shared HT-04 at `Path_Load` (3,859 / 1) the station is 22,129 / 11. |
+| Budget | Mine station **30k tris / 15 draws including the future operator prop (~3k tris, 2 draws)**, so the Mine itself is held to **≤ 27k tris / ≤ 13 draws**: it uses **18,271 / 10**; with the shared HT-04 at `Path_Load` (3,859 / 1) the station is 22,130 / 11. |
 
 ## Files
 - `mine_game.glb`: the game asset.
 - `truck_fill_strip_393.png`: **fill proof in the FULL 393×852 station frame**: 4 frames at fill 10 / 33 / 66 / 100 % (official remap), `chute_pour` running in the 10 / 33 / 66 frames, each with a 3× inset of the truck (cyan box = inset area). Rendered from the game meshes: the Mine GLB plus the shared `ht04` prop with its root on `Path_Load` (`_src/proof_fill.py --mode strip --truck` + `_src/proof_strip.py`). It also shows the haul trail: the haul lanes (re-rendered 10/23 20:30 on the new bay).
 - `truck_fill_strip_1179.png`: the same 4 frames at 1179×2556 (insets 3× of the 393 scale).
-- `mine_phone_393x852.png` / `mine_phone_1179x2556.png` (10/23 PM): **phone proofs from the game mesh** (pruned raw GLB + the HT-04 prop on `Path_Load`, full load), station camera from `Cam_Target`, tiers hidden. Cycles CPU, 16 samples, no denoiser, no tiling (`_src/proof_phone.py`). The ground is a flat proof plane; the game draws its own ground and the deposit glow, so neither shows here.
+- `mine_phone_393x852.png` / `mine_phone_1179x2556.png` (10/23 PM): **phone proofs from the game mesh** (pruned raw GLB + the HT-04 prop on `Path_Load`, full load), station camera from `Cam_Target`, tiers hidden. Cycles CPU, 16 samples, no denoiser, no tiling (`_src/proof_phone.py`). The ground is a flat proof plane (the game draws its own ground). The two dark discs in front of the bay are the plain ore-rock deposit patches (no glow, no pulse).
 - `mine_tiers_393x852.png` / `mine_tiers_375x667.png`: the same with **every tier visible**, at both of Coder's safe-area sizes.
 - `_src/mine_layout.py`: the station re-layout applied on top of the concept-B scene (see Layout changes), including the two-lane graded haul road (`graded_roads`, `M_road_graded`) and its exact centre lines `OUT_LEGS` / `RET_LEGS` (straights and the R 4.5 m U-turn), the re-laid conveyor, the moved silo and the moved `Dep_01`, which the build also turns into the `Path_Out_*` / `Path_Ret_*` markers.
 - `haul_paths_topdown.png` (1600×1200, 40 px/m): **top-down haul path diagram** over an orthographic render of the game mesh (truck on `Path_Load`): every `Path_Out_*` / `Path_Ret_*` marker with its yaw arrow, each leg with its length, the dashed 1.5 m reverse, the eased per-leg times, the `Dep_01/02` tap circles, the `Operator_Deck` footprint and the 393×852 frame's right edge at ground level.
@@ -61,7 +61,7 @@ Everything sits under the root `Mine`. gltfpack puts each mesh on an **unnamed c
 | Node | What it is | Tris | Material | Pivot (glTF, m) |
 |---|---|---|---|---|
 | `Base_Paint` | static base merged by material: pads, rig skirt, hopper, conveyor frame, silo base, graded roads (outbound + return lanes, not decimated), rocks | 10,036 | SHM_Paint | origin |
-| `Base_GlowCyan` | all static cyan glow: light strips | 3,702 | SHM_GlowCyan | origin |
+| `Base_GlowCyan` | all static cyan glow: light strips | 3,674 | SHM_GlowCyan | origin |
 | `Rig` | bore head and crown block, the moving part of the rig (clip `dig`) | 635 | SHM_Paint | (−7.5, 8.65, −3.6) |
 | `Conveyor` | belt-surface ore lumps on the re-laid belt (clip `conveyor_run`) | 294 | SHM_Paint | (−0.83, 2.56, −2.62), the tail end C0 |
 | `Silo` | ore silo (moved 1.5 m back, clear of the U-turn) | 784 | SHM_Paint | (10.0, 0, −6.0), base centre |
@@ -105,7 +105,7 @@ Every tier node has `extras {"tier": N, "hidden_by_default": true}` (three.js `u
 | `Tier_12` | second, taller ore silo behind the first, plus a transfer bridge and beacon | 685 | SHM_Paint | (10.6, 0, −10.61) |
 | `Tier_20` | Mk II bore crown: bigger crown housing, twin emitter pods and a tall mast | 284 | SHM_Paint | (−7.5, 0, −3.59) |
 
-Base 13,738 + moving 1,713 (Rig, Conveyor, Silo) + tiers 2,819 = 18,270 tris (the truck's 3,859 are in the ht04 prop).
+Base 13,738 + moving 1,713 (Rig, Conveyor, Silo) + tiers 2,819 = 18,271 tris (the truck's 3,859 are in the ht04 prop).
 
 ## Markers (empties, glTF coords; yaw is about +Y, 0 = truck faces +X)
 - **Haul layout (10/23 PM redesign): two parallel lanes, one U-turn, a 1.5 m reverse.** Outbound (loaded) on **z 9 heading +X**, return (empty) on **z 0 heading −X**, both dead straight from x 12.5 to the strip at **x 26**. The load bay is the west end of the z 9 lane (x 5.5 → 12.5) under the re-laid conveyor chute. The empty truck comes in on z 0, makes one **left U-turn of R 4.5 m** (centre (12.5, 0, 4.5); the 9 m lane spacing fixes R = 4.5, so an 8 m radius does not fit here) onto z 9 heading +X, stops at `Path_Load_Approach` and **reverses 1.5 m** under the chute. Then it drives off forward, dead straight. No S-bends, no lane crossing. The reverse is needed because the conveyor crosses the U-turn about 4 m up, too low for a loaded heap (4.23 m) driving under it; the empty truck (3.5 m) clears it. See `haul_paths_topdown.png`.
@@ -130,7 +130,7 @@ Base 13,738 + moving 1,713 (Rig, Conveyor, Silo) + tiers 2,819 = 18,270 tris (th
 - **`Operator_Deck`** (−4.5, 0, 6.5), rotation identity (deck front faces +Z): root for `art/3d/props/mine_operator/mine_operator_game.glb` (not in this GLB). Moved west, clear of every road; its footprint box on 393×852 is about x 114–150, y 466–513.
 - **`Fill_Arc`**: in the ht04 prop, a child of the truck root at truck-local (2.2, 4.6, 0).
 - **`Rich_Pop`** (9.4, 4.88, 9.0): the money-pop anchor for the rich load, 1.6 m over the bed rim under the chute (valid while the truck is parked at `Path_Load`).
-- **`Dep_01`** (3.5, 0, 12.5), the main He-3 seam (r 2.2 m), moved 10/23 PM to open ground in front of the bay's west end (the U-turn island spot was hidden behind the parked truck on screen; it is now at about (230, 537) px on 393×852), and **`Dep_02`** (−1.2, −0.01, 10.4), the tap deposit (r 1.05 m, about (171, 527) px). The game draws the deposit glow. **No floating crystals:** the concept's He-3 seam crystals over the deposits are deleted in the game build (and a later pass removes any He-3 crystal/gem/shard mesh left), and the antenna tip sphere that floated over the headframe after the antenna rod was culled is dropped too. There is no scoop: `extras.tap` reads "the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load".
+- **`Dep_01`** (3.5, 0, 12.5), the main He-3 seam (r 2.2 m), moved 10/23 PM to open ground in front of the bay's west end (the U-turn island spot was hidden behind the parked truck on screen; it is now at about (230, 537) px on 393×852), and **`Dep_02`** (−1.2, −0.01, 10.4), the tap deposit (r 1.05 m, about (171, 527) px). The deposits are plain ore-coloured rock patches in `Base_Paint` (no glow, no pulse; see 'Deposit glow removed' below). **No floating crystals:** the concept's He-3 seam crystals over the deposits are deleted in the game build (and a later pass removes any He-3 crystal/gem/shard mesh left), and the antenna tip sphere that floated over the headframe after the antenna rod was culled is dropped too. There is no scoop: `extras.tap` reads "the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load".
 - **Haul edge:** both lanes end at **x 26.0**, outbound z 9 (yaw 0) and return z 0 (yaw 180), flush with the 8 m strip (unchanged from `219e774`: heights within 2 mm, strip colours; `_src/mine_layout.py` `SEAM_*`; proof `../_shared/road/haul_road_seams_proof.png`). On 393×852 the frame's right edge is at about x 17–18 m, so the last ~8 m of both lanes and the join are off screen. Lane profile: 4.0 m graded surface, berm crests ±2.35 m, toes ±2.8 m, tyre tracks 0.4 m wide at ±1.45 m.
 - **`Road_Entry`** (12.5, 0, 9.0), yaw 0: = `Path_Out_01`, where the loaded truck leaves the bay.
 - **`Crew_Path_01..07`**: (−9.4, 0.64, 0.2) at the rig operator pod deck → (−9.0, −0.01, 1.9) → (−5.6, 0, 2.7) → (−2.2, 0, 2.3) → (1.0, 0, 1.6) → (5.0, 0, −0.2) → (8.6, 0, −2.9) at the moved silo.
@@ -157,7 +157,7 @@ These live in `_src/mine_layout.py`. The B look, palette and parts are otherwise
 
 ## Validation
 - **`mine_clips.cjs verify`** (`_src/pack_mine.sh`):
-  - 10 meshes / 10 primitives, **18,270 triangles, 10 draws**, 0 images/textures, extensionsUsed = [EXT_meshopt_compression, KHR_mesh_quantization]. No Draco, no transmission/clearcoat/ior.
+  - 10 meshes / 10 primitives, **18,271 triangles, 10 draws**, 0 images/textures, extensionsUsed = [EXT_meshopt_compression, KHR_mesh_quantization]. No Draco, no transmission/clearcoat/ior.
   - 2 clips, each targets only its own node, **0 foreign targets**: `dig` → Rig (3.0 s), `conveyor_run` → Conveyor (1.0 s) (the truck clips are in `ht04_game.glb`)
   - markers: `Path_Load`, `Path_Load_Approach`, `Road_Entry`, `Rich_Pop`, `Operator_Deck`, `Cam_Target` (frame_w extras), `Path_Out_01..02`, `Path_Ret_01..03`, `Dep_01/02`, `Crew_Path_01..07`; every `Tier_*` keeps `{"tier": N, "hidden_by_default": true}`.
   - vs `219e774`: removed `Path_Out_03/04`, `Path_Ret_04..08`; moved `Path_Load`, `Path_Load_Approach`, `Road_Entry`, `Rich_Pop`, `Operator_Deck`, `Dep_01`, `Crew_Path_05..07`, `Cam_Target` (W 33 → 33.8).
@@ -174,3 +174,11 @@ These live in `_src/mine_layout.py`. The B look, palette and parts are otherwise
 - `Truck` is one skinned mesh. The ram pistons are rigidly skinned, one joint each. The pour / rich chunks are on truck joints, so they ride with the truck: only play those clips while it is parked at `Path_Load`.
 - Blender prints "mesh not valid" export warnings for Rig and Tier_05 (and the truck mesh in the prop build), which are the joined, decimated meshes. The packed GLB loads and inspects cleanly, and the renders and clearance checks look right.
 - Cyan is used for light strips (concept B). There are no He-3 crystal meshes in the game GLB.
+
+## Deposit glow removed (10/23 20:34, Jacob via Director)
+Jacob still saw blinking highlights where the diamonds used to be. In this re-export (md5 `c54c731b...`):
+- **In the GLB there was already nothing glowing or animated at the deposits.** A scan of every vertex within 6 m of `Dep_01` / `Dep_02` found only `Base_Paint` ground and road (SHM_Paint, no emission), plus cyan light strips on the buildings at 5.8 m height (not at the deposit spots). The only clips are `conveyor_run` (Conveyor, translation) and `dig` (Rig, translation). No clip animates emission, scale or a material, and there is no KHR_animation_pointer or KHR_materials_emissive_strength. The deposit meshes the concept had (`deposit`, `deposit_small`, `seam_crystal`, `seam_crystal_s`, `spill`, `spill_s`, `spill_rock` / `spill_he3` / `spill_pt` chips, and nearby `pebble`s; He-3 material `B_He3` -> `SH_GlowCyan`) were already deleted in the 19:57 / earlier passes. This pass found 0 left.
+- **The blink therefore comes from the game code.** The old `Dep_*` extras said `glow: "drawn by the game (glow disc + gem, respawning)"`. Coder: remove the code-side deposit **glow disc**, **gem**, and any emission/scale **pulse** or respawn sparkle at `Dep_01` / `Dep_02`.
+- **Added:** `dep_patch` x2 (material `B_DepRock` -> `SH_Rock` #55575a in `Base_Paint`; no emission, no vein shader, no clip): flat irregular ore-rock discs, r 2.2 m at `Dep_01` and r 1.05 m at `Dep_02`, top 3.5 cm above grade.
+- **Changed extras on `Dep_01` / `Dep_02`:** `glow` now reads "none (10/23 20:34: no glow disc, gem, glint or emissive pulse at the deposits, in the GLB or in code)", and there is a new `patch` extra. `kind`, `label`, `radius_m` (tap radius) and `tap` are unchanged, and both markers stay in the same place.
+

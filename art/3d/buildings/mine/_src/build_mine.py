@@ -32,6 +32,30 @@ _he = [o for o in bpy.data.objects if o.type == 'MESH' and any(m and m.name.star
 _cr = [o.name for o in _he if o.name.split('.')[0].startswith(('seam_crystal', 'crystal', 'gem', 'shard', 'deposit', 'spill'))]
 for _n in _cr: bpy.data.objects.remove(bpy.data.objects[_n], do_unlink=True)
 print('CRYSTALS removed', len(_cr), '| remaining He-3 parts:', sorted({o.name.split('.')[0] for o in bpy.data.objects if o.type == 'MESH' and any(m and m.name.startswith('B_He3') for m in o.data.materials)}))
+# 10/23 20:34 (Jacob via Director): still blinking highlights where the diamonds were. The GLB carries nothing glowing or animated at the
+# deposits (no gem, glint, flare, emissive clip). The deposit ground patches are now plain ore-coloured rock in Base_Paint: 'dep_patch'
+# meshes, material B_DepRock -> SH_Rock (no emission, no vein shader, no clip). Dep_01 / Dep_02 markers and their tap radii are unchanged.
+import bmesh as _bmd, random as _rd
+_mdr = bpy.data.materials.new('B_DepRock'); _mdr.use_nodes = True; _bsd = _mdr.node_tree.nodes['Principled BSDF']
+_bsd.inputs['Base Color'].default_value = (0.090, 0.092, 0.096, 1.0); _bsd.inputs['Roughness'].default_value = 0.95
+_bsd.inputs['Emission Strength'].default_value = 0.0; _mdr.diffuse_color = (0.090, 0.092, 0.096, 1.0)
+_rr = _rd.Random(7)
+for _k, ((_x, _y), _r) in enumerate(((ML.DEP1, 2.2), (ML.DEP2, 1.05))):
+    _bm = _bmd.new(); _n = 16; _z0 = LAY['height'](_x, _y)
+    _c = _bm.verts.new((_x, _y, _z0 + 0.035)); _ring = []; _base = []
+    for _i in range(_n):
+        _a = math.tau * _i / _n; _rad = _r * _rr.uniform(0.88, 1.08)
+        _px, _py = _x + _rad * math.cos(_a), _y + _rad * math.sin(_a)
+        _ring.append(_bm.verts.new((_px, _py, LAY['height'](_px, _py) + 0.03)))
+        _base.append(_bm.verts.new((_x + (_rad + 0.12) * math.cos(_a), _y + (_rad + 0.12) * math.sin(_a), LAY['height'](_px, _py) - 0.04)))
+    for _i in range(_n):
+        _j = (_i + 1) % _n
+        _bm.faces.new((_c, _ring[_i], _ring[_j])); _bm.faces.new((_ring[_i], _base[_i], _base[_j], _ring[_j]))
+    for _f in _bm.faces:
+        _f.normal_update()
+        if _f.normal.z < 0: _f.normal_flip()
+    _obj(_bm, 'dep_patch', _mdr, c='Mine', smooth=False)
+print('DEP PATCHES plain ore rock (B_DepRock -> SH_Rock, no glow / pulse) at', ML.DEP1, ML.DEP2)
 C0, C1, Lc, U, SIDE, UP = LAY['C0'], LAY['C1'], LAY['L'], LAY['u'], LAY['side'], LAY['up']
 base = lambda o: o.name.split('.')[0]
 TROOT = bpy.data.objects['Truck_HT04']; GZ = TROOT.matrix_world.translation.z
@@ -182,7 +206,7 @@ for n, d in MERGED.items():
 MAP = [('B_WhiteSmooth', 'SH_White'), ('B_White', 'SH_White'), ('B_GraphiteSmooth', 'SH_Graphite'), ('B_Graphite', 'SH_Graphite'),
        ('B_Satin', 'SH_Steel'), ('B_Platinum', 'SH_Steel'), ('B_Tire', 'SH_Graphite'), ('B_Belt', 'SH_Graphite'), ('B_InkWhite', 'SH_White'),
        ('B_Ink', 'SH_Graphite'), ('B_CyanSoft', 'SH_GlowCyan'), ('B_Cyan', 'SH_GlowCyan'), ('B_He3', 'SH_GlowCyan'), ('B_Lamp', 'SH_GlowWhite'),
-       ('B_PlasmaCore', 'SH_GlowWhite'), ('B_Melt', 'SH_GlowWhite'), ('B_Visor', 'SH_Glass'), ('B_OreRock', 'SH_Rock'), ('B_HaulRoad', 'SH_Graphite'),
+       ('B_PlasmaCore', 'SH_GlowWhite'), ('B_Melt', 'SH_GlowWhite'), ('B_Visor', 'SH_Glass'), ('B_OreRock', 'SH_Rock'), ('B_DepRock', 'SH_Rock'), ('B_HaulRoad', 'SH_Graphite'),
        ('B_Radiator', 'SH_Radiator'), ('M_Regolith', 'SH_Rock')]
 TIRE_COL = lin('#24272b')
 def shared_for(m):
@@ -740,7 +764,7 @@ print(HT.fmt('RETURN x26 -> Path_Load_Approach', _tr, _lr)); print(HT.fmt('REVER
 print('HAUL', json.dumps(HAUL))
 # deposits + spur (scoop) poses
 for nm, (x, y), r, lab in (('Dep_01', ML.DEP1, 2.2, 'main He-3 seam'), ('Dep_02', ML.DEP2, 1.05, 'tap deposit')):
-    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'tap': 'the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load', 'glow': 'drawn by the game (no deposit mesh in the GLB; clear ground within 2.5 m)'})
+    emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'tap': 'the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load', 'patch': 'dep_patch in Base_Paint: plain ore-coloured rock (SH_Rock), no glow, no pulse, no gem', 'glow': 'none (10/23 20:34: no glow disc, gem, glint or emissive pulse at the deposits, in the GLB or in code)'})
 emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_entry', 'note': 'where the return U-turn joins the outbound lane (= Path_Out_01 = Path_Load_Approach): the loaded lane runs dead straight +X (glTF) at z 9 off the right edge to x 26 (Refinery road strip). The empty return lane comes in at z 0 (Path_Ret_01, x 26).'})
 CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.0, -1.6, 0.0), (5.0, 0.2, 0.0), (8.6, 2.9, 0.0)]
 for i, p in enumerate(CREW): emp('Crew_Path_%02d' % (i + 1), (p[0], p[1], p[2] if p[2] > 0.3 else H(p[0], p[1])), 0, {'kind': 'crew_path'})
