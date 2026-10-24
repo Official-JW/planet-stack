@@ -43,9 +43,13 @@ l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (
     const slew = S.getObjectByName('Slew'), tro = S.getObjectByName('Trolley'), hoi = S.getObjectByName('Hoist'), hook = S.getObjectByName('Hook');
     const hook0 = hook.position.y;  // rest: L = 1
     const setJ = (th, r, L) => { slew.rotation.y = th; tro.position.x = r; hoi.scale.y = L; hook.position.y = hook0 + 1 - L; hook.rotation.y = -th; S.updateMatrixWorld(true); };
-    for (const tgt of ['Pick_Point', 'Drop_Point', 'Drop_Point_02']) {
+    const slots = Array.from({ length: 8 }, (_, i) => 'Pallet_Slot_' + String(i + 1).padStart(2, '0'));
+    for (const n of slots) if (!S.getObjectByName(n)) fail.push('missing ' + n);
+    if (g.animations.length) fail.push('crane must ship with no clips');
+    chk.truck_park = r3(W('Truck_Park'));
+    for (const tgt of ['Pick_Point', 'Drop_Point', 'Drop_Point_02', ...slots]) {
       const p = W(tgt).clone(); p.y += 1.5; const th = Math.atan2(-p.z, p.x), r = Math.hypot(p.x, p.z), L = e.sheave_y - p.y - e.hook_drop_m;
-      setJ(th, r, L); const h = W('Hook'); const err = h.distanceTo(p); chk['solve_' + tgt] = { theta: +th.toFixed(4), r: +r.toFixed(3), L: +L.toFixed(3), hook: r3(h), err: +err.toFixed(4) };
+      setJ(th, r, L); const h = W('Hook'); const err = h.distanceTo(p); chk['solve_' + tgt] = { at: r3(W(tgt)), theta: +th.toFixed(4), r: +r.toFixed(3), L: +L.toFixed(3), hook: r3(h), err: +err.toFixed(4) };
       if (err > 0.01) fail.push('solve ' + tgt);
       const hx = new THREE.Vector3(1, 0, 0).applyQuaternion(hook.getWorldQuaternion(new THREE.Quaternion())); chk['solve_' + tgt].hook_x_axis = r3(hx); if (hx.x < 0.999) fail.push('rotator ' + tgt);
       if (r < e.trolley_min_m || r > e.trolley_max_m || L < e.hoist_min_m || L > e.hoist_max_m) fail.push('limits ' + tgt);
@@ -67,6 +71,23 @@ l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (
       let md = 0; for (const tr of clip.tracks) { const n = tr.getValueSize(); const a = tr.values.slice(0, n), b = tr.values.slice(-n); for (let i = 0; i < n; i++) md = Math.max(md, Math.abs(a[i] - b[i])); }
       chk.clip_first_last_maxdiff = md; if (md > 1e-4) fail.push('clip loop'); }
   }
-  if (kind === 'receiver') { chk.Receive_Point = r3(W('Receive_Point')); }
+  if (kind === 'receiver') {
+    chk.Receive_Point = r3(W('Receive_Point')); chk.Home_Point = r3(W('Home_Point')); if (!S.getObjectByName('Receive_Point')) fail.push('Receive_Point');
+    const need = ['walk_out', 'guide', 'check_in', 'walk_back']; const C = {}; for (const n of need) { C[n] = g.animations.find(a => a.name === n); if (!C[n]) fail.push('clip ' + n); }
+    const J = []; S.traverse(o => { if (o.isBone || /^Op_/.test(o.name)) J.push(o); });
+    const mx = new THREE.AnimationMixer(S);
+    const poseAt = (clip, t) => { mx.stopAllAction(); const a = mx.clipAction(clip); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.reset().play(); mx.setTime(Math.min(t, clip.duration - 1e-6)); S.updateMatrixWorld(true); return J.map(o => o.getWorldPosition(new THREE.Vector3())); };
+    const dmax = (A, B) => Math.max(...A.map((v, i) => v.distanceTo(B[i])));
+    const chain = [['walk_out', 'guide'], ['guide', 'guide'], ['guide', 'check_in'], ['check_in', 'walk_back'], ['walk_back', 'walk_out']];
+    chk.chain_seam_max_m = {}; for (const [a, b] of chain) { const e = dmax(poseAt(C[a], C[a].duration), poseAt(C[b], 0)); chk.chain_seam_max_m[a + '>' + b] = +e.toFixed(5); if (e > 0.005) fail.push('seam ' + a + '>' + b); }
+    chk.durations = Object.fromEntries(need.map(n => [n, +C[n].duration.toFixed(3)]));
+    // foot slide (planted = ankle below 0.085 m on two consecutive frames) + biggest joint move per frame (pop check)
+    const fL = S.getObjectByName('Op_Foot_L'), fR = S.getObjectByName('Op_Foot_R'); chk.foot_slide_max_m = {}; chk.max_joint_step_m = {};
+    for (const n of need) { let prev = null, pj = null, sl = 0, st = 0;
+      for (let i = 0; i <= Math.round(C[n].duration * 30); i++) { const P = poseAt(C[n], Math.min(i / 30, C[n].duration)); const F = [fL, fR].map(o => o.getWorldPosition(new THREE.Vector3()));
+        if (prev) { F.forEach((v, k) => { if (v.y < 0.085 && prev[k].y < 0.085) sl = Math.max(sl, Math.hypot(v.x - prev[k].x, v.z - prev[k].z)); }); st = Math.max(st, dmax(P, pj)); }
+        prev = F; pj = P; }
+      chk.foot_slide_max_m[n] = +sl.toFixed(4); chk.max_joint_step_m[n] = +st.toFixed(3); if (sl > 0.004) fail.push('foot slide ' + n); }
+  }
   out.checks = chk; out.fail = fail; console.log(JSON.stringify(out, null, 1)); if (fail.length) process.exit(1);
 }, e => { console.error('LOAD FAILED', e); process.exit(1); });

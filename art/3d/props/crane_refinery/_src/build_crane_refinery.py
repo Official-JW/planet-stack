@@ -1,13 +1,15 @@
 """Refinery loading crane RC-1: slewing jib crane on a pedestal (concept B: white / graphite, cyan strips, weathered).
 One skinned mesh (SHM_Paint + SHM_GlowCyan = 2 draws). Code-driven joints: Slew (yaw about +Y), Trolley (translate local +X),
-Hoist (cable: scale.y = cable length in m), Hook (translate local y = -(cable + HOOK_DROP)). Optional proof clip crane_load (6 s).
-blender -b -P build_crane_refinery.py -- OUT_RAW.glb [--noclip]
+Hoist (cable: scale.y = cable length in m), Hook (translate local y = -(cable + HOOK_DROP)). The shipped GLB has NO clips (Coder drives the joints);
+--proofclip bakes crane_load (6 s) into a proof-only file for the renders.
+Includes the 8-box HELIUM-3 pallet (static, on Crane_Base) with Pallet_Slot_01..08.
+blender -b -P build_crane_refinery.py -- OUT_RAW.glb [--proofclip]
 Blender coords: Z up, jib rest direction +X. glTF = (x, z, -y)."""
 import bpy, sys, os, math
 from mathutils import Vector, Matrix, Euler, Quaternion
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '_shared_src'))
 from propgeo import MB, P, lin, empty, export
-ARGS = sys.argv[sys.argv.index('--') + 1:]; OUT = ARGS[0]; CLIP = '--noclip' not in ARGS
+ARGS = sys.argv[sys.argv.index('--') + 1:]; OUT = ARGS[0]; CLIP = '--proofclip' in ARGS
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene; sc.render.fps = 30
 
@@ -120,6 +122,19 @@ m.box((0.14, 1.18, 0.12), (-1.0, 0, 0.06), GRAPH, bone=H); m.box((0.14, 1.18, 0.
 m.box((1.6, 0.02, 0.03), (0, -0.6, 0.07), P['cyan'], mat=1, bone=H)
 for sx in (-1, 1):
     for sy in (-1, 1): m.box((0.16, 0.16, 0.08), (sx * 1.0, sy * 0.52, 0.02), lin('#ffb020'), bone=H)   # twistlock pads
+# ---- 8-box pallet (static, Crane_Base), east of the pedestal in the median: 2 x 2 footprint, stacked 2 high
+PAL_X = (4.8, 7.3); PAL_Z = (-0.725, 0.725); PAL_TOP = 0.15; BOX_H_ = 1.5        # glTF slot centres, deck top
+PCX, PL, PW = 6.05, 5.4, 3.2
+for yb in (-1.1, 0.0, 1.1): m.box((PL, 0.32, 0.09), (PCX, yb, 0.045), GRAPH)                  # skids
+m.box((PL, PW, 0.06), (PCX, 0, 0.12), lin('#8d9096'))                                           # deck plate
+for xb in (3.6, 6.05, 8.5): m.box((0.1, PW + 0.02, 0.02), (xb, 0, 0.155), STEEL)             # deck straps
+m.box((PL - 0.4, 0.02, 0.04), (PCX, -PW / 2 - 0.005, 0.10), P['cyan'], mat=1)                  # cyan edge strip (camera side, glTF +z)
+for k in range(8): m.box((0.28, 0.02, 0.05), (3.6 + k * 0.66, PW / 2 + 0.005, 0.10), lin('#ffb020'))   # amber hazard dashes (back edge)
+for sx in (3.45, 8.65):
+    for sy in (-1.5, 1.5):                                                                      # corner stacking guides (L posts)
+        m.box((0.14, 0.05, 0.62), (sx, sy + (0.045 if sy > 0 else -0.045), 0.46), WHITE)
+        m.box((0.05, 0.14, 0.62), (sx + (0.045 if sx > 6 else -0.045), sy, 0.46), WHITE)
+        m.box((0.16, 0.16, 0.03), (sx, sy, 0.78), lin('#ffb020'))
 m.weather(seed=11, z0=0.0, z1=3.0, amt=0.45, noise=0.06)
 print('CRANE TRIS', m.tris())
 
@@ -148,15 +163,21 @@ ob.parent = arm; md = ob.modifiers.new('Armature', 'ARMATURE'); md.object = arm
 
 # ---------------------------------------------------------------- markers (glTF metres, crane-local; Blender (x, y, z) = glTF (x, -z, y))
 def g2b(x, y, z): return (x, -z, y)
-PICK = (-6.5, 0.0, -3.0)          # glTF: box Base on the Refinery pick pad (behind-left of the crane, away from the camera)
-TRUCK = (7.65, 0.0, 3.5)          # glTF: FB-05 root at Truck_Park (heading +X, right of the crane and 3.5 m toward the camera) so the jib swings across the shot
+# Director layout (world): crane origin (318, 0, 17.5) in the median; flatbed lanes z 13 (eastbound, +X) and z 22 (westbound); FB-05 loads at x 318 on z 13
+PSLOTS = [(x, PAL_TOP + lvl * BOX_H_, z) for lvl in (0, 1) for z in PAL_Z for x in PAL_X]     # 01-04 bottom, 05-08 top
+PICK = PSLOTS[0]                  # Pick_Point = Pallet_Slot_01 (over the pallet); aim at any Pallet_Slot_NN the same way
+PROOF_PICK = PSLOTS[4]            # proof clip lifts the top box over slot 01 (Pallet_Slot_05)
+TRUCK = (0.0, 0.0, -4.5)          # glTF: FB-05 root at Truck_Park = world (318, 0, 13), heading +X
 SLOTS = [(TRUCK[0] - 1.15, 1.9, TRUCK[2]), (TRUCK[0] - 3.65, 1.9, TRUCK[2])]
 BOX_H = 1.5
 def solve(x, y_hook, z):
     th = math.atan2(-z, x); r = math.hypot(x, z); cable = (SHEAVE_Z) - y_hook - HOOK_DROP
     return th, r, cable
-empty('Pick_Point', g2b(*PICK), parent=arm, extras={'kind': 'crane_target', 'box_base': True,
-      'note': 'box Base sits here when it is picked up; hook target = Pick_Point + (0, box hook_offset_y 1.5, 0)'})
+empty('Pick_Point', g2b(*PICK), parent=arm, extras={'kind': 'crane_target', 'box_base': True, 'slot': 'Pallet_Slot_01',
+      'note': 'over the pallet = Pallet_Slot_01; box Base sits here; hook target = slot + (0, box hook_offset_y 1.5, 0). Any Pallet_Slot_NN works the same way'})
+for i, ps in enumerate(PSLOTS):
+    empty('Pallet_Slot_%02d' % (i + 1), g2b(*ps), parent=arm, extras={'kind': 'pallet_slot', 'box_base': True, 'level': i // 4,
+          'note': '01-04 bottom layer (y 0.15), 05-08 top layer (y 1.65, sits on 01-04); fill 01..08, pick 08..01; box yaw 0 (long axis +X)'})
 empty('Drop_Point', g2b(*SLOTS[0]), parent=arm, extras={'kind': 'crane_target', 'box_base': True, 'slot': 'Bed_Slot_01',
       'note': 'FB-05 Bed_Slot_01 when the truck is parked at Truck_Park (box Base lands here); Drop_Point_02 = Bed_Slot_02'})
 empty('Drop_Point_02', g2b(*SLOTS[1]), parent=arm, extras={'kind': 'crane_target', 'box_base': True, 'slot': 'Bed_Slot_02'})
@@ -177,20 +198,21 @@ arm['hook_rest_local_y'] = round(SHEAVE_Z - 1.0 - HOOK_DROP - JIB_Z, 4)
 
 # ---------------------------------------------------------------- optional proof clip crane_load (6 s @ 30 fps, first key == last key)
 def smooth(t): t = min(max(t, 0.0), 1.0); return t * t * t * (t * (6 * t - 15) + 10)
-HOVER = 5.6
-Pth, Pr, _ = solve(PICK[0], 0, PICK[2]); Dth, Dr, _ = solve(SLOTS[0][0], 0, SLOTS[0][2])
+HOVER = 6.2
+Pth, Pr, _ = solve(PROOF_PICK[0], 0, PROOF_PICK[2]); PD = SLOTS[1]   # proof clip drops on Bed_Slot_02 (left of the mast in the game camera; slot 01 sits behind the mast)
+Dth, Dr, _ = solve(PD[0], 0, PD[2])
 if Dth - Pth > math.pi: Dth -= math.tau
 if Pth - Dth > math.pi: Dth += math.tau
-KEYS = [(0.0, Pth, Pr, HOVER), (0.9, Pth, Pr, PICK[1] + BOX_H), (1.3, Pth, Pr, PICK[1] + BOX_H), (2.1, Pth, Pr, HOVER),
-        (3.3, Dth, Dr, HOVER), (4.1, Dth, Dr, SLOTS[0][1] + BOX_H), (4.5, Dth, Dr, SLOTS[0][1] + BOX_H), (5.0, Dth, Dr, HOVER),
+KEYS = [(0.0, Pth, Pr, HOVER), (0.9, Pth, Pr, PROOF_PICK[1] + BOX_H), (1.3, Pth, Pr, PROOF_PICK[1] + BOX_H), (2.1, Pth, Pr, HOVER),
+        (3.3, Dth, Dr, HOVER), (4.1, Dth, Dr, PD[1] + BOX_H), (4.5, Dth, Dr, PD[1] + BOX_H), (5.0, Dth, Dr, HOVER),
         (6.0, Pth, Pr, HOVER)]
 def state(t):
     for (t0, a0, r0, h0), (t1, a1, r1, h1) in zip(KEYS, KEYS[1:]):
         if t <= t1 + 1e-9:
             u = smooth((t - t0) / (t1 - t0)); return a0 + (a1 - a0) * u, r0 + (r1 - r0) * u, h0 + (h1 - h0) * u
     return KEYS[-1][1:]
-arm['crane_load_schedule'] = ('optional proof clip: 0-0.9 s lower to the box at Pick_Point, 0.9-1.3 latch, 1.3-2.1 lift, 2.1-3.3 slew + trolley to Drop_Point, '
-                              '3.3-4.1 lower onto Bed_Slot_01, 4.1-4.5 release, 4.5-5.0 lift, 5.0-6.0 return; box attached 0.9-4.5 s')
+if CLIP: arm['crane_load_schedule'] = ('proof-only clip (not in the shipped GLB): 0-0.9 s lower to the top box at Pallet_Slot_05, 0.9-1.3 latch, 1.3-2.1 lift, 2.1-3.3 slew + trolley to Drop_Point_02, '
+                              '3.3-4.1 lower onto Bed_Slot_02, 4.1-4.5 release, 4.5-5.0 lift, 5.0-6.0 return; box attached 0.9-4.5 s')
 def pose_at(t):
     th, r, hy = state(t); L = SHEAVE_Z - hy - HOOK_DROP
     pb = arm.pose.bones

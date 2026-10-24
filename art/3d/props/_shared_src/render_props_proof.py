@@ -1,7 +1,7 @@
 """Proof renders for FB-05 / cargo box / Refinery crane (CPU Cycles, low samples, OIDN, no tiling).
-Inputs are the SHIPPED GLBs unpacked with `gltfpack -noq -kn -ke` (Blender has no meshopt decoder).
+Inputs are the SHIPPED GLBs unpacked (crane: the --proofclip build, same mesh/markers + proof-only crane_load clip) with `gltfpack -noq -kn -ke` (Blender has no meshopt decoder).
 blender -b -P render_props_proof.py -- --view VIEW --out PNG --w W --h H --samples N --fb FB_PLAIN --box BOX_PLAIN --crane CRANE_PLAIN
-   [--road ROAD_PLAIN] [--t CLIP_TIME] [--cam az,el,dist,tx,ty,tz] (Blender coords) | [--phone tx,ty,tz,frame_w] (glTF coords)"""
+   [--road ROAD_PLAIN --road_tiles x0,n,z,tail] [--pallet N] [--rx RX_PLAIN --rx_at x,z,yaw --rx_clip C --rx_t S] [--t CLIP_TIME] [--cam az,el,dist,tx,ty,tz] (Blender coords) | [--phone tx,ty,tz,frame_w] (glTF coords)"""
 import bpy, sys, math
 from mathutils import Vector, Matrix, Euler
 A = sys.argv[sys.argv.index('--') + 1:]
@@ -68,22 +68,44 @@ def W(name):
         pos = (carm.matrix_world @ carm.pose.bones['Hook'].matrix).translation; c = crane.matrix_world.translation
         return Matrix.Translation(pos)   # the clip's hook rotator holds the box at world yaw 0
     return bpy.data.objects[name].matrix_world.copy()
+PAL_PICK = 'Pallet_Slot_05'     # the proof clip (crane_load, proof-only build) lifts this top box onto Bed_Slot_01
 if arg('box'):
     if crane and fb:
         lift = 0.9 <= T <= 4.5
-        add_box(W('Bed_Slot_02'))                                   # earlier load already strapped on slot 02
-        if lift:
-            add_box(W('Hook') @ Matrix.Translation((0, 0, -1.5)))          # box Hook_Point (top centre, 1.5 m) on the crane Hook
-        else: add_box(W('Pick_Point') if T < 0.9 else W('Bed_Slot_01'))
-        if T < 0.9 or T > 4.5: add_box(W('Pick_Point') @ Matrix.Translation((0, 0, 0)) if T > 4.5 else W('Pick_Point'))
+        add_box(W('Bed_Slot_01'))                                   # earlier load already strapped on slot 01 (behind the mast)
+        if lift: add_box(W('Hook') @ Matrix.Translation((0, 0, -1.5)))   # box Hook_Point (top centre, 1.5 m) on the crane Hook
+        elif T > 4.5: add_box(W('Bed_Slot_02'))                     # proof clip drops on Drop_Point_02 = Bed_Slot_02
+        npal = int(arg('pallet', 6))
+        for i in range(1, npal + 1):
+            n = 'Pallet_Slot_%02d' % i
+            if n == PAL_PICK and T >= 0.9: continue
+            add_box(W(n))
     elif fb:
         add_box(W('Bed_Slot_01')); add_box(W('Bed_Slot_02'))
     else:
         add_box(Matrix.Identity(4))
-if arg('road'):
-    for k in range(-3, 3):
+if arg('road'):   # --road_tiles x0,n,z,tail_scale (glTF, tile origin = west end, lane centres at tile z 0 and z +9)
+    x0, n, rz, tail = (float(v) for v in arg('road_tiles', '-24,6,-9,0').split(','))
+    xs = [(x0 + 8.0 * k, 1.0) for k in range(int(n))] + ([(x0 + 8.0 * int(n), tail)] if tail > 0 else [])
+    for x, sx in xs:
         rn = imp(arg('road')); r = root_of(rn, 'HaulRoad_Seg'); bpy.context.view_layer.update()
-        r.matrix_world = Matrix.Translation(g2b((8.0 * k, 0, (6.0 - 9.0) if crane else -9.0)))
+        r.matrix_world = Matrix.Translation(g2b((x, 0, rz))) @ Matrix.Diagonal((sx, 1, 1, 1))
+if arg('rx'):     # --rx RX_PLAIN --rx_at x,z,yaw_deg (glTF crane-local; yaw about +Y) --rx_clip NAME --rx_t SEC
+    rn = imp(arg('rx')); rr = root_of(rn, 'Receiver'); rarm = next(o for o in rn if o.type == 'ARMATURE')
+    x, z, yd = (float(v) for v in arg('rx_at', '0,0,0').split(','))
+    bpy.context.view_layer.update(); rr.matrix_world = Matrix.Translation(g2b((x, 0, z))) @ Matrix.Rotation(math.radians(yd), 4, 'Z')
+    if rarm.animation_data is None: rarm.animation_data_create()
+    for tr in list(rarm.animation_data.nla_tracks): rarm.animation_data.nla_tracks.remove(tr)
+    ract = next(a for a in bpy.data.actions if a.name.startswith(arg('rx_clip', 'guide')) and not a.name.startswith('crane_load'))
+    rarm.animation_data.action = ract; print('RX ACTION', ract.name)
+    sc.frame_set(int(round(T * 30)))
+    if crane: carm.animation_data.action = act
+    rarm.animation_data.action = ract
+    # receiver clip time is independent: evaluate it by offsetting its action keys
+    off = int(round(float(arg('rx_t', 0)) * 30)) - int(round(T * 30))
+    for fc in ract.fcurves:
+        for kp in fc.keyframe_points: kp.co.x += off; kp.handle_left.x += off; kp.handle_right.x += off
+    sc.frame_set(int(round(T * 30)))
 # ---- camera
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
 if arg('phone'):
@@ -97,4 +119,5 @@ else:
     tgt = Vector((tx, ty, tz)); dirv = Vector((math.cos(math.radians(el)) * math.sin(math.radians(az)), -math.cos(math.radians(el)) * math.cos(math.radians(az)), math.sin(math.radians(el))))
     cam.location = tgt + dirv * dist; cam.data.lens = float(arg('lens', 50)); cam.data.clip_end = 2000
     cam.rotation_euler = (tgt - cam.location).to_track_quat('-Z', 'Y').to_euler()
+    if arg('ortho'): cam.data.type = 'ORTHO'; cam.data.ortho_scale = float(arg('ortho'))   # ortho_scale = frame width (m)
 sc.render.filepath = arg('out'); bpy.ops.render.render(write_still=True); print('RENDERED', arg('out'))
