@@ -1641,7 +1641,7 @@ const EVE_BEATS = [
   { id: 'mine_first_view', tut: true, point: null, lines: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",
     "Tap the dark ore patch and the drill drops a rich load into the bed. Over."] },
   { id: 'first_deposit', tut: false, point: null, lines: ["Rich load, nice. Once that truck is full it hauls to the Refinery and pays as the bed tips. Over."] },
-  { id: 'upgrade_ready', tut: true, point: 'upgrade', lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."] },
+  { id: 'upgrade_ready', tut: true, point: null, lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."] },
   // Director 20:34: first launch only. Rings once the first flatbed trip (2 boxes) is in the hold and the tanks are full; points at Launch
   { id: 'cargo_early', tut: true, point: 'launch', lines: ["Moonbase, Eve here. Your first He-3 boxes are in the ship's hold and the tanks are full.",
     "Earth needs that shipment now. Don't wait for a full hold: tap Launch and send what's aboard. Over."] },
