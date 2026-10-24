@@ -1,0 +1,204 @@
+{
+ "results": {
+  "outbound_375_std": {
+   "strip": [
+    105,
+    127
+   ],
+   "caption": [
+    129,
+    139
+   ],
+   "block_bottom": 139,
+   "band_top": 144,
+   "clearance": 5
+  },
+  "at_earth_375_std": {
+   "strip": [
+    105,
+    127
+   ],
+   "caption": [
+    129,
+    139
+   ],
+   "block_bottom": 139,
+   "band_top": 144,
+   "clearance": 5
+  },
+  "returning_375_std": {
+   "strip": [
+    105,
+    127
+   ],
+   "caption": [
+    129,
+    139
+   ],
+   "block_bottom": 139,
+   "band_top": 144,
+   "clearance": 5
+  },
+  "outbound_375_thin": {
+   "strip": [
+    105,
+    121
+   ],
+   "band_top": 144,
+   "clearance": 23
+  },
+  "outbound_393_thin": {
+   "strip": [
+    144,
+    160
+   ],
+   "band_top": 165,
+   "clearance": 5
+  },
+  "outbound_393_std": {
+   "strip": [
+    144,
+    166
+   ],
+   "caption": [
+    168,
+    178
+   ],
+   "band_top": 165,
+   "clearance": -13
+  },
+  "chip_375": {
+   "chip": [
+    105,
+    123
+   ],
+   "band_top": 144,
+   "clearance": 21
+  },
+  "chip_393": {
+   "chip": [
+    144,
+    162
+   ],
+   "band_top": 165,
+   "clearance": 3
+  }
+ },
+ "path_std": [
+  [
+   137,
+   13.0
+  ],
+  [
+   209.0,
+   0.0
+  ],
+  [
+   280,
+   13.0
+  ]
+ ],
+ "moon": [
+  128,
+  13.0,
+  7.5
+ ],
+ "earth": [
+  290,
+  13.0,
+  8
+ ],
+ "path_thin": [
+  [
+   105,
+   9.0
+  ],
+  [
+   157.5,
+   1.0
+  ],
+  [
+   210,
+   9.0
+  ]
+ ],
+ "parts": [
+  [
+   "moon_15pt",
+   [
+    45,
+    45
+   ]
+  ],
+  [
+   "earth_16pt",
+   [
+    72,
+    72
+   ]
+  ],
+  [
+   "ship_icon_13pt",
+   [
+    45,
+    27
+   ]
+  ],
+  [
+   "ship_glow_flame",
+   [
+    33,
+    21
+   ]
+  ],
+  [
+   "pulse_ring_16pt",
+   [
+    48,
+    48
+   ]
+  ],
+  [
+   "flash_landing_36pt",
+   [
+    108,
+    108
+   ]
+  ],
+  [
+   "path_dots_std",
+   [
+    909,
+    66
+   ]
+  ],
+  [
+   "strip_bg_std_303x22",
+   [
+    909,
+    66
+   ]
+  ],
+  [
+   "strip_bg_thin_303x16",
+   [
+    909,
+    48
+   ]
+  ],
+  [
+   "chip_bg_112x18",
+   [
+    336,
+    54
+   ]
+  ],
+  [
+   "chip_full_example",
+   [
+    336,
+    54
+   ]
+  ]
+ ]
+}
