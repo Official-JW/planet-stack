@@ -1,0 +1,50 @@
+{
+ "lift": 0.0,
+ "nodes": {
+  "Body_Paint": {
+   "tris_in": 20228,
+   "tris": 8148,
+   "verts": 6612,
+   "material": "ST10B_Paint"
+  },
+  "Body_GlowCyan": {
+   "tris_in": 132,
+   "tris": 132,
+   "verts": 264,
+   "material": "ST10B_GlowCyan"
+  },
+  "Body_GlowAmber": {
+   "tris_in": 320,
+   "tris": 320,
+   "verts": 168,
+   "material": "ST10B_GlowAmber"
+  },
+  "Cradle_Loaded": {
+   "tris_in": 11696,
+   "tris": 2699,
+   "verts": 2738,
+   "material": "ST10B_Paint"
+  },
+  "Cradle_Empty": {
+   "tris_in": 11696,
+   "tris": 2700,
+   "verts": 2752,
+   "material": "ST10B_Paint"
+  },
+  "Astronaut": {
+   "tris_in": 3360,
+   "tris": 899,
+   "verts": 749,
+   "material": "ST10B_Paint"
+  }
+ },
+ "tris_visible_loaded": 12198,
+ "tris_file": 14898,
+ "wheels": 28,
+ "class_counts": {
+  "Body": 186,
+  "Cradle_Loaded": 60,
+  "Cradle_Empty": 60,
+  "Astronaut": 22
+ }
+}

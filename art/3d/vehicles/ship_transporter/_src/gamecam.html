@@ -14,7 +14,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const Q = new URLSearchParams(location.search);
 const W = innerWidth, H = innerHeight, ELEV = 18, FOV = 38, DPR = +(Q.get('dpr') || 1);
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
-renderer.setPixelRatio(DPR); renderer.setSize(W, H, false); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.setPixelRatio(DPR); renderer.setSize(W, H);   // fix 10/24: updateStyle on, else @2x drew a 2x-CSS canvas (magnified crop)
+ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x05060b);
 scene.add(new THREE.HemisphereLight(0x9fb4d8, 0x2a2a30, 0.55));
 const sun = new THREE.DirectionalLight(0xfff4e2, 2.6); scene.add(sun); scene.add(sun.target);
@@ -22,6 +23,7 @@ const SUN = new THREE.Vector3(-30000, 22000, 18000).normalize();
 const gnd = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x5a5a5e })); gnd.position.y = -0.05; scene.add(gnd);
 const camera = new THREE.PerspectiveCamera(FOV, W / H, 0.5, 5000);
 const vt = Math.tan(THREE.MathUtils.degToRad(FOV / 2)), e = THREE.MathUtils.degToRad(ELEV);
+function light(t) { sun.target.position.set(t.x, 0, t.z); sun.position.copy(sun.target.position).addScaledVector(SUN, 3000); sun.updateMatrixWorld(); sun.target.updateMatrixWorld(); }
 function pose(cam, t, fw) { const d = (fw / 2) / (vt * cam.aspect); cam.position.set(t.x, t.y + d * Math.sin(e), t.z + d * Math.cos(e)); cam.lookAt(t.x, t.y, t.z); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); return d; }
 // ---- road: 36 m running + 2.6 m shoulders, two darker crawler lanes (|dz| 9.7-13.3) with 0.62 m cleat imprints ----
 function roadTex() {
@@ -62,17 +64,32 @@ function mergeByMaterial(root) {    // game-style: one draw per material
     const me = new THREE.Mesh(g, mm); me.name = k; out.add(me); }
   return { group: out, draws: [...groups.keys()].filter(k => !k.startsWith('G_M_')).length, draws_astronaut: [...groups.keys()].filter(k => k.startsWith('G_M_')).length, tris };
 }
+// game GLB (st10b_game.glb): no merging; one cradle node visible; optional sRGB lift of COLOR_0 (sweep only; final frames use the baked GLB)
+function gameGLB(root, o) {
+  const show = o.loaded ? 'Cradle_Loaded' : 'Cradle_Empty', hide = o.loaded ? 'Cradle_Empty' : 'Cradle_Loaded';
+  root.getObjectByName(hide).visible = false; root.getObjectByName(show).visible = true;
+  const L = o.vlift || 0, s2l = c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4, l2s = c => c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+  let draws = 0, tris = 0, astro = 0; const names = [];
+  root.updateMatrixWorld(true);
+  root.traverseVisible(m => { if (!m.isMesh) return; const nm = m.parent && m.parent.name ? m.parent.name : m.name; names.push(nm); draws++; if (nm === 'Astronaut') astro++;
+    tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
+    const c = m.geometry.attributes.color;
+    if (c && L) { for (let i = 0; i < c.count; i++) for (let k = 0; k < 3; k++) { const v = l2s(c.getComponent(i, k)); c.setComponent(i, k, s2l(L >= 0 ? 1 - (1 - v) * (1 - L) : v * (1 + L))); } c.needsUpdate = true; } });
+  // o.emis: ST10B_Paint emissiveFactor = sky tint (0x9fb4d8, linear) x k -- a MATERIAL value (sweep only; final frames use the baked GLB)
+  if (o.emis) root.traverse(m => { if (m.isMesh && m.material.name === 'ST10B_Paint') m.material.emissive.setRGB(0.3467 * o.emis, 0.4564 * o.emis, 0.6867 * o.emis); });
+  return { group: root, draws, draws_astronaut: astro, draws_note: 'visible meshes incl. astronaut', names, tris };
+}
 window.setup = async (o) => {
   PAL = o.pal || {};
   const pad = await L.loadAsync(o.pad); PAD = pad.scene; scene.add(PAD); PAD.updateMatrixWorld(true);
   addRoad(29.4, 125);
-  const tr = await L.loadAsync(o.trn); const M = mergeByMaterial(tr.scene); TRN = M.group; TRN.position.set(o.xt, 0, -13); scene.add(TRN);
+  const tr = await L.loadAsync(o.trn); const M = o.game ? gameGLB(tr.scene, o) : mergeByMaterial(tr.scene); TRN = M.group; TRN.position.set(o.xt, 0, -13); scene.add(TRN);
   if (o.loaded) {   // clone the pad's own ship (Ship_Placeholder + Cargo_Door), lifted 0.45 m by the cradle jacks
     SHIP = new THREE.Group(); for (const n of ['Ship_Placeholder', 'Cargo_Door']) { const s = PAD.getObjectByName(n); if (s) { const c = s.clone(true); s.getWorldPosition(v); c.position.copy(v); c.quaternion.copy(s.getWorldQuaternion(new THREE.Quaternion())); SHIP.add(c); } }
     SHIP.position.set(o.xt, 0.45, 0); scene.add(SHIP);
   }
   { const s0 = PAD.getObjectByName('Ship_Placeholder'), c0 = PAD.getObjectByName('Cargo_Door'); if (o.loaded) { if (s0) s0.visible = false; if (c0) c0.visible = false; } }   // the ship left the pad
-  return { draws: M.draws, draws_astronaut: M.draws_astronaut, tris: M.tris };
+  return { draws: M.draws, draws_astronaut: M.draws_astronaut, tris: M.tris, names: M.names, calls: (renderer.info.reset(), 0) };
 };
 function pts(objs) { const a = []; for (const o of objs) { if (!o) continue; o.updateMatrixWorld(true); o.traverse(m => { if (!m.isMesh) return; const p = m.geometry.attributes.position; const st = Math.max(1, Math.floor(p.count / 40000));
   for (let i = 0; i < p.count; i += st) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); a.push(v.x, v.y, v.z); } }); } return a; }
@@ -94,7 +111,7 @@ window.solve = (sizes, spare) => {
   return { t: { x: t.x, y: t.y, z: t.z }, fw, res };
 };
 window.shot = (t, fw, band, label, bbox) => {
-  camera.aspect = W / H; pose(camera, t, fw); sun.target.position.set(t.x, 0, t.z); sun.position.copy(sun.target.position).addScaledVector(SUN, 3000); sun.updateMatrixWorld();
+  camera.aspect = W / H; pose(camera, t, fw); light(t);
   renderer.render(scene, camera);
   const ov = document.getElementById('ov'); ov.width = W; ov.height = H; const c = ov.getContext('2d');
   c.strokeStyle = 'rgba(255,51,85,0.9)'; c.lineWidth = 1; c.setLineDash([6, 4]); c.strokeRect(band[0] + .5, band[2] + .5, band[1] - band[0], band[3] - band[2]);
@@ -103,7 +120,7 @@ window.shot = (t, fw, band, label, bbox) => {
 };
 // shaded-side p25: luminance (0..255, sRGB) of transporter pixels whose world normal faces away from the sun (N.L < 0.05)
 window.p25 = (t, fw) => {
-  camera.aspect = W / H; pose(camera, t, fw); renderer.render(scene, camera);
+  camera.aspect = W / H; pose(camera, t, fw); light(t); renderer.render(scene, camera);   // fix 10/24: the sun was never placed before p25 (overhead default)
   const gl = renderer.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, beauty = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, beauty);
   const mask = new THREE.ShaderMaterial({ uniforms: { L: { value: SUN } }, vertexShader: 'varying vec3 n; void main(){ n = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
     fragmentShader: 'uniform vec3 L; varying vec3 n; void main(){ float d = dot(normalize(n), L); gl_FragColor = d < 0.05 ? vec4(1.,0.,0.,1.) : vec4(0.,1.,0.,1.); }' });
@@ -116,5 +133,9 @@ window.p25 = (t, fw) => {
   const pc = (a, q) => { if (!a.length) return null; a.sort((x, y) => x - y); return +a[Math.floor(q * (a.length - 1))].toFixed(1); };
   return { shaded_px: sh.length, shaded_p25: pc(sh, 0.25), shaded_p50: pc(sh, 0.5), lit_px: li.length, lit_p50: pc(li, 0.5) };
 };
+window.calls = (t, fw) => { camera.aspect = W / H; pose(camera, t, fw); light(t); const vis = []; scene.traverse(m => { if (m.isMesh && m !== TRN && m.visible) { let x = m, on = true; while (x) { if (!x.visible) on = false; x = x.parent; } if (on) vis.push(m); } });
+  // draw calls of the transporter alone: hide everything else, render, read renderer.info
+  const others = vis.filter(m => { let x = m; while (x) { if (x === TRN) return false; x = x.parent; } return true; }); others.forEach(m => m.visible = false); const bg = scene.background;
+  renderer.info.autoReset = false; renderer.info.reset(); renderer.render(scene, camera); const c = renderer.info.render.calls, tr = renderer.info.render.triangles; renderer.info.autoReset = true; others.forEach(m => m.visible = true); return { calls: c, triangles: tr }; };
 window.READY = true;
 </script></body></html>

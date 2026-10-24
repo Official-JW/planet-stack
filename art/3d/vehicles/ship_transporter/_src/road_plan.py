@@ -1,5 +1,5 @@
 """Lv10 ship transport road, top-down plan v3 (Director-approved road; Habitat moved east). WORLD glTF metres: +X right, +Z toward the game camera (drawn DOWN).
-Layout = cargo_dock/layout_v2 (f3478cf) + v3 station order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 373 (z -8) | Launch Pad 457 |
+Layout = cargo_dock/layout_v3 (cae8f39, dock compact_v3 9fb1ddbe) + v3 station order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 (z -8) | Launch Pad 457 |
 Shipyard 960 | Habitat 1068 (moved from 800, east of the Shipyard) | Engineering 1120 (unchanged).
 Inputs (read only): stations_footprints.json (measure_stations.mjs: 2 m max-height grids of the real GLBs) and road_clearance.json
 (road_clearance.mjs: real pad vertices vs the ST-10A/B swept volumes). Director rulings: road leaves the pad's RIGHT side on the far
@@ -12,13 +12,13 @@ H = os.path.dirname(os.path.abspath(__file__)); P = os.path.join(H, '..', 'proof
 ST = json.load(open(os.path.join(H, 'stations_footprints.json'))); CL = json.load(open(os.path.join(H, 'road_clearance.json')))
 F = '/usr/share/fonts/truetype/dejavu/'
 def font(s, b=False): return ImageFont.truetype(F + ('DejaVuSans-Bold.ttf' if b else 'DejaVuSans.ttf'), s)
-X = {'Refinery': (320, 0), 'CargoDock': (373, -8), 'LaunchPad': (457, 0), 'Shipyard': (960, 0)}
+X = {'Refinery': (320, 0), 'CargoDock': (360, -8), 'LaunchPad': (457, 0), 'Shipyard': (960, 0)}
 PADX = 457.0; SHIP = (PADX, -13.0)
 HAB_OLD = dict(x0=795.5, x1=804.5, z0=-4.5, z1=4.5)                 # layout_v2 position: removed (was inside the road corridor)
 SY_X1 = X['Shipyard'][0] + ST['Shipyard']['all'][1][0]                 # Shipyard east edge (real GLB bbox) 1021.9
 ENG = dict(x0=1115.0, x1=1125.0, z0=-4.0, z1=4.0)                      # Engineering gray box 10 x 10 x 8 at 7*160 = 1120: unchanged
 HAB_X = 1068.0; HAB = dict(x0=HAB_X - 4.5, x1=HAB_X + 4.5, z0=-4.5, z1=4.5)   # Habitat 9 x 12 x 9 gray box, z 0 (not moved toward camera)
-STATION_X = [('Life Support', 0, 0.0, 'unchanged'), ('Mine', 160, 0.0, 'unchanged'), ('Refinery', 320, 0.0, 'unchanged'), ('Cargo Dock', 373, -8.0, 'layout_v2'),
+STATION_X = [('Life Support', 0, 0.0, 'unchanged'), ('Mine', 160, 0.0, 'unchanged'), ('Refinery', 320, 0.0, 'unchanged'), ('Cargo Dock', 360, -8.0, 'cargo_dock/layout_v3 cae8f39 (was 373 in layout_v2)'),
              ('Launch Pad', 457, 0.0, 'layout_v2'), ('Shipyard', 960, 0.0, 'unchanged'), ('Habitat', HAB_X, 0.0, 'v3: moved from 800 (road corridor) to east of the Shipyard'),
              ('Engineering', 1120, 0.0, 'unchanged (checked: 42.5 m clear of the Habitat)')]
 ROAD_Z, HALF, SHOULDER, LANE = -13.0, 18.0, 2.6, (9.7, 13.3)
@@ -49,7 +49,7 @@ for h in CL['pad']['A'] + CL['pad']['B']:
     b = (h['x0'] + PADX, h['z0'], h['x1'] + PADX, h['z1'], h['ymax'], h['node'])
     if not any(abs(b[0] - q[0]) < 1.5 and abs(b[1] - q[1]) < 1.5 for q in pad_hits): pad_hits.append(b)
 out = dict(version='v3', units='world glTF m (+X right, +Z toward camera)',
-  layout='cargo_dock/layout_v2 f3478cf + v3 order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 373 z-8 | Launch Pad 457 | Shipyard 960 (shipyard_game.glb c0e9d54e) | Habitat 1068 | Engineering 1120',
+  layout='cargo_dock/layout_v3 cae8f39 (compact_v3 9fb1ddbe) + v3 order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 z-8 | Launch Pad 457 | Shipyard 960 (shipyard_game.glb c0e9d54e) | Habitat 1068 | Engineering 1120',
   director='10/24 13:31: road v2, HB-10 + D-10 (7 cells), pad exit APPROVED; ST-10B picked; Habitat east of the Shipyard, no S-jog',
   centerline=[[SHIP[0], ROAD_Z], [round(PAD_EDGE, 1), ROAD_Z], [round(DOOR_X, 1), ROAD_Z], [round((BAY[0] + BAY[2]) / 2, 1), ROAD_Z]],
   turns=0, s_bends=0, running_width=2 * HALF, graded_width=round(2 * (HALF + SHOULDER), 1), crawler_lanes_abs_dz=list(LANE), grade_pct=0.0, cross_fall_pct=0.5,
@@ -74,7 +74,7 @@ img = Image.new('RGB', (W, 2300), BG); d = ImageDraw.Draw(img, 'RGBA')
 d.text((40, 24), 'PLANET STACK  ·  Lv10 SHIP TRANSPORT ROAD  ·  top-down plan v3 (road approved)', font=font(34, True), fill=INK)
 d.text((40, 70), f'One straight line, zero turns, zero S-bends · centreline z -13 (ship axis) · running width 36 m (+2.6 m shoulders = 41.2 m) · '
        f'pad edge -> Lv10 bay door D-10: {road_len:.0f} m · ship travel {travel:.0f} m', font=font(20), fill=DIM)
-d.text((40, 98), 'Station X (v3 order): Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 373 | Launch Pad 457 | Shipyard 960 | Habitat 1068 | Engineering 1120. World metres, +Z (camera side) drawn down.', font=font(18), fill=DIM)
+d.text((40, 98), 'Station X (v3 order): Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 | Launch Pad 457 | Shipyard 960 | Habitat 1068 | Engineering 1120. World metres, +Z (camera side) drawn down.', font=font(18), fill=DIM)
 PANEL = {}
 def panel(ox, oy, pw, ph, x0, x1, z0, z1, title, step=20):
     global d
@@ -147,7 +147,7 @@ berm(T1)
 for zl in (13, 22): d.line([T1(296, zl), T1(464, zl)], fill=AM + (230,), width=3)
 d.line([T1(274, 9), T1(262, 9)], fill=(220, 140, 80), width=4); d.line([T1(274, 0), T1(262, 0)], fill=(220, 140, 80), width=4)
 road(T1, s1, PAD_EDGE, DOOR_X); hab(T1); hall(T1); foot(T1, SHIP[0], CY)
-for nm, x, col, sub_ in (('REFINERY', 296, (230, 210, 170), 'x 320'), ('CARGO DOCK', 352, (150, 200, 255), 'x 373, 20 slots'), ('LAUNCH PAD', 436, INK, 'x 457'),
+for nm, x, col, sub_ in (('REFINERY', 296, (230, 210, 170), 'x 320'), ('CARGO DOCK', 340, (150, 200, 255), 'x 360, 20 slots'), ('LAUNCH PAD', 436, INK, 'x 457'),
                         ('SHIPYARD', 918, (200, 230, 160), 'x 960'), ('HABITAT', 1052, HABC, 'x 1068'), ('ENGINEERING', 1098, (200, 205, 215), 'x 1120')):
     label(T1, x, -58, nm, col, 17); label(T1, x, -51.5, sub_, DIM, 13, False)
 label(T1, 760, 9.5, 'old Habitat x 800: removed', RED, 12, False)
@@ -227,7 +227,7 @@ end_panel()
 notes = [
  ('ROAD', INK, f'Centreline world z -13 (the pad ship axis) from the pad edge x {PAD_EDGE:.1f} to door D-10 at x {DOOR_X:.1f}: {road_len:.1f} m, one straight, 0 turns, 0% grade, 0.5% cross-fall. 36 m running + 2.6 m graded shoulders = 41.2 m. Sintered surface with two darker crawler lanes (|dz| 9.7-13.3 m, 0.62 m cleat imprints), no tyre trails; cyan (far) / amber (near) reflector posts every 12 m.'),
  ('', DIM, 'Autonomous and cab-less, ST-10 runs both ways on the same road (out loaded, back loaded after the rebuild): no turnaround loop. Apron RA-1 in front of D-10 is the staging and passing pad.'),
- ('KEEP-OUT', GRN, 'Haul road: Refinery left side (x <= 321), 165 m away. Flatbed lanes z +13/+22 and the pad U-turn (x 458-465, z 10-25): road shoulder edge stays at z <= +7.6 and starts at x 486.4, never crosses. Cargo Dock (x 348-421) is LEFT of the pad; the road leaves the pad RIGHT.'),
+ ('KEEP-OUT', GRN, 'Haul road: Refinery left side (x <= 321), 165 m away. Flatbed lanes z +13/+22 and the pad U-turn (x 458-465, z 10-25): road shoulder edge stays at z <= +7.6 and starts at x 486.4, never crosses. Cargo Dock (x 345-392 incl. SC-1, layout_v3) is LEFT of the pad, 35.5 m from the pad left edge; the road leaves the pad RIGHT.'),
  ('(a) PAD', RED, 'Needs the pad owner (AA2), not edited here: cut berm gate G-1 in the right arc (z -28.4..+2.4); move LOX/LCH4 tanks and Tier_08 P-2; retract hoses and Fuel_Hookup left of x 460. VV-1 / Pipe_LaunchPad_End leaves the corridor with the move to the pad left (~x 430). Lv1 edge lights 0.37 m are drive-over.'),
  ('(b) HABITAT', HABC, f'Station order Life Support, Mine, Refinery, Cargo Dock, Launch Pad, Shipyard, Habitat, Engineering (Director). Habitat gray box moves from x 800 (inside the corridor) to x {HAB_X:.0f}, z 0: {GAP_W:.1f} m clear of the Shipyard east edge (x {SY_X1:.1f}) and {GAP_E:.1f} m clear of Engineering (x 1120, unchanged). The road path is clear end to end; the S-jog fallback is withdrawn. Per-station X table for Coder: transport_road_plan.json station_x_table.'),
  ('(c) SHIPYARD', AM, f'Existing door: 10.3 m, faces the camera, 8-14 m forecourt. Proposal (Director ruling): Lv10 high bay HB-10 {BAY_L:.0f} x {BAY_W:.0f} x {BAY_H:.0f} m on the west gable of AH-1, door D-10 {DOOR_W:.0f} m W x {DOOR_H:.0f} m H facing the road, on the road axis.'),

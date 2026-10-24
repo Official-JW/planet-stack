@@ -1,0 +1,265 @@
+{
+ "glb": "m/st10b_game.glb",
+ "poses": {
+  "loaded": {
+   "t": {
+    "x": 53.51993941637591,
+    "y": 3.79040083974944,
+    "z": -11.62024652725
+   },
+   "fw": 77.02784746917574,
+   "res": [
+    {
+     "size": "393x852",
+     "bb": {
+      "x0": 120.77413992103371,
+      "x1": 272.2009089075379,
+      "y0": 235.53447533653687,
+      "y1": 471.0035598517856
+     },
+     "spare": 62.99644014821439
+    },
+    {
+     "size": "375x667",
+     "bb": {
+      "x0": 114.4048679888712,
+      "x1": 260.59513201112884,
+      "y0": 150.00000000000009,
+      "y1": 377.00000000000006
+     },
+     "spare": 5.999999999999943
+    }
+   ]
+  },
+  "empty": {
+   "t": {
+    "x": 53.52632239119542,
+    "y": 0.7745206443239256,
+    "z": -11.62024652725
+   },
+   "fw": 52.66219120282944,
+   "res": [
+    {
+     "size": "393x852",
+     "bb": {
+      "x0": 82.2433676948461,
+      "x1": 310.6976218396063,
+      "y0": 233.52897548471654,
+      "y1": 470.6425287015876
+     },
+     "spare": 63.357471298412406
+    },
+    {
+     "size": "375x667",
+     "bb": {
+      "x0": 76.40825478544566,
+      "x1": 298.5917452145543,
+      "y0": 150,
+      "y1": 377.00000000000006
+     },
+     "spare": 5.999999999999943
+    }
+   ]
+  }
+ },
+ "loaded_393x852": {
+  "file": "st10b_game_loaded_gamecam_393x852.png",
+  "spare_px": 63,
+  "bb": {
+   "x0": 120.77413992103371,
+   "x1": 272.2009089075379,
+   "y0": 235.53447533653687,
+   "y1": 471.0035598517856
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12198,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Loaded"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 685,
+  "shaded_p25": 67,
+  "shaded_p50": 69.8,
+  "lit_px": 7798,
+  "lit_p50": 169.9
+ },
+ "loaded_375x667": {
+  "file": "st10b_game_loaded_gamecam_375x667.png",
+  "spare_px": 6,
+  "bb": {
+   "x0": 114.4048679888712,
+   "x1": 260.59513201112884,
+   "y0": 150.00000000000009,
+   "y1": 377.00000000000006
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12198,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Loaded"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 639,
+  "shaded_p25": 67.8,
+  "shaded_p50": 69.8,
+  "lit_px": 7174,
+  "lit_p50": 169.1
+ },
+ "loaded_393x852@2x": {
+  "file": "st10b_game_loaded_gamecam_393x852@2x.png",
+  "spare_px": 63,
+  "bb": {
+   "x0": 120.77413992103371,
+   "x1": 272.2009089075379,
+   "y0": 235.53447533653687,
+   "y1": 471.0035598517856
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12198,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Loaded"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 3056,
+  "shaded_p25": 66,
+  "shaded_p50": 69.8,
+  "lit_px": 31629,
+  "lit_p50": 171.1
+ },
+ "loaded_375x667@2x": {
+  "file": "st10b_game_loaded_gamecam_375x667@2x.png",
+  "spare_px": 6,
+  "bb": {
+   "x0": 114.4048679888712,
+   "x1": 260.59513201112884,
+   "y0": 150.00000000000009,
+   "y1": 377.00000000000006
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12198,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Loaded"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 2795,
+  "shaded_p25": 66,
+  "shaded_p50": 69.8,
+  "lit_px": 28863,
+  "lit_p50": 171
+ },
+ "empty_393x852": {
+  "file": "st10b_game_empty_gamecam_393x852.png",
+  "spare_px": 63.4,
+  "bb": {
+   "x0": 82.2433676948461,
+   "x1": 310.6976218396063,
+   "y0": 233.52897548471654,
+   "y1": 470.6425287015876
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12199,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Empty"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 2098,
+  "shaded_p25": 66,
+  "shaded_p50": 69.8,
+  "lit_px": 20333,
+  "lit_p50": 168.8
+ },
+ "empty_375x667": {
+  "file": "st10b_game_empty_gamecam_375x667.png",
+  "spare_px": 6,
+  "bb": {
+   "x0": 76.40825478544566,
+   "x1": 298.5917452145543,
+   "y0": 150,
+   "y1": 377.00000000000006
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12199,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Empty"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 1898,
+  "shaded_p25": 67,
+  "shaded_p50": 69.8,
+  "lit_px": 18812,
+  "lit_p50": 169
+ },
+ "empty_393x852@2x": {
+  "file": "st10b_game_empty_gamecam_393x852@2x.png",
+  "spare_px": 63.4,
+  "bb": {
+   "x0": 82.2433676948461,
+   "x1": 310.6976218396063,
+   "y0": 233.52897548471654,
+   "y1": 470.6425287015876
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12199,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Empty"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 8782,
+  "shaded_p25": 65,
+  "shaded_p50": 69.8,
+  "lit_px": 82491,
+  "lit_p50": 169.9
+ },
+ "empty_375x667@2x": {
+  "file": "st10b_game_empty_gamecam_375x667@2x.png",
+  "spare_px": 6,
+  "bb": {
+   "x0": 76.40825478544566,
+   "x1": 298.5917452145543,
+   "y0": 150,
+   "y1": 377.00000000000006
+  },
+  "draw_calls": 5,
+  "triangles_drawn": 12199,
+  "visible_meshes": [
+   "Astronaut",
+   "Body_GlowAmber",
+   "Body_GlowCyan",
+   "Body_Paint",
+   "Cradle_Empty"
+  ],
+  "draws_astronaut": 1,
+  "shaded_px": 8150,
+  "shaded_p25": 65,
+  "shaded_p50": 69.8,
+  "lit_px": 75831,
+  "lit_p50": 169.8
+ }
+}

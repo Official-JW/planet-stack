@@ -7,16 +7,16 @@ const { MeshoptDecoder } = await import(NM + '/three/examples/jsm/libs/meshopt_d
 await MeshoptDecoder.ready;
 const R = '/workspace/planet-stack/';
 const load = p => new Promise((res, rej) => { const b = fs.readFileSync(p); const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder); l.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), '', res, rej); });
-// v2 layout (cargo_dock/layout_v2, f3478cf): Refinery 320 | Cargo Dock 373 (z -8) | Launch Pad 457 | Habitat placeholder 800 | Shipyard 960.
+// v3: Refinery 320 | Cargo Dock 360 (z -8, cargo_dock/layout_v3 cae8f39, compact_v3 9fb1ddbe, Tier_* hidden as in colliders) | Launch Pad 457 | Shipyard 960 | Habitat 1068 | Engineering 1120.
 // x0 is recorded only; the grid stays station-local. Shipyard = art/3d/buildings/shipyard/shipyard_game.glb (c0e9d54e, as used by layout_v2).
 const ST = [['Refinery', 320, 'qa3d-next/models/refinery_93c44166.glb'], ['LaunchPad', 457, 'art/3d/buildings/launch_pad/launch_pad_game.glb'],
-  ['CargoDock', 373, 'qa3d/models/dock_tankfarm_fd286b9.glb'], ['Shipyard', 960, 'art/3d/buildings/shipyard/shipyard_game.glb']];
+  ['CargoDock', 360, 'art/3d/buildings/cargo_dock/layout_v3/cargo_dock_compact_v3.glb'], ['Shipyard', 960, 'art/3d/buildings/shipyard/shipyard_game.glb']];
 const out = {};
 for (const [n, x0, f] of ST) {
-  const g = await load(R + f); const S = g.scene; S.updateMatrixWorld(true);
+  const g = await load(R + f); const S = g.scene; S.traverse(o => { if (/^Tier_/.test(o.name)) o.visible = false; }); S.updateMatrixWorld(true);
   const bb = new THREE.Box3(); const hi = new THREE.Box3(); const v = new THREE.Vector3();
   const grid = {}; // 2m cells with max height
-  S.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position;
+  S.traverseVisible(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position;
     for (let i = 0; i < p.count; i++) { o.getVertexPosition ? o.getVertexPosition(i, v) : v.fromBufferAttribute(p, i); v.applyMatrix4(o.matrixWorld);
       bb.expandByPoint(v); if (v.y > 0.12) { hi.expandByPoint(v); const k = Math.floor(v.x / 2) + ',' + Math.floor(v.z / 2); grid[k] = Math.max(grid[k] || 0, v.y); } } });
   const nodes = {}; S.traverse(o => { if (/door|hall|cam_target|bay|truck_stop|ship|road|uturn|pipe/i.test(o.name) && !o.isMesh) { const w = o.getWorldPosition(new THREE.Vector3()); nodes[o.name] = [+w.x.toFixed(2), +w.y.toFixed(2), +w.z.toFixed(2)]; } });

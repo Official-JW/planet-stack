@@ -1,7 +1,7 @@
 {
  "version": "v3",
  "units": "world glTF m (+X right, +Z toward camera)",
- "layout": "cargo_dock/layout_v2 f3478cf + v3 order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 373 z-8 | Launch Pad 457 | Shipyard 960 (shipyard_game.glb c0e9d54e) | Habitat 1068 | Engineering 1120",
+ "layout": "cargo_dock/layout_v3 cae8f39 (compact_v3 9fb1ddbe) + v3 order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 z-8 | Launch Pad 457 | Shipyard 960 (shipyard_game.glb c0e9d54e) | Habitat 1068 | Engineering 1120",
  "director": "10/24 13:31: road v2, HB-10 + D-10 (7 cells), pad exit APPROVED; ST-10B picked; Habitat east of the Shipyard, no S-jog",
  "centerline": [
   [
@@ -172,9 +172,9 @@
    {
     "index": 3,
     "name": "Cargo Dock",
-    "x": 373,
+    "x": 360,
     "z": -8.0,
-    "note": "layout_v2"
+    "note": "cargo_dock/layout_v3 cae8f39 (was 373 in layout_v2)"
    },
    {
     "index": 4,
