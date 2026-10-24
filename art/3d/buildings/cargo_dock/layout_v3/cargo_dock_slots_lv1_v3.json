@@ -7,7 +7,7 @@
   -8.0
  ],
  "launch_pad_origin_world": [
-  430.0,
+  457.0,
   0,
   0
  ],
@@ -382,5 +382,37 @@
     "bottom": 79.6
    }
   }
+ },
+ "road": {
+  "flatbed_lanes_z": {
+   "loaded_east": 13,
+   "empty_west": 22
+  },
+  "road_band_z": [
+   10.2,
+   24.8
+  ],
+  "tiles_x": [
+   296,
+   464
+  ],
+  "tile_m": 8,
+  "tile_count": 21,
+  "stops": {
+   "refinery_load_x": 318,
+   "dock_stop_x": 386.5,
+   "pad_truck_stop_x": 453.5
+  },
+  "pad_uturn": {
+   "centre": [
+    458,
+    17.5
+   ],
+   "r": 4.5
+  },
+  "pad_extent_x": [
+   427.6,
+   486.4
+  ]
  }
 }

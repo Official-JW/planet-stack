@@ -3,7 +3,8 @@
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
-const [,, IN, OUT] = process.argv;
+const [,, IN, OUT, OPT] = process.argv;   // OPT '--tier20': also split Tier_20 (farm half moves with the farm). Default output = cargo_dock_compact_v3.glb 9fb1ddbe.
+const T20 = OPT === '--tier20';
 export const CAM = [9.5, 1.5, 16.6, 48]; // dock-local ct + frame_w (world ct 369.5, 1.5, 8.6 with the dock at 360, 0, -8)
 export const FARM = [-20, 0, -42], MAST = [10, 0, -14], CUT = 15.8, CLIPX = 17.2;
 await MeshoptDecoder.ready; await MeshoptEncoder.ready;
@@ -20,7 +21,7 @@ const isTier = n => { for (let p = n; p; p = p.getParentNode()) if (/^Tier_/.tes
 const log = { moved_farm:0, moved_mast:0, clipped:0, islands:0 };
 for (const node of root.listNodes()) {
   const mesh = node.getMesh(); if (!mesh) continue;
-  if (isTier(node)) continue;
+  const tn = isTier(node); if (tn && !(T20 && tn === 'Tier_20')) continue;
   const M = node.getWorldMatrix(), Mi = inv(M);
   for (const prim of mesh.listPrimitives()) {
     const pos = prim.getAttribute('POSITION'); const n = pos.getCount(); const idx = prim.getIndices();
@@ -33,6 +34,7 @@ for (const node of root.listNodes()) {
     log.islands += bb.size;
     const mode = new Map();
     for (const [r,q] of bb){ const cx=(q[0]+q[3])/2;
+      if (tn) { mode.set(r, cx > CUT ? 'farm' : 'keep'); continue; }
       if (q[0] < CLIPX && q[3] > CLIPX + 0.5 && q[0] < CUT) mode.set(r,'clip');      // L-pipe leg & anything straddling from the hall side
       else if (cx > CUT) mode.set(r,'farm');
       else if (q[3] < -20) mode.set(r,'mast'); else mode.set(r,'keep'); }

@@ -18,7 +18,16 @@ This layout replaces the v2b framing from 272e158, which Director rejected: at f
 | Hall, yard, gantry, door, beacons, crew path, Road_Entry, Crate_Drop, Container_Stack, Tier_03/08 | unchanged |
 
 - The dock footprint without tiers is now **x -14.9..28, z -52.2..16.94**. In v2 it was x -24.8..48.
-- **Caveat: `Tier_20` spans both the hall and the farm and was not moved.** Re-place it before the Lv20 tier is shown. Tier visibility is unchanged; Lv1 hides all `Tier_*`.
+- **`Tier_20` is not moved in the shipped GLB, which keeps md5 9fb1ddbe.** It is one mesh (`mesh_11`) with three parts. Before the Lv20 tier is shown, re-place it as follows (dock-local metres, positions as in the v3 GLB):
+
+| Tier_20 part | Now (bbox x, z) | Lv20 placement |
+|---|---|---|
+| RAD-2 second radiator wing + loop (outboard of RAD-1) | x -18.9..-14.52, z -21.07..-5.70, h 7.05 | **stays**. At Lv20 it is the dock's left edge, world 341.1, and is 6.85 m from the Refinery and more from the bridge, so it passes the 5 m rule. |
+| Yard container stacks (stack 31 two-high, stack 32) | x -11.62..-9.18, z -0.63..12.04 | **stays** (yard front-left) |
+| LH2-2 tank + `lh22_drop` pipe (farm row B) | x 22.03..27.45, z -18.2..-3.54 (would float behind the apron) | **move by (-20, 0, -42)**, the farm offset, to x 2.03..7.45, z -60.2..-45.54. That puts it back in its designed row-B slot next to LOX-2 (Tier_05) and Tier_12, which already moved by the same offset. |
+
+  - Exact rule: move the islands of `mesh_11` whose bbox centre is at x > 15.8 by (-20, 0, -42), and leave the rest. `node _src/compact_dock.mjs dock_882c.glb OUT.glb --tier20` does exactly that. It writes a variant (md5 `77dc612bc5adf3941d7988320dd88b51`, validator 0/0) that differs from 9fb1ddbe only in Tier_20. It is not committed; build it when the Lv20 tier is wired.
+  - Tier visibility is unchanged; Lv1 hides all `Tier_*`.
 
 ## World placement (all y 0)
 | Item | v3 world | v2 world |
@@ -28,17 +37,20 @@ This layout replaces the v2b framing from 272e158, which Director rejected: at f
 | Storage apron (0.12 m slab) | x 377.6..391.6, z -7..7.6 (dock-local x 17.6..31.6, z 1..15.6) | x 343.7..357.7 |
 | **SC-1 crane** | **(384.6, 0, 8.5)** (dock-local 24.6, 0, 16.5), footing z up to 9.2 | (350.7, 0, 8.5) |
 | **Flatbed dock stop `Truck_Stop_Dock`** | **(386.5, 0, 13)**, loaded lane z 13, heading +X. Pick_A 385.35, Pick_B 382.85. | (352.6, 0, 13) |
-| **Launch Pad origin** | **x 430** (pad x 400.6..459.4). Pad Truck_Stop 426.5, U-turn r 4.5 at x 431. Road tiles x 296..440 (18 x 8 m). | x 457 |
+| Launch Pad origin | **x 457, unchanged** (pad x 427.6..486.4). Pad Truck_Stop 453.5, U-turn r 4.5 at (458, 17.5), road tiles x 296..464 (21 x 8 m), all as in v2. | x 457 |
+
+Only the Dock moved (373 -> 360). The Launch Pad and all road data stay at their v2 values. A 13:30 draft had moved the pad to 430; Director rejected that. The stills were re-rendered with the pad at 457 and came out byte-identical (the pad is outside the frame at both sizes), so their md5s are unchanged.
 
 The 20 slots keep the same numbering, the same 5 x 2 x 2 grid, the same fill order and the same box. Columns are at dock-local x 19.2 / 21.9 / 24.6 / 27.3 / 30.0, rows at z 14.5 (front) / 12.75, tiers at y 0.12 / 1.62. See `cargo_dock_slots_lv1_v3.json`. The future rows (z 10.95..3.95) are free ground now that the farm has moved. Per Director, they get a second SC-1, not a longer jib.
 
 ## Checks
 - **Refinery bridge:** the dock's left edge is at 345.1 and the bridge's right edge at 338.25, so the gap is **6.85 m** (≥ 5 m). The nearest parts are the stair railing and the moved mast.
 - **Clear strip:** dock ground geometry reaches z 8.94, the apron 7.6 and the crane footing 9.2. All are ≤ 9.2, so the 1 m strip before the road band (z 10.2..24.8) is kept.
-- **Flatbed route:** east on z 13 from the load point at x 318 to the dock stop at 386.5, then on to the pad Truck_Stop at 426.5, the U-turn at 431, and west on z 22.
+- **Flatbed route:** east on z 13 from the load point at x 318 to the dock stop at 386.5, then on to the pad Truck_Stop at 453.5, the U-turn at x 458 (outer edge 462.5, inside the tiles to 464), and west on z 22. Along z 13 between the dock stop and the pad stop, the road band (z 10.2..24.8) holds no dock or pad geometry above 0.3 m, and dock geometry stops at z 8.94. At rest the SC-1 jib is at y 6.3 or higher, above FB-05's 3.79 m.
   - The FB-05 body at the stop spans x 381.4..390.2, z 11.1..14.9.
   - The crane envelope reaches z 16.0, which is clear of the empty lane (band from z 19.7).
-  - Dock right edge (crane/apron) at 392.1 to the pad's left edge at 400.6 is a gap of 8.5 m.
+  - From the Dock's right edge (crane/apron, x 392.1) to the Launch Pad's left edge (427.6) is **35.5 m**. The nearest real geometry is 36.2 m apart in the height map, so nothing overlaps. The pad's right edge stays at x 486.4.
+  - The buried fuel line runs from `Pipe_LaunchPad` (world 387, -41.9) to the pad receiver (477.3, -9.6), which is about 96 m (57 m in v2).
 - **No overlaps:** in the 0.5 m height map (`_src/cfg_world_v3.json` + `_src/hmap.mjs`), the apron and the crane zone (dock-local x 17.5..34, z -1..17) contain no dock geometry.
 - **SC-1 re-bake:** md5 `fad409cc8230f1250bb6e9b7bfb79b3a`, 3 draws, 464 tris, 40 clips. Run with `verify_storage_crane.mjs` against the v3 dock height map:
   - pick and set error < 1e-6 m, yaw 0;

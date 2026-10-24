@@ -1,7 +1,7 @@
 """Layout v3 slot plan: same 20 slots / numbering / fill order as v2, apron moved to the dock's right (former tank-farm front)."""
 import json, sys
 OUT = sys.argv[1]
-DOCK = [360.0, 0.0, -8.0]; PAD_X = 430.0
+DOCK = [360.0, 0.0, -8.0]; PAD_X = 457.0  # Launch Pad stays at x 457 (Director 10/24); only the Dock moved
 COLS = [19.2, 21.9, 24.6, 27.3, 30.0]; ROWS = [14.5, 12.75]; TY = [0.12, 1.62]
 CRANE_L = [24.6, 0.0, 16.5]; STOP_L = [26.5, 0.0, 21.0]
 w = lambda l: [round(l[0] + DOCK[0], 4), round(l[1], 4), round(l[2] + DOCK[2], 4)]

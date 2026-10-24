@@ -133,5 +133,15 @@
    "jib_px_max": 61.0,
    "px_per_m_at_ct": 8.19
   }
+ },
+ "stations_world": {
+  "refinery_x": 320,
+  "dock_origin": [
+   360.0,
+   0,
+   -8.0
+  ],
+  "launch_pad_x": 457.0,
+  "note": "Launch Pad unchanged at 457 (pad x 427.6..486.4). It is outside this frame at both sizes (its bbox left edge projects to screen x 505 at 375 and 548 at 393; re-rendered stills are byte-identical). The camera values do not depend on it."
  }
 }

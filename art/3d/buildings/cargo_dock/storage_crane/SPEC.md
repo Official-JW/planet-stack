@@ -19,7 +19,7 @@
 
 All crane-local offsets (slots, picks, stop) are identical to layout v2. Only the world placement moved (v2: crane at 350.7, stop at 352.6, dock at 373). So the 40 baked clips are numerically the same motion; they were re-baked and re-checked anyway.
 
-The flatbed stops at `Truck_Stop_Dock` on its way east (Refinery load x 318, then this stop, then the pad Truck_Stop at 426.5 with the pad at x 430) whenever boxes go to storage instead of the ship. Both bed slots are reachable from this one stop, so the truck does not need to creep forward.
+The flatbed stops at `Truck_Stop_Dock` on its way east (Refinery load x 318, then this stop, then the pad Truck_Stop at 453.5 with the Launch Pad at x 457) whenever boxes go to storage instead of the ship. Both bed slots are reachable from this one stop, so the truck does not need to creep forward.
 
 The crane GLB also carries `Truck_Stop_Dock`, `Pick_A`, `Pick_B` and `Slot_01..Slot_20` as empties in crane-local coordinates. For each slot, the empty sits where the CargoBox Base goes (yaw 0), matching `../layout_v3/cargo_dock_slots_lv1_v3.json` (the same values as `../layout_v2/cargo_dock_slots_lv1.json` in crane-local terms). A future dock GLB can carry the same Slot nodes; the values are identical.
 
@@ -75,7 +75,7 @@ Fill order is Slot_01 to Slot_20:
   - the FB-05 cab (top 3.79) by ≥ 0.31 m;
   - the pillar by ≥ 0.99 m.
 - The carried box never passes over any cell of the compact dock (`cargo_dock_compact_v3.glb`, 0.5 m height map), and the jib/counter-jib sweep never passes over dock geometry. The nearest dock part is the shortened L-pipe end at dock-local x 17.2 (world 377.2, h 1.7), left of the apron.
-- The bridge (right edge x 338.25) is 46 m away. The crane envelope is x 377.1–392.1, z 1.0–16.0. That is clear of the empty lane z 22 (band from 19.7) and 8.5 m from the pad's left edge at 400.6.
+- The bridge (right edge x 338.25) is 46 m away. The crane envelope is x 377.1–392.1, z 1.0–16.0. That is clear of the empty lane z 22 (band from 19.7) and 35.5 m from the Launch Pad's left edge at 427.6.
 - The whole crane envelope (all clips plus the carried box) stays inside the v3 dock camera, ct (369.5, 1.5, 8.6) with frame_w 48:
   - 375×667: crane px x 247.9–367.1, y 273.8–346.1. Band 144–383, so spare is R 7.9, T 129.8, B 36.9. The crane is 63 px tall; the jib reads 15–59 px long depending on slew.
   - 393×852: crane px x 259.7–384.0, y 363.0–439.2. Band 165–534, so spare is R 9.0, T 198.0, B 94.8. The crane is 66 px tall.
