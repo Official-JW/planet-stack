@@ -150,6 +150,7 @@ def canopy_tris():
     w += box_between((CAN_X[0], 4.0, CAN_Z + 0.2), (CAN_X[1], 4.0, CAN_Z + 0.2), 0.12, 0.6)      # white band
     return g, w
 def add_canopy(J, B):
+    if any(n_.get('name', '').startswith('FAB01_Canopy') for n_ in J['nodes']): print('FAB-01 canopy already in the scene: skipped'); return
     me = J['meshes'][J['nodes'][node(J, 'shipyard_base')]['mesh']]; n = 0
     for mname, tris in zip(('SH_Graphite', 'SH_White'), canopy_tris()):
         pr = next(p for p in me['primitives'] if J['materials'][p['material']]['name'] == mname)

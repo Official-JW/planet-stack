@@ -938,6 +938,16 @@ if SHOW_TIERS:   # tier preview: clear stage rocks off the Tier_20 pad (stage is
 if 'glb' in ONLY: export_glb(os.path.join(OUT, f'{NAME}_master.glb'))
 if 'blend' in ONLY:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f'{NAME}_master.blend'), compress=True)
+# FAB-01 staging screen + canopy lip over the ring pick-up (A&A option B). Geometry comes from post_ship_build.canopy_tris() (glTF coords) so the
+# render scene and the game GLB match exactly. Render modes only: the game GLB gets it from the post-pass (add_canopy), which skips it if a
+# 'FAB01_Canopy*' node is already present, so it is never added twice.
+if 'game' not in ONLY:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import post_ship_build as _psb
+    for _nm, _tris, _mat in zip(('FAB01_Canopy_Graphite', 'FAB01_Canopy_White'), _psb.canopy_tris(), (GRAPH, WHITE)):
+        _vs = [(float(p[0]), float(-p[2]), float(p[1])) for t in _tris for p in t]
+        _me = bpy.data.meshes.new(_nm); _me.from_pydata(_vs, [], [(i, i + 1, i + 2) for i in range(0, len(_vs), 3)]); _me.update()
+        _me.materials.append(_mat); _ob = bpy.data.objects.new(_nm, _me); coll('Mine').objects.link(_ob)
 assert not ('game' in ONLY and set(ONLY) & {'hero', 'turn', 'close', 'portrait'}), 'game step is destructive: run it without render modes'
 if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + material, <=30k tris, no textures, no Draco (gltfpack -cc -kn -ke after)
     import json
