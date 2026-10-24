@@ -45,22 +45,22 @@ def door_mesh(D):
         c=pan*(1+0.05*n)*(1-dust)+du*dust; c=c*(1-0.25*edge)+np.array([150,156,164])*0.25*edge
         return np.clip(np.r_[c,255],40,255).astype(np.uint8)
     hw=W/2; fw=D['FRAME_W']
-    quad(-hw,hw,0,H,-D['INSET'],None,nx=8,ny=12,shade=weather)                       # panel (inset 2 cm)
+    quad(-hw,hw,0,H,-D['INSET'],None,nx=6,ny=6,shade=weather)                       # panel (inset 2 cm)
     quad(-hw,hw,H/2-D['SEAM_W']/2,H/2+D['SEAM_W']/2,-D['INSET']+0.002,np.r_[sh,255],nx=4)   # horizontal seam line
     fp=D['FRAME_PROUD']
     for (x0,x1,y0,y1) in ((-hw-fw,hw+fw,-fw,0),(-hw-fw,hw+fw,H,H+fw),(-hw-fw,-hw,0,H),(hw,hw+fw,0,H)):   # frame 8 cm all round
-        quad(x0,x1,y0,y1,fp,np.r_[frm,255],nx=max(1,int((x1-x0)/0.25)),ny=max(1,int((y1-y0)/0.25))); side_walls(x0,x1,y0,y1,-D['INSET'],fp,np.r_[frm,255])
+        quad(x0,x1,y0,y1,fp,np.r_[frm,255],nx=max(1,int((x1-x0)/0.9)),ny=1); side_walls(x0,x1,y0,y1,-D['INSET'],fp,np.r_[frm,255])
     cw=D['CYAN_W']; cp=fp+D['CYAN_PROUD']
     for (x0,x1,y0,y1) in ((-hw,hw,H-cw,H),(-hw,-hw+cw,0,H-cw),(hw-cw,hw,0,H-cw)):      # cyan: top + sides just inside the frame, none on the bottom
-        quad(x0,x1,y0,y1,cp,np.r_[cy,255],nx=max(1,int((x1-x0)/0.25)),ny=max(1,int((y1-y0)/0.25)))
+        quad(x0,x1,y0,y1,cp,np.r_[cy,255],nx=max(1,int((x1-x0)/0.9)),ny=1)
     hl,hd=D['HINGE_L'],D['HINGE_D']; e=D['HINGE_END']
     ys=np.linspace(e+hl/2,H-e-hl/2,D['HINGE_N'])
-    for yc in ys:   # graphite barrels (8-sided cylinders) on the left frame edge
+    for yc in ys:   # graphite barrels (6-sided cylinders) on the left frame edge
         cx=-hw-fw/2; p,_=surf(cx,0,0); zc=p[2]+fp+hd/2; base=len(V)
-        for k2 in range(9):
-            a=2*np.pi*k2/8
+        for k2 in range(7):
+            a=2*np.pi*k2/6
             for yy in (yc-hl/2,yc+hl/2): V.append((cx+hd/2*np.cos(a),yy,zc+hd/2*np.sin(a))); Nn_.append((np.cos(a),0,np.sin(a))); Cc.append(np.r_[frm,255])
-        for k2 in range(8): q=base+2*k2; T.extend([(q,q+2,q+3),(q,q+3,q+1)])
+        for k2 in range(6): q=base+2*k2; T.extend([(q,q+2,q+3),(q,q+3,q+1)])
     lw,lh,ld=D['LATCH']   # recessed latch: graphite pocket face 1.5 cm behind the panel + its 4 walls
     lx=hw-cw-0.12-lw/2
     quad(lx-lw/2,lx+lw/2,H/2-lh/2,H/2+lh/2,-D['INSET']-ld,np.r_[frm,255]); side_walls(lx-lw/2,lx+lw/2,H/2-lh/2,H/2+lh/2,-D['INSET']-ld,-D['INSET']+0.001,np.r_[frm,255])

@@ -2,7 +2,7 @@
  "summary": {
   "result": "PASS",
   "clip": "crew.glb",
-  "pad": "../pad_82131aba.glb",
+  "pad": "lv1d.glb",
   "by_category": {
    "hand_grip_sink_gt_5mm": {
     "status": "PASS"
@@ -77,7 +77,7 @@
    "rod_through_hand": "per sample, for each rail/rung axis clipped to the hand bbox + 1 cm (so the clipped axis starts and ends outside the hand): exact segment-triangle intersection against every Hand-bone triangle, then the generalized winding number at the midpoint of each interval between crossings. FLAG if the axis crosses the hand skin at all, or any interval is inside a closed hand piece (|w| > 0.5). A wrapped grip leaves the axis in the palm/finger cavity with 0 crossings; a rod through the hand (incl. through the back of the glove) must cross the skin. Reports solid inside length and samples where only zero-thickness (double-sided) hand faces are crossed."
   },
   "resting_soles": {
-   "applies": "Foot_L/Foot_R sole vertices (within 1.5 cm of that foot's lowest vertex) of a still foot (sole centroid moved < 5 mm and lowest z < 3 mm since the previous sample) on the deck wing/bridge top (z 21.85) or a rung top (rung centre + 0.025)",
+   "applies": "Foot_L/Foot_R sole vertices (within 1.5 cm of that foot's lowest vertex) of a still foot (sole centroid moved < 5 mm and lowest z < 3 mm since the previous sample) on the deck wing/bridge top (z (21.85 + DH)) or a rung top (rung centre + 0.025)",
    "max_sink_m": 0.005
   },
   "everything_else": "any other crew vertex closer than 0.03 m to any Ship-node triangle or inside an analytic solid is flagged (ladder rails, rungs swung past, cage hoops/bars, hatch jamb/lintel, kerb, guard rail, ladder-top rails, shins over the deck, hull, other ship parts)",
