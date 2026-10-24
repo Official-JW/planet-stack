@@ -85,3 +85,6 @@ Fill order is Slot_01 to Slot_20:
 - **Director decision (10/24): bigger caps get a SECOND SC-1 crane, not a longer jib.** Place SC-1 #2 as another copy of this GLB (same 40-clip format, its own placement and slot list) next to the new rows. Do not stretch the jib or make an SC-2 variant.
 - The crane is a separate prop, like the 0.12 m storage apron slab. It is not merged into a dock GLB.
 - Stills: `stills/storage_crane_pick_swing_set_strip_375x667@2x.png` (layout v2) and `../layout_v3/storage_crane_pick_swing_set_strip_v3_375x667@2x.png` (layout v3 framing) show `Store_A_Slot_20` at t 1.50 / 2.95 / 4.30 with 19 boxes stored. The single v2 frames are `stills/sc1_*`. They were rendered with three.js headless using the game camera rule.
+
+## Retired in layout v4 (10/24)
+Jacob's 1:45 PM change moves all 20 Lv1 boxes under the hall, handled by GC-1 as an overhead bridge crane (see `../layout_v4/SPEC_GC1.md`). **SC-1 and its apron are not used in v4.** `storage_crane.glb` (fad409cc) and this spec stay in the repo as the v3 reference; the "second SC-1 for bigger caps" note above is superseded: the Lv5 second crane is a second bridge on the GC-1 runway (`GC_Bridge2_Stub`).

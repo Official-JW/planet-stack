@@ -1,0 +1,53 @@
+<!doctype html><html><head><style>html,body{margin:0;background:#05060b;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"./three/build/three.module.js","three/addons/":"./three/examples/jsm/"}}</script></head><body><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+console.log('module start'); const Q = new URLSearchParams(location.search);
+const W = innerWidth, H = innerHeight;
+const R = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(devicePixelRatio); R.setSize(W, H); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping;
+R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFShadowMap;
+const S = new THREE.Scene(); S.background = new THREE.Color(0x05060b);
+const cam = new THREE.PerspectiveCamera(38, W / H, 0.5, 3000);
+S.add(new THREE.HemisphereLight(0x9fb4d8, 0x2a2a30, 0.55));
+const sun = new THREE.DirectionalLight(0xfff4e2, 2.6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 200 }); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03; S.add(sun); S.add(sun.target);
+// ground
+const g = new THREE.PlaneGeometry(900, 500, 300, 160); g.rotateX(-Math.PI / 2); const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
+for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + 400, z = pos.getZ(i); const v = 0.42 + 0.05 * Math.sin(x * .23 + z * .11) + 0.04 * Math.sin(x * .07 - z * .19); col[i * 3] = v; col[i * 3 + 1] = v; col[i * 3 + 2] = v * 1.03; }
+g.setAttribute('color', new THREE.BufferAttribute(col, 3)); const gr = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true })); gr.position.x = 400; gr.receiveShadow = true; S.add(gr);
+// flatbed road proxy (lanes z 13 / 22, x 296-464) + haul road proxy
+const road = (x0, x1, z0, z1, c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.04, z1 - z0), new THREE.MeshLambertMaterial({ color: c })); m.position.set((x0 + x1) / 2, 0.02, (z0 + z1) / 2); m.receiveShadow = true; S.add(m); };
+road(296, 464, 10.7, 15.3, 0x3b3e45); road(296, 464, 19.7, 24.3, 0x3b3e45); road(260, 318, -2.3, 2.3, 0x3b3e45); road(260, 318, 6.7, 11.3, 0x3b3e45);
+const L = new GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder);
+const load = (u) => new Promise((r, j) => L.load(u, r, undefined, j));
+const add = async (u, x, z, opt = {}) => { const gl = await load(u); const o = gl.scene; o.position.set(x, 0, z); if (opt.yaw) o.rotation.y = opt.yaw;
+  o.traverse(m => { if (/^Tier_/.test(m.name)) m.visible = false; if (m.isMesh) { m.castShadow = m.receiveShadow = true; if (/Icosphere/.test(m.name)) m.visible = false; } }); S.add(o); console.log('added', u);
+  if (opt.clip) { const mx = new THREE.AnimationMixer(o); const c = gl.animations.find(a => a.name.startsWith(opt.clip)); if (c) { mx.clipAction(c).play(); mx.setTime(opt.t || 0); } }
+  return { o, gl }; };
+const ok = [];
+await add('ref.glb', 320, 0); await add('bridge.glb', 320, 0, { clip: 'box_path', t: +(Q.get('t') || 18.4) });
+await add('crane.glb', 311, 17.5); const FB = await add('fb.glb', +(Q.get('fbx') || 362.4), 13);
+const DX = +(Q.get('dx') || 360), DZ = -8; const DOCK = await add(Q.get('dock') || 'dock_v4.glb', DX, DZ); await add('pad.glb', +(Q.get('px') || 457), 0);
+// v4: 20 boxes under the GC-1 runway (no apron, no SC-1); GC-1 clip on the dock's own mixer
+const SL = await (await fetch(Q.get('slots') || 'slots_v4.json')).json();
+const bx = await load('box.glb'); const N = +(Q.get('fill') || 20); const mkBox = () => { const b = bx.scene.clone(true); b.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; }); return b; };
+const cn = Q.get('clip'), t = +(Q.get('ct_t') || 0); const EV = SL.clips.events; const bed = (Q.get('bed') || '').split('').filter(Boolean);
+const slotsShown = SL.slots.slice(0, N).filter(s => !(cn && cn.startsWith('Load') && s.name === cn.slice(-7)));
+for (const s of slotsShown) { const b = mkBox(); b.position.set(...s.world); S.add(b); }
+FB.o.updateMatrixWorld(true); const bedPos = k => FB.o.getObjectByName(k === 'B' ? 'Bed_Slot_02' : 'Bed_Slot_01').getWorldPosition(new THREE.Vector3());
+for (const k of bed) { const b = mkBox(); b.position.copy(bedPos(k)); S.add(b); }
+if (cn) { const D = DOCK.o; const c = DOCK.gl.animations.find(a => a.name === cn); const mx = new THREE.AnimationMixer(D); mx.clipAction(c).play(); mx.setTime(t); D.updateMatrixWorld(true);
+  const store = cn.startsWith('Store'), k = cn[store ? 6 : 5], sl = SL.slots.find(q => q.name === cn.slice(-7)); const b = mkBox();
+  const atStart = () => store ? b.position.copy(bedPos(k)) : b.position.set(...sl.world), atEnd = () => store ? b.position.set(...sl.world) : b.position.copy(bedPos(k));
+  if (t < EV.pick) { atStart(); S.add(b); } else if (t < EV.set) { D.getObjectByName('Hook_Attach').add(b); b.position.set(0, -1.5, 0); } else { atEnd(); S.add(b); }
+  D.traverse(m => { if (m.isMesh) m.frustumCulled = false; }); console.log('gc clip', cn, 't', t); }
+// game camera
+const [tx, ty, tz, fw] = Q.get('ct').split(',').map(Number); const asp = W / H; const d = (fw / 2) / (Math.tan(19 * Math.PI / 180) * asp); const p = 18 * Math.PI / 180;
+cam.position.set(tx, ty + d * Math.sin(p), tz + d * Math.cos(p)); cam.lookAt(tx, ty, tz);
+const k = fw / 38; sun.position.set(tx - 30 * k, 22 * k, tz + 18 * k); sun.target.position.set(tx, 0, tz);
+Object.assign(sun.shadow.camera, { left: -fw, right: fw, top: fw, bottom: -fw }); sun.shadow.camera.updateProjectionMatrix();
+console.log('loaded, rendering'); R.render(S, cam); window.DONE = true;
+</script></body></html>

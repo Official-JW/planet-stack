@@ -1,0 +1,130 @@
+{
+ "glb": "cargo_dock_overhead_v4.glb",
+ "draws_lv1": 7,
+ "draw_nodes": [
+  "mesh_0",
+  "mesh_1",
+  "mesh_2",
+  "mesh_3",
+  "mesh_4",
+  "mesh_5",
+  "GC_Mesh"
+ ],
+ "road": {
+  "static_min_y_over_local_z_gt_17_2": 8.764,
+  "static_tri_min_y_reaching_z_gt_17_2": 6.274,
+  "static_surface_min_y_at_z_gt_17_2": 6.767,
+  "rule": "no dock ground geometry at local z > 17.2 (world z > 9.2); overhead only"
+ },
+ "checks": {
+  "pick_err_max_m": 3.815e-7,
+  "set_err_max_m": 3.815e-7,
+  "yaw_max_deg": 0,
+  "rot_channels": 0,
+  "clear_stack_travel_m": 2.88,
+  "gap_neighbour_set_m": 0.46,
+  "clear_truck_m": 1.24,
+  "clear_otherbed_m": 0.1,
+  "clear_dock_travel_m": 2.711,
+  "bridge_sweep_clear_m": 0.975,
+  "stack_penetration_m": 0,
+  "tier2_unsupported": 0,
+  "hook_block_over_truck_m": 2.601
+ },
+ "camera": {
+  "375x667": {
+   "band_y": [
+    144,
+    383
+   ],
+   "subject_px": [
+    7.9,
+    166.1,
+    289.9,
+    360.8
+   ],
+   "spare_px": {
+    "left": 7.9,
+    "right": 85.1,
+    "top": 22.1,
+    "bottom": 22.2
+   },
+   "per_group_px": {
+    "dock": [
+     7.9,
+     166.1,
+     289.9,
+     347.5
+    ],
+    "truck": [
+     88,
+     324.9,
+     160.1,
+     360.8
+    ],
+    "storage": [
+     74.5,
+     293,
+     158.9,
+     331.9
+    ],
+    "crane_env": [
+     40.3,
+     226.9,
+     176,
+     343.2
+    ]
+   },
+   "box_w_px_min": 17.5,
+   "box_w_px_max": 19.4
+  },
+  "393x852": {
+   "band_y": [
+    165,
+    534
+   ],
+   "subject_px": [
+    8.3,
+    241.9,
+    309.7,
+    454.4
+   ],
+   "spare_px": {
+    "left": 8.3,
+    "right": 83.3,
+    "top": 76.9,
+    "bottom": 79.6
+   },
+   "per_group_px": {
+    "dock": [
+     8.3,
+     241.9,
+     309.7,
+     440.7
+    ],
+    "truck": [
+     93.1,
+     417,
+     167.9,
+     454.4
+    ],
+    "storage": [
+     77.4,
+     382.8,
+     166,
+     424.3
+    ],
+    "crane_env": [
+     44.5,
+     312.8,
+     184.3,
+     436
+    ]
+   },
+   "box_w_px_min": 18.6,
+   "box_w_px_max": 20.2
+  }
+ },
+ "clips": 80,
+ "pass": true
+}

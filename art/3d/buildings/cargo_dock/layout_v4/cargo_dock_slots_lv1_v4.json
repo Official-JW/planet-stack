@@ -1,0 +1,870 @@
+{
+ "version": "layout_v4",
+ "dock_glb": "cargo_dock_overhead_v4.glb",
+ "dock_glb_md5": "749193de17e5493aed7f58bc802b647d",
+ "dock_origin_world": [
+  360,
+  0,
+  -8
+ ],
+ "units": "m, y up; local = world - dock_origin_world",
+ "camera": {
+  "ct_world": [
+   369.5,
+   1.5,
+   8.6
+  ],
+  "frame_w": 48,
+  "rule": "38 deg vFOV, 18 deg pitch, d=(fw/2)/(tan19*aspect), ct = screen centre (unchanged from v3)"
+ },
+ "launch_pad_x": 457,
+ "truck_stop_dock": {
+  "local": [
+   2.4,
+   0,
+   21
+  ],
+  "world": [
+   362.4,
+   0,
+   13
+  ],
+  "heading": "+X",
+  "lane": "loaded lane world z 13",
+  "moved_from_world": [
+   386.5,
+   0,
+   13
+  ],
+  "why": "GC-1 cannot reach x 386.5; the stop slides 24.1 m west along the same lane so both bed slots are under the GC-1 runway"
+ },
+ "picks": {
+  "A": {
+   "node": "Pick_A",
+   "bed_slot": "Bed_Slot_01",
+   "box_base_local": [
+    1.25,
+    1.9,
+    21
+   ],
+   "box_base_world": [
+    361.25,
+    1.9,
+    13
+   ],
+   "hook_attach_local": [
+    1.25,
+    3.4,
+    21
+   ]
+  },
+  "B": {
+   "node": "Pick_B",
+   "bed_slot": "Bed_Slot_02",
+   "box_base_local": [
+    -1.25,
+    1.9,
+    21
+   ],
+   "box_base_world": [
+    358.75,
+    1.9,
+    13
+   ],
+   "hook_attach_local": [
+    -1.25,
+    3.4,
+    21
+   ]
+  }
+ },
+ "crane": {
+  "name": "GC-1",
+  "cap_t": 40,
+  "type": "overhead bridge crane on an elevated runway (was a rail gantry in v3)",
+  "node": "GC_Rig",
+  "joints": {
+   "GC_Bridge": "translation z (local), rest 9.0, range [3.8, 21.0]",
+   "GC_Trolley": "translation x, y 11.5, rest 0, range [-5.2, 5.2]",
+   "GC_Hook": "translation y relative to trolley; Hook_Attach world y = 11.5 + t.y; rest 7.0, carry 6.0"
+  },
+  "hook_attach": "Hook_Attach (child of GC_Hook); parent the CargoBox at (0,-1.5,0) so its Hook_Point (0,1.5,0) sits on Hook_Attach; yaw 0",
+  "draw_calls": 1,
+  "mesh": "GC_Mesh (skinned, SHM_Paint, 3 joints)",
+  "runway": {
+   "beams_x": [
+    -7.2,
+    7.2
+   ],
+   "beam_y": [
+    8.95,
+    9.61
+   ],
+   "rail_top_y": 9.75,
+   "z_local": [
+    2,
+    22.9
+   ],
+   "z_world": [
+    -6,
+    14.899999999999999
+   ],
+   "columns_z_local": [
+    2.6,
+    7,
+    16.4
+   ],
+   "cantilever_m": 6.5,
+   "lowest_overhead_over_road_m": 6.767
+  }
+ },
+ "lv5": {
+  "node": "GC_Bridge2_Stub",
+  "tier": 5,
+  "cap_t": 40,
+  "note": "second bridge + trolley on the same runway, parks at the hall end (z 3.8). Stub only; it cannot pass GC-1, so GC-1 keeps all truck moves."
+ },
+ "slots": [
+  {
+   "name": "Slot_01",
+   "block": "L",
+   "row": 1,
+   "tier": 1,
+   "local": [
+    -4.25,
+    0.12,
+    3.8
+   ],
+   "world": [
+    355.75,
+    0.12,
+    -4.2
+   ],
+   "hook_attach_local": [
+    -4.25,
+    1.62,
+    3.8
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_02",
+   "block": "L",
+   "row": 2,
+   "tier": 1,
+   "local": [
+    -4.25,
+    0.12,
+    5.6
+   ],
+   "world": [
+    355.75,
+    0.12,
+    -2.4
+   ],
+   "hook_attach_local": [
+    -4.25,
+    1.62,
+    5.6
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_03",
+   "block": "L",
+   "row": 3,
+   "tier": 1,
+   "local": [
+    -4.25,
+    0.12,
+    7.4
+   ],
+   "world": [
+    355.75,
+    0.12,
+    -0.6
+   ],
+   "hook_attach_local": [
+    -4.25,
+    1.62,
+    7.4
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_04",
+   "block": "L",
+   "row": 4,
+   "tier": 1,
+   "local": [
+    -4.25,
+    0.12,
+    9.2
+   ],
+   "world": [
+    355.75,
+    0.12,
+    1.2
+   ],
+   "hook_attach_local": [
+    -4.25,
+    1.62,
+    9.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_05",
+   "block": "L",
+   "row": 5,
+   "tier": 1,
+   "local": [
+    -4.25,
+    0.12,
+    11
+   ],
+   "world": [
+    355.75,
+    0.12,
+    3
+   ],
+   "hook_attach_local": [
+    -4.25,
+    1.62,
+    11
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_06",
+   "block": "R",
+   "row": 1,
+   "tier": 1,
+   "local": [
+    4.25,
+    0.12,
+    3.8
+   ],
+   "world": [
+    364.25,
+    0.12,
+    -4.2
+   ],
+   "hook_attach_local": [
+    4.25,
+    1.62,
+    3.8
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_07",
+   "block": "R",
+   "row": 2,
+   "tier": 1,
+   "local": [
+    4.25,
+    0.12,
+    5.6
+   ],
+   "world": [
+    364.25,
+    0.12,
+    -2.4
+   ],
+   "hook_attach_local": [
+    4.25,
+    1.62,
+    5.6
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_08",
+   "block": "R",
+   "row": 3,
+   "tier": 1,
+   "local": [
+    4.25,
+    0.12,
+    7.4
+   ],
+   "world": [
+    364.25,
+    0.12,
+    -0.6
+   ],
+   "hook_attach_local": [
+    4.25,
+    1.62,
+    7.4
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_09",
+   "block": "R",
+   "row": 4,
+   "tier": 1,
+   "local": [
+    4.25,
+    0.12,
+    9.2
+   ],
+   "world": [
+    364.25,
+    0.12,
+    1.2
+   ],
+   "hook_attach_local": [
+    4.25,
+    1.62,
+    9.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_10",
+   "block": "R",
+   "row": 5,
+   "tier": 1,
+   "local": [
+    4.25,
+    0.12,
+    11
+   ],
+   "world": [
+    364.25,
+    0.12,
+    3
+   ],
+   "hook_attach_local": [
+    4.25,
+    1.62,
+    11
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_11",
+   "block": "L",
+   "row": 1,
+   "tier": 2,
+   "local": [
+    -4.25,
+    1.62,
+    3.8
+   ],
+   "world": [
+    355.75,
+    1.62,
+    -4.2
+   ],
+   "hook_attach_local": [
+    -4.25,
+    3.12,
+    3.8
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_12",
+   "block": "L",
+   "row": 2,
+   "tier": 2,
+   "local": [
+    -4.25,
+    1.62,
+    5.6
+   ],
+   "world": [
+    355.75,
+    1.62,
+    -2.4
+   ],
+   "hook_attach_local": [
+    -4.25,
+    3.12,
+    5.6
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_13",
+   "block": "L",
+   "row": 3,
+   "tier": 2,
+   "local": [
+    -4.25,
+    1.62,
+    7.4
+   ],
+   "world": [
+    355.75,
+    1.62,
+    -0.6
+   ],
+   "hook_attach_local": [
+    -4.25,
+    3.12,
+    7.4
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_14",
+   "block": "L",
+   "row": 4,
+   "tier": 2,
+   "local": [
+    -4.25,
+    1.62,
+    9.2
+   ],
+   "world": [
+    355.75,
+    1.62,
+    1.2
+   ],
+   "hook_attach_local": [
+    -4.25,
+    3.12,
+    9.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_15",
+   "block": "L",
+   "row": 5,
+   "tier": 2,
+   "local": [
+    -4.25,
+    1.62,
+    11
+   ],
+   "world": [
+    355.75,
+    1.62,
+    3
+   ],
+   "hook_attach_local": [
+    -4.25,
+    3.12,
+    11
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_16",
+   "block": "R",
+   "row": 1,
+   "tier": 2,
+   "local": [
+    4.25,
+    1.62,
+    3.8
+   ],
+   "world": [
+    364.25,
+    1.62,
+    -4.2
+   ],
+   "hook_attach_local": [
+    4.25,
+    3.12,
+    3.8
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_17",
+   "block": "R",
+   "row": 2,
+   "tier": 2,
+   "local": [
+    4.25,
+    1.62,
+    5.6
+   ],
+   "world": [
+    364.25,
+    1.62,
+    -2.4
+   ],
+   "hook_attach_local": [
+    4.25,
+    3.12,
+    5.6
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_18",
+   "block": "R",
+   "row": 3,
+   "tier": 2,
+   "local": [
+    4.25,
+    1.62,
+    7.4
+   ],
+   "world": [
+    364.25,
+    1.62,
+    -0.6
+   ],
+   "hook_attach_local": [
+    4.25,
+    3.12,
+    7.4
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_19",
+   "block": "R",
+   "row": 4,
+   "tier": 2,
+   "local": [
+    4.25,
+    1.62,
+    9.2
+   ],
+   "world": [
+    364.25,
+    1.62,
+    1.2
+   ],
+   "hook_attach_local": [
+    4.25,
+    3.12,
+    9.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Slot_20",
+   "block": "R",
+   "row": 5,
+   "tier": 2,
+   "local": [
+    4.25,
+    1.62,
+    11
+   ],
+   "world": [
+    364.25,
+    1.62,
+    3
+   ],
+   "hook_attach_local": [
+    4.25,
+    3.12,
+    11
+   ],
+   "yaw_deg": 0
+  }
+ ],
+ "slot_grid": {
+  "blocks_x_local": {
+   "L": -4.25,
+   "R": 4.25
+  },
+  "rows_z_local": [
+   3.8,
+   5.6,
+   7.4,
+   9.2,
+   11
+  ],
+  "tiers_base_y": [
+   0.12,
+   1.62
+  ],
+  "row_pitch_m": 1.8,
+  "box_bbox_m": [
+   2.4,
+   1.5,
+   1.34
+  ],
+  "fill_order": "Slot_01..05 left low (hall -> front), 06..10 right low, 11..15 left top, 16..20 right top; load out LIFO 20 -> 01"
+ },
+ "clips": {
+  "count": 80,
+  "names": "Store_{A|B}_Slot_NN (bed -> slot), Load_{A|B}_Slot_NN (slot -> bed). A = Bed_Slot_01, B = Bed_Slot_02",
+  "duration_s": 8,
+  "fps_hint": 30,
+  "easing": "smoothstep (3s^2 - 2s^3) per segment; baked as CUBICSPLINE with zero tangents (exact smoothstep)",
+  "key_times": [
+   0,
+   1.4,
+   1.9,
+   2.05,
+   2.55,
+   5.15,
+   5.7,
+   5.85,
+   6.35,
+   8
+  ],
+  "events": {
+   "pick": 1.95,
+   "set": 5.75
+  },
+  "segments": [
+   {
+    "segment": "approach",
+    "t0": 0,
+    "t1": 1.4,
+    "moves": "bridge z + trolley x from rest to over the pick; hook 7.0 -> carry 6.0"
+   },
+   {
+    "segment": "lower",
+    "t0": 1.4,
+    "t1": 1.9,
+    "moves": "hook carry -> pick"
+   },
+   {
+    "segment": "pick_hold",
+    "t0": 1.9,
+    "t1": 2.05,
+    "moves": "hold; pick event 1.95 (parent box to Hook_Attach)"
+   },
+   {
+    "segment": "hoist",
+    "t0": 2.05,
+    "t1": 2.55,
+    "moves": "hook pick -> carry 6.0"
+   },
+   {
+    "segment": "travel",
+    "t0": 2.55,
+    "t1": 5.15,
+    "moves": "bridge z + trolley x to over the slot, hook at carry 6.0 (box base 4.5)"
+   },
+   {
+    "segment": "set_lower",
+    "t0": 5.15,
+    "t1": 5.7,
+    "moves": "hook carry -> slot"
+   },
+   {
+    "segment": "set_hold",
+    "t0": 5.7,
+    "t1": 5.85,
+    "moves": "hold; set event 5.75 (unparent box at the slot)"
+   },
+   {
+    "segment": "up",
+    "t0": 5.85,
+    "t1": 6.35,
+    "moves": "hook slot -> carry"
+   },
+   {
+    "segment": "return",
+    "t0": 6.35,
+    "t1": 8,
+    "moves": "bridge/trolley/hook back to rest (z 9.0, x 0, hook 7.0)"
+   }
+  ],
+  "heights": {
+   "rest_hook_y": 7,
+   "carry_hook_y": 6,
+   "carry_box_base_y": 4.5,
+   "pick_hook_y": 3.4,
+   "slot_hook_y": [
+    1.62,
+    3.12
+   ]
+  },
+  "box_rule": "t < 1.95: box on the bed (Store) or in the slot (Load); 1.95..5.75: child of Hook_Attach at (0,-1.5,0); >= 5.75: in the slot (Store) or on the bed (Load)"
+ },
+ "timeline": {
+  "unload_truck": [
+   {
+    "clip": "Store_A_Slot_NN",
+    "t": [
+     0,
+     8
+    ]
+   },
+   {
+    "clip": "Store_B_Slot_NN+1",
+    "t": [
+     8,
+     16
+    ]
+   }
+  ],
+  "load_truck": [
+   {
+    "clip": "Load_A_Slot_NN",
+    "t": [
+     0,
+     8
+    ]
+   },
+   {
+    "clip": "Load_B_Slot_NN-1",
+    "t": [
+     8,
+     16
+    ]
+   }
+  ],
+  "per_box_s": 8,
+  "per_truck_s": 16
+ },
+ "road": {
+  "band_world_z": [
+   10.2,
+   24.8
+  ],
+  "clear_strip_world_z_max": 9.2,
+  "ground_geometry_in_band": false,
+  "overhead": "runway beams + knee braces cantilever over the loaded lane at >= 6.767 m (accepted precedent: SC-1 jib >= 6.3 m, refinery bridge)"
+ },
+ "tier03": {
+  "note": "Lv3 extra containers moved to the ground in the freed right area (v3 they topped the removed Lv1 stacks)",
+  "centres_local_xz": {
+   "Lb": [
+    20.5,
+    6
+   ],
+   "Rf": [
+    23.5,
+    6
+   ],
+   "Lf": [
+    26.5,
+    6
+   ]
+  }
+ },
+ "retired": {
+  "SC1_storage_crane": "not needed (GC-1 does all moves); storage_crane.glb kept in repo for reference",
+  "side_apron": "removed",
+  "generic_container_stacks_lv1": "removed",
+  "crane_gantry_move": "removed (GC-1 legs/ground rails gone)"
+ },
+ "verify": {
+  "pass": true,
+  "draws_lv1": 7,
+  "checks": {
+   "pick_err_max_m": 3.815e-7,
+   "set_err_max_m": 3.815e-7,
+   "yaw_max_deg": 0,
+   "rot_channels": 0,
+   "clear_stack_travel_m": 2.88,
+   "gap_neighbour_set_m": 0.46,
+   "clear_truck_m": 1.24,
+   "clear_otherbed_m": 0.1,
+   "clear_dock_travel_m": 2.711,
+   "bridge_sweep_clear_m": 0.975,
+   "stack_penetration_m": 0,
+   "tier2_unsupported": 0,
+   "hook_block_over_truck_m": 2.601
+  },
+  "camera": {
+   "375x667": {
+    "band_y": [
+     144,
+     383
+    ],
+    "subject_px": [
+     7.9,
+     166.1,
+     289.9,
+     360.8
+    ],
+    "spare_px": {
+     "left": 7.9,
+     "right": 85.1,
+     "top": 22.1,
+     "bottom": 22.2
+    },
+    "per_group_px": {
+     "dock": [
+      7.9,
+      166.1,
+      289.9,
+      347.5
+     ],
+     "truck": [
+      88,
+      324.9,
+      160.1,
+      360.8
+     ],
+     "storage": [
+      74.5,
+      293,
+      158.9,
+      331.9
+     ],
+     "crane_env": [
+      40.3,
+      226.9,
+      176,
+      343.2
+     ]
+    },
+    "box_w_px_min": 17.5,
+    "box_w_px_max": 19.4
+   },
+   "393x852": {
+    "band_y": [
+     165,
+     534
+    ],
+    "subject_px": [
+     8.3,
+     241.9,
+     309.7,
+     454.4
+    ],
+    "spare_px": {
+     "left": 8.3,
+     "right": 83.3,
+     "top": 76.9,
+     "bottom": 79.6
+    },
+    "per_group_px": {
+     "dock": [
+      8.3,
+      241.9,
+      309.7,
+      440.7
+     ],
+     "truck": [
+      93.1,
+      417,
+      167.9,
+      454.4
+     ],
+     "storage": [
+      77.4,
+      382.8,
+      166,
+      424.3
+     ],
+     "crane_env": [
+      44.5,
+      312.8,
+      184.3,
+      436
+     ]
+    },
+    "box_w_px_min": 18.6,
+    "box_w_px_max": 20.2
+   }
+  },
+  "road": {
+   "static_min_y_over_local_z_gt_17_2": 8.764,
+   "static_tri_min_y_reaching_z_gt_17_2": 6.274,
+   "static_surface_min_y_at_z_gt_17_2": 6.767,
+   "rule": "no dock ground geometry at local z > 17.2 (world z > 9.2); overhead only"
+  }
+ }
+}
