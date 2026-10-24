@@ -1139,10 +1139,13 @@ for _sy in (-1, 1):                                                             
     box('db_wall', (BX1 - BX0 + 0.1, 0.24, BRIM + 0.35), ((BX0 + BX1) / 2 + 0.2, _sy * (BY + 0.32), (BRIM + 0.35) / 2), CONC, bevel=0.03)
     box('db_wall_cap', (BX1 - BX0 + 0.12, 0.3, 0.06), ((BX0 + BX1) / 2 + 0.2, _sy * (BY + 0.32), BRIM + 0.38), HAZ, bevel=0.01)
 with grp('Dump_Dust'):                                                            # dump_dust clip (exporter): 1.5 s puff at the bin's -X rim
-    for _k, (_x, _y, _z, _r) in enumerate(((4.0, -1.6, 1.9, 0.8), (4.6, -1.0, 2.9, 0.9), (4.3, 0.6, 2.6, 0.85), (5.0, -0.2, 3.6, 0.75), (3.8, -2.1, 1.4, 0.6), (4.8, 1.3, 1.9, 0.7))):
-        sphere(f'dust_puff{_k}', _r, (_x, _y, _z), DUSTM, scale=(1.0, 1.0, 0.8), sub=2).hide_render = True   # clip-only (game rest = hidden); master renders skip it
+    # 10/23 21:25: 8 overlapping, flattened, low-frequency-jittered puffs (sub 3, smooth) = one soft billow, not separate balls
+    for _k, (_x, _y, _z, _r) in enumerate(((4.0, -1.5, 1.7, 0.85), (4.5, -0.8, 2.5, 0.95), (4.3, 0.5, 2.3, 0.9), (4.9, -0.1, 3.3, 0.85),
+                                            (3.8, -2.1, 1.3, 0.65), (4.7, 1.3, 1.8, 0.75), (5.3, -1.1, 3.0, 0.7), (4.4, 0.0, 1.5, 0.9))):
+        sphere(f'dust_puff{_k}', _r, (_x, _y, _z), DUSTM, scale=(1.15, 1.1, 0.72), sub=3, jitter=0.12, seed=31 + _k, smooth=True).hide_render = True   # 10/23 21:20: sub 3 + smooth (was sub 2, faceted)   # clip-only (game rest = hidden); master renders skip it
 GAME['pivots']['Dump_Dust'] = (4.1, 0.0, 1.45)
 print('DUMP BAY apron/paint/walls/dust built', flush=True)
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'intake_db2.py')).read())   # DB-2 / RB-2 / AF-1 / SZ-1 / CV-0 upgrade (10/23 PM)
 # ---- RD-1 station haul road (Jacob 10/23: the Refinery is its own stop, one swipe right of the Mine, 160 m east of it).
 # Station frame (= these final coords, Blender Z up): origin = Truck_Dump, camera on -Y looking +Y (glTF: camera on +Z looking -Z),
 # screen right = +X. The road comes in from the Mine off the LEFT edge on the inbound lane (y = -9, camera side), turns a r 4.5 m
@@ -1395,14 +1398,14 @@ if 'blend' in ONLY:
 if 'turn' in ONLY:
     show_mine(False)
     os.makedirs(os.path.join(OUT, 'turntable'), exist_ok=True)
-    tt = [float(v) for v in A.get('tt', '-7,15.5,3').split(',')]
-    turntable(cam, os.path.join(OUT, 'turntable'), tuple(tt), float(A.get('td', 58)), 26, size=1000 if not QUICK else 400,
+    tt = [float(v) for v in A.get('tt', '-3,14,3').split(',')]
+    turntable(cam, os.path.join(OUT, 'turntable'), tuple(tt), float(A.get('td', 44)), 26, size=1000 if not QUICK else 400,
               samples=int(A.get('ts', 40)) if not QUICK else 12, lens=35)
 if 'hero' in ONLY:
     show_mine(True)
     w, h = (3840, 2160) if not QUICK else (960, 540)
     if A.get('res'): w, h = [int(v) for v in A['res'].split('x')]
-    hp = [float(v) for v in A.get('hc', '10,-42,22,-7,10,2').split(',')]
+    hp = [float(v) for v in A.get('hc', '-26,-16,20,-3,14,2').split(',')]
     shoot(cam, os.path.join(OUT, f'{NAME}_hero_{w}x{h}.png'), tuple(hp[3:6]), tuple(hp[:3]), w, h, lens=float(A.get('lens', 24)), samples=int(A.get('hs', 48)) if not QUICK else 16)
 for mode_ in [m_ for m_ in ('phone', 'phonefull') if m_ in ONLY.split(',')]:
     show_mine(True)

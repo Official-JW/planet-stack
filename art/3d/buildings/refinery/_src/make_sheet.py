@@ -19,5 +19,5 @@ for k in range(8):
 y = head + 2 * cell + 10
 d.text((60, y + 8), 'HERO  —  cinematic 3840×2160 (scaled)', font=ImageFont.truetype(FB, 40), fill=(240, 242, 245))
 img.paste(hero.resize((W, hh), Image.LANCZOS), (0, y + 60))
-d.text((60, H - 48), 'Planet Stack · Refinery (Mine station) concept master · Cycles · astronaut = 1.8 m for scale · HT-04 shown for scale · original art', font=ImageFont.truetype(F, 28), fill=(140, 148, 158))
+d.text((60, H - 48), 'Planet Stack · Refinery station master · Cycles · astronaut = 1.8 m for scale · shared HT-04 shown tipping at Truck_Dump · original art', font=ImageFont.truetype(F, 28), fill=(140, 148, 158))
 img.save(out, optimize=True); print(out, img.size)

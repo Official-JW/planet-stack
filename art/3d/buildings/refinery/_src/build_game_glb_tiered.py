@@ -16,7 +16,7 @@ Beacon_Lights_Blink (1.2 s stepped scale)."""
 import bpy, bmesh, json, os, sys, math
 from mathutils import Vector, Matrix
 a = sys.argv[sys.argv.index('--') + 1:]; A = {a[i][2:]: a[i + 1] for i in range(0, len(a) - 1, 2)}
-OUT = A.get('out', '/tmp/rf_game_raw.glb'); TARGET = int(A.get('target', 27000))
+OUT = A.get('out', '/tmp/rf_game_raw.glb'); TARGET = int(A.get('target', 27000)); BASERATIO = float(A['baseratio']) if A.get('baseratio') else None   # --baseratio pins the Base decimation ratio (keeps the untouched parts identical)
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 def lin(h):
@@ -34,7 +34,10 @@ def mk(n, d):
         b.inputs['Emission Color'].default_value = lin(d['emissive']); b.inputs['Emission Strength'].default_value = min(1.0, d['emissive_strength'])   # <= 1: no KHR_materials_emissive_strength (matches the Mine GLB)
     m.use_backface_culling = True; return m
 for n in ('SHM_Paint', 'SHM_GlowCyan'): SH[n] = mk(n, MERGED[n])
-SH['SH_GlowRed'] = mk('SH_GlowRed', SW['SH_GlowRed'])          # the shared red glow swatch, used as-is (heat glow + beacons)
+SH['SH_GlowRed'] = mk('SH_GlowRed', SW['SH_GlowRed'])
+SH['SH_Dust'] = mk('SH_Dust', dict(MERGED['SHM_Paint'], metal=0.0, rough=1.0))   # dump_dust only: alphaMode BLEND, COLOR_0.a = soft edge (patched in the raw GLB below)
+_nt = SH['SH_Dust'].node_tree; _vc = [n for n in _nt.nodes if n.type == 'VERTEX_COLOR'][0]; _nt.links.new(_vc.outputs['Alpha'], _nt.nodes['Principled BSDF'].inputs['Alpha'])
+SH['SH_Dust'].blend_method = 'BLEND'; SH['SH_Dust'].use_backface_culling = True          # the shared red glow swatch, used as-is (heat glow + beacons)
 # 3 base draws: metal swatches ride on SHM_Paint as vertex colours, white lamps ride on SHM_GlowCyan
 TARGET_MAT = {'SHM_Paint': 'SHM_Paint', 'SHM_Metal': 'SHM_Paint', 'SHM_GlowCyan': 'SHM_GlowCyan', 'SHM_GlowWhite': 'SHM_GlowCyan'}
 MAP = [  # master material prefix -> shared swatch
@@ -45,6 +48,7 @@ MAP = [  # master material prefix -> shared swatch
     ('RF_Radiator', 'SH_Radiator'), ('RF_SolarCells', 'SH_Solar'), ('RF_Port', 'SH_Glass'),
     ('RF_PipeO2', 'SH_PipeO2'), ('RF_PipeH2O', 'SH_PipeH2O'),
     ('RF_Concrete', 'SH_White'), ('RF_HazardPaint', 'SH_White'), ('RF_Dust', 'SH_White'),
+    ('RF_ArmorSteel', 'SH_Steel'), ('RF_GraphiteGrate', 'SH_Graphite'), ('RF_TyreWear', 'SH_White'), ('RF_LensAmber', 'SH_White'), ('RF_LensRed', 'SH_White'),   # DB-2 / intake upgrade
     ('RF_Pad', 'SH_Rock'), ('RF_Road', 'SH_Rock'), ('RF_Ore', 'SH_Rock'), ('RF_Slag', 'SH_Rock'), ('RF_Tailings', 'SH_Rock'), ('M_Regolith', 'SH_Rock'),
     ('RF_Cyan', 'SH_GlowCyan'), ('RF_NeonBlue', 'SH_GlowCyan'), ('RF_He3', 'SH_GlowCyan'),
     ('RF_Lamp', 'SH_GlowWhite'), ('RF_GreenLamp', 'SH_GlowWhite'), ('RF_AmberLamp', 'SH_GlowWhite'),
@@ -64,13 +68,13 @@ def shared_for(m):
     if pc and tm == 'SHM_Paint': return SH[tm], lin(pc)   # dump bay paints: own vertex colour in SHM_Paint (no extra draw)
     return SH[tm], (lin(SW[sw]['base']) if tm == 'SHM_Paint' else [1, 1, 1, 1])
 
-PAINT_COL = {'RF_Concrete': '#c8c4ba', 'RF_HazardPaint': '#e2b93b', 'RF_Dust': '#d2cbbf'}
+PAINT_COL = {'RF_Concrete': '#c8c4ba', 'RF_HazardPaint': '#e2b93b', 'RF_Dust': '#d2cbbf', 'RF_TyreWear': '#8d8a84', 'RF_LensAmber': '#9a6a1c', 'RF_LensRed': '#6a2220'}
 HOT_PAINT = {'RF_HeatGlow': '#ff7a33', 'RF_HeatSoft': '#e8703c', 'RF_RedLamp': '#e8402a'}   # red glow folded into a tier / moving node's SHM_Paint
 GN = json.loads(bpy.context.scene['game_nodes'])
 # own station (10/23): the GLB frame IS the master's final coords (origin = Truck_Dump, camera on -Y = glTF +Z), no rotation
 ANCH = Matrix.Identity(4) if GN.get('station_frame') == 'identity' else Matrix.Rotation(math.pi / 2, 4, 'Z') @ Matrix.Translation((-GN.get('anchor_x', 4.84), 0.0, 0.0))
 R3 = ANCH.to_3x3()
-MOVING = ('Kiln_Drum', 'Conveyor_He3', 'Conveyor_Fuel', 'Intake_Grate', 'Beacon_Lights', 'Dump_Dust')
+MOVING = ('Kiln_Drum', 'Conveyor_He3', 'Conveyor_Fuel', 'Intake_Grate', 'Beacon_Lights', 'Dump_Dust', 'Sizer_Flywheel')
 DROP_NAMES = ('st_', 'bolt', 'rivet', 'nozzle', 'louver', 'seam', 'clamp', 'handle', 'rail_post', 'bracket', 'rib', 'rung', 'cage', 'spoke',
               'tread', 'fin', 'flange', 'clip', 'cable', 'pdrop', 'gauge', 'yoke', 'wheel', 'window', 'handrail', 'rail', 'edge', 'conduit',
               'brace', 'idler', 'curtain', 'spring', 'post', 'ladder', 'hw_', 'valve', 'strap', 'bolt', 'stud', 'lamp_base', 'legx', 'plate_bk')
@@ -114,6 +118,18 @@ for ob in keep:
     for poly in me.polygons:
         s = sm[min(poly.material_index, len(sm) - 1)]
         for li in poly.loop_indices: ca.data[li].color = rcol[li] if rcol else s[1]
+    if ob.name.lower().startswith('dust_puff'):
+        DUSTC = Vector(GN['pivots']['Dump_Dust']) + Vector((0.4, 0.0, 0.6)); DUSTR = 2.6
+    if ob.name.lower().startswith('dust_puff'):   # 10/23 21:20 soft dust: vertex-colour falloff, light warm top -> darker grey-brown underside and cluster base
+        c0 = ob.matrix_world.translation; rz = max(ob.dimensions.z / 2, 0.05)
+        top, bot = lin('#ddd6ca'), lin('#6f6a62')
+        for poly in me.polygons:
+            for li in poly.loop_indices:
+                v = me.vertices[me.loops[li].vertex_index].co; h = max(-1.0, min(1.0, (v.z - c0.z) / rz))
+                t = (0.5 + 0.5 * h) ** 1.3 * min(1.0, 0.45 + 0.55 * (v.z - 0.9) / 2.8)
+                t = max(0.0, min(1.0, t))
+                rr_ = (v - DUSTC).length / DUSTR; al = max(0.12, min(0.92, 0.95 - 0.8 * rr_ ** 1.6))   # soft cloud edge: dense core, thin rim
+                ca.data[li].color = [bot[i] + (top[i] - bot[i]) * t for i in range(3)] + [al]
     if rc: me.color_attributes.remove(me.color_attributes['RoadCol']); sm = [(SH['SHM_Paint'], None) for _ in sm]
     for i, (m_, _) in enumerate(sm): me.materials[i] = m_
     if ob.get('roadcol'): g = 'Road'
@@ -138,6 +154,7 @@ def area_by_mat(o):
     return a
 ROAD = groups.pop('Road', [])
 for g, objs in groups.items():
+    if g == 'Dump_Dust': continue   # smooth puffs: no planar dissolve
     for o in objs:
         bm = bmesh.new(); bm.from_mesh(o.data)
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.004)
@@ -146,8 +163,8 @@ for g, objs in groups.items():
 T1 = {g: tris(o) for g, o in groups.items()}; RTRIS = tris(ROAD); print('TRIS after planar', T1, sum(T1.values()), 'road', RTRIS)
 TR = float(A.get('tierratio', 0.55)); MR = float(A.get('movratio', 0.6))
 RAT = {g: (MR if g in MOVING else TR) for g in T1 if g != 'Base'}
-TS = sum(T1[g] * RAT[g] for g in RAT)
-R = min(1.0, (TARGET - RTRIS - TS) / T1['Base'])
+TS = sum((0 if g == 'Dump_Dust' else T1[g] * RAT[g]) for g in RAT)   # Dump_Dust: fixed 288 reserve (its old share) so Base decimation is unchanged; puffs are never decimated
+R = BASERATIO if BASERATIO else min(1.0, (TARGET - RTRIS - TS) / T1['Base'])
 print('BASE ratio', round(R, 4))
 def join(objs):
     bpy.ops.object.select_all(action='DESELECT')
@@ -167,14 +184,15 @@ root['truck_dump'] = ('Truck_Dump at the origin: HT-04 centre while tipping, cab
                      'inbound lane (glTF z +9), Truck_Path_01..06 forward, r 4.5 m U-turn in front of the intake, stop at Truck_Path_07 heading -X, reverse '
                      '3.5 m straight (~2.0 s) to Truck_Dump, tip (3 s, play dump_dust at the tip), then forward -X along the z 0 lane to Truck_Exit off the left edge.')
 root['layout'] = 'own station, camera on +Z: intake bin RB-1 + bucket elevator in front at the right (x 3.7..7.4), process rows behind (-Z), haul road + U-turn in front at the left; process rows at 0.85 scale'
-root['draws_all_tiers'] = 14
+root['draws_all_tiers'] = 15
 _tt = GN.get('extras', {}).get('root', {}).get('truck_times')
 if _tt: root['truck_times'] = _tt   # eased per-leg times + arrive_to_leave_s (build_refinery.py, Mine haul_times model)
 nodes = []
 FORCE_DOM = {'Tier_03': 'SHM_GlowCyan', 'Beacon_Lights': 'SH_GlowRed'}
 for g, objs in groups.items():
     J_ = join(objs)
-    if T1[g] > 300: decimate(J_, int(T1[g] * (R if g == 'Base' else RAT[g])))
+    if T1[g] > 300 and g != 'Dump_Dust': decimate(J_, int(T1[g] * (R if g == 'Base' else RAT[g])))
+    if g == 'Dump_Dust': decimate(J_, int(T1[g] * float(A.get('dustratio', 0.55))))   # smooth puffs: collapse keeps the round silhouette, normals fully smoothed below
     if g == 'Base':
         bpy.ops.object.material_slot_remove_unused()
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.separate(type='MATERIAL'); bpy.ops.object.mode_set(mode='OBJECT')
@@ -196,11 +214,13 @@ for g, objs in groups.items():
         continue
     a_ = area_by_mat(J_); dom = FORCE_DOM.get(g) or max(a_, key=a_.get)
     if dom != 'SHM_Paint' and g not in FORCE_DOM: dom = 'SHM_Paint'
+    if g == 'Dump_Dust': dom = 'SH_Dust'
     J_.data.materials.clear(); J_.data.materials.append(SH[dom])
     for p in J_.data.polygons: p.material_index = 0
     J_.name = g; J_.data.name = g + '_mesh'
     bpy.ops.object.select_all(action='DESELECT'); J_.select_set(True); bpy.context.view_layer.objects.active = J_
-    bpy.ops.object.shade_smooth_by_angle(angle=math.radians(40))
+    if g == 'Dump_Dust': bpy.ops.object.shade_smooth()
+    else: bpy.ops.object.shade_smooth_by_angle(angle=math.radians(40))
     bb = [Vector(c) for c in J_.bound_box]; mn = Vector([min(v[i] for v in bb) for i in range(3)]); mx = Vector([max(v[i] for v in bb) for i in range(3)])
     piv = (ANCH @ Vector(GN['pivots'][g])) if g in GN['pivots'] else Vector(((mn.x + mx.x) / 2, (mn.y + mx.y) / 2, 0.0))
     set_origin(J_, piv); J_.parent = root; nodes.append(J_)
@@ -208,7 +228,9 @@ for g, objs in groups.items():
     print('NODE', g, dom, tris([J_]), 'pivot', tuple(round(v, 3) for v in piv))
 sc = bpy.context.scene; sc.render.fps = 30
 def keys(ob, clip, path, frames, interp='BEZIER'):
-    ob.animation_data_create(); act = bpy.data.actions.new(clip); ob.animation_data.action = act
+    ob.animation_data_create()
+    act = ob.animation_data.action if (ob.animation_data.action and ob.animation_data.action.name.startswith(clip)) else bpy.data.actions.new(clip)
+    ob.animation_data.action = act   # same clip name twice = one action with both channels (dump_dust: scale + location)
     rest = tuple(getattr(ob, path))
     for f, v in frames:
         setattr(ob, path, v); ob.keyframe_insert(path, frame=f)
@@ -226,12 +248,17 @@ ig = bpy.data.objects.get('Intake_Grate')
 if ig:
     L0 = Vector(ig.location); sh = [Vector((0.03, 0.0, 0.012)), Vector((-0.03, 0.0, -0.008)), Vector((0.025, 0.0, 0.01)), Vector((-0.02, 0.0, -0.006)), Vector((0, 0, 0))]
     keys(ig, 'intake_shake', 'location', [(0, tuple(L0))] + [(3 + 3 * i, tuple(L0 + R3 @ v)) for i, v in enumerate(sh)], 'LINEAR')   # 0.6 s
+fw = bpy.data.objects.get('Sizer_Flywheel')   # SZ-1 flywheel: 1 turn / 2 s, axis Blender Y (glTF -Z), loops seamlessly
+if fw: keys(fw, 'sizer_spin', 'rotation_euler', [(i * 15, (0.0, i * math.pi / 2, 0.0)) for i in range(5)], 'LINEAR')
 bl = bpy.data.objects.get('Beacon_Lights')
 if bl: keys(bl, 'Beacon_Lights_Blink', 'scale', ((0, (1, 1, 1)), (12, (0.001,) * 3), (36, (0.001,) * 3)), 'CONSTANT')   # 0.4 s on / 0.8 s off
 dd = bpy.data.objects.get('Dump_Dust')
 if dd:   # 1.5 s puff at the bin rim when the bed tips; rest (no clip playing) = hidden at scale 0.001
-    keys(dd, 'dump_dust', 'scale', ((0, (0.001,) * 3), (9, (1.0, 1.0, 1.0)), (30, (1.3, 1.3, 1.3)), (45, (0.001,) * 3)), 'BEZIER')
-    dd.scale = (0.001,) * 3; dd['clip'] = 'dump_dust'; dd['note'] = 'play dump_dust (1.5 s, scale 0 -> 1 -> 1.3 -> 0) when truck_dump tips the bed; hidden at rest'
+    keys(dd, 'dump_dust', 'scale', ((0, (0.001,) * 3), (6, (0.9, 0.9, 0.9)), (18, (1.15, 1.15, 1.1)), (33, (1.35, 1.35, 1.25)), (45, (0.001,) * 3)), 'BEZIER')
+    _L0 = Vector(dd.location); _up = lambda x, z: tuple(_L0 + R3 @ Vector((x, 0.0, z)))
+    keys(dd, 'dump_dust', 'location', ((0, _up(0, 0)), (18, _up(0, 0.2)), (33, _up(0.1, 0.5)), (45, _up(0.15, 0.75))), 'BEZIER')   # drifts up + away from the bin
+    dd['opacity_curve'] = [[0.0, 0.0], [0.2, 0.9], [0.9, 0.7], [1.5, 0.0]]   # optional: drive material.opacity over the clip (t s, opacity) for a pure fade
+    dd.scale = (0.001,) * 3; dd['clip'] = 'dump_dust'; dd['note'] = 'play dump_dust once (1.5 s: puffs swell 0 -> 1.35 while drifting up 0.75 m, then shrink away) when truck_dump tips the bed; hidden at rest. SH_Dust is alphaMode BLEND with COLOR_0.a soft edges'
 MEX = {'Road_Entry': {'kind': 'road', 'note': 'inbound lane at the left edge (glTF z +9), = Truck_Path_01'},
        'He3_Output': {'kind': 'output', 'product': 'HELIUM-3 dewars (loaded into the ship cargo at pickup)'}, 'Fuel_Output': {'kind': 'output', 'product': 'LOX + LCH4'},
        'Pipe_TankFarm': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4'], 'direction': '+X', 'buried': True,
@@ -277,5 +304,14 @@ bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_yup=True, export_extras=True,
                           export_animations=True, export_animation_mode='ACTIONS', export_force_sampling=True, export_optimize_animation_size=False,
                           export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False, export_vertex_color='ACTIVE', export_all_vertex_colors=False)
+def _patch_alpha(path):   # make sure SH_Dust is alphaMode BLEND in the GLB JSON (exporter version-proof)
+    import struct
+    b = open(path, 'rb').read(); jl = struct.unpack('<I', b[12:16])[0]; js = json.loads(b[20:20 + jl]); rest = b[20 + jl:]
+    for m in js.get('materials', []):
+        if m.get('name') == 'SH_Dust': m['alphaMode'] = 'BLEND'; m['doubleSided'] = False
+    nj = json.dumps(js, separators=(',', ':')).encode(); nj += b' ' * ((4 - len(nj) % 4) % 4)
+    out = b[:12] + struct.pack('<I', len(nj)) + b'JSON' + nj + rest; out = out[:8] + struct.pack('<I', len(out)) + out[12:]
+    open(path, 'wb').write(out)
+_patch_alpha(OUT)
 print('TOTAL_TRIS', sum(tris([o]) for o in nodes))
 print('RAW', OUT, os.path.getsize(OUT))

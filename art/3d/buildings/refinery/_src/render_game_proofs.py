@@ -1,7 +1,7 @@
 """Game-asset proofs for the Refinery (what the game draws): refinery_game.glb + the shared HT-04 (art/3d/props/ht04/ht04_game.glb)
 tipping at Truck_Dump, on a flat y-0 ground with the shared M_ground. Cycles CPU, OIDN, one full-frame tile (low samples).
   station : refinery_station_game_393x852.png, station camera from the GLB's Cam_Target extras (fov_y 38, pitch 18, frame_w)
-  closeup : refinery_intake_truck_closeup.png (1600x1000), low oblique on RB-1 + the tipping truck, truck path markers as red balls
+  closeup : refinery_intake_truck_closeup.png (1600x1000), low oblique on RB-1 + the tipping truck, no path balls (--balls 1 adds the red marker balls)
   top     : refinery_intake_truck_top.png (1600x1000), orthographic top view of the haul lanes, U-turn and intake
 usage: blender -b -P render_game_proofs.py -- --game refinery_game.glb --ht04 ht04_game.glb --out DIR [--only station,closeup,top] [--s 24]"""
 import bpy, sys, os, math, subprocess, json
@@ -24,7 +24,9 @@ for o in new:
         p = p.parent
     if o.name.startswith('Cam_Target'): CT = (o.matrix_world.translation.copy(), dict(o.items()))
     if o.name.startswith(('Truck_Path_', 'Truck_Dump', 'Truck_Exit')): MK[o.name] = o.matrix_world.translation.copy()
-place_ht04(A['ht04'], _st)
+place_ht04(A['ht04'], _st, frame=A.get('frame'))   # --frame: truck_dump clip frame to pose (default 22)
+if A.get('truck', '1') == '0':   # --truck 0: empty bay (before/after bay close-ups)
+    for _o in _st.all_objects: _o.hide_render = True
 bpy.ops.mesh.primitive_plane_add(size=1, location=(-10, 10, 0)); g = bpy.context.active_object; g.name = 'Ground'; g.scale = (4000, 4000, 1)
 bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)   # M_ground uses Object coords: keep them = metres
 g.data.materials.append(M_ground())
@@ -36,17 +38,18 @@ w.node_tree.nodes['Background'].inputs['Color'].default_value = (0.02, 0.022, 0.
 sc.view_settings.look = 'AgX - Base Contrast'
 print('CAM_TARGET', CT[0][:] if CT else None, {k: v for k, v in (CT[1].items() if CT else [])}, 'MARKERS', {k: tuple(round(x, 2) for x in v) for k, v in MK.items()}, flush=True)
 if 'station' in ONLY:
-    t, ex = CT; fw = float(ex.get('frame_w', 30.8)); fov = float(ex.get('fov_y_deg', 38)); pitch = math.radians(float(ex.get('pitch_down_deg', 18)))
+    t, ex = CT; t = Vector([float(v) for v in A['ct'].split(',')]) if A.get('ct') else t   # --ct x,y,z (Blender coords, station frame) / --fw: override camera
+    fw = float(A.get('fw', ex.get('frame_w', 30.8))); fov = float(ex.get('fov_y_deg', 38)); pitch = math.radians(float(ex.get('pitch_down_deg', 18)))
     for _wh in A.get('sizes', '393x852').split(','):
         W, H = map(int, _wh.split('x')); d = fw / (2.0 * math.tan(math.radians(fov / 2)) * (W / H))
         pos = t + Vector((0.0, -d * math.cos(pitch), d * math.sin(pitch)))
         cam.data.type = 'PERSP'; cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(fov)
         cam.location = pos; cam.rotation_euler = (t - pos).to_track_quat('-Z', 'Y').to_euler()
-        sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.filepath = os.path.join(OUT, f'refinery_station_game_{W}x{H}.png')
+        sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.filepath = os.path.join(OUT, A.get('sprefix', 'refinery_station_game') + f'_{W}x{H}.png')
         print('STATION dist', round(d, 2), 'frame_w', fw, flush=True); bpy.ops.render.render(write_still=True)
     cam.data.sensor_fit = 'AUTO'
 balls = []
-if 'closeup' in ONLY or 'top' in ONLY:
+if 'top' in ONLY or ('closeup' in ONLY and A.get('balls', '0') != '0'):   # 10/23 21:20: close-up has no path balls by default (--balls 1 adds them)
     rm = bpy.data.materials.new('MarkerRed'); rm.use_nodes = True; bs = rm.node_tree.nodes['Principled BSDF']
     bs.inputs['Base Color'].default_value = (0.6, 0.06, 0.03, 1); bs.inputs['Roughness'].default_value = 0.4
     for n, p in MK.items():
@@ -55,8 +58,13 @@ if 'closeup' in ONLY or 'top' in ONLY:
 if 'closeup' in ONLY:
     cam.data.type = 'PERSP'
     _dd = bpy.data.objects.get('Dump_Dust')
-    if _dd: _dd.scale = (1.1,) * 3; print('DUMP_DUST shown at clip frame ~15 (scale 1.1)', flush=True)   # rest = hidden (0.001)
-    shoot(cam, os.path.join(OUT, 'refinery_intake_truck_closeup.png'), (1.2, -2.5, 1.4), (-8.5, -17.0, 7.5), 1600, 1000, lens=32)
+    if _dd and A.get('dustframe'):   # --dustframe F: pose Dump_Dust from its dump_dust clip (30 fps) instead of a fixed scale
+        _act = next((x for x in bpy.data.actions if x.name.startswith('dump_dust')), None)
+        if _act: _dd.animation_data_create(); _dd.animation_data.action = _act
+    if _dd and A.get('dustframe'): bpy.context.scene.frame_set(int(A['dustframe'])); print('DUMP_DUST at clip frame', A['dustframe'], tuple(_dd.scale), flush=True)
+    elif _dd: _dd.scale = (float(A.get('dust', 1.1)),) * 3; print('DUMP_DUST scale', _dd.scale[0], flush=True)   # rest = hidden (0.001); --dust 0 hides it
+    _cu = [float(v) for v in A.get('cu', '1.2,-2.5,1.4,-8.5,-17.0,7.5').split(',')]; _rw, _rh = map(int, A.get('cres', '1600x1000').split('x'))   # --cu target,camera (Blender) --cres WxH --cname
+    shoot(cam, os.path.join(OUT, A.get('cname', 'refinery_intake_truck_closeup.png')), tuple(_cu[:3]), tuple(_cu[3:]), _rw, _rh, lens=float(A.get('lens', 32)))
 if 'top' in ONLY:
     cam.data.type = 'ORTHO'; cam.data.ortho_scale = 30.0
     shoot(cam, os.path.join(OUT, 'refinery_intake_truck_top.png'), (-5.0, -4.5, 0.0), (-5.0, -4.501, 80.0), 1600, 1000)
