@@ -39,7 +39,7 @@ NAME = 'shipyard'
 GAME_NAMES = {
     'base': 'shipyard_base',
     'tiers': {'Tier_03': ('Tier_03', 3), 'Tier_05': ('Tier_05', 5), 'Tier_08': ('Tier_08', 8), 'Tier_12': ('Tier_12', 12), 'Tier_20': ('Tier_20', 20)},
-    'moving': {'Crane_Jib': ('Crane_Jib', 'crane_jib_swing'), 'Hall_Door': ('Hall_Door', 'hall_door_open'), 'Beacon_Lights': ('Beacon_Lights', 'Beacon_Lights_Blink')},
+    'moving': {'Crane_Jib': ('Crane_Jib', 'ring_lift'), 'Hall_Door': ('Hall_Door', 'hall_door_open'), 'Beacon_Lights': ('Beacon_Lights', 'Beacon_Lights_Blink')},
     'door_leaves': ('Hall_Door_L', 'Hall_Door_R'),     # mesh children of the Hall_Door pivot empty
     'markers': {'Stand_Center': 'Stand_Center', 'Hall_Door_Front': 'Hall_Door_Front', 'Road_Entry': 'Road_Entry', 'Crate_Drop': 'Crate_Drop', 'Cam_Target': 'Cam_Target'},
     'crew_path': 'Crew_Path_%02d',
@@ -387,7 +387,8 @@ for o in load_starter_ship():
     if not zs: bpy.data.objects.remove(o); continue
     lo, hi = min(zs), max(zs); nm = o.name[3:].split('.')[0]
     if lo >= SHIP_CUT[1] - 0.01: bpy.data.objects.remove(o); continue
-    if hi <= SHIP_CUT[0] + 0.01 or nm.startswith(SHIP_WHOLE): ship_stack.append(o); continue
+    if hi <= SHIP_CUT[0] + 0.01: ship_stack.append(o); continue   # SHIP_WHOLE radiators are now cut at the seam too: their upper part rides
+    #   down with the ring (ring_lower / ring_settle seat it), so nothing sticks up out of the open stack top into the descending ring
     part = o
     if lo < SHIP_CUT[0]:
         part = o.copy(); part.data = o.data.copy(); part.name = o.name + '_ring'
@@ -458,17 +459,20 @@ grp_end(_gj, 'Crane_Jib')
 for o in ship_ring: o['grp'] = 'Crane_Jib'       # the hanging SN-07 ring swings with the jib in the game
 # C-shaped work platforms hugging the hull (tower side), handrail on the outer edge
 for z in (12.0, 21.0, 30.0):
+    # z21 + z30 sit in the ring_lower / ring_settle descent zone: inner edge pushed out to SR+2.95 (6.95 m) so SN-07's ring + lift frame (max r 5.75 m)
+    # clears them by >= 1.17 m on its way down and when seated; z12 (beside the finished stack) keeps the hull-hugging SR+0.7
+    PI_, PO_ = (SR + 0.7, SR + 3.2) if z < 20 else (SR + 2.95, SR + 4.95)
     z = TOP + z; a0, a1 = UA - math.radians(55), UA + math.radians(55)   # arc clear of SN-07's ladder cage + radiator wings
-    lathe('ist_platform', [(SR + 0.7, z), (SR + 3.2, z), (SR + 3.2, z + 0.3), (SR + 0.7, z + 0.3), (SR + 0.7, z)], (SHX, SHY, 0), GRAPH_S, segs=40, a0=a0, a1=a1, smooth=False)
-    lathe('ist_platform_edge', [(SR + 3.15, z - 0.05), (SR + 3.3, z - 0.05), (SR + 3.3, z + 0.05), (SR + 3.15, z + 0.05)], (SHX, SHY, 0), CYANS, segs=40, a0=a0, a1=a1, smooth=False)
+    lathe('ist_platform', [(PI_, z), (PO_, z), (PO_, z + 0.3), (PI_, z + 0.3), (PI_, z)], (SHX, SHY, 0), GRAPH_S, segs=40, a0=a0, a1=a1, smooth=False)
+    lathe('ist_platform_edge', [(PO_ - 0.05, z - 0.05), (PO_ + 0.1, z - 0.05), (PO_ + 0.1, z + 0.05), (PO_ - 0.05, z + 0.05)], (SHX, SHY, 0), CYANS, segs=40, a0=a0, a1=a1, smooth=False)
     for k in range(9):
-        a = a0 + (a1 - a0) * k / 8; p = Vector((SHX + (SR + 3.05) * math.cos(a), SHY + (SR + 3.05) * math.sin(a), z + 0.3))
+        a = a0 + (a1 - a0) * k / 8; p = Vector((SHX + (PO_ - 0.15) * math.cos(a), SHY + (PO_ - 0.15) * math.sin(a), z + 0.3))
         rod('rail_post', tuple(p), tuple(p + Vector((0, 0, 1.1))), 0.035, SATIN, segs=8)
-    lathe('ist_platform_rail', [(SR + 3.0, z + 1.38), (SR + 3.1, z + 1.38), (SR + 3.1, z + 1.44), (SR + 3.0, z + 1.44)], (SHX, SHY, 0), SATIN, segs=40, a0=a0, a1=a1, smooth=False)
+    lathe('ist_platform_rail', [(PO_ - 0.2, z + 1.38), (PO_ - 0.1, z + 1.38), (PO_ - 0.1, z + 1.44), (PO_ - 0.2, z + 1.44)], (SHX, SHY, 0), SATIN, segs=40, a0=a0, a1=a1, smooth=False)
     # cantilever from the tower
     for s in (-1, 1):
         p0 = Vector((TX, TY, z - 0.3)) + inward * (TW / 2) + tang * 1.6 * s
-        p1 = Vector((SHX, SHY, z - 0.3)) + (Vector((TX, TY, 0)) - Vector((SHX, SHY, 0))).normalized() * (SR + 3.2) + tang * 1.6 * s
+        p1 = Vector((SHX, SHY, z - 0.3)) + (Vector((TX, TY, 0)) - Vector((SHX, SHY, 0))).normalized() * PO_ + tang * 1.6 * s
         p1.z = z - 0.1
         beam('ist_cantilever', p0, p1, 0.5, 0.7, WHITE, bevel=0.06)
         beam('ist_knee', Vector((TX, TY, z - 4.0)) + inward * (TW / 2) + tang * 1.6 * s, p0.lerp(p1, 0.6), 0.3, 0.3, GRAPH_S, bevel=0.04)
@@ -870,9 +874,10 @@ rbox('t12_plinth', (6.0, 6.0, 0.8), (T2X, T2Y, TOP + 0.3), GRAPH, rot=(0, 0, T2a
 lattice_tower('t12_tower', T2X, T2Y, 4.0, 32.0, 5.75, T2a)
 rbox('t12_cap', (5.0, 5.0, 1.0), (T2X, T2Y, YTOP + 32.5), WHITE, rot=(0, 0, T2a), r=0.15, segs=1, c=TC)
 for z in (12.0, 21.0):
-    z = TOP + z; a0, a1 = T2a - math.radians(55), T2a + math.radians(55)
-    lathe('t12_platform', [(SR + 0.7, z), (SR + 3.0, z), (SR + 3.0, z + 0.3), (SR + 0.7, z + 0.3), (SR + 0.7, z)], (SHX, SHY, 0), GRAPH_S, segs=16, a0=a0, a1=a1, smooth=False, c=TC)
-    p0 = Vector((T2X, T2Y, z - 0.3)) - Vector((math.cos(T2a), math.sin(T2a), 0)) * 2.0; p1 = Vector((SHX, SHY, z - 0.3)) + Vector((math.cos(T2a), math.sin(T2a), 0)) * (SR + 3.0)
+    zr = z; z = TOP + z; a0, a1 = T2a - math.radians(55), T2a + math.radians(55)
+    PI_, PO_ = (SR + 0.7, SR + 3.0) if zr < 20 else (SR + 2.95, SR + 4.95)   # z21: clear of the descending / seated SN-07 ring (as IS-1's)
+    lathe('t12_platform', [(PI_, z), (PO_, z), (PO_, z + 0.3), (PI_, z + 0.3), (PI_, z)], (SHX, SHY, 0), GRAPH_S, segs=16, a0=a0, a1=a1, smooth=False, c=TC)
+    p0 = Vector((T2X, T2Y, z - 0.3)) - Vector((math.cos(T2a), math.sin(T2a), 0)) * 2.0; p1 = Vector((SHX, SHY, z - 0.3)) + Vector((math.cos(T2a), math.sin(T2a), 0)) * PO_
     beam('t12_cantilever', p0, p1, 0.6, 0.7, WHITE, bevel=0, c=TC)
 U2X, U2Y = SHX + 4.0, SHY - 10.5
 rbox('t12_umb_mast', (1.2, 1.2, 10.0), (U2X, U2Y, TOP + 5.0), WHITE, r=0.12, segs=1, c=TC)
@@ -946,7 +951,8 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
         return m
     # draw budget (every tier visible): base 6 + Crane_Jib 1 + Hall_Door_L/R 2 + Beacon_Lights 1 + 5 tiers x 1 = 15
     RULES = [('enginebell', 'SH_Graphite'), ('nozzle', 'SH_Graphite'), ('hazard', 'SH_White'), ('cyan', 'SH_GlowCyan'), ('glow', 'SH_GlowCyan'), ('lamp', 'SH_GlowCyan'), ('amber', 'SH_GlowCyan'), ('glass', 'SH_Graphite'), ('lens', 'SH_Graphite'),
-             ('solar', 'SH_Solar'), ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('lch4', 'SH_White'),
+             ('solar', 'SH_Graphite'),   # game GLB only: the one small base solar panel shares SH_Graphite (frees a draw for the ship-build glow)
+             ('rad', 'SH_White'), ('foil', 'SH_Steel'), ('mli', 'SH_Steel'), ('lox', 'SH_Steel'), ('lch4', 'SH_White'),
              ('sinter', 'SH_Rock'), ('yard', 'SH_Rock'), ('rego', 'SH_Rock'), ('block', 'SH_Rock'), ('rock', 'SH_Rock'), ('ground', 'SH_Rock'), ('satin', 'SH_Steel'),
              ('steel', 'SH_Steel'), ('graph', 'SH_Graphite'), ('rubber', 'SH_Graphite'), ('ink', 'SH_Graphite'), ('white', 'SH_White'), ('paint', 'SH_White')]
     GROUP_MAT = {'Crane_Jib': 'SH_White', 'Hall_Door_L': 'SH_White', 'Hall_Door_R': 'SH_White', 'Beacon_Lights': 'SH_GlowRed',
@@ -1029,18 +1035,11 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
     def push(G, act):
         tr = G.animation_data.nla_tracks.new(); tr.name = act.name.split('|')[0]; tr.strips.new(tr.name, 0, act); G.animation_data.action = None
     MV = GAME_NAMES['moving']
-    # Crane_Jib: pivot = slewing ring on the tower axis; rest = swung +90 deg out over the yard (pick-up), clip swings it in over the stack
-    SWING = math.radians(90)
-    G = nodes['Crane_Jib']; set_origin(G, RZ((TX, TY, JZ)))   # mesh stays in the turned frame -> clip values unchanged
-    G.animation_data_create(); act = bpy.data.actions.new(MV['Crane_Jib'][1]); G.animation_data.action = act
-    # seamless 6.0 s loop @25 fps: swing in 2.4 s (ease, peak < 60 deg/s), damped settle wobble (+-2.5 deg, real keys), short hold;
-    # swing out 2.4 s, wobble, short hold. Keys: frames 0-60 in, 64/68/72 wobble, hold to 75; 75-135 out, 139/143/147 wobble, 150 = frame 0
-    W1, W2 = math.radians(2.5), math.radians(1.0)
-    JK = [(0, SWING), (60, 0.0), (64, -W1), (68, W2), (72, 0.0), (75, 0.0),
-          (135, SWING), (139, SWING + W1), (143, SWING - W2), (147, SWING), (150, SWING)]   # first key == last key exactly
-    for f, v in JK:
-        G.rotation_euler = (0, 0, v); G.keyframe_insert('rotation_euler', index=2, frame=f)
-    ease(act); G.rotation_euler = (0, 0, SWING); push(G, act)
+    # Crane_Jib: pivot = slewing ring on the tower axis. NO Blender keys here: the SN-07 ship-build clips (ring_lift, jib_swing_in, ring_lower,
+    # ring_settle, ring_weld, seam_cool) are morph-weight + rotation clips written by _src/post_ship_build.py on the raw GLB (it also adds the
+    # weld heads / sparks / bead and merges the hall-door leaves). Rest = ring_lift frame 0: jib swung 140 deg out to the pick-up spot.
+    G = nodes['Crane_Jib']; set_origin(G, RZ((TX, TY, JZ)))   # mesh stays in the turned frame (jib angle 0 = over the stack)
+    G.rotation_euler = (0, 0, math.radians(140.0))
     # Hall_Door: pivot empty on the door track centre (floor level); leaves slide closed (rest) -> open
     D = bpy.data.objects.new(MV['Hall_Door'][0], None); D.empty_display_size = 1.0; D.location = RZ((HX, FRY - 0.45, YTOP)); D.rotation_euler = (0, 0, ROT); coll('Mine').objects.link(D)   # track axis turned with the yard
     for g, sx in (('Hall_Door_L', -1), ('Hall_Door_R', 1)):
