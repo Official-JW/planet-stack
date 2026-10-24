@@ -87,7 +87,7 @@ for o in bpy.data.objects:
             for pb in o.pose.bones: pb.matrix_basis.identity()
 if arg('engine') == 'wb':
     sc.render.engine = 'BLENDER_WORKBENCH'; sh = sc.display.shading; sh.light = 'STUDIO'; sh.color_type = 'VERTEX'
-    sh.show_shadows = True; sh.shadow_intensity = 0.55; sh.show_cavity = True; sh.cavity_type = 'WORLD'; sh.show_specular_highlight = False
+    sh.show_shadows = True; sh.shadow_intensity = 0.55; sh.show_cavity = True; sh.cavity_type = 'WORLD'; sh.cavity_ridge_factor = 0.0; sh.show_specular_highlight = False
     sc.display.light_direction = (0.45, -0.5, 0.75); sc.display.render_aa = '8'
     sc.view_settings.view_transform = 'Standard'; sc.view_settings.look = 'None'
     gme = gnd.data; ca = gme.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
@@ -98,8 +98,18 @@ if arg('engine') == 'wb':
             c = list(m.diffuse_color) if m else [1, 1, 1, 1]
             try:
                 for nd in m.node_tree.nodes:
+                    if nd.type == 'BSDF_PRINCIPLED': c = list(nd.inputs['Base Color'].default_value)   # e.g. SHM_DepositGlow veins
                     if nd.type == 'EMISSION': c = list(nd.inputs['Color'].default_value)
             except Exception: pass
             a_ = o.data.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER')
             for d in a_.data: d.color = c
+    for o in bpy.data.objects:     # multi-material meshes (Mine Deposit_0N: rock with COLOR_0 + SHM_DepositGlow veins without): the importer
+        if o.type != 'MESH' or o is gnd or len(o.material_slots) < 2 or not o.data.color_attributes: continue   # fills the veins white
+        ca_ = o.data.color_attributes[0]
+        for poly in o.data.polygons:
+            m = o.material_slots[poly.material_index].material
+            if m and 'Glow' in m.name:
+                bs = next((nd for nd in m.node_tree.nodes if nd.type == 'BSDF_PRINCIPLED'), None)
+                if bs is None: continue
+                for li in poly.loop_indices: ca_.data[li].color = list(bs.inputs['Base Color'].default_value)
 sc.render.filepath = arg('out'); bpy.ops.render.render(write_still=True); print('RENDERED', arg('out'))

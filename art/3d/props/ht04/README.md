@@ -1,6 +1,6 @@
 # HT-04 haul truck — shared prop (Mine + Refinery)
 
-`ht04_game.glb`: **134,588 B, md5 `62c32238e15b5f86f9dba471260b8377`, 10,536 tris, 1 draw** (10/24 00:40 truck_pass: regolith ore + glass merged into the paint, see *Ore load / 1 draw* below; 10/23 PM detail pass was 124,876 B / 8,308 tris / 2 draws, md5 `5e5c9fe1...`; before that 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
+`ht04_game.glb`: **134,292 B, md5 `5ba7c9dab6dc61fa7174f255aa09839e`, 10,560 tris, 1 draw** (10/24 01:00 ore v2: deposit-grey dumped pile, see *Ore v2* below; 00:40 v1 was 134,588 B / md5 `62c32238...` / 10,536 tris; 10/24 00:40 truck_pass: regolith ore + glass merged into the paint, see *Ore load / 1 draw* below; 10/23 PM detail pass was 124,876 B / 8,308 tris / 2 draws, md5 `5e5c9fe1...`; before that 67,344 B / 3,859 tris / 1 draw). One skinned mesh `Truck_Mesh`,
 materials `SHM_Paint` + `SHM_Glass` (see Detail pass), colours in COLOR_0, no textures). It uses EXT_meshopt_compression + KHR_mesh_quantization (gltfpack -cc -kn -ke) and no Draco.
 The budget was ≤ 4k tris and ≤ 3 draws; the detail pass takes it to ~8.3k tris (approved scope: "trucks lack detail"), draws stay ≤ 3. The no-scoop body has no arm.
 
@@ -77,3 +77,11 @@ Director: the load must not read as cyan gems (crystals are the paid currency). 
 - **Glass merged:** the SHM_Glass primitive is appended to the paint primitive with COLOR_0 = glass base x 1.25 (dark tinted windows, now matte-ish SHM_Paint roughness). Material `SHM_Glass` is gone: **1 primitive, 1 draw**.
 - Names, joints, IBMs, `fill` morph, clips (`chute_pour`, `truck_drive`, `truck_dump`, `truck_load_rich`) unchanged; only three's auto `mesh_0_1` child disappears. Tris 8,308 -> 10,536 (+2.2k for the lumps; still well inside the prop budget).
 - Proofs (Workbench, render hold): `proofs/ore_before_close_1600x900.png` / `proofs/ore_after_close_1600x900.png` (fill 1, `chute_pour` frame 18), phone view on the Mine `Path_Load`: `../../buildings/mine/proofs/mine_road_before_393x852.png` / `mine_road_after_393x852.png`.
+
+## Ore v2 (10/24 01:00, `_src/truck_pass.py --ore --merge-glass`; proof `proofs/ore_v2_fill_vs_deposit_1600x1240.png`)
+
+Director notes on v1 (near-black/blue, shards through the walls at 60%, vertical cliff sides at 100%) fixed:
+- **Colour:** heap, 26 surface rocks and the chute_pour / truck_load_rich chunks use the Mine deposit rock's actual COLOR_0, linear u8 **(13,12,11)** (SHM_DepositRock, white base), x per-face shade 0.92-1.09. No veins, no cyan/blue anywhere in the load (check: max(B - R) over 2,470 load verts = -1). In the Workbench proof both the deposit and the ore read dark grey side by side; the in-game tone follows the scene lighting exactly as the deposits do.
+- **Shape:** the `fill` morph's full target is an analytic dumped pile: crown = rim edge + tan(33°) x soft-min distance to the bed walls (soft 0.22 -> rounded crown, y≈3.90 vs rim 3.30-3.38), so it slopes down to all four walls at ~33° repose. Basis is the old flat bed floor; heap rebuilt as a 27x11 grid (520 tris, replaces 496). Rocks ride the pile surface via per-vertex morph deltas.
+- **Spikes:** the morph only moves y, and every heap/rock vertex is clamped in x/z inside the bed box (x -3.24..0.04, |z| ≤ 1.21; walls -3.30/0.10, ±1.28) and y ≥ floor. Verified by sampling: in-build 21 fills and post-pack 51 fills x 1,675 load verts -> **0 violations**, worst overshoot 0.0002 m (quantisation).
+- Names, joints, IBMs, morph name, clips, 1 primitive / SHM_Paint unchanged. Tris 10,536 -> 10,560.

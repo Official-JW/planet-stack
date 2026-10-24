@@ -91,3 +91,6 @@ blender -b -P _src/proof_seams.py -- --mine mine_plain.glb --ref refinery_game_p
 
 ## Station roads (10/24 00:40)
 `_src/paint_station_roads.py mine|refinery IN_plain OUT_raw [--skin-merge A,B]` paints this segment's rut / tread / dust palette onto the roads already inside `mine_game.glb` and `refinery_game.glb` (vertex colour only; lane centre lines and rut columns per station in the script). Tread only reads where the station road rows are ≤ 0.6 m apart; see the Mine and Refinery READMEs.
+
+## Mine straights tread resample (10/24 01:00)
+`_src/resample_mine_ruts.py IN_plain OUT_plain` (unpacked GLB): conforming splits of the Mine's `Base_Paint` longitudinal road edges on the visible rut rows so rows are ≤ 0.6 m apart, then `paint_station_roads.py` paints the tread. Mine: +550 tris, 0 draws.
