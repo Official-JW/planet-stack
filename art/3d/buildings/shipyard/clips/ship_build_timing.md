@@ -110,11 +110,11 @@ Highest hang (ring 4): top at 42.5, under the jib (pivot y 48.6) with the hook/s
 The jib's 1.17 m+ clearance must be re-checked per ring with `shipchk` (swing over stack top + platforms at the new hang height; z30 IS-1 handrail is at ~30.9, so rings 3–4 hang clear of it without the hop).
 Framing: the tallest finished stack (nose tip y 40.48) stays below the tower jib (y ≈ 48.6), which already sets the top of the frame → **frame_w 100 unchanged** (framing spare today 60 px @393 / 14 px @375).
 
-**How the game shows the installed stage when `jib_return` starts:** the GLB will carry static nodes `Ring_Installed_01..N` (each a finished ring, already at
-its seat, in SH_ materials, merged per material so all N share the same draws as one node each → +N draws; budget: today 15 → ≤ 15 requires merging them
-into the existing base primitives with per-ring morph `show_k` 0→1 instead, which is 0 draws). Recommended: **one `Ring_Installed` mesh node with morphs
-`show_01..N`** (collapsed at weight 0, like `stow`), and the game sets weight `show_k = 1` on frame 1 of `jib_return` for ring k. Names stay
-`Ring_Installed_01..N` as the morph target names, so code reads `targetNames.indexOf('Ring_Installed_0'+k)`.
+**How the game shows the installed stage when `jib_return` starts (recommended: 0 draws).** The GLB will carry ONE static mesh node `Ring_Installed`
+whose morph targets are named `Ring_Installed_01..N`. Each target grows one finished ring, already at its seat, from a collapsed (zero-area) state, the same
+trick as `stow`. It uses the existing SH_ materials, so it adds **0 draws** (budget stays at 15). On frame 1 of `jib_return` for ring k the game sets that
+target's weight to 1: `mesh.morphTargetInfluences[mesh.morphTargetDictionary['Ring_Installed_0' + k]] = 1`.
+(Rejected alternative: N separate static nodes `Ring_Installed_01..N` toggled with `visible`. That is +N draws and breaks the 15-draw budget.)
 
 **ring_lower end position: node offset vs per-seat clips.** A node offset is not possible: the hanging ring is morph geometry inside `Crane_Jib`, so
 moving the node moves the jib and tower too. **Recommended: per-seat clips** `ring_lift_k`, `ring_lower_k`, `ring_settle_k`, `jib_return_k` (k ≥ 2), driving per-ring
