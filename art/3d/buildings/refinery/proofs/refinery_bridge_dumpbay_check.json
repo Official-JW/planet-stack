@@ -8,25 +8,18 @@
   ],
   "bridge": {
    "bbox_px": [
-    256.6,
+    253,
     310.8,
-    454.2,
-    462.3
+    448.6,
+    463.1
    ],
    "pts_inside_dump_bay": 0,
-   "min_gap_px": 5.1,
+   "min_gap_px": 6.3,
    "spare_top": 145.8,
-   "spare_bottom": 71.7,
-   "spare_left": 256.6,
-   "right_overflow_px": 61.2,
-   "lowerator_px": [
-    351.3,
-    337,
-    389.9,
-    462.3
-   ],
-   "lowerator_right_spare_px": 3.1,
-   "frac_pts_offscreen_right": 0.528
+   "spare_bottom": 70.9,
+   "spare_left": 253,
+   "right_overflow_px": 55.6,
+   "frac_pts_offscreen_right": 0.571
   },
   "edge": [
    "y0 z4: x>9.28 (sy 417)",
@@ -47,28 +40,12 @@
  },
  "393x852_near": [
   [
-   327.98,
-   7.27,
-   16.35
+   328.09,
+   7.65,
+   16.17
   ],
-  358.3,
-  381.7
- ],
- "393x852_lowR": [
-  [
-   330.36,
-   10.98,
-   18.71
-  ],
-  389.9
- ],
- "393x852_lowL": [
-  [
-   327.5,
-   1.47,
-   16.85
-  ],
-  351.3
+  359.4,
+  377.2
  ],
  "375x667": {
   "dump_bay_px": [
@@ -79,25 +56,18 @@
   ],
   "bridge": {
    "bbox_px": [
-    245.2,
+    241.7,
     224.4,
-    431.6,
-    368.5
+    426.3,
+    369.2
    ],
    "pts_inside_dump_bay": 0,
-   "min_gap_px": 9.6,
+   "min_gap_px": 10.6,
    "spare_top": 80.4,
-   "spare_bottom": 14.5,
-   "spare_left": 245.2,
-   "right_overflow_px": 56.6,
-   "lowerator_px": [
-    336,
-    247.5,
-    374.9,
-    368.5
-   ],
-   "lowerator_right_spare_px": 0.1,
-   "frac_pts_offscreen_right": 0.533
+   "spare_bottom": 13.8,
+   "spare_left": 241.7,
+   "right_overflow_px": 51.3,
+   "frac_pts_offscreen_right": 0.572
   },
   "edge": [
    "y0 z4: x>9.17 (sy 325)",
@@ -118,32 +88,75 @@
  },
  "375x667_near": [
   [
-   327.98,
-   7.27,
-   16.35
+   328.13,
+   4.58,
+   16.87
   ],
-  343.2,
-  290.9
+  344.1,
+  319.5
  ],
- "375x667_lowR": [
-  [
-   330.36,
-   10.98,
-   18.71
-  ],
-  374.9
- ],
- "375x667_lowL": [
-  [
-   327.67,
-   0.34,
-   16.03
-  ],
-  336
- ],
- "version": "v4 (-32 deg yaw)",
- "lowerator_centre_refinery_xz": [
-  9.15,
-  17.5
- ]
+ "version": "v5",
+ "edge_table": {
+  "method": "edge-sampled (every triangle edge at <= 2 cm, every clip sample) in the game camera; lowerator spare from the lift-section polygons",
+  "393x852": {
+   "lowerator_right_spare_px": 10.32,
+   "box_in_lift_right_spare_px": 11.53,
+   "gap_to_dump_bay_px": 6.3,
+   "whole_refinery_top_spare_px": 64.2,
+   "whole_refinery_bottom_spare_px": 70.9
+  },
+  "375x667": {
+   "lowerator_right_spare_px": 8.2,
+   "box_in_lift_right_spare_px": 8.45,
+   "gap_to_dump_bay_px": 10.6,
+   "whole_refinery_top_spare_px": 10.2,
+   "whole_refinery_bottom_spare_px": 13.8
+  }
+ },
+ "lowerator": {
+  "393x852": {
+   "lift_right_px": 382.68,
+   "lift_right_spare_px": 10.32,
+   "at": [
+    10.15,
+    0.22,
+    19.15
+   ],
+   "lift_left_px": 353.13,
+   "left_at": [
+    7.85,
+    0,
+    15.85
+   ],
+   "lift_top_px": 344.7,
+   "box_in_lift_right_spare_px": 11.53,
+   "box_at": [
+    9.67,
+    9.6,
+    18.7
+   ]
+  },
+  "375x667": {
+   "lift_right_px": 366.8,
+   "lift_right_spare_px": 8.2,
+   "at": [
+    10.15,
+    0.22,
+    19.15
+   ],
+   "lift_left_px": 337.39,
+   "left_at": [
+    7.85,
+    0,
+    15.85
+   ],
+   "lift_top_px": 255.3,
+   "box_in_lift_right_spare_px": 8.45,
+   "box_at": [
+    9.67,
+    9.6,
+    18.7
+   ]
+  }
+ }
 }

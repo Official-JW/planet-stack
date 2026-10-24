@@ -1,0 +1,287 @@
+{
+ "version": "v5 (Director option A: box end-on through the lowerator)",
+ "box_obb_m": {
+  "size": [
+   2.4,
+   1.5,
+   1.34
+  ],
+  "note": "HELIUM-3 cargo box, OBB fitted per frame to the skinned box vertices"
+ },
+ "result": {
+  "frames_touching_box_path": 0,
+  "frames_touching_box_convey": 0,
+  "min_clearance_m": 0.119,
+  "min_where": "box starting down the lowerator (lower segment, t 22.6 s) beside the west end of the truss (bottom chord / end portal, y ~7.25) at Refinery ~(9.99, 7.25, 16.09)",
+  "carriage_vs_static_min_m": 0.034,
+  "max_yaw_step_deg_per_frame": 4.45,
+  "yaw_note": "yaw 90 constant from the infeed to table_turn; table_turn 32.8-33.8 s smoothstep 90->0 (peak 135 deg/s = 4.5 deg/frame); no other rotation, no snaps"
+ },
+ "timing_s": {
+  "table_turn": [
+   32.8,
+   33.8
+  ],
+  "settle": [
+   33.8,
+   33.887
+  ],
+  "pickup_arrive": 33.887,
+  "rc1_cycle_start": 33.89,
+  "rc1_latch": [
+   34.79,
+   35.19
+  ],
+  "note": "RC-1 latch = cycle start + 0.9..1.3 s (crane_refinery extras). Turn finishes 0.99 s before the latch starts; the box is at rest from 33.887 s"
+ },
+ "box_path": {
+  "file": "refinery_bridge.glb (v5)",
+  "clip": "box_path",
+  "duration_s": 33.9,
+  "fps": 30,
+  "frames": 1018,
+  "coords": "Refinery-local metres (glTF axes, y up)",
+  "method": "Every frame at 30 Hz: each visible box OBB (fitted every frame to its skinned vertices in its bone frame) vs every triangle within 0.5 m of it (static bridge mesh, rollers, lift carriage, other boxes), exact triangle-OBB distance (SAT overlap depth when they intersect). Clearance = distance from the OBB to the part of each triangle above the box base plane + 3 cm (triangles clipped at that plane); below it is the support the box rides on (rollers, carriage deck, turntable). Clearances are capped at 0.5 m (search radius). Carriage vs static: exact triangle-triangle distance every frame.",
+  "min_clearance_m": 0.119,
+  "min_at": {
+   "d": 0.119,
+   "src": "static",
+   "at": [
+    9.99,
+    7.25,
+    16.09
+   ],
+   "t": 22.6,
+   "box": "Box_1",
+   "seg": "lower"
+  },
+  "frames_touching": 0,
+  "per_segment_min": {
+   "rise": {
+    "d": 0.186,
+    "src": "static",
+    "at": [
+     16.89,
+     4.42,
+     5.99
+    ],
+    "t": 0,
+    "box": "Box_1",
+    "seg": "rise"
+   },
+   "bridge": {
+    "d": 0.139,
+    "src": "static",
+    "at": [
+     8.19,
+     8.42,
+     16.87
+    ],
+    "t": 21.567,
+    "box": "Box_1",
+    "seg": "bridge"
+   },
+   "lower": {
+    "d": 0.119,
+    "src": "static",
+    "at": [
+     9.99,
+     7.25,
+     16.09
+    ],
+    "t": 22.6,
+    "box": "Box_1",
+    "seg": "lower"
+   },
+   "ground_conveyor": {
+    "d": 0.148,
+    "src": "static",
+    "at": [
+     7.82,
+     1.46,
+     16.13
+    ],
+    "t": 26.733,
+    "box": "Box_1",
+    "seg": "ground_conveyor"
+   },
+   "table_turn": {
+    "d": 0.351,
+    "src": "static",
+    "at": [
+     -1.49,
+     1.33,
+     17.78
+    ],
+    "t": 33.433,
+    "box": "Box_1",
+    "seg": "table_turn"
+   },
+   "settle": {
+    "d": 0.5,
+    "t": 33.833,
+    "box": "Box_1",
+    "seg": "settle"
+   },
+   "-": {
+    "d": 0.5,
+    "t": 33.9,
+    "box": "Box_1",
+    "seg": "-"
+   }
+  },
+  "support": {
+   "max_rise_of_support_above_base_m": -0.005,
+   "at": {
+    "t": 22.167,
+    "box": "Box_1",
+    "src": "Lift_Carriage"
+   },
+   "note": "highest support geometry inside the box footprint, above the box base plane (<= 0.03 by the split; anything higher counts as a hit in min_clearance)"
+  },
+  "carriage_vs_static_min_gap_m": {
+   "d": 0.034,
+   "t": 27.4,
+   "car": [
+    8.3,
+    1.28,
+    18.75
+   ],
+   "stat": [
+    9.5,
+    1.22,
+    18.45
+   ]
+  },
+  "max_yaw_step_deg_per_frame": {
+   "d": 4.45,
+   "t": 33.267,
+   "box": "Box_1"
+  }
+ },
+ "box_convey": {
+  "file": "refinery_bridge.glb (v5)",
+  "clip": "box_convey",
+  "duration_s": 38,
+  "fps": 30,
+  "frames": 1141,
+  "coords": "Refinery-local metres (glTF axes, y up)",
+  "method": "Every frame at 30 Hz: each visible box OBB (fitted every frame to its skinned vertices in its bone frame) vs every triangle within 0.5 m of it (static bridge mesh, rollers, lift carriage, other boxes), exact triangle-OBB distance (SAT overlap depth when they intersect). Clearance = distance from the OBB to the part of each triangle above the box base plane + 3 cm (triangles clipped at that plane); below it is the support the box rides on (rollers, carriage deck, turntable). Clearances are capped at 0.5 m (search radius). Carriage vs static: exact triangle-triangle distance every frame.",
+  "min_clearance_m": 0.119,
+  "min_at": {
+   "d": 0.119,
+   "src": "static",
+   "at": [
+    9.99,
+    7.25,
+    16.09
+   ],
+   "t": 9.933,
+   "box": "Box_3",
+   "seg": "lower"
+  },
+  "frames_touching": 0,
+  "per_segment_min": {
+   "lower": {
+    "d": 0.119,
+    "src": "static",
+    "at": [
+     9.99,
+     7.25,
+     16.09
+    ],
+    "t": 9.933,
+    "box": "Box_3",
+    "seg": "lower"
+   },
+   "bridge": {
+    "d": 0.139,
+    "src": "static",
+    "at": [
+     8.19,
+     8.42,
+     16.87
+    ],
+    "t": 21.567,
+    "box": "Box_1",
+    "seg": "bridge"
+   },
+   "rise": {
+    "d": 0.186,
+    "src": "static",
+    "at": [
+     16.89,
+     4.43,
+     5.99
+    ],
+    "t": 0.3,
+    "box": "Box_1",
+    "seg": "rise"
+   },
+   "ground_conveyor": {
+    "d": 0.148,
+    "src": "static",
+    "at": [
+     7.82,
+     1.46,
+     16.13
+    ],
+    "t": 26.733,
+    "box": "Box_1",
+    "seg": "ground_conveyor"
+   },
+   "table_turn": {
+    "d": 0.351,
+    "src": "static",
+    "at": [
+     -1.49,
+     1.33,
+     17.78
+    ],
+    "t": 33.433,
+    "box": "Box_1",
+    "seg": "table_turn"
+   },
+   "settle": {
+    "d": 0.5,
+    "t": 8.5,
+    "box": "Box_2",
+    "seg": "settle"
+   },
+   "-": {
+    "d": 0.5,
+    "t": 8.567,
+    "box": "Box_2",
+    "seg": "-"
+   }
+  },
+  "support": {
+   "max_rise_of_support_above_base_m": -0.005,
+   "at": {
+    "t": 22.167,
+    "box": "Box_1",
+    "src": "Lift_Carriage"
+   },
+   "note": "highest support geometry inside the box footprint, above the box base plane (<= 0.03 by the split; anything higher counts as a hit in min_clearance)"
+  },
+  "carriage_vs_static_min_gap_m": {
+   "d": 0.034,
+   "t": 27.4,
+   "car": [
+    8.3,
+    1.28,
+    18.75
+   ],
+   "stat": [
+    9.5,
+    1.22,
+    18.45
+   ]
+  },
+  "max_yaw_step_deg_per_frame": {
+   "d": 4.48,
+   "t": 20.7,
+   "box": "Box_3"
+  }
+ }
+}
