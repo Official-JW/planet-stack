@@ -10,7 +10,7 @@ animation: survives gltfpack, plays in three.js GLTFLoader/AnimationMixer with n
     load_low   ring + rigging + hoist end down to the yard floor (pick-up)      load_seat  ring down 13.2 m onto the stack (seated)
     hop        load 1 m up            sway_px/nx/pz/nz  1 m lateral pendulum offset of the load (+x/-x/+z/-z, hoist top fixed)
     sweep_p/n  weld heads + sparks 0.6 m along / against the seam tangent
-    sparks_a/b two spark-quad sets grown from the torch tips                     bead_white / bead_red  seam bead tube 0 -> 0.12 / 0.105 m
+    sparks_a/b two spark-quad sets grown from the torch tips                     bead_white / bead_red  seam bead tube 0 -> 0.16 / 0.14 m          stow  ring + frame + heads collapsed into the hook (jib_return only)
   Glow states are geometry (collapsed to zero-area at weight 0), NOT animated emissive: emissive_strength animation needs
   KHR_animation_pointer, which gltfpack drops and GLTFLoader (r169) does not play. Morph weights are core glTF and do both.
 The hall-door leaves are merged into ONE mesh 'Hall_Door_Leaves' (morph 'open', same 3.6 s clip) to free the draw the glow needs.
@@ -19,7 +19,7 @@ import json, struct, sys, math
 import numpy as np
 
 FPS = 30.0
-TN = ['load_low', 'load_seat', 'hop', 'sway_px', 'sway_nx', 'sway_pz', 'sway_nz', 'sweep_p', 'sweep_n', 'sparks_a', 'sparks_b', 'bead_white', 'bead_red']
+TN = ['load_low', 'load_seat', 'hop', 'sway_px', 'sway_nx', 'sway_pz', 'sway_nz', 'sweep_p', 'sweep_n', 'sparks_a', 'sparks_b', 'bead_white', 'bead_red', 'stow']
 # every weight stays in [0, 1]: gltfpack clamps animated morph weights to [0, 1] (negative keys -> 0), so signed motions use +/- target pairs
 SHIP_LIFT = 13.2; SEAM_Y = 0.48 + 19.4            # world y of the open stack top (TOP + SHIP_CUT[0])
 HANG = 1.0                                          # ring_lower stops HANG m above the seat; ring_settle does the last metre
@@ -69,8 +69,13 @@ def c_weld(t):    # 16.0 s LOOP: heads sweep +-0.6 m along the seam (2 cycles), 
                   bead_white=0.96 + 0.04 * math.cos(2 * math.pi * t / 2.0))
 def c_cool(t):    # 6.0 s: white-hot -> red-orange (white tube shrinks inside-out) -> steel (red tube shrinks, bare seam frame left)
     return 0.0, W(load_seat=1.0, bead_white=seg(t, 0.3, 2.6, 1.0, 0.0), bead_red=seg(t, 0.0, 0.4, 0.0, 1.0) if t < 2.6 else seg(t, 2.6, 5.6, 1.0, 0.0))
+def c_return(t):  # 9.0 s: after seam_cool the GAME reveals the installed ring (stage swap) and this clip hides the jib's copy on frame 1:
+    #   stow collapses ring + lift frame + weld heads into the hook block; hook rises out of the stack, jib swings 0 -> 140 (peak 52.5 deg/s),
+    #   hook drops to the pick-up spot; last frame: stow 1 -> 0 = the next ring appears on the yard floor behind FAB-01 (== ring_lift t=0)
+    st = 0.0 if t <= 0.0 or t >= 9.0 - 1e-6 else 1.0
+    return PICK * ease((t - 2.5) / 4.0), W(load_seat=seg(t, 0.1, 2.5, 1.0, 0.0), load_low=seg(t, 6.5, 8.5, 0.0, 1.0), stow=st)
 CLIPS = [('ring_lift', 9.0, c_lift), ('jib_swing_in', 4.0, c_swing), ('ring_lower', 6.0, c_lower), ('ring_settle', 3.0, c_settle),
-         ('ring_weld', 16.0, c_weld), ('seam_cool', 6.0, c_cool)]
+         ('ring_weld', 16.0, c_weld), ('seam_cool', 6.0, c_cool), ('jib_return', 9.0, c_return)]
 TAN = [0.0, 0.0, 0.0]
 
 # ---------------------------------------------------------------- GLB io
@@ -141,6 +146,7 @@ def build(J, B):
     wy = pos[:, 1] + P0[1]; rr = np.hypot(pos[:, 0] - H[0], pos[:, 2] - H[2])
     load = (wy < 48.0) & (rr < 6.5); ymin = wy[load].min()
     print('load verts', int(load.sum()), 'of', len(pos), 'ring bottom y', round(float(ymin), 3), 'max r', round(float(rr[load].max()), 2))
+    global NRZ_TOP; NRZ_TOP = ymin + 5.7 + 0.2                             # ring top + lugs: below this = stowed on jib_return
     seam = np.array([H[0], SEAM_Y - P0[1], H[2]])                          # local seam centre (seated)
     hang = seam + np.array([0, SHIP_LIFT, 0])
     # --- 3 orbital weld heads on the lift frame (SH_White; ride with the ring), torch tips at the seam
@@ -148,11 +154,11 @@ def build(J, B):
     head_tris, tips, tdir = [], [], []
     for a in ANG:
         e = np.array([math.cos(math.radians(a)), 0, math.sin(math.radians(a))]); t = np.array([-e[2], 0, e[0]])
-        c0 = hang + e * 4.55 + np.array([0, 0.75, 0])
-        head_tris += box_between(c0 - np.array([0, 0.35, 0]), c0 + np.array([0, 0.35, 0]), 0.55, 0.45, up=tuple(e))
-        head_tris += box_between(c0 + e * 0.05 + np.array([0, 0.36, 0]), hang + e * 4.1 + np.array([0, 1.2, 0]), 0.16, 0.16)   # hanger to the frame
+        c0 = hang + e * 4.75 + np.array([0, 0.95, 0])
+        head_tris += box_between(c0 - np.array([0, 0.5, 0]), c0 + np.array([0, 0.5, 0]), 0.8, 0.6, up=tuple(e))
+        head_tris += box_between(c0 + np.array([0, 0.5, 0]), hang + e * 4.1 + np.array([0, 1.6, 0]), 0.2, 0.2)   # hanger to the frame
         tip = hang + e * 4.22 + np.array([0, 0.04, 0])
-        head_tris += box_between(c0 - np.array([0, 0.3, 0]) - e * 0.1, tip, 0.11, 0.11)
+        head_tris += box_between(c0 - np.array([0, 0.45, 0]) - e * 0.1, tip, 0.14, 0.14)
         tips.append(tip - np.array([0, SHIP_LIFT, 0])); tdir.append((e, t))
     hp, hn = tri_soup(head_tris)
     nH = len(hp)
@@ -162,6 +168,8 @@ def build(J, B):
     T['load_low'][loadm, 1] = (0.18 + 0.02) - ymin
     T['load_seat'][loadm, 1] = -SHIP_LIFT
     T['hop'][loadm, 1] = 1.0
+    stw = loadm & ((pos2[:, 1] + P0[1]) < NRZ_TOP); T['stow'][stw] = (np.array([H[0], NRZ_TOP - 0.3 - P0[1], H[2]]) - pos2[stw])
+    print('stow verts', int(stw.sum()))
     T['sway_px'][loadm, 0] = 1.0; T['sway_nx'][loadm, 0] = -1.0; T['sway_pz'][loadm, 2] = 1.0; T['sway_nz'][loadm, 2] = -1.0
     hk = np.where(headm)[0]; per = nH // 3
     for k in range(3): T['sweep_p'][hk[k * per:(k + 1) * per]] = tdir[k][1] * 0.6; T['sweep_n'][hk[k * per:(k + 1) * per]] = -tdir[k][1] * 0.6
@@ -172,21 +180,21 @@ def build(J, B):
             e, t = tdir[k]
             for q in range(7):
                 d = e * rng.uniform(0.2, 1.0) + t * rng.uniform(-1, 1) + np.array([0, rng.uniform(-1.0, 0.5), 0]); d /= np.linalg.norm(d)
-                L = rng.uniform(0.25, 0.6); w = 0.035; side = np.cross(d, (0, 1, 0)); side = side / (np.linalg.norm(side) + 1e-9) * w
+                L = rng.uniform(0.5, 1.1); w = 0.06; side = np.cross(d, (0, 1, 0)); side = side / (np.linalg.norm(side) + 1e-9) * w
                 a0, a1, b0, b1 = tip - side, tip + side, tip + d * L + side * 0.3, tip + d * L - side * 0.3
                 for tri in ((a0, a1, b0), (a0, b0, b1)):
                     for v in tri: gw_base.append(tip); gw_full.append(v); gw_set.append(si); gw_head.append(k)
     gw_base = np.array(gw_base, np.float32); gw_full = np.array(gw_full, np.float32)
-    bl, bd = torus(seam, 4.10, 0.12)
+    bl, bd = torus(seam, 4.10, 0.16)
     nS = len(gw_base)
     gpos = np.vstack([gw_base, bl]); gT = {n: np.zeros_like(gpos) for n in TN}
     sp = gw_full - gw_base
     for si, nm in ((0, 'sparks_a'), (1, 'sparks_b')):
         m = np.array(gw_set) == si; gT[nm][:nS][m] = sp[m]
     for k in range(3): gT['sweep_p'][:nS][np.array(gw_head) == k] = tdir[k][1] * 0.6; gT['sweep_n'][:nS][np.array(gw_head) == k] = -tdir[k][1] * 0.6
-    gT['bead_white'][nS:] = bd * 0.12
+    gT['bead_white'][nS:] = bd * 0.16
     gN = np.zeros_like(gpos); gN[:nS] = (0, 1, 0); gN[nS:] = bd
-    rl, rd = torus(seam, 4.10, 0.105); rT = {n: np.zeros_like(rl) for n in TN}; rT['bead_red'][:] = rd * 0.105
+    rl, rd = torus(seam, 4.10, 0.14); rT = {n: np.zeros_like(rl) for n in TN}; rT['bead_red'][:] = rd * 0.14
     def prim(P, N, I, Tm, m):
         return {'attributes': {'POSITION': put(J, B, P.astype(np.float32), 'VEC3', 34962, True), 'NORMAL': put(J, B, N.astype(np.float32), 'VEC3', 34962)},
                 'indices': put(J, B, I.astype(np.uint32), 'SCALAR', 34963), 'material': m,

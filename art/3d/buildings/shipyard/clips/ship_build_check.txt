@@ -1,0 +1,31 @@
+# three.js r169 GLTFLoader+AnimationMixer check of shipyard_game.glb (packed). Generated 10/24/2026 01:03 PT
+# chain order checked: ring_lift > jib_swing_in > ring_lower > ring_settle > ring_weld > seam_cool > jib_return > ring_lift
+draws 15 tris 28174 clips Beacon_Lights_Blink:1.000s/1tr hall_door_open:3.600s/1tr ring_lift:9.000s/4tr jib_swing_in:4.000s/4tr ring_lower:6.000s/4tr ring_settle:3.000s/4tr ring_weld:16.000s/4tr seam_cool:6.000s/4tr jib_return:9.000s/4tr
+targets {"load_low":0,"load_seat":1,"hop":2,"sway_px":3,"sway_nx":4,"sway_pz":5,"sway_nz":6,"sweep_p":7,"sweep_n":8,"sparks_a":9,"sparks_b":10,"bead_white":11,"bead_red":12,"stow":13}
+load verts 3109 weld-head verts 216 (heads/sparks/bead excluded from gap: weld contact by design)
+stack-seat tris excluded 4231
+ring_lift     dur 9.000s  peak jib 0.0deg/s@0.000  peak ring 7.78m/s  minGap 1.496m ["shipyard_base_floor",1.13,[43.87,1.62,-24.62],[43.87,0.12,-24.62]]  load minY 0.20  start->end dRot 0.000 dW 1.0000  -
+jib_swing_in  dur 4.000s  peak jib 53.0deg/s@1.942  peak ring 13.13m/s  minGap 1.796m ["shipyard_base",2.9,[28.71,33.7,-9.69],[28.8,31.9,-9.73]]  load minY 33.08  start->end dRot 140.003 dW 0.0000  jump from prev end: 0.0000deg, maxW 0.0000
+ring_lower    dur 6.000s  peak jib 0.0deg/s@0.000  peak ring 3.11m/s  minGap 1.293m ["shipyard_base",2.07,[25.71,30.72,-9.82],[27,30.75,-9.9]]  load minY 20.87  start->end dRot 0.000 dW 0.9255  jump from prev end: 0.0000deg, maxW 0.0000
+ring_settle   dur 3.000s  peak jib 0.0deg/s@0.000  peak ring 1.57m/s  minGap 0.988m ["shipyard_base",1.77,[20.42,19.88,-7.61],[20.43,18.93,-7.35]]  load minY 19.88  start->end dRot 0.000 dW 1.0000  jump from prev end: 0.0000deg, maxW 0.0000
+ring_weld     dur 16.000s  peak jib 0.0deg/s@0.000  peak ring 0.00m/s  minGap 0.988m ["shipyard_base",0,[20.42,19.88,-7.61],[20.43,18.93,-7.35]]  load minY 19.88  start->end dRot 0.000 dW 0.0000  jump from prev end: 0.0000deg, maxW 0.0000
+seam_cool     dur 6.000s  peak jib 0.0deg/s@0.000  peak ring 0.00m/s  minGap 0.988m ["shipyard_base",0,[20.42,19.88,-7.61],[20.43,18.93,-7.35]]  load minY 19.88  start->end dRot 0.000 dW 1.0000  jump from prev end: 0.0000deg, maxW 0.0000
+jib_return    dur 9.000s  peak jib 53.0deg/s@4.567  peak ring 109.70m/s  minGap 0.988m ["shipyard_base",0,[20.42,19.88,-7.61],[20.43,18.93,-7.35]]  load minY 0.20  start->end dRot 140.003 dW 1.0000  jump from prev end: 0.0000deg, maxW 0.0000
+ring_lift     dur 9.000s  peak jib 0.0deg/s@0.000  peak ring 7.78m/s  minGap 1.496m ["shipyard_base_floor",1.13,[43.87,1.62,-24.62],[43.87,0.12,-24.62]]  load minY 0.20  start->end dRot 0.000 dW 1.0000  jump from prev end: 0.0000deg, maxW 0.0000
+GLOBAL minGap 0.988 ["ring_settle",["shipyard_base",1.77,[20.42,19.88,-7.61],[20.43,18.93,-7.35]]]
+hall_door_open 3.6000001430511475
+Beacon_Lights_Blink 1
+
+# raw (post_ship_build) -> gltfpack -cc -kn -ke: clip values sampled at 601 points, plus first-vs-last key per clip
+Beacon_Lights_Blink  tracks 1 keys raw/packed 26/31 raw->packed max value diff 0.99900 dur diff 0.00000 neg weights 0 
+hall_door_open       tracks 1 keys raw/packed 91/109 raw->packed max value diff 0.00196 dur diff 0.00000 neg weights 0  first-vs-last key: weights 0.00000 quat 0.00000
+ring_lift            tracks 4 keys raw/packed 271/1 raw->packed max value diff 0.00196 dur diff 0.00000 neg weights 0  first-vs-last key: weights 1.00000 quat 0.00000
+jib_swing_in         tracks 4 keys raw/packed 121/121 raw->packed max value diff 0.00195 dur diff 0.00000 neg weights 0  first-vs-last key: weights 0.00000 quat 0.93970
+ring_lower           tracks 4 keys raw/packed 181/1 raw->packed max value diff 0.00193 dur diff 0.00000 neg weights 0  first-vs-last key: weights 0.92549 quat 0.00000
+ring_settle          tracks 4 keys raw/packed 91/1 raw->packed max value diff 0.00193 dur diff 0.00000 neg weights 0  first-vs-last key: weights 1.00000 quat 0.00000
+ring_weld            tracks 4 keys raw/packed 481/1 raw->packed max value diff 0.00196 dur diff 0.00000 neg weights 0  first-vs-last key: weights 0.00000 quat 0.00000
+seam_cool            tracks 4 keys raw/packed 181/1 raw->packed max value diff 0.00196 dur diff 0.00000 neg weights 0  first-vs-last key: weights 1.00000 quat 0.00000
+jib_return           tracks 4 keys raw/packed 271/271 raw->packed max value diff 0.00196 dur diff 0.00000 neg weights 0  first-vs-last key: weights 1.00000 quat 0.93970
+
+# phone framing (Cam_Target unchanged, frame_w 100), all-vert projection, worst over jib poses 0/70/140 deg:
+393 min spare 60 px, 375 min spare 14 px
