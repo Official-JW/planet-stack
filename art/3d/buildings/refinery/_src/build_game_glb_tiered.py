@@ -44,6 +44,7 @@ MAP = [  # master material prefix -> shared swatch
     ('RF_Satin', 'SH_Steel'), ('RF_Chrome', 'SH_Steel'), ('RF_Platinum', 'SH_Steel'), ('RF_Iron', 'SH_Steel'), ('RF_MLI', 'SH_Foil'),
     ('RF_Radiator', 'SH_Radiator'), ('RF_SolarCells', 'SH_Solar'), ('RF_Port', 'SH_Glass'),
     ('RF_PipeO2', 'SH_PipeO2'), ('RF_PipeH2O', 'SH_PipeH2O'),
+    ('RF_Concrete', 'SH_White'), ('RF_HazardPaint', 'SH_White'), ('RF_Dust', 'SH_White'),
     ('RF_Pad', 'SH_Rock'), ('RF_Road', 'SH_Rock'), ('RF_Ore', 'SH_Rock'), ('RF_Slag', 'SH_Rock'), ('RF_Tailings', 'SH_Rock'), ('M_Regolith', 'SH_Rock'),
     ('RF_Cyan', 'SH_GlowCyan'), ('RF_NeonBlue', 'SH_GlowCyan'), ('RF_He3', 'SH_GlowCyan'),
     ('RF_Lamp', 'SH_GlowWhite'), ('RF_GreenLamp', 'SH_GlowWhite'), ('RF_AmberLamp', 'SH_GlowWhite'),
@@ -59,18 +60,21 @@ def shared_for(m):
     if sw == 'SH_GlowRed':   # (material, fold colour): Base keeps SH_GlowRed as its own emissive draw (white vertex colour)
         return SH['SH_GlowRed'], lin(HOT_PAINT.get(next((k for k in HOT_PAINT if m is not None and m.name.startswith(k)), ''), '#e8402a'))
     tm = TARGET_MAT[S2M[sw]]
+    pc = next((v for k, v in PAINT_COL.items() if m is not None and m.name.startswith(k)), None)
+    if pc and tm == 'SHM_Paint': return SH[tm], lin(pc)   # dump bay paints: own vertex colour in SHM_Paint (no extra draw)
     return SH[tm], (lin(SW[sw]['base']) if tm == 'SHM_Paint' else [1, 1, 1, 1])
 
+PAINT_COL = {'RF_Concrete': '#c8c4ba', 'RF_HazardPaint': '#e2b93b', 'RF_Dust': '#d2cbbf'}
 HOT_PAINT = {'RF_HeatGlow': '#ff7a33', 'RF_HeatSoft': '#e8703c', 'RF_RedLamp': '#e8402a'}   # red glow folded into a tier / moving node's SHM_Paint
 GN = json.loads(bpy.context.scene['game_nodes'])
 # own station (10/23): the GLB frame IS the master's final coords (origin = Truck_Dump, camera on -Y = glTF +Z), no rotation
 ANCH = Matrix.Identity(4) if GN.get('station_frame') == 'identity' else Matrix.Rotation(math.pi / 2, 4, 'Z') @ Matrix.Translation((-GN.get('anchor_x', 4.84), 0.0, 0.0))
 R3 = ANCH.to_3x3()
-MOVING = ('Kiln_Drum', 'Conveyor_He3', 'Conveyor_Fuel', 'Intake_Grate', 'Beacon_Lights')
+MOVING = ('Kiln_Drum', 'Conveyor_He3', 'Conveyor_Fuel', 'Intake_Grate', 'Beacon_Lights', 'Dump_Dust')
 DROP_NAMES = ('st_', 'bolt', 'rivet', 'nozzle', 'louver', 'seam', 'clamp', 'handle', 'rail_post', 'bracket', 'rib', 'rung', 'cage', 'spoke',
               'tread', 'fin', 'flange', 'clip', 'cable', 'pdrop', 'gauge', 'yoke', 'wheel', 'window', 'handrail', 'rail', 'edge', 'conduit',
               'brace', 'idler', 'curtain', 'spring', 'post', 'ladder', 'hw_', 'valve', 'strap', 'bolt', 'stud', 'lamp_base', 'legx', 'plate_bk')
-KEEP_SMALL = ('cyan', 'band', 'strip', 'beacon', 'neon', 'he3', 'can_', 'glow', 'hot', 'slot', 'canister')
+KEEP_SMALL = ('paint', 'dust', 'db_', 'cyan', 'band', 'strip', 'beacon', 'neon', 'he3', 'can_', 'glow', 'hot', 'slot', 'canister')
 mine = [o for o in bpy.data.collections['Mine'].all_objects]
 keep, dropped = [], 0
 for ob in mine:
@@ -161,9 +165,11 @@ root = bpy.data.objects.new('Refinery', None); col.objects.link(root)
 root['origin'] = 'Truck_Dump (HT-04 centre while tipping into RB-1), on the ground. Own station: place at the Refinery slot (Mine, Refinery, Dock; 160 m apart) with no rotation.'
 root['truck_dump'] = ('Truck_Dump at the origin: HT-04 centre while tipping, cab -X, rear +X into RB-1. Route: in from the left edge on the '
                      'inbound lane (glTF z +9), Truck_Path_01..06 forward, r 4.5 m U-turn in front of the intake, stop at Truck_Path_07 heading -X, reverse '
-                     '4.0 m straight (~1.5 s) to Truck_Dump, tip, then forward -X along the z 0 lane to Truck_Exit off the left edge.')
+                     '3.5 m straight (~2.0 s) to Truck_Dump, tip (3 s, play dump_dust at the tip), then forward -X along the z 0 lane to Truck_Exit off the left edge.')
 root['layout'] = 'own station, camera on +Z: intake bin RB-1 + bucket elevator in front at the right (x 3.7..7.4), process rows behind (-Z), haul road + U-turn in front at the left; process rows at 0.85 scale'
-root['draws_all_tiers'] = 13
+root['draws_all_tiers'] = 14
+_tt = GN.get('extras', {}).get('root', {}).get('truck_times')
+if _tt: root['truck_times'] = _tt   # eased per-leg times + arrive_to_leave_s (build_refinery.py, Mine haul_times model)
 nodes = []
 FORCE_DOM = {'Tier_03': 'SHM_GlowCyan', 'Beacon_Lights': 'SH_GlowRed'}
 for g, objs in groups.items():
@@ -222,6 +228,10 @@ if ig:
     keys(ig, 'intake_shake', 'location', [(0, tuple(L0))] + [(3 + 3 * i, tuple(L0 + R3 @ v)) for i, v in enumerate(sh)], 'LINEAR')   # 0.6 s
 bl = bpy.data.objects.get('Beacon_Lights')
 if bl: keys(bl, 'Beacon_Lights_Blink', 'scale', ((0, (1, 1, 1)), (12, (0.001,) * 3), (36, (0.001,) * 3)), 'CONSTANT')   # 0.4 s on / 0.8 s off
+dd = bpy.data.objects.get('Dump_Dust')
+if dd:   # 1.5 s puff at the bin rim when the bed tips; rest (no clip playing) = hidden at scale 0.001
+    keys(dd, 'dump_dust', 'scale', ((0, (0.001,) * 3), (9, (1.0, 1.0, 1.0)), (30, (1.3, 1.3, 1.3)), (45, (0.001,) * 3)), 'BEZIER')
+    dd.scale = (0.001,) * 3; dd['clip'] = 'dump_dust'; dd['note'] = 'play dump_dust (1.5 s, scale 0 -> 1 -> 1.3 -> 0) when truck_dump tips the bed; hidden at rest'
 MEX = {'Road_Entry': {'kind': 'road', 'note': 'inbound lane at the left edge (glTF z +9), = Truck_Path_01'},
        'He3_Output': {'kind': 'output', 'product': 'HELIUM-3 dewars (loaded into the ship cargo at pickup)'}, 'Fuel_Output': {'kind': 'output', 'product': 'LOX + LCH4'},
        'Pipe_TankFarm': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4'], 'direction': '+X', 'buried': True,

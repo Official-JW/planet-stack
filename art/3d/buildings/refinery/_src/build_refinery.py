@@ -899,7 +899,7 @@ with grp('Tier_05'):
     pipe('el2_h2o', [(ELX - 1.5, FY + 0.8, 0.35), (ELX - 1.5, FY + 2.6, 0.35)], 0.07, H2OP, bend=0.2)
 with grp('Tier_20'):
     cryo_tank('lox2', 32.4, FY + 3.6, 1.45, 6.0, 'LOX-2', 'LIQUID OXYGEN  90 K')
-    cryo_tank('lox3', 36.0, FY + 3.8, 1.45, 6.0, 'LOX-3', 'LIQUID OXYGEN  90 K')
+    cryo_tank('lox3', 36.0, FY + 3.6, 1.45, 6.0, 'LOX-3', 'LIQUID OXYGEN  90 K')
     pipe('lox2_tie', [(32.4 + 1.5, FY + 3.6, 1.9), (34.4, FY + 3.6, 1.9), (34.4, FY + 0.4, 2.6)], 0.1, FOIL, bend=0.4)
     pipe('lox3_tie', [(36.0 - 1.5, FY + 3.6, 1.9), (34.4, FY + 3.6, 1.9)], 0.1, FOIL, bend=0.2)
 
@@ -981,28 +981,10 @@ GAME['markers']['Crew_Path_04'] = (RKX, -21.6, 5.45)
 GAME['markers']['Crew_Path_05'] = (-17.1, -19.75, ZP)
 GAME['markers']['Crew_Path_06'] = (CMX + 3.4, CMY + 0.6, ZP)
 GAME['markers']['Crew_Path_07'] = (2.0, -5.0, ZP)
-# power masts + lines (feed the kiln heater, electrolyzer, control module)
-def power_mast(name, x, y, h=9.0):
-    lathe(name, [(0.3, 0.0), (0.24, 1.0), (0.16, h - 0.4), (0.14, h)], (x, y, 0), GRAPH2, segs=14)
-    cyl(name + '_base', 0.65, 0.4, (x, y, 0.2), GRAPH, segs=16, bevel=0.03)
-    beam(name + '_arm', (x - 1.4, y, h - 0.5), (x + 1.4, y, h - 0.5), 0.16, 0.2, STEEL)
-    cyl(name + '_cyan', 0.17, 0.06, (x, y, 2.6), CYANL, segs=14)
-    pts = []
-    for dx in (-1.2, 0.0, 1.2):
-        cyl(name + '_ins', 0.08, 0.45, (x + dx, y, h - 0.2), FOIL, segs=10); pts.append((x + dx, y, h))
-    return pts
-MASTS = [(-15.0, -20.95), (-19.2, -20.95)]
-PM = [power_mast(f'pmast{k}', x, y) for k, (x, y) in enumerate(MASTS)]
-for a_, b_ in zip(PM, PM[1:]):
-    for p, q in zip(a_, b_): cable('pline', p, q, 0.022, RUBBER, sag=0.5, n=18)
-with grp('Beacon_Lights'):
-    for k, (x, y) in enumerate(MASTS): sphere(f'beacon_mast{k}', 0.15, (x, y, 9.3), REDL, sub=2)
+# (10/23 PM tidy) power masts, overhead lines, mast beacons and drop cables removed: one tidy plant, nothing strung across the frame.
 _kj = RH((17.2, HY + 1.4, 3.75)); _kj = (_kj[0], _kj[1], 3.55)
-cable('pdrop_kiln', PM[0][2], (_kj[0], _kj[1], _kj[2] + 0.3), 0.03, RUBBER, sag=0.9, n=20)
 box('kn_junction', (0.6, 0.4, 0.6), _kj, GRAPH2, bevel=0.03)
 rod('kn_junction_post', (_kj[0], _kj[1], ZP), (_kj[0], _kj[1], _kj[2] - 0.3), 0.06, STEEL, segs=8)
-cable('pdrop_el', PM[0][1], RF((ELX - 1.35, FY - 0.4, 2.85)), 0.035, RUBBER, sag=0.8, n=18)
-cable('pdrop_cm', PM[0][0], (CMX + 1.6, CMY + 0.4, ZP + 3.8), 0.03, RUBBER, sag=0.8, n=18)
 box('sw_cabinet', (1.4, 0.8, 2.0), (-17.1, -20.4, ZP + 1.0), PALE, bevel=0.05)
 for j, m_ in enumerate((GREENL, GREENL, AMBERL)): lamp(f'sw_lamp{j}', (-17.4 + j * 0.3, -20.82, ZP + 1.8), m_, 0.04)
 stencil('st_sw', 'SWG-R  480 V', (-17.1, -20.82, ZP + 1.35), '-y', 0.13, INK)
@@ -1133,6 +1115,34 @@ if A.get('ht04'):
     place_ht04(A['ht04'], coll('Stage'), frame=int(A['ht04frame']) if A.get('ht04frame') else None)
 heap('rb_load', (5.0, 0.0, BRIM + 0.02), 1.0, 0.32, ORE, c='Stage', seed=81, sq=(0.9, 1.3))
 ore_chunks('rb_load_ore', (5.0, 0.0, BRIM + 0.05), 1.0, 30, [(ORE, 5, 'rock'), (HE3, 2, 'he3')], size=(0.1, 0.24), heap=0.3, c='Stage', seed=82)
+# ---- DUMP BAY DB-1 (10/23 PM, Jacob): concrete apron in front of RB-1, painted back-up line, concrete bin walls, dump dust.
+# Built BEFORE the road so the road's berm logic opens around the apron. Final station coords (origin = Truck_Dump).
+CONC = P_('RF_Concrete', '#c8c4ba', rough=0.85, metal=0.0, grime=0.25, grime_col='#8e9094')
+HAZ = P_('RF_HazardPaint', '#e2b93b', dust=False, rough=0.6, metal=0.0)
+DUSTM = P_('RF_Dust', '#d2cbbf', dust=False, rough=1.0, metal=0.0)
+_bm = bmesh.new(); _AX0, _AX1, _AY, _AZ = -2.0, 3.6, 2.8, 0.085
+_g = [[_bm.verts.new((_AX0 + (_AX1 - _AX0) * i / 14, -_AY + 2 * _AY * j / 7, _AZ)) for j in range(8)] for i in range(15)]
+for i in range(14):
+    for j in range(7): _bm.faces.new((_g[i][j], _g[i + 1][j], _g[i + 1][j + 1], _g[i][j + 1]))
+_sk = [v for v in _bm.verts if v.co.x in (_AX0,) or abs(abs(v.co.y) - _AY) < 1e-6]
+for v in _bm.verts:
+    if abs(v.co.x - _AX0) < 1e-6 or abs(abs(v.co.y) - _AY) < 1e-6: v.co.z = 0.0   # bevelled skirt down to the ground
+_obj(_bm, 'db_apron', CONC, c='Mine', smooth=False)
+for _x in (-1.4, 0.0, 1.4):                                                       # centre back-up line, 3 dashes
+    box('db_paint_dash', (1.0, 0.14, 0.02), (_x, 0.0, _AZ + 0.01), HAZ, bevel=0.0)
+for _sy in (-1, 1):                                                               # tyre guide lines
+    box('db_paint_guide', (5.0, 0.12, 0.02), (0.9, _sy * 1.45, _AZ + 0.01), HAZ, bevel=0.0)
+box('db_paint_stopbar', (0.22, 3.1, 0.02), (3.4, 0.0, _AZ + 0.01), HAZ, bevel=0.0)
+for _sy in (-1, 1):                                                               # chevrons at the bay mouth
+    for _k in range(2): box('db_paint_chev', (0.9, 0.14, 0.02), (-1.75 + _k * 0.0, _sy * (2.2 + _k * 0.3), _AZ + 0.01), HAZ, rot=(0, 0, _sy * 0.5), bevel=0.0)
+for _sy in (-1, 1):                                                               # concrete bin walls on both sides of RB-1 (open toward the truck)
+    box('db_wall', (BX1 - BX0 + 0.1, 0.24, BRIM + 0.35), ((BX0 + BX1) / 2 + 0.2, _sy * (BY + 0.32), (BRIM + 0.35) / 2), CONC, bevel=0.03)
+    box('db_wall_cap', (BX1 - BX0 + 0.12, 0.3, 0.06), ((BX0 + BX1) / 2 + 0.2, _sy * (BY + 0.32), BRIM + 0.38), HAZ, bevel=0.01)
+with grp('Dump_Dust'):                                                            # dump_dust clip (exporter): 1.5 s puff at the bin's -X rim
+    for _k, (_x, _y, _z, _r) in enumerate(((4.0, -1.6, 1.9, 0.8), (4.6, -1.0, 2.9, 0.9), (4.3, 0.6, 2.6, 0.85), (5.0, -0.2, 3.6, 0.75), (3.8, -2.1, 1.4, 0.6), (4.8, 1.3, 1.9, 0.7))):
+        sphere(f'dust_puff{_k}', _r, (_x, _y, _z), DUSTM, scale=(1.0, 1.0, 0.8), sub=2).hide_render = True   # clip-only (game rest = hidden); master renders skip it
+GAME['pivots']['Dump_Dust'] = (4.1, 0.0, 1.45)
+print('DUMP BAY apron/paint/walls/dust built', flush=True)
 # ---- RD-1 station haul road (Jacob 10/23: the Refinery is its own stop, one swipe right of the Mine, 160 m east of it).
 # Station frame (= these final coords, Blender Z up): origin = Truck_Dump, camera on -Y looking +Y (glTF: camera on +Z looking -Z),
 # screen right = +X. The road comes in from the Mine off the LEFT edge on the inbound lane (y = -9, camera side), turns a r 4.5 m
@@ -1153,7 +1163,7 @@ def _srgb_(h): h = h.lstrip('#'); return Vector([int(h[i:i + 2], 16) / 255 for i
 def _sm_(t): t = min(max(t, 0.0), 1.0); return t * t * (3 - 2 * t)
 RD_XL = float(A.get('roadx', -46.0))      # road ends at x -46 (= Truck_Path_01 / Truck_Exit), where the 11th 8 m strip tile ends (Mine x 26 + 88 = 114 = 160 - 46)
 RD_MK = -46.0                             # Truck_Path_01 / Truck_Exit (unchanged; the road now ends here)
-RD_YIN, RD_R, RD_XT = -9.0, 4.5, -4.0     # inbound lane y, U-turn radius, U-turn centre x (centre y = RD_YIN / 2)
+RD_YIN, RD_R, RD_XT = -9.0, 4.5, -3.5     # inbound lane y, U-turn radius, U-turn centre x (centre y = RD_YIN / 2)
 RD_X1 = 3.55                              # dump stub end: rear tyres at the RB-1 wheel stop
 def _dense(pts, step):
     out = [pts[0]]
@@ -1211,6 +1221,15 @@ for f in bm.faces:
     if f.normal.z < 0: f.normal_flip()
 RD = _obj(bm, 'rd_haul_road', ROADM, c='Mine', smooth=True, angle=180); RD['roadcol'] = 1; RD['grp'] = 'Base'
 RD.data.color_attributes.active_color = RD.data.color_attributes['RoadCol']
+# 10/23 20:50 (Director): the flatbed road (art/3d/props/flatbed_road, world x 307..481, lanes glTF z 13 / 22, crane median z 15.3..18.7)
+# needs the Refinery flat beyond glTF z 11: nothing above y 0.02 within z 11.0..24.0. The inbound berm reached z 11.4 at 0.28 m.
+# Every RD-1 vertex past Blender y -10.99 is pulled back onto y = -10.99 and down to <= 0.02; berm verts from -10.6 ease down to it.
+_ft = 0; _mi = RD.matrix_world.inverted()
+for v in RD.data.vertices:
+    w = RD.matrix_world @ v.co
+    if w.y < -10.99: w.y = -10.99; w.z = min(w.z, 0.02); v.co = _mi @ w; _ft += 1
+    elif w.y < -10.6 and w.z > 0.02: w.z = 0.02 + (w.z - 0.02) * (w.y + 10.99) / 0.39; v.co = _mi @ w
+RD.data.update(); print('FLATBED_TRIM', _ft, 'road verts pulled to glTF z <= 10.99, y <= 0.02', flush=True)
 print('RD-1 station road', len(RD.data.polygons), 'faces, x', RD_XL, '..', RD_X1, 'obstacle pts', len(_obs), flush=True)
 # render ground: cut it 3 cm under the road wherever it bulges through (M_ground itself untouched)
 from mathutils.bvhtree import BVHTree
@@ -1235,7 +1254,7 @@ for k in range(5):
     p = -math.pi / 2 + math.pi * k / 4
     _TP.append(((RD_XT + RD_R * math.cos(p), _RCY + RD_R * math.sin(p)), math.degrees(p) + 90.0, None))
 _TP[2] = (_TP[2][0], _TP[2][1], 'U-turn start (r %.1f m, turning left in front of the intake)' % RD_R)
-_TP[6] = (_TP[6][0], _TP[6][1], 'U-turn end: stop heading -X, then reverse 4.0 m straight along +X to Truck_Dump')
+_TP[6] = (_TP[6][0], _TP[6][1], 'U-turn end: stop heading -X, then reverse 3.5 m straight along +X to Truck_Dump')
 for i, ((x_, y_), yw, nt) in enumerate(_TP):
     nm_ = 'Truck_Path_%02d' % (i + 1); GAME['markers'][nm_] = (round(x_, 3), round(y_, 3), 0.0)
     GAME['marker_extras'][nm_] = {'kind': 'truck_pose', 'order': i + 1, 'mode': 'forward', 'yaw_deg': round(yw, 1)}
@@ -1243,18 +1262,51 @@ for i, ((x_, y_), yw, nt) in enumerate(_TP):
 GAME['marker_extras']['Truck_Path_07']['mode'] = 'stop_then_reverse'
 GAME['markers']['Truck_Dump'] = (0.0, 0.0, 0.0)
 GAME['marker_extras']['Truck_Dump'] = {'kind': 'truck_pose', 'mode': 'reverse_in', 'yaw_deg': 180.0, 'reverse_from': 'Truck_Path_07',
-    'reverse_m': 4.0, 'reverse_s': 1.5, 'clip': 'truck_dump', 'exit_to': 'Truck_Exit',
+    'reverse_m': 3.5, 'reverse_s': 2.04, 'clip': 'truck_dump', 'exit_to': 'Truck_Exit',
     'note': 'HT-04 centre while tipping (cab -X, rear +X): rear tyres on the RB-1 wheel stop, tail lip over the bin rim (lip z 1.63, rim top z 1.57); then drive forward -X along the outbound lane to Truck_Exit'}
 GAME['markers']['Truck_Exit'] = (RD_MK, 0.0, 0.0)
 GAME['marker_extras']['Truck_Exit'] = {'kind': 'truck_pose', 'order': 9, 'mode': 'forward', 'yaw_deg': 180.0,
     'note': 'outbound lane leaves the left edge of the frame back toward the Mine (160 m west)'}
+# ---- s_m / next_leg / eased leg times on every truck marker (Mine haul_times model: 8.33 m/s straights, 4 m/s turns, acc 3 / brake 4, reverse <= 3)
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'mine', '_src')))
+import haul_times as HT
+_seq = ['Truck_Path_%02d' % (i + 1) for i in range(7)]
+_P = {n: Vector(GAME['markers'][n][:2]) for n in _seq + ['Truck_Dump', 'Truck_Exit']}
+_ARCQ = RD_R * math.pi / 4
+_FW = []
+for a_, b_ in zip(_seq, _seq[1:]):
+    turn = a_ >= 'Truck_Path_03'
+    _FW.append((a_ + ' -> ' + b_, _ARCQ if turn else (_P[b_] - _P[a_]).length, HT.V_TURN if turn else HT.V_STRAIGHT, 'arc r %.1f' % RD_R if turn else 'straight'))
+_tin, _lin = HT.trip([(n, L, v) for n, L, v, _ in _FW], v0=HT.V_STRAIGHT, v1=0.0)
+_REV = (_P['Truck_Dump'] - _P['Truck_Path_07']).length
+_trv, _lrv = HT.trip([('Truck_Path_07 -> Truck_Dump (reverse)', _REV, HT.V_REV)])
+_TIP = 3.0
+_EXL = (_P['Truck_Exit'] - _P['Truck_Dump']).length
+_tex, _lex = HT.trip([('Truck_Dump -> Truck_Exit', _EXL, HT.V_STRAIGHT)], v0=0.0, v1=HT.V_STRAIGHT)
+_s = 0.0; _legs_t = {n: t for n, t, _, _ in _lin + _lrv + _lex}
+for (n_, L, v, kind), nxt in zip(_FW, _seq[1:]):
+    a_ = n_.split(' -> ')[0]; GAME['marker_extras'][a_]['s_m'] = round(_s, 3)
+    GAME['marker_extras'][a_]['next_leg'] = json.dumps({'to': nxt, 'type': kind, 'length_m': round(L, 3), 'v_max': round(v, 2), 'dir': 'forward', 't_s': round(_legs_t[n_], 2)})
+    _s += L
+GAME['marker_extras']['Truck_Path_07']['s_m'] = round(_s, 3)
+GAME['marker_extras']['Truck_Path_07']['next_leg'] = json.dumps({'to': 'Truck_Dump', 'type': 'straight', 'length_m': round(_REV, 3), 'v_max': HT.V_REV, 'dir': 'reverse', 't_s': round(_trv, 2)})
+_s += _REV; GAME['marker_extras']['Truck_Dump']['s_m'] = round(_s, 3)
+GAME['marker_extras']['Truck_Dump']['tip_s'] = _TIP
+GAME['marker_extras']['Truck_Dump']['next_leg'] = json.dumps({'to': 'Truck_Exit', 'type': 'straight', 'length_m': round(_EXL, 3), 'v_max': round(HT.V_STRAIGHT, 2), 'dir': 'forward', 'after': 'truck_dump tip 3.0 s (+ dump_dust 1.5 s at the tip)', 't_s': round(_tex, 2)})
+_s += _EXL; GAME['marker_extras']['Truck_Exit']['s_m'] = round(_s, 3)
+GAME['marker_extras']['Truck_Exit']['next_leg'] = json.dumps({'to': 'Mine (Path_Ret_01, 160 m west)', 'type': 'handoff', 'dir': 'forward', 'v_out': round(HT.V_STRAIGHT, 2)})
+_tu = sum(t for n, t, _, _ in _lin if n >= 'Truck_Path_03')
+_TIMES = {'model': HT.__doc__.splitlines()[1].strip(), 'inbound_01_to_07_s': round(_tin, 2), 'uturn_03_to_07_s': round(_tu, 2), 'reverse_s': round(_trv, 2), 'tip_s': _TIP,
+          'exit_s': round(_tex, 2), 'arrive_to_leave_s': round(_tu + _trv + _TIP, 2), 'legs': [(n, round(t, 2)) for n, t, _, _ in _lin + _lrv + _lex]}
+GAME['marker_extras']['Truck_Dump']['reverse_s'] = round(_trv, 2)
+print('REF TIMES', json.dumps(_TIMES), flush=True)
 GAME['markers']['Road_Entry'] = GAME['markers']['Truck_Path_01']
 GAME['marker_extras']['Road_Entry'] = {'kind': 'road', 'note': 'inbound lane at the left edge, glTF z +9 heading +X; lines up with the Mine road that leaves its right edge at Mine z 9 (Mine is 160 m west); = Truck_Path_01'}
 GAME['markers']['Road_Exit'] = GAME['markers']['Truck_Exit']
 GAME['marker_extras']['Road_Exit'] = {'kind': 'road', 'note': 'outbound lane leaves the left end of the station road (to the Mine); = Truck_Exit'}
 GAME['extras']['root'] = {'origin': 'Truck_Dump (HT-04 centre while tipping into RB-1), on the ground', 'truck_heading_at_dump': '-X (cab toward -X, rear into the bin at +X)',
-                          'approach': 'inbound lane from the left edge (glTF z +9), U-turn, stop at Truck_Path_07, reverse 4 m into RB-1; out on the z 0 lane off the left edge',
-                          'station': 'own stop: Mine, Refinery, Dock (160 m apart); place at the station slot with no rotation'}
+                          'approach': 'inbound lane from the left edge (glTF z +9), U-turn, stop at Truck_Path_07, reverse 3.5 m into RB-1; out on the z 0 lane off the left edge',
+                          'station': 'own stop: Mine, Refinery, Dock (160 m apart); place at the station slot with no rotation', 'truck_times': json.dumps(_TIMES)}
 if False:   # (old) short stretch of haul road for refinery-only renders; superseded by RD-1
     bm = bmesh.new(); rows = []
     for k in range(15):
@@ -1279,9 +1331,11 @@ for nm_, e_, s_ in (('GlowKiln', RH((17.2, HY - 2.4, 2.6)), 60), ('GlowRX', RF((
 ld = bpy.data.lights.new('GlowRack', 'POINT'); ld.energy = 300; ld.color = hexc('#3ab0ff')[:3]; ld.shadow_soft_size = 0.8
 lo = bpy.data.objects.new('GlowRack', ld); coll('Stage').objects.link(lo); lo.location = F(RH((32.0, -11.6, 1.6)))
 # station camera (game): Cam_Target + frame_w. Look-at point only; the game camera looks down glTF -Z, 18 deg down, 38 deg vFOV,
-# d = (W/2)/(tan 19 deg * aspect). Solved so the RB-1 bin + tipping HT-04 sit mid-band (y ~405 on 393x852); see README.
-CAM_TARGET = tuple(float(v) for v in A.get('ct', '-5.9,-3.36,8.5').split(','))
-FRAME_W = float(A.get('fw', 30.8))
+# d = (W/2)/(tan 19 deg * aspect). 10/23 20:58 (Coder, iPhone insets): EVERYTHING with every tier on (station x -16..40 m, dump bay,
+# HT-04 envelopes at the dump (bed up) and along the U-turn) must sit in y 165-534 on 393x852 AND y 144-383 on 375x667, 0 px side margin.
+# Solved by /tmp/ref/fit.mjs-style search (smallest frame_w, then pan along the camera's up axis): see README.
+CAM_TARGET = tuple(float(v) for v in A.get('ct', '-6.90,-5.45,2.08').split(','))
+FRAME_W = float(A.get('fw', 34.4))
 GAME['cam_target'] = {'pos': CAM_TARGET, 'frame_w': FRAME_W}
 _ct = bpy.data.objects.new('Review_Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
 _ct.location = CAM_TARGET; coll('Stage').objects.link(_ct); _ct['frame_w'] = FRAME_W
