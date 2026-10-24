@@ -1,7 +1,8 @@
 // Game-camera occlusion check (Refinery station camera = QA3D fitSite: Cam_Target + frame_w, 38 deg vFOV, 18 deg down, at 393x852 and 375x667).
-// Loads the current Refinery GLB (+320, tiers hidden), the crane at world (CRANE_X, 0, 17.5), FB-05 at (318, 0, 13), 6 pallet boxes and the receiver,
+// Loads the current Refinery GLB (+320, tiers hidden), the crane at world (CRANE_X, 0, 17.5), FB-05 at (318, 0, 13), 6 pallet boxes and the receiver (316.5, 0, 17.1),
 // poses the crane by the solve onto Bed_Slot_01 / Bed_Slot_02 (slot 01 already loaded for slot 02), bakes all meshes (skinned too) into one BVH and
 // raycasts 3x3 per pixel over the landing box: share of the box hidden, by part; plus share of the FB-05 cab / truck hidden.
+// Also reports the screen bbox of the concrete pad / loaded pallet / FB-05 / landing box against the safe band (393x852: y 165-534, 375x667: y 144-383).
 // usage: node gamecam_occlusion.mjs CRANE.glb CRANE_X   (needs 'three' r186 + 'three-mesh-bvh' resolvable, e.g. a dir with node_modules/three -> gltftools three, npm i three-mesh-bvh)
 import fs from 'fs';
 const NM = '/home/box/apps/gltftools/node_modules';
@@ -20,7 +21,7 @@ let ct = null; ref.traverse(n => { if (n.name === 'Cam_Target') ct = n; if (/^Ti
 tag(ref, 'refinery'); scene.add(ref);
 const crane = (await load(CRANE)).scene; crane.position.set(CX, 0, CZ); tag(crane, 'crane'); scene.add(crane);
 const fb = (await load(R + 'props/fb05/fb05_game.glb')).scene; fb.position.set(318, 0, 13); tag(fb, 'fb05'); scene.add(fb);
-const rx = (await load(R + 'crew/receiver/receiver_game.glb')).scene; rx.position.set(312, 0, 17.1); rx.rotation.y = Math.PI; tag(rx, 'receiver'); scene.add(rx);
+const rx = (await load(R + 'crew/receiver/receiver_game.glb')).scene; rx.position.set(316.5, 0, 17.1); rx.rotation.y = Math.PI; tag(rx, 'receiver'); scene.add(rx);
 const boxG = await load(R + 'props/cargo_box/cargo_box_game.glb');
 scene.updateMatrixWorld(true);
 const W_ = n => { const o = scene.getObjectByName(n); return o.getWorldPosition(new THREE.Vector3()); };
@@ -41,6 +42,14 @@ for (const [Wd, Hd] of [[393, 852], [375, 667]]) {
   const T = ct.getWorldPosition(new THREE.Vector3()), fw = ct.userData.frame_w;
   const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(19)) * asp), el = THREE.MathUtils.degToRad(18);
   cam.position.set(T.x, T.y + d * Math.sin(el), T.z + d * Math.cos(el)); cam.lookAt(T); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+  const BAND = Wd === 393 ? [165, 534] : [144, 383];
+  const sbox = pts => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const p of pts) { const v = p.clone().project(cam); const px = (v.x + 1) / 2 * Wd, py = (1 - v.y) / 2 * Hd; x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); }
+    const r = [x0, y0, x1, y1].map(v => +v.toFixed(0)); return { px_bbox: r, in_band: y0 >= BAND[0] && y1 <= BAND[1], over_band_bottom_px: Math.max(0, +(y1 - BAND[1]).toFixed(0)) }; };
+  const corners = (b) => { const o = []; for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) o.push(new THREE.Vector3(x, y, z)); return o; };
+  const pad = e.concrete_pad ? corners(new THREE.Box3(new THREE.Vector3(...e.concrete_pad.min), new THREE.Vector3(...e.concrete_pad.max))).map(v => crane.localToWorld(v)) : [];
+  const palB = new THREE.Box3(); for (const b of pal) palB.expandByObject(b);
+  out[`${Wd}x${Hd} band`] = { band_y: BAND, concrete_pad: pad.length ? sbox(pad) : null, pallet_boxes: sbox(corners(palB)), fb05: sbox(corners(new THREE.Box3().setFromObject(fb))),
+    landing_box_slot01: sbox(corners(new THREE.Box3(s1.clone().add(new THREE.Vector3(-1.2, 0, -0.7)), s1.clone().add(new THREE.Vector3(1.2, 1.5, 0.7))))) };
   for (const slot of [1, 2]) {
     const P = slot === 1 ? s1 : s2;
     const extra = slot === 2 ? [addBox(s1, 'bed_box_01')] : [];

@@ -2,7 +2,7 @@
 One skinned mesh (SHM_Paint + SHM_GlowCyan = 2 draws). Code-driven joints: Slew (yaw about +Y), Trolley (translate local +X),
 Hoist (cable: scale.y = cable length in m), Hook (translate local y = -(cable + HOOK_DROP)). The shipped GLB has NO clips (Coder drives the joints);
 --proofclip bakes crane_load (6 s) into a proof-only file for the renders.
-Includes the 8-box HELIUM-3 pallet (static, on Crane_Base) with Pallet_Slot_01..08.
+Includes the 8-box HELIUM-3 pallet on a 0.12 m concrete pad (both static, on Crane_Base) with Pallet_Slot_01..08.
 blender -b -P build_crane_refinery.py -- OUT_RAW.glb [--proofclip]
 Blender coords: Z up, jib rest direction +X. glTF = (x, z, -y)."""
 import bpy, sys, os, math
@@ -124,18 +124,36 @@ for sx in (-1, 1):
     for sy in (-1, 1): m.box((0.16, 0.16, 0.08), (sx * 1.0, sy * 0.52, 0.02), lin('#ffb020'), bone=H)   # twistlock pads
 # ---- 8-box pallet (static, Crane_Base), east of the pedestal in the median: 2 x 2 footprint, stacked 2 high
 PS = -1                                    # pallet side: -1 = west of the mast (crane-local -X), so the mast and pallet stay clear of FB-05 in the game camera
-PAL_X = (PS * 4.8, PS * 7.3); PAL_Z = (-0.725, 0.725); PAL_TOP = 0.15; BOX_H_ = 1.5        # glTF slot centres, deck top
+PAD_H = 0.12                               # concrete pad under the pallet (static, Crane_Base, SHM_Paint: no extra draw)
+PAL_X = (PS * 4.8, PS * 7.3); PAL_Z = (-0.725, 0.725); PAL_TOP = PAD_H + 0.15; BOX_H_ = 1.5        # glTF slot centres, deck top (pallet sits on the pad)
 PCX, PL, PW = PS * 6.05, 5.4, 3.2
-for yb in (-1.1, 0.0, 1.1): m.box((PL, 0.32, 0.09), (PCX, yb, 0.045), GRAPH)                  # skids
-m.box((PL, PW, 0.06), (PCX, 0, 0.12), lin('#8d9096'))                                           # deck plate
-for xb in (PS * 3.6, PS * 6.05, PS * 8.5): m.box((0.1, PW + 0.02, 0.02), (xb, 0, 0.155), STEEL)             # deck straps
-m.box((PL - 0.4, 0.02, 0.04), (PCX, -PW / 2 - 0.005, 0.10), P['cyan'], mat=1)                  # cyan edge strip (camera side, glTF +z)
-for k in range(8): m.box((0.28, 0.02, 0.05), (PS * (3.6 + k * 0.66), PW / 2 + 0.005, 0.10), lin('#ffb020'))   # amber hazard dashes (back edge)
+# ---- concrete pad: 6.15 x 3.36 m slab, 0.12 m high, 0.04 m bevel, edge wear as per-face vertex colour (lighter chipped arrises, darker scuffs)
+PX0, PX1, PY, BV = PS * 9.15, PS * 3.0, 1.68, 0.04          # x extents (crane-local, world 301.85..308.0 with the root at 311), half width (median is +-1.7), bevel
+PXA, PXB = min(PX0, PX1), max(PX0, PX1)
+CON, CON_TOP, CON_SIDE = lin('#a3a5a4'), lin('#aeb0ae'), lin('#8c8e8c')
+WEAR_LO, WEAR_HI = lin('#c2c1ba'), lin('#7b7c78')
+def pad_ring(x0, x1, y0, y1, z): return [(x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z)]
+o = pad_ring(PXA, PXB, -PY, PY, 0.0); oh = pad_ring(PXA, PXB, -PY, PY, PAD_H - BV); it = pad_ring(PXA + BV, PXB - BV, -PY + BV, PY - BV, PAD_H)
+m.quad(it, CON_TOP)                                                                             # top
+for i in range(4):
+    j = (i + 1) % 4
+    m.quad([o[i], o[j], oh[j], oh[i]], CON_SIDE)                                                # vertical sides
+    a0, a1, b0, b1 = Vector(oh[i]), Vector(oh[j]), Vector(it[i]), Vector(it[j])
+    nseg = 4 if i in (0, 2) else 1                                                              # long sides split for wear variation
+    wear = [CON, WEAR_LO, CON, WEAR_HI] if i == 0 else [WEAR_HI, CON, WEAR_LO, CON] if i == 2 else [WEAR_LO if i == 1 else CON]
+    for k in range(nseg):
+        t0, t1 = k / nseg, (k + 1) / nseg
+        m.quad([a0.lerp(a1, t0), a0.lerp(a1, t1), b0.lerp(b1, t1), b0.lerp(b1, t0)], wear[k])  # bevel
+for yb in (-1.1, 0.0, 1.1): m.box((PL, 0.32, 0.09), (PCX, yb, PAD_H + 0.045), GRAPH)                  # skids
+m.box((PL, PW, 0.06), (PCX, 0, PAD_H + 0.12), lin('#8d9096'))                                           # deck plate
+for xb in (PS * 3.6, PS * 6.05, PS * 8.5): m.box((0.1, PW + 0.02, 0.02), (xb, 0, PAD_H + 0.155), STEEL)             # deck straps
+m.box((PL - 0.4, 0.02, 0.04), (PCX, -PW / 2 - 0.005, PAD_H + 0.10), P['cyan'], mat=1)                  # cyan edge strip (camera side, glTF +z)
+for k in range(8): m.box((0.28, 0.02, 0.05), (PS * (3.6 + k * 0.66), PW / 2 + 0.005, PAD_H + 0.10), lin('#ffb020'))   # amber hazard dashes (back edge)
 for sx in (PS * 3.45, PS * 8.65):
     for sy in (-1.5, 1.5):                                                                      # corner stacking guides (L posts)
-        m.box((0.14, 0.05, 0.62), (sx, sy + (0.045 if sy > 0 else -0.045), 0.46), WHITE)
-        m.box((0.05, 0.14, 0.62), (sx + (0.045 if abs(sx) > 6 else -0.045) * PS, sy, 0.46), WHITE)
-        m.box((0.16, 0.16, 0.03), (sx, sy, 0.78), lin('#ffb020'))
+        m.box((0.14, 0.05, 0.62), (sx, sy + (0.045 if sy > 0 else -0.045), PAD_H + 0.46), WHITE)
+        m.box((0.05, 0.14, 0.62), (sx + (0.045 if abs(sx) > 6 else -0.045) * PS, sy, PAD_H + 0.46), WHITE)
+        m.box((0.16, 0.16, 0.03), (sx, sy, PAD_H + 0.78), lin('#ffb020'))
 m.weather(seed=11, z0=0.0, z1=3.0, amt=0.45, noise=0.06)
 print('CRANE TRIS', m.tris())
 
@@ -182,7 +200,7 @@ empty('Pick_Point', g2b(*PICK), parent=arm, extras={'kind': 'crane_target', 'box
       'note': 'over the pallet = Pallet_Slot_01; box Base sits here; hook target = slot + (0, box hook_offset_y 1.5, 0). Any Pallet_Slot_NN works the same way'})
 for i, ps in enumerate(PSLOTS):
     empty('Pallet_Slot_%02d' % (i + 1), g2b(*ps), parent=arm, extras={'kind': 'pallet_slot', 'box_base': True, 'level': i // 4,
-          'note': '01-04 bottom layer (y 0.15), 05-08 top layer (y 1.65, sits on 01-04); fill 01..08, pick 08..01; box yaw 0 (long axis +X)'})
+          'note': '01-04 bottom layer (y 0.27, pallet deck on the 0.12 m concrete pad), 05-08 top layer (y 1.77, sits on 01-04); fill 01..08, pick 08..01; box yaw 0 (long axis +X)'})
 empty('Drop_Point', g2b(*SLOTS[0]), parent=arm, extras={'kind': 'crane_target', 'box_base': True, 'slot': 'Bed_Slot_01',
       'note': 'FB-05 Bed_Slot_01 when the truck is parked at Truck_Park (box Base lands here); Drop_Point_02 = Bed_Slot_02'})
 empty('Drop_Point_02', g2b(*SLOTS[1]), parent=arm, extras={'kind': 'crane_target', 'box_base': True, 'slot': 'Bed_Slot_02'})
@@ -193,6 +211,7 @@ LIM = {'slew_min_rad': -math.pi, 'slew_max_rad': math.pi, 'trolley_min_m': TR_MI
 arm['prop'] = 'RC-1 Refinery loading crane (slewing jib crane on a pedestal)'
 arm['origin'] = 'ground centre of the pedestal, +Y up; jib points +X at Slew = 0'
 arm['world_position'] = list(CRANE_WORLD); arm['world_yaw_deg'] = 0
+arm['concrete_pad'] = {'min': [PXA, 0.0, -PY], 'max': [PXB, PAD_H, PY], 'note': 'static concrete pad under the pallet (crane-local glTF bbox, 0.04 m bevel); pallet deck sits on it, Pallet_Slot_* raised by PAD_H'}
 arm['layout_note'] = ('place the root at world (311, 0, 17.5), yaw 0 (median of the flatbed road, lanes z 13 / z 22). FB-05 parks at world (318, 0, 13) = Truck_Park. '
                       'Pallet west of the mast (world x 302.25-307.65). Chosen so the Refinery game camera sees both bed slots and the cab clear of the mast')
 arm.update(LIM) if hasattr(arm, 'update') else None
