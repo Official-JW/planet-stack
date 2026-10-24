@@ -1,0 +1,115 @@
+{
+ "what": "Refinery + CV-3 bridge v5.2 footprint (Refinery-local XZ, m) and the camera proposal that frames it",
+ "inputs": {
+  "refinery_game.glb": "93c44166ecc39031966a9be130dfc093",
+  "refinery_bridge.glb": "bc081489321bdd126903488b25c1765d (root Refinery_Bridge at local (12.28, 0, 12.25))",
+  "crane_refinery_game.glb": "755815ec (world (311, 0, 17.5), rest pose; separate object in game)"
+ },
+ "method": "three.js GLTFLoader+Meshopt, node transforms + skinning (getVertexPosition) applied; Refinery loops 12 samples each, bridge box_convey (44 s) and box_path (33.9 s) every 0.1 s incl. carriage, turntable, boxes; Base_Paint verts outside old box [-20.4,14.5,-33.5,3.6] skipped; HaulRoad_Seg*/Road_UTurn are not in these GLBs",
+ "footprint_box": [
+  -20.226,
+  18.249,
+  -33.215,
+  19.181
+ ],
+ "footprint_box_game_default_tiers": [
+  -20.0,
+  18.249,
+  -33.215,
+  19.181
+ ],
+ "edges": {
+  "xmin": "Tier_03 (hidden by default) at x -20.23; with tiers hidden: Base_Paint at -20.00",
+  "xmax": "bridge south tower footing, x 18.25 (z 6.38)",
+  "zmin": "Base_Paint (inside old box) z -33.22",
+  "zmax": "bridge lift base, z 19.18 (x 7.86)"
+ },
+ "parts": {
+  "refinery_counted": [
+   -20.226,
+   14.012,
+   -33.215,
+   3.724
+  ],
+  "bridge_all_clips": [
+   -1.925,
+   18.249,
+   4.313,
+   19.181
+  ]
+ },
+ "camera_current": {
+  "cam_target_world": [
+   313.1,
+   2.08,
+   13.55
+  ],
+  "frame_w": 37.5,
+  "right_spare_px": {
+   "393x852": -55.6,
+   "375x667": -51.3
+  }
+ },
+ "camera_proposed": {
+  "cam_target_local": [
+   -1.1,
+   2.08,
+   13.55
+  ],
+  "cam_target_world": [
+   318.9,
+   2.08,
+   13.55
+  ],
+  "frame_w": 38.25,
+  "change": "x +5.8 m, frame_w +0.75 (+2%); y, z, FOV, pitch unchanged",
+  "spare_px_own_projection": {
+   "393x852": {
+    "top": 67.2,
+    "bottom": 68.2,
+    "left": 7.1,
+    "right": 6.9
+   },
+   "375x667": {
+    "top": 12.8,
+    "bottom": 11.2,
+    "left": 7.8,
+    "right": 7.8
+   }
+  },
+  "spare_px_playtester_framing_module": {
+   "393x852": {
+    "top": 67.2,
+    "bottom": 68.4,
+    "left": 7.1,
+    "right": 6.9
+   },
+   "375x667": {
+    "top": 12.8,
+    "bottom": 11.3,
+    "left": 7.8,
+    "right": 7.8
+   },
+   "result": "framing:pass at both sizes, footprint insideOffFrame 0 / underSpare 0, 116/131 samples over 44 s",
+   "build": "local copy of qa3d-next 982c3e3 (06:18) + bridge bc081489 under the Refinery root playing box_convey + roller_spin, CAM_OVERRIDE 93c44166 ct x -1.1 frame_w 38.25, FR_MAX_SEC=45"
+  }
+ },
+ "occlusion": {
+  "by_refinery_geometry": "0 % at both sizes for every box sample (box_path and box_convey, all 0.1 s steps): all Refinery geometry is at z <= 3.72, behind the bridge (z >= 4.31)",
+  "by_crane_rest": "0 %",
+  "by_bridge_itself_box_path_Box_1": {
+   "rise 0-9.06 s (inside the tower, by design)": {
+    "393": "90.5 %, fully hidden 0-5.9 s",
+    "375": "91.1 %, fully hidden 0-6.0 s"
+   },
+   "span 9.06-18.31 s": {
+    "393": "34.8 % (max 62 %)",
+    "375": "34.8 % (max 63 %)"
+   },
+   "lowerator 18.31-25.99 s": {
+    "393": "8.7 % (max 21 %)",
+    "375": "11.5 % (max 24 %)"
+   }
+  }
+ }
+}
