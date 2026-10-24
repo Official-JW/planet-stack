@@ -30,22 +30,22 @@
    "mount": 23.09,
    "climb_start": 23.99,
    "climb_top": 41.33,
-   "on_deck": 46.33,
+   "on_deck": 44.33,
    "inside_hatch": 47.79,
    "mantle": {
     "side": "+t",
     "lead_foot": "Foot_R",
     "mantle_start_climb_top": 41.33,
-    "hands_released": 46.33,
+    "hands_released": 44.33,
     "walk_in_end_inside_hatch": 47.79,
     "deck_foot_plants": [
      {
       "foot": "Foot_R",
-      "land_t": 45.08,
+      "land_t": 44.16,
       "sole_center_utz": [
        4.52,
        0.8,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
@@ -54,21 +54,21 @@
         4.613
        ],
        "t": [
-        0.733,
+        0.732,
         0.863
        ],
-       "z_min": 21.878,
+       "z_min": 21.88,
        "where": "wing",
-       "detected_s": 44.57
+       "detected_s": 43.33
       }
      },
      {
       "foot": "Foot_L",
-      "land_t": 46.41,
+      "land_t": 44.72,
       "sole_center_utz": [
        4.74,
        0.92,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
@@ -77,49 +77,64 @@
         4.833
        ],
        "t": [
-        0.853,
-        0.983
+        0.854,
+        0.984
        ],
-       "z_min": 21.88,
+       "z_min": 21.879,
        "where": "wing",
-       "detected_s": 45.57
+       "detected_s": 43.83
       }
      }
     ],
     "walk_in_plants_measured": [
      {
       "foot": "Foot_L",
-      "land_s": 47.27,
+      "land_s": 46.03,
       "u": [
        3.712,
        4.021
       ],
       "t": [
-       0.233,
-       0.363
+       0.234,
+       0.364
       ],
-      "z": 21.855,
+      "z": 21.851,
       "where": "wing",
-      "min_abs_t": 0.233
+      "min_abs_t": 0.234
      },
      {
       "foot": "Foot_R",
-      "land_s": 47.7,
+      "land_s": 46.6,
       "u": [
-       3.442,
-       3.751
+       3.441,
+       3.75
       ],
       "t": [
-       -0.007,
-       0.124
+       -0.008,
+       0.123
       ],
-      "z": 21.855,
+      "z": 21.852,
       "where": "inside_hatch",
-      "min_abs_t": 0.004
+      "min_abs_t": 0.003
+     },
+     {
+      "foot": "Foot_L",
+      "land_s": 46.77,
+      "u": [
+       3.183,
+       3.492
+      ],
+      "t": [
+       -0.106,
+       0.024
+      ],
+      "z": 21.85,
+      "where": "inside_hatch",
+      "min_abs_t": 0.005
      }
     ],
     "through_hole_start": 41.33,
-    "through_hole_end_both_boots_on_wing": 46.41,
+    "through_hole_end_both_boots_on_wing": 44.72,
     "step_off_side": "+t"
    },
    "rung_moves": {
@@ -210,23 +225,23 @@
       34
      ],
      [
-      41.63,
-      42.03,
+      41.51,
+      41.75,
       "rail_z_21.30"
      ],
      [
-      42.43,
-      42.78,
+      41.99,
+      42.2,
       "rail_z_21.65"
      ],
      [
-      43.13,
-      43.48,
+      42.41,
+      42.62,
       "rail_z_21.79"
      ],
      [
-      44.48,
-      44.88,
+      43.22,
+      43.46,
       "release"
      ]
     ],
@@ -410,22 +425,22 @@
      ],
      [
       41.33,
-      41.73,
+      41.57,
       "rail_z_21.30"
      ],
      [
-      42.08,
-      42.43,
+      41.78,
+      41.99,
       "rail_z_21.55"
      ],
      [
-      42.78,
-      43.13,
+      42.2,
+      42.41,
       "rail_z_21.79"
      ],
      [
-      44.63,
-      45.03,
+      43.31,
+      43.55,
       "release"
      ]
     ],
@@ -531,45 +546,45 @@
    "mount": 26.49,
    "climb_start": 27.39,
    "climb_top": 44.73,
-   "on_deck": 49.73,
+   "on_deck": 47.73,
    "inside_hatch": 51.19,
    "mantle": {
     "side": "-t",
     "lead_foot": "Foot_L",
     "mantle_start_climb_top": 44.73,
-    "hands_released": 49.73,
+    "hands_released": 47.73,
     "walk_in_end_inside_hatch": 51.19,
     "deck_foot_plants": [
      {
       "foot": "Foot_L",
-      "land_t": 48.48,
+      "land_t": 47.56,
       "sole_center_utz": [
        4.52,
        -0.8,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
        "u": [
         4.302,
-        4.61
+        4.611
        ],
        "t": [
-        -0.867,
+        -0.866,
         -0.736
        ],
        "z_min": 21.88,
        "where": "wing",
-       "detected_s": 47.9
+       "detected_s": 46.63
       }
      },
      {
       "foot": "Foot_R",
-      "land_t": 49.81,
+      "land_t": 48.12,
       "sole_center_utz": [
        4.74,
        -0.92,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
@@ -578,49 +593,64 @@
         4.832
        ],
        "t": [
-        -0.987,
-        -0.857
+        -0.986,
+        -0.856
        ],
-       "z_min": 21.88,
+       "z_min": 21.879,
        "where": "wing",
-       "detected_s": 49.0
+       "detected_s": 47.27
       }
      }
     ],
     "walk_in_plants_measured": [
      {
       "foot": "Foot_R",
-      "land_s": 50.67,
+      "land_s": 49.43,
       "u": [
-       3.711,
-       4.02
+       3.712,
+       4.021
       ],
       "t": [
-       -0.366,
+       -0.367,
        -0.236
       ],
-      "z": 21.856,
+      "z": 21.853,
       "where": "wing",
       "min_abs_t": 0.236
      },
      {
       "foot": "Foot_L",
-      "land_s": 51.1,
+      "land_s": 50.0,
       "u": [
-       3.441,
+       3.442,
        3.75
       ],
       "t": [
-       -0.128,
-       0.003
+       -0.126,
+       0.005
       ],
-      "z": 21.854,
+      "z": 21.851,
       "where": "inside_hatch",
-      "min_abs_t": 0.001
+      "min_abs_t": 0.002
+     },
+     {
+      "foot": "Foot_R",
+      "land_s": 50.17,
+      "u": [
+       3.183,
+       3.492
+      ],
+      "t": [
+       -0.028,
+       0.103
+      ],
+      "z": 21.852,
+      "where": "inside_hatch",
+      "min_abs_t": 0.004
      }
     ],
     "through_hole_start": 44.73,
-    "through_hole_end_both_boots_on_wing": 49.81,
+    "through_hole_end_both_boots_on_wing": 48.12,
     "step_off_side": "-t"
    },
    "rung_moves": {
@@ -711,23 +741,23 @@
       34
      ],
      [
-      45.03,
-      45.43,
+      44.91,
+      45.15,
       "rail_z_21.30"
      ],
      [
-      45.83,
-      46.18,
+      45.39,
+      45.6,
       "rail_z_21.65"
      ],
      [
-      46.53,
-      46.88,
+      45.81,
+      46.02,
       "rail_z_21.79"
      ],
      [
-      48.03,
-      48.43,
+      46.71,
+      46.95,
       "release"
      ]
     ],
@@ -911,22 +941,22 @@
      ],
      [
       44.73,
-      45.13,
+      44.97,
       "rail_z_21.30"
      ],
      [
-      45.48,
-      45.83,
+      45.18,
+      45.39,
       "rail_z_21.55"
      ],
      [
-      46.18,
-      46.53,
+      45.6,
+      45.81,
       "rail_z_21.79"
      ],
      [
-      47.88,
-      48.28,
+      46.62,
+      46.86,
       "release"
      ]
     ],
@@ -1032,22 +1062,22 @@
    "mount": 29.89,
    "climb_start": 30.79,
    "climb_top": 48.13,
-   "on_deck": 53.13,
+   "on_deck": 51.13,
    "inside_hatch": 54.59,
    "mantle": {
     "side": "+t",
     "lead_foot": "Foot_R",
     "mantle_start_climb_top": 48.13,
-    "hands_released": 53.13,
+    "hands_released": 51.13,
     "walk_in_end_inside_hatch": 54.59,
     "deck_foot_plants": [
      {
       "foot": "Foot_R",
-      "land_t": 51.88,
+      "land_t": 50.96,
       "sole_center_utz": [
        4.52,
        0.8,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
@@ -1056,21 +1086,21 @@
         4.613
        ],
        "t": [
-        0.733,
+        0.732,
         0.863
        ],
-       "z_min": 21.878,
+       "z_min": 21.88,
        "where": "wing",
-       "detected_s": 51.37
+       "detected_s": 50.13
       }
      },
      {
       "foot": "Foot_L",
-      "land_t": 53.21,
+      "land_t": 51.52,
       "sole_center_utz": [
        4.74,
        0.92,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
@@ -1079,49 +1109,64 @@
         4.833
        ],
        "t": [
-        0.853,
-        0.983
+        0.854,
+        0.984
        ],
-       "z_min": 21.88,
+       "z_min": 21.879,
        "where": "wing",
-       "detected_s": 52.37
+       "detected_s": 50.63
       }
      }
     ],
     "walk_in_plants_measured": [
      {
       "foot": "Foot_L",
-      "land_s": 54.07,
+      "land_s": 52.83,
       "u": [
        3.712,
        4.021
       ],
       "t": [
-       0.233,
-       0.363
+       0.234,
+       0.364
       ],
-      "z": 21.855,
+      "z": 21.851,
       "where": "wing",
-      "min_abs_t": 0.233
+      "min_abs_t": 0.234
      },
      {
       "foot": "Foot_R",
-      "land_s": 54.5,
+      "land_s": 53.4,
       "u": [
-       3.442,
-       3.751
+       3.441,
+       3.75
       ],
       "t": [
-       -0.007,
-       0.124
+       -0.008,
+       0.123
       ],
-      "z": 21.855,
+      "z": 21.852,
       "where": "inside_hatch",
-      "min_abs_t": 0.004
+      "min_abs_t": 0.003
+     },
+     {
+      "foot": "Foot_L",
+      "land_s": 53.57,
+      "u": [
+       3.183,
+       3.492
+      ],
+      "t": [
+       -0.106,
+       0.024
+      ],
+      "z": 21.85,
+      "where": "inside_hatch",
+      "min_abs_t": 0.005
      }
     ],
     "through_hole_start": 48.13,
-    "through_hole_end_both_boots_on_wing": 53.21,
+    "through_hole_end_both_boots_on_wing": 51.52,
     "step_off_side": "+t"
    },
    "rung_moves": {
@@ -1212,23 +1257,23 @@
       34
      ],
      [
-      48.43,
-      48.83,
+      48.31,
+      48.55,
       "rail_z_21.30"
      ],
      [
-      49.23,
-      49.58,
+      48.79,
+      49.0,
       "rail_z_21.65"
      ],
      [
-      49.93,
-      50.28,
+      49.21,
+      49.42,
       "rail_z_21.79"
      ],
      [
-      51.28,
-      51.68,
+      50.02,
+      50.26,
       "release"
      ]
     ],
@@ -1412,22 +1457,22 @@
      ],
      [
       48.13,
-      48.53,
+      48.37,
       "rail_z_21.30"
      ],
      [
-      48.88,
-      49.23,
+      48.58,
+      48.79,
       "rail_z_21.55"
      ],
      [
-      49.58,
-      49.93,
+      49.0,
+      49.21,
       "rail_z_21.79"
      ],
      [
-      51.43,
-      51.83,
+      50.11,
+      50.35,
       "release"
      ]
     ],
@@ -1533,45 +1578,45 @@
    "mount": 33.29,
    "climb_start": 34.19,
    "climb_top": 51.53,
-   "on_deck": 56.53,
+   "on_deck": 54.53,
    "inside_hatch": 57.99,
    "mantle": {
     "side": "-t",
     "lead_foot": "Foot_L",
     "mantle_start_climb_top": 51.53,
-    "hands_released": 56.53,
+    "hands_released": 54.53,
     "walk_in_end_inside_hatch": 57.99,
     "deck_foot_plants": [
      {
       "foot": "Foot_L",
-      "land_t": 55.28,
+      "land_t": 54.36,
       "sole_center_utz": [
        4.52,
        -0.8,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
        "u": [
         4.302,
-        4.61
+        4.611
        ],
        "t": [
-        -0.867,
+        -0.866,
         -0.736
        ],
        "z_min": 21.88,
        "where": "wing",
-       "detected_s": 54.7
+       "detected_s": 53.43
       }
      },
      {
       "foot": "Foot_R",
-      "land_t": 56.61,
+      "land_t": 54.92,
       "sole_center_utz": [
        4.74,
        -0.92,
-       21.855
+       21.852
       ],
       "phase": "mantle",
       "measured_sole_box": {
@@ -1580,49 +1625,64 @@
         4.832
        ],
        "t": [
-        -0.987,
-        -0.857
+        -0.986,
+        -0.856
        ],
-       "z_min": 21.88,
+       "z_min": 21.879,
        "where": "wing",
-       "detected_s": 55.8
+       "detected_s": 54.07
       }
      }
     ],
     "walk_in_plants_measured": [
      {
       "foot": "Foot_R",
-      "land_s": 57.47,
+      "land_s": 56.23,
       "u": [
-       3.711,
-       4.02
+       3.712,
+       4.021
       ],
       "t": [
-       -0.366,
+       -0.367,
        -0.236
       ],
-      "z": 21.856,
+      "z": 21.853,
       "where": "wing",
       "min_abs_t": 0.236
      },
      {
       "foot": "Foot_L",
-      "land_s": 57.9,
+      "land_s": 56.8,
       "u": [
-       3.441,
+       3.442,
        3.75
       ],
       "t": [
-       -0.127,
-       0.003
+       -0.126,
+       0.005
       ],
-      "z": 21.854,
+      "z": 21.851,
       "where": "inside_hatch",
-      "min_abs_t": 0.001
+      "min_abs_t": 0.002
+     },
+     {
+      "foot": "Foot_R",
+      "land_s": 56.97,
+      "u": [
+       3.183,
+       3.492
+      ],
+      "t": [
+       -0.028,
+       0.103
+      ],
+      "z": 21.852,
+      "where": "inside_hatch",
+      "min_abs_t": 0.004
      }
     ],
     "through_hole_start": 51.53,
-    "through_hole_end_both_boots_on_wing": 56.61,
+    "through_hole_end_both_boots_on_wing": 54.92,
     "step_off_side": "-t"
    },
    "rung_moves": {
@@ -1713,23 +1773,23 @@
       34
      ],
      [
-      51.83,
-      52.23,
+      51.71,
+      51.95,
       "rail_z_21.30"
      ],
      [
-      52.63,
-      52.98,
+      52.19,
+      52.4,
       "rail_z_21.65"
      ],
      [
-      53.33,
-      53.68,
+      52.61,
+      52.82,
       "rail_z_21.79"
      ],
      [
-      54.83,
-      55.23,
+      53.51,
+      53.75,
       "release"
      ]
     ],
@@ -1913,22 +1973,22 @@
      ],
      [
       51.53,
-      51.93,
+      51.77,
       "rail_z_21.30"
      ],
      [
-      52.28,
-      52.63,
+      51.98,
+      52.19,
       "rail_z_21.55"
      ],
      [
-      52.98,
-      53.33,
+      52.4,
+      52.61,
       "rail_z_21.79"
      ],
      [
-      54.68,
-      55.08,
+      53.42,
+      53.66,
       "release"
      ]
     ],
@@ -2023,30 +2083,35 @@
   }
  ],
  "checks": {
-  "ik_max_stretch": 1.0601,
+  "ik_max_stretch": 1.0501,
   "ik_stretch_at": {
    "crew": 3,
-   "t": 54.2,
-   "limb": "legR",
+   "t": 50.1,
+   "limb": "armR",
    "A": [
-    3.67,
-    22.55,
-    -11.2
+    4.14,
+    22.33,
+    -10.9
    ],
    "T": [
-    4.31,
-    21.96,
-    -11.43
+    4.04,
+    21.76,
+    -10.84
    ]
   },
-  "ik_evals_over_1.02": 736,
-  "planted_foot_slide_max_m": 0.01787,
-  "max_joint_step_per_frame_m": 0.795,
-  "min_gap_upper_boots_to_lower_gloves_m": -0.922,
+  "ik_evals_over_1.02": 720,
+  "planted_foot_slide_at": {
+   "crew": 4,
+   "foot": "R",
+   "t": 26.7
+  },
+  "planted_foot_slide_max_m": 0.00335,
+  "max_joint_step_per_frame_m": 0.827,
+  "min_gap_upper_boots_to_lower_gloves_m": -1.714,
   "min_gap_at": [
-   48.33,
-   2,
-   3
+   54.53,
+   3,
+   4
   ]
  },
  "tris_per_crew": 2693,
@@ -2076,7 +2141,7 @@
  },
  "measured": {
   "glb": {
-   "bytes": 249416,
+   "bytes": 252360,
    "draws": 4,
    "tris": 10772,
    "three": "186",
@@ -2096,56 +2161,66 @@
    ]
   },
   "contacts_r186": {
-   "foot_max_err_vs_ref_m": 0.0918,
-   "hand_max_err_vs_ref_m": 0.0825,
-   "planted_foot_slide_max_m": 0.0552,
-   "gripping_hand_slip_max_m": 0.0027
+   "foot_max_err_vs_ref_m": 0.0935,
+   "hand_max_err_vs_ref_m": 0.0752,
+   "planted_foot_slide_max_m": 0.0052,
+   "gripping_hand_slip_max_m": 0.0093,
+   "planted_foot_drift_max_m": 0.0063
   },
   "planted_foot_slide_percentiles_m": {
-   "p50": 0.0013,
-   "p95": 0.0165,
-   "p99": 0.0256,
-   "max": 0.0552,
-   "n_frames": 3631,
-   "over_5mm": 1060
+   "p50": 0.0004,
+   "p95": 0.0034,
+   "p99": 0.0046,
+   "max": 0.0052,
+   "n_frames": 3879,
+   "over_5mm": 4
+  },
+  "planted_foot_drift_from_plant_start_m": {
+   "p95": 0.0033,
+   "max": 0.0063
   },
   "worst_at": {
    "foot_max_err_vs_ref_m": {
-    "t": 28.47,
-    "crew": 3,
+    "t": 32.2,
+    "crew": 4,
     "limb": "Foot_L"
    },
    "hand_max_err_vs_ref_m": {
-    "t": 24.43,
+    "t": 32.37,
     "crew": 4,
     "limb": "Hand_R"
    },
+   "planted_foot_drift_max_m": {
+    "t": 3.87,
+    "crew": 1,
+    "limb": "Foot_R"
+   },
    "planted_foot_slide_max_m": {
-    "t": 12.63,
-    "crew": 4,
-    "limb": "Foot_L"
+    "t": 18.77,
+    "crew": 2,
+    "limb": "Foot_R"
    },
    "gripping_hand_slip_max_m": {
-    "t": 29.87,
-    "crew": 1,
+    "t": 48.53,
+    "crew": 3,
     "limb": "Hand_L"
    }
   },
   "ik_target_reach": {
-   "max_ratio": 1.0601,
+   "max_ratio": 1.0501,
    "at": {
     "crew": 3,
-    "t": 54.2,
-    "limb": "legR",
+    "t": 50.1,
+    "limb": "armR",
     "A": [
-     3.67,
-     22.55,
-     -11.2
+     4.14,
+     22.33,
+     -10.9
     ],
     "T": [
-     4.31,
-     21.96,
-     -11.43
+     4.04,
+     21.76,
+     -10.84
     ]
    },
    "note": "IK target distance / limb length; limbs are rigid (never stretched), >1 = the target is missed by that fraction for a frame"
@@ -2156,50 +2231,127 @@
     22.3,
     58.4996
    ],
-   "min_mesh_gap_m": 0.0,
+   "min_mesh_gap_m": 0.047,
    "min_mesh_gap_at_t_crewA_crewB": [
-    43.3665,
+    25.7,
     1,
     2
    ],
-   "min_boot_to_glove_m": 0.005,
+   "min_boot_to_glove_m": 0.108,
    "min_boot_to_glove_at_t_upper_lower": [
-    47.0998,
-    2,
-    3
+    53.1997,
+    3,
+    4
    ],
-   "frames_under_10cm": 243,
-   "frames_touching_under_2cm": 208
+   "frames_under_10cm": 28,
+   "frames_touching_under_2cm": 0
   },
-  "climber_clearance_note": "v3 REGRESSION: the slow v3 mantle (rail press, slow boot set-downs) keeps each climber at the ladder top ~5 s while the next climber keeps climbing at the 3.4 s / 4.08 m stagger, so the upper climber's boots/shins overlap the next climber's head/forearms at z 20.4-21.9 (crew 1/2 ~43.0-45.3 s, 2/3 ~46.4-48.7 s, 3/4 ~49.8-52.1 s). Not one of the gate categories; see README.",
+  "climber_clearance_note": "v4: fixed. The mantle (climb top -> on deck) is 2.0 s shorter (5.0 -> 3.0 s, warped in time) and the trail boot leaves the shaft column 0.15 s (authored) earlier, so the next climber's head never rises into the upper climber's boots. Gate category 15 (crew_vs_crew) checks every pair, every 1/30 s frame of all three clips, exact triangle-triangle, no exemptions.",
+  "crew_vs_crew_gate": {
+   "result": "PASS",
+   "min_required_m": 0.03,
+   "frames": 1756,
+   "frames_under_min": 0,
+   "pairs": {
+    "Crew_1-Crew_2": {
+     "min_m": 0.047,
+     "frames_under_min": 0,
+     "at_s": 25.7,
+     "parts": [
+      "Foot_R",
+      "Head"
+     ],
+     "where_glTF": [
+      4.189,
+      1.855,
+      -10.735
+     ]
+    },
+    "Crew_1-Crew_3": {
+     "min_m": 0.3712,
+     "frames_under_min": 0,
+     "at_s": 47.733,
+     "parts": [
+      "bbox",
+      "bbox"
+     ]
+    },
+    "Crew_1-Crew_4": {
+     "min_m": 1.5416,
+     "frames_under_min": 0,
+     "at_s": 25.867,
+     "parts": [
+      "bbox",
+      "bbox"
+     ]
+    },
+    "Crew_2-Crew_3": {
+     "min_m": 0.0541,
+     "frames_under_min": 0,
+     "at_s": 29.067,
+     "parts": [
+      "Foot_L",
+      "Head"
+     ],
+     "where_glTF": [
+      4.079,
+      1.858,
+      -10.544
+     ]
+    },
+    "Crew_2-Crew_4": {
+     "min_m": 0.3716,
+     "frames_under_min": 0,
+     "at_s": 50.867,
+     "parts": [
+      "bbox",
+      "bbox"
+     ]
+    },
+    "Crew_3-Crew_4": {
+     "min_m": 0.0667,
+     "frames_under_min": 0,
+     "at_s": 32.5,
+     "parts": [
+      "Foot_R",
+      "Head"
+     ],
+     "where_glTF": [
+      4.189,
+      1.852,
+      -10.735
+     ]
+    }
+   }
+  },
   "climber_spacing_m": 4.08,
-  "landing_vs_pad_7e02552": {
-   "pad_md5": "9e44959341d7f57bf1b3bd21b826b940",
-   "min_m": 0.04,
+  "landing_vs_pad_3d0d489": {
+   "pad_md5": "833a339be22b0db4b8e37eccaa838397",
+   "min_m": 0.044,
    "hits": 0,
    "per_part_min_m": {
     "deck_wing": 0.063,
-    "deck_bridge": 0.1065,
-    "frame_side": 0.0403,
-    "well_frame_climb": 0.0459,
-    "frame_outer": 0.0893,
-    "beam_outer": 0.3431,
-    "beam_side": 0.3596,
-    "lid": 0.1093,
-    "brace": 0.5846,
-    "rail_post": 0.1966,
-    "rail": 0.173,
-    "lid_hinge": 0.1144,
-    "lid_rib": 0.149,
-    "lid_strut": 0.2614,
-    "hull": 0.285,
-    "hatch_edge": 0.0785,
-    "cage_tris": 0.0333,
-    "kerb_deck": 0.0403
+    "deck_bridge": 0.1402,
+    "frame_side": 0.0435,
+    "well_frame_climb": 0.0524,
+    "frame_outer": 0.137,
+    "beam_outer": 0.3536,
+    "beam_side": 0.3573,
+    "lid": 0.1214,
+    "brace": 0.5782,
+    "rail_post": 0.1941,
+    "rail": 0.1705,
+    "lid_hinge": 0.1703,
+    "lid_rib": 0.2376,
+    "lid_strut": 0.3446,
+    "hull": 0.2352,
+    "hatch_edge": 0.0801,
+    "cage_tris": 0.033,
+    "kerb_deck": 0.0435
    },
    "plants_in_well": 0,
    "plants_on_kerb": 0,
-   "climb_min_frame_side_m": 0.046,
+   "climb_min_frame_side_m": 0.052,
    "cage_min_m": 0.033,
    "hatch_edge_note": "hatch_edge = the hatch opening edge (was hatch_jamb in v2); v3 keeps every crew vertex >= 3 cm from it"
   },
@@ -2224,11 +2376,11 @@
    "exempt": {
     "hand_grip_within_5mm": {
      "entries": 16,
-     "min_m": -0.0047
+     "min_m": -0.0038
     },
     "sole_on_deck_within_5mm": {
      "entries": 8,
-     "min_m": 0.0035
+     "min_m": -0.0001
     },
     "sole_on_rung_within_5mm": {
      "entries": 0,
@@ -2236,9 +2388,9 @@
     }
    },
    "plants": {
-    "n": 18,
+    "n": 24,
     "unsupported": 0,
-    "hover_gt_2cm": 0,
+    "hover_gt_2cm": 4,
     "sinking": 0
    },
    "per_crew_min_m": {
@@ -2252,165 +2404,62 @@
      "min_m": 0.03,
      "part": "rung",
      "bone": "Hand_L",
-     "at_s": 29.233
+     "at_s": 43.833
     },
     "Crew_3": {
      "min_m": 0.03,
      "part": "rung",
      "bone": "Hand_R",
-     "at_s": 41.233
+     "at_s": 46.367
     },
     "Crew_4": {
      "min_m": 0.03,
      "part": "rung",
      "bone": "Hand_L",
-     "at_s": 37.067
+     "at_s": 46.1
     }
    },
    "glb_vertices_left_in_well": 0,
-   "pad": "7e02552 launch_pad_game.glb"
+   "pad": "3d0d489 launch_pad_game.glb"
   },
   "aa2_landing_clear_v2_unedited": {
-   "minClear": 0.0035,
+   "minClear": 0,
    "hits": 0,
    "per_part": {
     "brace": {
-     "min_m": 0.7635,
-     "hits": 0,
-     "at_s": 52.933,
-     "crew": "Crew_4"
+     "min_m": 0.772,
+     "hits": 0
     },
     "frame_outer": {
-     "min_m": 0.0903,
-     "hits": 0,
-     "at_s": 52.133,
-     "crew": "Crew_3"
+     "min_m": 0.137,
+     "hits": 0
     },
     "beam_outer": {
-     "min_m": 1.0735,
-     "hits": 0,
-     "at_s": 40.167,
-     "crew": "Crew_1"
-    },
-    "hull": {
-     "min_m": 0.1036,
-     "hits": 0,
-     "at_s": 54.433,
-     "crew": "Crew_3"
+     "min_m": 1.074,
+     "hits": 0
     },
     "frame_side": {
-     "min_m": 0.0403,
-     "hits": 0,
-     "at_s": 54.167,
-     "crew": "Crew_3"
+     "min_m": 0.045,
+     "hits": 0
     },
     "lid": {
-     "min_m": 0.1093,
-     "hits": 0,
-     "at_s": 48.733,
-     "crew": "Crew_2"
+     "min_m": 0.214,
+     "hits": 0
     },
     "deck_wing": {
-     "min_m": 0.0035,
-     "hits": 0,
-     "at_s": 50.2,
-     "crew": "Crew_2"
-    },
-    "hatch_jamb": {
-     "min_m": 0.1017,
-     "hits": 0,
-     "at_s": 47.133,
-     "crew": "Crew_1"
+     "min_m": 0,
+     "hits": 0
     },
     "rail": {
-     "min_m": 0.173,
-     "hits": 0,
-     "at_s": 56.533,
-     "crew": "Crew_4"
+     "min_m": 0.17,
+     "hits": 0
     },
     "rail_post": {
-     "min_m": 0.2499,
-     "hits": 0,
-     "at_s": 49.567,
-     "crew": "Crew_2"
+     "min_m": 0.211,
+     "hits": 0
     }
    },
-   "plant_summary": {
-    "plants": 18,
-    "unsupported_plants": 0,
-    "hover_gt_2cm": 0,
-    "sinking": 0,
-    "gap_m": [
-     0.0035,
-     0.0151
-    ],
-    "walk_in_wing_plants": [
-     {
-      "crew": "Crew_1",
-      "foot": "Foot_R",
-      "land_s": 44.4,
-      "u": [
-       4.3007,
-       4.615
-      ],
-      "t": [
-       0.7314,
-       0.865
-      ],
-      "surface": "wing",
-      "unsupported_vertex_frames": 0,
-      "gap_m": 0.0048
-     },
-     {
-      "crew": "Crew_2",
-      "foot": "Foot_L",
-      "land_s": 47.8,
-      "u": [
-       4.3009,
-       4.6145
-      ],
-      "t": [
-       -0.8691,
-       -0.7345
-      ],
-      "surface": "wing",
-      "unsupported_vertex_frames": 0,
-      "gap_m": 0.0035
-     },
-     {
-      "crew": "Crew_3",
-      "foot": "Foot_R",
-      "land_s": 51.2,
-      "u": [
-       4.3007,
-       4.615
-      ],
-      "t": [
-       0.7314,
-       0.865
-      ],
-      "surface": "wing",
-      "unsupported_vertex_frames": 0,
-      "gap_m": 0.0048
-     },
-     {
-      "crew": "Crew_4",
-      "foot": "Foot_L",
-      "land_s": 54.6,
-      "u": [
-       4.3009,
-       4.6145
-      ],
-      "t": [
-       -0.8691,
-       -0.7345
-      ],
-      "surface": "wing",
-      "unsupported_vertex_frames": 0,
-      "gap_m": 0.0035
-     }
-    ]
-   }
+   "plant_summary": null
   }
  },
  "board_focus": {

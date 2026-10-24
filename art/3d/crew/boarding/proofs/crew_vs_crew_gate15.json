@@ -1,0 +1,92 @@
+{
+ "rule": "every pair of visible crew, every dumped frame, exact triangle-triangle mesh gap >= 0.030 m, no exemptions",
+ "frames": 1756,
+ "t_range": [
+  0.0,
+  58.5
+ ],
+ "dt": 0.0333,
+ "pair_frames_within_25cm": 290,
+ "frames_under_min": 0,
+ "pairs": {
+  "Crew_1-Crew_2": {
+   "min_m": 0.047,
+   "frames_under_min": 0,
+   "at_s": 25.7,
+   "parts": [
+    "Foot_R",
+    "Head"
+   ],
+   "where_glTF": [
+    4.189,
+    1.855,
+    -10.735
+   ]
+  },
+  "Crew_1-Crew_3": {
+   "min_m": 0.3712,
+   "frames_under_min": 0,
+   "at_s": 47.733,
+   "parts": [
+    "bbox",
+    "bbox"
+   ]
+  },
+  "Crew_1-Crew_4": {
+   "min_m": 1.5416,
+   "frames_under_min": 0,
+   "at_s": 25.867,
+   "parts": [
+    "bbox",
+    "bbox"
+   ]
+  },
+  "Crew_2-Crew_3": {
+   "min_m": 0.0541,
+   "frames_under_min": 0,
+   "at_s": 29.067,
+   "parts": [
+    "Foot_L",
+    "Head"
+   ],
+   "where_glTF": [
+    4.079,
+    1.858,
+    -10.544
+   ]
+  },
+  "Crew_2-Crew_4": {
+   "min_m": 0.3716,
+   "frames_under_min": 0,
+   "at_s": 50.867,
+   "parts": [
+    "bbox",
+    "bbox"
+   ]
+  },
+  "Crew_3-Crew_4": {
+   "min_m": 0.0667,
+   "frames_under_min": 0,
+   "at_s": 32.5,
+   "parts": [
+    "Foot_R",
+    "Head"
+   ],
+   "where_glTF": [
+    4.189,
+    1.852,
+    -10.735
+   ]
+  }
+ },
+ "closest": {
+  "gap_m": 0.047,
+  "pair": "Crew_1-Crew_2",
+  "at_s": 25.7,
+  "parts": [
+   "Foot_R",
+   "Head"
+  ]
+ },
+ "status": "PASS"
+}

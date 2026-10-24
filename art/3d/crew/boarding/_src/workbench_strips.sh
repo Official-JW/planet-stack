@@ -1,6 +1,6 @@
 #!/bin/bash
-# v3 Workbench proof strips (light work, allowed under the render hold). One Blender job at a time, nice -n 19, -t 4.
-# Pad = committed launch pad 7e02552 (read-only: `git show 7e02552:art/3d/buildings/launch_pad/launch_pad_game.glb`), unpacked with gltfpack -noq.
+# v3/v4 Workbench proof strips (light work, allowed under the render hold). One Blender job at a time, nice -n 19, -t 4.
+# Pad = committed launch pad 3d0d489 (v4; read-only: `git show 3d0d489:art/3d/buildings/launch_pad/launch_pad_game.glb`), unpacked with gltfpack -noq.
 # Focus strips are two-stage, as the game camera runs them (plain lookAt, 38 deg vFOV, 18 deg look-down, distance from frame_w as in qa3d-next fitSite()):
 #   stage 1  Board_Focus     (3.854, 11.05, -10.775) frame_w 105.9 : crew_climb start .. trigger (C1_Hips y >= 14 m, 35.092 s absolute)
 #   stage 2  Board_Focus_Top (3.854, 15.861, -10.775) frame_w 16.1 : trigger .. end
@@ -8,8 +8,8 @@
 set -euo pipefail
 B=/workspace/planet-stack/art/3d/crew/boarding; S=$B/_src; BL=/opt/blender-4.2.3-linux-x64/blender; GT=/home/box/apps/gltftools; W=/tmp/cb_wb3; mkdir -p $W
 GLB=${GLB:-$B/crew_boarding.glb}
-PAD=${PAD:-$W/pad_7e02552.glb}
-[ -f $PAD ] || (cd /workspace/planet-stack && git show 7e02552:art/3d/buildings/launch_pad/launch_pad_game.glb > $PAD)
+PAD=${PAD:-$W/pad_3d0d489.glb}
+[ -f $PAD ] || (cd /workspace/planet-stack && git show 3d0d489:art/3d/buildings/launch_pad/launch_pad_game.glb > $PAD)
 nice -n 19 $GT/node_modules/.bin/gltfpack -i $PAD -o $W/pad_plain.glb -noq -kn -km -ke >/dev/null
 F1='3.854,11.05,-10.775'; F2='3.854,15.861,-10.775'
 T1='24,28,33'; T2='38,44.1,49.6'

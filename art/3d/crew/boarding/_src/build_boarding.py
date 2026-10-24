@@ -25,7 +25,7 @@ LT = np.array([0.5, 0.0, -0.8660254])           # ladder lateral
 PAD_Y = 0.25
 RUNG_Y = [0.65 + 0.6 * i for i in range(35)]
 DECK_Y = 21.85
-SOLE_LIFT = 0.005   # boot soles skin ~2-3 mm below the ankle target plane when the foot rolls: plant deck feet 5 mm high so no sole sinks into the wing deck
+SOLE_LIFT = float(os.environ.get('SOLE_LIFT', 0.0015))   # v4: 1.5 mm (AA2: standing soles 0-3 mm above the deck top); v3: 5 mm. boot soles skin ~2-3 mm below the ankle target plane when the foot rolls: plant deck feet 5 mm high so no sole sinks into the wing deck
 LAD_R = 4.45                                    # ladder plane radius from the ship axis
 def lad(r, lat=0.0, y=0.0): return SHIP_C + LU * r + LT * lat + np.array([0, y, 0])
 STAND = lad(4.95, 0.0, PAD_Y)                   # where a climber stands, facing the ladder (-LU), before mounting
@@ -326,7 +326,7 @@ class Crew:
             if t >= t_end and getattr(self, 'mantle', None) is not None:
                 y0_, r0_, tl0_ = kpw(self.mantle[0], t), kpw(self.mantle[1], t), kpw(self.mantle[2], t)
             else: y0_, r0_, tl0_ = yb(t), CLIMB_R, 0.0
-            if t >= t_end: r0_ = r0_ + FOL_MU * sstep((t - t_end) / 1.0)
+            if t >= t_end: r0_ = r0_ + FOL_MU * sstep((t - t_end) / (1.0 * float(os.environ.get('MW_K', 0.6))))
             yh = y0_ + BIND['Hips'][1] - 0.03
             ph_ = math.sin(TAU * (t - tc) / cyc + (0.0 if s == 'L' else math.pi))
             Lf = FOL_L + FOL_A * ph_
@@ -343,17 +343,25 @@ class Crew:
         tm = t_end
         Tc_old = (20.45 - yb0 - v * ramp) / v; tin = tc + 2 * ramp + Tc_old + 6.17       # v2 'inside' time (per-crew PH i) kept
         Mt = tin - tm
-        o = lambda x: tm + x
+        # v4 (Art & Animation option b): the top-of-ladder move is ~2 s shorter so the next climber (3.4 s / 4.08 m behind) never reaches
+        # the upper climber's boots.  Authored v3 key times x (s after climb top) are warped: x <= MANT_STAND -> x * MW_K (absolute slow
+        # set-down / lift durations stay as they are), then a MW_P pause on the wing and the walk-in stretched to end at the same tin.
+        MW_K = float(os.environ.get('MW_K', 0.6)); MW_P = float(os.environ.get('MW_P', 0.5)); MW_S = float(os.environ.get('MW_S', 1.3))
+        _xs = MANT_STAND * MW_K + MW_P
+        def o(x):
+            if x <= MANT_STAND: return tm + x * MW_K
+            return tm + _xs + (x - MANT_STAND) * MW_S
         MS = MANT_STAND
         ow = lambda x: tm + MS + (x - 4.15) * (Mt - MS) / (6.46 - 4.15)        # walk-in keys stretched to end at tin
         STAND_Y = DECK_Y + ANK + SOLE_LIFT
+        BODY_DECK = float(os.environ.get('BODY_DECK', 21.81))   # v4: knees soft on the wing so the trail boot (u 4.74, t 0.92) is reached without stretch
         Lp = lambda u_, t_, y_: lad(u_, S * t_, y_)
         # body keys (y_b, root u, root t)
         BK = [(o(0.0), YTOP, CLIMB_R, 0.0), (o(0.70), YTOP + 0.16, CLIMB_R, 0.0), (o(1.10), YTOP + 0.24, CLIMB_R, 0.0), (o(1.45), YTOP + 0.34, CLIMB_R, 0.0),
-              (o(1.80), YTOP + 0.43, CLIMB_R, 0.01), (o(2.15), YTOP + 0.50, 4.69, 0.01), (o(2.60), MANT_Y, 4.68, 0.02), (o(3.60), MANT_Y + 0.02, 4.67, 0.06),
-              (o(4.00), 21.25, 4.62, 0.40), (o(4.45), 21.70, 4.56, 0.66), (o(MS), DECK_Y, 4.54, 0.82),
+              (o(1.80), YTOP + 0.43, CLIMB_R, 0.01), (o(2.15), YTOP + 0.50, 4.69, 0.01), (o(2.60), MANT_Y, 4.68, 0.02), (o(3.60 + float(os.environ.get('BODY_DT', 0.0))), MANT_Y + 0.02, 4.67, 0.06),
+              (o(4.00), 21.25, 4.62, 0.40), (o(4.45), 21.70, 4.56, 0.66), (o(MS), BODY_DECK, 4.54, 0.82),
               (o(5.50), 21.80, 4.46, 0.70), (o(5.88), 21.70, 4.30, 0.26), (o(6.12), 21.64, 4.05, 0.16), (o(6.32), 21.66, 3.75, 0.10),
-              (tin, 21.75, 3.42, 0.0)]
+              (o(6.46), 21.75, 3.42, 0.0), (tin, 21.75, 3.42, 0.0)]   # v4: walk-in at the authored pace, then wait in the doorway until tin
         MY = [(k[0], k[1]) for k in BK]; MR = [(k[0], k[2]) for k in BK]; MT = [(k[0], S * k[3]) for k in BK]
         MW = [(tm, yawL), (tin, yawL)]
         self.mantle = (MY, MR, MT, MW)
@@ -361,7 +369,7 @@ class Crew:
         hR = {lead: o(3.15), trail: o(3.30)}
         for s_, a_, b_, idx_ in [('L', o(0.0), o(0.40), ('rail', 21.30)), ('R', o(0.30), o(0.70), ('rail', 21.30)), ('L', o(0.75), o(1.10), ('rail', 21.55)),
                                  ('R', o(1.10), o(1.45), ('rail', 21.65)), ('L', o(1.45), o(1.80), ('rail', RAIL_TOPG)), ('R', o(1.80), o(2.15), ('rail', RAIL_TOPG)),
-                                 (lead, hR[lead], hR[lead] + 0.40, ('free',)), (trail, hR[trail], hR[trail] + 0.40, ('free',))]:
+                                 (lead, hR[lead], o(3.55), ('free',)), (trail, hR[trail], o(3.70), ('free',))]:
             le_ = max([m[1] for m in moves['hand_' + s_]] + [-1e9])
             if le_ > a_ - 0.02:
                 print('WARN shift', self.k, s_, round(a_ - tm, 3), 'last climb move ends', round(le_ - tm, 3)) if os.environ.get('DBGMV') else None
@@ -369,11 +377,11 @@ class Crew:
             moves['hand_' + s_].append((a_, b_, idx_))
         for k_ in moves: moves[k_].sort(key=lambda m: m[0])
         # feet: PCHIP key paths (None = start from the trailing pose); 'slow' = the last / first 3.5 cm at <= 2.6 mm per frame
-        DN = float(os.environ.get('DN', 0.028)); SL = float(os.environ.get('SL', 0.47))   # v3 gate: a sole within 3 cm of the deck must be still (< 3 mm per 1/30 s): 2.8 cm in 0.47 s = 2.0 mm per frame
+        DN = float(os.environ.get('DN', 0.034)); SL = float(os.environ.get('SL', 0.57))   # v3 gate: a sole within 3 cm of the deck must be still (< 3 mm per 1/30 s): 2.8 cm in 0.47 s = 2.0 mm per frame
         # set-downs: the last key sits 3.6 cm up (so the fast swing ends outside the 3 cm band), then 3.1 cm down in 0.70 s = 1.5 mm per frame
-        DND = float(os.environ.get('DND', 0.031)); SLD = float(os.environ.get('SLD', 0.70))
-        SL_L = float(os.environ.get('SL_L', 0.56)); DN_L = float(os.environ.get('DN_L', 0.027))   # lead lift: 2.7 cm in 0.56 s = 1.6 mm per frame
-        SLD_T = float(os.environ.get('SLD_T', 0.95))   # trail set-down: 2.9 cm in 0.95 s = 1.0 mm per frame (10-bit rotation noise is up to ~2 mm per frame on the boot)
+        DND = float(os.environ.get('DND', 0.033)); SLD = float(os.environ.get('SLD', 1.0))
+        SL_L = float(os.environ.get('SL_L', 0.70)); DN_L = float(os.environ.get('DN_L', 0.034))   # lead lift: 2.7 cm in 0.56 s = 1.6 mm per frame
+        SLD_T = float(os.environ.get('SLD_T', 1.0))   # trail set-down: 2.9 cm in 0.95 s = 1.0 mm per frame (10-bit rotation noise is up to ~2 mm per frame on the boot)
         def add_path(s_, keys, land=None, lift=None, tag=None, sld=None):
             sld = SLD if sld is None else sld
             self.feet[s_].append(dict(t0=keys[0][0], t1=keys[-1][0] + (sld if land is not None else 0.0), pos=(land if land is not None else keys[-1][1]),
@@ -383,18 +391,19 @@ class Crew:
         LF = Lp(LF_U, LF_T, STAND_Y); TF = Lp(4.74, 0.92, STAND_Y)
         add_path(lead, [(o(2.20), None), (o(2.40), Lp(4.70, 0.24, 21.30)), (o(2.55), Lp(4.70, 0.43, 21.50)), (o(2.80), Lp(4.62, 0.52, 22.02)), (o(2.95), Lp(LF_U + 0.06, LF_T - 0.08, 22.06)),
                         (o(3.05), LF + np.array([0, DND, 0]))], land=LF, tag='mantle')
-        add_path(trail, [(o(3.62), None), (o(3.90), Lp(4.74, 0.36, 21.97)), (o(4.04), Lp(4.70, 0.66, 22.08)), (o(4.13), TF + np.array([0, 0.029, 0]))], land=TF, tag='mantle', sld=SLD_T)
+        TDT = float(os.environ.get('TR_DT', -0.15))   # v4: the trail boot leaves the shaft column earlier (crew vs crew: the next climber's head rises under it)
+        add_path(trail, [(o(3.62 + TDT), None), (o(3.90 + TDT), Lp(4.74, 0.36, 21.97)), (o(4.04 + TDT), Lp(4.70, 0.66, 22.08)), (o(4.13 + TDT), TF + np.array([0, float(os.environ.get('DND_T', 0.032)), 0]))], land=TF, tag='mantle', sld=SLD_T)
         # walk-in
         D1 = Lp(3.93, 0.30, STAND_Y); D2 = Lp(3.66, 0.06, STAND_Y); D3 = Lp(3.40, -0.04, STAND_Y)   # v3: D1 u 3.98 -> 3.93 so the doorway sole box (ankle + 0.09) stays off the well edge (u 4.05)
         # v3: after the slow lift the boot rises clear of the kerb top (21.88) before it moves in over it
         add_path(trail, [(o(5.10), TF), (o(5.10) + SL, TF + np.array([0, DN, 0])), (o(5.10) + SL + 0.06, Lp(4.70, 0.88, STAND_Y + 0.10)), (o(5.74), Lp(4.44, 0.62, 22.04)), (o(5.88), D1)], lift=True)
         add_path(lead, [(o(5.52), LF), (o(5.52) + SL_L, LF + np.array([0, DN_L, 0])), (o(5.52) + SL_L + 0.05, LF + np.array([0, 0.10, 0]) - LT * 0.0), (o(6.14), Lp(4.34, 0.55, 22.06)), (o(6.21), Lp(4.26, 0.30, 22.02)), (o(6.32), D2)], lift=True)
-        add_path(trail, [(o(6.33), D1), (o(6.40), Lp(3.70, 0.12, 22.00)), (tin - 0.01, D3)])
+        add_path(trail, [(o(6.33), D1), (o(6.40), Lp(3.70, 0.12, 22.00)), (o(6.45), D3)])
         for p_ in (D1, D2, D3): pass
-        self.walk_in_plants = [(trail, o(5.88), D1), (lead, o(6.32), D2), (trail, tin - 0.01, D3)]
+        self.walk_in_plants = [(trail, o(5.88), D1), (lead, o(6.32), D2), (trail, o(6.45), D3)]
         for s_ in 'LR': self.follow['tb'][s_] = min([e['t0'] for e in self.feet[s_] if e['t0'] >= tm - 1e-6] + [1e9])
         tmd = o(MS); yin = yawL
-        self.segs.append((t0, tin, 'climb', dict(yb=yb, yawL=yawL, moves=moves, limb_pos=limb_pos, hand_frame=hand_frame, tc=tc, t_end=t_end, tm=tm, tmd=tmd)))
+        self.segs.append((t0, tin, 'climb', dict(yb=yb, yawL=yawL, moves=moves, limb_pos=limb_pos, hand_frame=hand_frame, tc=tc, t_end=t_end, tm=tm, tmd=tmd, o=o)))
         self.events.update(mount=t0, climb_start=tc, climb_top=t_end, on_deck=tmd, moves=moves)
         self.pos = lad(3.42, 0.0, DECK_Y); self.yaw = yin; self.t = tin
         self.events['inside'] = self.t
@@ -607,7 +616,7 @@ def pose(c, t):
     GW = {'L': 0.0, 'R': 0.0}; GF = {}
     if kind == 'climb':
         H = {}
-        FH = free_hands(c, t, R_c, G['Chest'], 0.0, Tri(t, D['tm'] + 3.0, D['tm'] + 4.0) if t >= D['tm'] else 0.0)
+        FH = free_hands(c, t, R_c, G['Chest'], 0.0, Tri(t, D['o'](3.0), D['o'](4.0)) if t >= D['tm'] else 0.0)
         isfree = lambda i_: isinstance(i_, tuple) and i_[0] == 'free'
         israil = lambda i_: isinstance(i_, tuple) and i_[0] == 'rail'
         for s in 'LR':
@@ -713,8 +722,8 @@ def pose(c, t):
             kc = np.array([SIDE[s] * KNEE_V[0], KNEE_V[1], KNEE_V[2]]); S_ = c.side; ld_ = s == ('R' if S_ > 0 else 'L'); MKs = MK if ld_ else MKT
             km = np.array([-S_ * MKs[0], MKs[1], MKs[2]]); kw = np.array([S_ * KW[0], 0.0, 1.0])
             if t >= D['tm']:
-                w1 = Tri(t, D['tm'] + 2.0, D['tm'] + 2.4) if ld_ else Tri(t, D['tm'] + 3.9, D['tm'] + 4.2); w2 = Tri(t, D['tmd'] - 0.2, D['tmd'] + 0.3)
-                w3 = Tri(t, D['tm'] + 3.0, D['tm'] + 3.4) if ld_ else Tri(t, D['tm'] + 4.5, D['tm'] + 4.9)
+                oo = D['o']; TDT_ = float(os.environ.get('TR_DT', -0.15)); TW1_ = float(os.environ.get('TW1', -0.3)); w1 = Tri(t, oo(2.0), oo(2.4)) if ld_ else Tri(t, oo(3.9 + TDT_ + TW1_), oo(4.2 + TDT_ + TW1_)); w2 = Tri(t, oo(MANT_STAND - 0.2), oo(MANT_STAND + 0.3))
+                w3 = Tri(t, oo(3.0), oo(3.4)) if ld_ else Tri(t, oo(4.5 + TDT_), oo(4.9 + TDT_))
                 kc = kc * (1 - w1) + km * w1; kc = kc * (1 - w3) + np.array([0.0, 1.0, 0.0]) * w3; kc = kc * (1 - w2) + kw * w2
             knee_dir = R_root @ nrm(kc)   # v3: knees turned out inside the cage, never toward the rungs
         CTX.update(crew=c.k, t=round(t, 3), limb='leg' + s); R1, R2 = ik2(A, ap, L_TH[s], L_SH[s], knee_dir, IKB['leg' + s])
@@ -779,8 +788,10 @@ for ci in range(4):
         t = f / FPS; c = crew[ci]
         for s in 'LR':
             p0 = c.foot_at(s, t - 1 / FPS)[0]; p1 = c.foot_at(s, t)[0]
-            if np.linalg.norm(p1 - p0) < 1e-9:
-                slide = max(slide, np.linalg.norm(foot_world(ci, f, s) - foot_world(ci, f - 1, s)))
+            if np.linalg.norm(p1 - p0) < 1e-9 and frames[f][ci][1] > 0.5 and frames[f - 1][ci][1] > 0.5:   # visible frames only
+                sl_ = np.linalg.norm(foot_world(ci, f, s) - foot_world(ci, f - 1, s))
+                if sl_ > slide: slide = sl_; chk['planted_foot_slide_at'] = dict(crew=ci + 1, foot=s, t=round(t, 3))
+                if sl_ > 0.005: chk.setdefault('source_slides_over_5mm', []).append((ci + 1, s, round(t, 3), round(float(sl_), 4)))
         if frames[f][ci][1] > 0.5 and frames[f - 1][ci][1] > 0.5:
             step = max(step, max(np.linalg.norm(frames[f][ci][2][n] - frames[f - 1][ci][2][n]) for n in JOINTS if n not in ('Root',)))
 chk['planted_foot_slide_max_m'] = round(float(slide), 5); chk['max_joint_step_per_frame_m'] = round(float(step), 3)
@@ -944,6 +955,13 @@ def _allow(f, ci):   # per-vertex allowed interpolation error: tight near the sh
         if not _KPTS: _ALW[k] = KEY_TOL
         else:
             d, _ = _KTREE.query(_utz(_skin_f(f, ci)), distance_upper_bound=0.2); d = np.minimum(d, 0.2)
+            # v4 (crew vs crew gate, 3 cm): another visible crew member counts as a surface too
+            Xc = _skin_f(f, ci); lo_, hi_ = Xc.min(0) - 0.2, Xc.max(0) + 0.2
+            for cj in range(4):
+                if cj == ci or frames[f][cj][1] < 0.01 or frames[f][ci][1] < 0.01: continue
+                Xo = _skin_f(f, cj)
+                if ((Xo.max(0) < lo_) | (Xo.min(0) > hi_)).any(): continue
+                d = np.minimum(d, np.minimum(cKDTree(Xo).query(Xc, distance_upper_bound=0.2)[0], 0.2))
             a_ = np.clip(0.6 * (d - 0.04), KEY_TOL, KEY_LOOSE)
             Z = _utz(_skin_f(f, ci)); near_deck = _FOOTV & (np.abs(Z[:, 2] - DECK_Y) < 0.045) & (np.abs(Z[:, 1]) > 0.55)
             a_ = np.where(near_deck, KEY_TOL_FOOT, a_); _ALW[k] = a_
@@ -965,26 +983,83 @@ def _skin_f(f, ci):
     k = (f, ci)
     if k not in _SKC: _SKC[k] = _skin(frames[f][ci][0], frames[f][ci][1])
     return _SKC[k]
-def _seg_ok(a, b, tol, cis=range(4)):
-    for ci in cis:
-        if frames[a][ci][1] < 0.01 and frames[b][ci][1] < 0.01: continue
-        for f in range(a + 1, b):
-            u = (f - a) / (b - a); out = {}
-            for n in JOINTS:
-                Ta, qa = frames[a][ci][0][n]; Tb, qb = frames[b][ci][0][n]
-                out[n] = (np.asarray(Ta, float) * (1 - u) + np.asarray(Tb, float) * u, _slerp(np.asarray(qa, float), np.asarray(qb, float), u))
-            sc = frames[a][ci][1] if u < 1 else frames[b][ci][1]   # STEP scale
-            if sc < 0.01: continue
-            if (np.linalg.norm(_skin(out, sc) - _skin_f(f, ci), axis=1) > _allow(f, ci)).any(): return False
+# ---- v4: two key groups per crew per clip, each with its own key-time input: LEGS (Root incl. translation / hide scale, Hips, Thigh /
+# Shin / Foot) and UPPER (Spine .. Head, arms).  Per-vertex tolerances: a PLANTED boot (foot target unchanged) is locked to PLANT_TOL,
+# a boot in the walk to FOOT_WALK_TOL, everything else in the call / walk clips to WALK_TOL (upper body may skip up to UP_MAXGAP_WALK
+# frames), and near the ship the v3 pad-distance tolerance (_allow) applies.  The UPPER keys are chosen against the LEGS curve as it
+# will be played back (interpolated on the LEGS keys), so their error is the full skinned error.  Identical / near-identical poses
+# simply merge into one long segment (the error test passes), which drops near-duplicate keys.
+LEG_J = ['Root', 'Hips', 'Thigh_L', 'Shin_L', 'Foot_L', 'Thigh_R', 'Shin_R', 'Foot_R']; UP_J = [n for n in JOINTS if n not in LEG_J]
+_VDOM = np.array([JOINTS[JW[i, int(np.argmax(WW[i]))]] for i in range(len(VP))])
+_GV = {'legs': np.where(np.isin(_VDOM, LEG_J))[0], 'upper': np.where(~np.isin(_VDOM, LEG_J))[0]}
+PLANT_TOL = opt('--plant-tol', 0.005); FOOT_WALK_TOL = opt('--foot-walk-tol', 0.06); WALK_TOL = opt('--walk-tol', 0.06); UP_WALK_TOL = opt('--up-walk-tol', 0.04); HIP_K = opt('--hip-k', 0.0)
+LEG_MAXGAP = opt('--leg-maxgap', 10); LEG_MAXGAP_CLIMB = opt('--leg-maxgap-climb', 6); UP_MAXGAP_WALK = opt('--up-maxgap-walk', 16); UP_MAXGAP_CLIMB = opt('--up-maxgap-climb', 4)
+_PLF = {}
+def _planted(f, ci, s):
+    k = (f, ci, s)
+    if k not in _PLF:
+        c = crew[ci]; t = f / FPS; p = c.foot_at(s, t)[0]
+        _PLF[k] = (f > 0 and np.linalg.norm(p - c.foot_at(s, t - 1 / FPS)[0]) < 1e-9) or (f < NF - 1 and np.linalg.norm(p - c.foot_at(s, t + 1 / FPS)[0]) < 1e-9)
+    return _PLF[k]
+_GTOL = {}
+def _gtol(f, ci, g, walkish):
+    k = (f, ci, g, walkish)
+    if k not in _GTOL:
+        idx = _GV[g]; a_ = np.asarray(_allow(f, ci), float)
+        a_ = (np.full(len(VP), a_) if a_.ndim == 0 else a_.copy())[idx]
+        if walkish: a_ = np.minimum(a_, WALK_TOL if g == 'legs' else UP_WALK_TOL)
+        if g == 'legs':
+            if walkish and HIP_K > 0:   # the upper body hangs on Root / Hips: pelvis vertices carry the upper-body tolerance
+                m_ = np.isin(_VDOM[idx], ['Root', 'Hips']); a_[m_] = np.minimum(a_[m_], UP_WALK_TOL * HIP_K)
+            for s_ in 'LR':
+                m_ = _VDOM[idx] == 'Foot_' + s_
+                a_[m_] = np.minimum(a_[m_], PLANT_TOL if _planted(f, ci, s_) else (FOOT_WALK_TOL if walkish else np.inf))
+        _GTOL[k] = a_
+    return _GTOL[k]
+def _skin_sub(out, sc, idx):
+    Mg = {}
+    for n in JOINTS:
+        T_, q = out[n]; R = _q2m_(q); pa = PARENT[n]
+        if pa is None: Mg[n] = (R * sc, np.asarray(T_, float))
+        else: Rp, tp = Mg[pa]; Mg[n] = (Rp @ R, tp + Rp @ np.asarray(T_, float))
+    X = np.zeros((len(idx), 3)); vp = VP[idx]
+    for c_ in range(4):
+        w = WW[idx, c_]; jw = JW[idx, c_]
+        for ji in np.unique(jw[w > 0]):
+            mm = (w > 0) & (jw == ji); R, tt = Mg[JOINTS[ji]]; X[mm] += w[mm, None] * ((vp[mm] - BIND[JOINTS[ji]]) @ R.T + tt)
+    return X
+def _interp(ci, f, keys, names, out):   # joints `names` as three.js plays them between the surrounding keys
+    j = max(0, min(np.searchsorted(keys, f, 'right') - 1, len(keys) - 2)); a, b = keys[j], keys[j + 1]; u = (f - a) / (b - a) if b > a else 0.0
+    for n in names:
+        Ta, qa = frames[a][ci][0][n]; Tb, qb = frames[b][ci][0][n]
+        out[n] = (np.asarray(Ta, float) * (1 - u) + np.asarray(Tb, float) * u, _slerp(np.asarray(qa, float), np.asarray(qb, float), u))
+    return (frames[a][ci][1] if u < 1 else frames[b][ci][1]) if 'Root' in names else None
+_EX = {}
+def _exact_sub(f, ci, idx_key):
+    k = (f, ci, idx_key)
+    if k not in _EX: _EX[k] = _skin_sub(frames[f][ci][0], frames[f][ci][1], _GV[idx_key])
+    return _EX[k]
+def _seg_ok_g(a, b, ci, g, walkish, leg_keys=None):
+    if frames[a][ci][1] < 0.01 and frames[b][ci][1] < 0.01: return True
+    names = LEG_J if g == 'legs' else UP_J; idx = _GV[g]
+    for f in range(a + 1, b):
+        u = (f - a) / (b - a); out = {n: frames[f][ci][0][n] for n in JOINTS}
+        for n in names:
+            Ta, qa = frames[a][ci][0][n]; Tb, qb = frames[b][ci][0][n]
+            out[n] = (np.asarray(Ta, float) * (1 - u) + np.asarray(Tb, float) * u, _slerp(np.asarray(qa, float), np.asarray(qb, float), u))
+        sc = frames[a][ci][1] if u < 1 else frames[b][ci][1]
+        if g == 'upper' and leg_keys is not None: sc = _interp(ci, f, leg_keys, LEG_J, out)
+        if sc < 0.01: continue
+        if (np.linalg.norm(_skin_sub(out, sc, idx) - _exact_sub(f, ci, g), axis=1) > _gtol(f, ci, g, walkish)).any(): return False
     return True
-def adaptive_keys(f0, f1, tol, maxgap, cis=range(4)):
+def adaptive_keys_g(f0, f1, ci, g, maxgap, walkish, leg_keys=None):
     ks = [f0]; a = f0
-    vis = lambda f: tuple(frames[f][ci][1] > 0.01 for ci in cis)
+    vis = lambda f: frames[f][ci][1] > 0.01
     while a < f1:
         b = min(a + 1, f1)
-        for g in range(2, maxgap + 1):
-            if a + g > f1 or any(vis(a + k) != vis(a) for k in range(1, g)) or not _seg_ok(a, a + g, tol, cis): break   # keep a key on every hide/show frame
-            b = a + g
+        for gg in range(2, maxgap + 1):
+            if a + gg > f1 or any(vis(a + k) != vis(a) for k in range(1, gg)) or not _seg_ok_g(a, a + gg, ci, g, walkish, leg_keys): break
+            b = a + gg
         ks.append(b); a = b
     return ks
 # animations: one shared uniform time input per clip; the rate per clip is chosen by how fast the motion is
@@ -995,10 +1070,14 @@ for name, a, b in CLIPS:
     f0 = int(round(a * FPS)); f1 = int(round(b * FPS)); fr = list(range(f0, f1 + 1, CLIP_STEP[name]))
     if fr[-1] != f1: fr.append(f1)
     ADP = KEY_TOL > 0 and name in KEY_CLIPS
-    FRC = [adaptive_keys(f0, f1, KEY_TOL, KEY_MAXGAP, [ci]) if ADP else fr for ci in range(4)]   # per-crew key times (each crew its own time input)
-    AIC = []
+    WK = name != 'crew_climb'
+    FRL = [adaptive_keys_g(f0, f1, ci, 'legs', LEG_MAXGAP if WK else LEG_MAXGAP_CLIMB, WK) if ADP else fr for ci in range(4)]                       # LEGS key times per crew
+    FRU = [adaptive_keys_g(f0, f1, ci, 'upper', UP_MAXGAP_WALK if WK else UP_MAXGAP_CLIMB, WK, FRL[ci]) if ADP else fr for ci in range(4)]   # UPPER key times per crew
+    AIC = []; AIU = []
     for ci in range(4):
-        tin = np.array([(f - f0) / FPS for f in FRC[ci]], np.float32); AIC.append(add(tin[:, None], 5126, 'SCALAR', None, True)); nkeys += len(FRC[ci])
+        tin = np.array([(f - f0) / FPS for f in FRL[ci]], np.float32); AIC.append(add(tin[:, None], 5126, 'SCALAR', None, True)); nkeys += len(FRL[ci])
+        tin = np.array([(f - f0) / FPS for f in FRU[ci]], np.float32); AIU.append(add(tin[:, None], 5126, 'SCALAR', None, True)); nkeys += len(FRU[ci])
+    FRC = FRL
     CUR = [0]
     samplers = []; channels = []
     # least-squares key values: the linear-interpolated curve that best fits every 30 fps frame (not just point samples)
@@ -1006,23 +1085,24 @@ for name, a, b in CLIPS:
     for r_, f in enumerate(fall):
         j = min(np.searchsorted(kf, f, 'right') - 1, len(kf) - 2); u = (f - kf[j]) / (kf[j + 1] - kf[j]); Am[r_, j] += 1 - u; Am[r_, j + 1] += u
     LSQ = np.linalg.solve(Am.T @ Am, Am.T) if LSQ_ON else None
-    def chan(node, path, V, interp='LINEAR'):
-        V = np.asarray(V, float); ai = AIC[CUR[0]]
+    def chan(node, path, V, interp='LINEAR', up=False):
+        V = np.asarray(V, float); ai = (AIU if up else AIC)[CUR[0]]
         if LSQ_ON and interp == 'LINEAR':
             dense = np.array(DENSE[(node, path)], float); V = LSQ @ dense
             if path == 'rotation': V = V / np.linalg.norm(V, axis=1, keepdims=True)
         ao = add(np.asarray(V, np.float32), 5126, 'VEC4' if path == 'rotation' else 'VEC3')
         samplers.append({'input': ai, 'output': ao, 'interpolation': interp}); channels.append({'sampler': len(samplers) - 1, 'target': {'node': node, 'path': path}})
     for ci, c in enumerate(crew):
-        jbase = 1 + ci * (len(JOINTS) + 2); fr = FRC[ci]; CUR[0] = ci
+        jbase = 1 + ci * (len(JOINTS) + 2); fr = FRL[ci]; CUR[0] = ci
         for n in JOINTS:
             node = jbase + JOINTS.index(n)
             DENSE[(node, 'rotation')] = [frames[f][ci][0][n][1] for f in fall]
             if n == 'Root': DENSE[(node, 'translation')] = [frames[f][ci][0][n][0] for f in fall]
-            chan(node, 'rotation', [frames[f][ci][0][n][1] for f in fr])
+            frn = FRU[ci] if n in UP_J else FRL[ci]
+            chan(node, 'rotation', [frames[f][ci][0][n][1] for f in frn], up=n in UP_J)
             if n == 'Root': chan(node, 'translation', [frames[f][ci][0][n][0] for f in fr])
             if n == 'Root': chan(node, 'scale', [[frames[f][ci][1]] * 3 for f in fr], 'STEP')
-    anims.append({'name': name, 'samplers': samplers, 'channels': channels, 'extras': ({'keys_per_crew': [len(x) for x in FRC], 'key_tol_m': KEY_TOL, 'key_max_gap_s': round(KEY_MAXGAP / FPS, 4), 'keys': 'adaptive per crew: dense wherever the crew is near the ship'} if ADP else {'key_rate_hz': round(FPS / CLIP_STEP[name], 2)})})
+    anims.append({'name': name, 'samplers': samplers, 'channels': channels, 'extras': ({'keys_per_crew_legs': [len(x) for x in FRL], 'keys_per_crew_upper': [len(x) for x in FRU], 'key_tol_m': KEY_TOL, 'plant_tol_m': PLANT_TOL, 'keys': 'adaptive per crew, two groups (legs / upper body) with their own key times: planted boots locked, dense wherever the crew is near the ship'} if ADP else {'key_rate_hz': round(FPS / CLIP_STEP[name], 2)})})
 print('keys per channel total', nkeys)
 mat = {'name': 'SHM_Paint', 'pbrMetallicRoughness': {'metallicFactor': 0.0, 'roughnessFactor': 0.42}}
 # Board_Focus + Board_Focus_Top: camera focus empties for the boarding camera (no camera is baked). Positions, frame_w and the height trigger

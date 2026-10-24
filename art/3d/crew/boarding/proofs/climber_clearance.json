@@ -1,1 +1,1 @@
-{"frames": 1087, "t_range": [22.3, 58.4996], "min_mesh_gap_m": 0.0, "min_mesh_gap_at_t_crewA_crewB": [43.3665, 1, 2], "min_boot_to_glove_m": 0.005, "min_boot_to_glove_at_t_upper_lower": [47.0998, 2, 3], "frames_under_10cm": 243, "frames_touching_under_2cm": 208}
+{"frames": 1087, "t_range": [22.3, 58.4996], "min_mesh_gap_m": 0.047, "min_mesh_gap_at_t_crewA_crewB": [25.7, 1, 2], "min_boot_to_glove_m": 0.108, "min_boot_to_glove_at_t_upper_lower": [53.1997, 3, 4], "frames_under_10cm": 28, "frames_touching_under_2cm": 0}

@@ -1,11 +1,12 @@
-# v3: merge measured (three r186 skinned) checks into the timing json.
-# python3 finalize_timing.py build_timing.json verify.json clearance.json deck_check.json gate_v3.json aa2_v2.json camfit_v3.json focus_trigger.json board_focus_extras.json out.json
-#   gate_v3.json  = nice -n 19 node /tmp/lp2/landing_clear_v3.mjs crew_boarding.glb <pad 7e02552> out.json   (AA2's v3 gate, 14 categories)
-#   aa2_v2.json   = AA2's committed v2 landing_clear.mjs (7e02552), run unedited
+# v3/v4: merge measured (three r186 skinned) checks into the timing json.
+# python3 finalize_timing.py build_timing.json verify.json clearance.json deck_check.json gate_v3.json aa2_v2.json camfit_v3.json focus_trigger.json board_focus_extras.json out.json crew_vs_crew.json
+#   gate_v3.json  = nice -n 19 node /tmp/lp2/landing_clear_v3.mjs crew_boarding.glb <pad 3d0d489> out.json   (AA2's v3 gate, 14 categories)
+#   crew_vs_crew.json = python3 crew_vs_crew.py POSES out.json 0.03   (category 15, my script)
+#   aa2_v2.json   = AA2's v2 landing_clear.mjs, run unedited
 import json, sys
-t, vb, cl, dc, gt, lc, cf, tr, fx, out = sys.argv[1:11]
+t, vb, cl, dc, gt, lc, cf, tr, fx, out, cv = sys.argv[1:12]
 d = json.load(open(t)); vb = json.load(open(vb)); cl = json.load(open(cl)); dc = json.load(open(dc)); gt = json.load(open(gt)); lc = json.load(open(lc))
-cf = json.load(open(cf)); tr = json.load(open(tr)); fx = json.load(open(fx))
+cv = json.load(open(cv)); cf = json.load(open(cf)); tr = json.load(open(tr)); fx = json.load(open(fx))
 PH = gt.get('phases', {})
 for c in d['crew']:
     k = 'Crew_%d' % c['crew']; mt = c['mantle']; meas = dc['per_crew'][k]['plants']
@@ -21,19 +22,20 @@ mv = dc['per_part']
 d['landing_script_timings'] = {k: v for k, v in PH.items()}
 d['measured'] = {
     'glb': {'bytes': vb['bytes'], 'draws': vb['draws'], 'tris': vb['tris'], 'three': vb['three'], 'clips': [(x['name'], x['duration']) for x in vb['clips']]},
-    'contacts_r186': vb['contacts'], 'planted_foot_slide_percentiles_m': vb['planted_foot_slide_percentiles_m'], 'worst_at': vb['worst_at'],
+    'contacts_r186': vb['contacts'], 'planted_foot_slide_percentiles_m': vb['planted_foot_slide_percentiles_m'], 'planted_foot_drift_from_plant_start_m': vb.get('planted_foot_drift_from_plant_start_m'), 'worst_at': vb['worst_at'],
     'ik_target_reach': {'max_ratio': float(d['checks']['ik_max_stretch']), 'at': d['checks']['ik_stretch_at'], 'note': 'IK target distance / limb length; limbs are rigid (never stretched), >1 = the target is missed by that fraction for a frame'},
     'climber_clearance': cl,
-    'climber_clearance_note': 'v3 REGRESSION: the slow v3 mantle (rail press, slow boot set-downs) keeps each climber at the ladder top ~5 s while the next climber keeps climbing at the 3.4 s / 4.08 m stagger, so the upper climber\'s boots/shins overlap the next climber\'s head/forearms at z 20.4-21.9 (crew 1/2 ~43.0-45.3 s, 2/3 ~46.4-48.7 s, 3/4 ~49.8-52.1 s). Not one of the gate categories; see README.',
+    'climber_clearance_note': 'v4: fixed. The mantle (climb top -> on deck) is 2.0 s shorter (5.0 -> 3.0 s, warped in time) and the trail boot leaves the shaft column 0.15 s (authored) earlier, so the next climber\'s head never rises into the upper climber\'s boots. Gate category 15 (crew_vs_crew) checks every pair, every 1/30 s frame of all three clips, exact triangle-triangle, no exemptions.',
+    'crew_vs_crew_gate': {'result': 'PASS' if cv['frames_under_min'] == 0 else 'FAIL', 'min_required_m': 0.03, 'frames': cv['frames'], 'frames_under_min': cv['frames_under_min'], 'pairs': cv['pairs']},
     'climber_spacing_m': round(1.2 / d['rung_pair_s'] * d['climb_gap_s'], 2),
-    'landing_vs_pad_7e02552': {'pad_md5': '9e44959341d7f57bf1b3bd21b826b940', 'min_m': dc['min_m'], 'hits': dc['hits'], 'per_part_min_m': {k: v['min_m'] for k, v in mv.items()},
+    'landing_vs_pad_3d0d489': {'pad_md5': '833a339be22b0db4b8e37eccaa838397', 'min_m': dc['min_m'], 'hits': dc['hits'], 'per_part_min_m': {k: v['min_m'] for k, v in mv.items()},
                                'plants_in_well': sum(v['plants_in_well'] for v in dc['per_crew'].values()), 'plants_on_kerb': sum(v['plants_on_kerb'] for v in dc['per_crew'].values()),
                                'climb_min_frame_side_m': min(v['climb_min_frame_side_m'] for v in dc['per_crew'].values()),
                                'cage_min_m': min(v['cage_min_m'] for v in dc['per_crew'].values()),
                                'hatch_edge_note': 'hatch_edge = the hatch opening edge (was hatch_jamb in v2); v3 keeps every crew vertex >= 3 cm from it'},
     'aa2_landing_clear_v3_gate': {'result': gt['summary']['result'], 'by_category': {k: v['status'] for k, v in gt['summary']['by_category'].items()}, 'exempt': gt['summary']['exempt'],
                                   'plants': gt['summary']['plants'], 'per_crew_min_m': {k: {'min_m': v['min_m'], 'part': v['part'], 'bone': v['bone'], 'at_s': v['at_s']} for k, v in gt['per_crew'].items()},
-                                  'glb_vertices_left_in_well': gt['glb_vertices_left_in_well'], 'pad': '7e02552 launch_pad_game.glb'},
+                                  'glb_vertices_left_in_well': gt['glb_vertices_left_in_well'], 'pad': '3d0d489 launch_pad_game.glb'},
     'aa2_landing_clear_v2_unedited': {'minClear': lc['minClear'], 'hits': lc['hits'], 'per_part': lc['per_part'], 'plant_summary': lc.get('plant_summary')},
 }
 d['board_focus'] = {'nodes': fx, 'trigger': tr, 'fit': cf,

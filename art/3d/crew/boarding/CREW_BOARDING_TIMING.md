@@ -39,10 +39,10 @@ Per-crew timings in the format landing_clear_v3.mjs takes: `{"Crew_1": {"s": 41.
 
 | crew | role | call | walk start | at ladder / queue spot | mount (first reach) | climb start | climb top | on deck (mantle done) | inside hatch (hidden) | ladder time |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Cargo Manager | 0.00–3.00 | 3.75 | 22.29 | 23.09 | 23.99 | 41.33 | 46.33 | 47.79 | 23.24 |
-| 2 | Crew 2 | 0.00–3.00 | 3.65 | 24.18 | 26.49 | 27.39 | 44.73 | 49.73 | 51.19 | 23.24 |
-| 3 | Crew 3 | 0.00–3.00 | 5.20 | 24.59 | 29.89 | 30.79 | 48.13 | 53.13 | 54.59 | 23.24 |
-| 4 | Crew 4 | 0.00–3.00 | 7.50 | 26.92 | 33.29 | 34.19 | 51.53 | 56.53 | 57.99 | 23.24 |
+| 1 | Cargo Manager | 0.00–3.00 | 3.75 | 22.29 | 23.09 | 23.99 | 41.33 | 44.33 | 47.79 | 21.24 |
+| 2 | Crew 2 | 0.00–3.00 | 3.65 | 24.18 | 26.49 | 27.39 | 44.73 | 47.73 | 51.19 | 21.24 |
+| 3 | Crew 3 | 0.00–3.00 | 5.20 | 24.59 | 29.89 | 30.79 | 48.13 | 51.13 | 54.59 | 21.24 |
+| 4 | Crew 4 | 0.00–3.00 | 7.50 | 26.92 | 33.29 | 34.19 | 51.53 | 54.53 | 57.99 | 21.24 |
 
 Phase notes: *call* = Cargo Manager (crew 1) hand to helmet radio 0.2–2.95 s and points to the pad 1.35–3.1 s; crew 2–4 raise a hand to acknowledge. *walk* = planted-foot gait along the shared route around the ship-leg pad; crew 2–4 wait at queue spots by the ladder and step to the ladder foot before their mount (mounts are chained: each is at least one stagger after the previous). *climb* (v3) = the arms do the climbing (hand-over-hand on the rungs, curled grip); the boots trail under the body, toes down, >= 3 cm behind the rungs (AA2 v3 gate: a boot near a rung must be still). *mantle* = see the hatch landing section.
 
@@ -52,10 +52,10 @@ Open well u 4.05–5.15, |t| < 0.62 (no deck in front of the hatch); kerb |t| 0.
 
 | crew | step-off side | through-hole start (climb top) | through-hole end (both boots on the wing) | hands off | walk-in end (inside hatch, hidden) |
 |---|---|---|---|---|---|
-| 1 | +t (lead Foot_R) | 41.33 | 46.41 | 46.33 | 47.79 |
-| 2 | -t (lead Foot_L) | 44.73 | 49.81 | 49.73 | 51.19 |
-| 3 | +t (lead Foot_R) | 48.13 | 53.21 | 53.13 | 54.59 |
-| 4 | -t (lead Foot_L) | 51.53 | 56.61 | 56.53 | 57.99 |
+| 1 | +t (lead Foot_R) | 41.33 | 44.72 | 44.33 | 47.79 |
+| 2 | -t (lead Foot_L) | 44.73 | 48.12 | 47.73 | 51.19 |
+| 3 | +t (lead Foot_R) | 48.13 | 51.52 | 51.13 | 54.59 |
+| 4 | -t (lead Foot_L) | 51.53 | 54.92 | 54.53 | 57.99 |
 
 Foot plants at deck height (sole centre u, t, z; land time = contact). `mantle` = step-off onto the wing, `walk_in` = steps to the hatch (the last plants are inside the hatch, u < 3.9).
 
@@ -63,8 +63,8 @@ Foot plants at deck height (sole centre u, t, z; land time = contact). `mantle` 
 
 | land s | foot | target u | target t | z | phase | measured sole box u | measured sole box t | where |
 |---|---|---|---|---|---|---|---|---|
-| 45.08 | Foot_R | 4.520 | 0.800 | 21.855 | mantle | 4.304–4.613 | 0.733–0.863 | wing |
-| 46.41 | Foot_L | 4.740 | 0.920 | 21.855 | mantle | 4.524–4.833 | 0.853–0.983 | wing |
+| 44.16 | Foot_R | 4.520 | 0.800 | 21.852 | mantle | 4.304–4.613 | 0.732–0.863 | wing |
+| 44.72 | Foot_L | 4.740 | 0.920 | 21.852 | mantle | 4.524–4.833 | 0.854–0.984 | wing |
 
 </details>
 
@@ -72,8 +72,8 @@ Foot plants at deck height (sole centre u, t, z; land time = contact). `mantle` 
 
 | land s | foot | target u | target t | z | phase | measured sole box u | measured sole box t | where |
 |---|---|---|---|---|---|---|---|---|
-| 48.48 | Foot_L | 4.520 | -0.800 | 21.855 | mantle | 4.302–4.610 | -0.867–-0.736 | wing |
-| 49.81 | Foot_R | 4.740 | -0.920 | 21.855 | mantle | 4.523–4.832 | -0.987–-0.857 | wing |
+| 47.56 | Foot_L | 4.520 | -0.800 | 21.852 | mantle | 4.302–4.611 | -0.866–-0.736 | wing |
+| 48.12 | Foot_R | 4.740 | -0.920 | 21.852 | mantle | 4.523–4.832 | -0.986–-0.856 | wing |
 
 </details>
 
@@ -81,8 +81,8 @@ Foot plants at deck height (sole centre u, t, z; land time = contact). `mantle` 
 
 | land s | foot | target u | target t | z | phase | measured sole box u | measured sole box t | where |
 |---|---|---|---|---|---|---|---|---|
-| 51.88 | Foot_R | 4.520 | 0.800 | 21.855 | mantle | 4.304–4.613 | 0.733–0.863 | wing |
-| 53.21 | Foot_L | 4.740 | 0.920 | 21.855 | mantle | 4.524–4.833 | 0.853–0.983 | wing |
+| 50.96 | Foot_R | 4.520 | 0.800 | 21.852 | mantle | 4.304–4.613 | 0.732–0.863 | wing |
+| 51.52 | Foot_L | 4.740 | 0.920 | 21.852 | mantle | 4.524–4.833 | 0.854–0.984 | wing |
 
 </details>
 
@@ -90,33 +90,35 @@ Foot plants at deck height (sole centre u, t, z; land time = contact). `mantle` 
 
 | land s | foot | target u | target t | z | phase | measured sole box u | measured sole box t | where |
 |---|---|---|---|---|---|---|---|---|
-| 55.28 | Foot_L | 4.520 | -0.800 | 21.855 | mantle | 4.302–4.610 | -0.867–-0.736 | wing |
-| 56.61 | Foot_R | 4.740 | -0.920 | 21.855 | mantle | 4.523–4.832 | -0.987–-0.857 | wing |
+| 54.36 | Foot_L | 4.520 | -0.800 | 21.852 | mantle | 4.302–4.611 | -0.866–-0.736 | wing |
+| 54.92 | Foot_R | 4.740 | -0.920 | 21.852 | mantle | 4.523–4.832 | -0.986–-0.856 | wing |
 
 </details>
 
 ## Measured checks (three r186 skinned playback of the shipped GLB)
 
-- **glb**: `{"bytes": 249416, "draws": 4, "tris": 10772, "three": "186", "clips": [["crew_call", 3], ["crew_walk_to_pad", 19.3], ["crew_climb", 36.2]]}`
-- **contacts_r186**: `{"foot_max_err_vs_ref_m": 0.0918, "hand_max_err_vs_ref_m": 0.0825, "planted_foot_slide_max_m": 0.0552, "gripping_hand_slip_max_m": 0.0027}`
-- **planted_foot_slide_percentiles_m**: `{"p50": 0.0013, "p95": 0.0165, "p99": 0.0256, "max": 0.0552, "n_frames": 3631, "over_5mm": 1060}`
-- **worst_at**: `{"foot_max_err_vs_ref_m": {"t": 28.47, "crew": 3, "limb": "Foot_L"}, "hand_max_err_vs_ref_m": {"t": 24.43, "crew": 4, "limb": "Hand_R"}, "planted_foot_slide_max_m": {"t": 12.63, "crew": 4, "limb": "Foot_L"}, "gripping_hand_slip_max_m": {"t": 29.87, "crew": 1, "limb": "Hand_L"}}`
-- **ik_target_reach**: `{"max_ratio": 1.0601, "at": {"crew": 3, "t": 54.2, "limb": "legR", "A": [3.67, 22.55, -11.2], "T": [4.31, 21.96, -11.43]}, "note": "IK target distance / limb length; limbs are rigid (never stretched), >1 = the target is missed by that fraction for a frame"}`
-- **climber_clearance**: `{"frames": 1087, "t_range": [22.3, 58.4996], "min_mesh_gap_m": 0.0, "min_mesh_gap_at_t_crewA_crewB": [43.3665, 1, 2], "min_boot_to_glove_m": 0.005, "min_boot_to_glove_at_t_upper_lower": [47.0998, 2, 3], "frames_under_10cm": 243, "frames_touching_under_2cm": 208}`
-- **climber_clearance_note**: `"v3 REGRESSION: the slow v3 mantle (rail press, slow boot set-downs) keeps each climber at the ladder top ~5 s while the next climber keeps climbing at the 3.4 s / 4.08 m stagger, so the upper climber's boots/shins overlap the next climber's head/forearms at z 20.4-21.9 (crew 1/2 ~43.0-45.3 s, 2/3 ~46.4-48.7 s, 3/4 ~49.8-52.1 s). Not one of the gate categories; see README."`
+- **glb**: `{"bytes": 252360, "draws": 4, "tris": 10772, "three": "186", "clips": [["crew_call", 3], ["crew_walk_to_pad", 19.3], ["crew_climb", 36.2]]}`
+- **contacts_r186**: `{"foot_max_err_vs_ref_m": 0.0935, "hand_max_err_vs_ref_m": 0.0752, "planted_foot_slide_max_m": 0.0052, "gripping_hand_slip_max_m": 0.0093, "planted_foot_drift_max_m": 0.0063}`
+- **planted_foot_slide_percentiles_m**: `{"p50": 0.0004, "p95": 0.0034, "p99": 0.0046, "max": 0.0052, "n_frames": 3879, "over_5mm": 4}`
+- **planted_foot_drift_from_plant_start_m**: `{"p95": 0.0033, "max": 0.0063}`
+- **worst_at**: `{"foot_max_err_vs_ref_m": {"t": 32.2, "crew": 4, "limb": "Foot_L"}, "hand_max_err_vs_ref_m": {"t": 32.37, "crew": 4, "limb": "Hand_R"}, "planted_foot_drift_max_m": {"t": 3.87, "crew": 1, "limb": "Foot_R"}, "planted_foot_slide_max_m": {"t": 18.77, "crew": 2, "limb": "Foot_R"}, "gripping_hand_slip_max_m": {"t": 48.53, "crew": 3, "limb": "Hand_L"}}`
+- **ik_target_reach**: `{"max_ratio": 1.0501, "at": {"crew": 3, "t": 50.1, "limb": "armR", "A": [4.14, 22.33, -10.9], "T": [4.04, 21.76, -10.84]}, "note": "IK target distance / limb length; limbs are rigid (never stretched), >1 = the target is missed by that fraction for a frame"}`
+- **climber_clearance**: `{"frames": 1087, "t_range": [22.3, 58.4996], "min_mesh_gap_m": 0.047, "min_mesh_gap_at_t_crewA_crewB": [25.7, 1, 2], "min_boot_to_glove_m": 0.108, "min_boot_to_glove_at_t_upper_lower": [53.1997, 3, 4], "frames_under_10cm": 28, "frames_touching_under_2cm": 0}`
+- **climber_clearance_note**: `"v4: fixed. The mantle (climb top -> on deck) is 2.0 s shorter (5.0 -> 3.0 s, warped in time) and the trail boot leaves the shaft column 0.15 s (authored) earlier, so the next climber's head never rises into the upper climber's boots. Gate category 15 (crew_vs_crew) checks every pair, every 1/30 s frame of all three clips, exact triangle-triangle, no exemptions."`
+- **crew_vs_crew_gate**: `{"result": "PASS", "min_required_m": 0.03, "frames": 1756, "frames_under_min": 0, "pairs": {"Crew_1-Crew_2": {"min_m": 0.047, "frames_under_min": 0, "at_s": 25.7, "parts": ["Foot_R", "Head"], "where_glTF": [4.189, 1.855, -10.735]}, "Crew_1-Crew_3": {"min_m": 0.3712, "frames_under_min": 0, "at_s": 47.733, "parts": ["bbox", "bbox"]}, "Crew_1-Crew_4": {"min_m": 1.5416, "frames_under_min": 0, "at_s": 25.867, "parts": ["bbox", "bbox"]}, "Crew_2-Crew_3": {"min_m": 0.0541, "frames_under_min": 0, "at_s": 29.067, "parts": ["Foot_L", "Head"], "where_glTF": [4.079, 1.858, -10.544]}, "Crew_2-Crew_4": {"min_m": 0.3716, "frames_under_min": 0, "at_s": 50.867, "parts": ["bbox", "bbox"]}, "Crew_3-Crew_4": {"min_m": 0.0667, "frames_under_min": 0, "at_s": 32.5, "parts": ["Foot_R", "Head"], "where_glTF": [4.189, 1.852, -10.735]}}}`
 - **climber_spacing_m**: `4.08`
-- **landing_vs_pad_7e02552**: `{"pad_md5": "9e44959341d7f57bf1b3bd21b826b940", "min_m": 0.04, "hits": 0, "per_part_min_m": {"deck_wing": 0.063, "deck_bridge": 0.1065, "frame_side": 0.0403, "well_frame_climb": 0.0459, "frame_outer": 0.0893, "beam_outer": 0.3431, "beam_side": 0.3596, "lid": 0.1093, "brace": 0.5846, "rail_post": 0.1966, "rail": 0.173, "lid_hinge": 0.1144, "lid_rib": 0.149, "lid_strut": 0.2614, "hull": 0.285, "hatch_edge": 0.0785, "cage_tris": 0.0333, "kerb_deck": 0.0403}, "plants_in_well": 0, "plants_on_kerb": 0, "climb_min_frame_side_m": 0.046, "cage_min_m": 0.033, "hatch_edge_note": "hatch_edge = the hatch opening edge (was hatch_jamb in v2); v3 keeps every crew vertex >= 3 cm from it"}`
-- **aa2_landing_clear_v3_gate**: `{"result": "PASS", "by_category": {"hand_grip_sink_gt_5mm": "PASS", "hand_grip_rod_through_hand": "PASS", "resting_sole_sink_gt_5mm": "PASS", "ladder_rails": "PASS", "ladder_top_rails": "PASS", "rungs": "PASS", "cage": "PASS", "hatch_jamb_lintel": "PASS", "kerb": "PASS", "guard_rail": "PASS", "shins_over_deck": "PASS", "deck_non_resting": "PASS", "hull": "PASS", "other_ship": "PASS"}, "exempt": {"hand_grip_within_5mm": {"entries": 16, "min_m": -0.0047}, "sole_on_deck_within_5mm": {"entries": 8, "min_m": 0.0035}, "sole_on_rung_within_5mm": {"entries": 0, "min_m": null}}, "plants": {"n": 18, "unsupported": 0, "hover_gt_2cm": 0, "sinking": 0}, "per_crew_min_m": {"Crew_1": {"min_m": 0.03, "part": "rung", "bone": "Hand_L", "at_s": 28.833}, "Crew_2": {"min_m": 0.03, "part": "rung", "bone": "Hand_L", "at_s": 29.233}, "Crew_3": {"min_m": 0.03, "part": "rung", "bone": "Hand_R", "at_s": 41.233}, "Crew_4": {"min_m": 0.03, "part": "rung", "bone": "Hand_L", "at_s": 37.067}}, "glb_vertices_left_in_well": 0, "pad": "7e02552 launch_pad_game.glb"}`
-- **aa2_landing_clear_v2_unedited**: `{"minClear": 0.0035, "hits": 0, "per_part": {"brace": {"min_m": 0.7635, "hits": 0, "at_s": 52.933, "crew": "Crew_4"}, "frame_outer": {"min_m": 0.0903, "hits": 0, "at_s": 52.133, "crew": "Crew_3"}, "beam_outer": {"min_m": 1.0735, "hits": 0, "at_s": 40.167, "crew": "Crew_1"}, "hull": {"min_m": 0.1036, "hits": 0, "at_s": 54.433, "crew": "Crew_3"}, "frame_side": {"min_m": 0.0403, "hits": 0, "at_s": 54.167, "crew": "Crew_3"}, "lid": {"min_m": 0.1093, "hits": 0, "at_s": 48.733, "crew": "Crew_2"}, "deck_wing": {"min_m": 0.0035, "hits": 0, "at_s": 50.2, "crew": "Crew_2"}, "hatch_jamb": {"min_m": 0.1017, "hits": 0, "at_s": 47.133, "crew": "Crew_1"}, "rail": {"min_m": 0.173, "hits": 0, "at_s": 56.533, "crew": "Crew_4"}, "rail_post": {"min_m": 0.2499, "hits": 0, "at_s": 49.567, "crew": "Crew_2"}}, "plant_summary": {"plants": 18, "unsupported_plants": 0, "hover_gt_2cm": 0, "sinking": 0, "gap_m": [0.0035, 0.0151], "walk_in_wing_plants": [{"crew": "Crew_1", "foot": "Foot_R", "land_s": 44.4, "u": [4.3007, 4.615], "t": [0.7314, 0.865], "surface": "wing", "unsupported_vertex_frames": 0, "gap_m": 0.0048}, {"crew": "Crew_2", "foot": "Foot_L", "land_s": 47.8, "u": [4.3009, 4.6145], "t": [-0.8691, -0.7345], "surface": "wing", "unsupported_vertex_frames": 0, "gap_m": 0.0035}, {"crew": "Crew_3", "foot": "Foot_R", "land_s": 51.2, "u": [4.3007, 4.615], "t": [0.7314, 0.865], "surface": "wing", "unsupported_vertex_frames": 0, "gap_m": 0.0048}, {"crew": "Crew_4", "foot": "Foot_L", "land_s": 54.6, "u": [4.3009, 4.6145], "t": [-0.8691, -0.7345], "surface": "wing", "unsupported_vertex_frames": 0, "gap_m": 0.0035}]}}`
+- **landing_vs_pad_3d0d489**: `{"pad_md5": "833a339be22b0db4b8e37eccaa838397", "min_m": 0.044, "hits": 0, "per_part_min_m": {"deck_wing": 0.063, "deck_bridge": 0.1402, "frame_side": 0.0435, "well_frame_climb": 0.0524, "frame_outer": 0.137, "beam_outer": 0.3536, "beam_side": 0.3573, "lid": 0.1214, "brace": 0.5782, "rail_post": 0.1941, "rail": 0.1705, "lid_hinge": 0.1703, "lid_rib": 0.2376, "lid_strut": 0.3446, "hull": 0.2352, "hatch_edge": 0.0801, "cage_tris": 0.033, "kerb_deck": 0.0435}, "plants_in_well": 0, "plants_on_kerb": 0, "climb_min_frame_side_m": 0.052, "cage_min_m": 0.033, "hatch_edge_note": "hatch_edge = the hatch opening edge (was hatch_jamb in v2); v3 keeps every crew vertex >= 3 cm from it"}`
+- **aa2_landing_clear_v3_gate**: `{"result": "PASS", "by_category": {"hand_grip_sink_gt_5mm": "PASS", "hand_grip_rod_through_hand": "PASS", "resting_sole_sink_gt_5mm": "PASS", "ladder_rails": "PASS", "ladder_top_rails": "PASS", "rungs": "PASS", "cage": "PASS", "hatch_jamb_lintel": "PASS", "kerb": "PASS", "guard_rail": "PASS", "shins_over_deck": "PASS", "deck_non_resting": "PASS", "hull": "PASS", "other_ship": "PASS"}, "exempt": {"hand_grip_within_5mm": {"entries": 16, "min_m": -0.0038}, "sole_on_deck_within_5mm": {"entries": 8, "min_m": -0.0001}, "sole_on_rung_within_5mm": {"entries": 0, "min_m": null}}, "plants": {"n": 24, "unsupported": 0, "hover_gt_2cm": 4, "sinking": 0}, "per_crew_min_m": {"Crew_1": {"min_m": 0.03, "part": "rung", "bone": "Hand_L", "at_s": 28.833}, "Crew_2": {"min_m": 0.03, "part": "rung", "bone": "Hand_L", "at_s": 43.833}, "Crew_3": {"min_m": 0.03, "part": "rung", "bone": "Hand_R", "at_s": 46.367}, "Crew_4": {"min_m": 0.03, "part": "rung", "bone": "Hand_L", "at_s": 46.1}}, "glb_vertices_left_in_well": 0, "pad": "3d0d489 launch_pad_game.glb"}`
+- **aa2_landing_clear_v2_unedited**: `{"minClear": 0, "hits": 0, "per_part": {"brace": {"min_m": 0.772, "hits": 0}, "frame_outer": {"min_m": 0.137, "hits": 0}, "beam_outer": {"min_m": 1.074, "hits": 0}, "frame_side": {"min_m": 0.045, "hits": 0}, "lid": {"min_m": 0.214, "hits": 0}, "deck_wing": {"min_m": 0, "hits": 0}, "rail": {"min_m": 0.17, "hits": 0}, "rail_post": {"min_m": 0.211, "hits": 0}}, "plant_summary": null}`
 
 ## Ladder occupancy (who is on the ladder when)
 
 | crew | on ladder | overlaps with |
 |---|---|---|
-| 1 | 23.09–46.33 | crew 2 (26.5–46.3), crew 3 (29.9–46.3), crew 4 (33.3–46.3) |
-| 2 | 26.49–49.73 | crew 1 (26.5–46.3), crew 3 (29.9–49.7), crew 4 (33.3–49.7) |
-| 3 | 29.89–53.13 | crew 1 (29.9–46.3), crew 2 (29.9–49.7), crew 4 (33.3–53.1) |
-| 4 | 33.29–56.53 | crew 1 (33.3–46.3), crew 2 (33.3–49.7), crew 3 (33.3–53.1) |
+| 1 | 23.09–44.33 | crew 2 (26.5–44.3), crew 3 (29.9–44.3), crew 4 (33.3–44.3) |
+| 2 | 26.49–47.73 | crew 1 (26.5–44.3), crew 3 (29.9–47.7), crew 4 (33.3–47.7) |
+| 3 | 29.89–51.13 | crew 1 (29.9–44.3), crew 2 (29.9–47.7), crew 4 (33.3–51.1) |
+| 4 | 33.29–54.53 | crew 1 (33.3–44.3), crew 2 (33.3–47.7), crew 3 (33.3–51.1) |
 
 All four are on the ladder at once, spaced 4.08 m apart in steady climb (3.4 s stagger). Measured clearance: see *Measured checks*. Each limb moves in its own window, so climbers never move in lockstep.
 
@@ -124,7 +126,7 @@ All four are on the ladder at once, spaced 4.08 m apart in steady climb (3.4 s s
 
 Each row = one limb move: lift-off → contact, target rung index (height of rung). `rail_top` = deck rail grip, `hatch_frame` = hatch frame grips during the mantle, `deck` = foot onto the deck.
 
-<details><summary>Crew 1 — Cargo Manager (76 limb moves, 23.09–46.33 s)</summary>
+<details><summary>Crew 1 — Cargo Manager (76 limb moves, 23.09–44.33 s)</summary>
 
 | lift-off | contact | limb | target | height m |
 |---|---|---|---|---|
@@ -196,18 +198,18 @@ Each row = one limb move: lift-off → contact, target rung index (height of run
 | 39.71 | 40.33 | hand_R | rung 34 | 21.05 |
 | 39.78 | 40.70 | foot_L | rung 32 | 19.85 |
 | 39.97 | 40.47 | hand_L | rung 34 | 21.05 |
-| 41.33 | 41.73 | hand_L | rail_z_21.30 |  |
-| 41.63 | 42.03 | hand_R | rail_z_21.30 |  |
-| 42.08 | 42.43 | hand_L | rail_z_21.55 |  |
-| 42.43 | 42.78 | hand_R | rail_z_21.65 |  |
-| 42.78 | 43.13 | hand_L | rail_z_21.79 |  |
-| 43.13 | 43.48 | hand_R | rail_z_21.79 |  |
-| 44.48 | 44.88 | hand_R | release |  |
-| 44.63 | 45.03 | hand_L | release |  |
+| 41.33 | 41.57 | hand_L | rail_z_21.30 |  |
+| 41.51 | 41.75 | hand_R | rail_z_21.30 |  |
+| 41.78 | 41.99 | hand_L | rail_z_21.55 |  |
+| 41.99 | 42.20 | hand_R | rail_z_21.65 |  |
+| 42.20 | 42.41 | hand_L | rail_z_21.79 |  |
+| 42.41 | 42.62 | hand_R | rail_z_21.79 |  |
+| 43.22 | 43.46 | hand_R | release |  |
+| 43.31 | 43.55 | hand_L | release |  |
 
 </details>
 
-<details><summary>Crew 2 — Crew 2 (76 limb moves, 26.49–49.73 s)</summary>
+<details><summary>Crew 2 — Crew 2 (76 limb moves, 26.49–47.73 s)</summary>
 
 | lift-off | contact | limb | target | height m |
 |---|---|---|---|---|
@@ -279,18 +281,18 @@ Each row = one limb move: lift-off → contact, target rung index (height of run
 | 43.11 | 43.73 | hand_R | rung 34 | 21.05 |
 | 43.18 | 44.10 | foot_L | rung 32 | 19.85 |
 | 43.37 | 43.87 | hand_L | rung 34 | 21.05 |
-| 44.73 | 45.13 | hand_L | rail_z_21.30 |  |
-| 45.03 | 45.43 | hand_R | rail_z_21.30 |  |
-| 45.48 | 45.83 | hand_L | rail_z_21.55 |  |
-| 45.83 | 46.18 | hand_R | rail_z_21.65 |  |
-| 46.18 | 46.53 | hand_L | rail_z_21.79 |  |
-| 46.53 | 46.88 | hand_R | rail_z_21.79 |  |
-| 47.88 | 48.28 | hand_L | release |  |
-| 48.03 | 48.43 | hand_R | release |  |
+| 44.73 | 44.97 | hand_L | rail_z_21.30 |  |
+| 44.91 | 45.15 | hand_R | rail_z_21.30 |  |
+| 45.18 | 45.39 | hand_L | rail_z_21.55 |  |
+| 45.39 | 45.60 | hand_R | rail_z_21.65 |  |
+| 45.60 | 45.81 | hand_L | rail_z_21.79 |  |
+| 45.81 | 46.02 | hand_R | rail_z_21.79 |  |
+| 46.62 | 46.86 | hand_L | release |  |
+| 46.71 | 46.95 | hand_R | release |  |
 
 </details>
 
-<details><summary>Crew 3 — Crew 3 (76 limb moves, 29.89–53.13 s)</summary>
+<details><summary>Crew 3 — Crew 3 (76 limb moves, 29.89–51.13 s)</summary>
 
 | lift-off | contact | limb | target | height m |
 |---|---|---|---|---|
@@ -362,18 +364,18 @@ Each row = one limb move: lift-off → contact, target rung index (height of run
 | 46.51 | 47.13 | hand_R | rung 34 | 21.05 |
 | 46.58 | 47.50 | foot_L | rung 32 | 19.85 |
 | 46.77 | 47.27 | hand_L | rung 34 | 21.05 |
-| 48.13 | 48.53 | hand_L | rail_z_21.30 |  |
-| 48.43 | 48.83 | hand_R | rail_z_21.30 |  |
-| 48.88 | 49.23 | hand_L | rail_z_21.55 |  |
-| 49.23 | 49.58 | hand_R | rail_z_21.65 |  |
-| 49.58 | 49.93 | hand_L | rail_z_21.79 |  |
-| 49.93 | 50.28 | hand_R | rail_z_21.79 |  |
-| 51.28 | 51.68 | hand_R | release |  |
-| 51.43 | 51.83 | hand_L | release |  |
+| 48.13 | 48.37 | hand_L | rail_z_21.30 |  |
+| 48.31 | 48.55 | hand_R | rail_z_21.30 |  |
+| 48.58 | 48.79 | hand_L | rail_z_21.55 |  |
+| 48.79 | 49.00 | hand_R | rail_z_21.65 |  |
+| 49.00 | 49.21 | hand_L | rail_z_21.79 |  |
+| 49.21 | 49.42 | hand_R | rail_z_21.79 |  |
+| 50.02 | 50.26 | hand_R | release |  |
+| 50.11 | 50.35 | hand_L | release |  |
 
 </details>
 
-<details><summary>Crew 4 — Crew 4 (76 limb moves, 33.29–56.53 s)</summary>
+<details><summary>Crew 4 — Crew 4 (76 limb moves, 33.29–54.53 s)</summary>
 
 | lift-off | contact | limb | target | height m |
 |---|---|---|---|---|
@@ -445,23 +447,24 @@ Each row = one limb move: lift-off → contact, target rung index (height of run
 | 49.91 | 50.53 | hand_R | rung 34 | 21.05 |
 | 49.98 | 50.90 | foot_L | rung 32 | 19.85 |
 | 50.17 | 50.67 | hand_L | rung 34 | 21.05 |
-| 51.53 | 51.93 | hand_L | rail_z_21.30 |  |
-| 51.83 | 52.23 | hand_R | rail_z_21.30 |  |
-| 52.28 | 52.63 | hand_L | rail_z_21.55 |  |
-| 52.63 | 52.98 | hand_R | rail_z_21.65 |  |
-| 52.98 | 53.33 | hand_L | rail_z_21.79 |  |
-| 53.33 | 53.68 | hand_R | rail_z_21.79 |  |
-| 54.68 | 55.08 | hand_L | release |  |
-| 54.83 | 55.23 | hand_R | release |  |
+| 51.53 | 51.77 | hand_L | rail_z_21.30 |  |
+| 51.71 | 51.95 | hand_R | rail_z_21.30 |  |
+| 51.98 | 52.19 | hand_L | rail_z_21.55 |  |
+| 52.19 | 52.40 | hand_R | rail_z_21.65 |  |
+| 52.40 | 52.61 | hand_L | rail_z_21.79 |  |
+| 52.61 | 52.82 | hand_R | rail_z_21.79 |  |
+| 53.42 | 53.66 | hand_L | release |  |
+| 53.51 | 53.75 | hand_R | release |  |
 
 </details>
 
 ## Build checks
 
-- `ik_max_stretch`: 1.0601
-- `ik_stretch_at`: {'crew': 3, 't': 54.2, 'limb': 'legR', 'A': [3.67, 22.55, -11.2], 'T': [4.31, 21.96, -11.43]}
-- `ik_evals_over_1.02`: 736
-- `planted_foot_slide_max_m`: 0.01787
-- `max_joint_step_per_frame_m`: 0.795
-- `min_gap_upper_boots_to_lower_gloves_m`: -0.922
-- `min_gap_at`: [48.33, 2, 3]
+- `ik_max_stretch`: 1.0501
+- `ik_stretch_at`: {'crew': 3, 't': 50.1, 'limb': 'armR', 'A': [4.14, 22.33, -10.9], 'T': [4.04, 21.76, -10.84]}
+- `ik_evals_over_1.02`: 720
+- `planted_foot_slide_at`: {'crew': 4, 'foot': 'R', 't': 26.7}
+- `planted_foot_slide_max_m`: 0.00335
+- `max_joint_step_per_frame_m`: 0.827
+- `min_gap_upper_boots_to_lower_gloves_m`: -1.714
+- `min_gap_at`: [54.53, 3, 4]

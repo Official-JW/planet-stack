@@ -1,6 +1,6 @@
 {
- "file": "/tmp/bp_v3m.glb",
- "bytes": 249416,
+ "file": "/tmp/bp_fin.glb",
+ "bytes": 252360,
  "three": "186",
  "extensionsUsed": [
   "KHR_mesh_quantization",
@@ -31,41 +31,51 @@
    "tracks": 80
   }
  ],
+ "planted_foot_drift_from_plant_start_m": {
+  "p95": 0.0033,
+  "max": 0.0063
+ },
  "planted_foot_slide_percentiles_m": {
-  "p50": 0.0013,
-  "p95": 0.0165,
-  "p99": 0.0256,
-  "max": 0.0552,
-  "n_frames": 3631,
-  "over_5mm": 1060
+  "p50": 0.0004,
+  "p95": 0.0034,
+  "p99": 0.0046,
+  "max": 0.0052,
+  "n_frames": 3879,
+  "over_5mm": 4
  },
  "frames_played": 1756,
  "worst_at": {
   "foot_max_err_vs_ref_m": {
-   "t": 28.47,
-   "crew": 3,
+   "t": 32.2,
+   "crew": 4,
    "limb": "Foot_L"
   },
   "hand_max_err_vs_ref_m": {
-   "t": 24.43,
+   "t": 32.37,
    "crew": 4,
    "limb": "Hand_R"
   },
+  "planted_foot_drift_max_m": {
+   "t": 3.87,
+   "crew": 1,
+   "limb": "Foot_R"
+  },
   "planted_foot_slide_max_m": {
-   "t": 12.63,
-   "crew": 4,
-   "limb": "Foot_L"
+   "t": 18.77,
+   "crew": 2,
+   "limb": "Foot_R"
   },
   "gripping_hand_slip_max_m": {
-   "t": 29.87,
-   "crew": 1,
+   "t": 48.53,
+   "crew": 3,
    "limb": "Hand_L"
   }
  },
  "contacts": {
-  "foot_max_err_vs_ref_m": 0.0918,
-  "hand_max_err_vs_ref_m": 0.0825,
-  "planted_foot_slide_max_m": 0.0552,
-  "gripping_hand_slip_max_m": 0.0027
+  "foot_max_err_vs_ref_m": 0.0935,
+  "hand_max_err_vs_ref_m": 0.0752,
+  "planted_foot_slide_max_m": 0.0052,
+  "gripping_hand_slip_max_m": 0.0093,
+  "planted_foot_drift_max_m": 0.0063
  }
 }
