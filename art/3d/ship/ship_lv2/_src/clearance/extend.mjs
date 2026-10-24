@@ -33,5 +33,8 @@ for(const ch of chans){const k=crewOf(ch); const s=ch.getSampler(); if(done.has(
     for(const x of ins){ if(x===ta) continue; const val=x===ta?sampleAt(s,ta):sampleAt(s,x); if(isRootT)val[1]+=DH; nt.push(x+DT); nv.push(...val);} }
   // last: ensure the clip lasts +DT for everyone
   const last=nt[nt.length-1]; const lastTarget=36.2+DT; if(last<lastTarget-1e-4){nt.push(lastTarget);nv.push(...nv.slice(nv.length-e));}
-  s.getInput().setArray(new Float32Array(nt)).setNormalized(false); s.getOutput().setArray(new Float32Array(nv)).setNormalized(false); }
+  // inputs/outputs can be SHARED between samplers (gltfpack): give each sampler its own accessors, else a shared time array is extended once per crew
+  const buf=doc.getRoot().listBuffers()[0];
+  s.setInput(doc.createAccessor().setType('SCALAR').setArray(new Float32Array(nt)).setBuffer(buf));
+  s.setOutput(doc.createAccessor().setType(s.getOutput().getType()).setArray(new Float32Array(nv)).setBuffer(buf)); }
 await io.write(outF,doc); console.log('wrote',outF,'climb +',DT,'s');
