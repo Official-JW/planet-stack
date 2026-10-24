@@ -1,0 +1,75 @@
+{
+ "what": "Ship Lv2 mockup = Lv1 (pad GLB 82131aba ship node) upgraded at the Shipyard; scratch pad composite, launch_pad/ untouched",
+ "lv1": {
+  "height_m": 40.25,
+  "hull_d_m": 8.0,
+  "leg_span_m": 18.5,
+  "seats": 4,
+  "boxes": 10
+ },
+ "lv2": {
+  "height_m": 40.25,
+  "hull_d_m": 8.0,
+  "cargo_collar_d_m": 8.8,
+  "cargo_collar_y_m": [
+   12.1,
+   19.5
+  ],
+  "leg_span_m": 18.5,
+  "seats": 5,
+  "boxes": 12,
+  "changes": [
+   "cargo section widened x1.10 (y 12.8-18.8, 0.7 m tapers; hold area x1.21 -> 12 boxes, 2 tiers of 6)",
+   "NEW DETAIL: 2nd mid-blue stripe band (#687cc4 swatch) round the cargo collar, y 17.95-18.65",
+   "5th-seat porthole on the crew deck, y 26.6, 1.24 m, dark glass + steel rim",
+   "cargo door + Hold_Door marker pushed out with the collar"
+  ],
+  "why_not_longer": "375x667 ship top spare is 5.3 px at frame_w 78.25; any extra height breaks the >=5 px rule"
+ },
+ "shiplook": {
+  "method": "qnext run_mods.js MODS=shiplook (mods_v3), local copy of qa3d-next @ main 62e69ac2 with pad GLB swapped",
+  "lv1_82131aba_repro": {
+   "393": 68,
+   "375": 69
+  },
+  "lv2": {
+   "393": {
+    "p25": 68,
+    "p50": 109,
+    "p90": 173,
+    "near_black": 0,
+    "rings": "4/4"
+   },
+   "375": {
+    "p25": 67,
+    "p50": 108,
+    "p90": 174,
+    "near_black": 0,
+    "rings": "4/4"
+   }
+  },
+  "target": "60-75"
+ },
+ "framing": {
+  "ship_spare_px": {
+   "393x852": {
+    "left": 140.4,
+    "right": 140.3,
+    "top": 67.9,
+    "bottom": 96.8
+   },
+   "375x667": {
+    "left": 133.9,
+    "right": 133.8,
+    "top": 5.3,
+    "bottom": 38.9
+   }
+  },
+  "worst_all_groups": 5.3
+ },
+ "scratch_pad_glb": {
+  "md5": "bb4007487fc03b9056478307ff3249c1",
+  "tris": 29615,
+  "draws": 15
+ }
+}
