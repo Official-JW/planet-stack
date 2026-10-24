@@ -33,6 +33,7 @@ Approved by Game Director. This is the target the Mine A loop is built toward.
 - Mine: 1.2 MB
 - Each of the 5 buildings: 0.9 MB, with the Tank Farm inside the Dock's share
 - Ship, crew and props: 1.0 MB
+  - Director ruling (10/24/2026): while the ship lives inside the Launch Pad GLB, the whole pad file (ship included) counts as a building under the 0.9 MB building share, and crew plus props stay in this 1.0 MB group. Once the ship moves into its own file, the ship counts toward this 1.0 MB group again.
 - Reserve: 0.3 MB
 - Shared textures go in `art/3d/buildings/_shared/`. The first screen stays under 3 MB, and the other buildings are lazy-loaded.
 
