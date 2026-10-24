@@ -10,7 +10,7 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
 const CFG = {
-  startMoney: 500, startCrystals: 0,
+  startMoney: 500, startCrystals: 0, showCrystals: false,   // Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
   oreValue: 1,                          // $ per ore
   drillRate0: 6, drillRatePerLvl: 3,    // ore/min at Lv1, + per level
   drillCost0: 15, drillCostGrowth: 1.65,// Lv1→2 costs $15, then ×1.65 per level
@@ -32,6 +32,9 @@ const Q = new URLSearchParams(location.search);
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
 const MINE_GLB = 'models/mine_219e774.glb';             // Art 219e774 levelled road end; previous: 'models/mine_8a0bfe6.glb'
 const REFINERY_GLB = 'models/refinery_bb5eed2.glb';     // Art bb5eed2 road starts at world x 274; previous: 'models/refinery_0358ffa.glb'
+const TURN_SPEED = 4.0;   // m/s through curves (Mine 4.5 m arcs on Path_Out_*/Path_Ret_*, Refinery U-turn Truck_Path_01..07); straights stay TV.v = 8.33
+const TURN_R_MAX = 25;    // m: any stretch turning tighter than this radius counts as a curve
+const TURN_ACC = 2.5;     // m/s²: braking into / speeding out of a curve
 const ROAD_LAST_SCALE = 1.0;   // haul road: 10 full 8 m tiles + a last tile scaled along X only. 1.0 = 11 full tiles ending at world x 274 (Art's trimmed Refinery road);
                                // 0.75 = ends at x 272, where Refinery 0358ffa's own road starts
 const DEV = Q.get('dev') === '1';
@@ -172,7 +175,7 @@ const STATION_GLB = [
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: 4, url: 'models/dock_tankfarm_fd286b9.glb?v=7959ae74', loops: ['Beacon_Lights_Blink', 'crane_gantry_move'], onLoad: (o) => {   // Cam_Target (12, 6, 2), frame_w 64; dock door stays shut
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; } },
-  { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink', 'crane_jib_swing'] },
+  { i: 6, url: 'models/shipyard_2d57b95.glb?v=4020a073', loops: ['Beacon_Lights_Blink', 'crane_jib_swing'], pingPong: ['crane_jib_swing'] },   // jib clip is one-way 90°→0°: ping-pong so it swings back instead of snapping
 ];
 const SITECAM = STATIONS.map(() => ({ k: 1, dx: 0, dz: 0, ly: CAM.lookY }));   // per-station framing; the Mine keeps k=1, dx=dz=0 until its GLB (with Cam_Target) is in
 const stationMixers = [], stationObjs = {};
@@ -227,7 +230,7 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
   scene.add(o); o.updateMatrixWorld(true); stationObjs[G.i] = o; o.userData.camTarget = camTargetOf(o);
   if (phBox[G.i]) { scene.remove(phBox[G.i]); phBox[G.i].geometry.dispose(); phBox[G.i] = null; }
   const mx = new THREE.AnimationMixer(o); stationMixers.push(mx);
-  for (const c of gltf.animations) if (G.loops.includes(c.name)) mx.clipAction(c).play();
+  for (const c of gltf.animations) if (G.loops.includes(c.name)) { const a = mx.clipAction(c); if ((G.pingPong || []).includes(c.name)) a.setLoop(THREE.LoopPingPong, Infinity); a.play(); }
   if (G.onLoad) G.onLoad(o, mx, gltf);
   fitSite(G.i);
   (window.__ps3d.stationsLoaded = window.__ps3d.stationsLoaded || []).push(STATIONS[G.i]);
@@ -545,6 +548,7 @@ function endDrag(e) {
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('lostpointercapture', endDrag);
 
 // ===== HUD
+if (CFG.showCrystals) $('cry').closest('.cell').hidden = false;
 const moneyEl = $('money'), rateEl = $('rate'), cryEl = $('cry'), binEl = $('bin'), binFill = binEl.firstElementChild;
 let lastMoneyTxt = '', lastMoneyV = 0, lastBin = -1;
 moneyEl.addEventListener('animationend', (e) => { if (e.animationName === 'tick') moneyEl.classList.remove('tick'); });
@@ -553,7 +557,7 @@ function hud() {
     if (S.money > lastMoneyV && !moneyEl.classList.contains('bump')) moneyEl.classList.add('tick'); }   // soft tick on any increase (transform/opacity only, no forced reflow)
   lastMoneyV = S.money;
   rateEl.textContent = rate();
-  cryEl.textContent = DEV ? '∞' : S.crystals;
+  if (CFG.showCrystals) cryEl.textContent = S.crystals;   // paid currency (real money only); hidden until the shop lands
   const bf = TS.shown; if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = `scaleX(${bf.toFixed(3)})`; }   // bar = the truck bed
   binEl.classList.toggle('full', TS.ph !== 'fill' && TS.shown >= 1);
 }
@@ -710,19 +714,39 @@ function sOf(P, p) { let b = 0, bd = Infinity; for (let i = 0; i < P.n; i++) { c
 function pathAt(P, s, o) { s = clamp(s, 0, P.L); let lo = 0, hi = P.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P.C[m] <= s) lo = m; else hi = m; }
   const u = (s - P.C[lo]) / Math.max(1e-9, P.C[hi] - P.C[lo]); o.x = P.X[lo] + (P.X[hi] - P.X[lo]) * u; o.z = P.Z[lo] + (P.Z[hi] - P.Z[lo]) * u;
   const a = Math.max(0, lo - 3), b = Math.min(P.n - 1, hi + 3); o.yaw = Math.atan2(-(P.Z[b] - P.Z[a]), P.X[b] - P.X[a]); return o; }
-// speed profile: linear ramp 0→v over da (eased start), flat v, linear ramp v→0 over the last dd (eased stop)
-function kin(L, da, dd, v) { const ta = 2 * da / v, td = 2 * dd / v, tc = Math.max(0, (L - da - dd) / v); return { L, da, dd, v, ta, tc, td, T: ta + tc + td }; }
+// Speed profile (Director 10/23 evening): 8.33 m/s on straights, TURN_SPEED through curves, eased between them.
+// Built per sample of the path P: limit(s) = min( curve limit, start ease (0→v over da, as before), stop ease (v→0 over the last dd, as before) ),
+// where the curve limit is TURN_SPEED wherever the heading turns tighter than TURN_R_MAX, smoothed by forward/backward passes at TURN_ACC m/s².
+// Each sample-to-sample step has constant acceleration, so position and speed are exact closed forms of time (no jumps, timeline = pure function of t).
+function kin(P, da, dd, v) {
+  const n = P.n, C = P.C, L = P.L, V = new Float64Array(n), T = new Float64Array(n), cl = new Float64Array(n).fill(v), w = 5;
+  const hd = (i) => { const a = Math.max(0, i - w), b = Math.min(n - 1, i + w); return Math.atan2(P.Z[b] - P.Z[a], P.X[b] - P.X[a]); };
+  for (let i = 0; i < n; i++) {                 // curvature from heading change over ±1 m
+    const a = Math.max(0, i - w), b = Math.min(n - 1, i + w); if (b - a < 2) continue;
+    let dh = hd(b) - hd(a); dh = Math.atan2(Math.sin(dh), Math.cos(dh)); const ds = C[b] - C[a];
+    if (ds > 1e-6 && Math.abs(dh) / ds > 1 / TURN_R_MAX) cl[i] = Math.min(v, TURN_SPEED);
+  }
+  for (let i = 1; i < n; i++) cl[i] = Math.min(cl[i], Math.sqrt(cl[i - 1] ** 2 + 2 * TURN_ACC * (C[i] - C[i - 1])));        // ease out of turns
+  for (let i = n - 2; i >= 0; i--) cl[i] = Math.min(cl[i], Math.sqrt(cl[i + 1] ** 2 + 2 * TURN_ACC * (C[i + 1] - C[i])));    // ease into turns
+  const aS = v * v / (2 * da), aB = v * v / (2 * dd);
+  for (let i = 0; i < n; i++) V[i] = Math.min(cl[i], Math.sqrt(2 * aS * C[i]), Math.sqrt(2 * aB * Math.max(0, L - C[i])));
+  V[0] = 0; V[n - 1] = 0;
+  for (let i = 1; i < n; i++) { const vs = V[i - 1] + V[i]; T[i] = T[i - 1] + (vs > 1e-9 ? 2 * (C[i] - C[i - 1]) / vs : 0); }
+  let vmin = v; for (let i = 1; i < n - 1; i++) if (C[i] > da && C[i] < L - dd) vmin = Math.min(vmin, V[i]);
+  return { L, n, C, V, T: T[n - 1], Ts: T, v, da, dd, vmin };
+}
 function kinAt(k, t, o) {
   if (t <= 0) { o[0] = 0; o[1] = 0; return o; }
-  if (t < k.ta) { o[0] = .5 * k.v * t * t / k.ta; o[1] = k.v * t / k.ta; return o; }
-  t -= k.ta; if (t < k.tc) { o[0] = k.da + k.v * t; o[1] = k.v; return o; }
-  t -= k.tc; if (t < k.td) { const r = k.td - t; o[0] = k.L - .5 * k.v * r * r / k.td; o[1] = k.v * r / k.td; return o; }
-  o[0] = k.L; o[1] = 0; return o;
+  if (t >= k.T) { o[0] = k.L; o[1] = 0; return o; }
+  let lo = 0, hi = k.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (k.Ts[m] <= t) lo = m; else hi = m; }
+  const dt = k.Ts[hi] - k.Ts[lo], v0 = k.V[lo], v1 = k.V[hi], a = dt > 1e-12 ? (v1 - v0) / dt : 0, u = t - k.Ts[lo];
+  o[0] = Math.min(k.C[hi], k.C[lo] + v0 * u + .5 * a * u * u); o[1] = v0 + a * u; return o;
 }
 function kinT(k, s) {               // time at which the profile reaches arc length s
-  if (s <= 0) return 0; if (s < k.da) return Math.sqrt(2 * s * k.ta / k.v);
-  if (s < k.L - k.dd) return k.ta + (s - k.da) / k.v;
-  const r = Math.sqrt(Math.max(0, 2 * (k.L - s) * k.td / k.v)); return k.ta + k.tc + k.td - r;
+  if (s <= 0) return 0; if (s >= k.L) return k.T;
+  let lo = 0, hi = k.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (k.C[m] <= s) lo = m; else hi = m; }
+  const v0 = k.V[lo], v1 = k.V[hi], ds = k.C[hi] - k.C[lo], d = s - k.C[lo]; if (ds < 1e-12) return k.Ts[lo];
+  const vs = Math.sqrt(Math.max(0, v0 * v0 + (v1 * v1 - v0 * v0) * d / ds)); return k.Ts[lo] + (v0 + vs > 1e-9 ? 2 * d / (v0 + vs) : 0);
 }
 // Dense centre line from a marker to the next one, following its extras.next_leg exactly (straight, or arc about centre_glTF with sweep_deg).
 // Arc direction comes from the marker's heading (extras.yaw_deg about +Y: 0 = +X, -90 = +Z), so it does not depend on the left/right convention.
@@ -762,14 +786,14 @@ function buildRoute() {
   }
   R.pOut = samplePath(out); R.pBack = samplePath(back);
   const sA = sOf(R.pOut, legA), sB = sOf(R.pOut, legB), sU = sOf(R.pOut, tp(3));
-  R.legOut = sB - sA; const v = TV.v;                                   // Director 13:04: one constant speed (8.33 m/s) on every leg
-  R.kOut = kin(R.pOut.L, TV.ease, TV.brake, v);                          // eased only where the truck stops: away from the chute, into the stop before the intake reverse
+  R.legOut = sB - sA; const v = TV.v;                                   // 8.33 m/s on straights, TURN_SPEED through curves (Director 10/23)
+  R.kOut = kin(R.pOut, TV.ease, TV.brake, v);                          // eased only where the truck stops: away from the chute, into the stop before the intake reverse
   const sC = sOf(R.pBack, legC), sD = sOf(R.pBack, legD);
-  R.legBack = sD - sC; R.kBack = kin(R.pBack.L, TV.ease, TV.brake, v);  // eased away from the dump, constant 8.33 m/s, eased stop at Path_Load_Approach
+  R.legBack = sD - sC; R.kBack = kin(R.pBack, TV.ease, TV.brake, v);  // eased away from the dump, 8.33 m/s straights / TURN_SPEED curves, eased stop at Path_Load_Approach
   const t1 = R.kOut.T, t2 = t1 + TV.revRef, t3 = t2 + TV.dump, t4 = t3 + TV.settle, t5 = t4 + R.kBack.T, t6 = t5 + TV.revMine;
   R.tl = { t1, t2, tDump: t2, t3, t4, t5, t6, trip: t6 };
   const f = (x) => +x.toFixed(2), tC = kinT(R.kBack, sC), tD = kinT(R.kBack, sD);
-  window.__ps3d.route = { mode: R.mode, legOut: f(R.legOut), legBack: f(R.legBack), v: f(v), Lout: f(R.pOut.L), Lback: f(R.pBack.L), tl: Object.fromEntries(Object.entries(R.tl).map(([k, x]) => [k, f(x)])),
+  window.__ps3d.route = { mode: R.mode, legOut: f(R.legOut), legBack: f(R.legBack), v: f(v), vTurn: TURN_SPEED, vMinOut: f(R.kOut.vmin), vMinBack: f(R.kBack.vmin), Lout: f(R.pOut.L), Lback: f(R.pBack.L), tl: Object.fromEntries(Object.entries(R.tl).map(([k, x]) => [k, f(x)])),
     phases: { mineOut: f(kinT(R.kOut, sA)), legOut: f(kinT(R.kOut, sB) - kinT(R.kOut, sA)), refIn: f(t1 - kinT(R.kOut, sB)), revRef: TV.revRef, dump: TV.dump, settle: TV.settle,
       refOut: f(tC), legBack: f(tD - tC), mineReturn: f(R.kBack.T - tD), mineReturnM: f(R.pBack.L - sD), revMine: TV.revMine, trip: f(t6) } };
   buildTempRoad();
@@ -1204,8 +1228,9 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); if (tMixer) tMixer.update(0); },
   warpTo: (t) => { if (t > nowMs()) { if (HOLD !== null) HOLD = t; else WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } },
-  hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
+  hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
+  get stationLoops() { return stationMixers.flatMap(m => m._actions.map(a => a.getClip().name + ':' + (a.loop === THREE.LoopPingPong ? 'pingpong' : a.loop === THREE.LoopRepeat ? 'repeat' : a.loop))); },
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
 buildRoute();
 if (hadRt) catchUp(true); else S.rt = nowMs();      // credit time away since the last save
