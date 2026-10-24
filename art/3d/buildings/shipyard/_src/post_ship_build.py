@@ -51,8 +51,8 @@ def W(**k):
 def c_lift(t):    # 9.0 s: ring rises from the yard floor to hook height; pendulum sway grows and dies out
     u = t / 9.0; env = math.sin(math.pi * u)
     return PICK, W(load_low=1 - ease(u), sway_x=0.35 * env * math.sin(2 * math.pi * t / 3.0), sway_z=0.18 * env * math.sin(2 * math.pi * t / 4.5))
-def c_swing(t):   # 4.0 s: jib 140 -> 0 deg (smoothstep, peak 52.5 deg/s); load lags the angular acceleration (tangential sway) + small hoist hop
-    u = t / 4.0; lag = 0.45 * (1 - 2 * u) * math.sin(math.pi * u)
+def c_swing(t):   # 8.0 s: jib 140 -> 0 deg (smoothstep, peak 26.25 deg/s); load lags the angular acceleration (tangential sway) + small hoist hop
+    u = t / 8.0; lag = 0.45 * (1 - 2 * u) * math.sin(math.pi * u)
     hop = 0.8 * math.sin(math.pi * u)   # hoist takes up ~0.8 m mid-swing: ring clears the z30 IS-1 handrail by > 1.17 m (0 at both ends)
     return PICK * (1 - ease(u)), W(hop=hop, sway_x=lag * TAN[0], sway_z=lag * TAN[2])
 def c_lower(t):   # 6.0 s: 12.2 m descent to 1 m above the seat, no sway (centred through the z30 / z21 platforms)
@@ -69,13 +69,13 @@ def c_weld(t):    # 16.0 s LOOP: heads sweep +-0.6 m along the seam (2 cycles), 
                   bead_white=0.96 + 0.04 * math.cos(2 * math.pi * t / 2.0))
 def c_cool(t):    # 6.0 s: white-hot -> red-orange (white tube shrinks inside-out) -> steel (red tube shrinks, bare seam frame left)
     return 0.0, W(load_seat=1.0, bead_white=seg(t, 0.3, 2.6, 1.0, 0.0), bead_red=seg(t, 0.0, 0.4, 0.0, 1.0) if t < 2.6 else seg(t, 2.6, 5.6, 1.0, 0.0))
-def c_return(t):  # 9.0 s: after seam_cool the GAME reveals the installed ring (stage swap) and this clip hides the jib's copy on frame 1:
-    #   stow collapses ring + lift frame + weld heads into the hook block; hook rises out of the stack, jib swings 0 -> 140 (peak 52.5 deg/s),
+def c_return(t):  # 13.0 s: after seam_cool the GAME reveals the installed ring (stage swap) and this clip hides the jib's copy on frame 1:
+    #   stow collapses ring + lift frame + weld heads into the hook block; hook rises out of the stack (0.1-2.5 s), jib swings 0 -> 140 over 2.5-10.5 s (peak 26.25 deg/s),
     #   hook drops to the pick-up spot; last frame: stow 1 -> 0 = the next ring appears on the yard floor behind FAB-01 (== ring_lift t=0)
-    st = 0.0 if t <= 0.0 or t >= 9.0 - 1e-6 else 1.0
-    return PICK * ease((t - 2.5) / 4.0), W(load_seat=seg(t, 0.1, 2.5, 1.0, 0.0), load_low=seg(t, 6.5, 8.5, 0.0, 1.0), stow=st)
-CLIPS = [('ring_lift', 9.0, c_lift), ('jib_swing_in', 4.0, c_swing), ('ring_lower', 6.0, c_lower), ('ring_settle', 3.0, c_settle),
-         ('ring_weld', 16.0, c_weld), ('seam_cool', 6.0, c_cool), ('jib_return', 9.0, c_return)]
+    st = 0.0 if t <= 0.0 or t >= 13.0 - 1e-6 else 1.0
+    return PICK * ease((t - 2.5) / 8.0), W(load_seat=seg(t, 0.1, 2.5, 1.0, 0.0), load_low=seg(t, 10.5, 12.5, 0.0, 1.0), stow=st)
+CLIPS = [('ring_lift', 9.0, c_lift), ('jib_swing_in', 8.0, c_swing), ('ring_lower', 6.0, c_lower), ('ring_settle', 3.0, c_settle),
+         ('ring_weld', 16.0, c_weld), ('seam_cool', 6.0, c_cool), ('jib_return', 13.0, c_return)]
 TAN = [0.0, 0.0, 0.0]
 
 # ---------------------------------------------------------------- GLB io

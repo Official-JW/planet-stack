@@ -8,12 +8,12 @@ Every clip keys the jib angle and **all** 14 weights, so a clip fully defines th
 | # | clip | dur (s) | type | easing / content | jib angle | peak jib °/s | peak ring m/s |
 |---|------|---------|------|------------------|-----------|--------------|---------------|
 | 1 | `ring_lift`    | 9.0  | one-shot | smoothstep hoist from the yard floor (`load_low` 1→0); pendulum sway (`sway_*`, ≤0.35 m) enveloped by sin(πt/9), so it is 0 at both ends | 140° fixed | 0 | 7.8 |
-| 2 | `jib_swing_in` | 4.0  | one-shot | smoothstep slew 140→0°; the load lags the angular acceleration (≤0.45 m, 0 at both ends); hoist hop ≤0.8 m mid-swing clears the z30 handrail | 140→0 | **53.0** | 13.1 |
+| 2 | `jib_swing_in` | 8.0  | one-shot | smoothstep slew 140→0° over the whole 8 s; the load lags the angular acceleration (≤0.45 m, 0 at both ends); hoist hop ≤0.8 m mid-swing clears the z30 handrail | 140→0 | **27.6** | 6.9 |
 | 3 | `ring_lower`   | 6.0  | one-shot | smoothstep 12.2 m descent (`load_seat` 0→0.9242), centred, no sway | 0 | 0 | 3.1 |
 | 4 | `ring_settle`  | 3.0  | one-shot | last 1 m (ease, touch-down at 1.8 s); 4 cm damped rebound 1.8–2.6 s; line-up nudge ≤6 cm (0 by 1.8 s); arc strike `bead_white` 0→1 from 2.5 to 3.0 s | 0 | 0 | 1.6 |
 | 5 | `ring_weld`    | 16.0 | **LOOP** | 3 orbital weld heads sweep ±0.6 m along the seam (sin, 2 cycles); spark bursts `sparks_a` (14) and `sparks_b` (13) with one-frame ramps; white bead pulses 0.96–1.0. First key == last key (checked: Δ 0.00000) | 0 | 0 | 0 |
 | 6 | `seam_cool`    | 6.0  | one-shot | 0–0.4 s red-orange bead `bead_red` 0→1 (sits inside the white tube); 0.3–2.6 s white tube shrinks 1→0 (white → red-orange); 2.6–5.6 s red tube 1→0 (→ bare steel/graphite seam frame) | 0 | 0 | 0 |
-| 7 | `jib_return`   | 9.0  | one-shot | frame 1: `stow` 0→1 (the jib's ring copy collapses into the hook, see chaining); 0.1–2.5 s hook rises out of the stack; 2.5–6.5 s smoothstep slew 0→140°; 6.5–8.5 s hook down to the pick-up spot; last frame: `stow` 1→0 = next ring on the floor (== `ring_lift` t=0) | 0→140 | **53.0** | (swap frames) |
+| 7 | `jib_return`   | 13.0 | one-shot | frame 1: `stow` 0→1 (the jib's ring copy collapses into the hook, see chaining); 0.1–2.5 s hook rises out of the stack; 2.5–10.5 s smoothstep slew 0→140° (8 s); 10.5–12.5 s hook down to the pick-up spot; last frame: `stow` 1→0 = next ring on the floor (== `ring_lift` t=0) | 0→140 | **27.6** | (swap frames) |
 
 Unchanged: `hall_door_open` (3.6 s, one-shot; now drives the morph `open` on the single merged node `Hall_Door_Leaves`, see below) and `Beacon_Lights_Blink` (1.0 s, loop, scale STEP).
 **`crane_jib_swing` is REPLACED** (removed). The jib's rest pose is now 140° (pick-up), and the old idle swing would have
@@ -51,7 +51,14 @@ mixer.addEventListener('finished', e => { const i = seq.indexOf(e.action.getClip
 mixer.addEventListener('loop', e => { if (e.action.getClip().name === 'ring_weld' && weldDone()) go('seam_cool'); });
 ```
 Per ring k = 1..N: `ring_lift → jib_swing_in → ring_lower → ring_settle → ring_weld ×m (m ≥ 1 loops = 16 s each) → seam_cool → jib_return`.
-`jib_return` ends exactly at `ring_lift` t=0, so the cycle repeats for ring k+1 with the same clips, unchanged. Durations: 37 s + 16·m s per ring.
+`jib_return` ends exactly at `ring_lift` t=0, so the cycle repeats for ring k+1 with the same clips, unchanged. Durations: 45 s + 16·m s per ring (fixed part = lift 9 + swing 8 + lower 6 + settle 3 + cool 6 + return 13).
+
+### Fitting a ring to the game's ring_time
+Weld loops per ring: **`m = max(4, round((ring_time − 45) / 16))`**, where ring_time (s) is the game's build time per ring.
+Placeholder until the economy sets it: ring_time = 600 s → m = round(555/16) = **35** → actual ring cycle 45 + 16·35 = 605 s.
+The minimum m = 4 keeps the weld on screen for ≥ 64 s, so short ring_times still read as "welding" (cycle ≥ 109 s).
+Leave `ring_weld` on the first loop boundary after m loops (`weldDone()` = loop count ≥ m). Clip lengths: lift 9.0, swing_in 8.0, lower 6.0, settle 3.0,
+weld 16.0 (loop), cool 6.0, return 13.0.
 
 **The installed ring (needed for N > 1, or for showing the finished ring after `seam_cool`).** The GLB contains ONE ring mesh, and it lives in
 `Crane_Jib`. When `jib_return` starts, the game must reveal a static copy of the finished ring on the stack in that pose (stage swap). On frame 1 of
@@ -69,10 +76,21 @@ and don't play `jib_return`.
 See `ship_build_check.txt` for the raw output. Summary:
 - 15 draws, 28,174 tris. Every clip's start key matches the previous clip's end key (jump 0.0000° / 0.0000 weight), including `jib_return → ring_lift`.
   `ring_weld` first key == last key.
-- Peak jib angular speed: 53.0 °/s (`jib_swing_in`, `jib_return`). The ring never spins about its own axis.
+- Peak jib angular speed: 27.6 °/s measured at 120 Hz (`jib_swing_in`, `jib_return`; analytic smoothstep peak 1.5·140/8 = 26.25 °/s). The ring never spins about its own axis.
 - Gap (BVH closest point, load verts = ring + lift frame + rigging + hoist end vs. base + tiers + doors): ≥ 1.29 m on `ring_lower` (z21/z30 platforms
   widened to an inner radius of 6.95 m), 1.80 m on `jib_swing_in`, and 1.50 m from the floor once the ring is ≥ 1.5 m up on `ring_lift`.
   **Exclusions, contact by design:** the weld heads, sparks and bead; the open stack top (tris with centroid r < 5.4 m and y < 20.08); the
   yard floor while the ring rests on it at pick-up. Seated (`ring_settle` end, `ring_weld`, `seam_cool`), the nearest non-excluded part is SN-07's
   own open cargo door at 0.988 m: it is the same ship, directly under the new ring.
 - Nothing floats: at pick-up the ring bottom is at y 0.20 on the 0.12 slab, and seated it is at 19.88 = the stack top.
+
+## FAB-01 pick-up visibility (game camera: Cam_Target (7.7, 23.5, 84.55), frame_w 100, 18° tilt, 38° FOV)
+The ring at the pick-up spot (`ring_lift` t=0 == `jib_return` last frame, identical poses) is **partly visible** behind FAB-01, not hidden:
+raycast to the ring verts = 26.4 % visible at 393x852, 29.8 % at 375x667 (upper bound, self-occlusion ignored); in Workbench, 145 px (393) / 112 px (375)
+of ring/hook pixels show between FAB-01's columns at screen x 293–315, y 374–399 (393) and x 276–294, y 286–309 (375). Proofs: `fab01_pickup_393.png`,
+`fab01_pickup_375.png` (5× crops, ring pixels red). So the `stow` 1→0 swap at the end of `jib_return` is a visible "pop-in" of a few px. Options (NOT applied):
+- **A. Pick-up angle 130° instead of 140°** (PICK only, no geometry). Checked: swing gap 1.815 m, floor 1.497 m, lower/seat unchanged, peak jib 25.4 °/s,
+  framing spare unchanged (63 px at 393). But it only drops the visibility to 15.7 % / 16.7 % (139 / 105 px): still a pop. 120° is worse for clearance (0.26 m to FAB-01).
+- **B. (recommended) A low staging screen/canopy over the pick-up spot**, part of `shipyard_base` in an existing SH_ material (0 draws, ~100 tris), with the
+  ring parked under it. Hides 100 % of the swap; the ring then reads as "coming out of the fab bay". The hook must enter from the open side: re-check the floor/swing gaps when built.
+- C. Keep 140° and accept it: the pop is ≤ 145 px at the bottom of a 852 px screen while the jib is still, under FAB-01's clutter.
