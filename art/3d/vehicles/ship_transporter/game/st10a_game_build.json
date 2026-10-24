@@ -1,0 +1,54 @@
+{
+ "out": "/workspace/st10a/st10a_raw.glb",
+ "emis": 0.09,
+ "nodes": {
+  "Body_Paint": {
+   "tris": 8688,
+   "verts": 16292,
+   "material": "ST10A_Paint"
+  },
+  "Body_GlowCyan": {
+   "tris": 144,
+   "verts": 288,
+   "material": "ST10A_GlowCyan"
+  },
+  "Body_GlowAmber": {
+   "tris": 48,
+   "verts": 96,
+   "material": "ST10A_GlowAmber"
+  },
+  "Cradle_Loaded": {
+   "tris": 1932,
+   "verts": 3540,
+   "material": "ST10A_Paint"
+  },
+  "Cradle_Empty": {
+   "tris": 1968,
+   "verts": 3612,
+   "material": "ST10A_Paint"
+  },
+  "Astronaut": {
+   "tris": 899,
+   "verts": 1210,
+   "material": "ST10A_Paint"
+  }
+ },
+ "tris_visible_loaded": 11711,
+ "tris_visible_empty": 11747,
+ "tris_file": 13679,
+ "clamps": [
+  [
+   14.4,
+   4.01
+  ],
+  [
+   24.8,
+   4.0
+  ],
+  [
+   32.4,
+   4.04
+  ]
+ ],
+ "tz": 34.5
+}

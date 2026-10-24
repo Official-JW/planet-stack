@@ -1,12 +1,13 @@
-"""Lv10 ship transport road, top-down plan v3 (Director-approved road; Habitat moved east). WORLD glTF metres: +X right, +Z toward the game camera (drawn DOWN).
+"""Lv10 ship transport road, top-down plan v4 (Director-approved road; Habitat moved east; v4 = re-based on the approved station table in WORLD
+coordinates, road sized to the picked crawler ST-10A, AA2's Lv1 pad pipe end at the pad LEFT (430, 0.95, 2.6); see road_clearance.mjs v4). WORLD glTF metres: +X right, +Z toward the game camera (drawn DOWN).
 Layout = cargo_dock/layout_v3 (cae8f39, dock compact_v3 9fb1ddbe) + v3 station order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 (z -8) | Launch Pad 457 |
 Shipyard 960 | Habitat 1068 (moved from 800, east of the Shipyard) | Engineering 1120 (unchanged).
 Inputs (read only): stations_footprints.json (measure_stations.mjs: 2 m max-height grids of the real GLBs) and road_clearance.json
 (road_clearance.mjs: real pad vertices vs the ST-10A/B swept volumes). Director rulings: road leaves the pad's RIGHT side on the far
 side (-Z), never crosses haul road / flatbed / U-turn, own crawler-track texture; Lv10 Shipyard gets a wider hall door (proposal only,
-the Shipyard GLB is not edited); the pad fuel pipe end moves to the pad's LEFT (~x 430), so VV-1 leaves the corridor.
-python3 road_plan.py -> ../proofs/transport_road_plan_topdown.png + ../proofs/transport_road_plan.json"""
-import json, math, os
+the Shipyard GLB is not edited); the pad fuel pipe end is at the pad's LEFT (430, 0.95, 2.6), so VV-1 is out of the corridor.
+python3 road_plan.py [--no-png] -> ../proofs/transport_road_plan.json (+ ../proofs/transport_road_plan_topdown.png unless --no-png)"""
+import json, math, os, sys
 from PIL import Image, ImageDraw, ImageFont
 H = os.path.dirname(os.path.abspath(__file__)); P = os.path.join(H, '..', 'proofs')
 ST = json.load(open(os.path.join(H, 'stations_footprints.json'))); CL = json.load(open(os.path.join(H, 'road_clearance.json')))
@@ -21,9 +22,15 @@ HAB_X = 1068.0; HAB = dict(x0=HAB_X - 4.5, x1=HAB_X + 4.5, z0=-4.5, z1=4.5)   # 
 STATION_X = [('Life Support', 0, 0.0, 'unchanged'), ('Mine', 160, 0.0, 'unchanged'), ('Refinery', 320, 0.0, 'unchanged'), ('Cargo Dock', 360, -8.0, 'cargo_dock/layout_v3 cae8f39 (was 373 in layout_v2)'),
              ('Launch Pad', 457, 0.0, 'layout_v2'), ('Shipyard', 960, 0.0, 'unchanged'), ('Habitat', HAB_X, 0.0, 'v3: moved from 800 (road corridor) to east of the Shipyard'),
              ('Engineering', 1120, 0.0, 'unchanged (checked: 42.5 m clear of the Habitat)')]
-ROAD_Z, HALF, SHOULDER, LANE = -13.0, 18.0, 2.6, (9.7, 13.3)
-TR = dict(x0=-13.4, x1=15.7, half=14.25, height_loaded=40.7)           # union ST-10A / ST-10B; ship top 40.25 + 0.45 lift
-PAD_EDGE = PADX + 29.4
+TR = dict(x0=-13.36, x1=15.64, half=13.56, height_loaded=44.55, tower_top=35.5)   # ST-10A game GLB (st10a_game.glb); ship top = Lv2 44.098 + 0.45 lift
+ROAD_Z, SHOULDER, LANE, MARGIN = -13.0, 2.6, (9.7, 13.3), 3.75          # crawler lanes = ST-10A track bands
+HALF = round(TR['half'] + MARGIN, 2)                                     # 17.31 -> running width 34.62 m (v3: 36 m for ST-10B 28.5 m)
+PAD_EDGE = CL['road']['pad_edge_x']                                      # real pad bbox east edge (AA2 lv1door pad, road_clearance.mjs v4)
+PIPE_END = tuple(CL['pipe_end']['given'])                                # AA2 Lv1 pad Pipe_LaunchPad_End, world (430, 0.95, 2.6) (not 430, -9.6)
+G1 = dict(name='G-1', pad='Lv1 pad (AA2)', width=30.8, z=[-28.4, 2.4], changed=False,
+          note='unchanged 30.8 m: ST-10A is 27.12 m wide (|dz| <= 13.56 about the ship axis z -13) and passes with 1.84 m each side')
+G10 = dict(name='G-10', pad='Lv10 pad (owner: Lv10 pad / AA2)', width=round(2 * HALF, 1), z=[round(ROAD_Z - HALF, 2), round(ROAD_Z + HALF, 2)], changed=True,
+           note='ONLY the Lv10 pad gate widens: to the crawler road running width (ST-10A 27.12 m + 3.75 m each side), centred on the road axis z -13')
 # Shipyard hall AH-1: door centre from Hall_Door (both versions), hall 34 x 26 m, yaw from bcbd0934 Hall_Door_L/R (-24.61,5.81)/(-14.27,3.99)
 SX = 960.0; D = ST['Shipyard']['nodes']['Hall_Door']
 ux, uz = (-14.27 + 24.61), (3.99 - 5.81); n = math.hypot(ux, uz); ux, uz = ux / n, uz / n; nx, nz = uz, -ux
@@ -44,19 +51,30 @@ road_len = DOOR_X - PAD_EDGE; travel = (BAY[0] + BAY[2]) / 2 - SHIP[0]
 hab_edge = ROAD_Z + HALF + SHOULDER
 GAP_W = HAB['x0'] - SY_X1; GAP_E = ENG['x0'] - HAB['x1']
 pad_hits = []
-for h in CL['pad']['A'] + CL['pad']['B']:
+for h in CL['pad']['A_world']:                                           # world coordinates already (v4)
     if h['ymax'] < 0.5: continue
-    b = (h['x0'] + PADX, h['z0'], h['x1'] + PADX, h['z1'], h['ymax'], h['node'])
+    b = (h['x0'], h['z0'], h['x1'], h['z1'], h['ymax'], h['node'])
     if not any(abs(b[0] - q[0]) < 1.5 and abs(b[1] - q[1]) < 1.5 for q in pad_hits): pad_hits.append(b)
-out = dict(version='v3', units='world glTF m (+X right, +Z toward camera)',
+APRON0 = DOOR_X - 44.0
+fl_gap = 13.0 - (ROAD_Z + HALF + SHOULDER); ut_gap = 10.2 - (ROAD_Z + HALF + SHOULDER)
+out = dict(version='v4', rebased='10/24 v4: world coordinates from the approved station table (pad 457, Cargo Dock (360, 0, -8), Shipyard 960); the old pad-local check (Shipyard at pad +160, i.e. pad 480 / Shipyard 640) is retired; road sized to ST-10A (B shelved)',
+  crawler=dict(name='ST-10A', glb='game/st10a_game.glb', width=round(2 * TR['half'], 2), length=round(TR['x1'] - TR['x0'], 2), loaded_height=TR['height_loaded'], track_bands_abs_dz=list(LANE)),
+  gates=dict(G1=G1, G10=G10), pipe_end=dict(world=list(PIPE_END), source='AA2 launch_pad_game_lv1door.glb Pipe_LaunchPad_End (pad-local -27, 0.95, 2.6), md5 ' + CL['pad_md5'],
+     clear_of_crawler_at_pickup_m=CL['pipe_end']['clear_of_crawler_at_pickup_m'], old='(477.3, -9.6) VV-1 / (430, -9.6) in v3: both retired'),
+  keep_out=dict(crossings_of_other_roads=[], haul_road=dict(x_max=321, gap_to_road_m=round(PAD_EDGE - 321, 1)),
+     flatbed_lanes=dict(z=[13, 22], x=[296, 464], gap_m=round(fl_gap, 2)), pad_uturn=dict(x=[458, 465.3], z=[10.2, 24.8], gap_m=round(ut_gap, 2)),
+     cargo_dock=dict(origin=[360, 0, -8], bbox_world=CL['cargo_dock']['bbox_world'], gap_to_road_m=CL['cargo_dock']['gap_to_road_m'], gap_to_crawler_path_m=CL['cargo_dock']['gap_to_crawler_path_m']),
+     shipyard_first_vertex_in_corridor_x=CL['shipyard_in_corridor']['first_x'], apron_start_x=round(APRON0, 1),
+     shipyard_corridor_clear_west_of_apron=CL['shipyard_in_corridor']['first_x'] is None or CL['shipyard_in_corridor']['first_x'] >= APRON0 - 0.05),
+  units='world glTF m (+X right, +Z toward camera)',
   layout='cargo_dock/layout_v3 cae8f39 (compact_v3 9fb1ddbe) + v3 order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 z-8 | Launch Pad 457 | Shipyard 960 (shipyard_game.glb c0e9d54e) | Habitat 1068 | Engineering 1120',
   director='10/24 13:31: road v2, HB-10 + D-10 (7 cells), pad exit APPROVED; ST-10B picked; Habitat east of the Shipyard, no S-jog',
   centerline=[[SHIP[0], ROAD_Z], [round(PAD_EDGE, 1), ROAD_Z], [round(DOOR_X, 1), ROAD_Z], [round((BAY[0] + BAY[2]) / 2, 1), ROAD_Z]],
-  turns=0, s_bends=0, running_width=2 * HALF, graded_width=round(2 * (HALF + SHOULDER), 1), crawler_lanes_abs_dz=list(LANE), grade_pct=0.0, cross_fall_pct=0.5,
+  turns=0, s_bends=0, running_width=round(2 * HALF, 2), graded_width=round(2 * (HALF + SHOULDER), 1), crawler_lanes_abs_dz=list(LANE), grade_pct=0.0, cross_fall_pct=0.5,
   length_pad_edge_to_D10=round(road_len, 1), ship_travel_pad_centre_to_bay_centre=round(travel, 1),
   apron_RA1_x=[round(APRON[0], 1), round(APRON[1], 1)],
   lv10_high_bay_HB10=dict(x=[round(BAY[0], 1), round(BAY[2], 1)], z=[BAY[1], BAY[3]], inner_height=BAY_H, door_D10=dict(x=round(DOOR_X, 1), width=DOOR_W, clear_height=DOOR_H, faces='-X (the road)'),
-     sizing=f'transporter <= {2*TR["half"]:.1f} m wide (A 27.4 / B 28.5) + 2.75 m each side = {DOOR_W} m; loaded height {TR["height_loaded"]} m + 5.3 m = {DOOR_H} m'),
+     sizing=f'ST-10A {2*TR["half"]:.2f} m wide + {(DOOR_W - 2*TR["half"])/2:.2f} m each side within {DOOR_W} m; loaded height {TR["height_loaded"]} m (Lv2 ship 43.85 m; no Lv10 height exists yet) -> {DOOR_H - TR["height_loaded"]:.2f} m under D-10 {DOOR_H} m (v3 margin 5.3 m with the Lv1 ship): FLAG'),
   existing_door='Hall_Door (940.6, 4.9) faces +Z: 10.3 m between Hall_Door_L/R (bcbd0934), 8-14 m forecourt: unusable for ST-10 (layout_v2 item 9)',
   shipyard_cells_to_clear=[dict(x=x, z=z, h=h) for x, z, h in sorted(blk)],
   habitat=dict(origin=[HAB_X, 0.0], footprint=HAB, size_whd=[9, 12, 9], was=dict(origin=[800.0, 0.0], footprint=HAB_OLD, note='inside the road corridor (z -33.6..+7.6): removed'),
@@ -67,12 +85,14 @@ out = dict(version='v3', units='world glTF m (+X right, +Z toward camera)',
      stations=[dict(index=i, name=n, x=x, z=z, note=nt) for i, (n, x, z, nt) in enumerate(STATION_X)]),
   pad_hits_world=[dict(x=[round(b[0], 1), round(b[2], 1)], z=[b[1], b[3]], h=b[4], node=b[5]) for b in pad_hits])
 json.dump(out, open(os.path.join(P, 'transport_road_plan.json'), 'w'), indent=1)
+print('JSON', 'pad_edge', PAD_EDGE, 'running', 2 * HALF, 'D10', round(DOOR_X, 1), 'len', round(road_len, 1), 'blk', len(blk), 'keep_out', json.dumps(out['keep_out']))
+if '--no-png' in sys.argv: sys.exit(0)
 # ===================== drawing =====================
 W = 2400; BG = (11, 14, 22); INK = (220, 228, 240); DIM = (130, 140, 160)
 CY = (58, 208, 255); AM = (255, 176, 32); RED = (255, 80, 70); GRN = (90, 220, 140); HABC = (190, 160, 220)
 img = Image.new('RGB', (W, 2300), BG); d = ImageDraw.Draw(img, 'RGBA')
-d.text((40, 24), 'PLANET STACK  ·  Lv10 SHIP TRANSPORT ROAD  ·  top-down plan v3 (road approved)', font=font(34, True), fill=INK)
-d.text((40, 70), f'One straight line, zero turns, zero S-bends · centreline z -13 (ship axis) · running width 36 m (+2.6 m shoulders = 41.2 m) · '
+d.text((40, 24), 'PLANET STACK  ·  Lv10 SHIP TRANSPORT ROAD  ·  top-down plan v4 (road approved; world re-base, ST-10A)', font=font(34, True), fill=INK)
+d.text((40, 70), f'One straight line, zero turns, zero S-bends · centreline z -13 (ship axis) · running width {2*HALF:.1f} m for ST-10A (+2.6 m shoulders = {2*(HALF+SHOULDER):.1f} m) · '
        f'pad edge -> Lv10 bay door D-10: {road_len:.0f} m · ship travel {travel:.0f} m', font=font(20), fill=DIM)
 d.text((40, 98), 'Station X (v3 order): Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 | Launch Pad 457 | Shipyard 960 | Habitat 1068 | Engineering 1120. World metres, +Z (camera side) drawn down.', font=font(18), fill=DIM)
 PANEL = {}
@@ -151,13 +171,13 @@ for nm, x, col, sub_ in (('REFINERY', 296, (230, 210, 170), 'x 320'), ('CARGO DO
                         ('SHIPYARD', 918, (200, 230, 160), 'x 960'), ('HABITAT', 1052, HABC, 'x 1068'), ('ENGINEERING', 1098, (200, 205, 215), 'x 1120')):
     label(T1, x, -58, nm, col, 17); label(T1, x, -51.5, sub_, DIM, 13, False)
 label(T1, 760, 9.5, 'old Habitat x 800: removed', RED, 12, False)
-label(T1, 520, -38, f'SHIP TRANSPORT ROAD · 36 m · crawler-track surface · {road_len:.0f} m straight', CY, 16)
+label(T1, 520, -38, f'SHIP TRANSPORT ROAD · {2*HALF:.1f} m · crawler-track surface · {road_len:.0f} m straight', CY, 16)
 label(T1, 296, 26, 'flatbed route + pad U-turn (z +13 / +22)', AM, 13); label(T1, 263, 3, 'haul rd', (220, 140, 80), 12)
 scalebar(T1, 560, 30, 100, 20)
 end_panel()
 # ---------- detail 1: pad exit ----------
 y2 = 165 + sz1[1] + 60
-s2, T2, sz2 = panel(40, y2, 900, 560, 418, 566, -60, 32, 'A · PAD RIGHT-SIDE EXIT (fuel pipe end moved to pad LEFT ~x 430)', step=10)
+s2, T2, sz2 = panel(40, y2, 900, 560, 418, 566, -60, 32, 'A · PAD RIGHT-SIDE EXIT (AA2 Lv1 pad; pipe end at the pad LEFT (430, 2.6))', step=10)
 grid_fp(T2, 'LaunchPad', (200, 205, 215)); berm(T2)
 gz0, gz1 = ROAD_Z - TR['half'] - 1.2, ROAD_Z + TR['half'] + 1.2
 d.rectangle([T2(PADX + 18.5, gz0), T2(PAD_EDGE, gz1)], fill=(255, 80, 70, 70), outline=RED, width=3)
@@ -166,16 +186,20 @@ for b in pad_hits: d.rectangle([T2(b[0], b[1]), T2(b[2], b[3])], fill=(255, 80, 
 d.ellipse([T2(458, 10.2), T2(465.3, 24.8)], outline=AM, width=3); label(T2, 466, 18, 'pad U-turn', AM, 13)
 for zl in (13, 22): d.line([T2(418, zl), T2(458, zl)], fill=AM, width=3)
 fh = T2(460.85, -15.0); d.ellipse([fh[0] - 6, fh[1] - 6, fh[0] + 6, fh[1] + 6], outline=AM, width=3)
-pe = T2(430, -9.6); d.ellipse([pe[0] - 6, pe[1] - 6, pe[0] + 6, pe[1] + 6], fill=GRN); label(T2, 431.5, -8.4, 'pipe end (new, ~x 430)', GRN, 12)
+pe = T2(PIPE_END[0], PIPE_END[2]); d.ellipse([pe[0] - 6, pe[1] - 6, pe[0] + 6, pe[1] + 6], fill=GRN); label(T2, PIPE_END[0] + 1.5, PIPE_END[2] + 1.2, f'pipe end (430, 0.95, 2.6): {CL["pipe_end"]["clear_of_crawler_at_pickup_m"]:.1f} m clear', GRN, 12)
+for zz in G1['z']: d.line([T2(PAD_EDGE - 3, zz), T2(PAD_EDGE + 1, zz)], fill=AM, width=4)
+label(T2, PAD_EDGE + 1.5, G1['z'][1] + 1.0, 'G-1 30.8 m (unchanged)', AM, 12)
 ov = T2(477.3, -9.6); d.line([ov[0] - 6, ov[1] - 6, ov[0] + 6, ov[1] + 6], fill=GRN, width=3); d.line([ov[0] - 6, ov[1] + 6, ov[0] + 6, ov[1] - 6], fill=GRN, width=3)
 foot(T2, SHIP[0], CY, 'ST-10 pick-up')
 def tag(T, x, z, k):
     p = T(x, z); d.ellipse([p[0] - 12, p[1] - 12, p[0] + 12, p[1] + 12], fill=RED, outline=(255, 255, 255)); d.text(p, str(k), font=font(15, True), fill=(255, 255, 255), anchor='mm')
-tag(T2, PADX + 24.0, -29.8, 1); tag(T2, PADX + 12.6, -30.4, 2); tag(T2, PADX + 14.2, 2.4, 3); tag(T2, PADX + 16.7, -20.5, 3); tag(T2, 460.85, -19.5, 4); tag(T2, PADX + 6.5, -6.0, 5)
-for i, t_ in enumerate(['1 berm gate G-1: cut 30.8 m in the right arc (rack/berm to 3.4-4.3 m)', '2 Tier_08 pump skid P-2 (5.2 m): move left/front',
-                        '3 LOX / LCH4 cryo tanks (to 12 m): move (AA2 is moving them)', '4 Fuel_Hookup (460.85,-15): disconnect + retract before lift',
-                        '5 Hose_LOX / LCH4: retract to the left of x 460', 'x VV-1 riser (477.3,-9.6): gone with the pipe end move']):
-    label(T2, 419.5, -59 + 2.6 * i, t_, RED if i < 5 else GRN, 13)
+tag(T2, PAD_EDGE - 1.5, -31.0, 1); tag(T2, 444.4, -5.6, 2); tag(T2, 460.85, -19.5, 3); tag(T2, 452.0, 2.6, 4)
+for i, t_ in enumerate(['1 gate G-1 30.8 m (z -28.4..+2.4): unchanged; ST-10A 27.1 m passes, 1.84 m each side',
+                        '2 Pad_Base item 9.3 m (443.6-445.1, -3.4..-2.7) + Tier_08 1.5 m (445.0-445.3, -0.8..-0.6):',
+                        '   inside the crawler front-left at pick-up (front x 443.6): move >= 1 m west (AA2)',
+                        '3 Fuel_Hookup (460.85,-15): disconnect + retract before lift', '4 Tier_12 edge lights 0.37 m: drive-over',
+                        'Lv10 pad gate G-10 widens to 34.6 m (road width); Lv1 G-1 does not', 'x VV-1 (477.3,-9.6) and old (430,-9.6) pipe end: retired']):
+    label(T2, 419.5, -59 + 2.6 * i, t_, RED if i < 4 else (AM if i < 6 else GRN), 13)
 scalebar(T2, 530, 28, 20, 5)
 end_panel()
 # ---------- detail 2: habitat ----------
@@ -213,25 +237,25 @@ scalebar(T4, 940, 35, 20, 5)
 end_panel()
 # ---------- door elevation ----------
 y5 = y2 + 600
-s5, T5, sz5 = panel(40, y5, 900, 330, -26, 26, -52, 2, 'D · DOOR D-10 ELEVATION (looking east from the road, ship loaded on ST-10B / ST-10A)', step=10)
+s5, T5, sz5 = panel(40, y5, 900, 330, -26, 26, -52, 2, 'D · DOOR D-10 ELEVATION (looking east from the road, Lv2-height ship loaded on ST-10A)', step=10)
 E = lambda x, h: T5(x, -h)
 d.rectangle([E(-DOOR_W / 2, DOOR_H), E(DOOR_W / 2, 0)], outline=GRN, width=4)
-d.rectangle([E(-14.25, 25.2), E(14.25, 0)], outline=CY, width=2); d.rectangle([E(-13.7, 32.5), E(13.7, 0)], outline=(150, 220, 255), width=1)
-d.polygon([E(-4.49, 0.45), E(4.49, 0.45), E(4.49, 33), E(3.0, 38.5), E(0, 40.7), E(-3.0, 38.5), E(-4.49, 33)], fill=(200, 205, 215, 200))
-d.line([E(-9.26, 0.45), E(9.26, 0.45)], fill=(200, 205, 215), width=4)
+d.rectangle([E(-TR['half'], TR['tower_top']), E(TR['half'], 0)], outline=CY, width=2)
+d.polygon([E(-4.0, 0.7), E(4.0, 0.7), E(4.0, 36.5), E(3.0, 41.5), E(0, TR['height_loaded']), E(-3.0, 41.5), E(-4.0, 36.5)], fill=(200, 205, 215, 200))
+d.line([E(-6.6, 0.45), E(6.6, 0.45)], fill=(200, 205, 215), width=4)
 d.rectangle([E(-26, 0), E(26, -1.5)], fill=(92, 88, 82))
 label(T5, -DOOR_W / 2 + 0.5, -DOOR_H + 1, f'{DOOR_W:.0f} m clear width', GRN, 14); label(T5, DOOR_W / 2 + 0.5, -DOOR_H / 2, f'{DOOR_H:.0f} m', GRN, 14)
-label(T5, -14, -26.5, 'ST-10B 28.5 m', CY, 12); label(T5, 4.6, -40.5, 'ship top 40.7 m (lifted 0.45)', INK, 12); label(T5, -9.2, -2.6, 'legs 18.5 m', DIM, 12, False)
+label(T5, -13.4, -36.5, f'ST-10A {2*TR["half"]:.1f} m', CY, 12); label(T5, 4.6, -TR['height_loaded'] + 0.5, f'ship top {TR["height_loaded"]} m (Lv2 43.85 m, lifted 0.45): {DOOR_H - TR["height_loaded"]:.2f} m under D-10', RED, 12); label(T5, -6.6, -2.6, 'Lv10 gear R 6.6 m', DIM, 12, False)
 end_panel()
 # ---------- notes ----------
 notes = [
- ('ROAD', INK, f'Centreline world z -13 (the pad ship axis) from the pad edge x {PAD_EDGE:.1f} to door D-10 at x {DOOR_X:.1f}: {road_len:.1f} m, one straight, 0 turns, 0% grade, 0.5% cross-fall. 36 m running + 2.6 m graded shoulders = 41.2 m. Sintered surface with two darker crawler lanes (|dz| 9.7-13.3 m, 0.62 m cleat imprints), no tyre trails; cyan (far) / amber (near) reflector posts every 12 m.'),
+ ('ROAD', INK, f'Centreline world z -13 (the pad ship axis) from the pad edge x {PAD_EDGE:.1f} to door D-10 at x {DOOR_X:.1f}: {road_len:.1f} m, one straight, 0 turns, 0% grade, 0.5% cross-fall. {2*HALF:.1f} m running (ST-10A 27.1 m + 3.75 m each side) + 2.6 m graded shoulders = {2*(HALF+SHOULDER):.1f} m. Sintered surface with two darker crawler lanes (|dz| 9.7-13.3 m, 0.62 m cleat imprints), no tyre trails; cyan (far) / amber (near) reflector posts every 12 m.'),
  ('', DIM, 'Autonomous and cab-less, ST-10 runs both ways on the same road (out loaded, back loaded after the rebuild): no turnaround loop. Apron RA-1 in front of D-10 is the staging and passing pad.'),
- ('KEEP-OUT', GRN, 'Haul road: Refinery left side (x <= 321), 165 m away. Flatbed lanes z +13/+22 and the pad U-turn (x 458-465, z 10-25): road shoulder edge stays at z <= +7.6 and starts at x 486.4, never crosses. Cargo Dock (x 345-392 incl. SC-1, layout_v3) is LEFT of the pad, 35.5 m from the pad left edge; the road leaves the pad RIGHT.'),
- ('(a) PAD', RED, 'Needs the pad owner (AA2), not edited here: cut berm gate G-1 in the right arc (z -28.4..+2.4); move LOX/LCH4 tanks and Tier_08 P-2; retract hoses and Fuel_Hookup left of x 460. VV-1 / Pipe_LaunchPad_End leaves the corridor with the move to the pad left (~x 430). Lv1 edge lights 0.37 m are drive-over.'),
+ ('KEEP-OUT', GRN, f'Haul road: Refinery left side (x <= 321), {PAD_EDGE - 321:.0f} m away. Flatbed lanes z +13/+22 and the pad U-turn (x 458-465, z 10-25): road shoulder edge stays at z <= {ROAD_Z + HALF + SHOULDER:+.1f} ({fl_gap:.1f} m from the flatbed lane, {ut_gap:.1f} m from the U-turn) and starts at the pad edge x {PAD_EDGE:.1f}: crosses no road. Cargo Dock compact_v3 at (360, 0, -8) (bbox x {CL["cargo_dock"]["bbox_world"][0][0]:.1f}-{CL["cargo_dock"]["bbox_world"][1][0]:.1f}) is LEFT of the pad: {CL["cargo_dock"]["gap_to_road_m"]:.1f} m from the road start, {CL["cargo_dock"]["gap_to_crawler_path_m"]:.1f} m from the crawler at pick-up. Pipe end (430, 0.95, 2.6) is {CL["pipe_end"]["clear_of_crawler_at_pickup_m"]:.1f} m clear.'),
+ ('(a) PAD', RED, f'Pad owner (AA2), not edited here. Lv1 pad gate G-1 stays 30.8 m (z -28.4..+2.4): ST-10A passes with 1.84 m each side. Only the Lv10 pad gate G-10 widens, to the road running width {2*HALF:.1f} m (z {ROAD_Z-HALF:.1f}..{ROAD_Z+HALF:+.1f}). Open item: a 9.3 m Pad_Base item (443.6-445.1, -3.4..-2.7) and a 1.5 m Tier_08 skid (445.0-445.3, -0.8..-0.6) sit inside the crawler front-left at pick-up: move >= 1 m west. Fuel_Hookup: disconnect + retract before lift. Pipe_LaunchPad_End is at the pad LEFT (430, 0.95, 2.6). Edge lights 0.37 m are drive-over.'),
  ('(b) HABITAT', HABC, f'Station order Life Support, Mine, Refinery, Cargo Dock, Launch Pad, Shipyard, Habitat, Engineering (Director). Habitat gray box moves from x 800 (inside the corridor) to x {HAB_X:.0f}, z 0: {GAP_W:.1f} m clear of the Shipyard east edge (x {SY_X1:.1f}) and {GAP_E:.1f} m clear of Engineering (x 1120, unchanged). The road path is clear end to end; the S-jog fallback is withdrawn. Per-station X table for Coder: transport_road_plan.json station_x_table.'),
  ('(c) SHIPYARD', AM, f'Existing door: 10.3 m, faces the camera, 8-14 m forecourt. Proposal (Director ruling): Lv10 high bay HB-10 {BAY_L:.0f} x {BAY_W:.0f} x {BAY_H:.0f} m on the west gable of AH-1, door D-10 {DOOR_W:.0f} m W x {DOOR_H:.0f} m H facing the road, on the road axis.'),
- ('', AM, f'D-10 sizing: transporter up to 28.5 m wide (B; A 27.4) + 2.75 m each side; ship top 40.7 m + 5.3 m. {len(blk)} Shipyard cells (red) inside HB-10 + RA-1 must clear. This is a Shipyard model change, so it is flagged to the Shipyard owner. The Shipyard GLB is not edited here.'),
+ ('', AM, f'D-10 sizing: ST-10A 27.1 m wide, {(DOOR_W - 2*TR["half"])/2:.2f} m each side. Height FLAG: with the Lv2 ship (43.85 m; no Lv10 height exists yet) the loaded top is {TR["height_loaded"]} m, {DOOR_H - TR["height_loaded"]:.2f} m under D-10 {DOOR_H:.0f} m (v3 assumed the Lv1 ship at 40.7 m). {len(blk)} Shipyard cells (red) inside HB-10 + RA-1 must clear. This is a Shipyard model change, so it is flagged to the Shipyard owner. The Shipyard GLB is not edited here.'),
 ]
 y = y5 + 400
 for tg, col, t_ in notes:

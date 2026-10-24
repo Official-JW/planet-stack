@@ -64,7 +64,7 @@ function mergeByMaterial(root) {    // game-style: one draw per material
     const me = new THREE.Mesh(g, mm); me.name = k; out.add(me); }
   return { group: out, draws: [...groups.keys()].filter(k => !k.startsWith('G_M_')).length, draws_astronaut: [...groups.keys()].filter(k => k.startsWith('G_M_')).length, tris };
 }
-// game GLB (st10b_game.glb): no merging; one cradle node visible; optional sRGB lift of COLOR_0 (sweep only; final frames use the baked GLB)
+// game GLB (st10b_game.glb / st10a_game.glb, same node names): no merging; one cradle node visible; optional sRGB lift of COLOR_0 (sweep only; final frames use the baked GLB)
 function gameGLB(root, o) {
   const show = o.loaded ? 'Cradle_Loaded' : 'Cradle_Empty', hide = o.loaded ? 'Cradle_Empty' : 'Cradle_Loaded';
   root.getObjectByName(hide).visible = false; root.getObjectByName(show).visible = true;
@@ -75,8 +75,8 @@ function gameGLB(root, o) {
     tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
     const c = m.geometry.attributes.color;
     if (c && L) { for (let i = 0; i < c.count; i++) for (let k = 0; k < 3; k++) { const v = l2s(c.getComponent(i, k)); c.setComponent(i, k, s2l(L >= 0 ? 1 - (1 - v) * (1 - L) : v * (1 + L))); } c.needsUpdate = true; } });
-  // o.emis: ST10B_Paint emissiveFactor = sky tint (0x9fb4d8, linear) x k -- a MATERIAL value (sweep only; final frames use the baked GLB)
-  if (o.emis) root.traverse(m => { if (m.isMesh && m.material.name === 'ST10B_Paint') m.material.emissive.setRGB(0.3467 * o.emis, 0.4564 * o.emis, 0.6867 * o.emis); });
+  // o.emis: ST10B_Paint / ST10A_Paint emissiveFactor = sky tint (0x9fb4d8, linear) x k -- a MATERIAL value (sweep only; final frames use the baked GLB)
+  if (o.emis) root.traverse(m => { if (m.isMesh && /^ST10[AB]_Paint$/.test(m.material.name)) m.material.emissive.setRGB(0.3467 * o.emis, 0.4564 * o.emis, 0.6867 * o.emis); });
   return { group: root, draws, draws_astronaut: astro, draws_note: 'visible meshes incl. astronaut', names, tris };
 }
 window.setup = async (o) => {

@@ -1,3 +1,6 @@
+> **SHELVED (10/24/2026, Director):** concept B, the wheeled straddle, is shelved. Concept A, the tracked crawler, was picked; see `SPEC_A.md` and `game/st10a_game.glb`.
+> B stays in git at commit 7bd022c for reference only. **Don't hand `st10b_game.glb` to anyone or wire it into the game.**
+
 # ST-10B game GLB (Lv10 ship transporter, wheeled straddle)
 
 **File:** `art/3d/vehicles/ship_transporter/game/st10b_game.glb`

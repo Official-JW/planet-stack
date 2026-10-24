@@ -1,0 +1,439 @@
+{
+ "sampling_m": 0.4,
+ "upper_bound_m": 4.0,
+ "note": "4.0 means >= 4 m",
+ "frames": "rest, retracted, deploy_end + Gear_Retract/Gear_Deploy every 0.1 s (legs, doors); root-skinned skirt/ring static",
+ "yaws": [
+  0,
+  15,
+  30,
+  45,
+  60,
+  75
+ ],
+ "y_m": {
+  "feet_on_deck_0.492": 0.492,
+  "AA_Engine_Ring_Mount_3.45": 3.45
+ },
+ "ship_seat_lift": 0.45,
+ "ship_x_offsets": "-32..0 step 2.0 (empty)",
+ "summary": {
+  "loaded_skirt_gear_ring_vs_cradle": {
+   "check": "LOADED|N06|skirt_band|vs_cradle_loaded",
+   "min_clearance_m": 2.957,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "frame": "rest_deployed"
+   }
+  },
+  "loaded_skirt_gear_ring_vs_body": {
+   "check": "LOADED|N06|gear_legs|vs_body",
+   "min_clearance_m": 0.713,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 30,
+    "frame": "Gear_Deploy@2.0s"
+   }
+  },
+  "empty_drive_in_skirt_gear_ring": {
+   "check": "EMPTY_DRIVE_IN|N06|gear_legs|vs_cradle_empty",
+   "min_clearance_m": 2.496,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "ship_dx": -4.0
+   }
+  },
+  "empty_drive_in_hull": {
+   "check": "EMPTY_DRIVE_IN|hull|hull_envelope|vs_cradle_empty",
+   "min_clearance_m": 0.324,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 75,
+    "ship_dx": -4.0
+   }
+  },
+  "loaded_hull_vs_cradle_contact": {
+   "check": "LOADED|hull|hull_envelope|vs_cradle_loaded",
+   "min_clearance_m": 0.01,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 15
+   }
+  },
+  "loaded_hull_vs_body": {
+   "check": "LOADED|hull|hull_envelope|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0
+   }
+  }
+ },
+ "table": [
+  {
+   "check": "EMPTY_DRIVE_IN|N06|engine_ring_nozzles|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N06|engine_ring_nozzles|vs_cradle_empty",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N06|gear_doors|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N06|gear_doors|vs_cradle_empty",
+   "min_clearance_m": 3.795,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 30,
+    "ship_dx": -6.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N06|gear_legs|vs_body",
+   "min_clearance_m": 2.967,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "ship_dx": -12.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N06|gear_legs|vs_cradle_empty",
+   "min_clearance_m": 2.496,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "ship_dx": -4.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N06|skirt_band|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N06|skirt_band|vs_cradle_empty",
+   "min_clearance_m": 3.784,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 45,
+    "ship_dx": -4.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|engine_ring_nozzles|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|engine_ring_nozzles|vs_cradle_empty",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|gear_doors|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|gear_doors|vs_cradle_empty",
+   "min_clearance_m": 3.795,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 30,
+    "ship_dx": -6.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|gear_legs|vs_body",
+   "min_clearance_m": 2.967,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "ship_dx": -12.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|gear_legs|vs_cradle_empty",
+   "min_clearance_m": 2.496,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "ship_dx": -4.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|skirt_band|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|N11|skirt_band|vs_cradle_empty",
+   "min_clearance_m": 3.784,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 45,
+    "ship_dx": -4.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|hull|hull_envelope|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|hull|hull_envelope|vs_cradle_empty",
+   "min_clearance_m": 0.324,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 75,
+    "ship_dx": -4.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|hull|hull_verts|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "ship_dx": -32.0
+   }
+  },
+  {
+   "check": "EMPTY_DRIVE_IN|hull|hull_verts|vs_cradle_empty",
+   "min_clearance_m": 1.448,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 75,
+    "ship_dx": -6.0
+   }
+  },
+  {
+   "check": "LOADED|N06|engine_ring_nozzles|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N06|engine_ring_nozzles|vs_cradle_loaded",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N06|gear_doors|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N06|gear_doors|vs_cradle_loaded",
+   "min_clearance_m": 3.445,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 0,
+    "frame": "Gear_Retract@0.6s"
+   }
+  },
+  {
+   "check": "LOADED|N06|gear_legs|vs_body",
+   "min_clearance_m": 0.713,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 30,
+    "frame": "Gear_Deploy@2.0s"
+   }
+  },
+  {
+   "check": "LOADED|N06|gear_legs|vs_cradle_loaded",
+   "min_clearance_m": 3.311,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "frame": "Gear_Deploy@2.0s"
+   }
+  },
+  {
+   "check": "LOADED|N06|skirt_band|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N06|skirt_band|vs_cradle_loaded",
+   "min_clearance_m": 2.957,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N11|engine_ring_nozzles|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N11|engine_ring_nozzles|vs_cradle_loaded",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N11|gear_doors|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N11|gear_doors|vs_cradle_loaded",
+   "min_clearance_m": 3.445,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 0,
+    "frame": "Gear_Retract@0.6s"
+   }
+  },
+  {
+   "check": "LOADED|N11|gear_legs|vs_body",
+   "min_clearance_m": 0.713,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 30,
+    "frame": "Gear_Deploy@2.0s"
+   }
+  },
+  {
+   "check": "LOADED|N11|gear_legs|vs_cradle_loaded",
+   "min_clearance_m": 3.311,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "frame": "Gear_Deploy@2.0s"
+   }
+  },
+  {
+   "check": "LOADED|N11|skirt_band|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|N11|skirt_band|vs_cradle_loaded",
+   "min_clearance_m": 2.957,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30,
+    "frame": "rest_deployed"
+   }
+  },
+  {
+   "check": "LOADED|hull|hull_envelope|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0
+   }
+  },
+  {
+   "check": "LOADED|hull|hull_envelope|vs_cradle_loaded",
+   "min_clearance_m": 0.01,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 15
+   }
+  },
+  {
+   "check": "LOADED|hull|hull_verts|vs_body",
+   "min_clearance_m": 4.0,
+   "at": {
+    "Y_M": "feet_on_deck_0.492",
+    "yaw": 0
+   }
+  },
+  {
+   "check": "LOADED|hull|hull_verts|vs_cradle_loaded",
+   "min_clearance_m": 0.021,
+   "at": {
+    "Y_M": "AA_Engine_Ring_Mount_3.45",
+    "yaw": 30
+   }
+  }
+ ],
+ "inputs": {
+  "skirt": [
+   "art/vfx/engine_flame/aft_skirt/aft_skirt_N06.glb",
+   "art/vfx/engine_flame/aft_skirt/aft_skirt_N11.glb"
+  ],
+  "ship": "art/3d/ship/ship_lv2/pad_lv2.glb (read-only)"
+ }
+}

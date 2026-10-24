@@ -1,8 +1,8 @@
-// ST-10B game GLB game-cam proofs.  node gamecam_b_game.js sweep|final <url> <outdir> [glb]
+// ST-10B / ST-10A game GLB game-cam proofs.  [TAG=st10a] node gamecam_b_game.js sweep|final <url> <outdir> [glb]   (TAG sets the file prefix + label; default st10b)
 //  sweep: shaded-side p25 vs an sRGB COLOR_0 lift (in-page) on loaded+empty @393 -> <out>/sweep.json (pick = closest to 67 with both in 60-75)
 //  final: baked GLB, no lift: loaded/empty x 393x852/375x667 x DPR 1 (+clean) and 2 -> PNGs + results.json (spare, p25, draw calls via renderer.info)
 const puppeteer = require('/workspace/playtest/q3d5/node_modules/puppeteer-core'); const fs = require('fs');
-const [MODE, URL, OUT, GLB] = [process.argv[2], process.argv[3], process.argv[4], process.argv[5] || 'm/st10b_game.glb'];
+const [MODE, URL, OUT, GLB] = [process.argv[2], process.argv[3], process.argv[4], process.argv[5] || `m/${process.env.TAG || 'st10b'}_game.glb`]; const TAG = process.env.TAG || 'st10b', NAME = TAG === 'st10a' ? 'ST-10A' : 'ST-10B';
 fs.mkdirSync(OUT, { recursive: true });
 const SZ = [{ w: 393, h: 852, band: [12, 381, 165, 534] }, { w: 375, h: 667, band: [12, 363, 144, 383] }], XT = 52;
 (async () => {
@@ -28,9 +28,9 @@ const SZ = [{ w: 393, h: 852, band: [12, 381, 165, 534] }, { w: 375, h: 667, ban
   for (const l of ['loaded', 'empty']) for (const dpr of [1, 2]) for (const s of SZ) {
     const [p, info] = await page(s.w, s.h, dpr, { loaded: l === 'loaded' }); const pose = poses[l]; const r = pose.res.find(q => q.size === s.w + 'x' + s.h);
     const lum = await p.evaluate((t, fw) => p25(t, fw), pose.t, pose.fw); const dc = await p.evaluate((t, fw) => calls(t, fw), pose.t, pose.fw);
-    const lab = `ST-10B game GLB · ${l} · ${s.w}x${s.h} · 38° vFOV / 18° down\nCam_Target (${pose.t.x.toFixed(1)}, ${pose.t.y.toFixed(1)}, ${pose.t.z.toFixed(1)}) frame_w ${pose.fw.toFixed(1)}\nspare ${r.spare.toFixed(1)} px ${r.spare >= 5 ? 'PASS' : 'FAIL'} · shaded p25 ${lum.shaded_p25} ${lum.shaded_p25 >= 60 && lum.shaded_p25 <= 75 ? 'PASS' : 'FAIL'} · ${dc.calls} draws · ${dc.triangles} tris`;
+    const lab = `${NAME} game GLB · ${l} · ${s.w}x${s.h} · 38° vFOV / 18° down\nCam_Target (${pose.t.x.toFixed(1)}, ${pose.t.y.toFixed(1)}, ${pose.t.z.toFixed(1)}) frame_w ${pose.fw.toFixed(1)}\nspare ${r.spare.toFixed(1)} px ${r.spare >= 5 ? 'PASS' : 'FAIL'} · shaded p25 ${lum.shaded_p25} ${lum.shaded_p25 >= 60 && lum.shaded_p25 <= 75 ? 'PASS' : 'FAIL'} · ${dc.calls} draws · ${dc.triangles} tris`;
     await p.evaluate((t, fw, band, lab, bb) => shot(t, fw, band, lab, bb), pose.t, pose.fw, s.band, lab, r.bb);
-    const f = `${OUT}/st10b_game_${l}_gamecam_${s.w}x${s.h}${dpr > 1 ? '@2x' : ''}.png`; await p.screenshot({ path: f });
+    const f = `${OUT}/${TAG}_game_${l}_gamecam_${s.w}x${s.h}${dpr > 1 ? '@2x' : ''}.png`; await p.screenshot({ path: f });
     if (dpr === 1) { await p.evaluate(() => { const o = document.getElementById('ov'); o.getContext('2d').clearRect(0, 0, o.width, o.height); }); await p.screenshot({ path: f.replace('.png', '_clean.png') }); }
     res[`${l}_${s.w}x${s.h}${dpr > 1 ? '@2x' : ''}`] = { file: f.split('/').pop(), spare_px: +r.spare.toFixed(1), bb: r.bb, draw_calls: dc.calls, triangles_drawn: dc.triangles, visible_meshes: info.names, draws_astronaut: info.draws_astronaut, ...lum };
     console.log(f, 'spare', r.spare.toFixed(1), 'p25', lum.shaded_p25, 'calls', dc.calls, 'tris', dc.triangles); await p.close(); }
