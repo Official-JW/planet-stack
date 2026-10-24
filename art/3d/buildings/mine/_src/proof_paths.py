@@ -81,7 +81,7 @@ else:
     for pre in ('Path_Out', 'Path_Ret'):
         seq = HAUL[pre]['markers']; c_ = COL[pre]
         chain = ([M['Path_Load']['glTF_pos']] if pre == 'Path_Out' else []) + [m['glTF'] for m in seq] + ([M['Path_Load_Approach']['glTF_pos']] if pre == 'Path_Ret' else [])
-        legs = ([{'type': 'straight', 'length_m': 4.3}] if pre == 'Path_Out' else []) + [m.get('next_leg') for m in seq]
+        legs = ([json.loads(M['Path_Load']['extras']['next_leg'])] if pre == 'Path_Out' else []) + [m.get('next_leg') for m in seq]
         for k in range(len(chain) - 1):
             p, q, lg = chain[k], chain[k + 1], legs[k]
             pts = leg_pts(p, lg) if lg else None
@@ -96,15 +96,20 @@ else:
             d.line([(cx, cy), (hx, hy)], fill=(255, 255, 255), width=4)
             d.polygon([(hx + 10 * math.cos(yw), hy - 10 * math.sin(yw)), (hx + 8 * math.cos(yw + 2.2), hy - 8 * math.sin(yw + 2.2)), (hx + 8 * math.cos(yw - 2.2), hy - 8 * math.sin(yw - 2.2))], fill=(255, 255, 255))
             lab = m['name'].replace('Path_', '') + ' %g°' % m['yaw_deg']
-            off = {'Path_Ret_01': (-40, -34), 'Path_Ret_02': (-150, -34), 'Path_Out_01': (6, -34), 'Path_Ret_08': (-150, -34)}.get(m['name'], (14, -30) if pre == 'Path_Out' else (14, 10))
+            off = {'Path_Ret_01': (-150, -34), 'Path_Ret_02': (-40, -38), 'Path_Ret_03': (-190, -12), 'Path_Out_01': (70, 14), 'Path_Out_02': (-150, 14)}.get(m['name'], (14, -30) if pre == 'Path_Out' else (14, 10))
             d.text((cx + off[0], cy + off[1]), lab, font=f2, fill=c_, stroke_width=3, stroke_fill=(0, 0, 0))
+    pa_, pl_ = M['Path_Load_Approach']['glTF_pos'], M['Path_Load']['glTF_pos']            # the short straight reverse (dashed white)
+    for k in range(6):
+        t0, t1 = k / 6, (k + 0.5) / 6
+        d.line([px(pa_[0] + (pl_[0] - pa_[0]) * t0, pa_[2] + 0.5), px(pa_[0] + (pl_[0] - pa_[0]) * t1, pa_[2] + 0.5)], fill=(255, 255, 255), width=4)
     for nm, c_ in (('Path_Load', (255, 255, 255)), ('Path_Load_Approach', (255, 255, 255)), ('Road_Entry', (0, 200, 255)), ('Rich_Pop', (255, 230, 120))):
         p = M[nm]['glTF_pos']; cx, cy = px(p[0], p[2])
         d.rectangle([cx - 7, cy - 7, cx + 7, cy + 7], outline=c_, width=3)
-        d.text((cx - 60, cy + {'Rich_Pop': -32, 'Path_Load_Approach': 34}.get(nm, 12)), nm, font=f2, fill=c_, stroke_width=3, stroke_fill=(0, 0, 0))
+        d.text((cx + {'Path_Load': -110, 'Rich_Pop': -40}.get(nm, -20), cy + {'Rich_Pop': -60, 'Path_Load_Approach': 40, 'Road_Entry': 62, 'Path_Load': 40}.get(nm, 12)), nm, font=f2, fill=c_, stroke_width=3, stroke_fill=(0, 0, 0))
     o, r = HAUL['Path_Out'], HAUL['Path_Ret']
     d.rectangle([0, H - 118, W, H], fill=(18, 20, 26))
-    d.text((16, H - 110), 'Mine haul paths, top-down (glTF x right, z toward the camera). Turns R 4.5 m, 8.33 m/s.  OUT loaded (cyan): Path_Load -> Out_01..04 = %.1f m, %.1f s' % (o['length_m'], o['time_s_at_8.33']), font=f1, fill=(0, 200, 255))
-    d.text((16, H - 74), 'RET empty (orange): x 26 z 0 -> Ret_01..08 -> Path_Load_Approach = %.1f m, %.1f s, then reverse 4.3 m (-X) to Path_Load' % (r['length_m'], r['time_s_at_8.33']), font=f1, fill=(255, 140, 40))
-    d.text((16, H - 36), 'green = deposit tap circles, magenta = Operator_Deck footprint, yellow = phone-frame right edge; white arrows = marker yaw', font=f2, fill=(220, 220, 220))
+    tm_ = HAUL['times']; rl = dict(tm_['return_legs']); ol = dict(tm_['out_legs'])
+    d.text((16, H - 110), 'OUT loaded (cyan): Path_Load -> Out_01 -> Out_02 (x 26), dead straight %.1f m: %.2f s' % (o['length_m'], tm_['out_s']), font=f1, fill=(0, 200, 255))
+    d.text((16, H - 74), 'RET empty (orange): Ret_01 %.2f + U-turn R4.5 %.2f + %.2f + reverse 1.5 m %.2f = %.2f s' % (rl['Path_Ret_01'], rl['Path_Ret_02'], rl['Path_Ret_03'], rl['reverse Path_Load_Approach -> Path_Load'], tm_['return_s']), font=f1, fill=(255, 140, 40))
+    d.text((16, H - 36), 'Mine top-down (glTF x right, z down). Eased 8.33 m/s straights, 4 m/s turns. green = deposit taps, magenta = deck, arrows = yaw', font=f2, fill=(220, 220, 220))
     im.save(out); print('WROTE', out, im.size)

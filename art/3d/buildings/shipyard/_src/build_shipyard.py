@@ -1,7 +1,7 @@
 """Planet Stack - SHIPYARD (SY-01), high-detail concept master (Blender 4.2 LTS, headless, Cycles).
 
 blender -b -P build_shipyard.py -- --out .. [--quick 1] [--only glb,blend,game,hero,turn] [--tris 18000] [--hs 64] [--ts 48]
-       [--hc x,y,z,tx,ty,tz] [--lens 26] [--tiers 1 (render upgrade tiers)] [--only portrait]
+       [--hc x,y,z,tx,ty,tz] [--lens 26] [--tiers 1 (render upgrade tiers)] [--only portrait] [--pw 375 --ph 667]
 Game GLB names: GAME_NAMES dict below (one place).
 
 Blender coords: Z up, metres, front = -Y (toward the camera). Exported GLB: Y up, front +Z, origin = yard centre on the ground.
@@ -52,7 +52,7 @@ GAME_NAMES = {
     'rot_z': 10.0,   # deg, whole yard about +Z at the origin: the old az -100 view becomes the straight-on az -90 view
     # Director framing box on 393x852: x 18..375, y 230..640 must hold the whole assembly hall (incl. its 'ASSEMBLY HALL · AH-1' label), SN-07 + its whole
     # IS-1 stand (tower top may run off the top) and crew module YC-1. Smallest W that fits with every tier within W (flat) of Cam_Target: 76 m.
-    'phone_cam': {'target': (-8.85, -25.45, 16.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 76.0},
+    'phone_cam': {'target': (-4.91, -26.14, 12.5), 'az': -90.0, 'pitch': 18.0, 'fov_y': 38.0, 'frame_w': 150.0},   # base + EVERY tier fit Coder bands: 393x852 y144-568, 375x667 y144-383, x12..W-12
 }
 
 # ====================================================================== materials
@@ -1032,8 +1032,12 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
     SWING = math.radians(90)
     G = nodes['Crane_Jib']; set_origin(G, RZ((TX, TY, JZ)))   # mesh stays in the turned frame -> clip values unchanged
     G.animation_data_create(); act = bpy.data.actions.new(MV['Crane_Jib'][1]); G.animation_data.action = act
-    G.rotation_euler = (0, 0, SWING); G.keyframe_insert('rotation_euler', index=2, frame=0)
-    G.rotation_euler = (0, 0, 0.0); G.keyframe_insert('rotation_euler', index=2, frame=F1)
+    # seamless 6.0 s loop @25 fps: swing in 1.6 s (ease), damped settle wobble (+-2.5 deg, real keys), hold; swing out 1.6 s, wobble, hold
+    W1, W2 = math.radians(2.5), math.radians(1.0)
+    JK = [(0, SWING), (40, 0.0), (46, -W1), (52, W2), (58, 0.0), (65, 0.0),
+          (105, SWING), (111, SWING + W1), (117, SWING - W2), (123, SWING), (150, SWING)]   # first key == last key exactly
+    for f, v in JK:
+        G.rotation_euler = (0, 0, v); G.keyframe_insert('rotation_euler', index=2, frame=f)
     ease(act); G.rotation_euler = (0, 0, SWING); push(G, act)
     # Hall_Door: pivot empty on the door track centre (floor level); leaves slide closed (rest) -> open
     D = bpy.data.objects.new(MV['Hall_Door'][0], None); D.empty_display_size = 1.0; D.location = RZ((HX, FRY - 0.45, YTOP)); D.rotation_euler = (0, 0, ROT); coll('Mine').objects.link(D)   # track axis turned with the yard
@@ -1044,6 +1048,8 @@ if 'game' in ONLY:   # game-ready GLB: SH_* shared palette, merge by group + mat
         G.animation_data_create(); act = bpy.data.actions.new(MV['Hall_Door'][1] + '|' + g); G.animation_data.action = act
         G.location = Vector((sx * LEAF_CLOSED, 0, 0)); G.keyframe_insert('location', index=0, frame=0)
         G.location = Vector((sx * LEAF_OPEN, 0, 0)); G.keyframe_insert('location', index=0, frame=F1)
+        G.location = Vector((sx * LEAF_OPEN, 0, 0)); G.keyframe_insert('location', index=0, frame=2 * F1)   # hold open
+        G.location = Vector((sx * LEAF_CLOSED, 0, 0)); G.keyframe_insert('location', index=0, frame=3 * F1)   # close again: seamless loop
         ease(act); G.location = Vector((sx * LEAF_CLOSED, 0, 0)); push(G, act)
     # Beacon_Lights: node SCALE blink about the cluster centre (core glTF TRS -> survives gltfpack and every runtime; emissive anim would need
     # KHR_animation_pointer). Looping 1.0 s clip, STEP: on 0-0.5 s, off (scale 0.001) 0.5-1.0 s
@@ -1083,7 +1089,7 @@ if 'hero' in ONLY:
     shoot(cam, os.path.join(OUT, 'hero.png'), tgt, pos, w, h, lens=float(A.get('lens', 26)), samples=int(A.get('hs', 64)) if not QUICK else 16)
 if 'portrait' in ONLY:   # in-game camera: 18 deg pitch, portrait 1179x2556 master (393x852 downscale made with PIL)
     PC = GAME_NAMES['phone_cam']   # same camera as the game: aimed at Cam_Target, 38 deg vertical FOV, distance from frame_w
-    half = math.radians(PC['fov_y'] / 2); pw, ph = (1179, 2556) if not QUICK else (393, 852)
+    half = math.radians(PC['fov_y'] / 2); pw, ph = (int(A['pw']), int(A['ph'])) if 'pw' in A else ((1179, 2556) if not QUICK else (393, 852))
     dd = (PC['frame_w'] / 2) / (math.tan(half) * pw / ph)
     pt = Vector(RZ(PC['target'])); az = math.radians(PC['az']); el = math.radians(PC['pitch'])
     pp = pt + Vector((math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))) * dd

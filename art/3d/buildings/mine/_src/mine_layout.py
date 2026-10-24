@@ -18,7 +18,7 @@ from mathutils.bvhtree import BVHTree
 TX, TY = 4.7, -4.5                  # truck centre at the load bay (heading +X)
 RX, RY = -7.5, 3.0; RYc = RY + 0.6  # bore rig
 H_X, H_Y = -1.0, 3.0                # pod hopper
-BIN_X, BIN_Y = 10.0, 4.5            # ore silo
+BIN_X, BIN_Y = 10.0, 6.0            # ore silo (concept 4.5; moved 1.5 m north, clear of the U-turn)
 SH_T = Vector((0.75, -0.92, 3.3))   # arm shoulder (truck-local)
 L1, L2 = 1.3, 1.7
 BX0, BX1, BW, BZ, BTOP = -3.5, 0.3, 1.4, 1.93, 3.3
@@ -28,8 +28,14 @@ AXLES = (-2.7, -1.35, 2.4); WR = 0.85
 STOW_WRIST_T = Vector((2.15, -1.05, 4.35))   # 'park' pose = game stow (forward over the cab corner)
 REACH_WRIST_T = Vector((0.2, -2.8, 1.45))    # scoop reach: 2.8 m to the truck right (-Y local), 1.45 m up (elbow stays raised)
 
+# --- 10/23 night (Director: one clean graded road, no S-bends): the load bay moved onto the OUTBOUND lane (Blender y -9 = glTF z 9).
+#  The loaded truck now drives dead straight +X from Path_Load to x 26; the empty truck comes in on the return lane (y 0), takes one
+#  left U-turn (R 4.5) onto the outbound lane and backs 1.5 m under the chute. The conveyor is re-laid from the pod hopper tail to the
+#  new chute (it crosses the U-turn 4.7+ m up, the empty truck is 3.5 m), the silo sits 1.5 m further north to clear the U-turn.
+LX, LY = 11.0, -9.0                 # truck root at Path_Load (heading +X); bed centre = LX - 1.6, under the chute
+BIN_Y_OLD = 4.5
 def conveyor():
-    BED_C = Vector((TX - 1.6, TY, 0))
+    BED_C = Vector((LX - 1.6, LY, 0))
     C0 = Vector((H_X + 0.15, H_Y - 0.35, 2.55)); DIS = Vector((BED_C.x, BED_C.y, 0)); C1 = Vector((DIS.x, DIS.y, 5.55))
     for _ in range(4):
         uh = Vector((C1.x - C0.x, C1.y - C0.y, 0)).normalized(); C1 = Vector((DIS.x - uh.x * 0.75, DIS.y - uh.y * 0.75, 5.55))
@@ -37,42 +43,38 @@ def conveyor():
     return C0, C1, L, u, side, up, DIS
 
 # --- station layout (world, Blender XY)
-LOAD = (TX, TY, 0.0)                         # truck centre + yaw(deg) at the conveyor head
+LOAD = (LX, LY, 0.0)                         # truck root at Path_Load (yaw 0 = +X), bed centre under the chute
 # (10/23 PM: the long west loop / south straight / west hairpin are gone - see HAUL below)
 # (10/23: the dump stub west to the Refinery intake, Path_Dump / Path_Dump_Approach and REFINERY_ANCHOR are gone - the Refinery is
 #  its own station, one swipe right; trucks leave the Mine at Road_Entry along the +X stub)
-DEP1 = (8.65, -8.65)
+DEP1 = (3.5, -12.5)                          # open ground in front of the bay's west end (the parked truck hid the U-island spot)
 DEP2 = (-1.2, -10.4)
 ROAD_W = 4.0                                 # graded running surface (HT-04 is 3.82 m over the tyres)
-ROAD_ENTRY = (16.794, -9.0)                  # end of the outbound S-curve: from here the loaded lane runs straight +X off the right edge
+ROAD_ENTRY = (12.5, -9.0)                    # where the return U-turn joins the outbound lane (= Path_Load_Approach = Path_Out_01)
 
-# --- haul network (10/23 PM, two lanes to match the Refinery road strip; Blender XY, glTF z = -Blender y):
-#   OUT (loaded):  Path_Load (4.7,-4.5) -> +X along the bay -> S-curve (R 4.5, 2 x 60 deg) -> outbound lane y -9 (glTF z 9) -> x 26
-#   RET (empty):   x 26 on the return lane y 0 (glTF z 0), heading -X -> left 90 (R 4.5, east of the Operator_Deck) -> south leg x 19.5
-#                  (crosses the outbound lane) -> right 90 -> west on y -13.5 -> right U-turn (R 4.5) round Dep_01 -> bay heading +X
-#                  -> Path_Load_Approach (9,-4.5) -> reverse 4.3 m to Path_Load.
+# --- haul network (10/23 night, Blender XY, glTF z = -Blender y). One continuous graded road, two lanes, no S-bend, no crossing:
+#   OUT (loaded): Path_Load (11.0,-9) -> dead straight +X on the outbound lane (glTF z 9) -> x 26 (strip inbound lane)
+#   RET (empty):  x 26 on the return lane (glTF z 0) heading -X -> straight 13.5 m -> left U-turn R 4.5 about (12.5,-4.5) round Dep_01
+#                 (two 90 deg legs) -> Path_Load_Approach (12.5,-9) heading +X -> stop, reverse 1.5 m (-X) to Path_Load.
 R_T = 4.5
-BAY_X0 = 0.0                                 # west end of the load bay (truck tail at Path_Load ~ x 1.2)
-_S_DX = 2 * R_T * math.sin(math.radians(60))  # 7.794: S-curve length along x for a 4.5 m lateral offset
-RET_X_LEG = 19.5                             # return south leg (x); berm toe 16.7 stays east of the deck (x <= 15.42)
-U_X = 8.65                                   # centre x of the return U-turn (centre (8.65, -9)): directly over Dep_01 x, so the U clears its tap circle like the bay does
+U_X = 12.5                                   # U-turn centre x (= Path_Load_Approach x = Road_Entry x)
+REV = U_X - LX                               # 1.5 m straight reverse
+BAY_X0 = 5.5                                 # west end of the bay (truck tail at Path_Load: x 6.7)
 def _line(a, b): a, b = Vector((a[0], a[1], 0)), Vector((b[0], b[1], 0)); return ('line', a, b, (b - a).length)
 def _arcl(c, a0, a1): return ('arc', Vector((c[0], c[1], 0)), (math.radians(a0), math.radians(a1)), abs(math.radians(a1 - a0)) * R_T)
 def _pt(leg, t):
     if leg[0] == 'line': return leg[1].lerp(leg[2], t)
     c, (a0, a1) = leg[1], leg[2]; a = a0 + (a1 - a0) * t; return Vector((c.x + R_T * math.cos(a), c.y + R_T * math.sin(a), 0))
-OUT_LEGS = [_line((TX, TY), (9.0, TY)), _arcl((9.0, TY - R_T), 90, 30), _arcl((9.0 + _S_DX, TY), 210, 270), _line((9.0 + _S_DX, -9.0), (26.0, -9.0))]
-RET_LEGS = [_line((26.0, 0.0), (RET_X_LEG + R_T, 0.0)), _arcl((RET_X_LEG + R_T, -R_T), 90, 180), _line((RET_X_LEG, -R_T), (RET_X_LEG, -9.0)),
-            _arcl((RET_X_LEG - R_T, -9.0), 0, -90), _line((RET_X_LEG - R_T, -13.5), (U_X, -13.5)), _arcl((U_X, -9.0), -90, -180),
-            _arcl((U_X, -9.0), 180, 90), _line((U_X, TY), (9.0, TY))]
+OUT_LEGS = [_line((LX, LY), (U_X, LY)), _line((U_X, LY), (26.0, LY))]
+RET_LEGS = [_line((26.0, 0.0), (U_X, 0.0)), _arcl((U_X, -R_T), 90, 180), _arcl((U_X, -R_T), 180, 270)]
 def leg_rows(legs, d_line=1.0, d_arc=0.6):
     P = []
     for lg in legs:
         n = max(1, int(round(lg[3] / (d_line if lg[0] == 'line' else d_arc))))
         P += [_pt(lg, k / n) for k in range(n)]
     P.append(_pt(legs[-1], 1.0)); return P
-def out_rows(): return [Vector((x, TY, 0)) for x in _seg(None, BAY_X0, TX, 1.0)] + leg_rows(OUT_LEGS)
-def ret_rows(): return leg_rows(RET_LEGS[:-1])          # ends where the U-turn meets the bay (x 8.65); the bay strip carries the last 0.35 m
+def out_rows(): return [Vector((x, LY, 0)) for x in _seg(None, BAY_X0, LX, 1.0)] + leg_rows(OUT_LEGS)
+def ret_rows(): return leg_rows(RET_LEGS)               # ends on the outbound lane at (12.5,-9), 2 cm under its surface
 
 def ground_fn():
     g = bpy.data.objects['Ground']; me = g.data
@@ -263,9 +265,48 @@ def apply():
     # 2) DUMP 01 + lift tube, old head pylon/boom, old roads + spur marker
     gone = _del(lambda o: base(o).startswith(('dump_', 'lift_', 'decal_dump', 'head_pylon', 'head_boom', 'head_hanger', 'haul_road', 'Path_Spur')))
     print('LAYOUT removed', gone, 'objects')
-    # 3) head-end support column under the trough, north of the road
+    # 2b) silo 1.5 m north (clear of the U-turn)
+    SIL = ('silo', 'spine', 'fill_window_bg', 'fill_level', 'fill_tick', 'decal_bin', 'decal_mine_bin')
+    nmv = 0
+    for o in list(bpy.data.objects):
+        if o.parent is None and base(o).startswith(SIL):
+            w = o.matrix_world @ (sum((Vector(c) for c in o.bound_box), Vector()) / 8)
+            if math.hypot(w.x - BIN_X, w.y - BIN_Y_OLD) < 4.5:
+                o.matrix_world = Matrix.Translation((0, BIN_Y - BIN_Y_OLD, 0)) @ o.matrix_world; nmv += 1
+    # 2c) conveyor re-laid: pod hopper tail -> new chute over the outbound-lane bay (concept parts deleted, rebuilt with the same recipe)
+    CONV = ('trough_floor', 'trough_wall', 'trough_strip', 'underglow', 'hoop', 'belt_ore', 'conv_pylon', 'conv_foot', 'conv_saddle',
+            'head_housing', 'tail_housing', 'dis_chute', 'fall_ore')
+    nc = _del(lambda o: base(o).startswith(CONV) or base(o) == 'belt')
     C0, C1, L, u, side, up, DIS = conveyor()
-    f = 0.62; P = C0 + u * (L * f) - up * 0.2
+    BELT = M['B_Belt']
+    beam('trough_floor', C0 - up * 0.1, C1 - up * 0.1, 1.5, 0.16, WHITE, bevel=0.05)
+    for s_ in (-1, 1):
+        beam('trough_wall', C0 + side * 0.78 * s_ + up * 0.22, C1 + side * 0.78 * s_ + up * 0.22, 0.1, 0.62, WHITE, bevel=0.04)
+        beam('trough_strip', C0 + side * 0.84 * s_ + up * 0.38 + u * 0.4, C1 + side * 0.84 * s_ + up * 0.38 - u * 0.4, 0.02, 0.06, CYAN, bevel=0)
+    beam('underglow', C0 - up * 0.19 + u * 0.4, C1 - up * 0.19 - u * 0.4, 0.5, 0.03, CYAN, bevel=0)
+    beam('belt', C0, C1, 1.3, 0.05, BELT, bevel=0.005)
+    nh = int(L / 1.4)
+    for i in range(1, nh):                                   # graphite hoops (render only; dropped from the game mesh)
+        c_ = C0 + u * (L * i / nh)
+        beam('hoop', c_ + side * 0.83 + up * 0.5, c_ + side * 0.83 + up * 1.05, 0.08, 0.08, GRAPH_S, bevel=0)
+        beam('hoop', c_ - side * 0.83 + up * 0.5, c_ - side * 0.83 + up * 1.05, 0.08, 0.08, GRAPH_S, bevel=0)
+        beam('hoop', c_ - side * 0.83 + up * 1.05, c_ + side * 0.83 + up * 1.05, 0.08, 0.08, GRAPH_S, bevel=0)
+    p_ = C0 + u * (L * 0.2) - up * 0.2                     # tail pylon
+    rod('conv_pylon', (p_.x, p_.y, 0.0), (p_.x, p_.y, p_.z - 0.15), 0.26, GRAPH_S, r2=0.18, segs=24)
+    _lathe('conv_foot', [(0, 0), (0.75, 0), (0.62, 0.16), (0, 0.2)], (p_.x, p_.y, 0), WHITE_S, segs=32)
+    _ring('conv_pylon_glow', 0.25, (p_.x, p_.y, 0.9), 0.06, CYAN, w=0.03, segs=32)
+    beam('conv_saddle', p_ - side * 0.7 - up * 0.08, p_ + side * 0.7 - up * 0.08, 0.3, 0.2, GRAPH_S, bevel=0.05)
+    hc = C0 + u * (L * 1.0) + up * 0.25 + u * 0.3
+    box('head_housing', (1.6, 1.9, 1.1), tuple(hc), WHITE, rot=(0, 0, math.atan2(u.y, u.x)), bevel=0.35, segs=5)
+    tc = C0 - u * 0.2 + up * 0.05
+    box('tail_housing', (1.2, 1.8, 0.8), tuple(tc), WHITE, rot=(0, 0, math.atan2(u.y, u.x)), bevel=0.3, segs=5)
+    CH_TOP = C1 + u * 0.75 - up * 0.2; CH_Z = 4.35
+    rod('dis_chute', (DIS.x, DIS.y, CH_TOP.z), (DIS.x, DIS.y, CH_Z), 0.34, GRAPH_S, r2=0.3, segs=40)
+    _ring('dis_chute_glow', 0.31, (DIS.x, DIS.y, CH_Z + 0.12), 0.06, CYAN, w=0.03, segs=40)
+    _ring('dis_chute_lip', 0.33, (DIS.x, DIS.y, CH_Z + 0.02), 0.06, WHITE_S, w=0.08, segs=40)
+    print('LAYOUT silo moved', nmv, 'conveyor rebuilt (deleted', nc, ') L', round(L, 2), 'C1', tuple(round(v, 2) for v in C1), 'DIS', tuple(DIS))
+    # 3) head-end support column under the trough, north of the bay / west of the U-turn
+    f = 0.58; P = C0 + u * (L * f) - up * 0.2
     lathe_ = _lathe
     rod('head_col', (P.x, P.y, 0.0), (P.x, P.y, P.z - 0.15), 0.28, GRAPH_S, r2=0.2, segs=24)
     lathe_('head_col_foot', [(0, 0), (0.8, 0), (0.66, 0.17), (0, 0.21)], (P.x, P.y, 0), WHITE_S, segs=32)

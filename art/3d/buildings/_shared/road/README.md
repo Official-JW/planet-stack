@@ -33,40 +33,41 @@
   - Uniform `scale.x` also tiles cleanly; see below.
 
 ## Placing it between the Mine and the Refinery (GAP = 160 m, Mine = station index 1 at x 160)
-- **Station spacing is 160 m (20 segment lengths), but the bare gap is only 86 m:**
-  - The Mine's stub ends at Mine-local x **26** (Mine README, lane z +9).
-  - The Refinery's RD-1 road starts at Refinery-local x **−48** (Truck_Path_01 / Road_Entry at −46).
-  - So the gap runs from world x 160 + 26 = **186** to 320 − 48 = **272**, which is **86 m**.
-- **Recommended fill:** **11 copies with scale.x = 86/88 = 0.97727**, at x = 186 + 7.8182·k (k = 0…10). That covers 186…272 exactly, with no overlap or z-fighting with the station roads.
-  - Alternatively, use 10 full copies (186…266) plus one copy at scale.x 0.75 (266…272).
+- **Station spacing is 160 m (20 segment lengths); the bare gap is exactly 88 m = 11 full tiles:**
+  - The Mine's stub ends at Mine-local x **26** (both lanes, z +9 and z 0) → world **186**.
+  - The Refinery's RD-1 road starts at Refinery-local x **−46** (= `Truck_Path_01` / `Truck_Exit`) → world 320 − 46 = **274**.
+- **Fill: 11 copies, scale 1, at x = 186 + 8·k (k = 0…10)**, covering 186…274 exactly. No partial tile, no overlap with either station road.
   - Don't lay 20 copies over the whole 160 m: they would z-fight with RD-1 and the Mine stub.
-- Lanes line up with both stations: the inbound z +9 matches the Mine stub and the Refinery's Truck_Path_01/02, and the outbound z 0 matches the Refinery's Truck_Exit / Road_Exit.
+- Lanes line up with both stations: the inbound z +9 matches the Mine stub and the Refinery's Truck_Path_01/02, and the outbound z 0 matches the Mine's
+  z 0 return lane and the Refinery's Truck_Exit / Road_Exit.
 
 ## Drive timing (Lv1): 12 s each way, eased start and stop
 - **Loaded run:** from Mine `Road_Entry` (Mine-local (13.5, 0, 9), world x 173.5) to Refinery `Truck_Path_01` (Refinery-local (−46, 0, 9), world x 274). That is **100.5 m** along z +9, heading +X.
-- **Return run:** from Refinery `Truck_Exit` (−46, 0, 0) to Mine `Road_Entry`, **100.5 m**, heading −X. It runs on z 0; the Mine's matching z 0 return lane is coming (until then, merge to z +9 near the Mine end; see the caveats).
+- **Return run:** from Refinery `Truck_Exit` (−46, 0, 0) to Mine `Road_Entry`, **100.5 m**, heading −X. It runs on z 0 all the way, onto the Mine's z 0 return lane (no lane change).
 - **Velocity profile:** use a trapezoid with 1.5 s ease-in and 1.5 s ease-out (smoothstep on speed) and a 9 s cruise.
   - Cruise speed is v = 100.5 / (12 − 1.5) = **9.57 m/s** (about 34 km/h), with peak acceleration about 6.4 m/s².
   - Or use a single easeInOutSine over 12 s, which peaks at about 13.2 m/s.
 - **Wheel spin** (HT-04 rolling radius 0.853 m): 11.2 rad/s at cruise. Use `angle += distance / 0.853`. Play `truck_drive` as a loop while moving.
 
-## Known mismatches at the Mine end (not fixed here; mine/ is owned by another agent)
-1. **Height.** The Mine GLB's stub, measured on the committed `mine_game.glb` along its centre line z +9, is not at ground level all the way to x 26:
-   | Mine-local x | 12–17 | 19.8 | 22.9 | 26.0 |
-   | --- | --- | --- | --- | --- |
-   | y | ≈ 0.0 | +0.40 | −0.53 | **−1.97** |
-   - It follows the Mine's own terrain. On the game's flat y 0 ground plane, the last ~5 m sink below the ground, which leaves a visible step or gap at the junction (see the proof).
-   - The Mine stub needs to be flattened to y ≈ 0.045 from x 17 to 26.
-2. **Return lane (in progress at the Mine).** Both lanes stay: inbound z +9, outbound/return z 0 (Coder, 10/23 12:24). The Mine is adding a matching
-   z 0 return lane; until it lands, the Mine stub only has the z +9 lane, so the return truck needs a short z 0 → z +9 merge on the last segment.
-   Once the Mine's z 0 lane is in, the return run is straight along z 0 with no lane change.
-3. **Colour step at the Refinery end.** RD-1 at the Refinery start shows a slight colour step; its tracks are fainter. Positions and lanes match.
+## Seams at both joins (fixed 10/23: Mine `219e774`, Refinery `bb5eed2`)
+Both station roads now ease into the strip's x 0 / x 8 cross-section and colours over their last metres, so the joins are flush on the game's flat y 0 ground.
+Checked by sampling the decoded GLBs at the join (Mine x 25.99, Refinery x −45.99) on both lanes: surface 0.045, crown 0.065, tracks (±1.45) 0.026,
+berm crest 0.293, toe (±2.8) −0.039, all within 2 mm of the strip; widths 4.0 m surface, toes ±2.8, tracks ±1.45 on both sides.
+Track colours match the strip's end rows exactly: z +9 #797c81 / #7d8085, z 0 #7d8085 / #7a7d82; crown #a6a9ae (z +9) / #a4a7ac (z 0).
+
+| join | before | after |
+| --- | --- | --- |
+| Mine x 26, z +9 | stub followed the terrain: y +0.40 at x 20, −1.2 at x 24, **−1.97** at x 26 (sank below the ground) | flush (eases to y 0 over x 17–22, profile/colour over x 21–25) |
+| Mine x 26, z 0 | crossfall tilted **+0.82 / −0.80 m** across the lane | level, flush |
+| Mine both lanes | tracks #6a6e73 (darker than the strip), surface 0.065 on z 0 | strip colours, surface 0.045 |
+| Refinery x −46, z +9 | surface 0.025 vs 0.045 (**2 cm step**), tracks at 0.009, #8d9094 | flush, strip colours (ease over x −34 → −46) |
+| Refinery z 0 / z +9 | road ran to x −48: **2 m overlap** with the last tile (z-fighting on z 0) | road trimmed to start at x −46 |
 
 ## Proof
-- `haul_road_proof_1179x663.png`: 1179 px wide, Cycles, flat `M_ground` at y 0. Left to right it shows the Mine stub end at x 26 (dipping below ground, mismatch 1), **3 tiled segments** at x 26 / 34 / 42, and the Refinery's RD-1 road start at x 50.
-  - For the proof the Refinery is pulled in to 24 m so all three join on screen; in the game the gap is 86 m.
-  - The Refinery's Tier_ meshes are hidden.
-  - The segment-to-segment joins are invisible.
+- `haul_road_seams_proof.png` (2358×1326, Cycles CPU 16 samples, no denoiser, flat `M_ground` at y 0, real spacing: Mine at 160, 11 tiles at 186 + 8k, Refinery at 320, Tier_ meshes hidden; rendered 10/23 PM with the redesigned Mine):
+  top-down and low oblique of the Mine join (world 186) and of the Refinery join (world 274). No step, gap or z-fighting at either join and the lane, crown and
+  track colours carry through. One cosmetic difference: on the Mine side a thin darker band along each outer berm toe stops at the join (toe shading, ~0.3 m wide, top-down only).
+- `haul_road_proof_1179x663.png` is the older pulled-in proof (before the seam fix: Mine stub dipping, Refinery at 24 m); kept for history.
 
 ## Rebuild
 ```
@@ -75,4 +76,6 @@ gltfpack -i /tmp/road_raw.glb -o haul_road_seg.glb -cc -kn -ke -vpf
 # proof: unpack the GLBs first (gltfpack -noq -kn -ke; Blender has no meshopt decoder)
 blender -b -P _src/proof_road_tiles.py -- --mine mine_plain.glb --ref refinery_game_plain.glb --seg seg_plain.glb \
     --out haul_road_proof_1179x663.png --w 1179 --h 663 --samples 48 --cam 40,-28,18 --tgt 40,-4.5,0 --lens 24
+# seam proof (real spacing, both joins): writes mine_top / mine_low / ref_top / ref_low, then composite 2x2
+blender -b -P _src/proof_seams.py -- --mine mine_plain.glb --ref refinery_game_plain.glb --seg seg_plain.glb --outdir /tmp/seams --samples 16
 ```

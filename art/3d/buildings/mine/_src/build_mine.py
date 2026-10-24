@@ -27,6 +27,11 @@ _gone = [o.name for o in bpy.data.objects if o.type == 'MESH' and _dd(o) < 6.0 a
 _gone += [o.name for o in bpy.data.objects if o.type == 'MESH' and o.name.split('.')[0] == 'pebble' and _dd(o) < 2.8]
 for _n in _gone: bpy.data.objects.remove(bpy.data.objects[_n], do_unlink=True)
 print('DEPOSIT CLEAR removed', len(_gone), 'objects')
+# 10/23 19:57 (Jacob via Director): no floating diamonds / crystals anywhere on the Mine - only the game's ground glow at Dep_01/02.
+_he = [o for o in bpy.data.objects if o.type == 'MESH' and any(m and m.name.startswith('B_He3') for m in o.data.materials)]
+_cr = [o.name for o in _he if o.name.split('.')[0].startswith(('seam_crystal', 'crystal', 'gem', 'shard', 'deposit', 'spill'))]
+for _n in _cr: bpy.data.objects.remove(bpy.data.objects[_n], do_unlink=True)
+print('CRYSTALS removed', len(_cr), '| remaining He-3 parts:', sorted({o.name.split('.')[0] for o in bpy.data.objects if o.type == 'MESH' and any(m and m.name.startswith('B_He3') for m in o.data.materials)}))
 C0, C1, Lc, U, SIDE, UP = LAY['C0'], LAY['C1'], LAY['L'], LAY['u'], LAY['side'], LAY['up']
 base = lambda o: o.name.split('.')[0]
 TROOT = bpy.data.objects['Truck_HT04']; GZ = TROOT.matrix_world.translation.z
@@ -105,76 +110,56 @@ for k, (bn, mn, _) in enumerate(CHUNKS):
     ch_.parent = TROOT; ch_.matrix_parent_inverse = TROOT.matrix_world.inverted(); ch_['keep_truck'] = 1; ch_['chunk_bone'] = bn; ch_.hide_render = True
 print('LOAD parts: heap base', tuple(round(v, 3) for v in HEAP_C), 'h', round(HEAP_H, 3), 'chute mouth z', round(CHUTE_Z, 3))
 
-# ---------------------------------------------------------------- camera (Game Coder spec)
+# ---------------------------------------------------------------- camera (Game Coder spec, QA3D main.js)
+# d = (frame_w / 2) / (tan(19 deg) * aspect), aimed at Cam_Target, 38 deg vertical FOV, 18 deg down, same formula at every aspect.
+# 10/23 night (Coder's exact tier safe area): every tier vertex must land in y 144-568 on 393x852 AND y 144-383 on 375x667, with
+# 0 px side margin. Solved AFTER the tiers are built, numerically (numpy pinhole = three.js PerspectiveCamera), smallest frame_w that fits.
 FOV_Y, PITCH, PW, PH = 38.0, 18.0, 393, 852
 TAN_H = math.tan(math.radians(FOV_Y / 2)) * PW / PH
-def cam_pose(tgt, W):
-    d = (W / 2) / TAN_H; p = math.radians(PITCH)
+SIZES = {(393, 852): (144, 568), (375, 667): (144, 383)}
+def cam_pose(tgt, W, pw=PW, ph=PH):
+    d = (W / 2) / (math.tan(math.radians(FOV_Y / 2)) * pw / ph); p = math.radians(PITCH)
     pos = Vector(tgt) + Vector((0, -d * math.cos(p), d * math.sin(p)))
     return pos, d
-TIER_BOXES = [((-0.89, -2.82, 2.63), (2.32, 2.66, 5.27)), ((-9.0, 2.26, 0.25), (-6.0, 4.94, 9.15)), ((6.89, 1.39, 0.0), (13.11, 7.59, 6.62)),
-              ((-1.41, -3.96, 2.83), (3.10, 3.18, 6.76)), ((-0.10, 0.81, 0.0), (7.29, 7.92, 7.34)), ((-15.55, 5.90, 0.0), (-8.63, 9.40, 7.40)),
-              ((7.49, 5.0, 0.0), (13.71, 13.22, 8.74)), ((-10.93, 2.26, 13.52), (-4.07, 4.93, 21.78))]
-TOP_Y = float(A.get('top_y', 230))   # Tier_20 mast tip on 393x852 (target band 220-240; HUD bottom ~141, sheet top 674)
-def focus_points():
-    P = []
-    rig = ('pad', 'strut_foot', 'leg', 'leg_foot', 'crown', 'ant_tip', 'beacon', 'op_pod', 'power', 'cyclone')
-    head = ('head_housing', 'dis_chute', 'head_col', 'head_col_foot')
-    for o in bpy.data.objects:
-        if o.type != 'MESH': continue
-        b = base(o)
-        if b in rig or b in head or o.parent == TROOT or (o.parent and o.parent.parent == TROOT):
-            P += [o.matrix_world @ Vector(c) for c in o.bound_box]
-    # Mine-only framing (Director 10/23: the Refinery is its own station, one swipe right). Game tier envelopes (Tier_03..Tier_20,
-    # Conveyor, Rig, Silo; Blender world AABBs of the game nodes - the tiers are built later, in game mode only).
-    for (x0, y0, z0), (x1, y1, z1) in TIER_BOXES:
-        for x in (x0, x1):
-            for y in (y0, y1):
-                for z in (z0, z1): P.append(Vector((x, y, z)))
-    for x, y in ((9.0 + 4.5 + ML.ROAD_W / 2, -9.0), (9.0, -13.5 - ML.BERM_OUT), (-5.0, -13.5 - ML.BERM_OUT), (13.0, -4.0), (-9.0 - ML.BERM_OUT, -9.5)):
-        P.append(Vector((x, y, 0.0)))   # haul loop: graded edge at the east apex (access road leaves there, +X), south berm toes, west hairpin toe
-    for o in bpy.data.objects:                       # silo + beacon tops stay in frame
-        if o.type == 'MESH' and 'silo' in base(o).lower(): P += [o.matrix_world @ Vector(c) for c in o.bound_box]
-    return P
-def cam_fit():
-    from bpy_extras.object_utils import world_to_camera_view
-    cd = bpy.data.cameras.new('FitCam'); cam = bpy.data.objects.new('FitCam', cd); bpy.context.scene.collection.objects.link(cam)
-    cd.sensor_fit = 'VERTICAL'; cd.angle_y = math.radians(FOV_Y); cd.clip_end = 3000
-    sc.render.resolution_x, sc.render.resolution_y = PW, PH
-    P = focus_points(); best = None
-    TIP = Vector((ML.RX - 1.8, ML.RYc + 0.5, 21.78))                 # Tier_20 mast tip = the frame top
-    for W in ([float(A['w'])] if 'w' in A else [24 + 0.25 * i for i in range(80)]):
-        tgt = Vector((0.0, -1.0, 0.0))
-        for it in range(16):
-            pos, d = cam_pose(tgt, W); cam.location = pos
-            cam.rotation_euler = (tgt - pos).to_track_quat('-Z', 'Y').to_euler(); bpy.context.view_layer.update()
-            pr = [world_to_camera_view(sc, cam, p) for p in P]
-            xs = [q.x * PW for q in pr]; ys = [(1 - q.y) * PH for q in pr]
-            ty = (1 - world_to_camera_view(sc, cam, TIP).y) * PH
-            mx = (min(xs) + max(xs)) / 2
-            tgt.x += (mx - PW / 2) / PW * W
-            tgt.z -= (min(min(ys), ty) - TOP_Y) / PW * W / math.cos(math.radians(PITCH))
-        ok = min(xs) >= 0.03 * PW and max(xs) <= 0.97 * PW and max(ys) <= 660
-        print('FIT W', W, 'x', round(min(xs)), round(max(xs)), 'y', round(min(ys)), round(max(ys)), 'tip', round(ty), ok)
-        if ok: best = (W, tgt.copy(), d, (min(xs), max(xs), min(ys), max(ys))); break
-    bpy.data.objects.remove(cam, do_unlink=True)
+import numpy as np
+def proj_np(P, tgt, W, pw, ph):
+    pos, d = cam_pose(tgt, W, pw, ph); pos = np.array(pos); t = np.array(tgt)
+    f = t - pos; f /= np.linalg.norm(f); r = np.cross(f, [0, 0, 1.0]); r /= np.linalg.norm(r); u = np.cross(r, f)
+    v = P - pos; xc, yc, zc = v @ r, v @ u, v @ f; th = math.tan(math.radians(FOV_Y / 2)); asp = pw / ph
+    return (xc / (zc * th * asp) + 1) / 2 * pw, (1 - yc / (zc * th)) / 2 * ph
+def obj_pts(objs):
+    return np.array([tuple(o.matrix_world @ v.co) for o in objs if o.type == 'MESH' for v in o.data.vertices])
+def cam_fit(TP, FP, ZT=6.0, margin=3.0):
+    """TP: tier vertices (Blender world), FP: base-station focus points. Returns (W, target, d, box)."""
+    best = None
+    for W in ([float(A['w'])] if 'w' in A else [22 + 0.2 * i for i in range(120)]):
+        tgt = np.array([0.0, 0.0, ZT])
+        for it in range(6):
+            xs, _ = proj_np(np.vstack([TP, FP]), tgt, W, PW, PH)
+            tgt[0] += ((xs.min() + xs.max()) / 2 - PW / 2) / PW * W
+            lo, hi = -40.0, 40.0                    # feasible target y interval (screen y grows with target y for points in front)
+            def ok_lo(ty):                          # tops: y >= band top on both sizes
+                tg = tgt.copy(); tg[1] = ty
+                return all(proj_np(TP, tg, W, pw, ph)[1].min() >= b0 + margin for (pw, ph), (b0, b1) in SIZES.items())
+            def ok_hi(ty):
+                tg = tgt.copy(); tg[1] = ty
+                ok = all(proj_np(TP, tg, W, pw, ph)[1].max() <= b1 - margin for (pw, ph), (b0, b1) in SIZES.items())
+                return ok and proj_np(FP, tg, W, PW, PH)[1].max() <= 660
+            a_, b_ = -40.0, 40.0
+            for _ in range(40):
+                m = (a_ + b_) / 2; a_, b_ = (a_, m) if ok_lo(m) else (m, b_)
+            ylo = b_
+            a_, b_ = -40.0, 40.0
+            for _ in range(40):
+                m = (a_ + b_) / 2; a_, b_ = (m, b_) if ok_hi(m) else (a_, m)
+            yhi = a_
+            tgt[1] = (ylo + yhi) / 2
+        xs, ys = proj_np(np.vstack([TP, FP]), tgt, W, PW, PH)
+        fx = proj_np(TP, tgt, W, PW, PH)[0]; fx2 = proj_np(TP, tgt, W, 375, 667)[0]
+        ok = ylo <= yhi and xs.min() >= 0 and xs.max() <= PW and fx2.min() >= 0 and fx2.max() <= 375
+        print('FIT W %.1f tgt %s ylo %.2f yhi %.2f x %d..%d %s' % (W, np.round(tgt, 2), ylo, yhi, xs.min(), xs.max(), ok))
+        if ok: best = (W, Vector(tuple(tgt)), cam_pose(Vector(tuple(tgt)), W)[1], (xs.min(), xs.max(), ys.min(), ys.max())); break
     return best
-FIT = cam_fit(); W, CAM_T, CAM_D, FIT_BOX = FIT
-CAM_T = Vector((round(CAM_T.x, 2), round(CAM_T.y, 2), round(CAM_T.z, 2)))
-# Mine-only aim (Director 10/23, Refinery now its own station): solved above - the whole Mine incl. every tier in frame,
-# Tier_20 mast tip at y TOP_Y on 393x852, bottom above the sheet top.
-print('CAMFIT W=%.1f target=%s d=%.2f box=%s' % (W, tuple(CAM_T), CAM_D, tuple(round(v) for v in FIT_BOX)))
-
-if MODE == 'phone':      # renders the 1179x2556 master; phone_downscale.py makes the 393x852 (Lanczos)
-    cam = sc.camera; cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(FOV_Y); cam.data.dof.use_dof = False
-    pos, d = cam_pose(CAM_T, W); cam.location = pos; cam.rotation_euler = (CAM_T - pos).to_track_quat('-Z', 'Y').to_euler()
-    sc.render.resolution_x, sc.render.resolution_y = 1179, 2556; sc.render.resolution_percentage = int(A.get('pct', 100))
-    sc.cycles.samples = int(A.get('ps', 64)); sc.render.use_border = False
-    os.makedirs(MOUT, exist_ok=True)
-    big = os.path.join(MOUT, 'mine_phone_1179x2556.png'); sc.render.filepath = big
-    bpy.ops.render.render(write_still=True)
-    print('PHONE done', big)
-    raise SystemExit(0)
 
 # ================================================================= GAME GLB
 TARGET = int(A.get('target', 24600))
@@ -215,7 +200,7 @@ def shared_for(m):
 RIG = {'carriage', 'carriage_strip', 'bore_housing', 'bore_glow', 'bore_band', 'bore_window', 'bore_window_frame', 'nozzle', 'nozzle_glow', 'plasma_core'}
 SILO = {'silo', 'silo_plinth', 'silo_band', 'silo_glow', 'silo_hatch', 'spine', 'fill_window_bg', 'fill_level', 'silo_beacon'}
 DROP = ('decal', 'lug', 'ejecta', 'fall_ore', 'belt_ore', 'umbilical', 'arm_hose', 'cab_whip', 'plasma_halo', 'fill_tick', 'step', 'power_cable',
-        'bed_ore', 'hop_he3', 'hop_rock', 'hop_pt', 'spill', 'melt_pool', 'leg_band', 'power_fin', 'grouser', 'flood_lens', 'dish_post', 'axle',
+        'bed_ore', 'hop_he3', 'hop_rock', 'hop_pt', 'spill', 'melt_pool', 'leg_band', 'power_fin', 'grouser', 'flood_lens', 'axle', 'ant_tip',
         'tube_collar', 'hoop', 'cab_lamp_l', 'bed_liner', 'bed_rib', 'bed_hinge_lug', 'scoop_tooth', 'antenna', 'arm_ram', 'shock', 'door_window', 'cab_sidewin')
 def is_truck(o):
     p = o.parent
@@ -292,6 +277,35 @@ for i in range(nl):
     LUMP.append(sphere('conv_lump', rl.uniform(0.16, 0.22), tuple(p), M_['B_OreRock'] if i % 3 else M_['B_He3'], scale=(1.2, 1, 0.7), sub=1, smooth=False))
 tag(LUMP, 'Conveyor')
 mine += T03 + T05 + T08 + T12 + T20 + LUMP
+
+# focus = the base station (rig, hopper, conveyor, silo, roads in frame, truck at the bay) + every tier vertex
+_FOC = []
+for o in bpy.data.objects:
+    if o.type != 'MESH' or is_truck(o): continue
+    b = base(o)
+    if b.startswith(('pad', 'crown', 'ant_tip', 'beacon', 'op_pod', 'hopper', 'silo', 'head_housing', 'dis_chute', 'head_col', 'tail_housing', 'spine')):
+        _FOC += [tuple(o.matrix_world @ Vector(c)) for c in o.bound_box]
+for x, y in ((ML.LX - 4.4, ML.LY), (ML.LX + 3.5, ML.LY + 2.0), (ML.U_X + 2.4, ML.LY - 2.0), (ML.U_X, -ML.R_T + ML.R_T + 2.0)):
+    _FOC.append((x, y, 0.0))                       # truck at the bay (tail .. cab) + approach pose, kept on screen
+FP = np.array(_FOC); TP = obj_pts(T03 + T05 + T08 + T12 + T20)
+FIT = cam_fit(TP, FP); W, CAM_T, CAM_D, FIT_BOX = FIT
+CAM_T = Vector((round(CAM_T.x, 2), round(CAM_T.y, 2), round(CAM_T.z, 2)))
+print('CAMFIT W=%.1f target=%s d=%.2f box=%s' % (W, tuple(CAM_T), CAM_D, tuple(round(v) for v in FIT_BOX)))
+for g, objs in (('Tier_03', T03), ('Tier_05', T05), ('Tier_08', T08), ('Tier_12', T12), ('Tier_20', T20)):
+    P_ = obj_pts(objs)
+    for (pw, ph), (b0, b1) in SIZES.items():
+        xs, ys = proj_np(P_, np.array(CAM_T), W, pw, ph)
+        print('TIERBOX %s %dx%d x %d..%d y %d..%d %s' % (g, pw, ph, xs.min(), xs.max(), ys.min(), ys.max(), 'inside' if xs.min() >= 0 and xs.max() <= pw and ys.min() >= b0 and ys.max() <= b1 else 'OUTSIDE'))
+if MODE == 'phone':      # renders the 1179x2556 master; phone_downscale.py makes the 393x852 (Lanczos)
+    cam = sc.camera; cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(FOV_Y); cam.data.dof.use_dof = False
+    pos, d = cam_pose(CAM_T, W); cam.location = pos; cam.rotation_euler = (CAM_T - pos).to_track_quat('-Z', 'Y').to_euler()
+    sc.render.resolution_x, sc.render.resolution_y = 1179, 2556; sc.render.resolution_percentage = int(A.get('pct', 100))
+    sc.cycles.samples = int(A.get('ps', 64)); sc.render.use_border = False
+    os.makedirs(MOUT, exist_ok=True)
+    big = os.path.join(MOUT, 'mine_phone_1179x2556.png'); sc.render.filepath = big
+    bpy.ops.render.render(write_still=True)
+    print('PHONE done', big)
+    raise SystemExit(0)
 if MODE == 'tiers':      # Director rule: every tier part must land inside the station frame (393x852, y 100-650). Renders all tiers visible.
     from bpy_extras.object_utils import world_to_camera_view
     cam = sc.camera; cam.data.sensor_fit = 'VERTICAL'; cam.data.angle_y = math.radians(FOV_Y); cam.data.dof.use_dof = False
@@ -673,15 +687,18 @@ def emp(name, loc, yaw_deg=0.0, extras=None):
 def gl(v): return [round(v[0], 3), round(v[2], 3), round(-v[1], 3)]
 emp('Cam_Target', tuple(CAM_T), 0, {'frame_w': W, 'fov_y_deg': FOV_Y, 'pitch_down_deg': PITCH, 'distance_m': round(CAM_D, 2), 'camera_side': '+Z (glTF)'})
 DIS = LAY['DIS']
-BEDC_W = TORG + Vector((LOAD_C.x, LOAD_C.y, 0))
+BEDC_W = Vector((ML.LX + LOAD_C.x, ML.LY + LOAD_C.y, 0.0))      # bed centre with the truck root on Path_Load (heading +X)
 print('LOADCHECK bed centre (world)', tuple(round(v, 3) for v in BEDC_W), 'chute DIS', tuple(round(v, 3) for v in DIS), 'dxy', round((BEDC_W.xy - DIS.xy).length, 4))
 emp('Path_Load', ML.LOAD, 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'chute_glTF': gl((DIS.x, DIS.y, 4.35)),
-    'bed_centre_glTF': gl((BEDC_W.x, BEDC_W.y, LOAD_C.z)), 'note': 'bed centre exactly under the chute mouth; reverse in from Path_Load_Approach, play chute_pour (loop) while code raises the fill morph 0->100 %, then drive off forward (+X glTF) along Path_Out_01.. (Road_Entry = Path_Out_03) and off the right edge'})
-emp('Path_Load_Approach', (ML.LOAD[0] + 4.3, ML.LOAD[1], 0.0), 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'note': 'on return: Path_Ret_01..08 end here heading +X; stop, then reverse 4.3 m straight along -X(glTF) to Path_Load'})
+    'bed_centre_glTF': gl((BEDC_W.x, BEDC_W.y, LOAD_C.z)), 's_m': 0.0, 'next_leg': json.dumps({'type': 'straight', 'length_m': round(ML.REV, 3)}),
+    'note': 'bed centre exactly under the chute mouth; reverse in 1.5 m from Path_Load_Approach, play chute_pour (loop) while code raises the fill morph 0->100 %, then drive off forward (+X glTF) dead straight along the outbound lane (glTF z 9): Path_Out_01 (= Road_Entry) -> Path_Out_02 at x 26'})
+emp('Path_Load_Approach', (ML.U_X, ML.LY, 0.0), 0, {'kind': 'truck_pose', 'yaw_deg': 0, 'route': 'return (empty)', 'reverse_m': round(ML.REV, 3), 's_m': round(sum(lg[3] for lg in ML.RET_LEGS), 3),
+    'next_leg': json.dumps({'type': 'straight', 'length_m': round(ML.REV, 3), 'reverse': True}),
+    'note': 'on return: Path_Ret_01..03 end here heading +X (end of the U-turn); stop, then reverse 1.5 m straight along -X (glTF) to Path_Load'})
 emp('Rich_Pop', (BEDC_W.x, BEDC_W.y, GZ + ML.BTOP + 1.6), 0, {'kind': 'fx_anchor', 'note': 'money pop for the rich load: spawn the +value pop here when truck_load_rich plays (truck parked at Path_Load)'})
 FA = bpy.data.objects.new('Fill_Arc', None); col.objects.link(FA); FA.parent = arm; FA.location = (2.2, 0.0, 4.6)   # truck-local: 0.9 m over the cab light bar
 FA['kind'] = 'ui_anchor'; FA['note'] = 'anchor for the slim cyan fill-% arc, child of the Truck root (truck-local glTF (2.2, 4.6, 0)): 0.9 m over the cab light bar'
-emp('Operator_Deck', (14.0, -1.2, 0.0), 0, {'kind': 'prop_anchor', 'prop': 'art/3d/props/mine_operator/mine_operator_game.glb', 'note': 'place the mine operator prop root here, rotation identity (deck front faces +Z glTF, toward the camera); scenery only'})
+emp('Operator_Deck', (-4.5, -6.5, 0.0), 0, {'kind': 'prop_anchor', 'prop': 'art/3d/props/mine_operator/mine_operator_game.glb', 'note': 'place the mine operator prop root here, rotation identity (deck front faces +Z glTF, toward the camera); scenery only'})
 # haul way-points (10/23 PM): Path_Out_NN = loaded, Path_Load -> outbound lane (glTF z 9) -> x 26;
 # Path_Ret_NN = empty, x 26 on the return lane (glTF z 0) -> U-turn -> Path_Load_Approach. One marker at the START of every leg;
 # extras.next_leg says how to get to the next marker (straight, or an arc of radius 4.5 m about centre_glTF), so code can follow the
@@ -698,7 +715,7 @@ def _leg_x(lg):
 def _yaw(v): v = (v + 180.0) % 360.0 - 180.0; return 180.0 if abs(v + 180.0) < 1e-6 else round(v, 2)
 HAUL = {}
 for pre, legs, first, last in (('Path_Out', ML.OUT_LEGS, 1, 'leaves the Mine at x 26 on the outbound lane (glTF z 9, heading +X) = the Refinery road strip inbound lane'),
-                               ('Path_Ret', ML.RET_LEGS, 0, 'next: Path_Load_Approach, stop, reverse 4.3 m along -X to Path_Load')):
+                               ('Path_Ret', ML.RET_LEGS, 0, 'next: Path_Load_Approach, stop, reverse 1.5 m along -X to Path_Load')):
     s_ = sum(lg[3] for lg in legs[:first]); seq_ = []
     for k, lg in enumerate(legs[first:]):
         p = ML._pt(lg, 0.0); nm = '%s_%02d' % (pre, k + 1); y_ = _yaw(_tan(lg))
@@ -707,15 +724,25 @@ for pre, legs, first, last in (('Path_Out', ML.OUT_LEGS, 1, 'leaves the Mine at 
     pe = ML._pt(legs[-1], 1.0)
     if pre == 'Path_Out':
         nm = 'Path_Out_%02d' % (len(legs) - first + 1)
-        emp(nm, (pe.x, pe.y, 0.0), 0.0, {'kind': 'truck_pose', 'yaw_deg': 0.0, 'route': 'out (loaded)', 's_m': round(s_, 3), 'note': last})
+        emp(nm, (pe.x, pe.y, 0.0), 0.0, {'kind': 'truck_pose', 'yaw_deg': 0.0, 'route': 'out (loaded)', 's_m': round(s_, 3), 'note': last,
+                                         'next_leg': json.dumps({'type': 'handoff', 'to': 'haul_road_seg strip, inbound lane glTF z 9, heading +X (x 26 -> Refinery x -46)'})})
         seq_.append({'name': nm, 'glTF': gl(pe), 'yaw_deg': 0.0, 's_m': round(s_, 3)})
     HAUL[pre] = {'markers': seq_, 'length_m': round(s_, 3), 'time_s_at_8.33': round(s_ / SPEED, 2)}
+import haul_times as HT                            # eased trip times (8.33 m/s straights, 4 m/s turns, accel 3 / brake 4 m/s2)
+_vl = lambda lg: HT.V_STRAIGHT if lg[0] == 'line' else HT.V_TURN
+_tr, _lr = HT.trip([('Path_Ret_%02d' % (k + 1), lg[3], _vl(lg)) for k, lg in enumerate(ML.RET_LEGS)], v0=HT.V_STRAIGHT, v1=0.0)
+_tv, _lv = HT.trip([('reverse Path_Load_Approach -> Path_Load', ML.REV, HT.V_REV)])
+_to, _lo = HT.trip([('Path_Load', ML.OUT_LEGS[0][3], HT.V_STRAIGHT)] + [('Path_Out_%02d' % (k + 1), lg[3], _vl(lg)) for k, lg in enumerate(ML.OUT_LEGS[1:])], v0=0.0, v1=HT.V_STRAIGHT)
+HAUL['times'] = {'model': '8.33 m/s straights, 4.0 m/s turns, accel 3.0 / brake 4.0 m/s2, reverse <= 3.0 m/s (haul_times.py)',
+                 'return_s': round(_tr + _tv, 2), 'return_legs': [(n, round(t, 2)) for n, t, _, _ in _lr + _lv],
+                 'out_s': round(_to, 2), 'out_legs': [(n, round(t, 2)) for n, t, _, _ in _lo]}
+print(HT.fmt('RETURN x26 -> Path_Load_Approach', _tr, _lr)); print(HT.fmt('REVERSE', _tv, _lv)); print(HT.fmt('OUT Path_Load -> x26', _to, _lo))
 print('HAUL', json.dumps(HAUL))
 # deposits + spur (scoop) poses
 for nm, (x, y), r, lab in (('Dep_01', ML.DEP1, 2.2, 'main He-3 seam'), ('Dep_02', ML.DEP2, 1.05, 'tap deposit')):
     emp(nm, (x, y, H(x, y)), 0, {'kind': 'deposit', 'label': lab, 'radius_m': r, 'tap': 'the drill taps it: the next load comes down the chute rich -> play truck_load_rich at Path_Load', 'glow': 'drawn by the game (no deposit mesh in the GLB; clear ground within 2.5 m)'})
-emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_entry', 'note': 'end of the outbound S-curve (= Path_Out_03): the loaded lane runs straight +X(glTF) at z 9 off the right edge to x 26 (Refinery road strip). The empty return lane comes in at z 0 (Path_Ret_01, x 26).'})
-CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.6, 0.2, 0.0), (5.6, 1.0, 0.0), (8.6, 1.4, 0.0)]
+emp('Road_Entry', (ML.ROAD_ENTRY[0], ML.ROAD_ENTRY[1], 0.0), 0, {'kind': 'road_entry', 'note': 'where the return U-turn joins the outbound lane (= Path_Out_01 = Path_Load_Approach): the loaded lane runs dead straight +X (glTF) at z 9 off the right edge to x 26 (Refinery road strip). The empty return lane comes in at z 0 (Path_Ret_01, x 26).'})
+CREW = [(-9.4, -0.2, 0.64), (-9.0, -1.9, 0.05), (-5.6, -2.7, 0.0), (-2.2, -2.3, 0.0), (1.0, -1.6, 0.0), (5.0, 0.2, 0.0), (8.6, 2.9, 0.0)]
 for i, p in enumerate(CREW): emp('Crew_Path_%02d' % (i + 1), (p[0], p[1], p[2] if p[2] > 0.3 else H(p[0], p[1])), 0, {'kind': 'crew_path'})
 
 # ---------------- export: the Mine GLB (no truck) and the shared HT-04 prop GLB (art/3d/props/ht04/ht04_game.glb, packed separately)

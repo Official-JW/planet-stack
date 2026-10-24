@@ -4,7 +4,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 src, rx, out = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 k = rx / 393.0
-CROP = (180, 443, 300, 527)                    # truck + chute head on 393x852 (x0, y0, x1, y1)
+CROP = (255, 445, 375, 533)                    # truck on Path_Load + chute head on 393x852 (x0, y0, x1, y1)
 PCTS = (10, 33, 66, 100)
 def font(sz):
     try: return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', sz)
