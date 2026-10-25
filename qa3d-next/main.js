@@ -92,9 +92,10 @@ const DOCKI = 3, PADI = 4, SHIPI = 5, HABI = 6;   // Cargo Space Dock x 480, Lau
 // (node /workspace/padcam_work/padfit.mjs <pad.glb> prints the fit). Every visible mesh under a matched node counts (skinned legs at their pose).
 // hull: whole-ship nodes; legs: landing-leg nodes (exact names or the regex). Both must match, else the CAM_OVERRIDE / Cam_Target rest frame is used.
 const SHIP_FIT = {
-  hull: ['Ship_Placeholder', 'Ship_Hull', 'Ship'],                    // 1042e767: Ship_Placeholder (hull mesh; the aft skirt hangs under its Engine_Ring_Mount)
-  legs: ['Aft_Skirt_Module', 'Landing_Legs', 'Gear'],                 // 1042e767: Aft_Skirt_Module = aft_skirt_N06 (skinned Aft_Skirt_N06_Mesh + Gear_Leg/Knee/Foot_0..3)
-  legRe: /^(Gear_(Leg|Knee|Foot)_\w+|Landing_Leg\w*|Leg_\w+|Foot_\w+|Footpad\w*)$/,
+  hull: ['Ship_Placeholder', 'Ship_Hull', 'Ship'],                    // whole subtree: 1042e767 hull mesh; v4 (AA3 297994d8) unnamed hull mesh + Crew_Hatch (+ the skirt under Engine_Ring_Mount / Aft_Skirt_Seat)
+  legs: ['Aft_Skirt_Module', 'Aft_Skirt', 'Landing_Legs', 'Gear'],    // the attached gear module (qa3d-next renames its root Aft_Skirt_Module; the GLB's own root is Aft_Skirt): ONE skinned mesh, legs down
+  legRe: /^(Gear_(Leg|Knee|Foot)_\w+|Landing_Leg\w*|Leg_\w+|Foot_\w+|Footpad\w*)$/,   // joints count as "legs present"; Gear_Foot_k joints are also added as points (backstop for the skinned spread)
+  footRe: /^Gear_Foot_\w+$/,
 };
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -807,6 +808,7 @@ function padRestPts() {
         for (let j = 0; j < ND; j++) { const key = sl * ND + j, d = rx * dirs[j][0] + rz * dirs[j][1], b = best.get(key); if (!b || d > b.d) best.set(key, { d, x: v.x, y: v.y, z: v.z }); } } }
     if (!n) return null;
     const pts = []; for (const b of best.values()) pts.push(new THREE.Vector3(b.x, b.y, b.z));
+    o.traverse(f => { if (SHIP_FIT.footRe.test(f.name)) { f.getWorldPosition(v); v.y += dy; pts.push(v.clone()); } });   // foot joints (no mesh): the leg spread even if skinning were off
     pts.nodes = used; pts.verts = n; return pts;
   } finally { if (repose) G.ph = ''; }
 }
