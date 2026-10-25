@@ -312,12 +312,13 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
 }, undefined, (e) => { console.warn('station GLB failed, keeping gray box', G.url, e); if (G.i === 2) routeReady('ref'); });
 // ===== CV-3 Refinery box bridge v5.3 (Art e661ba1, md5 5d862767…, 4 draws; open-front lowerator, drop-in for v5.2 bc081489). Load-and-place only:
 // its root Refinery_Bridge is already at Refinery-local (12.28, 0, 12.25), so the scene sits at the Refinery origin (RX, 0, 0) with no offset (the
-// Refinery is station REF = 2 in the 10/24 order too). Scenery for now: Box_1..3 hidden (bone scale ~0), rollers and carriage at rest, no clips;
+// Refinery is station REF = 2 in the 10/24 order too). Scenery loop: GLB clips roller_spin + box_convey loop (box_convey scales/drives Box_1..3), no tie to cargo/saves/pallets;
 // the cargo sim (pallet → RC-1 → FB-05) is unchanged. Spans flatbed lane E (z 13) at deck underside y 7.25. ?bridge=off skips it.
 const BRIDGE_GLB = '../qa3d-next/models/refinery_bridge_5d862767.glb?v=5d862767';
 if (Q.get('bridge') !== 'off') loader0().load(BRIDGE_GLB, (g) => {
   const o = g.scene; o.name = 'Refinery_Bridge_Art'; o.position.set(RX, 0, 0);
-  for (const n of ['Box_1', 'Box_2', 'Box_3']) { const b = o.getObjectByName(n); if (b) b.scale.setScalar(1e-4); }
+  const bmx = new THREE.AnimationMixer(o); stationMixers.push(bmx); // scenery loop only
+  for (const c of ['roller_spin', 'box_convey']) { const k = THREE.AnimationClip.findByName(g.animations, c); if (k) bmx.clipAction(k).setLoop(THREE.LoopRepeat).play(); }
   o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.isSkinnedMesh) m.frustumCulled = false; } });
   scene.add(o); o.updateMatrixWorld(true); window.__ps3d.bridge = { on: true, url: BRIDGE_GLB, obj: o };
 }, undefined, (e) => console.warn('refinery bridge GLB failed (Refinery shows without it)', BRIDGE_GLB, e));
