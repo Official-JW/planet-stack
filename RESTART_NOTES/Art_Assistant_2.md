@@ -57,3 +57,13 @@ Written 10/25/2026 01:25 PT. The team is pausing because Jacob's weekly usage is
 - Push with `git pull --rebase --autostash origin main`.
 - Commit only my own launch_pad paths.
 - When told to stop, stop only my own workers.
+
+
+## Update 10/25/2026 02:10 PT (final before the stop)
+- Director: the pad keeps a257d930. launch_pad_next.glb is restored to a257d930 in the repo.
+- PARKED crane moves, kept for if the lanes ever move or the crane is revisited. Both are in `art/3d/buildings/launch_pad/_parked_crane/`:
+  - c0639c1: md5 903b59ba. Crane base at z 8.8 with the z 13 roads; both picks 10.77 m and Hold_Door 0.885 m spare; 0.493 m hull clearance.
+  - f6af441: md5 1b25bff2. Crane base at z 8.8 with the z 23 lane and the new U-turn.
+- COMMITTED for Coder: `art/3d/buildings/launch_pad/launch_pad_game_lv1ship.glb`, md5 1042e767 (cockpit window, Cockpit_Window and Engine_Ring_Mount nodes, plus the Lv1 door changes). The note is `lv1/CHANGES_lv1ship_1042e767.md` and the still is `lv1/proofs/lv1ship_1042e767_cockpit_glow_on_375.png`. It hasn't been re-checked against the live cage or gate.
+- I added a line about the verifier change to LESSONS.md (untracked, approved by Director).
+- After the pause: (1) the aft skirt fit, (2) the cockpit glow-off still, (3) the cargo door crawler move. The ladder and cage stay stopped.
