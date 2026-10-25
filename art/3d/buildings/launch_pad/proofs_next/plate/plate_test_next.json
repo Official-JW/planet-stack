@@ -1,0 +1,382 @@
+{
+ "mode": "PLATE_TEST",
+ "script_md5_note": "see the md5 of landing_clear_plate.mjs that produced this file",
+ "pad": "art/3d/buildings/launch_pad/launch_pad_next.glb",
+ "plate": {
+  "mesh": "mesh_5",
+  "top_y": 21.748380610639998,
+  "bottom_y": 21.71775802263,
+  "top_tris": [
+   7885,
+   7886
+  ],
+  "plate_faces": [
+   7885,
+   7886,
+   7887,
+   7888,
+   7889,
+   7890,
+   7891,
+   7892,
+   7893,
+   7894,
+   7895,
+   7896
+  ],
+  "plate_faces_in_tri_grid": 12,
+  "footprint_pad_xz": [
+   [
+    2.3065492566399968,
+    -10.95258288174
+   ],
+   [
+    2.9233756722699944,
+    -12.028748117519996
+   ],
+   [
+    3.8158053799899996,
+    -11.512538776779998
+   ],
+   [
+    3.1989789643599984,
+    -10.436373541000002
+   ]
+  ],
+  "footprint_ut": [
+   [
+    4.0522102788077925,
+    -0.6206761571279427
+   ],
+   [
+    4.048315006578673,
+    0.6197234835422045
+   ],
+   [
+    3.0173435382312284,
+    0.6205590324338569
+   ],
+   [
+    3.0212388104603507,
+    -0.6198406082362884
+   ]
+  ]
+ },
+ "patch": "5 x 3 sole vertices, 8 x 2 cm, flat at the given z; resting test = isStill(prev, cur) with prev = cur (still) or 10 mm back (moving)",
+ "all_ok": true,
+ "cases": [
+  {
+   "case": "on plate, still, sink 0 mm",
+   "plate_exempt_vertices": 15,
+   "still": true,
+   "inside_outline": true,
+   "outside_outline": false,
+   "expect": "PASS",
+   "got": "PASS",
+   "ok": true,
+   "verdicts": {
+    "sole_on_plate@hatch_plate": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "on plate, still, sink 3 mm",
+   "plate_exempt_vertices": 15,
+   "still": true,
+   "inside_outline": true,
+   "outside_outline": false,
+   "expect": "PASS",
+   "got": "PASS",
+   "ok": true,
+   "verdicts": {
+    "sole_on_plate@hatch_plate": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "on plate, still, sink 5 mm",
+   "plate_exempt_vertices": 15,
+   "still": true,
+   "inside_outline": true,
+   "outside_outline": false,
+   "expect": "PASS",
+   "got": "PASS",
+   "ok": true,
+   "verdicts": {
+    "sole_on_plate@hatch_plate": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "on plate, still, sink 6 mm",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": true,
+   "outside_outline": false,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag:sole_sink@hatch_plate": 15
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": -0.006,
+    "extra": "sole_sink",
+    "group": "resting_sole_sink_gt_5mm"
+   }
+  },
+  {
+   "case": "on plate, MOVING (10 mm/sample), sink 0",
+   "plate_exempt_vertices": 0,
+   "still": false,
+   "inside_outline": true,
+   "outside_outline": false,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_plate": 15
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": 0,
+    "extra": null,
+    "group": "other_ship"
+   }
+  },
+  {
+   "case": "plate height, still, 2 cm OUTSIDE edge 0 +u (outboard, ladder-well side, u 4.05)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_sill": 10,
+    "clear@hatch_sill": 5
+   },
+   "worst_flag": {
+    "part": "hatch_sill",
+    "D": 0.0101,
+    "extra": null,
+    "group": "hatch_jamb_lintel"
+   }
+  },
+  {
+   "case": "plate height, still, 0.2 cm outside edge 0 +u (outboard, ladder-well side, u 4.05): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_sill": 15
+   },
+   "worst_flag": {
+    "part": "hatch_sill",
+    "D": 0,
+    "extra": null,
+    "group": "hatch_jamb_lintel"
+   }
+  },
+  {
+   "case": "plate height, still, 5 cm outside edge 0 +u (outboard, ladder-well side, u 4.05): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "clear@hull": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "plate height, still, 2 cm OUTSIDE edge 1 +t edge (t 0.62)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_plate": 5,
+    "clear@hatch_plate": 10
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": 0.02,
+    "extra": null,
+    "group": "other_ship"
+   }
+  },
+  {
+   "case": "plate height, still, 0.2 cm outside edge 1 +t edge (t 0.62): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_plate": 15
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": 0.002,
+    "extra": null,
+    "group": "other_ship"
+   }
+  },
+  {
+   "case": "plate height, still, 5 cm outside edge 1 +t edge (t 0.62): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "clear@hatch_plate": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "plate height, still, 2 cm OUTSIDE edge 2 -u (inboard, u 3.02)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_plate": 5,
+    "clear@hatch_plate": 10
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": 0.02,
+    "extra": null,
+    "group": "other_ship"
+   }
+  },
+  {
+   "case": "plate height, still, 0.2 cm outside edge 2 -u (inboard, u 3.02): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_plate": 15
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": 0.002,
+    "extra": null,
+    "group": "other_ship"
+   }
+  },
+  {
+   "case": "plate height, still, 5 cm outside edge 2 -u (inboard, u 3.02): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "clear@hatch_plate": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "plate height, still, 2 cm OUTSIDE edge 3 -t edge (t -0.62)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_plate": 5,
+    "clear@hatch_plate": 10
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": 0.02,
+    "extra": null,
+    "group": "other_ship"
+   }
+  },
+  {
+   "case": "plate height, still, 0.2 cm outside edge 3 -t edge (t -0.62): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_plate": 15
+   },
+   "worst_flag": {
+    "part": "hatch_plate",
+    "D": 0.002,
+    "extra": null,
+    "group": "other_ship"
+   }
+  },
+  {
+   "case": "plate height, still, 5 cm outside edge 3 -t edge (t -0.62): not exempt (normal 3 cm rule only)",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "NO_PLATE_EXEMPTION",
+   "got": "NO_PLATE_EXEMPTION",
+   "ok": true,
+   "verdicts": {
+    "clear@hatch_plate": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "2 cm ABOVE plate height, still, just off the outboard edge over the hatch sill (u 4.082, t 0) - normal rules",
+   "plate_exempt_vertices": 0,
+   "still": true,
+   "inside_outline": false,
+   "outside_outline": true,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag@hatch_sill": 6,
+    "clear@hatch_sill": 3,
+    "clear@hull": 6
+   },
+   "worst_flag": {
+    "part": "hatch_sill",
+    "D": 0.02,
+    "extra": null,
+    "group": "hatch_jamb_lintel"
+   }
+  }
+ ]
+}
