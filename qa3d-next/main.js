@@ -52,7 +52,8 @@ const TURN_GAP = 22;      // m: a straight shorter than this between two bends h
 const ROAD_LAST_SCALE = 1.0;   // haul road: 10 full 8 m tiles + a last tile scaled along X only. 1.0 = 11 full tiles ending at world x 274 (Art's trimmed Refinery road);
                                // 0.75 = ends at x 272, where Refinery 0358ffa's own road starts
 const DEV = Q.get('dev') === '1';
-const SAVEKEY = DEV ? 'planetstack-qa3d-next-dev' : 'planetstack-qa3d-next';   // qa3d-next: own save so it never touches /qa3d/'s save on the same origin
+const DOCKFILL = Q.has('dockfill') && /\/qa3d-next\//.test(location.pathname);   // QA (Director 11:41): ?dockfill starts the Dock full (20/20); qa3d-next only, never live/
+const SAVEKEY = DOCKFILL ? 'planetstack-qa3d-next-dockfill' : DEV ? 'planetstack-qa3d-next-dev' : 'planetstack-qa3d-next';   // qa3d-next: own save so it never touches /qa3d/'s save on the same origin; ?dockfill uses its own save so QA's normal save is untouched
 if (Q.has('fresh')) try { localStorage.removeItem(SAVEKEY); } catch (e) {}
 const SPD = Math.max(1, Math.min(100, +Q.get('speed') || 1)), T0 = Date.now();   // ?speed=N (QA only): the game clock (truck loop, fill, deposits, 3D anims) runs N×
 let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live play (no offline rate)
@@ -1264,6 +1265,7 @@ function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launc
   sh: { st: 'pad', t0: t, hold: 0, f0: t - CG.fuelFillSec * 1000, req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
+if (DOCKFILL) { S.cg.dk = CPH.dock.cap; cgEv('qa_dockfill', S.cg.t, { stored: S.cg.dk }); }   // ?dockfill: Dock full on every load (20/20, amber label)
 stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
 
 // ---- flatbed route (same speed profile as HT-04: 8.33 m/s straights, TURN_SPEED in the 4.5 m U-turns, same 3 m pull-away / 4 m brake)
