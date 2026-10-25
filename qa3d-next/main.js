@@ -1800,10 +1800,13 @@ function dockLoaded(o, g) {
   DK.hook = o.getObjectByName('Hook_Attach'); window.__ps3d.dockV4 = DK;
 }
 const _dh = new THREE.Vector3();
+// fill order: stored box k → Art slot. Slot_01..05 / 06..10 are 2 rows running straight away from the Dock camera (11..20 = the same on top), so filling 1, 2, 3…
+// hid every box behind the next (4 stored read as 1). Back slot of each row/layer first (1, 6, 11, 16), then one step nearer: every new box lands in view
+const dkSlot = (k) => [0, 5, 10, 15][(k - 1) % 4] + Math.floor((k - 1) / 4) + 1;
 function dockFrame(c, t) {
   const D = CPH.dock, a = c.dka, e = a ? (t - a.t0) / 1000 : 1e9, end = D.settle + 2 * D.clipSec, act = e >= 0 && e < end, want = {};
   if (act && e >= D.settle) { const j = e < D.settle + D.clipSec ? 0 : 1, sl = a.k === 'store' ? a.n + 1 + j : a.n - j;
-    want[(a.k === 'store' ? 'Store_' : 'Load_') + (j ? 'B' : 'A') + '_Slot_' + String(sl).padStart(2, '0')] = e - D.settle - j * D.clipSec; }
+    want[(a.k === 'store' ? 'Store_' : 'Load_') + (j ? 'B' : 'A') + '_Slot_' + String(dkSlot(sl)).padStart(2, '0')] = e - D.settle - j * D.clipSec; }
   if (c.fb.st === 'dock') { const el = (t - c.fb.t0) / 1000; want.dock_door_open = clamp(Math.min(el, dockSec(c.fb) - el), 0, 2.5); }
   if (DK.mx) {
     for (const n in DK.on) if (!(n in want)) { DK.on[n].stop(); delete DK.on[n]; }
@@ -1811,7 +1814,7 @@ function dockFrame(c, t) {
     DK.mx.update(0); DK.cur = Object.keys(want).filter(n => DK.clips[n] && n !== 'dock_door_open')[0] || ''; window.__ps3d.dockClip = DK.cur;
   }
   if (!DK.slots.length) return;
-  const sp = (i) => DK.slots[Math.min(i, D.cap) - 1], stat = act ? (a.k === 'store' ? a.n : a.n - 2) : c.dk;
+  const sp = (i) => DK.slots[dkSlot(Math.min(i, D.cap)) - 1], stat = act ? (a.k === 'store' ? a.n : a.n - 2) : c.dk;
   for (let i = 1; i <= stat; i++) if (sp(i)) boxAt(sp(i));
   if (!act) return;
   for (let j = 0; j < 2; j++) { const s0 = D.settle + j * D.clipSec, sl = a.k === 'store' ? a.n + 1 + j : a.n - j, slot = sp(sl);
