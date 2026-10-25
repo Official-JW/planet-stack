@@ -1,0 +1,91 @@
+{
+ "nodes": 75,
+ "nodes_identical": 65,
+ "primitives": 15,
+ "primitives_identical": 12,
+ "changed": [
+  {
+   "primitive": "<Pad_Base child>#0",
+   "parent": "Pad_Base",
+   "diffs": [
+    "POSITION values"
+   ]
+  },
+  {
+   "primitive": "<Pad_Base child>#2",
+   "parent": "Pad_Base",
+   "diffs": [
+    "POSITION values"
+   ]
+  },
+  {
+   "primitive": "<Road_UTurn child>#0",
+   "parent": "Road_UTurn",
+   "diffs": [
+    "POSITION changed",
+    "NORMAL prefix identical, +192 appended",
+    "COLOR_0 prefix identical, +192 appended",
+    "indices prefix identical, +96 tris appended"
+   ]
+  },
+  {
+   "node": "Road_UTurn",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Crane",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Truck_Stop",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Pick_Point",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Pick_Point_02",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Road_Entry",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Turn_Start",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Turn_End",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Road_Exit",
+   "what": "TRS/extras/children"
+  },
+  {
+   "node": "Pipe_LaunchPad_End",
+   "what": "TRS/extras/children"
+  }
+ ],
+ "other": {
+  "node_count": [
+   75,
+   79
+  ],
+  "materials_identical": true,
+  "animations_identical": true,
+  "scene_extras_identical": true,
+  "extensions": [
+   [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+   ],
+   [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,3260 @@
+{
+ "summary": {
+  "result": "FAIL",
+  "clip": "/workspace/planet-stack/art/3d/crew/boarding/crew_boarding.glb",
+  "pad": "/workspace/pad_west/next/launch_pad_next.glb",
+  "by_category": {
+   "hand_grip_sink_gt_5mm": {
+    "status": "FAIL",
+    "n_entries": 3,
+    "min_m": -0.0057,
+    "worst": {
+     "crew": "Crew_2",
+     "part": "rung",
+     "bone": "Hand_L",
+     "at_s": 27,
+     "utz": [
+      4.4693,
+      -0.2082,
+      1.2388
+     ],
+     "max_depth_m": 0.0057
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3"
+    ]
+   },
+   "hand_grip_rod_through_hand": {
+    "status": "PASS"
+   },
+   "resting_sole_sink_gt_5mm": {
+    "status": "PASS"
+   },
+   "ladder_rails": {
+    "status": "FAIL",
+    "n_entries": 2,
+    "min_m": -0.0087,
+    "worst": {
+     "crew": "Crew_2",
+     "part": "ladder_rail",
+     "bone": "Foot_L",
+     "at_s": 46,
+     "utz": [
+      4.4763,
+      -0.2785,
+      21.2807
+     ],
+     "max_depth_m": 0.0087
+    },
+    "crews": [
+     "Crew_2",
+     "Crew_4"
+    ]
+   },
+   "ladder_top_rails": {
+    "status": "FAIL",
+    "n_entries": 6,
+    "min_m": -0.0088,
+    "worst": {
+     "crew": "Crew_3",
+     "part": "ladder_rail",
+     "bone": "Foot_R",
+     "at_s": 49.4,
+     "utz": [
+      4.4747,
+      0.2714,
+      21.2742
+     ],
+     "max_depth_m": 0.0088
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3",
+     "Crew_4"
+    ]
+   },
+   "rungs": {
+    "status": "FAIL",
+    "n_entries": 8,
+    "min_m": 0.0018,
+    "worst": {
+     "crew": "Crew_3",
+     "part": "rung",
+     "bone": "Foot_R",
+     "at_s": 42.6,
+     "utz": [
+      4.4585,
+      0.053,
+      14.4768
+     ],
+     "max_depth_m": 0
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3",
+     "Crew_4"
+    ]
+   },
+   "cage": {
+    "status": "FAIL",
+    "n_entries": 16,
+    "min_m": -0.0234,
+    "worst": {
+     "crew": "Crew_4",
+     "part": "cage_hoop",
+     "bone": "Thigh_R",
+     "at_s": 48.7,
+     "utz": [
+      4.6806,
+      0.4572,
+      17.8501
+     ],
+     "max_depth_m": 0.0234
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3",
+     "Crew_4"
+    ]
+   },
+   "hatch_jamb_lintel": {
+    "status": "FAIL",
+    "n_entries": 4,
+    "min_m": 0,
+    "worst": {
+     "crew": "Crew_3",
+     "part": "hatch_sill",
+     "bone": "Foot_L",
+     "at_s": 53.0667,
+     "utz": [
+      4.0103,
+      0.2512,
+      21.7484
+     ],
+     "max_depth_m": 0
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3",
+     "Crew_4"
+    ]
+   },
+   "kerb": {
+    "status": "FAIL",
+    "n_entries": 2,
+    "min_m": 0.0229,
+    "worst": {
+     "crew": "Crew_4",
+     "part": "frame_side",
+     "bone": "Shin_L",
+     "at_s": 53.1667,
+     "utz": [
+      4.5315,
+      -0.6926,
+      21.8996
+     ],
+     "max_depth_m": 0
+    },
+    "crews": [
+     "Crew_2",
+     "Crew_4"
+    ]
+   },
+   "guard_rail": {
+    "status": "PASS"
+   },
+   "shins_over_deck": {
+    "status": "PASS"
+   },
+   "deck_non_resting": {
+    "status": "FAIL",
+    "n_entries": 8,
+    "min_m": 0.0006,
+    "worst": {
+     "crew": "Crew_1",
+     "part": "deck_wing",
+     "bone": "Foot_L",
+     "at_s": 43.8333,
+     "utz": [
+      4.8234,
+      0.8704,
+      21.8506
+     ],
+     "max_depth_m": 0
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3",
+     "Crew_4"
+    ]
+   },
+   "hull": {
+    "status": "FAIL",
+    "n_entries": 8,
+    "min_m": 0.0023,
+    "worst": {
+     "crew": "Crew_2",
+     "part": "hull",
+     "bone": "Foot_R",
+     "at_s": 49.4,
+     "utz": [
+      3.8517,
+      -0.3091,
+      21.7523
+     ],
+     "max_depth_m": 0
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3",
+     "Crew_4"
+    ]
+   },
+   "other_ship": {
+    "status": "FAIL",
+    "n_entries": 8,
+    "min_m": 0.0001,
+    "worst": {
+     "crew": "Crew_2",
+     "part": "ship_other",
+     "bone": "Foot_L",
+     "at_s": 49.9667,
+     "utz": [
+      3.7401,
+      -0.1094,
+      21.7484
+     ],
+     "max_depth_m": 0
+    },
+    "crews": [
+     "Crew_1",
+     "Crew_2",
+     "Crew_3",
+     "Crew_4"
+    ]
+   }
+  },
+  "exempt": {
+   "hand_grip_within_5mm": {
+    "entries": 16,
+    "min_m": -0.0047
+   },
+   "sole_on_deck_within_5mm": {
+    "entries": 8,
+    "min_m": -0.0007
+   },
+   "sole_on_rung_within_5mm": {
+    "entries": 8,
+    "min_m": 0.0003
+   }
+  },
+  "plants": {
+   "n": 28,
+   "unsupported": 0,
+   "hover_gt_2cm": 0,
+   "sinking": 0
+  },
+  "line": "FAIL - hand_grip_sink_gt_5mm:FAIL, hand_grip_rod_through_hand:PASS, resting_sole_sink_gt_5mm:PASS, ladder_rails:FAIL, ladder_top_rails:FAIL, rungs:FAIL, cage:FAIL, hatch_jamb_lintel:FAIL, kerb:FAIL, guard_rail:PASS, shins_over_deck:PASS, deck_non_resting:FAIL, hull:FAIL, other_ship:FAIL"
+ },
+ "rules": {
+  "min_clearance_m": 0.03,
+  "hand_grip": {
+   "applies": "Hand_L/Hand_R vertices whose nearest part is a ladder rail or rung",
+   "max_sink_m": 0.005,
+   "rod_through_hand": "per sample, for each rail/rung axis clipped to the hand bbox + 1 cm (so the clipped axis starts and ends outside the hand): exact segment-triangle intersection against every Hand-bone triangle, then the generalized winding number at the midpoint of each interval between crossings. FLAG if the axis crosses the hand skin at all, or any interval is inside a closed hand piece (|w| > 0.5). A wrapped grip leaves the axis in the palm/finger cavity with 0 crossings; a rod through the hand (incl. through the back of the glove) must cross the skin. Reports solid inside length and samples where only zero-thickness (double-sided) hand faces are crossed."
+  },
+  "resting_soles": {
+   "applies": "Foot_L/Foot_R sole vertices (within 1.5 cm of that foot's lowest vertex) of a still foot (sole centroid moved < 5 mm and lowest z < 3 mm since the previous sample) on the deck wing/bridge top (z 21.85) or a rung top (rung centre + 0.025)",
+   "max_sink_m": 0.005
+  },
+  "everything_else": "any other crew vertex closer than 0.03 m to any Ship-node triangle or inside an analytic solid is flagged (ladder rails, rungs swung past, cage hoops/bars, hatch jamb/lintel, kerb, guard rail, ladder-top rails, shins over the deck, hull, other ship parts)",
+  "sample_hz": 30
+ },
+ "frame": "pad-local; u,t,z about Ship_Center along the 330 deg ladder axis",
+ "ship_center": [
+  0,
+  0.25,
+  -13
+ ],
+ "ladder_foot_utz": [
+  5.2,
+  0,
+  0.25
+ ],
+ "glb_landing_vertices": 376,
+ "glb_max_offset_from_solids_m": 0.0309,
+ "glb_vertices_left_in_well": 0,
+ "clip": "/workspace/planet-stack/art/3d/crew/boarding/crew_boarding.glb",
+ "sample_hz": 30,
+ "phases": {
+  "Crew_1": {
+   "s": 41.62,
+   "i": 47.79,
+   "side": 1
+  },
+  "Crew_2": {
+   "s": 45.02,
+   "i": 51.19,
+   "side": -1
+  },
+  "Crew_3": {
+   "s": 48.42,
+   "i": 54.59,
+   "side": 1
+  },
+  "Crew_4": {
+   "s": 51.82,
+   "i": 57.99,
+   "side": -1
+  }
+ },
+ "hull_tris": 54,
+ "frames": 1758,
+ "hits": 2767,
+ "minClear": -0.0234,
+ "per_crew": {
+  "Crew_1": {
+   "side": 1,
+   "min_m": 0.03,
+   "at_s": 34.833,
+   "part": "rung",
+   "bone": "Hand_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    }
+   },
+   "jamb_edge_min_m": 1000000000,
+   "jamb_edge_at_s": null,
+   "jamb_edge_bone": null,
+   "hull_min_m": 1000000000,
+   "hull_at_s": null,
+   "utz": [
+    4.3962,
+    -0.0699,
+    14.4833
+   ]
+  },
+  "Crew_2": {
+   "side": -1,
+   "min_m": 0.03,
+   "at_s": 33.233,
+   "part": "rung",
+   "bone": "Hand_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    }
+   },
+   "jamb_edge_min_m": 1000000000,
+   "jamb_edge_at_s": null,
+   "jamb_edge_bone": null,
+   "hull_min_m": 1000000000,
+   "hull_at_s": null,
+   "utz": [
+    4.3962,
+    -0.0699,
+    8.4833
+   ]
+  },
+  "Crew_3": {
+   "side": 1,
+   "min_m": 0.03,
+   "at_s": 38.2,
+   "part": "rung",
+   "bone": "Foot_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    }
+   },
+   "jamb_edge_min_m": 1000000000,
+   "jamb_edge_at_s": null,
+   "jamb_edge_bone": null,
+   "hull_min_m": 1000000000,
+   "hull_at_s": null,
+   "utz": [
+    4.5061,
+    -0.0667,
+    9.0797
+   ]
+  },
+  "Crew_4": {
+   "side": -1,
+   "min_m": 0.03,
+   "at_s": 40.033,
+   "part": "rung",
+   "bone": "Hand_L",
+   "hits": 0,
+   "by_phase": {
+    "before_climb_top": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    },
+    "through_hole_and_walk_in": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    },
+    "hidden": {
+     "min_m": 1000000000,
+     "at_s": null,
+     "part": null
+    }
+   },
+   "jamb_edge_min_m": 1000000000,
+   "jamb_edge_at_s": null,
+   "jamb_edge_bone": null,
+   "hull_min_m": 1000000000,
+   "hull_at_s": null,
+   "utz": [
+    4.3962,
+    -0.0699,
+    8.4833
+   ]
+  }
+ },
+ "plants": {
+  "Crew_1": [
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 43.733,
+    "end_s": 43.767,
+    "u": [
+     4.5243,
+     4.8332
+    ],
+    "t": [
+     0.8531,
+     0.9836
+    ],
+    "sole_min_z": 21.8588,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 1,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0088,
+    "where_counts": {
+     "wing": 97
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 43.833,
+    "end_s": 45.3,
+    "u": [
+     4.5203,
+     4.834
+    ],
+    "t": [
+     0.8515,
+     0.9844
+    ],
+    "sole_min_z": 21.8493,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 44,
+    "surface": "wing",
+    "gap_to_surface_m": -0.0007,
+    "where_counts": {
+     "wing": 4268
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 42.867,
+    "end_s": 46.1,
+    "u": [
+     4.3003,
+     4.6145
+    ],
+    "t": [
+     0.7313,
+     0.8649
+    ],
+    "sole_min_z": 21.8506,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 97,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0006,
+    "where_counts": {
+     "wing": 9409
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 45.8,
+    "end_s": 46.533,
+    "u": [
+     3.7111,
+     4.0231
+    ],
+    "t": [
+     0.232,
+     0.3654
+    ],
+    "sole_min_z": 21.7481,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 22,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1019,
+    "where_counts": {
+     "hatch_doorway": 2134
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 46.567,
+    "end_s": 46.7,
+    "u": [
+     3.4422,
+     3.7517
+    ],
+    "t": [
+     -0.0072,
+     0.1252
+    ],
+    "sole_min_z": 21.7495,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 4,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1005,
+    "where_counts": {
+     "hatch_doorway": 388
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_L",
+    "land_s": 46.733,
+    "end_s": 47.767,
+    "u": [
+     3.1837,
+     3.4924
+    ],
+    "t": [
+     -0.107,
+     0.0235
+    ],
+    "sole_min_z": 21.7485,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1015,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   },
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 46.733,
+    "end_s": 47.767,
+    "u": [
+     3.4415,
+     3.7506
+    ],
+    "t": [
+     -0.0083,
+     0.1222
+    ],
+    "sole_min_z": 21.7552,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.0948,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   }
+  ],
+  "Crew_2": [
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 47.133,
+    "end_s": 47.167,
+    "u": [
+     4.5228,
+     4.8316
+    ],
+    "t": [
+     -0.9872,
+     -0.8566
+    ],
+    "sole_min_z": 21.86,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 1,
+    "surface": "wing",
+    "gap_to_surface_m": 0.01,
+    "where_counts": {
+     "wing": 97
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 47.233,
+    "end_s": 48.7,
+    "u": [
+     4.5203,
+     4.8339
+    ],
+    "t": [
+     -0.989,
+     -0.8555
+    ],
+    "sole_min_z": 21.8506,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 44,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0006,
+    "where_counts": {
+     "wing": 4268
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 46.267,
+    "end_s": 49.5,
+    "u": [
+     4.3007,
+     4.6135
+    ],
+    "t": [
+     -0.8688,
+     -0.7349
+    ],
+    "sole_min_z": 21.8493,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 97,
+    "surface": "wing",
+    "gap_to_surface_m": -0.0007,
+    "where_counts": {
+     "wing": 9409
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 49.2,
+    "end_s": 49.933,
+    "u": [
+     3.7109,
+     4.0229
+    ],
+    "t": [
+     -0.3688,
+     -0.2345
+    ],
+    "sole_min_z": 21.7494,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 22,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1006,
+    "where_counts": {
+     "hatch_doorway": 2134
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 49.967,
+    "end_s": 50.1,
+    "u": [
+     3.4418,
+     3.7519
+    ],
+    "t": [
+     -0.1284,
+     0.0029
+    ],
+    "sole_min_z": 21.7483,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 4,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1017,
+    "where_counts": {
+     "hatch_doorway": 388
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 50.133,
+    "end_s": 51.167,
+    "u": [
+     3.4416,
+     3.7502
+    ],
+    "t": [
+     -0.1263,
+     0.0042
+    ],
+    "sole_min_z": 21.754,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.096,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_R",
+    "land_s": 50.133,
+    "end_s": 51.167,
+    "u": [
+     3.1836,
+     3.4926
+    ],
+    "t": [
+     -0.027,
+     0.1035
+    ],
+    "sole_min_z": 21.7497,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1003,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   }
+  ],
+  "Crew_3": [
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 50.533,
+    "end_s": 50.567,
+    "u": [
+     4.5243,
+     4.8332
+    ],
+    "t": [
+     0.8531,
+     0.9836
+    ],
+    "sole_min_z": 21.8588,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 1,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0088,
+    "where_counts": {
+     "wing": 97
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 50.633,
+    "end_s": 52.1,
+    "u": [
+     4.5203,
+     4.834
+    ],
+    "t": [
+     0.8515,
+     0.9844
+    ],
+    "sole_min_z": 21.8493,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 44,
+    "surface": "wing",
+    "gap_to_surface_m": -0.0007,
+    "where_counts": {
+     "wing": 4268
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 49.667,
+    "end_s": 52.9,
+    "u": [
+     4.3003,
+     4.6145
+    ],
+    "t": [
+     0.7313,
+     0.8649
+    ],
+    "sole_min_z": 21.8506,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 97,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0006,
+    "where_counts": {
+     "wing": 9409
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 52.6,
+    "end_s": 53.333,
+    "u": [
+     3.7111,
+     4.0231
+    ],
+    "t": [
+     0.232,
+     0.3654
+    ],
+    "sole_min_z": 21.7481,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 22,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1019,
+    "where_counts": {
+     "hatch_doorway": 2134
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 53.367,
+    "end_s": 53.5,
+    "u": [
+     3.4422,
+     3.7517
+    ],
+    "t": [
+     -0.0072,
+     0.1252
+    ],
+    "sole_min_z": 21.7495,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 4,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1005,
+    "where_counts": {
+     "hatch_doorway": 388
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_L",
+    "land_s": 53.533,
+    "end_s": 54.567,
+    "u": [
+     3.1837,
+     3.4924
+    ],
+    "t": [
+     -0.107,
+     0.0235
+    ],
+    "sole_min_z": 21.7485,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1015,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 53.533,
+    "end_s": 54.567,
+    "u": [
+     3.4415,
+     3.7506
+    ],
+    "t": [
+     -0.0083,
+     0.1222
+    ],
+    "sole_min_z": 21.7552,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.0948,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   }
+  ],
+  "Crew_4": [
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 53.933,
+    "end_s": 53.967,
+    "u": [
+     4.5228,
+     4.8316
+    ],
+    "t": [
+     -0.9872,
+     -0.8566
+    ],
+    "sole_min_z": 21.86,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 1,
+    "surface": "wing",
+    "gap_to_surface_m": 0.01,
+    "where_counts": {
+     "wing": 97
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 54.033,
+    "end_s": 55.5,
+    "u": [
+     4.5203,
+     4.8339
+    ],
+    "t": [
+     -0.989,
+     -0.8555
+    ],
+    "sole_min_z": 21.8506,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 44,
+    "surface": "wing",
+    "gap_to_surface_m": 0.0006,
+    "where_counts": {
+     "wing": 4268
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 53.067,
+    "end_s": 56.3,
+    "u": [
+     4.3007,
+     4.6135
+    ],
+    "t": [
+     -0.8688,
+     -0.7349
+    ],
+    "sole_min_z": 21.8493,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 97,
+    "surface": "wing",
+    "gap_to_surface_m": -0.0007,
+    "where_counts": {
+     "wing": 9409
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 56,
+    "end_s": 56.733,
+    "u": [
+     3.7109,
+     4.0229
+    ],
+    "t": [
+     -0.3688,
+     -0.2345
+    ],
+    "sole_min_z": 21.7494,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 22,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1006,
+    "where_counts": {
+     "hatch_doorway": 2134
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 56.767,
+    "end_s": 56.9,
+    "u": [
+     3.4418,
+     3.7519
+    ],
+    "t": [
+     -0.1284,
+     0.0029
+    ],
+    "sole_min_z": 21.7483,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 4,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1017,
+    "where_counts": {
+     "hatch_doorway": 388
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 56.933,
+    "end_s": 57.967,
+    "u": [
+     3.4416,
+     3.7502
+    ],
+    "t": [
+     -0.1263,
+     0.0042
+    ],
+    "sole_min_z": 21.754,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.096,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_R",
+    "land_s": 56.933,
+    "end_s": 57.967,
+    "u": [
+     3.1836,
+     3.4926
+    ],
+    "t": [
+     -0.027,
+     0.1035
+    ],
+    "sole_min_z": 21.7497,
+    "sole_max_z_of_contact": -1000000000,
+    "unsupported_vertex_frames": 0,
+    "frames": 31,
+    "surface": "hatch_doorway",
+    "gap_to_surface_m": -0.1003,
+    "where_counts": {
+     "hatch_doorway": 3007
+    }
+   }
+  ]
+ },
+ "tri_labels": {
+  "ship_other": 764,
+  "hull": 404,
+  "ladder_rail": 36,
+  "rung": 280,
+  "cage_hoop": 917,
+  "cage_bar": 24,
+  "frame_outer": 13,
+  "hatch_jamb": 4,
+  "hatch_sill": 2,
+  "hatch_lintel": 2,
+  "deck_wing": 41,
+  "deck_bridge": 8,
+  "frame_side": 23,
+  "beam_outer": 16,
+  "beam_side": 20,
+  "brace": 32,
+  "lid": 15,
+  "lid_rib": 18,
+  "lid_hinge": 14,
+  "lid_strut": 24,
+  "rail_post": 126,
+  "rail": 121
+ },
+ "rule": "see rules block",
+ "flag": {
+  "Crew_1|rung|Hand_L|hand_sink": {
+   "crew": "Crew_1",
+   "part": "rung",
+   "bone": "Hand_L",
+   "group": "hand_grip_sink_gt_5mm",
+   "min_m": -0.0057,
+   "at_s": 23.6,
+   "utz": [
+    4.4693,
+    -0.2084,
+    1.2394
+   ],
+   "frames_n": 3,
+   "t_range": [
+    23.6,
+    23.6
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 3,
+   "max_depth_m": 0.0057
+  },
+  "Crew_1|rung|Foot_L": {
+   "crew": "Crew_1",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0019,
+   "at_s": 29.3,
+   "utz": [
+    4.4337,
+    -0.0571,
+    6.6769
+   ],
+   "frames_n": 1629,
+   "t_range": [
+    24,
+    43.2667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|rung|Foot_R": {
+   "crew": "Crew_1",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0018,
+   "at_s": 35.8,
+   "utz": [
+    4.4585,
+    0.053,
+    14.4768
+   ],
+   "frames_n": 1290,
+   "t_range": [
+    24.6667,
+    42.5667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|cage_hoop|Thigh_L": {
+   "crew": "Crew_1",
+   "part": "cage_hoop",
+   "bone": "Thigh_L",
+   "group": "cage",
+   "min_m": -0.0228,
+   "at_s": 30.4,
+   "utz": [
+    4.6371,
+    -0.4644,
+    8.2501
+   ],
+   "frames_n": 578,
+   "t_range": [
+    26.3,
+    42.0333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 126,
+   "max_depth_m": 0.0228
+  },
+  "Crew_1|cage_hoop|Shin_L": {
+   "crew": "Crew_1",
+   "part": "cage_hoop",
+   "bone": "Shin_L",
+   "group": "cage",
+   "min_m": -0.0164,
+   "at_s": 31.9667,
+   "utz": [
+    4.7534,
+    -0.4475,
+    9.8584
+   ],
+   "frames_n": 1058,
+   "t_range": [
+    26.3333,
+    42.0333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 250,
+   "max_depth_m": 0.0164
+  },
+  "Crew_1|cage_hoop|Shin_R": {
+   "crew": "Crew_1",
+   "part": "cage_hoop",
+   "bone": "Shin_R",
+   "group": "cage",
+   "min_m": -0.0216,
+   "at_s": 42.4667,
+   "utz": [
+    4.6907,
+    0.4587,
+    21.053
+   ],
+   "frames_n": 1252,
+   "t_range": [
+    26.4667,
+    42.5
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 219,
+   "max_depth_m": 0.0216
+  },
+  "Crew_1|cage_hoop|Thigh_R": {
+   "crew": "Crew_1",
+   "part": "cage_hoop",
+   "bone": "Thigh_R",
+   "group": "cage",
+   "min_m": -0.0234,
+   "at_s": 38.5,
+   "utz": [
+    4.6806,
+    0.4572,
+    17.8501
+   ],
+   "frames_n": 429,
+   "t_range": [
+    26.4667,
+    39.8333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 80,
+   "max_depth_m": 0.0234
+  },
+  "Crew_2|rung|Hand_L|hand_sink": {
+   "crew": "Crew_2",
+   "part": "rung",
+   "bone": "Hand_L",
+   "group": "hand_grip_sink_gt_5mm",
+   "min_m": -0.0057,
+   "at_s": 27,
+   "utz": [
+    4.4693,
+    -0.2082,
+    1.2388
+   ],
+   "frames_n": 3,
+   "t_range": [
+    27,
+    27
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 3,
+   "max_depth_m": 0.0057
+  },
+  "Crew_2|rung|Foot_L": {
+   "crew": "Crew_2",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0019,
+   "at_s": 32.7,
+   "utz": [
+    4.4337,
+    -0.0571,
+    6.6769
+   ],
+   "frames_n": 1564,
+   "t_range": [
+    27.4,
+    45.9667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|rung|Foot_R": {
+   "crew": "Crew_2",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0018,
+   "at_s": 39.2,
+   "utz": [
+    4.4585,
+    0.053,
+    14.4768
+   ],
+   "frames_n": 1355,
+   "t_range": [
+    28.0667,
+    46.6667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|cage_hoop|Thigh_L": {
+   "crew": "Crew_2",
+   "part": "cage_hoop",
+   "bone": "Thigh_L",
+   "group": "cage",
+   "min_m": -0.0228,
+   "at_s": 33.8,
+   "utz": [
+    4.6371,
+    -0.4644,
+    8.2501
+   ],
+   "frames_n": 550,
+   "t_range": [
+    29.7,
+    43.3333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 121,
+   "max_depth_m": 0.0228
+  },
+  "Crew_2|cage_hoop|Shin_L": {
+   "crew": "Crew_2",
+   "part": "cage_hoop",
+   "bone": "Shin_L",
+   "group": "cage",
+   "min_m": -0.0195,
+   "at_s": 45.8667,
+   "utz": [
+    4.7058,
+    -0.4599,
+    21.0497
+   ],
+   "frames_n": 1028,
+   "t_range": [
+    29.7333,
+    45.9
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 249,
+   "max_depth_m": 0.0195
+  },
+  "Crew_2|cage_hoop|Shin_R": {
+   "crew": "Crew_2",
+   "part": "cage_hoop",
+   "bone": "Shin_R",
+   "group": "cage",
+   "min_m": -0.0189,
+   "at_s": 31.2,
+   "utz": [
+    4.6596,
+    0.4684,
+    5.0479
+   ],
+   "frames_n": 1287,
+   "t_range": [
+    29.8667,
+    45.4333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 212,
+   "max_depth_m": 0.0189
+  },
+  "Crew_2|cage_hoop|Thigh_R": {
+   "crew": "Crew_2",
+   "part": "cage_hoop",
+   "bone": "Thigh_R",
+   "group": "cage",
+   "min_m": -0.0234,
+   "at_s": 41.9,
+   "utz": [
+    4.6806,
+    0.4572,
+    17.8501
+   ],
+   "frames_n": 457,
+   "t_range": [
+    29.8667,
+    45.4333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 90,
+   "max_depth_m": 0.0234
+  },
+  "Crew_3|rung|Hand_L|hand_sink": {
+   "crew": "Crew_3",
+   "part": "rung",
+   "bone": "Hand_L",
+   "group": "hand_grip_sink_gt_5mm",
+   "min_m": -0.0052,
+   "at_s": 30.4,
+   "utz": [
+    4.4698,
+    -0.2084,
+    1.2387
+   ],
+   "frames_n": 3,
+   "t_range": [
+    30.4,
+    30.4
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 3,
+   "max_depth_m": 0.0052
+  },
+  "Crew_3|rung|Foot_L": {
+   "crew": "Crew_3",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0019,
+   "at_s": 36.1,
+   "utz": [
+    4.4337,
+    -0.0571,
+    6.6769
+   ],
+   "frames_n": 1629,
+   "t_range": [
+    30.8,
+    50.0667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|rung|Foot_R": {
+   "crew": "Crew_3",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0018,
+   "at_s": 42.6,
+   "utz": [
+    4.4585,
+    0.053,
+    14.4768
+   ],
+   "frames_n": 1290,
+   "t_range": [
+    31.4667,
+    49.3667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|cage_hoop|Thigh_L": {
+   "crew": "Crew_3",
+   "part": "cage_hoop",
+   "bone": "Thigh_L",
+   "group": "cage",
+   "min_m": -0.0228,
+   "at_s": 37.2,
+   "utz": [
+    4.6371,
+    -0.4644,
+    8.2501
+   ],
+   "frames_n": 578,
+   "t_range": [
+    33.1,
+    48.8333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 126,
+   "max_depth_m": 0.0228
+  },
+  "Crew_3|cage_hoop|Shin_L": {
+   "crew": "Crew_3",
+   "part": "cage_hoop",
+   "bone": "Shin_L",
+   "group": "cage",
+   "min_m": -0.0165,
+   "at_s": 38.7667,
+   "utz": [
+    4.7534,
+    -0.4475,
+    9.8584
+   ],
+   "frames_n": 1058,
+   "t_range": [
+    33.1333,
+    48.8333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 250,
+   "max_depth_m": 0.0165
+  },
+  "Crew_3|cage_hoop|Shin_R": {
+   "crew": "Crew_3",
+   "part": "cage_hoop",
+   "bone": "Shin_R",
+   "group": "cage",
+   "min_m": -0.0216,
+   "at_s": 49.2667,
+   "utz": [
+    4.6907,
+    0.4587,
+    21.053
+   ],
+   "frames_n": 1252,
+   "t_range": [
+    33.2667,
+    49.3
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 219,
+   "max_depth_m": 0.0216
+  },
+  "Crew_3|cage_hoop|Thigh_R": {
+   "crew": "Crew_3",
+   "part": "cage_hoop",
+   "bone": "Thigh_R",
+   "group": "cage",
+   "min_m": -0.0234,
+   "at_s": 45.3,
+   "utz": [
+    4.6806,
+    0.4572,
+    17.8501
+   ],
+   "frames_n": 429,
+   "t_range": [
+    33.2667,
+    46.6333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 80,
+   "max_depth_m": 0.0234
+  },
+  "Crew_4|rung|Foot_L": {
+   "crew": "Crew_4",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0019,
+   "at_s": 39.5,
+   "utz": [
+    4.4337,
+    -0.0571,
+    6.6769
+   ],
+   "frames_n": 1564,
+   "t_range": [
+    34.2,
+    52.7667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|rung|Foot_R": {
+   "crew": "Crew_4",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0018,
+   "at_s": 46,
+   "utz": [
+    4.4585,
+    0.053,
+    14.4768
+   ],
+   "frames_n": 1355,
+   "t_range": [
+    34.8667,
+    53.4667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|cage_hoop|Thigh_L": {
+   "crew": "Crew_4",
+   "part": "cage_hoop",
+   "bone": "Thigh_L",
+   "group": "cage",
+   "min_m": -0.0228,
+   "at_s": 40.6,
+   "utz": [
+    4.6371,
+    -0.4644,
+    8.2501
+   ],
+   "frames_n": 550,
+   "t_range": [
+    36.5,
+    50.1333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 121,
+   "max_depth_m": 0.0228
+  },
+  "Crew_4|cage_hoop|Shin_L": {
+   "crew": "Crew_4",
+   "part": "cage_hoop",
+   "bone": "Shin_L",
+   "group": "cage",
+   "min_m": -0.0195,
+   "at_s": 52.6667,
+   "utz": [
+    4.7058,
+    -0.4599,
+    21.0497
+   ],
+   "frames_n": 1028,
+   "t_range": [
+    36.5333,
+    52.7
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 249,
+   "max_depth_m": 0.0195
+  },
+  "Crew_4|cage_hoop|Shin_R": {
+   "crew": "Crew_4",
+   "part": "cage_hoop",
+   "bone": "Shin_R",
+   "group": "cage",
+   "min_m": -0.0189,
+   "at_s": 38,
+   "utz": [
+    4.6596,
+    0.4684,
+    5.0479
+   ],
+   "frames_n": 1287,
+   "t_range": [
+    36.6667,
+    52.2333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 212,
+   "max_depth_m": 0.0189
+  },
+  "Crew_4|cage_hoop|Thigh_R": {
+   "crew": "Crew_4",
+   "part": "cage_hoop",
+   "bone": "Thigh_R",
+   "group": "cage",
+   "min_m": -0.0234,
+   "at_s": 48.7,
+   "utz": [
+    4.6806,
+    0.4572,
+    17.8501
+   ],
+   "frames_n": 457,
+   "t_range": [
+    36.6667,
+    52.2333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 90,
+   "max_depth_m": 0.0234
+  },
+  "Crew_1|ladder_rail|Foot_R": {
+   "crew": "Crew_1",
+   "part": "ladder_rail",
+   "bone": "Foot_R",
+   "group": "ladder_top_rails",
+   "min_m": -0.0088,
+   "at_s": 42.6,
+   "utz": [
+    4.4747,
+    0.2714,
+    21.2742
+   ],
+   "frames_n": 66,
+   "t_range": [
+    42.5667,
+    42.6333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 12,
+   "max_depth_m": 0.0088
+  },
+  "Crew_1|deck_wing|Foot_R": {
+   "crew": "Crew_1",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0051,
+   "at_s": 42.8667,
+   "utz": [
+    4.5848,
+    0.8513,
+    21.8551
+   ],
+   "frames_n": 112,
+   "t_range": [
+    42.8667,
+    45.9
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|ladder_rail|Foot_L": {
+   "crew": "Crew_1",
+   "part": "ladder_rail",
+   "bone": "Foot_L",
+   "group": "ladder_top_rails",
+   "min_m": 0.0033,
+   "at_s": 43.5,
+   "utz": [
+    4.4872,
+    0.2889,
+    21.7846
+   ],
+   "frames_n": 54,
+   "t_range": [
+    43.4667,
+    43.5333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|deck_wing|Foot_L": {
+   "crew": "Crew_1",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": 0.0006,
+   "at_s": 43.8333,
+   "utz": [
+    4.8234,
+    0.8704,
+    21.8506
+   ],
+   "frames_n": 291,
+   "t_range": [
+    43.7333,
+    43.8333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|ship_other|Foot_L": {
+   "crew": "Crew_1",
+   "part": "ship_other",
+   "bone": "Foot_L",
+   "group": "other_ship",
+   "min_m": 0.0001,
+   "at_s": 46.7667,
+   "utz": [
+    3.4827,
+    -0.0892,
+    21.7485
+   ],
+   "frames_n": 3882,
+   "t_range": [
+    45.7333,
+    47.7667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|hatch_sill|Foot_L": {
+   "crew": "Crew_1",
+   "part": "hatch_sill",
+   "bone": "Foot_L",
+   "group": "hatch_jamb_lintel",
+   "min_m": 0,
+   "at_s": 46.2667,
+   "utz": [
+    4.0103,
+    0.2512,
+    21.7484
+   ],
+   "frames_n": 937,
+   "t_range": [
+    45.7333,
+    46.5667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|hull|Foot_L": {
+   "crew": "Crew_1",
+   "part": "hull",
+   "bone": "Foot_L",
+   "group": "hull",
+   "min_m": 0.0023,
+   "at_s": 46.0667,
+   "utz": [
+    3.9336,
+    0.3093,
+    21.7523
+   ],
+   "frames_n": 757,
+   "t_range": [
+    45.7333,
+    46.5667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|ladder_rail|Foot_L": {
+   "crew": "Crew_2",
+   "part": "ladder_rail",
+   "bone": "Foot_L",
+   "group": "ladder_rails",
+   "min_m": -0.0087,
+   "at_s": 46,
+   "utz": [
+    4.4763,
+    -0.2785,
+    21.2807
+   ],
+   "frames_n": 75,
+   "t_range": [
+    45.9333,
+    46.0333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 20,
+   "max_depth_m": 0.0087
+  },
+  "Crew_2|deck_wing|Foot_L": {
+   "crew": "Crew_2",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": 0.0039,
+   "at_s": 46.2667,
+   "utz": [
+    4.6012,
+    -0.8494,
+    21.8539
+   ],
+   "frames_n": 97,
+   "t_range": [
+    46.2667,
+    46.2667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|frame_side|Shin_L": {
+   "crew": "Crew_2",
+   "part": "frame_side",
+   "bone": "Shin_L",
+   "group": "kerb",
+   "min_m": 0.0229,
+   "at_s": 46.3667,
+   "utz": [
+    4.5315,
+    -0.6926,
+    21.8996
+   ],
+   "frames_n": 72,
+   "t_range": [
+    46.2667,
+    46.6333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|ship_other|Foot_R": {
+   "crew": "Crew_1",
+   "part": "ship_other",
+   "bone": "Foot_R",
+   "group": "other_ship",
+   "min_m": 0.0011,
+   "at_s": 46.6333,
+   "utz": [
+    3.7226,
+    0.1114,
+    21.7495
+   ],
+   "frames_n": 3598,
+   "t_range": [
+    46.5333,
+    47.7667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|hull|Foot_R": {
+   "crew": "Crew_1",
+   "part": "hull",
+   "bone": "Foot_R",
+   "group": "hull",
+   "min_m": 0.0269,
+   "at_s": 46.5333,
+   "utz": [
+    3.8281,
+    0.0277,
+    21.7769
+   ],
+   "frames_n": 5,
+   "t_range": [
+    46.5333,
+    46.5333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|ladder_rail|Foot_R": {
+   "crew": "Crew_2",
+   "part": "ladder_rail",
+   "bone": "Foot_R",
+   "group": "ladder_top_rails",
+   "min_m": 0,
+   "at_s": 46.8667,
+   "utz": [
+    4.4836,
+    -0.27,
+    21.6499
+   ],
+   "frames_n": 49,
+   "t_range": [
+    46.8667,
+    46.9333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|deck_wing|Foot_R": {
+   "crew": "Crew_2",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0018,
+   "at_s": 47.2333,
+   "utz": [
+    4.8043,
+    -0.8687,
+    21.8518
+   ],
+   "frames_n": 303,
+   "t_range": [
+    47.1333,
+    48.2667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|hull|Foot_R": {
+   "crew": "Crew_2",
+   "part": "hull",
+   "bone": "Foot_R",
+   "group": "hull",
+   "min_m": 0.0023,
+   "at_s": 49.4,
+   "utz": [
+    3.8517,
+    -0.3091,
+    21.7523
+   ],
+   "frames_n": 833,
+   "t_range": [
+    49.1333,
+    49.9667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|hatch_sill|Foot_R": {
+   "crew": "Crew_2",
+   "part": "hatch_sill",
+   "bone": "Foot_R",
+   "group": "hatch_jamb_lintel",
+   "min_m": 0.001,
+   "at_s": 49.7333,
+   "utz": [
+    3.9923,
+    -0.2486,
+    21.7494
+   ],
+   "frames_n": 1062,
+   "t_range": [
+    49.1333,
+    49.9667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|ship_other|Foot_R": {
+   "crew": "Crew_2",
+   "part": "ship_other",
+   "bone": "Foot_R",
+   "group": "other_ship",
+   "min_m": 0.0014,
+   "at_s": 50.1667,
+   "utz": [
+    3.4641,
+    0.0913,
+    21.7497
+   ],
+   "frames_n": 3687,
+   "t_range": [
+    49.1333,
+    51.1667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|ladder_rail|Foot_R": {
+   "crew": "Crew_3",
+   "part": "ladder_rail",
+   "bone": "Foot_R",
+   "group": "ladder_top_rails",
+   "min_m": -0.0088,
+   "at_s": 49.4,
+   "utz": [
+    4.4747,
+    0.2714,
+    21.2742
+   ],
+   "frames_n": 66,
+   "t_range": [
+    49.3667,
+    49.4333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 12,
+   "max_depth_m": 0.0088
+  },
+  "Crew_3|deck_wing|Foot_R": {
+   "crew": "Crew_3",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0051,
+   "at_s": 49.6667,
+   "utz": [
+    4.5848,
+    0.8513,
+    21.8551
+   ],
+   "frames_n": 112,
+   "t_range": [
+    49.6667,
+    52.7
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|ship_other|Foot_L": {
+   "crew": "Crew_2",
+   "part": "ship_other",
+   "bone": "Foot_L",
+   "group": "other_ship",
+   "min_m": 0.0001,
+   "at_s": 49.9667,
+   "utz": [
+    3.7401,
+    -0.1094,
+    21.7484
+   ],
+   "frames_n": 3596,
+   "t_range": [
+    49.9333,
+    51.1667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|hull|Foot_L": {
+   "crew": "Crew_2",
+   "part": "hull",
+   "bone": "Foot_L",
+   "group": "hull",
+   "min_m": 0.0242,
+   "at_s": 49.9333,
+   "utz": [
+    3.8177,
+    -0.1292,
+    21.7742
+   ],
+   "frames_n": 14,
+   "t_range": [
+    49.9333,
+    49.9333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|ladder_rail|Foot_L": {
+   "crew": "Crew_3",
+   "part": "ladder_rail",
+   "bone": "Foot_L",
+   "group": "ladder_top_rails",
+   "min_m": 0.0033,
+   "at_s": 50.3,
+   "utz": [
+    4.4872,
+    0.2889,
+    21.7846
+   ],
+   "frames_n": 54,
+   "t_range": [
+    50.2667,
+    50.3333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|deck_wing|Foot_L": {
+   "crew": "Crew_3",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": 0.0006,
+   "at_s": 50.6333,
+   "utz": [
+    4.8234,
+    0.8704,
+    21.8506
+   ],
+   "frames_n": 291,
+   "t_range": [
+    50.5333,
+    50.6333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|ship_other|Foot_L": {
+   "crew": "Crew_3",
+   "part": "ship_other",
+   "bone": "Foot_L",
+   "group": "other_ship",
+   "min_m": 0.0001,
+   "at_s": 53.5667,
+   "utz": [
+    3.4827,
+    -0.0892,
+    21.7485
+   ],
+   "frames_n": 3882,
+   "t_range": [
+    52.5333,
+    54.5667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|hatch_sill|Foot_L": {
+   "crew": "Crew_3",
+   "part": "hatch_sill",
+   "bone": "Foot_L",
+   "group": "hatch_jamb_lintel",
+   "min_m": 0,
+   "at_s": 53.0667,
+   "utz": [
+    4.0103,
+    0.2512,
+    21.7484
+   ],
+   "frames_n": 937,
+   "t_range": [
+    52.5333,
+    53.3667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|hull|Foot_L": {
+   "crew": "Crew_3",
+   "part": "hull",
+   "bone": "Foot_L",
+   "group": "hull",
+   "min_m": 0.0023,
+   "at_s": 52.8667,
+   "utz": [
+    3.9336,
+    0.3093,
+    21.7523
+   ],
+   "frames_n": 757,
+   "t_range": [
+    52.5333,
+    53.3667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|ladder_rail|Foot_L": {
+   "crew": "Crew_4",
+   "part": "ladder_rail",
+   "bone": "Foot_L",
+   "group": "ladder_rails",
+   "min_m": -0.0087,
+   "at_s": 52.8,
+   "utz": [
+    4.4763,
+    -0.2785,
+    21.2807
+   ],
+   "frames_n": 75,
+   "t_range": [
+    52.7333,
+    52.8333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 20,
+   "max_depth_m": 0.0087
+  },
+  "Crew_4|deck_wing|Foot_L": {
+   "crew": "Crew_4",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": 0.0039,
+   "at_s": 53.0667,
+   "utz": [
+    4.6012,
+    -0.8494,
+    21.8539
+   ],
+   "frames_n": 97,
+   "t_range": [
+    53.0667,
+    53.0667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|frame_side|Shin_L": {
+   "crew": "Crew_4",
+   "part": "frame_side",
+   "bone": "Shin_L",
+   "group": "kerb",
+   "min_m": 0.0229,
+   "at_s": 53.1667,
+   "utz": [
+    4.5315,
+    -0.6926,
+    21.8996
+   ],
+   "frames_n": 72,
+   "t_range": [
+    53.0667,
+    53.4333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|ship_other|Foot_R": {
+   "crew": "Crew_3",
+   "part": "ship_other",
+   "bone": "Foot_R",
+   "group": "other_ship",
+   "min_m": 0.0011,
+   "at_s": 53.4333,
+   "utz": [
+    3.7226,
+    0.1114,
+    21.7495
+   ],
+   "frames_n": 3598,
+   "t_range": [
+    53.3333,
+    54.5667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|hull|Foot_R": {
+   "crew": "Crew_3",
+   "part": "hull",
+   "bone": "Foot_R",
+   "group": "hull",
+   "min_m": 0.0269,
+   "at_s": 53.3333,
+   "utz": [
+    3.828,
+    0.0277,
+    21.7769
+   ],
+   "frames_n": 5,
+   "t_range": [
+    53.3333,
+    53.3333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|ladder_rail|Foot_R": {
+   "crew": "Crew_4",
+   "part": "ladder_rail",
+   "bone": "Foot_R",
+   "group": "ladder_top_rails",
+   "min_m": 0,
+   "at_s": 53.6667,
+   "utz": [
+    4.4836,
+    -0.27,
+    21.6499
+   ],
+   "frames_n": 49,
+   "t_range": [
+    53.6667,
+    53.7333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|deck_wing|Foot_R": {
+   "crew": "Crew_4",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0018,
+   "at_s": 54.0333,
+   "utz": [
+    4.8043,
+    -0.8687,
+    21.8518
+   ],
+   "frames_n": 303,
+   "t_range": [
+    53.9333,
+    55.0667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|hull|Foot_R": {
+   "crew": "Crew_4",
+   "part": "hull",
+   "bone": "Foot_R",
+   "group": "hull",
+   "min_m": 0.0023,
+   "at_s": 56.2,
+   "utz": [
+    3.8517,
+    -0.3091,
+    21.7523
+   ],
+   "frames_n": 833,
+   "t_range": [
+    55.9333,
+    56.7667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|hatch_sill|Foot_R": {
+   "crew": "Crew_4",
+   "part": "hatch_sill",
+   "bone": "Foot_R",
+   "group": "hatch_jamb_lintel",
+   "min_m": 0.001,
+   "at_s": 56.5333,
+   "utz": [
+    3.9923,
+    -0.2486,
+    21.7494
+   ],
+   "frames_n": 1062,
+   "t_range": [
+    55.9333,
+    56.7667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|ship_other|Foot_R": {
+   "crew": "Crew_4",
+   "part": "ship_other",
+   "bone": "Foot_R",
+   "group": "other_ship",
+   "min_m": 0.0014,
+   "at_s": 57.1667,
+   "utz": [
+    3.4641,
+    0.0913,
+    21.7497
+   ],
+   "frames_n": 3784,
+   "t_range": [
+    55.9333,
+    58
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|ship_other|Foot_L": {
+   "crew": "Crew_4",
+   "part": "ship_other",
+   "bone": "Foot_L",
+   "group": "other_ship",
+   "min_m": 0.0001,
+   "at_s": 56.7667,
+   "utz": [
+    3.7401,
+    -0.1094,
+    21.7484
+   ],
+   "frames_n": 3693,
+   "t_range": [
+    56.7333,
+    58
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|hull|Foot_L": {
+   "crew": "Crew_4",
+   "part": "hull",
+   "bone": "Foot_L",
+   "group": "hull",
+   "min_m": 0.0242,
+   "at_s": 56.7333,
+   "utz": [
+    3.8177,
+    -0.1292,
+    21.7742
+   ],
+   "frames_n": 14,
+   "t_range": [
+    56.7333,
+    56.7333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  }
+ },
+ "hand_grip": {
+  "Crew_1|rung|Hand_R": {
+   "crew": "Crew_1",
+   "part": "rung",
+   "bone": "Hand_R",
+   "group": "rungs",
+   "min_m": -0.0008,
+   "at_s": 23.7,
+   "utz": [
+    4.4258,
+    0.1702,
+    1.8508
+   ],
+   "frames_n": 26904,
+   "t_range": [
+    23.4667,
+    41.6
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 30,
+   "max_depth_m": 0.0008
+  },
+  "Crew_1|ladder_rail|Hand_L": {
+   "crew": "Crew_1",
+   "part": "ladder_rail",
+   "bone": "Hand_L",
+   "group": "ladder_rails",
+   "min_m": 0.003,
+   "at_s": 43.0333,
+   "utz": [
+    4.481,
+    -0.2581,
+    21.6881
+   ],
+   "frames_n": 528,
+   "t_range": [
+    23.5333,
+    43.2667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|rung|Hand_L": {
+   "crew": "Crew_1",
+   "part": "rung",
+   "bone": "Hand_L",
+   "group": "rungs",
+   "min_m": -0.001,
+   "at_s": 39.6667,
+   "utz": [
+    4.4733,
+    -0.1748,
+    20.474
+   ],
+   "frames_n": 25488,
+   "t_range": [
+    23.5667,
+    41.6667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 27,
+   "max_depth_m": 0.001
+  },
+  "Crew_2|rung|Hand_R": {
+   "crew": "Crew_2",
+   "part": "rung",
+   "bone": "Hand_R",
+   "group": "rungs",
+   "min_m": -0.001,
+   "at_s": 36.5667,
+   "utz": [
+    4.4737,
+    0.0748,
+    12.674
+   ],
+   "frames_n": 27225,
+   "t_range": [
+    26.8667,
+    45.1
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 75,
+   "max_depth_m": 0.001
+  },
+  "Crew_2|ladder_rail|Hand_L": {
+   "crew": "Crew_2",
+   "part": "ladder_rail",
+   "bone": "Hand_L",
+   "group": "ladder_rails",
+   "min_m": 0.007,
+   "at_s": 46.3667,
+   "utz": [
+    4.4827,
+    -0.3063,
+    21.684
+   ],
+   "frames_n": 420,
+   "t_range": [
+    26.9333,
+    46.7667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|rung|Hand_L": {
+   "crew": "Crew_2",
+   "part": "rung",
+   "bone": "Hand_L",
+   "group": "rungs",
+   "min_m": -0.0005,
+   "at_s": 43.0667,
+   "utz": [
+    4.4745,
+    -0.1748,
+    20.4745
+   ],
+   "frames_n": 25449,
+   "t_range": [
+    26.9667,
+    45.0333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 18,
+   "max_depth_m": 0.0005
+  },
+  "Crew_3|rung|Hand_R": {
+   "crew": "Crew_3",
+   "part": "rung",
+   "bone": "Hand_R",
+   "group": "rungs",
+   "min_m": -0.0008,
+   "at_s": 30.5,
+   "utz": [
+    4.4258,
+    0.1704,
+    1.8493
+   ],
+   "frames_n": 26916,
+   "t_range": [
+    30.2667,
+    48.4
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 63,
+   "max_depth_m": 0.0008
+  },
+  "Crew_3|ladder_rail|Hand_L": {
+   "crew": "Crew_3",
+   "part": "ladder_rail",
+   "bone": "Hand_L",
+   "group": "ladder_rails",
+   "min_m": -0.0021,
+   "at_s": 49.8333,
+   "utz": [
+    4.4746,
+    -0.2581,
+    21.6905
+   ],
+   "frames_n": 672,
+   "t_range": [
+    30.3333,
+    50.0667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 36,
+   "max_depth_m": 0.0021
+  },
+  "Crew_3|rung|Hand_L": {
+   "crew": "Crew_3",
+   "part": "rung",
+   "bone": "Hand_L",
+   "group": "rungs",
+   "min_m": -0.001,
+   "at_s": 46.4667,
+   "utz": [
+    4.4738,
+    -0.1738,
+    20.474
+   ],
+   "frames_n": 25602,
+   "t_range": [
+    30.3667,
+    48.4667
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 39,
+   "max_depth_m": 0.001
+  },
+  "Crew_4|rung|Hand_R": {
+   "crew": "Crew_4",
+   "part": "rung",
+   "bone": "Hand_R",
+   "group": "rungs",
+   "min_m": -0.0009,
+   "at_s": 33.9,
+   "utz": [
+    4.4259,
+    0.1696,
+    1.8505
+   ],
+   "frames_n": 27435,
+   "t_range": [
+    33.6667,
+    51.9
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 36,
+   "max_depth_m": 0.0009
+  },
+  "Crew_4|ladder_rail|Hand_L": {
+   "crew": "Crew_4",
+   "part": "ladder_rail",
+   "bone": "Hand_L",
+   "group": "ladder_rails",
+   "min_m": 0.0027,
+   "at_s": 53.1667,
+   "utz": [
+    4.477,
+    -0.3063,
+    21.6861
+   ],
+   "frames_n": 546,
+   "t_range": [
+    33.7333,
+    53.5667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|rung|Hand_L": {
+   "crew": "Crew_4",
+   "part": "rung",
+   "bone": "Hand_L",
+   "group": "rungs",
+   "min_m": -0.0047,
+   "at_s": 33.8,
+   "utz": [
+    4.4703,
+    -0.2086,
+    1.2389
+   ],
+   "frames_n": 25452,
+   "t_range": [
+    33.7667,
+    51.8333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 39,
+   "max_depth_m": 0.0047
+  },
+  "Crew_1|ladder_rail|Hand_R": {
+   "crew": "Crew_1",
+   "part": "ladder_rail",
+   "bone": "Hand_R",
+   "group": "ladder_top_rails",
+   "min_m": 0.0098,
+   "at_s": 42.9667,
+   "utz": [
+    4.4859,
+    0.3068,
+    21.683
+   ],
+   "frames_n": 354,
+   "t_range": [
+    42.4333,
+    43.3667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|ladder_rail|Hand_R": {
+   "crew": "Crew_2",
+   "part": "ladder_rail",
+   "bone": "Hand_R",
+   "group": "ladder_top_rails",
+   "min_m": 0.0008,
+   "at_s": 46.4667,
+   "utz": [
+    4.4765,
+    0.2559,
+    21.6915
+   ],
+   "frames_n": 537,
+   "t_range": [
+    45.9,
+    46.6333
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|ladder_rail|Hand_R": {
+   "crew": "Crew_3",
+   "part": "ladder_rail",
+   "bone": "Hand_R",
+   "group": "ladder_top_rails",
+   "min_m": 0.0052,
+   "at_s": 49.7667,
+   "utz": [
+    4.48,
+    0.3068,
+    21.6851
+   ],
+   "frames_n": 492,
+   "t_range": [
+    49.2,
+    50.1667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|ladder_rail|Hand_R": {
+   "crew": "Crew_4",
+   "part": "ladder_rail",
+   "bone": "Hand_R",
+   "group": "ladder_top_rails",
+   "min_m": -0.0032,
+   "at_s": 53.2,
+   "utz": [
+    4.4756,
+    0.2612,
+    21.6885
+   ],
+   "frames_n": 663,
+   "t_range": [
+    52.7,
+    53.4667
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 51,
+   "max_depth_m": 0.0032
+  }
+ },
+ "sole_on_deck": {
+  "Crew_1|deck_wing|Foot_R": {
+   "crew": "Crew_1",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0006,
+   "at_s": 45.9,
+   "utz": [
+    4.5834,
+    0.8494,
+    21.8506
+   ],
+   "frames_n": 9409,
+   "t_range": [
+    42.9,
+    46.1
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|deck_wing|Foot_L": {
+   "crew": "Crew_1",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": -0.0007,
+   "at_s": 44.8667,
+   "utz": [
+    4.821,
+    0.8704,
+    21.8493
+   ],
+   "frames_n": 4365,
+   "t_range": [
+    43.7667,
+    45.3
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 10,
+   "max_depth_m": 0.0007
+  },
+  "Crew_2|deck_wing|Foot_L": {
+   "crew": "Crew_2",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": -0.0007,
+   "at_s": 49.3,
+   "utz": [
+    4.6006,
+    -0.8481,
+    21.8493
+   ],
+   "frames_n": 9409,
+   "t_range": [
+    46.3,
+    49.5
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 18,
+   "max_depth_m": 0.0007
+  },
+  "Crew_2|deck_wing|Foot_R": {
+   "crew": "Crew_2",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0006,
+   "at_s": 48.2667,
+   "utz": [
+    4.8016,
+    -0.8695,
+    21.8506
+   ],
+   "frames_n": 4365,
+   "t_range": [
+    47.1667,
+    48.7
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|deck_wing|Foot_R": {
+   "crew": "Crew_3",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0006,
+   "at_s": 52.7,
+   "utz": [
+    4.5835,
+    0.8494,
+    21.8506
+   ],
+   "frames_n": 9409,
+   "t_range": [
+    49.7,
+    52.9
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|deck_wing|Foot_L": {
+   "crew": "Crew_3",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": -0.0007,
+   "at_s": 51.6667,
+   "utz": [
+    4.821,
+    0.8704,
+    21.8493
+   ],
+   "frames_n": 4365,
+   "t_range": [
+    50.5667,
+    52.1
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 10,
+   "max_depth_m": 0.0007
+  },
+  "Crew_4|deck_wing|Foot_L": {
+   "crew": "Crew_4",
+   "part": "deck_wing",
+   "bone": "Foot_L",
+   "group": "deck_non_resting",
+   "min_m": -0.0007,
+   "at_s": 56.1,
+   "utz": [
+    4.6006,
+    -0.8481,
+    21.8493
+   ],
+   "frames_n": 9409,
+   "t_range": [
+    53.1,
+    56.3
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 18,
+   "max_depth_m": 0.0007
+  },
+  "Crew_4|deck_wing|Foot_R": {
+   "crew": "Crew_4",
+   "part": "deck_wing",
+   "bone": "Foot_R",
+   "group": "deck_non_resting",
+   "min_m": 0.0006,
+   "at_s": 55.0667,
+   "utz": [
+    4.8016,
+    -0.8695,
+    21.8506
+   ],
+   "frames_n": 4365,
+   "t_range": [
+    53.9667,
+    55.5
+   ],
+   "phase": "through_hole_and_walk_in",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  }
+ },
+ "sole_on_rung": {
+  "Crew_1|rung|Foot_L": {
+   "crew": "Crew_1",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0003,
+   "at_s": 39.7,
+   "utz": [
+    4.4335,
+    -0.0577,
+    18.6753
+   ],
+   "frames_n": 7594,
+   "t_range": [
+    24.1,
+    43.2333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_1|rung|Foot_R": {
+   "crew": "Crew_1",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0004,
+   "at_s": 32.8667,
+   "utz": [
+    4.4329,
+    0.1837,
+    10.8754
+   ],
+   "frames_n": 6310,
+   "t_range": [
+    24.7667,
+    42.3333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|rung|Foot_L": {
+   "crew": "Crew_2",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0003,
+   "at_s": 43.1,
+   "utz": [
+    4.4335,
+    -0.0577,
+    18.6753
+   ],
+   "frames_n": 7188,
+   "t_range": [
+    27.5,
+    45.7333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_2|rung|Foot_R": {
+   "crew": "Crew_2",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0004,
+   "at_s": 36.2667,
+   "utz": [
+    4.4329,
+    0.1837,
+    10.8754
+   ],
+   "frames_n": 6675,
+   "t_range": [
+    28.1667,
+    46.6333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|rung|Foot_L": {
+   "crew": "Crew_3",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0003,
+   "at_s": 46.5,
+   "utz": [
+    4.4335,
+    -0.0577,
+    18.6753
+   ],
+   "frames_n": 7594,
+   "t_range": [
+    30.9,
+    50.0333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_3|rung|Foot_R": {
+   "crew": "Crew_3",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0004,
+   "at_s": 39.6667,
+   "utz": [
+    4.4329,
+    0.1837,
+    10.8754
+   ],
+   "frames_n": 6310,
+   "t_range": [
+    31.5667,
+    49.1333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|rung|Foot_L": {
+   "crew": "Crew_4",
+   "part": "rung",
+   "bone": "Foot_L",
+   "group": "rungs",
+   "min_m": 0.0003,
+   "at_s": 49.9,
+   "utz": [
+    4.4335,
+    -0.0577,
+    18.6753
+   ],
+   "frames_n": 7186,
+   "t_range": [
+    34.3,
+    52.5333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  },
+  "Crew_4|rung|Foot_R": {
+   "crew": "Crew_4",
+   "part": "rung",
+   "bone": "Foot_R",
+   "group": "rungs",
+   "min_m": 0.0004,
+   "at_s": 43.0667,
+   "utz": [
+    4.4329,
+    0.1837,
+    10.8754
+   ],
+   "frames_n": 6675,
+   "t_range": [
+    34.9667,
+    53.4333
+   ],
+   "phase": "before_climb_top",
+   "penetrating_n": 0,
+   "max_depth_m": 0
+  }
+ },
+ "grip_rod_checks": {
+  "Crew_1|rung|Hand_R": 281,
+  "Crew_1|rung|Hand_L": 265,
+  "Crew_2|rung|Hand_R": 284,
+  "Crew_2|rung|Hand_L": 262,
+  "Crew_3|rung|Hand_R": 281,
+  "Crew_3|rung|Hand_L": 265,
+  "Crew_4|rung|Hand_R": 284,
+  "Crew_4|rung|Hand_L": 262
+ },
+ "plant_summary": {
+  "plants": 28,
+  "unsupported_plants": 0,
+  "hover_gt_2cm": 0,
+  "sinking": 0,
+  "gap_m": [
+   -0.0007,
+   0.01
+  ],
+  "walk_in_wing_plants": [
+   {
+    "crew": "Crew_1",
+    "foot": "Foot_R",
+    "land_s": 42.867,
+    "u": [
+     4.3003,
+     4.6145
+    ],
+    "t": [
+     0.7313,
+     0.8649
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0006
+   },
+   {
+    "crew": "Crew_2",
+    "foot": "Foot_L",
+    "land_s": 46.267,
+    "u": [
+     4.3007,
+     4.6135
+    ],
+    "t": [
+     -0.8688,
+     -0.7349
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": -0.0007
+   },
+   {
+    "crew": "Crew_3",
+    "foot": "Foot_R",
+    "land_s": 49.667,
+    "u": [
+     4.3003,
+     4.6145
+    ],
+    "t": [
+     0.7313,
+     0.8649
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": 0.0006
+   },
+   {
+    "crew": "Crew_4",
+    "foot": "Foot_L",
+    "land_s": 53.067,
+    "u": [
+     4.3007,
+     4.6135
+    ],
+    "t": [
+     -0.8688,
+     -0.7349
+    ],
+    "surface": "wing",
+    "unsupported_vertex_frames": 0,
+    "gap_m": -0.0007
+   }
+  ]
+ }
+}

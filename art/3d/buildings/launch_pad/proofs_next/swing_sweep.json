@@ -1,0 +1,23 @@
+{
+ "note": "min vertical gap box bottom -> truck verts / Pick_Point_02 box top under the hanging box footprint (+0.1 m), t >= 0.25 s (box leaves the bed)",
+ "crane_lift": {
+  "gap": -1.461,
+  "t": 0.25,
+  "what": "box2",
+  "hook": [
+   1.85,
+   3.44,
+   19.5
+  ]
+ },
+ "crane_swing": {
+  "gap": 0.9,
+  "t": 0.25,
+  "what": "box2",
+  "hook": [
+   1.73,
+   5.8,
+   19.5
+  ]
+ }
+}

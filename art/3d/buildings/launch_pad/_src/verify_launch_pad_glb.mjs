@@ -8,7 +8,7 @@ const { MeshoptDecoder } = await import(NM + '/three/examples/jsm/libs/meshopt_d
 const [f, outp] = process.argv.slice(2); const buf = fs.readFileSync(f); await MeshoptDecoder.ready;
 const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder);
 const fail = []; const r3 = v => v.toArray().map(x => +x.toFixed(3));
-const WX = 480;   // world = pad-local + (480, 0, 0)  (qa3d/main.js: station i at i * 160, Takeoff & Landing = 3)
+const WX = +(process.env.PAD_WX || 480);   // world = pad-local + (WX, 0, 0); 480 = old qa3d order, 640 = new station order (env PAD_WX)
 l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (g) => {
   const S = g.scene; S.updateMatrixWorld(true); const j = g.parser.json;
   const NN = o => { while (o && o !== S && !o.name.replace(/^mesh_\d+(_\d+)?$/, '')) o = o.parent; return o && o !== S ? o.name : '?'; };
@@ -34,7 +34,13 @@ l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (
   const W = n => new THREE.Vector3().setFromMatrixPosition(S.getObjectByName(n).matrixWorld);
   out.cam_target = { at: r3(W('Cam_Target')), extras: S.getObjectByName('Cam_Target').userData };
   out.truck_stop_world = (p => [+(p.x + WX).toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])(W('Truck_Stop'));
-  if (Math.abs(out.truck_stop_world[2] - 13) > 1e-3) fail.push('Truck_Stop not on z 13');
+  const spur = S.getObjectByName('Spur_Taper_In_B');
+  if (spur) {   // lane option B (10/24): Truck_Stop sits in the crane pick spur bay; bay z = Spur_Taper_In_B z = Spur_Taper_Out_A z; both bed slots within trolley_max - 0.3 m
+    const bz = W('Spur_Taper_In_B').z, oz = W('Spur_Taper_Out_A').z, cu = S.getObjectByName('Crane').userData, cp = W('Crane');
+    out.truck_stop_rule = { rule: 'Truck_Stop on the spur bay z, both Pick_Points within trolley_max - 0.3 m', bay_z: +bz.toFixed(3), reach: {} };
+    if (Math.abs(out.truck_stop_world[2] - bz) > 1e-3 || Math.abs(oz - bz) > 1e-3) fail.push('Truck_Stop not on the spur bay z ' + bz);
+    for (const n of ['Pick_Point', 'Pick_Point_02']) { const q = W(n); const r = Math.hypot(q.x - cp.x, q.z - cp.z); out.truck_stop_rule.reach[n] = { r_m: +r.toFixed(3), margin_m: +(cu.trolley_max_m - r).toFixed(3) }; if (r > cu.trolley_max_m - 0.3) fail.push(n + ' outside crane reach - 0.3 m'); }
+  } else if (Math.abs(out.truck_stop_world[2] - 13) > 1e-3) fail.push('Truck_Stop not on z 13');
   const rs = W('Receiver_Spot'), rh = W('Receiver_Home'); out.receiver = { spot: r3(rs), home: r3(rh), dist_m: +rs.distanceTo(rh).toFixed(3),
     spot_yaw_deg: +(S.getObjectByName('Receiver_Spot').rotation.y * 180 / Math.PI).toFixed(2), home_yaw_deg: +(S.getObjectByName('Receiver_Home').rotation.y * 180 / Math.PI).toFixed(2) };
   // rig check: Home_Point (-3, 0, -1.5) in the Receive_Point frame
@@ -63,7 +69,8 @@ l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (
       let a0 = 1e18, a1 = -1e18, b0 = 1e18, b1 = -1e18; for (const p of A) { const d = p[0] * nx + p[1] * nz; a0 = Math.min(a0, d); a1 = Math.max(a1, d); } for (const p of B) { const d = p[0] * nx + p[1] * nz; b0 = Math.min(b0, d); b1 = Math.max(b1, d); }
       if (a1 < b0 || b1 < a0) return false; } return true; };
   const dist = (A, B) => { if (sat(A, B)) return 0; let d = 1e9; for (const p of A) for (let i = 0; i < B.length; i++) d = Math.min(d, segD(p, B[i], B[(i + 1) % B.length])); for (const p of B) for (let i = 0; i < A.length; i++) d = Math.min(d, segD(p, A[i], A[(i + 1) % A.length])); return d; };
-  const road = [{ name: 'road band (tiles, toe-to-toe)', poly: [[307, 10.2], [481, 10.2], [481, 24.8], [307, 24.8]] }];
+  const road = spur ? [23, 32].map(z => ({ name: 'road band z ' + z + ' (tiles, toe-to-toe)', poly: [[WX - 333, z - 2.8], [W('Turn_Start').x + WX, z - 2.8], [W('Turn_Start').x + WX, z + 2.8], [WX - 333, z + 2.8]] }))
+    : [{ name: 'road band (tiles, toe-to-toe)', poly: [[307, 10.2], [481, 10.2], [481, 24.8], [307, 24.8]] }];
   const pads = [];
   S.traverse(o => { if (!o.isMesh) return; const { T } = triPolys(o); const nn = NN(o);
     if (nn === 'Road_UTurn') T.forEach((t, k) => road.push({ name: 'Road_UTurn tri ' + k, poly: t.map(p => [p[0], p[1]]) })); else pads.push({ mesh: o.name, node: nn, T }); });

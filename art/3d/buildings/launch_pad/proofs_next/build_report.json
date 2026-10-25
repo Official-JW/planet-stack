@@ -1,0 +1,1073 @@
+{
+ "in": "launch_pad_game.glb",
+ "params": {
+  "SZ": 19.5,
+  "TSX": 3,
+  "BX0": -3,
+  "BX1": 8,
+  "TL": 17.5,
+  "ZO": 23,
+  "ZB": 32,
+  "TSTR": 2,
+  "ENX": -48,
+  "EXX": -48,
+  "PWX": 640
+ },
+ "pipe_hw": {
+  "components": [
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 6,
+    "bbox_before": [
+     [
+      20.041,
+      0.899,
+      -9.567
+     ],
+     [
+      20.348,
+      1.599,
+      -9.331
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.257,
+      -0.099,
+      2.634
+     ],
+     [
+      -26.951,
+      1.599,
+      2.87
+     ]
+    ],
+    "riser": true
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 5,
+    "bbox_before": [
+     [
+      20.041,
+      0.899,
+      -9.839
+     ],
+     [
+      20.186,
+      1.599,
+      -9.55
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.257,
+      -0.099,
+      2.362
+     ],
+     [
+      -27.113,
+      1.599,
+      2.651
+     ]
+    ],
+    "riser": true
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 4,
+    "bbox_before": [
+     [
+      20.076,
+      0.899,
+      -9.86
+     ],
+     [
+      20.348,
+      1.599,
+      -9.747
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.222,
+      -0.099,
+      2.341
+     ],
+     [
+      -26.951,
+      1.599,
+      2.454
+     ]
+    ],
+    "riser": true
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 8,
+    "bbox_before": [
+     [
+      20.251,
+      0.899,
+      -9.86
+     ],
+     [
+      20.562,
+      1.599,
+      -9.436
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.047,
+      -0.099,
+      2.341
+     ],
+     [
+      -26.737,
+      1.599,
+      2.765
+     ]
+    ],
+    "riser": true
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 9,
+    "bbox_before": [
+     [
+      20.041,
+      1.599,
+      -9.86
+     ],
+     [
+      20.562,
+      1.599,
+      -9.331
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.257,
+      1.599,
+      2.341
+     ],
+     [
+      -26.737,
+      1.599,
+      2.87
+     ]
+    ],
+    "riser": false
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 4,
+    "bbox_before": [
+     [
+      20.291,
+      0.899,
+      -9.454
+     ],
+     [
+      20.523,
+      1.599,
+      -9.331
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.008,
+      -0.099,
+      2.747
+     ],
+     [
+      -26.776,
+      1.599,
+      2.87
+     ]
+    ],
+    "riser": true
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 8,
+    "bbox_before": [
+     [
+      20.041,
+      0.899,
+      -9.86
+     ],
+     [
+      20.558,
+      0.899,
+      -9.34
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.257,
+      -0.099,
+      2.341
+     ],
+     [
+      -26.741,
+      -0.099,
+      2.861
+     ]
+    ],
+    "riser": true
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 7,
+    "bbox_before": [
+     [
+      20.072,
+      1.332,
+      -9.685
+     ],
+     [
+      20.527,
+      1.459,
+      -9.467
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.227,
+      1.332,
+      2.516
+     ],
+     [
+      -26.772,
+      1.459,
+      2.734
+     ]
+    ],
+    "riser": false
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 4,
+    "bbox_before": [
+     [
+      20.116,
+      1.332,
+      -9.672
+     ],
+     [
+      20.278,
+      1.459,
+      -9.467
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.183,
+      1.332,
+      2.529
+     ],
+     [
+      -27.021,
+      1.459,
+      2.734
+     ]
+    ],
+    "riser": false
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 30,
+    "bbox_before": [
+     [
+      20.041,
+      1.332,
+      -9.869
+     ],
+     [
+      20.558,
+      1.87,
+      -9.331
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.257,
+      1.332,
+      2.332
+     ],
+     [
+      -26.741,
+      1.87,
+      2.87
+     ]
+    ],
+    "riser": false
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 3,
+    "bbox_before": [
+     [
+      20.278,
+      1.332,
+      -9.685
+     ],
+     [
+      20.466,
+      1.411,
+      -9.48
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.021,
+      1.332,
+      2.516
+     ],
+     [
+      -26.833,
+      1.411,
+      2.721
+     ]
+    ],
+    "riser": false
+   },
+   {
+    "prim": 0,
+    "material": "SHM_Paint",
+    "verts": 3,
+    "bbox_before": [
+     [
+      20.256,
+      1.371,
+      -9.48
+     ],
+     [
+      20.466,
+      1.459,
+      -9.357
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.043,
+      1.371,
+      2.721
+     ],
+     [
+      -26.833,
+      1.459,
+      2.844
+     ]
+    ],
+    "riser": false
+   },
+   {
+    "prim": 2,
+    "material": "SHM_Metal",
+    "verts": 16,
+    "bbox_before": [
+     [
+      19.923,
+      0.991,
+      -9.979
+     ],
+     [
+      20.676,
+      1.109,
+      -9.222
+     ]
+    ],
+    "bbox_after": [
+     [
+      -27.375,
+      0.991,
+      2.222
+     ],
+     [
+      -26.623,
+      1.109,
+      2.979
+     ]
+    ],
+    "riser": false
+   }
+  ],
+  "shift_quanta": [
+   -10812,
+   0,
+   2789
+  ],
+  "shift_m": [
+   -47.29877,
+   0,
+   12.20091
+  ],
+  "total_verts": 107,
+  "riser_bottom_verts_dropped_to_y": [
+   21,
+   -0.1
+  ]
+ },
+ "pipe_end_before": {
+  "t": [
+   20.3000011,
+   0.949999988,
+   -9.60000038
+  ],
+  "r": [
+   0,
+   1,
+   0,
+   0
+  ],
+  "extras": {
+   "from": "Dock Pipe_LaunchPad (buried, +X)",
+   "line": "Pipe_LaunchPad"
+  }
+ },
+ "pipe_end_after": {
+  "t": [
+   -27,
+   0.95,
+   2.6
+  ],
+  "r": [
+   0,
+   1,
+   0,
+   0
+  ],
+  "facing_world": [
+   -1,
+   0,
+   0
+  ],
+  "world": [
+   613,
+   0.95,
+   2.6
+  ],
+  "extras": {
+   "from": "Dock Pipe_LaunchPad (buried, -X)",
+   "line": "Pipe_LaunchPad"
+  }
+ },
+ "uturn": {
+  "shift_quanta": [
+   6058,
+   0,
+   2286
+  ],
+  "shift_m": [
+   26.50166,
+   0,
+   10.00046
+  ],
+  "centre_gltf": [
+   27.5,
+   0,
+   27.5
+  ],
+  "radius_m": 4.5,
+  "verts": 977
+ },
+ "spur_ribbon": {
+  "verts": 192,
+  "tris": 96,
+  "bbox_pad": [
+   [
+    -21.05,
+    -0.042,
+    16.698
+   ],
+   [
+    26.048,
+    0.295,
+    25.745
+   ]
+  ],
+  "centreline_pad": [
+   [
+    -20.5,
+    23
+   ],
+   [
+    -3,
+    19.5
+   ],
+   [
+    3,
+    19.5
+   ],
+   [
+    8,
+    19.5
+   ],
+   [
+    25.5,
+    23
+   ]
+  ],
+  "south_edge_min_z": 16.698
+ },
+ "reach": {
+  "Pick_Point": {
+   "pad": [
+    1.85,
+    1.9,
+    19.5
+   ],
+   "world": [
+    641.85,
+    1.9,
+    19.5
+   ],
+   "crane_r_m": 12.562,
+   "trolley_max_m": 14.2,
+   "margin_m": 1.638
+  },
+  "Pick_Point_02": {
+   "pad": [
+    -0.65,
+    1.9,
+    19.5
+   ],
+   "world": [
+    639.35,
+    1.9,
+    19.5
+   ],
+   "crane_r_m": 12.562,
+   "trolley_max_m": 14.2,
+   "margin_m": 1.638
+  }
+ },
+ "markers_before": {
+  "Truck_Stop": {
+   "t": [
+    -3.5,
+    0,
+    13
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "truck": "FB-05",
+    "yaw_deg": 0,
+    "lane": "eastbound world z 13",
+    "note": "FB-05 root here heading +X; then Bed_Slot_01 = Pick_Point, Bed_Slot_02 = Pick_Point_02",
+    "next": "Turn_Start",
+    "world_xz": [
+     476.5,
+     13
+    ]
+   }
+  },
+  "Pick_Point": {
+   "t": [
+    -4.6500001,
+    1.89999998,
+    13
+   ],
+   "extras": {
+    "kind": "crane_target",
+    "box_base": true,
+    "box_yaw_deg": 0,
+    "crane_solve": {
+     "slew_rad": -2.2896,
+     "trolley_m": 7.973,
+     "hoist_m": 15.3,
+     "hook_yaw_rad": 2.2896
+    },
+    "note": "box Base sits here; hook target = this + (0, box height, 0); crane_solve = joint values with the box hanging at rest here",
+    "slot": "FB-05 Bed_Slot_01"
+   }
+  },
+  "Pick_Point_02": {
+   "t": [
+    -7.1500001,
+    1.89999998,
+    13
+   ],
+   "extras": {
+    "kind": "crane_target",
+    "box_base": true,
+    "box_yaw_deg": 0,
+    "crane_solve": {
+     "slew_rad": -2.4828,
+     "trolley_m": 9.801,
+     "hoist_m": 15.3,
+     "hook_yaw_rad": 2.4828
+    },
+    "note": "box Base sits here; hook target = this + (0, box height, 0); crane_solve = joint values with the box hanging at rest here",
+    "slot": "FB-05 Bed_Slot_02"
+   }
+  },
+  "Road_Entry": {
+   "t": [
+    -48,
+    0,
+    13
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Truck_Stop",
+    "world_xz": [
+     592,
+     13
+    ]
+   }
+  },
+  "Turn_Start": {
+   "t": [
+    1,
+    0,
+    13
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Turn_End",
+    "world_xz": [
+     641,
+     13
+    ],
+    "turn": {
+     "center_gltf": [
+      1,
+      0,
+      17.5
+     ],
+     "radius_m": 4.5,
+     "dir": "right (+X -> +Z -> -X)",
+     "deg": 180
+    }
+   }
+  },
+  "Turn_End": {
+   "t": [
+    1,
+    0,
+    22
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 180,
+    "next": "Road_Exit",
+    "world_xz": [
+     641,
+     22
+    ]
+   }
+  },
+  "Road_Exit": {
+   "t": [
+    -48,
+    0,
+    22
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 180,
+    "world_xz": [
+     592,
+     22
+    ]
+   }
+  },
+  "Crane": {
+   "t": [
+    0.600000024,
+    0,
+    7
+   ],
+   "extras": {
+    "prop": "PC-1 pad crane (hammerhead tower crane, RC-1 joint convention)",
+    "origin": "ground centre of the footing at pad-local glTF (x 0.6, z 7.0) = world (480.6, 0, 7.0); jib points +X at Slew = 0",
+    "slew_min_rad": -3.141592653589793,
+    "slew_max_rad": 3.141592653589793,
+    "trolley_min_m": 2.6,
+    "trolley_max_m": 14.2,
+    "hoist_min_m": 0.6,
+    "hoist_max_m": 18.3,
+    "hook_drop_m": 0.95,
+    "sheave_y": 19.65,
+    "slew_y": 19,
+    "jib_y": 20,
+    "hook_rest_local_y": -2.3,
+    "box_size_m": [
+     2.3,
+     1.5,
+     1.3
+    ],
+    "box_hook_offset_y": 1.5,
+    "slew_keep_out_rad": [],
+    "slew_note": "free 360 deg: crane is 20.0 m from the ship axis, jib tip (15 m) stays 1.0 m off the hull",
+    "joints": "Slew: rotation.y = theta (rad) about +Y, jib direction (cos theta, 0, -sin theta). Trolley: position.x = r (glTF rest value = trolley_min_m). Hoist: scale.y = cable length L (m). Hook: position.y = hook_rest_local_y + 1 - L (Hook world y = sheave_y - L - hook_drop_m), rotation.y = box_yaw - theta. Solve for a hook target (x, y, z) in crane space: theta = atan2(-z, x), r = hypot(x, z), L = sheave_y - y - hook_drop_m. If slew_keep_out_rad is not empty, never slew through it.",
+    "poses": "{\"pick_low\": [-2.2896, 7.9726, 15.3, 2.2896], \"pick_high\": [-2.2896, 7.9726, 14.3, 2.2896], \"drop_high\": [3.1089, 10.7057, 14.3, -3.1089], \"drop_low\": [3.1089, 10.7057, 16.9, -3.1089], \"bay_low\": [3.078, 5.5111, 16.9, -3.078], \"bay_high\": [3.078, 5.5111, 3.042, -3.078], \"hold_high\": [1.5732, 13.5148, 3.042, -1.4859], \"hold_low\": [1.5732, 13.5148, 4.292, -1.4859]}",
+    "clips": "crane_lift 2.0s, crane_swing 3.0s, crane_lower 2.0s, crane_lift_bay 3.0s, crane_swing_hold 3.0s, crane_lower_hold 1.5s"
+   }
+  }
+ },
+ "markers_after": {
+  "Truck_Stop": {
+   "t": [
+    3,
+    0,
+    19.5
+   ],
+   "world": [
+    643,
+    19.5
+   ],
+   "extras": {
+    "kind": "truck_pose",
+    "truck": "FB-05",
+    "yaw_deg": 0,
+    "lane": "crane pick spur bay world z 19.5 (off the eastbound z 23 lane)",
+    "note": "FB-05 root here heading +X; then Bed_Slot_01 = Pick_Point, Bed_Slot_02 = Pick_Point_02",
+    "next": "Spur_Taper_Out_A",
+    "world_xz": [
+     643,
+     19.5
+    ]
+   }
+  },
+  "Pick_Point": {
+   "t": [
+    1.85,
+    1.9,
+    19.5
+   ],
+   "world": [
+    641.85,
+    19.5
+   ],
+   "extras": {
+    "kind": "crane_target",
+    "box_base": true,
+    "box_yaw_deg": 0,
+    "crane_solve": {
+     "slew_rad": -1.4711,
+     "trolley_m": 12.562,
+     "hoist_m": 15.3,
+     "hook_yaw_rad": 1.4711
+    },
+    "note": "box Base sits here; hook target = this + (0, box height, 0); crane_solve = joint values with the box hanging at rest here",
+    "slot": "FB-05 Bed_Slot_01",
+    "baked_clips": "crane untouched (A&A 8:31 PM): crane_lift / crane_swing keys still hang the hook over the old z 13 slot; drive the joints from crane_solve"
+   }
+  },
+  "Pick_Point_02": {
+   "t": [
+    -0.65,
+    1.9,
+    19.5
+   ],
+   "world": [
+    639.35,
+    19.5
+   ],
+   "extras": {
+    "kind": "crane_target",
+    "box_base": true,
+    "box_yaw_deg": 0,
+    "crane_solve": {
+     "slew_rad": -1.6705,
+     "trolley_m": 12.562,
+     "hoist_m": 15.3,
+     "hook_yaw_rad": 1.6705
+    },
+    "note": "box Base sits here; hook target = this + (0, box height, 0); crane_solve = joint values with the box hanging at rest here",
+    "slot": "FB-05 Bed_Slot_02",
+    "baked_clips": "crane untouched (A&A 8:31 PM): crane_lift / crane_swing keys still hang the hook over the old z 13 slot; drive the joints from crane_solve"
+   }
+  },
+  "Road_Entry": {
+   "t": [
+    -48,
+    0,
+    23
+   ],
+   "world": [
+    592,
+    23
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Spur_Taper_In_A",
+    "world_xz": [
+     592,
+     23
+    ]
+   }
+  },
+  "Turn_Start": {
+   "t": [
+    27.5,
+    0,
+    23
+   ],
+   "world": [
+    667.5,
+    23
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Turn_End",
+    "world_xz": [
+     667.5,
+     23
+    ],
+    "turn": {
+     "center_gltf": [
+      27.5,
+      0,
+      27.5
+     ],
+     "radius_m": 4.5,
+     "dir": "right (+X -> +Z -> -X)",
+     "deg": 180
+    }
+   }
+  },
+  "Turn_End": {
+   "t": [
+    27.5,
+    0,
+    32
+   ],
+   "world": [
+    667.5,
+    32
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 180,
+    "next": "Road_Exit",
+    "world_xz": [
+     667.5,
+     32
+    ]
+   }
+  },
+  "Road_Exit": {
+   "t": [
+    -48,
+    0,
+    32
+   ],
+   "world": [
+    592,
+    32
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 180,
+    "world_xz": [
+     592,
+     32
+    ]
+   }
+  },
+  "Crane": {
+   "t": [
+    0.6,
+    0,
+    7
+   ],
+   "world": [
+    640.6,
+    7
+   ],
+   "extras": {
+    "prop": "PC-1 pad crane (hammerhead tower crane, RC-1 joint convention)",
+    "origin": "ground centre of the footing at pad-local glTF (x 0.6, z 7.0) = world (640.6, 0, 7); jib points +X at Slew = 0",
+    "slew_min_rad": -3.141592653589793,
+    "slew_max_rad": 3.141592653589793,
+    "trolley_min_m": 2.6,
+    "trolley_max_m": 14.2,
+    "hoist_min_m": 0.6,
+    "hoist_max_m": 18.3,
+    "hook_drop_m": 0.95,
+    "sheave_y": 19.65,
+    "slew_y": 19,
+    "jib_y": 20,
+    "hook_rest_local_y": -2.3,
+    "box_size_m": [
+     2.3,
+     1.5,
+     1.3
+    ],
+    "box_hook_offset_y": 1.5,
+    "slew_keep_out_rad": [],
+    "slew_note": "free 360 deg: crane is 20.0 m from the ship axis, jib tip (15 m) stays 1.0 m off the hull",
+    "joints": "Slew: rotation.y = theta (rad) about +Y, jib direction (cos theta, 0, -sin theta). Trolley: position.x = r (glTF rest value = trolley_min_m). Hoist: scale.y = cable length L (m). Hook: position.y = hook_rest_local_y + 1 - L (Hook world y = sheave_y - L - hook_drop_m), rotation.y = box_yaw - theta. Solve for a hook target (x, y, z) in crane space: theta = atan2(-z, x), r = hypot(x, z), L = sheave_y - y - hook_drop_m. If slew_keep_out_rad is not empty, never slew through it.",
+    "poses": "{\"pick_low\": [-2.2896, 7.9726, 15.3, 2.2896], \"pick_high\": [-2.2896, 7.9726, 14.3, 2.2896], \"drop_high\": [3.1089, 10.7057, 14.3, -3.1089], \"drop_low\": [3.1089, 10.7057, 16.9, -3.1089], \"bay_low\": [3.078, 5.5111, 16.9, -3.078], \"bay_high\": [3.078, 5.5111, 3.042, -3.078], \"hold_high\": [1.5732, 13.5148, 3.042, -1.4859], \"hold_low\": [1.5732, 13.5148, 4.292, -1.4859]}",
+    "clips": "crane_lift 2.0s, crane_swing 3.0s, crane_lower 2.0s, crane_lift_bay 3.0s, crane_swing_hold 3.0s, crane_lower_hold 1.5s"
+   }
+  },
+  "Spur_Taper_In_A": {
+   "t": [
+    -20.5,
+    0,
+    23
+   ],
+   "world": [
+    619.5,
+    23
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Spur_Taper_In_B",
+    "world_xz": [
+     619.5,
+     23
+    ],
+    "note": "pick spur: straight taper south off the z 23 lane"
+   }
+  },
+  "Spur_Taper_In_B": {
+   "t": [
+    -3,
+    0,
+    19.5
+   ],
+   "world": [
+    637,
+    19.5
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Truck_Stop",
+    "world_xz": [
+     637,
+     19.5
+    ],
+    "taper_in_yaw_deg": 11.31,
+    "note": "end of the in-taper; bay z 19.5 straight from here"
+   }
+  },
+  "Spur_Taper_Out_A": {
+   "t": [
+    8,
+    0,
+    19.5
+   ],
+   "world": [
+    648,
+    19.5
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Spur_Taper_Out_B",
+    "world_xz": [
+     648,
+     19.5
+    ],
+    "taper_out_yaw_deg": -11.31,
+    "note": "straight taper back north to the z 23 lane"
+   }
+  },
+  "Spur_Taper_Out_B": {
+   "t": [
+    25.5,
+    0,
+    23
+   ],
+   "world": [
+    665.5,
+    23
+   ],
+   "extras": {
+    "kind": "road_leg",
+    "yaw_deg": 0,
+    "next": "Turn_Start",
+    "world_xz": [
+     665.5,
+     23
+    ],
+    "note": "back on the z 23 lane"
+   }
+  }
+ },
+ "path_pad": [
+  [
+   -48,
+   23
+  ],
+  [
+   -20.5,
+   23
+  ],
+  [
+   -3,
+   19.5
+  ],
+  [
+   3,
+   19.5
+  ],
+  [
+   8,
+   19.5
+  ],
+  [
+   25.5,
+   23
+  ],
+  [
+   27.5,
+   23
+  ]
+ ],
+ "path_world": [
+  [
+   592,
+   23
+  ],
+  [
+   619.5,
+   23
+  ],
+  [
+   637,
+   19.5
+  ],
+  [
+   643,
+   19.5
+  ],
+  [
+   648,
+   19.5
+  ],
+  [
+   665.5,
+   23
+  ],
+  [
+   667.5,
+   23
+  ]
+ ]
+}
