@@ -226,7 +226,9 @@ const CAM_OVERRIDE = {
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (PX = 640, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
-  '93c44166': { glb: 'refinery d6389a7 (re-keyed from b45b4649, same 3c5e6f8 framing)', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },
+  // Art 141b354 refinery_bridge_footprint.json camera_proposed (frames the Refinery + CV-3 bridge; v5.3 footprint is within v5.2's): Cam_Target world (318.9, 2.08, 13.55),
+  // W 38.25; angle unchanged. Was ct x -6.9 / frame_w FW_REF 37.5 (the bridge's south tower cropped ~55 px on the right at 393 and 375).
+  '93c44166': { glb: 'refinery d6389a7 + bridge 5d862767 v5.3 (Art 141b354 official Refinery box)', ct: { x: -1.1, y: 2.08, z: 13.55 }, frame_w: 38.25 },
   'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },   // Art 3c5e6f8 final: Cam_Target world (313.1, 2.08, 13.55), W 37.5
 };
 const camOvFor = (url) => { const m = /[?&]v=([0-9a-f]{8})/.exec(url || ''); return m && CAM_OVERRIDE[m[1]] ? Object.assign({ md5: m[1] }, CAM_OVERRIDE[m[1]]) : null; };
@@ -308,6 +310,18 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
   fitSite(G.i);
   (window.__ps3d.stationsLoaded = window.__ps3d.stationsLoaded || []).push(STATIONS[G.i]);
 }, undefined, (e) => { console.warn('station GLB failed, keeping gray box', G.url, e); if (G.i === 2) routeReady('ref'); });
+// ===== CV-3 Refinery box bridge v5.3 (Art e661ba1, md5 5d862767…, 4 draws; open-front lowerator, drop-in for v5.2 bc081489). Load-and-place only:
+// its root Refinery_Bridge is already at Refinery-local (12.28, 0, 12.25), so the scene sits at the Refinery origin (RX, 0, 0) with no offset (the
+// Refinery is station REF = 2 in the 10/24 order too). Scenery loop: GLB clips roller_spin + box_convey loop (box_convey scales/drives Box_1..3), no tie to cargo/saves/pallets;
+// the cargo sim (pallet → RC-1 → FB-05) is unchanged. Spans flatbed lane E (z 13) at deck underside y 7.25. ?bridge=off skips it.
+const BRIDGE_GLB = '../live/models/refinery_bridge_5d862767.glb?v=5d862767';
+if (Q.get('bridge') !== 'off') loader0().load(BRIDGE_GLB, (g) => {
+  const o = g.scene; o.name = 'Refinery_Bridge_Art'; o.position.set(RX, 0, 0);
+  const bmx = new THREE.AnimationMixer(o); stationMixers.push(bmx); // scenery loop only
+  for (const c of ['roller_spin', 'box_convey']) { const k = THREE.AnimationClip.findByName(g.animations, c); if (k) bmx.clipAction(k).setLoop(THREE.LoopRepeat).play(); }
+  o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.isSkinnedMesh) m.frustumCulled = false; } });
+  scene.add(o); o.updateMatrixWorld(true); window.__ps3d.bridge = { on: true, url: BRIDGE_GLB, obj: o };
+}, undefined, (e) => console.warn('refinery bridge GLB failed (Refinery shows without it)', BRIDGE_GLB, e));
 
 // ===== B1 (Playtester 20:58): the truck timeline is final only once BOTH marker sets are in (Mine Path_Out_*/Path_Ret_*, Refinery Truck_*), or
 // their GLB failed (then the README fallback stands). Until then nothing settles: no offline catch-up, no dumps, no cargo sim on the temp route.
