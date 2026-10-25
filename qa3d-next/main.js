@@ -1877,6 +1877,58 @@ function cargoUI() {                  // Launch button (bottom-right of the safe
   if (pc !== FG.p) { FG.p = pc; fgPct.textContent = k === 'away' || k === 'land' ? '—' : pc + '%'; }
 }
 
+// ===== Cargo Bay label (Director 10/25): floating 'CARGO BAY' / '<stored>/<max> crates' over the Cargo Space Dock, in the FUEL panel's HUD style.
+// Read-only from outside the Dock code: stored = S.cg.dk (the save state the cargo sim changes when a store / load finishes), max = CPH.dock.cap, and
+// the Dock root stationObjs[DOCKI] for its geometry. Polled every frame from frame(); the DOM is written only when a shown value changes (no allocation
+// in steady state). Placement: centred on the Dock building (visible vertices above CB.yMin), bottom CB.gap px above its projected top, inside band().
+// The camera looks straight down −Z (no azimuth), so a point's screen y depends only on its (y, z): the building's (z, y) convex hull, built once on the
+// first show, holds every candidate for its top. Those few points (and the anchor) are projected each frame through one reused Matrix4 (projection × view)
+// into locals and a Float64Array, so no number is stored into an object field per frame (Node harness: 0 GCs over 10^6 steady frames).
+const CB_CSS = '#cargoBay{position:fixed;left:0;top:0;z-index:5;width:112px;height:36px;display:none;pointer-events:none;isolation:isolate;padding:6px 10px 0 12px;box-sizing:border-box;will-change:transform}' +
+  '#cargoBay.on{display:block}' +
+  "#cargoBay::before,#cargoBay::after{content:'';position:absolute;z-index:-1;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}" +
+  '#cargoBay::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}#cargoBay::after{inset:1px;background:linear-gradient(180deg,#1a1f2ef2,#0b101cf2)}' +
+  '#cargoBay b{display:block;height:12px;white-space:nowrap;font:800 9px/12px system-ui;font-stretch:condensed;letter-spacing:.2em;color:#9fdff5}' +
+  '#cargoBay em{display:block;margin-top:2px;height:12px;white-space:nowrap;font:800 11px/12px system-ui;font-style:normal;font-variant-numeric:tabular-nums;color:#eafcff;text-shadow:0 0 6px #3ad0ff99}' +
+  '#cargoBay.full::before{background:linear-gradient(110deg,#ffb340,#ffd58a 45%,#ff7a00aa);filter:drop-shadow(0 0 8px #ff7a0088)}' +
+  '#cargoBay.full b{color:#ffd58a;text-shadow:0 0 8px #ff7a00cc}#cargoBay.full em{color:#ffe7c2;text-shadow:0 0 6px #ff7a0099}';
+const cbEl = document.createElement('div'); cbEl.id = 'cargoBay'; cbEl.setAttribute('role', 'status'); cbEl.setAttribute('aria-label', 'Cargo Space Dock storage');
+cbEl.innerHTML = '<b>CARGO BAY</b><em>0/0 crates</em>';
+{ const st = document.createElement('style'); st.textContent = CB_CSS; document.head.appendChild(st); document.body.appendChild(cbEl); }
+const cbTxt = cbEl.querySelector('em').firstChild;
+const CB = { on: false, n: -1, m: -1, full: false, x: -1e9, y: -1e9, w: 112, h: 36, gap: 6, yMin: .4, hull: null, x0: 0, x1: 0, ay: 0, az: 0, bd: null };   // last written values
+const _cbV = new THREE.Vector3(), _cbM = new THREE.Matrix4(), _cbO = new Float64Array(3);   // _cbV: build-time only
+addEventListener('resize', () => { CB.bd = null; });   // the band only moves on resize / rotation while the label can show (it hides while the sheet is open)
+function cbHull(o) {                   // once: the Dock building's (z, y) convex hull (monotone chain) + its x span and highest point (the label's x anchor)
+  o.updateMatrixWorld(true); const v = _cbV, P = []; let x0 = 1e9, x1 = -1e9, ay = -1e9, az = 0;
+  o.traverse(m => { if (!m.isMesh) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const p = m.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld); if (v.y <= CB.yMin) continue; P.push([v.z, v.y]); if (v.x < x0) x0 = v.x; if (v.x > x1) x1 = v.x; if (v.y > ay) { ay = v.y; az = v.z; } } });
+  P.sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+  for (const p of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  const h = lo.slice(0, -1).concat(up.slice(0, -1)), f = new Float32Array(h.length * 2); h.forEach((p, i) => { f[2 * i] = p[1]; f[2 * i + 1] = p[0]; });
+  Object.assign(CB, { hull: f, x0, x1, ay, az }); window.__ps3d.cargoBay = CB;
+}
+function cargoBayLabel() {
+  const o = stationObjs[DOCKI], c = S.cg; let on = !!o && !document.hidden && !sheetOpen && !document.body.classList.contains('sheet-drag'), x = 0, y = 0;
+  if (on) { if (!CB.hull) cbHull(o);
+    const hl = CB.hull, cx = (CB.x0 + CB.x1) / 2, e = _cbM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements; let top = 1e9, behind = false;
+    for (let i = 0; i < hl.length; i += 2) { const y = hl[i], z = hl[i + 1], w = e[3] * cx + e[7] * y + e[11] * z + e[15]; if (w <= 0) { behind = true; continue; }
+      const sy = (1 - (e[1] * cx + e[5] * y + e[9] * z + e[13]) / w) / 2 * H; if (sy < top) top = sy; }
+    { const y = CB.ay, z = CB.az, w = e[3] * cx + e[7] * y + e[11] * z + e[15]; _cbO[0] = ((e[0] * cx + e[4] * y + e[8] * z + e[12]) / w + 1) / 2 * W; _cbO[2] = w; }   // the Dock anchor: building top centre
+    const ax = _cbO[0]; if (_cbO[2] <= 0) behind = true;
+    if (behind || !(ax >= 0 && ax <= W)) on = false;          // Dock off screen (or behind the camera)
+    else { if (!CB.bd) CB.bd = band(); const bd = CB.bd;
+      x = Math.round(clamp(ax - CB.w / 2, bd.l, bd.r - CB.w)); y = Math.round(Math.min(top - CB.gap, bd.bot) - CB.h);
+      if (y < bd.top) on = false; } }                          // no room between the HUD band and the Dock's top: hide rather than cover either
+  if (on !== CB.on) { CB.on = on; cbEl.classList.toggle('on', on); }
+  if (!on) return;
+  if (x !== CB.x || y !== CB.y) { CB.x = x; CB.y = y; cbEl.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
+  const n = c.dk, m = CPH.dock.cap;
+  if (n !== CB.n || m !== CB.m) { CB.n = n; CB.m = m; cbTxt.nodeValue = n + '/' + m + ' crates'; const f = n >= m; if (f !== CB.full) { CB.full = f; cbEl.classList.toggle('full', f); } }
+}
+// ===== end Cargo Bay label
+
 // ===== upgrade juice: spark burst (1 Points draw, ~0.5 s) + squash-and-bounce (~0.35 s)
 const SPK = 48, spkPos = new Float32Array(SPK * 3), spkVel = new Float32Array(SPK * 3);
 const spkGeo = new THREE.BufferGeometry(); spkGeo.setAttribute('position', new THREE.BufferAttribute(spkPos, 3));
@@ -2238,7 +2290,7 @@ function frame() {
   for (const m of stationMixers) m.update(gdt);
   updFillArc();
   updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updTiers(dt);
-  updEve(); updConveyor();
+  updEve(); updConveyor(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
   renderer.render(scene, camera);
