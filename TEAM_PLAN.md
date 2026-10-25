@@ -80,6 +80,7 @@ Approved by Game Director. This is the target the Mine A loop is built toward.
 - Jacob gives the cue on Eve's portrait.
 
 ## Crew check gates
+- Swing time: a swing runs from the last frame a foot is within 2 cm of its surface (lowest sole point) before it lifts, to the first frame it is back within 2 cm or on a rung. It must be under 0.6 s. Art aims for 0.55 s (Director, 2026-10-24).
 - Ladder start: each climber's ladder start must be no more than 0.100 s from baseline, with a 1 ms float tolerance (Director, 2026-10-24 4:49 PM). Inside times, lift-off and BOARD_SEC must stay unchanged.
 
 ## Known issues
