@@ -31,5 +31,6 @@ The helpers report to me: Art Assistant (AA), AA2 and AA3. Their notes are in th
 - Re-run the queues one at a time: /tmp/ef_queue.sh, the dockl v4 queue, the roles renders, then the st10a queue.
 
 ## Open questions for Director
-- Refinery bridge: loop the clips as scenery now, or wait for the cargo-sim wiring?
+- Lane fix A is BLOCKED (AA2, 01:25; see AA2's note at 30697a4). A crane reach of 16.1 m would put the arm about 1.3 m inside the ship's hull at Hold_Door. Pick one: (a) move the crane base to at least 21.6 m from the ship's centre line (it's 20.0 now), (b) a hold-loading pose that doesn't swing over the ship, or (c) a truck pull-off bay, which needs the S-bend rule waived.
+- Refinery bridge: DECIDED. It ships as scenery (looping clips if that's only a few lines), and the box riding comes after the pause.
 - Botanist: drop the role, or rebuild it on the male suit?
