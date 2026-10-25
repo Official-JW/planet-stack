@@ -13,8 +13,17 @@ Written 10/25/2026 01:25 PT. The team is pausing because Jacob's weekly usage is
   - Truck_Stop moves to (642.85, 0, 23).
   - Draws and file size stay the same or smaller, and the deliverable is one 375 still.
   - BLOCKED at 01:25 PT, nothing built or committed. Reaching 16.1 m means the arm tip sits at about 17.2 m, but the ship's hull is only 15.95 m from the crane's centre at arm height (the current tip is 15.29 m, so 0.66 m clear). At the Hold_Door pose (slew 1.57) the longer arm would sit about 1.3 m inside the hull. The plan's other option (base at z ≥ 8.9) needs 15.4 m to reach Hold_Door, past the 14.2 m maximum.
-  - Waiting on a Director pick: (a) move the crane base to at least about 21.6 m from the ship's centre line (it's 20.0 m now), (b) approve a hold-loading pose that doesn't swing the arm over the ship, or (c) allow a truck pull-off bay, which needs the S-bend ruling waived.
+  - 01:27 PT: Director picked (a), and A&A says do it tonight, after the cockpit still. This is the second and last try; if it still clashes with the ship, park it here. Original options: (a) move the crane base to at least about 21.6 m from the ship's centre line (it's 20.0 m now), (b) approve a hold-loading pose that doesn't swing the arm over the ship, or (c) allow a truck pull-off bay, which needs the S-bend ruling waived.
   - The U-turn and Truck_Stop move are quick on their own, but they leave the truck where the crane can't reach it. Inspection scripts are in /workspace/lane0125.
+  - 01:57 PT Director: the z 13 lanes stay, the lane move is PARKED. f6af441 (lane fix A, 1b25bff2, z 23 lane + U-turn at x 647) is kept in git for if the lanes ever move; numbers below.
+  - NOW LIVE in launch_pad_next.glb (z 13 version, commit see git log 10/25 ~02:0x): md5 903b59baca55b844ae82c869efe2b9f7, 350,088 B, 15 draws, 29,601 tris. Crane base (640.6, 0, 8.8), trolley_max 16.2; roads/Truck_Stop/spur/tapers/U-turn byte-identical to a257d930 (proofs/lane_fix_z13_same_roads_as_a257d930.json). Picks 10.773 m (margin 5.427), Hold_Door 15.315 (0.885), min clearance 0.493 m (Ship, slew 90), road mesh 6.46 m from the crane footing. Scripts _src/lane_fix_z13_*.mjs, proofs/lane_fix_z13_*.json.
+  - PARKED f6af441 (try 2, option a). launch_pad_next.glb a257d930 -> 1b25bff22ba1e45520c5b29344b0b134, 347,760 B, 15 draws, 29,505 tris, meshopt + quantization.
+    - Crane base moved to pad-local (0.6, 0, 8.8) = world (640.6, 0, 8.8), 21.81 m from the ship centre line. trolley_max 16.2 m (jib stretched past x 5 m, tip 17.28 m).
+    - Reach: Pick_Point 14.243 (margin 1.957), Pick_Point_02 14.269 (1.931), Hold_Door 15.315 (0.885), bays 5.905-12.76. All 17 crane targets solve within 0.6 mm.
+    - Clearance, full 360 slew, jib + glow vs every visible part: min 0.493 m (Ship_Placeholder at slew 90, the Hold_Door direction). Truck pickup slews: nothing within 0.5 m. Footing 2.65 m from the nearest part, 9.9 m from the road edge.
+    - Road: spur ribbon (192 v / 96 t) and Spur_Taper_In_A/B, Spur_Taper_Out_A/B removed; r 4.5 U-turn round (647, 27.5); Truck_Stop (642.85, 0, 23) heading +X. Truck path vs pad: 9.9 m clear (nearest = crane footing), 11.05 m to Pad_Base.
+    - All six crane_* clips re-keyed to the new solves. Frame at 375: worst spare 5.3 px (Ship top, same as before), Truck 150 px to HUD, Crane_Reach (360 sweep) 94.7 px.
+    - Coder: game constants for the crane base need z 8.8 if they don't read the markers. Scripts: launch_pad/_src/lane_fix_a_*.mjs, proofs/lane_fix_a_*.json.
 
 ## Half done (not committed, files left in place)
 - `/workspace/pad_fuelline/launch_pad_game_lv1ship.glb`, md5 `1042e76793da1f97a9837a4a823873f0`.
@@ -34,7 +43,7 @@ Written 10/25/2026 01:25 PT. The team is pausing because Jacob's weekly usage is
 - Status log: `/tmp/lp_lv1/STATUS.md`. It's in /tmp, so it may not survive.
 
 ## Next, in order (after the restart)
-1. Lane fix A, once Director picks a, b or c. Then and send A&A the hash, the md5, the reach and the 375 still.
+1. Done 02:0x: cockpit glow-on still and the crane base move with z 13 lanes kept (see above; lane move parked). Send A&A the hash, md5, reach and 375 still if not already sent.
 2. The cockpit window glow-on and glow-off stills at 375 (lv1ship 1042e767). They were held for Coder's crew tag.
 3. The Lv1 ship aft skirt fit at Engine_Ring_Mount, using `art/vfx/engine_flame/aft_skirt/` as it is (aft_skirt_N06..N11, engine_ring_N06..N11, layout.json). A&A will shrink it for iPhone.
 4. The cargo door crawler move (lv1door 2c287db2).
@@ -48,3 +57,13 @@ Written 10/25/2026 01:25 PT. The team is pausing because Jacob's weekly usage is
 - Push with `git pull --rebase --autostash origin main`.
 - Commit only my own launch_pad paths.
 - When told to stop, stop only my own workers.
+
+
+## Update 10/25/2026 02:10 PT (final before the stop)
+- Director: the pad keeps a257d930. launch_pad_next.glb is restored to a257d930 in the repo.
+- PARKED crane moves, kept for if the lanes ever move or the crane is revisited. Both are in `art/3d/buildings/launch_pad/_parked_crane/`:
+  - c0639c1: md5 903b59ba. Crane base at z 8.8 with the z 13 roads; both picks 10.77 m and Hold_Door 0.885 m spare; 0.493 m hull clearance.
+  - f6af441: md5 1b25bff2. Crane base at z 8.8 with the z 23 lane and the new U-turn.
+- COMMITTED for Coder: `art/3d/buildings/launch_pad/launch_pad_game_lv1ship.glb`, md5 1042e767 (cockpit window, Cockpit_Window and Engine_Ring_Mount nodes, plus the Lv1 door changes). The note is `lv1/CHANGES_lv1ship_1042e767.md` and the still is `lv1/proofs/lv1ship_1042e767_cockpit_glow_on_375.png`. It hasn't been re-checked against the live cage or gate.
+- I added a line about the verifier change to LESSONS.md (untracked, approved by Director).
+- After the pause: (1) the aft skirt fit, (2) the cockpit glow-off still, (3) the cargo door crawler move. The ladder and cage stay stopped.
