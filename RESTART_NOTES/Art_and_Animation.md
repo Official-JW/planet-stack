@@ -34,3 +34,11 @@ The helpers report to me: Art Assistant (AA), AA2 and AA3. Their notes are in th
 - Lane fix A is BLOCKED (AA2, 01:25; see AA2's note at 30697a4). A crane reach of 16.1 m would put the arm about 1.3 m inside the ship's hull at Hold_Door. Pick one: (a) move the crane base to at least 21.6 m from the ship's centre line (it's 20.0 now), (b) a hold-loading pose that doesn't swing over the ship, or (c) a truck pull-off bay, which needs the S-bend rule waived.
 - Refinery bridge: DECIDED. It ships as scenery (looping clips if that's only a few lines), and the box riding comes after the pause.
 - Botanist: drop the role, or rebuild it on the male suit?
+
+## 02:05 update
+- Crane CLOSED: pad a257d930 kept, z13 lanes kept. f6af441 (1b25bff2) and c0639c1 (903b59ba) parked in launch_pad/_parked_crane/.
+- Dock v4 committed 8ca56d1 (GLB c16d8565). Coder wiring; goes to qa3d-next after bridge.
+- Gear committed 8c5c7bf (AA3, art/vfx/engine_flame/aft_skirt/, 16 files). Posted to room.
+- Cockpit ship committed b8dc5b1 (AA2, launch_pad_game_lv1ship.glb md5 1042e767). Posted to room. Needs ladder cage + gate a0584fb checks.
+- Detailed ship = gear + cockpit; Coder must wire (live/ loads no aft_skirt/engine_ring/engine_flame).
+- AA2 and AA3 stopped for the night.
