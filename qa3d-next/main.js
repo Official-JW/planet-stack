@@ -88,6 +88,14 @@ const save = () => { try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } c
 const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
 const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP, REF = 2, RX = REF * GAP;   // stations 160 m apart, origin = i·160 on X
 const DOCKI = 3, PADI = 4, SHIPI = 5, HABI = 6;   // Cargo Space Dock x 480, Launch Pad x 640, Shipyard x 800, Habitat x 960
+// ===== pad REST camera (Director 10/25): the ship nodes the rest view is fitted to. A new pad / ship file only needs these names checked
+// (node /workspace/padcam_work/padfit.mjs <pad.glb> prints the fit). Every visible mesh under a matched node counts (skinned legs at their pose).
+// hull: whole-ship nodes; legs: landing-leg nodes (exact names or the regex). Both must match, else the CAM_OVERRIDE / Cam_Target rest frame is used.
+const SHIP_FIT = {
+  hull: ['Ship_Placeholder', 'Ship_Hull', 'Ship'],                    // 1042e767: Ship_Placeholder (hull mesh; the aft skirt hangs under its Engine_Ring_Mount)
+  legs: ['Aft_Skirt_Module', 'Landing_Legs', 'Gear'],                 // 1042e767: Aft_Skirt_Module = aft_skirt_N06 (skinned Aft_Skirt_N06_Mesh + Gear_Leg/Knee/Foot_0..3)
+  legRe: /^(Gear_(Leg|Knee|Foot)_\w+|Landing_Leg\w*|Leg_\w+|Foot_\w+|Footpad\w*)$/,
+};
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (t) => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
@@ -223,7 +231,7 @@ const CAM_OVERRIDE = {
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
-  '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,
+  '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -284,6 +292,7 @@ function fitSite(i) {
     if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
     const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
     SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - i * GAP, dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
+    if (i === PADI) padRestApply();   // pad: the ship fit replaces this (kept as the fallback)
     return;
   }
   // no Cam_Target yet: fit the visible bounds whole inside the band between the HUD and the bar
@@ -764,9 +773,9 @@ function padLoadPts() {
     for (const x of [D.min.x, D.max.x]) for (const z of [D.min.z, D.max.z]) { for (const y of [D.min.y, D.max.y]) V(o.x + x, o.y + y, o.z + z); V(o.x + x + ox, o.y + D.min.y, o.z + z + oz); } }   // shut + swung out flat (shelf)
   return pts;
 }
-function padLoadFit(pts) {             // fitBox's method on a point set, from close in outwards (3% a step), with a fractional margin
+function padLoadFit(pts, k0 = .05) {   // fitBox's method on a point set, from close in outwards (3% a step), with a fractional margin; k0 = start (rest fit: just outside the subject)
   const mc = camera.clone(); mc.clearViewOffset(); const bd = band(), mx = PADCAM.margin * W, my = PADCAM.margin * (bd.bot - bd.top), e = THREE.MathUtils.degToRad(CAM.elev), vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const bb = new THREE.Box3().setFromPoints(pts), t = { lx: (bb.min.x + bb.max.x) / 2, ly: Math.max(0, (bb.min.y + bb.max.y) / 2), lz: (bb.min.z + bb.max.z) / 2, k: .05 }, p = { x: 0, y: 0, z: 0 };
+  const bb = new THREE.Box3().setFromPoints(pts), t = { lx: (bb.min.x + bb.max.x) / 2, ly: Math.max(0, (bb.min.y + bb.max.y) / 2), lz: (bb.min.z + bb.max.z) / 2, k: k0 }, p = { x: 0, y: 0, z: 0 };
   const ext = () => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, bh = false; for (const v of pts) { toScreen(v.x, v.y, v.z, mc, p); if (p.z > 1) bh = true; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); } return { x0, x1, y0, y1, bh }; };
   for (let n = 0; n < 240; n++, t.k *= 1.03) {
     for (let it = 0; it < 4; it++) { poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = ext(); if (s.bh) break;
@@ -775,6 +784,41 @@ function padLoadFit(pts) {             // fitBox's method on a point set, from c
     if (!s.bh && s.x0 >= mx && s.x1 <= W - mx && s.y0 >= bd.top + my && s.y1 <= bd.bot - my) return Object.assign(t, { fit: true, spare: { l: s.x0, r: W - s.x1, t: s.y0 - bd.top, b: bd.bot - s.y1 }, band: [bd.top, bd.bot], n: pts.length });
   }
   return null;
+}
+// ===== pad REST frame (Director 10/25): tighter on the ship so the landing legs read at 393×852 / 375×812. padRestPts() = the ship's SHIP_FIT meshes
+// (hull + legs, gear posed legs-down) at the ship's pad rest height, thinned to support points (0.5 m y slices × 16 directions); padLoadFit() fits
+// them inside the HUD–bar band with the same PADCAM.margin. Re-run on every fitSite(PADI) (pad load, aft skirt load, resize); fallback = CAM_OVERRIDE / Cam_Target.
+function padRestPts() {
+  const o = cg3.padArt, sh = cg3.ship; if (!o || !sh) return null;
+  const pick = (names, re) => { const r = []; o.traverse(n => { if (names.includes(n.name) || (re && re.test(n.name))) r.push(n); }); return r; };
+  const hullN = pick(SHIP_FIT.hull), legN = pick(SHIP_FIT.legs, SHIP_FIT.legRe); if (!hullN.length || !legN.length) return null;
+  const G = cg3.gear, repose = !!(G && G.ph !== 'pad'); if (repose) G.update('land', 0, 0);   // legs down (the pad pose); updGear re-poses next frame
+  try {
+    sh.updateMatrixWorld(true); const dy = (cg3.shipY0 != null ? cg3.shipY0 : sh.position.y) - sh.position.y, ax = sh.getWorldPosition(new THREE.Vector3());
+    const shown = (m) => { for (let q = m; q && q !== o && q !== sh; q = q.parent) if (!q.visible) return false; return true; };
+    const meshes = new Set(), used = { hull: [], legs: [] };
+    const add = (n, key) => { let k = 0; n.traverse(m => { if (m.isMesh && m.geometry && m.geometry.attributes.position && shown(m)) { meshes.add(m); k++; } }); if (k || n.isBone) used[key].push(n.name); };
+    hullN.forEach(n => add(n, 'hull')); legN.forEach(n => add(n, 'legs'));
+    const ND = 16, SL = .5, best = new Map(), v = new THREE.Vector3(), dirs = [...Array(ND)].map((_, j) => [Math.cos(2 * Math.PI * j / ND), Math.sin(2 * Math.PI * j / ND)]);
+    let n = 0;
+    for (const m of meshes) { const p = m.geometry.attributes.position, sk = m.isSkinnedMesh && m.skeleton;
+      for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); if (sk) m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); v.y += dy; n++;
+        const sl = Math.floor(v.y / SL), rx = v.x - ax.x, rz = v.z - ax.z;
+        for (let j = 0; j < ND; j++) { const key = sl * ND + j, d = rx * dirs[j][0] + rz * dirs[j][1], b = best.get(key); if (!b || d > b.d) best.set(key, { d, x: v.x, y: v.y, z: v.z }); } } }
+    if (!n) return null;
+    const pts = []; for (const b of best.values()) pts.push(new THREE.Vector3(b.x, b.y, b.z));
+    pts.nodes = used; pts.verts = n; return pts;
+  } finally { if (repose) G.ph = ''; }
+}
+const padRestK0 = (pts) => { const s = new THREE.Box3().setFromPoints(pts).getBoundingSphere(new THREE.Sphere()); return 1.2 * s.radius / camera.userData.dist; };   // camera starts outside the ship (from closer in the centring runs away)
+function padRestApply() {              // after fitSite(PADI) set the override frame: replace it with the ship fit when the ship nodes are there
+  const C = SITECAM[PADI]; if (!C || !cg3.padArt) return;
+  let pts = null, t = null; try { pts = padRestPts(); t = pts && padLoadFit(pts, padRestK0(pts)); } catch (e) { console.warn('pad rest camera: fit failed', e); }
+  if (!t) { C.rest = 'override'; window.__ps3d.padRest = { src: 'override', why: pts ? 'no fit' : 'ship nodes missing' }; return; }
+  const fw = 2 * camera.userData.dist * t.k * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+  SITECAM[PADI] = { k: t.k, dx: t.lx - PADI * GAP, dz: t.lz, ly: t.ly, ct: true, d: camera.userData.dist * t.k, fw, ov: C.ov, rest: 'fit', spare: t.spare, band: t.band, n: t.n };
+  window.__ps3d.padRest = { src: 'fit', ct: [+(t.lx - PADI * GAP).toFixed(2), +t.ly.toFixed(2), +t.lz.toFixed(2)], frame_w: +fw.toFixed(2), k: +t.k.toFixed(4),
+    spare: Object.fromEntries(Object.entries(t.spare).map(([k, x]) => [k, +x.toFixed(1)])), band: t.band, n: t.n, verts: pts.verts, nodes: pts.nodes, fallback: { ct: C.ov ? 'override ' + C.ov : 'Cam_Target', frame_w: +(C.fw || 0).toFixed(2) } };
 }
 function padLoadTarget() {             // lazily, once per fitSite (pad load / resize): SITECAM[PADI].load in fitSite's shape
   const C = SITECAM[PADI], o = stationObjs[PADI]; if (!C || C.load !== undefined || !o || !camera.userData.dist) return C && C.load;
@@ -1540,13 +1584,22 @@ function padFromMarkers(root) {
 }
 // Jacob rule: nothing of the pad stands in the road band (+ 1 m). Every ground-level mesh of the pad group, the ship and the pad slab (station PADI) is checked;
 // the crane's slewing jib / trolley / hook are overhead (they must swing over FB-05) and are skipped. Result in __ps3d.padRoad; violations are console errors.
+// Director 10/25 (crane base at pad-local 3.5, 0, 8.32; AA1 b21ef9de): ONLY the pad crane PC-1 (meshes under the node named 'Crane') is exempt from the 1 m buffer,
+// and only by its measured footing overlap (footing z max 9.82 = 0.62 m into the buffer; + 1 cm). It is tested on its low vertices (y ≤ 2.5, skinned rest pose), not its
+// bounding box (the one skinned mesh spans the overhead jib). The road band itself (z 10.2–24.8) stays closed to it; everything else keeps the full 1 m buffer.
+const PAD_ROAD_EXC = { node: 'Crane', overlap: 0.62, tol: 0.01 };
 function padRoadCheck() {
   const B = CPH.padRoad, z0 = B.z0 - B.clear, z1 = B.z1 + B.clear, bb = new THREE.Box3(), hits = [], roots = [cg3.pg, cg3.padArt ? null : cg3.ship, phBox[PADI]].filter(Boolean);
   const skip = (n) => { for (let q = n; q; q = q.parent) if (q.name === 'Slew' || q.name === 'Road_UTurn' || !q.visible) return true; return false; };   // overhead jib / the road's own U-turn / hidden tiers
+  const exc = (n) => { for (let q = n; q; q = q.parent) if (q.name === PAD_ROAD_EXC.node) return true; return false; }, ze0 = z0 + PAD_ROAD_EXC.overlap + PAD_ROAD_EXC.tol, lv = new THREE.Vector3();
+  const lowBox = (n) => { const pa = n.geometry.attributes.position; bb.makeEmpty(); for (let i = 0; i < pa.count; i++) { lv.fromBufferAttribute(pa, i); if (n.isSkinnedMesh) n.applyBoneTransform(i, lv); lv.applyMatrix4(n.matrixWorld); if (lv.y <= 2.5) bb.expandByPoint(lv); } return bb; };
   for (const r of roots) { r.updateMatrixWorld(true); r.traverse(n => { if (!n.isMesh || n.material.visible === false || skip(n)) return;
+    if (cg3.padArt && exc(n)) { lowBox(n); if (!bb.isEmpty() && bb.max.z > ze0 && bb.min.z < z1) hits.push({ name: PAD_ROAD_EXC.node + '/' + (n.name || '?'), z: [+bb.min.z.toFixed(2), +bb.max.z.toFixed(2)], x: [+bb.min.x.toFixed(1), +bb.max.x.toFixed(1)], exc: true }); return; }
     bb.setFromObject(n); if (bb.min.y > 2.5) return; if (bb.max.z > z0 && bb.min.z < z1) hits.push({ name: n.name || (n.parent && n.parent.name) || '?', z: [+bb.min.z.toFixed(2), +bb.max.z.toFixed(2)], x: [+bb.min.x.toFixed(1), +bb.max.x.toFixed(1)] }); }); }
-  let zMax = -Infinity; for (const r of roots) r.traverse(n => { if (!n.isMesh || n.material.visible === false || skip(n)) return; bb.setFromObject(n); if (bb.min.y <= 2.5) zMax = Math.max(zMax, bb.max.z); });
-  const res = { ok: !hits.length, hits, padZMax: +zMax.toFixed(2), band: [B.z0, B.z1], clear: B.clear };
+  let zMax = -Infinity, craneZ = null; for (const r of roots) r.traverse(n => { if (!n.isMesh || n.material.visible === false || skip(n)) return;
+    if (cg3.padArt && exc(n)) { lowBox(n); if (!bb.isEmpty()) { zMax = Math.max(zMax, bb.max.z); craneZ = Math.max(craneZ ?? -Infinity, bb.max.z); } return; }
+    bb.setFromObject(n); if (bb.min.y <= 2.5) zMax = Math.max(zMax, bb.max.z); });
+  const res = { ok: !hits.length, hits, padZMax: +zMax.toFixed(2), band: [B.z0, B.z1], clear: B.clear, craneFootZMax: craneZ == null ? null : +craneZ.toFixed(2), craneAllowZ: +ze0.toFixed(2) };
   window.__ps3d.padRoad = res; if (hits.length) console.error('Launch Pad intrudes on the flatbed road band', JSON.stringify(hits)); return res;
 }
 // 10/24 order: the Cargo Space Dock (x 480) now stands between the Refinery and the pad, on the flatbed road. Its GLB was laid for the old order, so its
@@ -1724,6 +1777,7 @@ function shipSkirtLoaded(g, prep) {
   prep.mount.add(sk); sk.updateMatrixWorld(true);
   const gear = createGear(sk); if (!gear) throw new Error('aft skirt: no extras.gear');
   cg3.skirt = sk; cg3.gear = gear; gear.update('land', 0, 0);   // rest: legs down, doors shut
+  if (stationObjs[PADI] === cg3.padArt) fitSite(PADI);   // the pad rest fit needs the landing legs: re-fit now they are in
   window.__ps3d.shipSkirt = { url: SKIRT_GLB, baseY: +prep.baseY.toFixed(3), bellVerts: prep.bells, legVerts: prep.legs, bells: prep.eng, cockpitVerts: prep.cw.n, nozzles: (() => { let n = 0; sk.traverse(o => { if (/^Engine_Nozzle_\d+$/.test(o.name)) n++; }); return n; })() };
 }
 function updGear(s, t, alt) {          // cargo clock: launch rel LO (= launch t0), landing rel TD (= land t0 + landSec)
