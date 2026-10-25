@@ -1,6 +1,9 @@
 // PLATE (A&A / Director 10/24 21:47-21:48): copy of landing_clear.mjs 50dd4b68 + the hatch floor plate as a resting surface for still soles ONLY inside the plate's
 //   real footprint (point-in-polygon on the sole vertex u,t = pad xz, footprint taken from the mesh), same 0-5 mm sink allowance as the deck. Off the plate,
 //   or for any other geometry (hatch sill, jambs, hull, ...), the 3 cm rule is unchanged. PLATE_TEST=1 runs the planted-sole/hand harness and exits.
+// CAGE FROM MESH (A&A 22:50): the 12 hoops + 3 verticals are read from the pad's Ship_Placeholder mesh every run (connected components around the ladder;
+//   fails loudly unless exactly 12 hoops x 7 ring stations and 3 verticals). Capsules = consecutive ring-station centroids, radius = max ring-vertex distance;
+//   cage triangles are labelled cage_hoop / cage_bar only (never hull / other_ship). No hard-coded cage size.
 // CREW=1,2 (A&A 21:51): score only those crew (all crew still simulated); summary.all_crew always has the all-crew score.
 // HELD GRIP (A&A 22:23, = Playtester frozen wb.js 0e8a30b7 gradeHands): a hand/finger vertex (bone /(^|_)(Hand|Finger|Thumb|Index|Middle|Ring|Pinky|Palm)/i) may sink
 //   <= 10 mm into a rung ONLY if it is the rung that hand holds (rung nearest the centroid of that hand's vertices) and the hand is HELD: max distance between any two
@@ -27,6 +30,26 @@ const C = pad.getObjectByName('Ship_Center').getWorldPosition(new THREE.Vector3(
 const LF = pad.getObjectByName('Ladder_Foot').getWorldPosition(new THREE.Vector3());
 const LAD = 330 * Math.PI / 180, LU = [Math.cos(LAD), Math.sin(LAD)], LT = [-LU[1], LU[0]];
 const toUTZ = v => { const bx = v.x - C.x, by = -(v.z - C.z); return [bx * LU[0] + by * LU[1], bx * LT[0] + by * LT[1], v.y]; };
+// ---- cage from the mesh (12 hoops, 3 verticals): connected components of the Ship_Placeholder mesh in the ladder-cage box
+const CAGE = (() => { const ship = pad.getObjectByName('Ship_Placeholder'); let m = null; ship.traverse(o => { if (o.isMesh && !m) m = o; });
+  const pos = m.geometry.attributes.position, idx = m.geometry.index, X = [], v = new THREE.Vector3(); for (let i = 0; i < pos.count; i++) X.push(toUTZ(v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld)));
+  const P = Int32Array.from({ length: pos.count }, (_, i) => i); const fd = i => { while (P[i] !== i) { P[i] = P[P[i]]; i = P[i]; } return i; };
+  for (let k = 0; k < idx.count; k += 3) { const a = fd(idx.getX(k)); P[fd(idx.getX(k + 1))] = a; P[fd(idx.getX(k + 2))] = a; }
+  const comps = new Map(); for (let i = 0; i < pos.count; i++) { const r = fd(i); (comps.get(r) || comps.set(r, []).get(r)).push(i); }
+  const hoops = [], bars = [], verts = new Map();   // verts: vertex index -> 'cage_hoop' | 'cage_bar'
+  for (const vs of comps.values()) { const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (const i of vs) for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], X[i][c]); hi[c] = Math.max(hi[c], X[i][c]); }
+    if (lo[0] < 4.3 || hi[0] > 5.6 || Math.max(-lo[1], hi[1]) > 0.8 || hi[2] < 1) continue;   // ladder-cage box (outboard of the ladder axis u 4.45)
+    if (hi[2] - lo[2] < 0.1 && hi[1] - lo[1] > 0.8 && hi[0] - lo[0] > 0.6) {   // hoop: flat ring spanning the ladder; stations = clusters of ring vertices (< 8 cm of the first; stations are >= 25 cm apart)
+      const st = []; for (const i of vs) { const q = X[i]; let s_ = st.find(s => Math.hypot(q[0] - s.seed[0], q[1] - s.seed[1], q[2] - s.seed[2]) < 0.08); if (!s_) st.push(s_ = { seed: q, ix: [] }); s_.ix.push(i); }
+      for (const s_ of st) { s_.c = [0, 1, 2].map(c => s_.ix.reduce((a, i) => a + X[i][c], 0) / s_.ix.length); s_.r = Math.max(...s_.ix.map(i => Math.hypot(X[i][0] - s_.c[0], X[i][1] - s_.c[1], X[i][2] - s_.c[2]))); }
+      st.sort((a, b) => b.c[1] - a.c[1]); const ord = [st.shift()]; while (st.length) { const l = ord[ord.length - 1].c; let bi = 0, bd = 1e9; st.forEach((s_, k) => { const d = Math.hypot(s_.c[0] - l[0], s_.c[1] - l[1]); if (d < bd) { bd = d; bi = k; } }); ord.push(st.splice(bi, 1)[0]); }   // chain from the +t end
+      hoops.push({ z: ord.reduce((a, s_) => a + s_.c[2], 0) / ord.length, st: ord.map(s_ => s_.c), r: Math.max(...ord.map(s_ => s_.r)), n_st: ord.map(s_ => s_.ix.length), vs }); vs.forEach(i => verts.set(i, 'cage_hoop')); }
+    else if (hi[2] - lo[2] > 10 && hi[0] - lo[0] < 0.08 && hi[1] - lo[1] < 0.08 && lo[0] > 4.6) {   // vertical: long thin prism outboard of the ladder
+      const cu = vs.reduce((a, i) => a + X[i][0], 0) / vs.length, ct = vs.reduce((a, i) => a + X[i][1], 0) / vs.length; bars.push({ u: cu, t: ct, z0: lo[2], z1: hi[2], r: Math.max(...vs.map(i => Math.hypot(X[i][0] - cu, X[i][1] - ct))), vs }); vs.forEach(i => verts.set(i, 'cage_bar')); } }
+  hoops.sort((a, b) => a.z - b.z); bars.sort((a, b) => a.t - b.t);
+  if (hoops.length !== 12 || bars.length !== 3 || hoops.some(h => h.st.length !== 7)) throw new Error('CAGE NOT FOUND in ' + padF + ': hoops ' + hoops.length + ' (stations ' + hoops.map(h => h.st.length) + '), verticals ' + bars.length + ' - expected 12 hoops x 7 stations and 3 verticals');
+  return { hoops, bars, verts, index_range: [Math.min(...verts.keys()), Math.max(...verts.keys())] }; })();
+console.error('landing_clear: cage from mesh: 12 hoops z ' + CAGE.hoops[0].z.toFixed(3) + '..' + CAGE.hoops[11].z.toFixed(3) + ', 3 verticals, ' + CAGE.verts.size + ' verts (index ' + CAGE.index_range.join('-') + ')');
 // ---- landing solids (u, t, z)
 const R = 4.0, TOP = 21.85, hu = t => Math.sqrt(R * R - t * t) - 0.03;
 const boxes = [   // [name, u0 (number or 'hull'), u1, t0, t1, z0, z1]  (|t| mirrored when sym)
@@ -68,7 +91,7 @@ const res = { frame: 'pad-local; u,t,z about Ship_Center along the 330 deg ladde
   for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld); const [u, t, z] = toUTZ(v);
     if (z < 21.55 || z > 23.2 || Math.abs(t) > 1.5 || u < 4.12 || u > 5.6) continue;
     if (u < 4.6 && Math.abs(t) < 0.75 && z > 21.7) continue;                       // ladder rail tops / hatch / cage bars
-    if (Math.hypot(u - 4.45, Math.abs(t) - 0.28) < 0.06 || (Math.abs(t) < 0.45 && z < 21.86 && u < 5.25 && u > 4.6 && Math.abs(t) > 0.0 && Math.hypot(u - 4.9, Math.abs(t) - 0.4) < 0.05) || (Math.abs(t) < 0.05 && Math.abs(u - 5.2) < 0.05 && z <= 21.86)) continue; // ladder / cage bars
+    if (Math.hypot(u - 4.45, Math.abs(t) - 0.28) < 0.06 || CAGE.verts.has(i)) continue; // ladder rails / cage (from the mesh)
     const [s] = sdf(u, t, z); nv++; maxOff = Math.max(maxOff, Math.abs(s));
     if (u > 4.3 && u < 5.1 && Math.abs(t) < 0.55 && z > 21.74 && z < 21.86) oldDeck++; }
   res.glb_landing_vertices = nv; res.glb_max_offset_from_solids_m = +maxOff.toFixed(4); res.glb_vertices_left_in_well = oldDeck; }
@@ -108,13 +131,12 @@ function sdWall(u, t, z) {
 const segD = (p, a, b) => { const ab = sub(b, a), ap = sub(p, a); const h = Math.max(0, Math.min(1, dot(ap, ab) / dot(ab, ab))); return Math.hypot(ap[0] - ab[0] * h, ap[1] - ab[1] * h, ap[2] - ab[2] * h); };
 const JAMB = [[[4.06, 0.652, 21.75], [4.06, 0.652, 23.75]], [[4.06, -0.652, 21.75], [4.06, -0.652, 23.75]], [[4.06, -0.652, 23.75], [4.06, 0.652, 23.75]]];
 
-// ---- ladder (placeholder geometry, unchanged): rails r 0.035 at u 4.45, t +-0.28, z 0.25-21.85; rungs 0.05 x 0.56 x 0.05 at z 0.65 + 0.6 i; cage
+// ---- ladder (placeholder geometry, unchanged): rails r 0.035 at u 4.45, t +-0.28, z 0.25-21.85; rungs 0.05 x 0.56 x 0.05 at z 0.65 + 0.6 i; cage = CAGE (from the mesh, above);
 const LTOP = 0.25, LADT = 21.85, ladCaps = [], rungs = [];
 for (const s_ of [-0.28, 0.28]) ladCaps.push(['ladder_rail', [4.45, s_, LTOP], [4.45, s_, LADT], 0.035]);
 for (let i = 0; i < Math.floor((LADT - LTOP - 0.3) / 0.6); i++) rungs.push(LTOP + 0.4 + i * 0.6);
-for (let i = 0; i < 12; i++) { const z = LTOP + 3.2 + i * 1.6; const pts = []; for (let k = 0; k < 7; k++) { const a = Math.PI * k / 6; pts.push([4.45 + 0.75 * Math.sin(a), 0.5 * Math.cos(a), z]); }
-  for (let k = 0; k < 6; k++) ladCaps.push(['cage_hoop', pts[k], pts[k + 1], 0.025]); }
-for (const s_ of [-0.4, 0, 0.4]) { const u = 4.45 + 0.75 * (s_ === 0 ? 1 : 0.6); ladCaps.push(['cage_bar', [u, s_, LTOP + 3.2], [u, s_, LADT], 0.025]); }
+for (const h of CAGE.hoops) for (let k = 0; k + 1 < h.st.length; k++) ladCaps.push(['cage_hoop', h.st[k], h.st[k + 1], h.r]);   // from the mesh
+for (const b of CAGE.bars) ladCaps.push(['cage_bar', [b.u, b.t, b.z0], [b.u, b.t, b.z1], b.r]);
 const capSd = (p, a, b, r) => segD(p, a, b) - r;
 function sdLadder(u, t, z) { let best = 1e9, who = null;
   for (const [nm, a, b, r] of ladCaps) { if (z < Math.min(a[2], b[2]) - 0.3 || z > Math.max(a[2], b[2]) + 0.3) continue; const s = capSd([u, t, z], a, b, r); if (s < best) { best = s; who = nm; } }
@@ -158,6 +180,7 @@ const tris = []; const GRID = new Map(), CS = 0.1, key3 = (i, j, k) => i + ',' +
     if (inPanel) { label = Math.abs(N[1]) > 0.5 ? 'hatch_jamb' : Math.abs(N[2]) > 0.5 ? (c[2] > 22.7 ? 'hatch_lintel' : 'hatch_sill') : 'hatch_panel_face'; }
     else { const [sl, wl] = sdLadder(...c), [sa, wa] = sdf(...c); const rr = Math.hypot(c[0], c[1]);
       if (Math.abs(sl) < 0.015 && Math.abs(sl) <= Math.abs(sa)) label = wl; else if (Math.abs(sa) < 0.015) label = wa; else if (rr > 3.6 && rr < 4.02 && Math.abs(N[2]) < 0.3) label = 'hull'; }
+    { const cl = [idx.getX(f), idx.getX(f + 1), idx.getX(f + 2)].map(x => CAGE.verts.get(x)); if (cl.some(Boolean)) label = cl.find(Boolean); }   // cage verts: scored only as cage
     if (isPlate) label = 'hatch_plate';
     if (label === 'hatch_panel_face') continue;          // the panel's outer/inner faces are the doorway the crew walk through
     const T_ = tris.length; tris.push([V[0], V[1], V[2], label]); if (isPlate) PLATE_T.add(T_);
@@ -231,6 +254,7 @@ function judge(u, tt, z, bn, soleBand, still, hc) {   // hc = { held, rung } for
     if (part === 'rung') { const ri = Math.round((z - LTOP - 0.4) / 0.6); const top = ri >= 0 && ri < rungs.length ? rungs[ri] + 0.025 : -1e9;
       if (z >= top - 0.03 && z < top + 0.03) { if (z >= top - RULES.resting_soles.max_sink_m) return { cat: 'sole_on_rung', part, D: z - top }; return { cat: 'flag', part, D: z - top, extra: 'sole_sink' }; } } }
   return { cat: 'flag', part, D }; }
+const cageInfo = () => ({ source: 'Ship_Placeholder mesh, connected components', verts: CAGE.verts.size, index_range: CAGE.index_range, hoops: CAGE.hoops.map(h => ({ z: +h.z.toFixed(4), r: +h.r.toFixed(4), outer_u: +Math.max(...h.st.map(c => c[0])).toFixed(4), t_ends: [+h.st[0][1].toFixed(4), +h.st[6][1].toFixed(4)], stations: h.st.map(c => c.map(x => +x.toFixed(4))) })), verticals: CAGE.bars.map(b => ({ u: +b.u.toFixed(4), t: +b.t.toFixed(4), z0: +b.z0.toFixed(4), z1: +b.z1.toFixed(4), r: +b.r.toFixed(4) })) });
 // ---- PLATE_TEST=1: planted-sole harness (synthetic sole patches pushed through judge() + isStill(), the same code the crew vertices use), then exit
 if (process.env.PLATE_TEST) {
   const fp = PLATE.fp_ut, cen = fp.reduce((a, p) => [a[0] + p[0] / fp.length, a[1] + p[1] / fp.length], [0, 0]);
@@ -260,8 +284,16 @@ if (process.env.PLATE_TEST) {
   { const zr = (rungs[RI] + rungs[RI + 1]) / 2, P = []; for (const dz of [-0.01, 0, 0.01]) P.push([4.45, 0.28 + 0.035 - 0.008, zr + dz]); cases.push(hand(P, false, [4.45, 0.0, rungs[RI] + 0.02], '[Playtester] held hand (holding rung ' + RI + '), 8 mm into the ladder RAIL', 'FAIL')); }
   cases.push(hand(onRung(0.008), false, null, 'held hand still, 8 mm into its rung ' + RI + ' but held rung changes at the window edge', 'FAIL', true));
   cases.push(hand(onRung(0.008, RI), false, [4.45, 0, rungs[RI + 1] + 0.02], 'held hand on rung ' + (RI + 1) + ', a vertex 8 mm into a DIFFERENT rung ' + RI, 'FAIL'));
-  { const hz = LTOP + 3.2, P = []; for (const dz of [-0.004, 0, 0.004]) P.push([4.45 + 0.75 * Math.sin(Math.PI / 2) - 0.025 + 0.008, 0.5 * Math.cos(Math.PI / 2), hz + dz]); cases.push(hand(P, false, null, 'held hand, 8 mm into a cage hoop (z ' + hz.toFixed(2) + ')', 'FAIL')); }
-  const out = { mode: 'PLATE_TEST', script_md5_note: 'see the md5 of landing_clear_plate.mjs that produced this file', pad: padF, plate: { mesh: PLATE.mesh, top_y: PLATE.top, bottom_y: PLATE.bottom, top_tris: PLATE.top_tris, plate_faces: [...PLATE.faces], plate_faces_in_tri_grid: PLATE_T.size, footprint_pad_xz: PLATE.fp_xz, footprint_ut: PLATE.fp_ut },
+  { const h0 = CAGE.hoops[0], c3 = h0.st[3], P = []; for (const dz of [-0.004, 0, 0.004]) P.push([c3[0] + h0.r - 0.008, c3[1], c3[2] + dz]); cases.push(hand(P, false, null, 'held hand, 8 mm into a cage hoop (mesh hoop 1, front station, z ' + c3[2].toFixed(3) + ')', 'FAIL')); }
+  // ---- cage cases: a body vertex 2 cm inside the OLD (pre-widening, 0.75 x 0.5 design) hoop tube, 5 mm inboard of its old centreline; must FAIL while the mesh hoop
+  //      is still there (db78a6f7 / next) and PASS once the mesh hoop has moved >= 5 cm outboard (cage60). Expectation is taken from the mesh, not the file name.
+  { const HI = 9, OLD = k => [4.45 + 0.75 * Math.sin(Math.PI * k / 6), 0.5 * Math.cos(Math.PI * k / 6), LTOP + 3.2 + 1.6 * HI], h = CAGE.hoops[HI];
+    for (const [nm, k0, k1] of [['front station (90 deg)', 3, 3], ['side chord mid (30-60 deg, +t)', 1, 2], ['side chord mid (120-150 deg, -t)', 4, 5]]) {
+      const a = OLD(k0), b = OLD(k1), oc = a.map((x, c) => (x + b[c]) / 2); const ax = [oc[0] - 4.45, oc[1], 0], L = Math.hypot(ax[0], ax[1]); const pt = [oc[0] - 0.005 * ax[0] / L, oc[1] - 0.005 * ax[1] / L, oc[2]];
+      const mc = h.st[k0].map((x, c) => (x + h.st[k1][c]) / 2), moved = Math.hypot(mc[0] - oc[0], mc[1] - oc[1]); const expect = moved < 0.01 ? 'FAIL' : moved >= 0.05 ? 'PASS' : 'UNDEFINED';
+      for (const bn of ['Thigh_R', 'Foot_L']) { const J = judge(pt[0], pt[1], pt[2], bn, false, false, null); const got = J.cat === 'flag' ? 'FAIL' : 'PASS';
+        cases.push({ case: 'cage: ' + bn + ' 2 cm inside the OLD hoop ' + (HI + 1) + ' tube, ' + nm, mesh_hoop_moved_m: +moved.toFixed(4), expect, got, ok: got === expect, verdicts: { [J.cat + '@' + J.part]: 1 }, D_m: +J.D.toFixed(4), at_utz: pt.map(x => +x.toFixed(4)) }); } } }
+  const out = { mode: 'PLATE_TEST', cage: cageInfo(), script_md5_note: 'see the md5 of landing_clear_plate.mjs that produced this file', pad: padF, plate: { mesh: PLATE.mesh, top_y: PLATE.top, bottom_y: PLATE.bottom, top_tris: PLATE.top_tris, plate_faces: [...PLATE.faces], plate_faces_in_tri_grid: PLATE_T.size, footprint_pad_xz: PLATE.fp_xz, footprint_ut: PLATE.fp_ut },
     patch: '5 x 3 sole vertices, 8 x 2 cm, flat at the given z; resting test = isStill(prev, cur) with prev = cur (still) or 10 mm back (moving); hands: heldOf over +-' + HOLD_HALF + ' samples at ' + SHZ + ' Hz', hold_half_samples: HOLD_HALF, sample_hz: SHZ, all_ok: cases.every(c => c.ok), cases };
   fs.writeFileSync(outF, JSON.stringify(out, null, 1)); for (const c of cases) console.log((c.ok ? 'ok  ' : 'BAD ') + c.got.padEnd(5) + c.case + '  ' + JSON.stringify(c.verdicts)); console.log('all_ok', out.all_ok); process.exit(out.all_ok ? 0 : 1); }
 const res2 = { ...res, clip: crewF, sample_hz: SHZ, phases: PH, hull_tris: hullTris.length, frames: 0, hits: 0, minClear: 1e9, per_crew: {}, plants: {}, tri_labels: labelCount, rule: 'see rules block', flag: {}, hand_grip: {}, sole_on_deck: {}, sole_on_rung: {} };
