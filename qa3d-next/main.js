@@ -234,6 +234,8 @@ const CAM_OVERRIDE = {
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
+  // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
+  // repeat the GLB's Cam_Target as the fallback. load = hand fallback from padfit.mjs (used only if padLoadFit fails). /workspace/padcam_work/final_drop.sh writes it.
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -822,9 +824,12 @@ function padRestApply() {              // after fitSite(PADI) set the override f
   window.__ps3d.padRest = { src: 'fit', ct: [+(t.lx - PADI * GAP).toFixed(2), +t.ly.toFixed(2), +t.lz.toFixed(2)], frame_w: +fw.toFixed(2), k: +t.k.toFixed(4),
     spare: Object.fromEntries(Object.entries(t.spare).map(([k, x]) => [k, +x.toFixed(1)])), band: t.band, n: t.n, verts: pts.verts, nodes: pts.nodes, fallback: { ct: C.ov ? 'override ' + C.ov : 'Cam_Target', frame_w: +(C.fw || 0).toFixed(2) } };
 }
+// the from-close-in start (k0 .05) can run away on some crane layouts (offline, AA3 v4 with the crane moved to 3.5, 8.32: 393×852 ct y −42, W 351):
+// a fit whose look point leaves the point box (+ half its size) is thrown out, retried once from just outside (padRestK0), else the hand numbers
+function padLoadSane(pts, t) { const b = new THREE.Box3().setFromPoints(pts), s = b.getSize(new THREE.Vector3()); b.expandByVector(s.multiplyScalar(.5)); return b.containsPoint(new THREE.Vector3(t.lx, t.ly, t.lz)); }
 function padLoadTarget() {             // lazily, once per fitSite (pad load / resize): SITECAM[PADI].load in fitSite's shape
   const C = SITECAM[PADI], o = stationObjs[PADI]; if (!C || C.load !== undefined || !o || !camera.userData.dist) return C && C.load;
-  let pts = null, t = null; try { pts = padLoadPts(); t = pts && padLoadFit(pts); } catch (e) { console.warn('pad load camera: fit failed', e); }
+  let pts = null, t = null; try { pts = padLoadPts(); t = pts && padLoadFit(pts); if (t && !padLoadSane(pts, t)) t = padLoadFit(pts, padRestK0(pts)); if (t && !padLoadSane(pts, t)) t = null; } catch (e) { console.warn('pad load camera: fit failed', e); }
   if (t) { C.load = { k: t.k, dx: t.lx - PADI * GAP, dz: t.lz, ly: t.ly, src: 'fit', spare: t.spare, band: t.band, n: t.n }; }
   else { const ov = o.userData.camOv && o.userData.camOv.load; if (ov && ov.frame_w > 0 && ov.ct) { const d = (ov.frame_w / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
       C.load = { k: d / camera.userData.dist, dx: o.position.x + ov.ct.x - PADI * GAP, dz: o.position.z + ov.ct.z, ly: o.position.y + ov.ct.y, src: 'hand' }; } else C.load = null;
@@ -1694,7 +1699,8 @@ const PAD_GLB = '../qa3d-next/models/launch_pad_1042e767.glb?v=1042e767';   // A
 // The lv1ship hull still carries its merged 4 bells + 6 fixed legs, so (as in AA3's preview, SPEC §9.3) those triangles are collapsed into the
 // hull and the module sits 0.9 m below the old bell exit plane (feet on the deck). Gear runs on the cargo clock: Gear_Retract from LO + 1.0 s,
 // Gear_Deploy from TD − 7.0 s (art/vfx/engine_flame/aft_skirt/gear.js, inlined below; numbers read from the GLB's extras.gear).
-const SKIRT_GLB = '../qa3d-next/models/aft_skirt_N06_344311ab.glb?v=344311ab';
+const SKIRT_GLB = '../qa3d-next/models/aft_skirt_N06_344311ab.glb?v=344311ab';   // old path (1042e767: squash + frame under Engine_Ring_Mount)
+const SKIRT_GLB_SEAT = '../qa3d-next/models/aft_skirt_N06_thick_63d0289d.glb?v=63d0289d';   // AA3 thick N06 (md5 63d0289d…): any pad with Aft_Skirt_Seat (AA3 v4 clean ship) gets this one, identity under the seat
 const GEAR_T = { R_DOOR_OPEN: [1000, 1600], R_KNEE: [1600, 3400], R_SWING: [2200, 3400], R_SETTLE: [3400, 3600], R_DOOR_CLOSE: [3600, 4200],
   D_DOOR_OPEN: [-7000, -6400], D_KNEE: [-6400, -4400], D_SWING: [-6300, -5200], D_BOUNCE: [-4400, -4000], D_DOOR_CLOSE: [-4000, -3400] };
 const gEase = (x) => { x = Math.min(1, Math.max(0, x)); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
@@ -1728,8 +1734,11 @@ function createGear(root) {
   return api;
 }
 function shipSkirtPrep(o, rig) {      // sync, at pad load (rig at rest): find the old bells, collapse old bells + legs, work out the module frame under Engine_Ring_Mount
-  const mount = rig.getObjectByName('Engine_Ring_Mount'), hull = rig.getObjectByName('Ship_Placeholder'); if (!mount) throw new Error('Engine_Ring_Mount missing');
+  const mount = rig.getObjectByName('Engine_Ring_Mount'), hull = rig.getObjectByName('Ship_Placeholder'), seat = rig.getObjectByName('Aft_Skirt_Seat');
   const meshes = []; hull.traverse(n => { if (n.isMesh && n.geometry && n.geometry.attributes.position) meshes.push(n); });
+  // AA3 v4 (clean hull, Aft_Skirt_Seat under Engine_Ring_Mount, +60° yaw baked in): no squash, no computed frame: the module goes under the seat as is (identity)
+  if (seat) { seat.updateMatrixWorld(true); return { mount: seat, local: new THREE.Matrix4(), baseY: seat.getWorldPosition(new THREE.Vector3()).y, bells: 0, legs: 0, eng: [], cw: cockpitWindowPrep(rig, meshes), seat: true, url: SKIRT_GLB_SEAT }; }
+  if (!mount) throw new Error('Engine_Ring_Mount missing');
   const sc = o.getObjectByName('Ship_Center').getWorldPosition(new THREE.Vector3()), v = new THREE.Vector3(), inv = new THREE.Matrix4();
   const pred = [0, 1, 2, 3].map(k => { const a = (45 + 90 * k + 60) * Math.PI / 180; return new THREE.Vector3(sc.x + 2.25 * Math.cos(a), 0, sc.z - 2.25 * Math.sin(a)); });
   const acc = pred.map(() => []);
@@ -1759,6 +1768,11 @@ function shipSkirtPrep(o, rig) {      // sync, at pad load (rig at rest): find t
   mount.updateMatrixWorld(true);
   const Mw = new THREE.Matrix4().compose(new THREE.Vector3(sc.x, baseY, sc.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(60)), new THREE.Vector3(1, 1, 1));
   const local = new THREE.Matrix4().copy(mount.matrixWorld).invert().multiply(Mw);
+  const cw = cockpitWindowPrep(rig, meshes);
+  return { mount, local, baseY, bells, legs, eng: eng.map(e => [+e.x.toFixed(2), +e.y.toFixed(3), +e.z.toFixed(2)]), cw, seat: false, url: SKIRT_GLB };
+}
+function cockpitWindowPrep(rig, meshes) {   // moved out of shipSkirtPrep unchanged, so the seat path keeps it
+  const v = new THREE.Vector3();
   // cockpit window CW-1 (SPEC_cockpit_window.md): cache the 96 glass vertices (in a box AND pane colour), switch via COLOR_0; default on (#ffb46a)
   const cwN = rig.getObjectByName('Cockpit_Window'), cw = { n: 0, on: true, idx: [], mesh: null };
   try { const boxes = JSON.parse((cwN && cwN.userData.glass_boxes_ship_local_gltf) || '[]');
@@ -1771,7 +1785,7 @@ function shipSkirtPrep(o, rig) {      // sync, at pad load (rig at rest): find t
   cw.set = (on) => { if (!cw.mesh) return; const col = cw.mesh.geometry.attributes.color, c = on ? [1.0, 0.4564, 0.1441] : [0.0070, 0.0110, 0.0160];
     for (const i of cw.idx) col.setXYZ(i, c[0], c[1], c[2]); col.needsUpdate = true; cw.on = !!on; };
   if (cw.n) cw.set(true);
-  return { mount, local, baseY, bells, legs, eng: eng.map(e => [+e.x.toFixed(2), +e.y.toFixed(3), +e.z.toFixed(2)]), cw };
+  return cw;
 }
 function shipSkirtLoaded(g, prep) {
   const sk = g.scene; sk.name = 'Aft_Skirt_Module'; prep.local.decompose(sk.position, sk.quaternion, sk.scale);
@@ -1780,7 +1794,7 @@ function shipSkirtLoaded(g, prep) {
   const gear = createGear(sk); if (!gear) throw new Error('aft skirt: no extras.gear');
   cg3.skirt = sk; cg3.gear = gear; gear.update('land', 0, 0);   // rest: legs down, doors shut
   if (stationObjs[PADI] === cg3.padArt) fitSite(PADI);   // the pad rest fit needs the landing legs: re-fit now they are in
-  window.__ps3d.shipSkirt = { url: SKIRT_GLB, baseY: +prep.baseY.toFixed(3), bellVerts: prep.bells, legVerts: prep.legs, bells: prep.eng, cockpitVerts: prep.cw.n, nozzles: (() => { let n = 0; sk.traverse(o => { if (/^Engine_Nozzle_\d+$/.test(o.name)) n++; }); return n; })() };
+  window.__ps3d.shipSkirt = { url: prep.url, seat: prep.seat, baseY: +prep.baseY.toFixed(3), bellVerts: prep.bells, legVerts: prep.legs, bells: prep.eng, cockpitVerts: prep.cw.n, nozzles: (() => { let n = 0; sk.traverse(o => { if (/^Engine_Nozzle_\d+$/.test(o.name)) n++; }); return n; })() };
 }
 function updGear(s, t, alt) {          // cargo clock: launch rel LO (= launch t0), landing rel TD (= land t0 + landSec)
   const G = cg3.gear; if (!G) return;
@@ -1800,7 +1814,7 @@ function padLoaded(g) {
   for (const n of ['Ship_Placeholder', 'Cargo_Door', 'Hold_Door', ...Array.from({ length: CG.holdCap }, (_, i) => 'Hold_' + String(i + 1).padStart(2, '0'))]) rig.attach(o.getObjectByName(n));
   rig.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   try { const prep = shipSkirtPrep(o, rig); cg3.cockpit = prep.cw; window.__ps3d.cockpit = prep.cw;
-    loader.load(SKIRT_GLB, (gs) => { try { shipSkirtLoaded(gs, prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
+    loader.load(prep.url, (gs) => { try { shipSkirtLoaded(gs, prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
   } catch (e) { console.warn('detailed ship prep failed (plain hull stays)', e); }
   const crane = o.getObjectByName('Crane'); crane.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   { const bx = new THREE.Box3().setFromObject(crane), cb = crane.getWorldPosition(new THREE.Vector3());   // pad load camera: PC-1 at its GLB rest (Slew 0 = jib along +X)
