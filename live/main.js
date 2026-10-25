@@ -227,9 +227,9 @@ const CAM_OVERRIDE = {
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (PX = 640, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
-  // Art 141b354 refinery_bridge_footprint.json camera_proposed (frames the Refinery + CV-3 bridge; v5.3 footprint is within v5.2's): Cam_Target world (318.9, 2.08, 13.55),
-  // W 38.25; angle unchanged. Was ct x -6.9 / frame_w FW_REF 37.5 (the bridge's south tower cropped ~55 px on the right at 393 and 375).
-  '93c44166': { glb: 'refinery d6389a7 + bridge 5d862767 v5.3 (Art 141b354 official Refinery box)', ct: { x: -1.1, y: 2.08, z: 13.55 }, frame_w: 38.25 },
+  // Director 10/25: Refinery bridge must be fully visible at 393/375 portrait. Cam_Target world (320.75, 2.08, 13.55), W 38.25; angle/FOV/height unchanged.
+  // Node projection: building + whole bridge/conveyor inside the band with 3% margin at 393x852 and 375x812 (spare ~13 px L/R). Was x -1.1 (318.9): bridge's right edge ~5 px past the margin.
+  '93c44166': { glb: 'refinery d6389a7 + bridge 5d862767 v5.3 (Art 141b354 official Refinery box)', ct: { x: 0.75, y: 2.08, z: 13.55 }, frame_w: 38.25 },
   'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },   // Art 3c5e6f8 final: Cam_Target world (313.1, 2.08, 13.55), W 37.5
 };
 const camOvFor = (url) => { const m = /[?&]v=([0-9a-f]{8})/.exec(url || ''); return m && CAM_OVERRIDE[m[1]] ? Object.assign({ md5: m[1] }, CAM_OVERRIDE[m[1]]) : null; };
@@ -1260,7 +1260,7 @@ function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (
 // ref = boxes on the Refinery pallet (sealing or sealed: their ready times), full = dumps that made no box because the pallet was full,
 // sh.req = Launch button tap time (partial launch; 0 = none)
 function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
-  sh: { st: 'pad', t0: t, hold: 0, f0: t, req: 0 } }; }
+  sh: { st: 'pad', t0: t, hold: 0, f0: t - CG.fuelFillSec * 1000, req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
 stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
@@ -1697,10 +1697,13 @@ function dockLoaded(o, g) {
   DK.hook = o.getObjectByName('Hook_Attach'); window.__ps3d.dockV4 = DK;
 }
 const _dh = new THREE.Vector3();
+// fill order: stored box k → Art slot. Slot_01..05 / 06..10 are 2 rows running straight away from the Dock camera (11..20 = the same on top), so filling 1, 2, 3…
+// hid every box behind the next (4 stored read as 1). Back slot of each row/layer first (1, 6, 11, 16), then one step nearer: every new box lands in view
+const dkSlot = (k) => [0, 5, 10, 15][(k - 1) % 4] + Math.floor((k - 1) / 4) + 1;
 function dockFrame(c, t) {
   const D = CPH.dock, a = c.dka, e = a ? (t - a.t0) / 1000 : 1e9, end = D.settle + 2 * D.clipSec, act = e >= 0 && e < end, want = {};
   if (act && e >= D.settle) { const j = e < D.settle + D.clipSec ? 0 : 1, sl = a.k === 'store' ? a.n + 1 + j : a.n - j;
-    want[(a.k === 'store' ? 'Store_' : 'Load_') + (j ? 'B' : 'A') + '_Slot_' + String(sl).padStart(2, '0')] = e - D.settle - j * D.clipSec; }
+    want[(a.k === 'store' ? 'Store_' : 'Load_') + (j ? 'B' : 'A') + '_Slot_' + String(dkSlot(sl)).padStart(2, '0')] = e - D.settle - j * D.clipSec; }
   if (c.fb.st === 'dock') { const el = (t - c.fb.t0) / 1000; want.dock_door_open = clamp(Math.min(el, dockSec(c.fb) - el), 0, 2.5); }
   if (DK.mx) {
     for (const n in DK.on) if (!(n in want)) { DK.on[n].stop(); delete DK.on[n]; }
@@ -1708,7 +1711,7 @@ function dockFrame(c, t) {
     DK.mx.update(0); DK.cur = Object.keys(want).filter(n => DK.clips[n] && n !== 'dock_door_open')[0] || ''; window.__ps3d.dockClip = DK.cur;
   }
   if (!DK.slots.length) return;
-  const sp = (i) => DK.slots[Math.min(i, D.cap) - 1], stat = act ? (a.k === 'store' ? a.n : a.n - 2) : c.dk;
+  const sp = (i) => DK.slots[dkSlot(Math.min(i, D.cap)) - 1], stat = act ? (a.k === 'store' ? a.n : a.n - 2) : c.dk;
   for (let i = 1; i <= stat; i++) if (sp(i)) boxAt(sp(i));
   if (!act) return;
   for (let j = 0; j < 2; j++) { const s0 = D.settle + j * D.clipSec, sl = a.k === 'store' ? a.n + 1 + j : a.n - j, slot = sp(sl);
