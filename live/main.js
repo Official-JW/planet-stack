@@ -1260,7 +1260,7 @@ function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (
 // ref = boxes on the Refinery pallet (sealing or sealed: their ready times), full = dumps that made no box because the pallet was full,
 // sh.req = Launch button tap time (partial launch; 0 = none)
 function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
-  sh: { st: 'pad', t0: t, hold: 0, f0: t, req: 0 } }; }
+  sh: { st: 'pad', t0: t, hold: 0, f0: t - CG.fuelFillSec * 1000, req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
 stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
