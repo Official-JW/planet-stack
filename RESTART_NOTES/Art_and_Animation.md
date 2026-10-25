@@ -1,3 +1,8 @@
+# UPDATE 10/25/2026 1:24 PM PT (stopped)
+- Truck trails: DONE and approved by Jacob (via Art Manager). GLB qa3d-next/models/all_truck_trails_205f8acb.glb (md5 205f8acb, 70,220 B), commits 6916868 + rename 01ff411. Notracks mine_864fab15 / refinery_22f13a9d in 5933388. On qa3d-next 7f55a03; stays off live/ until Playtester 2 passes. Known issue: Mine trail is still subtle (faint dust band). Source and proofs in /workspace/mine_trail/ (NOTES.md).
+- Detailed ship, new pad, pad camera and launch effects passed Playtester on qa3d-next 49f9def; Coder is moving it to live/ ~1:30 PM. Known issues: Eve banner crops the ship nose, boarding still uses the old ladder.
+- Nothing is running from me. No open jobs; next work is the after-pause list below.
+
 # TOP AFTER PAUSE (Director 02:17)
 1. Clean Lv1 ship export without the old built-in bells and legs (AA3). Coder is using the SPEC 9.3 fold-away workaround for now.
 2. Dock box visibility: the game counts 4 stored but only 2 show at 393. Slots 01-04 are in one row under the runway. Render with 4 stored, then change the fill order if they are hidden.
