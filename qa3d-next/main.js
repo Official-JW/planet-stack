@@ -41,10 +41,10 @@ const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide 
 const Q = new URLSearchParams(location.search);
 const TRAIL_ON = Q.get('trail') !== 'off';   // tire-track trail on (default) / ?trail=off: old road strips (see TRAIL_GLB); top-level so every road builder sees it
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
-const MINE_GLB = '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1';   // Art 449757b (Director 01:18): painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b
+const MINE_GLB = '../qa3d-next/models/mine_864fab15.glb?v=864fab15';   // Art 5933388: ef45f6f1 with the painted tire tracks removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1' (Art 449757b, Director 01:18: painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b)
 //  // Art 12bdb4a (Director 23:10): Deposit_01/_02 split into their own fadeable nodes (look unchanged), own copy under qa3d-next/; was 'models/mine_2123a050.glb'
 //  // Art a4f93eb (Director 21:17): ore patches + veins baked, 2-lane haul road, fewer Path_* legs; previous: 'models/mine_219e774.glb'
-const REFINERY_GLB = '../qa3d-next/models/refinery_93c44166.glb?v=93c44166';   // Art d6389a7 (Director 00:51): 13 draws, conveyors merged into skinned Base_Paint, sizer_spin, dump_dust opacity_curve, white/cyan posts, painted ruts; was b45b4649
+const REFINERY_GLB = '../qa3d-next/models/refinery_22f13a9d.glb?v=22f13a9d';   // Art 5933388: 93c44166 with the painted ruts removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/refinery_93c44166.glb?v=93c44166' (Art d6389a7, Director 00:51: 13 draws, conveyors merged into skinned Base_Paint, sizer_spin, dump_dust opacity_curve, white/cyan posts, painted ruts; was b45b4649)
 //   // Art f4d4a2c (Director 21:17): dump bay, r 4.5 U-turn at x −3.5, 3.5 m reverse, dump_dust; previous: 'models/refinery_bb5eed2.glb'
 const TURN_SPEED = 4.0;   // m/s through curves (Mine 4.5 m arcs on Path_Out_*/Path_Ret_*, Refinery U-turn Truck_Path_01..07); straights stay TV.v = 8.33
 const TURN_R_MAX = 25;    // m: any stretch turning tighter than this radius counts as a curve
@@ -228,6 +228,7 @@ const _ct = new THREE.Vector3();
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
+  '864fab15': { glb: 'mine 5933388 (ef45f6f1 minus painted tracks; re-keyed from ef45f6f1, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'cc084a9b': { glb: 'mine 12bdb4a (re-keyed from 2123a050, same framing)', ct: { y: 5.6 }, frame_w: 39.9 },                            // Art 5d16bad: Cam_Target y 6.0 → 5.6 (x, z unchanged), W 37.6 → 39.9; ~9 px spare top+bottom at 375×667 (drill rig / Dep_01)
   'c16d8565': { glb: 'cargo_dock_overhead_v4 (Art 8ca56d1 handoff)', ct: { x: 4.6 } },   // Art 01:29: centre x 489.5 → 484.6 (Dock + 4.6 m); y / z / frame_w 48 stay the GLB's Cam_Target
@@ -245,6 +246,7 @@ const CAM_OVERRIDE = {
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (PX = 640, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
   // Director 10/25: Refinery bridge must be fully visible at 393/375 portrait. Cam_Target world (320.75, 2.08, 13.55), W 38.25; angle/FOV/height unchanged.
   // Node projection: building + whole bridge/conveyor inside the band with 3% margin at 393x852 and 375x812 (spare ~13 px L/R). Was x -1.1 (318.9): bridge's right edge ~5 px past the margin.
+  '22f13a9d': { glb: 'refinery 5933388 (93c44166 minus painted ruts; re-keyed from 93c44166, Cam_Target unchanged) + bridge 5d862767 v5.3', ct: { x: 0.75, y: 2.08, z: 13.55 }, frame_w: 38.25 },
   '93c44166': { glb: 'refinery d6389a7 + bridge 5d862767 v5.3 (Art 141b354 official Refinery box)', ct: { x: 0.75, y: 2.08, z: 13.55 }, frame_w: 38.25 },
   'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },   // Art 3c5e6f8 final: Cam_Target world (313.1, 2.08, 13.55), W 37.5
 };
