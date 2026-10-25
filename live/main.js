@@ -52,7 +52,8 @@ const TURN_GAP = 22;      // m: a straight shorter than this between two bends h
 const ROAD_LAST_SCALE = 1.0;   // haul road: 10 full 8 m tiles + a last tile scaled along X only. 1.0 = 11 full tiles ending at world x 274 (Art's trimmed Refinery road);
                                // 0.75 = ends at x 272, where Refinery 0358ffa's own road starts
 const DEV = Q.get('dev') === '1';
-const SAVEKEY = DEV ? 'planetstack-live-dev' : 'planetstack-live';   // qa3d-next: own save so it never touches /qa3d/'s save on the same origin
+const DOCKFILL = Q.has('dockfill') && /\/qa3d-next\//.test(location.pathname);   // QA (Director 11:41): ?dockfill starts the Dock full (20/20); qa3d-next only, never live/
+const SAVEKEY = DOCKFILL ? 'planetstack-live-dockfill' : DEV ? 'planetstack-live-dev' : 'planetstack-live';   // qa3d-next: own save so it never touches /qa3d/'s save on the same origin; ?dockfill uses its own save so QA's normal save is untouched
 if (Q.has('fresh')) try { localStorage.removeItem(SAVEKEY); } catch (e) {}
 const SPD = Math.max(1, Math.min(100, +Q.get('speed') || 1)), T0 = Date.now();   // ?speed=N (QA only): the game clock (truck loop, fill, deposits, 3D anims) runs N×
 let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live play (no offline rate)
@@ -88,6 +89,15 @@ const save = () => { try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } c
 const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
 const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP, REF = 2, RX = REF * GAP;   // stations 160 m apart, origin = i·160 on X
 const DOCKI = 3, PADI = 4, SHIPI = 5, HABI = 6;   // Cargo Space Dock x 480, Launch Pad x 640, Shipyard x 800, Habitat x 960
+// ===== pad REST camera (Director 10/25): the ship nodes the rest view is fitted to. A new pad / ship file only needs these names checked
+// (node /workspace/padcam_work/padfit.mjs <pad.glb> prints the fit). Every visible mesh under a matched node counts (skinned legs at their pose).
+// hull: whole-ship nodes; legs: landing-leg nodes (exact names or the regex). Both must match, else the CAM_OVERRIDE / Cam_Target rest frame is used.
+const SHIP_FIT = {
+  hull: ['Ship_Placeholder', 'Ship_Hull', 'Ship'],                    // whole subtree: 1042e767 hull mesh; v4 (AA3 297994d8) unnamed hull mesh + Crew_Hatch (+ the skirt under Engine_Ring_Mount / Aft_Skirt_Seat)
+  legs: ['Aft_Skirt_Module', 'Aft_Skirt', 'Landing_Legs', 'Gear'],    // the attached gear module (qa3d-next renames its root Aft_Skirt_Module; the GLB's own root is Aft_Skirt): ONE skinned mesh, legs down
+  legRe: /^(Gear_(Leg|Knee|Foot)_\w+|Landing_Leg\w*|Leg_\w+|Foot_\w+|Footpad\w*)$/,   // joints count as "legs present"; Gear_Foot_k joints are also added as points (backstop for the skinned spread)
+  footRe: /^Gear_Foot_\w+$/,
+};
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (t) => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
@@ -223,6 +233,11 @@ const CAM_OVERRIDE = {
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
+  '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
+    load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
+  // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
+  // repeat the GLB's Cam_Target as the fallback. load = hand fallback from padfit.mjs (used only if padLoadFit fails). /workspace/padcam_work/final_drop.sh writes it.
+  '5fcd4d67': { glb: 'AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat; md5 5fcd4d67c1bb3094d136dd8003bf9e7d)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // rest: FALLBACK only (runtime ship fit); load: hand fallback = padfit load fit (final_drop.sh)
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -282,6 +297,7 @@ function fitSite(i) {
     if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
     const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
     SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - i * GAP, dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
+    if (i === PADI) padRestApply();   // pad: the ship fit replaces this (kept as the fallback)
     return;
   }
   // no Cam_Target yet: fit the visible bounds whole inside the band between the HUD and the bar
@@ -313,15 +329,57 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
 }, undefined, (e) => { console.warn('station GLB failed, keeping gray box', G.url, e); if (G.i === 2) routeReady('ref'); });
 // ===== CV-3 Refinery box bridge v5.3 (Art e661ba1, md5 5d862767…, 4 draws; open-front lowerator, drop-in for v5.2 bc081489). Load-and-place only:
 // its root Refinery_Bridge is already at Refinery-local (12.28, 0, 12.25), so the scene sits at the Refinery origin (RX, 0, 0) with no offset (the
-// Refinery is station REF = 2 in the 10/24 order too). Scenery loop: GLB clips roller_spin + box_convey loop (box_convey scales/drives Box_1..3), no tie to cargo/saves/pallets;
-// the cargo sim (pallet → RC-1 → FB-05) is unchanged. Spans flatbed lane E (z 13) at deck underside y 7.25. ?bridge=off skips it.
+// Refinery is station REF = 2 in the 10/24 order too). Spans flatbed lane E (z 13) at deck underside y 7.25. ?bridge=off skips it.
+// Bridge cargo (Director final rulings 10/25, Code Assistant): DISPLAY only. The economy is the old one (cgMake: seal sealSec, c.ref ready times,
+// palletCap 8 counted from credited crates in c.ref, the dump waits only when that is full), identical to ?bridgecargo=off. The bridge shows trips:
+// a trip departs when ≥ 1 sealed crate is not yet shown (c.brS = their seal times) and the carriage is free (gap after the last departure, Art
+// carriage_cycle min_box_start_gap_s 14.64 → one box on the carriage); its one box stands in for every crate sealed since the previous departure and
+// rides box_path for ride s (box_convey hidden_after_s 36.937) to Pickup_Point. On arrival the pallet display adds all of its crates at once (c.brQ
+// [depart, firstId, endId, n]; crate id = c.made − c.ref.length + i), so the stack never shows a crate before its box. The economy crane still lifts on
+// the old timing; one that lifts a crate whose box is still on the bridge (flatbed waiting) picks it from the turntable. Speed factor BRC.k (1.0).
+// The 3 Box_1..3 bones are the pool (trip n → bone n % 3); no box on the belt → rollers stop, bones hidden. ?bridgecargo=off = the old scenery loop.
+const BRC = { on: Q.get('bridge') !== 'off' && Q.get('bridgecargo') !== 'off', k: 1.0, gap: 14.64, ride: 36.937, belt: [9.059, 32.8], lift: [18.313, 30.667] };
+const BR = { bones: null, ip: null, car: null, cip: null, roll: null, pick: null, u: [-1, -1, -1], info: { on: BRC.on, n: 0, bound: false, speed: BRC.k } };
+function brInit(c) { if (c.brS) return; c.brS = []; c.brQ = []; c.brD = null; c.brK = c.made; c.brAr = c.made; c.brN = 0; delete c.brE; delete c.rcR; }   // older saves: their pallet is all shown
+function brAdv(c, t) {               // departures up to t (all crates sealed ≤ t are made by then; allocates only when a trip departs)
+  brInit(c); const G = BRC.gap * 1000 / BRC.k;
+  while (c.brS.length) { const D = c.brD == null ? c.brS[0] : Math.max(c.brS[0], c.brD + G); if (D > t) break;
+    let n = 0; while (n < c.brS.length && c.brS[n] <= D) n++; c.brS.splice(0, n); c.brQ.push([D, c.brK, c.brK + n, c.brN++]); c.brK += n; c.brD = D; }
+}
+function brArr(c, t) { let e = c.brAr; const T = BRC.ride * 1000 / BRC.k; for (let i = 0; i < c.brQ.length; i++) if (c.brQ[i][0] + T <= t) e = c.brQ[i][2]; return e; }   // crates [0, e) shown
+function brShown(c, t) { return Math.max(0, Math.min(c.ref.length, brArr(c, t) - (c.made - c.ref.length))); }   // crates the pallet display shows (≤ credited)
+function brSlots(c, t, u) {          // box_path time per pool bone (-1 = none), from the departed trips; returns the boxes on the bridge
+  u[0] = u[1] = u[2] = -1; let n = 0; if (!c.brQ) return 0;
+  for (let i = 0; i < c.brQ.length; i++) { const a = (t - c.brQ[i][0]) / 1000 * BRC.k; if (a < 0 || a >= BRC.ride) continue; u[c.brQ[i][3] % 3] = a; n++; }
+  return n;
+}
+function brFrame(c, t) {             // per frame, no allocation: pose the pooled bridge boxes + lift carriage from the trips; rollers run only with a box on them
+  if (!BR.bones) return; let belt = false, cu = 0; brAdv(c, t); BR.info.n = brSlots(c, t, BR.u);
+  for (let k = 0; k < 3; k++) { const b = BR.bones[k], a = BR.u[k];
+    if (a < 0) { if (b.scale.x !== 0) b.scale.setScalar(0); continue; }
+    b.position.fromArray(BR.ip[0].evaluate(a)); b.quaternion.fromArray(BR.ip[1].evaluate(a)); if (BR.ip[2]) b.scale.fromArray(BR.ip[2].evaluate(a)); else b.scale.setScalar(1);
+    if (a >= BRC.belt[0] && a < BRC.belt[1]) belt = true; if (a >= BRC.lift[0] && a < BRC.lift[1]) cu = a; }
+  if (BR.cip) BR.car.position.fromArray(BR.cip.evaluate(cu)); if (BR.roll) BR.roll.paused = !belt;
+}
+function brBind(o, g, bmx) {         // true = bridge cargo bound; false = the GLB lacks box_path / Box_1..3 (the old scenery loop plays instead)
+  const bp = THREE.AnimationClip.findByName(g.animations, 'box_path'), rs = THREE.AnimationClip.findByName(g.animations, 'roller_spin');
+  const tr = (n, p) => bp && bp.tracks.find(k => k.name === n + '.' + p), bones = ['Box_1', 'Box_2', 'Box_3'].map(n => o.getObjectByName(n));
+  if (!bp || !bones.every(Boolean) || !tr('Box_1', 'position') || !tr('Box_1', 'quaternion')) { console.warn('bridge cargo: box_path / Box_1..3 missing, scenery loop'); return false; }
+  const ex = ((o.getObjectByName('Refinery_Bridge') || {}).userData || {}), cc = ex.carriage_cycle || {}, bc = (ex.clips || {}).box_convey || {};
+  if ((cc.min_box_start_gap_s && Math.abs(cc.min_box_start_gap_s - BRC.gap) > .01) || (bc.hidden_after_s && Math.abs(bc.hidden_after_s - BRC.ride) > .01)) console.warn('bridge cargo: GLB timings differ from BRC', cc.min_box_start_gap_s, bc.hidden_after_s);
+  BR.ip = ['position', 'quaternion', 'scale'].map(p => { const k = tr('Box_1', p); return k ? k.createInterpolant() : null; });
+  const ct = tr('Lift_Carriage', 'position'); BR.car = o.getObjectByName('Lift_Carriage'); BR.cip = ct && BR.car ? ct.createInterpolant() : null;
+  if (rs) { BR.roll = bmx.clipAction(rs).setLoop(THREE.LoopRepeat); BR.roll.play(); BR.roll.paused = true; }
+  const pp = o.getObjectByName('Pickup_Point'); if (pp) BR.pick = pp.getWorldPosition(new THREE.Vector3());
+  for (const b of bones) b.scale.setScalar(0); BR.bones = bones; BR.info.bound = true; return true;
+}
 const BRIDGE_GLB = '../live/models/refinery_bridge_5d862767.glb?v=5d862767';
 if (Q.get('bridge') !== 'off') loader0().load(BRIDGE_GLB, (g) => {
   const o = g.scene; o.name = 'Refinery_Bridge_Art'; o.position.set(RX, 0, 0);
-  const bmx = new THREE.AnimationMixer(o); stationMixers.push(bmx); // scenery loop only
-  for (const c of ['roller_spin', 'box_convey']) { const k = THREE.AnimationClip.findByName(g.animations, c); if (k) bmx.clipAction(k).setLoop(THREE.LoopRepeat).play(); }
+  const bmx = new THREE.AnimationMixer(o); stationMixers.push(bmx); o.updateMatrixWorld(true);
+  if (!(BRC.on && brBind(o, g, bmx))) for (const c of ['roller_spin', 'box_convey']) { const k = THREE.AnimationClip.findByName(g.animations, c); if (k) bmx.clipAction(k).setLoop(THREE.LoopRepeat).play(); }   // ?bridgecargo=off: scenery loop
   o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.isSkinnedMesh) m.frustumCulled = false; } });
-  scene.add(o); o.updateMatrixWorld(true); window.__ps3d.bridge = { on: true, url: BRIDGE_GLB, obj: o };
+  scene.add(o); o.updateMatrixWorld(true); window.__ps3d.bridge = { on: true, url: BRIDGE_GLB, obj: o, cargo: BR.info, slots: (t = nowMs()) => (brSlots(S.cg, t, BR.u), BR.u.slice()) };
 }, undefined, (e) => console.warn('refinery bridge GLB failed (Refinery shows without it)', BRIDGE_GLB, e));
 
 // ===== B1 (Playtester 20:58): the truck timeline is final only once BOTH marker sets are in (Mine Path_Out_*/Path_Ret_*, Refinery Truck_*), or
@@ -637,7 +695,7 @@ function resize() {
 addEventListener('resize', resize); resize();
 function poseCam(cam, x) {
   const f = clamp(x / GAP, 0, N - 1), i0 = Math.floor(f), i1 = Math.min(N - 1, i0 + 1), u = f - i0, sm = u * u * (3 - 2 * u);
-  const A = SITECAM[i0], B = SITECAM[i1], k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;
+  const A = padCamAt(i0), B = padCamAt(i1), k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;   // pad: rest ↔ load blend (padCamAt)
   let lx = x + dx, lyy = ly, lz = dz, kk = k;
   if (cam === camera && FOC.w > 0) { const w = FOC.w; lx += (FOC.lx - lx) * w; lyy += (FOC.ly - lyy) * w; lz += (FOC.lz - lz) * w; kk += (FOC.k - kk) * w; }   // tier focus blend
   if (cam === camera && BC.w > 0) { const w = BC.w; lx += (BC.lx - lx) * w; lyy += (BC.ly - lyy) * w; lz += (BC.lz - lz) * w; kk *= Math.pow(BC.k / kk, w); }   // crew boarding camera blend (k in log space)
@@ -733,6 +791,101 @@ function updFocus() {
     FOC.lz = f && u < 1 ? f.lz + (to.lz - f.lz) * u : to.lz; FOC.k = f && u < 1 ? f.k + (to.k - f.k) * u : to.k;
     if (t >= T.in && f) FOC.from = null;
   }
+}
+// ===== pad load camera (Director 10:57, code-only): while PC-1 lifts a bay box into the hold (c.pc.k 'hold', ship on the pad) and until Hold_Door / Cargo_Door
+// has shut again, the pad's frame eases (PADCAM.easeSec, smoothstep, wall clock) from its RESTING frame (CAM_OVERRIDE / Cam_Target, unchanged) to a LOAD frame,
+// then eases back. Only the pad's own SITECAM entry blends, so a swipe away mid-load just carries the blend off with the station (no snap).
+// LOAD frame = padLoadFit(): the world points of the crane's jib sweep on this lift (rest → every Bay_Slot → Hold_Door → rest, at the jib tip and counter-jib,
+// from the crane's GLB rest bounds), the mast, every Bay_Slot box, Hold_Door + Hold_01..NN boxes, and Cargo_Door shut + swung open into its shelf;
+// fitted straight down -Z at the fixed 18° / 38° vFOV inside the HUD–bar band with a PADCAM.margin (3%) margin of the width L/R and of the band T/B.
+// Read from the pad GLB at load time, so AA1's moved crane / AA3's pad file re-fit by themselves. The override's load {ct, frame_w} is only a fallback.
+const PADCAM = { easeSec: .8, margin: .03, boxH: 1.5, boxR: 1.2, arcN: 12 };
+const LD = { p: 0, w: 0, want: false, src: '', fit: null };
+const _ldc = { k: 1, dx: 0, dz: 0, ly: 0 };
+function padCamAt(i) {
+  const C = SITECAM[i]; if (i !== PADI || LD.w <= 0 || !C.load) return C;
+  const L = C.load, w = LD.w; _ldc.k = C.k * Math.pow(L.k / C.k, w); _ldc.dx = C.dx + (L.dx - C.dx) * w; _ldc.dz = C.dz + (L.dz - C.dz) * w; _ldc.ly = C.ly + (L.ly - C.ly) * w; return _ldc;   // k in log space (as the crew camera)
+}
+function padLoadPts() {
+  const PC = cg3.PC, R = cg3.pcRest, sh = cg3.ship; if (!cg3.padArt || !PC || !PC.base || !R || !sh || !cg3.holdDoor) return null;
+  sh.updateMatrixWorld(true); const pts = [], V = (x, y, z) => pts.push(new THREE.Vector3(x, y, z)), b = PC.base, hd = cg3.holdDoor.clone().applyMatrix4(sh.matrixWorld);
+  const box = (p) => { for (const dx of [-PADCAM.boxR, PADCAM.boxR]) for (const dz of [-PADCAM.boxR, PADCAM.boxR]) { V(p.x + dx, p.y, p.z + dz); V(p.x + dx, p.y + PADCAM.boxH, p.z + dz); } };
+  const bays = cg3.baySlots || [PC.drop], aH = polar(PC, hd).a, aR = polar(PC, PC.drop).a, arcs = [];
+  for (const bs of bays) { const aB = polar(PC, bs).a; arcs.push([aR, aB], [aB, aH]); box(bs); } arcs.push([aH, aR]);
+  for (const [a0, a1] of arcs) for (let q = 0; q <= PADCAM.arcN; q++) { const a = lerpA(a0, a1, q / PADCAM.arcN), cx = Math.cos(a), cz = -Math.sin(a);
+    V(b.x + R.tip * cx, R.top, b.z + R.tip * cz); V(b.x - R.cj * cx, R.top, b.z - R.cj * cz); }   // jib tip / counter-jib at the crane's top
+  for (const dx of [-R.hw, R.hw]) for (const dz of [-R.hw, R.hw]) { V(b.x + dx, 0, b.z + dz); V(b.x + dx, R.top, b.z + dz); }   // mast + footing
+  box(hd); for (const h of cg3.holds) box(h.clone().applyMatrix4(sh.matrixWorld));
+  if (cg3.doorBox) { const D = cg3.doorBox, o = sh.getWorldPosition(new THREE.Vector3()), hgt = D.max.y - D.min.y, c = D.getCenter(new THREE.Vector3()), n = Math.hypot(c.x, c.z) || 1, ox = c.x / n * hgt, oz = c.z / n * hgt;
+    for (const x of [D.min.x, D.max.x]) for (const z of [D.min.z, D.max.z]) { for (const y of [D.min.y, D.max.y]) V(o.x + x, o.y + y, o.z + z); V(o.x + x + ox, o.y + D.min.y, o.z + z + oz); } }   // shut + swung out flat (shelf)
+  return pts;
+}
+function padLoadFit(pts, k0 = .05) {   // fitBox's method on a point set, from close in outwards (3% a step), with a fractional margin; k0 = start (rest fit: just outside the subject)
+  const mc = camera.clone(); mc.clearViewOffset(); const bd = band(), mx = PADCAM.margin * W, my = PADCAM.margin * (bd.bot - bd.top), e = THREE.MathUtils.degToRad(CAM.elev), vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const bb = new THREE.Box3().setFromPoints(pts), t = { lx: (bb.min.x + bb.max.x) / 2, ly: Math.max(0, (bb.min.y + bb.max.y) / 2), lz: (bb.min.z + bb.max.z) / 2, k: k0 }, p = { x: 0, y: 0, z: 0 };
+  const ext = () => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, bh = false; for (const v of pts) { toScreen(v.x, v.y, v.z, mc, p); if (p.z > 1) bh = true; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); } return { x0, x1, y0, y1, bh }; };
+  for (let n = 0; n < 240; n++, t.k *= 1.03) {
+    for (let it = 0; it < 4; it++) { poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = ext(); if (s.bh) break;
+      const pxm = (H / 2) / (camera.userData.dist * t.k * vt); t.lx -= (W / 2 - (s.x0 + s.x1) / 2) / pxm; const dy = ((bd.top + bd.bot) / 2 - (s.y0 + s.y1) / 2) / pxm; t.ly += Math.cos(e) * dy; t.lz -= Math.sin(e) * dy; }
+    poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = ext();
+    if (!s.bh && s.x0 >= mx && s.x1 <= W - mx && s.y0 >= bd.top + my && s.y1 <= bd.bot - my) return Object.assign(t, { fit: true, spare: { l: s.x0, r: W - s.x1, t: s.y0 - bd.top, b: bd.bot - s.y1 }, band: [bd.top, bd.bot], n: pts.length });
+  }
+  return null;
+}
+// ===== pad REST frame (Director 10/25): tighter on the ship so the landing legs read at 393×852 / 375×812. padRestPts() = the ship's SHIP_FIT meshes
+// (hull + legs, gear posed legs-down) at the ship's pad rest height, thinned to support points (0.5 m y slices × 16 directions); padLoadFit() fits
+// them inside the HUD–bar band with the same PADCAM.margin. Re-run on every fitSite(PADI) (pad load, aft skirt load, resize); fallback = CAM_OVERRIDE / Cam_Target.
+function padRestPts() {
+  const o = cg3.padArt, sh = cg3.ship; if (!o || !sh) return null;
+  const pick = (names, re) => { const r = []; o.traverse(n => { if (names.includes(n.name) || (re && re.test(n.name))) r.push(n); }); return r; };
+  const hullN = pick(SHIP_FIT.hull), legN = pick(SHIP_FIT.legs, SHIP_FIT.legRe); if (!hullN.length || !legN.length) return null;
+  const G = cg3.gear, repose = !!(G && G.ph !== 'pad'); if (repose) G.update('land', 0, 0);   // legs down (the pad pose); updGear re-poses next frame
+  try {
+    sh.updateMatrixWorld(true); const dy = (cg3.shipY0 != null ? cg3.shipY0 : sh.position.y) - sh.position.y, ax = sh.getWorldPosition(new THREE.Vector3());
+    const shown = (m) => { for (let q = m; q && q !== o && q !== sh; q = q.parent) if (!q.visible) return false; return true; };
+    const meshes = new Set(), used = { hull: [], legs: [] };
+    const add = (n, key) => { let k = 0; n.traverse(m => { if (m.isMesh && m.geometry && m.geometry.attributes.position && shown(m)) { meshes.add(m); k++; } }); if (k || n.isBone) used[key].push(n.name); };
+    hullN.forEach(n => add(n, 'hull')); legN.forEach(n => add(n, 'legs'));
+    const ND = 16, SL = .5, best = new Map(), v = new THREE.Vector3(), dirs = [...Array(ND)].map((_, j) => [Math.cos(2 * Math.PI * j / ND), Math.sin(2 * Math.PI * j / ND)]);
+    let n = 0;
+    for (const m of meshes) { const p = m.geometry.attributes.position, sk = m.isSkinnedMesh && m.skeleton;
+      for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); if (sk) m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); v.y += dy; n++;
+        const sl = Math.floor(v.y / SL), rx = v.x - ax.x, rz = v.z - ax.z;
+        for (let j = 0; j < ND; j++) { const key = sl * ND + j, d = rx * dirs[j][0] + rz * dirs[j][1], b = best.get(key); if (!b || d > b.d) best.set(key, { d, x: v.x, y: v.y, z: v.z }); } } }
+    if (!n) return null;
+    const pts = []; for (const b of best.values()) pts.push(new THREE.Vector3(b.x, b.y, b.z));
+    o.traverse(f => { if (SHIP_FIT.footRe.test(f.name)) { f.getWorldPosition(v); v.y += dy; pts.push(v.clone()); } });   // foot joints (no mesh): the leg spread even if skinning were off
+    pts.nodes = used; pts.verts = n; return pts;
+  } finally { if (repose) G.ph = ''; }
+}
+const padRestK0 = (pts) => { const s = new THREE.Box3().setFromPoints(pts).getBoundingSphere(new THREE.Sphere()); return 1.2 * s.radius / camera.userData.dist; };   // camera starts outside the ship (from closer in the centring runs away)
+function padRestApply() {              // after fitSite(PADI) set the override frame: replace it with the ship fit when the ship nodes are there
+  const C = SITECAM[PADI]; if (!C || !cg3.padArt) return;
+  let pts = null, t = null; try { pts = padRestPts(); t = pts && padLoadFit(pts, padRestK0(pts)); } catch (e) { console.warn('pad rest camera: fit failed', e); }
+  if (!t) { C.rest = 'override'; window.__ps3d.padRest = { src: 'override', why: pts ? 'no fit' : 'ship nodes missing' }; return; }
+  const fw = 2 * camera.userData.dist * t.k * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+  SITECAM[PADI] = { k: t.k, dx: t.lx - PADI * GAP, dz: t.lz, ly: t.ly, ct: true, d: camera.userData.dist * t.k, fw, ov: C.ov, rest: 'fit', spare: t.spare, band: t.band, n: t.n };
+  window.__ps3d.padRest = { src: 'fit', ct: [+(t.lx - PADI * GAP).toFixed(2), +t.ly.toFixed(2), +t.lz.toFixed(2)], frame_w: +fw.toFixed(2), k: +t.k.toFixed(4),
+    spare: Object.fromEntries(Object.entries(t.spare).map(([k, x]) => [k, +x.toFixed(1)])), band: t.band, n: t.n, verts: pts.verts, nodes: pts.nodes, fallback: { ct: C.ov ? 'override ' + C.ov : 'Cam_Target', frame_w: +(C.fw || 0).toFixed(2) } };
+}
+// the from-close-in start (k0 .05) can run away on some crane layouts (offline, AA3 v4 with the crane moved to 3.5, 8.32: 393×852 ct y −42, W 351):
+// a fit whose look point leaves the point box (+ half its size) is thrown out, retried once from just outside (padRestK0), else the hand numbers
+function padLoadSane(pts, t) { const b = new THREE.Box3().setFromPoints(pts), s = b.getSize(new THREE.Vector3()); b.expandByVector(s.multiplyScalar(.5)); return b.containsPoint(new THREE.Vector3(t.lx, t.ly, t.lz)); }
+function padLoadTarget() {             // lazily, once per fitSite (pad load / resize): SITECAM[PADI].load in fitSite's shape
+  const C = SITECAM[PADI], o = stationObjs[PADI]; if (!C || C.load !== undefined || !o || !camera.userData.dist) return C && C.load;
+  let pts = null, t = null; try { pts = padLoadPts(); t = pts && padLoadFit(pts); if (t && !padLoadSane(pts, t)) t = padLoadFit(pts, padRestK0(pts)); if (t && !padLoadSane(pts, t)) t = null; } catch (e) { console.warn('pad load camera: fit failed', e); }
+  if (t) { C.load = { k: t.k, dx: t.lx - PADI * GAP, dz: t.lz, ly: t.ly, src: 'fit', spare: t.spare, band: t.band, n: t.n }; }
+  else { const ov = o.userData.camOv && o.userData.camOv.load; if (ov && ov.frame_w > 0 && ov.ct) { const d = (ov.frame_w / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+      C.load = { k: d / camera.userData.dist, dx: o.position.x + ov.ct.x - PADI * GAP, dz: o.position.z + ov.ct.z, ly: o.position.y + ov.ct.y, src: 'hand' }; } else C.load = null;
+    if (cg3.padArt) console.warn('pad load camera: no fit (' + (pts ? pts.length + ' pts' : 'pad / crane not bound') + '), ' + (C.load ? 'hand numbers' : 'rest view only')); }
+  if (C.load) C.load.fw = 2 * camera.userData.dist * C.load.k * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+  return C.load;
+}
+function updPadCam(dt) {               // dt = wall-clock frame dt (not game speed)
+  const c = S.cg, D = cg3.door; LD.want = S.site === PADI && !!cg3.padArt && !!c && !!c.pc && ((c.pc.k === 'hold' && c.sh && c.sh.st === 'pad') || !!(D && D.k > 1e-3));   // lift → box on the shelf → Hold_NN → door shut
+  if (LD.want && SITECAM[PADI].load === undefined && cg3.pcRest) padLoadTarget();
+  if (!SITECAM[PADI].load) { LD.p = LD.w = 0; return; }
+  LD.p = clamp(LD.p + (LD.want ? dt : -dt) / PADCAM.easeSec, 0, 1); LD.w = fss(LD.p); LD.src = SITECAM[PADI].load.src;
 }
 let shK = 1;
 function placeCamera() { poseCam(camera, camX);
@@ -1263,6 +1416,7 @@ function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launc
   sh: { st: 'pad', t0: t, hold: 0, f0: t - CG.fuelFillSec * 1000, req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
+if (DOCKFILL) { S.cg.dk = CPH.dock.cap; cgEv('qa_dockfill', S.cg.t, { stored: S.cg.dk }); }   // ?dockfill: Dock full on every load (20/20, amber label)
 stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
 
 // ---- flatbed route (same speed profile as HT-04: 8.33 m/s straights, TURN_SPEED in the 4.5 m U-turns, same 3 m pull-away / 4 m brake)
@@ -1284,12 +1438,14 @@ function buildCargoRoute() {
 // lift (off the stack / bed / bay) and land at its end (bed / bay / hold), so one crane never double-counts a box.
 function cgMake(tDump) {           // called at the dump time, after the cargo sim has been settled up to it (so the pallet count is exact)
   const c = S.cg; if (c.ref.length >= CG.palletCap) { c.full++; cgEv('dump_pallet_full', tDump, { full: c.full }); return; }   // truck still pays; no box
-  c.ref.push(tDump + CG.sealSec * 1000); c.made++; cgEv('box_made', tDump);
+  const r = tDump + CG.sealSec * 1000;
+  if (BRC.on) { brAdv(c, tDump); const T = BRC.ride * 1000 / BRC.k; while (c.brQ.length && c.brQ[0][0] + T <= tDump) c.brAr = c.brQ.shift()[2]; c.brS.push(r); }   // display only: queue the crate for a trip
+  c.ref.push(r); c.made++; cgEv('box_made', tDump);
 }
 function cgDecide(c, t, acc) {      // acc = away catch-up (Director 23:00): the ship never auto-launches while the player is away; a full ship waits for a Launch tap (sh.man)
   for (let g = 0; g < 50; g++) {
     let ch = false; const f = c.fb, s = c.sh;
-    if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
+    if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : 0; } c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
     // Cargo Dock (Director 01:32): ship away / refuelling → a loaded flatbed stores at the Dock if stored ≤ 18 (Dock full: drives through and waits at the pad);
     // ship on the pad and fuelled → a loaded flatbed drives through; an empty one leaves for the Dock when stored ≥ 2 and loads 2 (LIFO) for the pad
     if (!c.rc && f.st === 'load' && f.bed >= CG.perTrip) { const st = !shipReady(c, t) && c.dk <= CPH.dock.cap - 2 ? 'store' : '';
@@ -1354,7 +1510,7 @@ function cgSettle(T, acc) {
     c.t = Math.max(c.t, nx); cgComplete(c, c.t, acc);
   }
 }
-function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; }
+function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } }
 // Save-stamp guard (10/24): a save written on a clock ahead of this one (?speed=N / warpTo QA runs, a device clock set back) holds its stamps in the
 // future, and the loops would freeze until the clock caught up. gap = newest already-happened stamp − now (S.rt, S.tk c0/lr/dep, S.cg t/rc/fb/pc/as/sh
 // t0, f0, req, S.log / S.calls at). Over 1 s, every stamp moves back by gap (shiftTk: S.tk + S.pend + S.cg; S.rt; log / calls), so the state and every
@@ -1482,13 +1638,22 @@ function padFromMarkers(root) {
 }
 // Jacob rule: nothing of the pad stands in the road band (+ 1 m). Every ground-level mesh of the pad group, the ship and the pad slab (station PADI) is checked;
 // the crane's slewing jib / trolley / hook are overhead (they must swing over FB-05) and are skipped. Result in __ps3d.padRoad; violations are console errors.
+// Director 10/25 (crane base at pad-local 3.5, 0, 8.32; AA1 b21ef9de): ONLY the pad crane PC-1 (meshes under the node named 'Crane') is exempt from the 1 m buffer,
+// and only by its measured footing overlap (footing z max 9.82 = 0.62 m into the buffer; + 1 cm). It is tested on its low vertices (y ≤ 2.5, skinned rest pose), not its
+// bounding box (the one skinned mesh spans the overhead jib). The road band itself (z 10.2–24.8) stays closed to it; everything else keeps the full 1 m buffer.
+const PAD_ROAD_EXC = { node: 'Crane', overlap: 0.62, tol: 0.01 };
 function padRoadCheck() {
   const B = CPH.padRoad, z0 = B.z0 - B.clear, z1 = B.z1 + B.clear, bb = new THREE.Box3(), hits = [], roots = [cg3.pg, cg3.padArt ? null : cg3.ship, phBox[PADI]].filter(Boolean);
   const skip = (n) => { for (let q = n; q; q = q.parent) if (q.name === 'Slew' || q.name === 'Road_UTurn' || !q.visible) return true; return false; };   // overhead jib / the road's own U-turn / hidden tiers
+  const exc = (n) => { for (let q = n; q; q = q.parent) if (q.name === PAD_ROAD_EXC.node) return true; return false; }, ze0 = z0 + PAD_ROAD_EXC.overlap + PAD_ROAD_EXC.tol, lv = new THREE.Vector3();
+  const lowBox = (n) => { const pa = n.geometry.attributes.position; bb.makeEmpty(); for (let i = 0; i < pa.count; i++) { lv.fromBufferAttribute(pa, i); if (n.isSkinnedMesh) n.applyBoneTransform(i, lv); lv.applyMatrix4(n.matrixWorld); if (lv.y <= 2.5) bb.expandByPoint(lv); } return bb; };
   for (const r of roots) { r.updateMatrixWorld(true); r.traverse(n => { if (!n.isMesh || n.material.visible === false || skip(n)) return;
+    if (cg3.padArt && exc(n)) { lowBox(n); if (!bb.isEmpty() && bb.max.z > ze0 && bb.min.z < z1) hits.push({ name: PAD_ROAD_EXC.node + '/' + (n.name || '?'), z: [+bb.min.z.toFixed(2), +bb.max.z.toFixed(2)], x: [+bb.min.x.toFixed(1), +bb.max.x.toFixed(1)], exc: true }); return; }
     bb.setFromObject(n); if (bb.min.y > 2.5) return; if (bb.max.z > z0 && bb.min.z < z1) hits.push({ name: n.name || (n.parent && n.parent.name) || '?', z: [+bb.min.z.toFixed(2), +bb.max.z.toFixed(2)], x: [+bb.min.x.toFixed(1), +bb.max.x.toFixed(1)] }); }); }
-  let zMax = -Infinity; for (const r of roots) r.traverse(n => { if (!n.isMesh || n.material.visible === false || skip(n)) return; bb.setFromObject(n); if (bb.min.y <= 2.5) zMax = Math.max(zMax, bb.max.z); });
-  const res = { ok: !hits.length, hits, padZMax: +zMax.toFixed(2), band: [B.z0, B.z1], clear: B.clear };
+  let zMax = -Infinity, craneZ = null; for (const r of roots) r.traverse(n => { if (!n.isMesh || n.material.visible === false || skip(n)) return;
+    if (cg3.padArt && exc(n)) { lowBox(n); if (!bb.isEmpty()) { zMax = Math.max(zMax, bb.max.z); craneZ = Math.max(craneZ ?? -Infinity, bb.max.z); } return; }
+    bb.setFromObject(n); if (bb.min.y <= 2.5) zMax = Math.max(zMax, bb.max.z); });
+  const res = { ok: !hits.length, hits, padZMax: +zMax.toFixed(2), band: [B.z0, B.z1], clear: B.clear, craneFootZMax: craneZ == null ? null : +craneZ.toFixed(2), craneAllowZ: +ze0.toFixed(2) };
   window.__ps3d.padRoad = res; if (hits.length) console.error('Launch Pad intrudes on the flatbed road band', JSON.stringify(hits)); return res;
 }
 // 10/24 order: the Cargo Space Dock (x 480) now stands between the Refinery and the pad, on the flatbed road. Its GLB was laid for the old order, so its
@@ -1574,8 +1739,172 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (PX = 640, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../live/models/launch_pad_db78a6f7.glb?v=db78a6f7';   // plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
+const PAD_GLB = '../live/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat -> thick skirt, identity). Was:
+// const PAD_GLB = '../live/models/launch_pad_1042e767.glb?v=1042e767';   // AA2 b8dc5b1 lv1ship (cockpit window CW-1 + Engine_Ring_Mount, Lv1 door changes); was plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
 //   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
+// ===== detailed ship (AA3 8c5c7bf aft skirt + gear, AA2 b8dc5b1 cockpit window). Lv1 = 6 engines → aft_skirt_N06 (SPEC §9 engineCountForLevel(1)).
+// The skirt module (ring + band + 4 folding legs, 1 skinned mesh, 1 draw) hangs off the hull's Engine_Ring_Mount, so it rides the Ship_Rig.
+// The lv1ship hull still carries its merged 4 bells + 6 fixed legs, so (as in AA3's preview, SPEC §9.3) those triangles are collapsed into the
+// hull and the module sits 0.9 m below the old bell exit plane (feet on the deck). Gear runs on the cargo clock: Gear_Retract from LO + 1.0 s,
+// Gear_Deploy from TD − 7.0 s (art/vfx/engine_flame/aft_skirt/gear.js, inlined below; numbers read from the GLB's extras.gear).
+const SKIRT_GLB = '../live/models/aft_skirt_N06_344311ab.glb?v=344311ab';   // old path (1042e767: squash + frame under Engine_Ring_Mount)
+const SKIRT_GLB_SEAT = '../live/models/aft_skirt_N06_thick_63d0289d.glb?v=63d0289d';   // AA3 thick N06 (md5 63d0289d…): any pad with Aft_Skirt_Seat (AA3 v4 clean ship) gets this one, identity under the seat
+const GEAR_T = { R_DOOR_OPEN: [1000, 1600], R_KNEE: [1600, 3400], R_SWING: [2200, 3400], R_SETTLE: [3400, 3600], R_DOOR_CLOSE: [3600, 4200],
+  D_DOOR_OPEN: [-7000, -6400], D_KNEE: [-6400, -4400], D_SWING: [-6300, -5200], D_BOUNCE: [-4400, -4000], D_DOOR_CLOSE: [-4000, -3400] };
+const gEase = (x) => { x = Math.min(1, Math.max(0, x)); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const gWin = (t, [a, b]) => gEase((t - a) / (b - a));
+const gSettle = (u) => (u >= 0 && u <= 1) ? Math.sin(Math.PI * u) ** 2 * Math.sin(2 * Math.PI * u) * Math.exp(-2.5 * u) / 0.2940373 : 0;
+function gearState(phase, t, alt = 0, meta = { stroke_m: 0.05, bounce_rad: 0.07, stow_settle_rad: 0.025 }) {
+  const T = meta.timeline_ms || GEAR_T; let door, knee, swing, bounce = 0, hip = 0;
+  if (phase === 'launch') { door = gWin(t, T.R_DOOR_OPEN) - gWin(t, T.R_DOOR_CLOSE); knee = gWin(t, T.R_KNEE); swing = gWin(t, T.R_SWING);
+    const [a, b] = T.R_SETTLE; hip = (meta.stow_settle_rad ?? 0.025) * gSettle((t - a) / (b - a)); }
+  else { door = gWin(t, T.D_DOOR_OPEN) - gWin(t, T.D_DOOR_CLOSE); swing = 1 - gWin(t, T.D_SWING); knee = 1 - gWin(t, T.D_KNEE);
+    const [a, b] = T.D_BOUNCE; bounce = -meta.bounce_rad * gSettle((t - a) / (b - a)); }
+  const St = meta.stroke_m, ext = 1 - Math.min(1, Math.max(0, (St - alt) / St));
+  return { door, knee, swing, bounce, settle: hip, ext };
+}
+function createGear(root) {
+  let meta = null; root.traverse(n => { if (!meta && n.userData && n.userData.gear) meta = n.userData.gear; });
+  if (!meta) return null;
+  const bone = (name) => root.getObjectByName(name), V = (a) => new THREE.Vector3(...a);
+  const legs = meta.legs.map(lg => ({ lg, leg: bone(`Gear_Leg_${lg.k}`), knee: bone(`Gear_Knee_${lg.k}`), foot: bone(`Gear_Foot_${lg.k}`),
+    doors: lg.doors.map(d => ({ d, b: bone(`Gear_Door_${lg.k}${d.side}`) })), t: V(lg.t), dvec: V(lg.d), foot0: V(lg.F).add(V(lg.off)).sub(V(lg.K)) }));
+  const up = new THREE.Vector3(0, 1, 0), DOOR = THREE.MathUtils.degToRad(meta.door_open_deg);
+  const api = { meta, legs, last: null, ph: '', update(phase, t, alt) {
+    const st = gearState(phase, t, alt, meta); api.last = st; api.ph = phase;
+    for (const L of legs) {
+      L.leg.quaternion.setFromAxisAngle(L.t, L.lg.hip_sign * (L.lg.theta * st.swing - st.settle));
+      L.knee.quaternion.setFromAxisAngle(L.t, L.lg.knee_sign * (Math.PI * st.knee + st.bounce));
+      L.foot.position.copy(L.foot0).addScaledVector(L.dvec, meta.stroke_m * st.ext);
+      for (const D of L.doors) D.b.quaternion.setFromAxisAngle(up, D.d.sign * DOOR * st.door);
+    }
+    return st; } };
+  return api;
+}
+function shipSkirtPrep(o, rig) {      // sync, at pad load (rig at rest): find the old bells, collapse old bells + legs, work out the module frame under Engine_Ring_Mount
+  const mount = rig.getObjectByName('Engine_Ring_Mount'), hull = rig.getObjectByName('Ship_Placeholder'), seat = rig.getObjectByName('Aft_Skirt_Seat');
+  const meshes = []; hull.traverse(n => { if (n.isMesh && n.geometry && n.geometry.attributes.position) meshes.push(n); });
+  // AA3 v4 (clean hull, Aft_Skirt_Seat under Engine_Ring_Mount, +60° yaw baked in): no squash, no computed frame: the module goes under the seat as is (identity)
+  if (seat) { seat.updateMatrixWorld(true); return { mount: seat, local: new THREE.Matrix4(), baseY: seat.getWorldPosition(new THREE.Vector3()).y, bells: 0, legs: 0, eng: [], cw: cockpitWindowPrep(rig, meshes), seat: true, url: SKIRT_GLB_SEAT }; }
+  if (!mount) throw new Error('Engine_Ring_Mount missing');
+  const sc = o.getObjectByName('Ship_Center').getWorldPosition(new THREE.Vector3()), v = new THREE.Vector3(), inv = new THREE.Matrix4();
+  const pred = [0, 1, 2, 3].map(k => { const a = (45 + 90 * k + 60) * Math.PI / 180; return new THREE.Vector3(sc.x + 2.25 * Math.cos(a), 0, sc.z - 2.25 * Math.sin(a)); });
+  const acc = pred.map(() => []);
+  for (const m of meshes) { m.updateMatrixWorld(true); const p = m.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y > sc.y + 4) continue;
+      pred.forEach((q, k) => { if (Math.hypot(v.x - q.x, v.z - q.z) < 1.0) acc[k].push([v.x, v.y, v.z]); }); } }
+  const eng = acc.map((pts, k) => { const yMin = pts.length ? Math.min(...pts.map(q => q[1])) : sc.y + 0.9, ring = pts.filter(q => q[1] < yMin + 0.12), n = ring.length || 1;
+    return new THREE.Vector3(ring.length ? ring.reduce((a, q) => a + q[0], 0) / n : pred[k].x, yMin, ring.length ? ring.reduce((a, q) => a + q[2], 0) / n : pred[k].z); });
+  const baseY = Math.min(...eng.map(e => e.y)) - 0.9;   // ENGINE_RING.EXIT_Y
+  let bells = 0, legs = 0;
+  for (const m of meshes) { inv.copy(m.matrixWorld).invert(); const p = m.geometry.attributes.position; let hit = false;   // old bells: within 1.3 m of an old axis, base+0.5 … base+3.9 → a point inside the hull
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y > baseY + 3.9 || v.y < baseY + 0.5) continue;
+      const a = eng.find(q => Math.hypot(v.x - q.x, v.z - q.z) < 1.3); if (!a) continue; v.set(a.x, baseY + 3.3, a.z).applyMatrix4(inv); p.setXYZ(i, v.x, v.y, v.z); bells++; hit = true; }
+    if (hit) { p.needsUpdate = true; m.geometry.computeBoundingSphere(); } }
+  const legA = [0, 60, 120, 180, 240, 300].map(d => THREE.MathUtils.degToRad(d + 60)), win = THREE.MathUtils.degToRad(14);   // old 6 legs: triangles past r 4.1 below base + 8.7 within ±14° of a leg
+  const angOff = (a) => Math.min(...legA.map(b => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)))));
+  for (const m of meshes) { inv.copy(m.matrixWorld).invert(); const p = m.geometry.attributes.position, idx = m.geometry.index; if (!idx) continue;
+    const W = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); W[i * 3] = v.x - sc.x; W[i * 3 + 1] = v.y; W[i * 3 + 2] = v.z - sc.z; }
+    let hit = false; const done = new Uint8Array(p.count);
+    for (let t = 0; t < idx.count; t += 3) { const ids = [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)]; let rMax = 0, yMin = 1e9, ax = 0, az = 0;
+      for (const i of ids) { const x = W[i * 3], y = W[i * 3 + 1], z = W[i * 3 + 2]; rMax = Math.max(rMax, Math.hypot(x, z)); yMin = Math.min(yMin, y); ax += x; az += z; }
+      if (rMax <= 4.1 || yMin > baseY + 8.7) continue; const a = Math.atan2(-az, ax); if (angOff(a) > win) continue;
+      v.set(sc.x + 3.0 * Math.cos(a), baseY + 4, sc.z - 3.0 * Math.sin(a)).applyMatrix4(inv);
+      for (const i of ids) { p.setXYZ(i, v.x, v.y, v.z); if (!done[i]) { done[i] = 1; legs++; } } hit = true; }
+    if (hit) { p.needsUpdate = true; m.geometry.computeBoundingSphere(); } }
+  // module frame: Ship_Center x/z, baseY, +60° pad yaw (the module is yaw-neutral), expressed in Engine_Ring_Mount space
+  mount.updateMatrixWorld(true);
+  const Mw = new THREE.Matrix4().compose(new THREE.Vector3(sc.x, baseY, sc.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(60)), new THREE.Vector3(1, 1, 1));
+  const local = new THREE.Matrix4().copy(mount.matrixWorld).invert().multiply(Mw);
+  const cw = cockpitWindowPrep(rig, meshes);
+  return { mount, local, baseY, bells, legs, eng: eng.map(e => [+e.x.toFixed(2), +e.y.toFixed(3), +e.z.toFixed(2)]), cw, seat: false, url: SKIRT_GLB };
+}
+function cockpitWindowPrep(rig, meshes) {   // moved out of shipSkirtPrep unchanged, so the seat path keeps it
+  const v = new THREE.Vector3();
+  // cockpit window CW-1 (SPEC_cockpit_window.md): cache the 96 glass vertices (in a box AND pane colour), switch via COLOR_0; default on (#ffb46a)
+  const cwN = rig.getObjectByName('Cockpit_Window'), cw = { n: 0, on: true, idx: [], mesh: null };
+  try { const boxes = JSON.parse((cwN && cwN.userData.glass_boxes_ship_local_gltf) || '[]');
+    for (const m of meshes) { const col = m.geometry.attributes.color; if (!col) continue; const p = m.geometry.attributes.position, ids = [];
+      for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrix);
+        if (!boxes.some(b => v.x >= b.min[0] - 1e-3 && v.x <= b.max[0] + 1e-3 && v.y >= b.min[1] - 1e-3 && v.y <= b.max[1] + 1e-3 && v.z >= b.min[2] - 1e-3 && v.z <= b.max[2] + 1e-3)) continue;
+        const r = col.getX(i), g = col.getY(i), b = col.getZ(i), on = Math.abs(r - 1.0) < .006 && Math.abs(g - 116 / 255) < .006 && Math.abs(b - 37 / 255) < .006, off = r < .02 && g < .02 && b < .02 && !(Math.abs(r - 6 / 255) < .003 && Math.abs(g - 7 / 255) < .003);
+        if (on || off) ids.push(i); }
+      if (ids.length) { cw.idx = ids; cw.mesh = m; cw.n = ids.length; break; } } } catch (e) { console.warn('cockpit window: pane lookup failed', e); }
+  cw.set = (on) => { if (!cw.mesh) return; const col = cw.mesh.geometry.attributes.color, c = on ? [1.0, 0.4564, 0.1441] : [0.0070, 0.0110, 0.0160];
+    for (const i of cw.idx) col.setXYZ(i, c[0], c[1], c[2]); col.needsUpdate = true; cw.on = !!on; };
+  if (cw.n) cw.set(true);
+  return cw;
+}
+function shipSkirtLoaded(g, prep) {
+  const sk = g.scene; sk.name = 'Aft_Skirt_Module'; prep.local.decompose(sk.position, sk.quaternion, sk.scale);
+  sk.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false; } });
+  prep.mount.add(sk); sk.updateMatrixWorld(true);
+  const gear = createGear(sk); if (!gear) throw new Error('aft skirt: no extras.gear');
+  cg3.skirt = sk; cg3.gear = gear; gear.update('land', 0, 0);   // rest: legs down, doors shut
+  if (stationObjs[PADI] === cg3.padArt) fitSite(PADI);   // the pad rest fit needs the landing legs: re-fit now they are in
+  window.__ps3d.shipSkirt = { url: prep.url, seat: prep.seat, baseY: +prep.baseY.toFixed(3), bellVerts: prep.bells, legVerts: prep.legs, bells: prep.eng, cockpitVerts: prep.cw.n, nozzles: (() => { let n = 0; sk.traverse(o => { if (/^Engine_Nozzle_\d+$/.test(o.name)) n++; }); return n; })() };
+}
+function updGear(s, t, alt) {          // cargo clock: launch rel LO (= launch t0), landing rel TD (= land t0 + landSec)
+  const G = cg3.gear; if (!G) return;
+  if (s.st === 'launch') G.update('launch', t - s.t0, alt);
+  else if (s.st === 'land') G.update('land', t - (s.t0 + CG.landSec * 1000), alt);
+  else if (s.st === 'away') { if (G.ph !== 'away') { G.update('launch', 1e9, 1e3); G.ph = 'away'; } }
+  else if (G.ph !== 'pad') { G.update('land', 0, 0); G.ph = 'pad'; }
+}
+// ===== Lv1 launch VFX (AA2 a422b9c: art/vfx/lv1_launch/lv1_launch_vfx.glb md5 b6d5beb7…, NOTES_for_Coder.md md5 04f0264d…; Jacob-approved, relayed 10/25 12:13).
+// Plume_Root goes under the aft skirt (cg3.skirt: rides the ship + gear), Dust_Ring + the two driver empties in pad space (Dust_Ring at Ship_Center x/z, deck top + 0.02).
+// Pure function of S.cg.sh + now (reload / offline catch-up / ?speed land on the exact frame), like the gear and the Receiver:
+//   takeoff clips: t = 0 at ignition = LO − 2.0 s (LO = 'launch' t0 = board t0 + BOARD_SEC: the last 2 s of 'board', crew already inside), 10 s → LO + 8 s = 'away';
+//   landing clips: t = 0 at the 'land' t0 (= TD − 8 s, landSec 8), 9.6 s → the first 1.6 s of 'pad' after touchdown (pad t0 = TD, only after a launch).
+// Anything else (pad, away, off-site camera, clip intensity ≈ 0): Plume_Idle_Off once + visible = false (0 draws). ?vfx=off: never loaded.
+const VFX_GLB = '../live/models/lv1_launch_vfx_b6d5beb7.glb?v=b6d5beb7';   // live copy of Art's art/vfx/lv1_launch/lv1_launch_vfx.glb (same md5 b6d5beb7…), loaded as-is
+const VFX = { on: Q.get('vfx') !== 'off', plume: null, dust: null, pI: null, dI: null, mx: null, acts: {}, cur: '', matP: null, matD: null, gainP: 1, gainD: 1, ign: 2.0, toff: 10, land: 9.6, ph: null };
+function vfxLoad(prep) { if (!VFX.on) return;
+  loader.load(VFX_GLB, (g) => { try { vfxLoaded(g, prep); } catch (e) { console.warn('launch vfx bind failed (no vfx)', e); } }, undefined, (e) => console.warn('launch vfx failed to load', e)); }
+function vfxLoaded(g, prep) {
+  const s = g.scene, P = s.getObjectByName('Plume_Root'), D = s.getObjectByName('Dust_Ring'), pI = s.getObjectByName('Plume_Intensity'), dI = s.getObjectByName('Dust_Intensity'), pad = cg3.padArt;
+  if (!P || !D || !pI || !dI) throw new Error('launch vfx: nodes missing'); if (!pad || !cg3.skirt) throw new Error('launch vfx: no pad / aft skirt');
+  const clips = {}; for (const n of ['Plume_Takeoff', 'Dust_Takeoff', 'Plume_Landing', 'Dust_Landing', 'Plume_Idle_Off']) { clips[n] = g.animations.find(a => a.name === n); if (!clips[n]) throw new Error('launch vfx: clip ' + n + ' missing'); }
+  cg3.skirt.add(P);                     // NOTES §1: skirt space; Plume_Root's own (0, 0.9, 0) = the nozzle exit plane
+  const sc = pad.getObjectByName('Ship_Center'), w = sc.getWorldPosition(new THREE.Vector3()); pad.worldToLocal(w);
+  pad.add(D); D.position.set(w.x, prep.baseY - pad.position.y + .02, w.z);   // pad space, NOT the ship: deck top (skirt baseY at rest) + 0.02
+  pad.add(pI); pad.add(dI);             // driver empties under the mixer root
+  P.traverse(m => { if (!m.isMesh) return; const mt = m.material;   // NOTES §3: additive plume (glTF can't say additive: GLB extras.blending = 'additive')
+    mt.blending = THREE.AdditiveBlending; mt.transparent = true; mt.depthWrite = false; mt.depthTest = true; mt.toneMapped = false; mt.forceSinglePass = true;   // single pass: 1 draw, not 2
+    m.renderOrder = 11; m.frustumCulled = false; m.castShadow = m.receiveShadow = false; VFX.matP = mt; });
+  D.traverse(m => { if (!m.isMesh) return; const mt = m.material;   // normal alpha dust (extras.blending = 'normal (alpha)'), radial fade in COLOR_0 alpha
+    mt.blending = THREE.NormalBlending; mt.transparent = true; mt.depthWrite = false; mt.depthTest = true; mt.toneMapped = false; mt.forceSinglePass = true; mt.color.setScalar(1);
+    m.renderOrder = 10; m.frustumCulled = false; m.castShadow = m.receiveShadow = false; VFX.matD = mt; });
+  if (!VFX.matP || !VFX.matD) throw new Error('launch vfx: meshes missing');
+  if (VFX.matD.map && VFX.matD.map === VFX.matP.map) VFX.matD.map = VFX.matD.map.clone();   // the dust UV scroll must not move the plume
+  VFX.mx = new THREE.AnimationMixer(pad); for (const n in clips) { const a = VFX.mx.clipAction(clips[n]); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; VFX.acts[n] = a; }
+  Object.assign(VFX, { plume: P, dust: D, pI, dI, cur: '' }); vfxOff();
+  window.__ps3d.launchVfx = { url: VFX_GLB, plumeParent: P.parent.name, dust: D.position.toArray().map(v => +v.toFixed(3)), clips: Object.keys(clips) };
+}
+function vfxPhase(c, t) {              // → { k: 'Takeoff' | 'Landing', x: clip seconds } or null (pure: S.cg.sh + now)
+  const s = c && c.sh; if (!s) return null;
+  if (s.st === 'board') { const x = (t - (s.t0 + (BOARD_SEC - VFX.ign) * 1000)) / 1000, inside = BOARD_FLY.length ? s.t0 + (BCAM.in + Math.max(...BOARD_FLY.map(f => BOARD_INSIDE[f.board]))) * 1000 : s.t0;
+    return x >= 0 && t >= inside ? { k: 'Takeoff', x } : null; }   // NOTES: never ignite while anyone is outside
+  if (s.st === 'launch') { const x = (BOARD_SEC ? VFX.ign : 0) + (t - s.t0) / 1000; return x < VFX.toff ? { k: 'Takeoff', x } : null; }   // ?board=off: no board phase, clip starts at ignition
+  if (s.st === 'land') return { k: 'Landing', x: (t - s.t0) / 1000 };
+  if (s.st === 'pad' && c.launches > 0) { const x = CG.landSec + (t - s.t0) / 1000; return x >= CG.landSec && x < VFX.land ? { k: 'Landing', x } : null; }
+  return null;
+}
+function vfxOff() { if (VFX.cur !== 'off') { VFX.mx.stopAllAction(); const a = VFX.acts.Plume_Idle_Off; a.play(); a.time = 0; VFX.mx.update(0); VFX.cur = 'off'; } VFX.plume.visible = VFX.dust.visible = false; VFX.ph = null; }
+function updVfx(c, t) {
+  if (!VFX.mx) return;
+  const ph = Math.abs(camX - PX) < GAP * .75 ? vfxPhase(c, t) : null;   // off-site: nothing drawn (the sim still runs; the next on-site frame lands on the exact pose)
+  if (!ph) { vfxOff(); return; }
+  const pn = 'Plume_' + ph.k, dn = 'Dust_' + ph.k;
+  if (VFX.cur !== ph.k) { VFX.mx.stopAllAction(); VFX.acts[pn].play(); VFX.acts[dn].play(); VFX.cur = ph.k; }
+  for (const n of [pn, dn]) { const a = VFX.acts[n]; a.time = clamp(ph.x, 0, a.getClip().duration - 1e-3); }
+  VFX.mx.update(0);
+  const flick = 1 + 0.06 * Math.sin(t * 0.113) * Math.sin(t * 0.037), pi = VFX.pI.scale.x, di = VFX.dI.scale.x;   // NOTES §3 per-frame code
+  VFX.matP.color.setScalar(pi * flick * VFX.gainP); VFX.matD.opacity = Math.min(1, di * VFX.gainD);
+  VFX.plume.visible = pi > 0.002; VFX.dust.visible = di > 0.002;
+  if (VFX.matD.map) VFX.matD.map.offset.y = (-1.6 * t / 1000) % 1;
+  VFX.ph = { k: ph.k, x: +ph.x.toFixed(3), pI: +pi.toFixed(3), dI: +di.toFixed(3) };
+}
 function padLoaded(g) {
   const o = g.scene; o.name = 'LaunchPad_Art'; o.position.set(PX, 0, 0);
   o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
@@ -1586,7 +1915,13 @@ function padLoaded(g) {
   const hull = o.getObjectByName('Ship_Placeholder'), rig = new THREE.Group(); rig.name = 'Ship_Rig'; rig.position.copy(hull.position); o.add(rig); rig.updateMatrixWorld(true);
   for (const n of ['Ship_Placeholder', 'Cargo_Door', 'Hold_Door', ...Array.from({ length: CG.holdCap }, (_, i) => 'Hold_' + String(i + 1).padStart(2, '0'))]) rig.attach(o.getObjectByName(n));
   rig.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
+  try { const prep = shipSkirtPrep(o, rig); cg3.cockpit = prep.cw; window.__ps3d.cockpit = prep.cw;
+    loader.load(prep.url, (gs) => { try { shipSkirtLoaded(gs, prep); vfxLoad(prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
+  } catch (e) { console.warn('detailed ship prep failed (plain hull stays)', e); }
   const crane = o.getObjectByName('Crane'); crane.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
+  { const bx = new THREE.Box3().setFromObject(crane), cb = crane.getWorldPosition(new THREE.Vector3());   // pad load camera: PC-1 at its GLB rest (Slew 0 = jib along +X)
+    cg3.pcRest = { tip: bx.max.x - cb.x, cj: cb.x - bx.min.x, top: bx.max.y, hw: Math.max(bx.max.z - cb.z, cb.z - bx.min.z, 1) };
+    cg3.doorBox = new THREE.Box3().setFromObject(rig.getObjectByName('Cargo_Door')).translate(rig.getWorldPosition(new THREE.Vector3()).negate()); }   // shut, relative to the Ship_Rig origin (= Ship_Center)
   for (const n of ['Slew', 'Trolley', 'Hoist', 'Hook']) { const j = crane.getObjectByName(n); j.userData.q0 = j.quaternion.clone(); }
   // swap the gray placeholder group (slab, bay, crane, ship, gauge) out
   scene.remove(cg3.pg); scene.remove(cg3.ship); if (phBox[PADI]) phBox[PADI] = null;
@@ -1644,7 +1979,7 @@ function rxPose(c, t, ap) {           // Receiver clips are sampled from S.cg ti
   act.time = x; X.mx.update(0);
 }
 function updCargo() {
-  if (!cg3.fb || !FB.kOut) return; const c = S.cg, t = nowMs();
+  if (!cg3.fb || !FB.kOut) return; const c = S.cg, t = nowMs(); brFrame(c, t);
   fbPoseAt(c, t, FBS); const fb = cg3.fb; fb.position.set(FBS.x, 0, FBS.z); fb.rotation.set(0, FBS.yaw, 0); fb.updateMatrixWorld(true);
   if (FBS.wx !== null) { const dx = FBS.x - FBS.wx, dz = FBS.z - FBS.wz; if (Math.hypot(dx, dz) < 20) FBS.wa += (dx * Math.cos(FBS.yaw) - dz * Math.sin(FBS.yaw)) / cg3.wheelR; }   // roll by real distance
   FBS.wx = FBS.x; FBS.wz = FBS.z;
@@ -1655,7 +1990,7 @@ function updCargo() {
   if (s.st === 'launch') { const u = clamp((t - s.t0) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; }
   else if (s.st === 'away') vis = false;
   else if (s.st === 'land') { const u = clamp((t - s.t0) / (CG.landSec * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
-  sh.visible = vis; sh.position.y = sy; sh.updateMatrixWorld(true);
+  sh.visible = vis; sh.position.y = sy; updGear(s, t, sy - (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop)); sh.updateMatrixWorld(true); updVfx(c, t);
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
   const ap = astroPhase(c, t), as = cg3.astro, H = cg3.home, Rv = cg3.receive; let ax, az, ay = 0, ayaw;
@@ -1668,9 +2003,10 @@ function updCargo() {
   // cranes + boxes
   nBox = 0; const RC = cg3.RC, PC = cg3.PC, now = t;
   const restR = { a: polar(RC, RC.pick).a + CPH.ref.rest[0], r: 3 }, restP = { a: polar(PC, PC.drop).a, r: PC.glb ? 6 : 5 };
-  const ready = c.ref.length;           // the pallet shows every box on it (sealing ones included): up to palletCap, 2 layers of 4
+  let ready = c.ref.length;             // the pallet shows every box on it (sealing ones included): up to palletCap, 2 layers of 4
+  if (BRC.on && c.brQ) ready = brShown(c, t);   // bridge cargo: only crates whose box has reached the turntable (the rest are on the bridge)
   for (let i = 0; i < Math.min(ready, 8); i++) boxAt(stackPos(i, _cp));
-  let u = -1; if (c.rc) { u = (now - c.rc) / (CG.refLoadSec * 1000); stackPos(ready, _pk); slotW(c.fb.bed, _dp); }
+  let u = -1; if (c.rc) { u = (now - c.rc) / (CG.refLoadSec * 1000); if (BRC.on && BR.pick && c.rcP) _pk.copy(BR.pick); else stackPos(ready, _pk); slotW(c.fb.bed, _dp); }   // its box still on the bridge: from the turntable
   const carryR = cranePose(RC, u, c.rc ? _pk : null, _dp, restR);
   if (c.rc && u >= 0) boxAt(u < .3 ? _pk : carryR ? _hw.copy(RC.hookW).setY(RC.hookW.y - BOXP.hookY) : _dp);
   for (let i = 0; i < (c.fb.st === 'dock' ? 0 : c.fb.bed); i++) boxAt(slotW(i, _cp), FBS.yaw);   // at the Dock stop dockFrame draws the bed boxes
@@ -1773,6 +2109,72 @@ function cargoUI() {                  // Launch button (bottom-right of the safe
   if (k !== FG.k) { FG.k = k; fgEl.classList.toggle('full', k === 'full' || k === 'wait'); fgEl.classList.toggle('wait', k === 'wait'); fgLbl.textContent = k === 'full' ? 'FUEL FULL' : k === 'wait' ? 'AWAITING CARGO' : k === 'board' ? 'BOARDING' : k === 'launch' ? 'BURN' : k === 'away' ? 'SHIP AWAY' : k === 'land' ? 'LANDING' : 'FUEL'; FG.p = -1; }
   if (pc !== FG.p) { FG.p = pc; fgPct.textContent = k === 'away' || k === 'land' ? '—' : pc + '%'; }
 }
+
+// ===== Cargo Bay label (Director 10/25): floating 'CARGO BAY' / '<stored>/<max> crates' over the Cargo Space Dock, in the FUEL panel's HUD style.
+// Read-only from outside the Dock code: stored = S.cg.dk (the save state the cargo sim changes when a store / load finishes), max = CPH.dock.cap, and
+// the Dock root stationObjs[DOCKI] for its geometry. Polled every frame from frame(); the DOM is written only when a shown value changes (no allocation
+// in steady state). Placement (Director 11:23: never hidden for lack of room while the Dock is on screen): the first of these that fits clear of the Dock
+// building and the HUD — 0 normal 112×36 centred CB.gap px above the building top inside band(); 1 compact 92×26 there; 2/3 normal beside the building's
+// screen x span (left / right), top-aligned to it; 4 normal / 5 compact docked CB.hud px under the HUD edge (band top − 24); else 6 = 5's spot (least overlap).
+// The camera looks straight down −Z (no azimuth), so a point's screen y depends only on its (y, z): the building's (z, y) convex hull, built once on the
+// first show, holds every candidate for its top. Those few points (and the anchor) are projected each frame through one reused Matrix4 (projection × view)
+// into locals and a Float64Array, so no number is stored into an object field per frame (Node harness: 0 GCs over 10^6 steady frames).
+const CB_CSS = '#cargoBay{position:fixed;left:0;top:0;z-index:5;width:112px;height:36px;display:none;pointer-events:none;isolation:isolate;padding:6px 10px 0 12px;box-sizing:border-box;will-change:transform}' +
+  '#cargoBay.on{display:block}' +
+  "#cargoBay::before,#cargoBay::after{content:'';position:absolute;z-index:-1;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}" +
+  '#cargoBay::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}#cargoBay::after{inset:1px;background:linear-gradient(180deg,#1a1f2ef2,#0b101cf2)}' +
+  '#cargoBay b{display:block;height:12px;white-space:nowrap;font:800 9px/12px system-ui;font-stretch:condensed;letter-spacing:.2em;color:#9fdff5}' +
+  '#cargoBay em{display:block;margin-top:2px;height:12px;white-space:nowrap;font:800 11px/12px system-ui;font-style:normal;font-variant-numeric:tabular-nums;color:#eafcff;text-shadow:0 0 6px #3ad0ff99}' +
+  '#cargoBay.full::before{background:linear-gradient(110deg,#ffb340,#ffd58a 45%,#ff7a00aa);filter:drop-shadow(0 0 8px #ff7a0088)}' +
+  '#cargoBay.full b{color:#ffd58a;text-shadow:0 0 8px #ff7a00cc}#cargoBay.full em{color:#ffe7c2;text-shadow:0 0 6px #ff7a0099}' +
+  '#cargoBay.cmp{width:92px;height:26px;padding:3px 8px 0 9px}#cargoBay.cmp b{height:10px;font-size:8px;line-height:10px;letter-spacing:.16em}#cargoBay.cmp em{margin-top:1px;height:11px;font-size:10px;line-height:11px}';
+const cbEl = document.createElement('div'); cbEl.id = 'cargoBay'; cbEl.setAttribute('role', 'status'); cbEl.setAttribute('aria-label', 'Cargo Space Dock storage');
+cbEl.innerHTML = '<b>CARGO BAY</b><em>0/0 crates</em>';
+{ const st = document.createElement('style'); st.textContent = CB_CSS; document.head.appendChild(st); document.body.appendChild(cbEl); }
+const cbTxt = cbEl.querySelector('em').firstChild;
+const CB = { on: false, n: -1, m: -1, full: false, x: -1e9, y: -1e9, w: 112, h: 36, gap: 6, yMin: .4, hull: null, x0: 0, x1: 0, ay: 0, az: 0, bd: null,   // last written values
+  mode: -1, cmp: false, hud: 4, NW: 112, NH: 36, NG: 6, CW: 92, CH: 26, CG: 4, y1: 0, z0: 0, z1: 0 };   // placement mode (see above); normal / compact sizes + gaps
+const _cbV = new THREE.Vector3(), _cbM = new THREE.Matrix4(), _cbO = new Float64Array(3);   // _cbV: build-time only
+addEventListener('resize', () => { CB.bd = null; });   // the band only moves on resize / rotation while the label can show (it hides while the sheet is open)
+function cbHull(o) {                   // once: the Dock building's (z, y) convex hull (monotone chain) + its x span and highest point (the label's x anchor)
+  o.updateMatrixWorld(true); const v = _cbV, P = []; let x0 = 1e9, x1 = -1e9, ay = -1e9, az = 0, z0 = 1e9, z1 = -1e9;
+  o.traverse(m => { if (!m.isMesh) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const p = m.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld); if (v.y <= CB.yMin) continue; P.push([v.z, v.y]); if (v.x < x0) x0 = v.x; if (v.x > x1) x1 = v.x; if (v.z < z0) z0 = v.z; if (v.z > z1) z1 = v.z; if (v.y > ay) { ay = v.y; az = v.z; } } });
+  P.sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+  for (const p of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  const h = lo.slice(0, -1).concat(up.slice(0, -1)), f = new Float32Array(h.length * 2); h.forEach((p, i) => { f[2 * i] = p[1]; f[2 * i + 1] = p[0]; });
+  Object.assign(CB, { hull: f, x0, x1, ay, az, y1: ay, z0, z1 }); window.__ps3d.cargoBay = CB;
+}
+function cargoBayLabel() {
+  const o = stationObjs[DOCKI], c = S.cg; let on = !!o && !document.hidden && !sheetOpen && !document.body.classList.contains('sheet-drag'), x = 0, y = 0;
+  if (on) { if (!CB.hull) cbHull(o);
+    const hl = CB.hull, cx = (CB.x0 + CB.x1) / 2, e = _cbM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements; let top = 1e9, behind = false;
+    for (let i = 0; i < hl.length; i += 2) { const y = hl[i], z = hl[i + 1], w = e[3] * cx + e[7] * y + e[11] * z + e[15]; if (w <= 0) { behind = true; continue; }
+      const sy = (1 - (e[1] * cx + e[5] * y + e[9] * z + e[13]) / w) / 2 * H; if (sy < top) top = sy; }
+    { const y = CB.ay, z = CB.az, w = e[3] * cx + e[7] * y + e[11] * z + e[15]; _cbO[0] = ((e[0] * cx + e[4] * y + e[8] * z + e[12]) / w + 1) / 2 * W; _cbO[2] = w; }   // the Dock anchor: building top centre
+    const ax = _cbO[0]; if (_cbO[2] <= 0) behind = true;
+    let bx0 = 1e9, bx1 = -1e9;                                 // the building's screen x span: its world box corners
+    for (let q = 0; q < 8; q++) { const px = q & 1 ? CB.x1 : CB.x0, py = q & 2 ? CB.y1 : CB.yMin, pz = q & 4 ? CB.z1 : CB.z0, w = e[3] * px + e[7] * py + e[11] * pz + e[15];
+      if (w <= 0) { behind = true; break; } const sx = ((e[0] * px + e[4] * py + e[8] * pz + e[12]) / w + 1) / 2 * W; if (sx < bx0) bx0 = sx; if (sx > bx1) bx1 = sx; }
+    if (behind || !(bx1 > 0 && bx0 < W)) on = false;          // Dock off screen: no part of its building's box on screen (or behind the camera)
+    else { if (!CB.bd) CB.bd = band(); const bd = CB.bd, hy = bd.top - 24 + CB.hud;   // hy: just under the HUD edge (band() puts its top 24 px below it)
+      const NW = CB.NW, NH = CB.NH, NG = CB.NG, CW = CB.CW, CH = CB.CH, CG = CB.CG, xN = Math.round(clamp(ax - NW / 2, bd.l, bd.r - NW)), xC = Math.round(clamp(ax - CW / 2, bd.l, bd.r - CW));
+      let md = 6; const yN = Math.round(Math.min(top - NG, bd.bot) - NH), yC = Math.round(Math.min(top - CG, bd.bot) - CH), yS = Math.round(clamp(top, bd.top, bd.bot - NH));
+      if (yN >= bd.top) { md = 0; x = xN; y = yN; }
+      else if (yC >= bd.top) { md = 1; x = xC; y = yC; }
+      else if (bx0 - NG - NW >= bd.l) { md = 2; x = Math.round(bx0 - NG - NW); y = yS; }
+      else if (bx1 + NG + NW <= bd.r) { md = 3; x = Math.round(bx1 + NG); y = yS; }
+      else if (Math.round(hy) + NH <= top - NG) { md = 4; x = xN; y = Math.round(hy); }
+      else { md = Math.round(hy) + CH <= top - CG ? 5 : 6; x = xC; y = Math.round(hy); }   // 6: nothing fits; the smallest label, highest spot = the least Dock covered
+      const cm = md === 1 || md >= 5; if (md !== CB.mode) { CB.mode = md; if (cm !== CB.cmp) { CB.cmp = cm; CB.w = cm ? CW : NW; CB.h = cm ? CH : NH; cbEl.classList.toggle('cmp', cm); } } } }
+  if (on !== CB.on) { CB.on = on; cbEl.classList.toggle('on', on); }
+  if (!on) return;
+  if (x !== CB.x || y !== CB.y) { CB.x = x; CB.y = y; cbEl.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
+  const n = c.dk, m = CPH.dock.cap;
+  if (n !== CB.n || m !== CB.m) { CB.n = n; CB.m = m; cbTxt.nodeValue = n + '/' + m + ' crates'; const f = n >= m; if (f !== CB.full) { CB.full = f; cbEl.classList.toggle('full', f); } }
+}
+// ===== end Cargo Bay label
 
 // ===== upgrade juice: spark burst (1 Points draw, ~0.5 s) + squash-and-bounce (~0.35 s)
 const SPK = 48, spkPos = new Float32Array(SPK * 3), spkVel = new Float32Array(SPK * 3);
@@ -2126,7 +2528,7 @@ function frame() {
   if (now < S.rt - 1000) stampGuard(now);                        // clock went backward mid-session: every stamp shifts back with S.rt, credit nothing
   if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > 60) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
-  updFocus(); updViewShift(); updCrew(); placeCamera();
+  updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
   updCargo();
   updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
@@ -2135,7 +2537,7 @@ function frame() {
   for (const m of stationMixers) m.update(gdt);
   updFillArc();
   updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updTiers(dt);
-  updEve(); updConveyor();
+  updEve(); updConveyor(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
   renderer.render(scene, camera);
@@ -2162,7 +2564,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
-Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band,
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
 loadRig(); loadTruck(); loadOperator(); loadCrew();
