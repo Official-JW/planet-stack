@@ -223,6 +223,7 @@ const CAM_OVERRIDE = {
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
+  '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -1574,8 +1575,107 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (PX = 640, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../qa3d-next/models/launch_pad_db78a6f7.glb?v=db78a6f7';   // plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
+const PAD_GLB = '../qa3d-next/models/launch_pad_1042e767.glb?v=1042e767';   // AA2 b8dc5b1 lv1ship (cockpit window CW-1 + Engine_Ring_Mount, Lv1 door changes); was plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
 //   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
+// ===== detailed ship (AA3 8c5c7bf aft skirt + gear, AA2 b8dc5b1 cockpit window). Lv1 = 6 engines → aft_skirt_N06 (SPEC §9 engineCountForLevel(1)).
+// The skirt module (ring + band + 4 folding legs, 1 skinned mesh, 1 draw) hangs off the hull's Engine_Ring_Mount, so it rides the Ship_Rig.
+// The lv1ship hull still carries its merged 4 bells + 6 fixed legs, so (as in AA3's preview, SPEC §9.3) those triangles are collapsed into the
+// hull and the module sits 0.9 m below the old bell exit plane (feet on the deck). Gear runs on the cargo clock: Gear_Retract from LO + 1.0 s,
+// Gear_Deploy from TD − 7.0 s (art/vfx/engine_flame/aft_skirt/gear.js, inlined below; numbers read from the GLB's extras.gear).
+const SKIRT_GLB = '../qa3d-next/models/aft_skirt_N06_344311ab.glb?v=344311ab';
+const GEAR_T = { R_DOOR_OPEN: [1000, 1600], R_KNEE: [1600, 3400], R_SWING: [2200, 3400], R_SETTLE: [3400, 3600], R_DOOR_CLOSE: [3600, 4200],
+  D_DOOR_OPEN: [-7000, -6400], D_KNEE: [-6400, -4400], D_SWING: [-6300, -5200], D_BOUNCE: [-4400, -4000], D_DOOR_CLOSE: [-4000, -3400] };
+const gEase = (x) => { x = Math.min(1, Math.max(0, x)); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const gWin = (t, [a, b]) => gEase((t - a) / (b - a));
+const gSettle = (u) => (u >= 0 && u <= 1) ? Math.sin(Math.PI * u) ** 2 * Math.sin(2 * Math.PI * u) * Math.exp(-2.5 * u) / 0.2940373 : 0;
+function gearState(phase, t, alt = 0, meta = { stroke_m: 0.05, bounce_rad: 0.07, stow_settle_rad: 0.025 }) {
+  const T = meta.timeline_ms || GEAR_T; let door, knee, swing, bounce = 0, hip = 0;
+  if (phase === 'launch') { door = gWin(t, T.R_DOOR_OPEN) - gWin(t, T.R_DOOR_CLOSE); knee = gWin(t, T.R_KNEE); swing = gWin(t, T.R_SWING);
+    const [a, b] = T.R_SETTLE; hip = (meta.stow_settle_rad ?? 0.025) * gSettle((t - a) / (b - a)); }
+  else { door = gWin(t, T.D_DOOR_OPEN) - gWin(t, T.D_DOOR_CLOSE); swing = 1 - gWin(t, T.D_SWING); knee = 1 - gWin(t, T.D_KNEE);
+    const [a, b] = T.D_BOUNCE; bounce = -meta.bounce_rad * gSettle((t - a) / (b - a)); }
+  const St = meta.stroke_m, ext = 1 - Math.min(1, Math.max(0, (St - alt) / St));
+  return { door, knee, swing, bounce, settle: hip, ext };
+}
+function createGear(root) {
+  let meta = null; root.traverse(n => { if (!meta && n.userData && n.userData.gear) meta = n.userData.gear; });
+  if (!meta) return null;
+  const bone = (name) => root.getObjectByName(name), V = (a) => new THREE.Vector3(...a);
+  const legs = meta.legs.map(lg => ({ lg, leg: bone(`Gear_Leg_${lg.k}`), knee: bone(`Gear_Knee_${lg.k}`), foot: bone(`Gear_Foot_${lg.k}`),
+    doors: lg.doors.map(d => ({ d, b: bone(`Gear_Door_${lg.k}${d.side}`) })), t: V(lg.t), dvec: V(lg.d), foot0: V(lg.F).add(V(lg.off)).sub(V(lg.K)) }));
+  const up = new THREE.Vector3(0, 1, 0), DOOR = THREE.MathUtils.degToRad(meta.door_open_deg);
+  const api = { meta, legs, last: null, ph: '', update(phase, t, alt) {
+    const st = gearState(phase, t, alt, meta); api.last = st; api.ph = phase;
+    for (const L of legs) {
+      L.leg.quaternion.setFromAxisAngle(L.t, L.lg.hip_sign * (L.lg.theta * st.swing - st.settle));
+      L.knee.quaternion.setFromAxisAngle(L.t, L.lg.knee_sign * (Math.PI * st.knee + st.bounce));
+      L.foot.position.copy(L.foot0).addScaledVector(L.dvec, meta.stroke_m * st.ext);
+      for (const D of L.doors) D.b.quaternion.setFromAxisAngle(up, D.d.sign * DOOR * st.door);
+    }
+    return st; } };
+  return api;
+}
+function shipSkirtPrep(o, rig) {      // sync, at pad load (rig at rest): find the old bells, collapse old bells + legs, work out the module frame under Engine_Ring_Mount
+  const mount = rig.getObjectByName('Engine_Ring_Mount'), hull = rig.getObjectByName('Ship_Placeholder'); if (!mount) throw new Error('Engine_Ring_Mount missing');
+  const meshes = []; hull.traverse(n => { if (n.isMesh && n.geometry && n.geometry.attributes.position) meshes.push(n); });
+  const sc = o.getObjectByName('Ship_Center').getWorldPosition(new THREE.Vector3()), v = new THREE.Vector3(), inv = new THREE.Matrix4();
+  const pred = [0, 1, 2, 3].map(k => { const a = (45 + 90 * k + 60) * Math.PI / 180; return new THREE.Vector3(sc.x + 2.25 * Math.cos(a), 0, sc.z - 2.25 * Math.sin(a)); });
+  const acc = pred.map(() => []);
+  for (const m of meshes) { m.updateMatrixWorld(true); const p = m.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y > sc.y + 4) continue;
+      pred.forEach((q, k) => { if (Math.hypot(v.x - q.x, v.z - q.z) < 1.0) acc[k].push([v.x, v.y, v.z]); }); } }
+  const eng = acc.map((pts, k) => { const yMin = pts.length ? Math.min(...pts.map(q => q[1])) : sc.y + 0.9, ring = pts.filter(q => q[1] < yMin + 0.12), n = ring.length || 1;
+    return new THREE.Vector3(ring.length ? ring.reduce((a, q) => a + q[0], 0) / n : pred[k].x, yMin, ring.length ? ring.reduce((a, q) => a + q[2], 0) / n : pred[k].z); });
+  const baseY = Math.min(...eng.map(e => e.y)) - 0.9;   // ENGINE_RING.EXIT_Y
+  let bells = 0, legs = 0;
+  for (const m of meshes) { inv.copy(m.matrixWorld).invert(); const p = m.geometry.attributes.position; let hit = false;   // old bells: within 1.3 m of an old axis, base+0.5 … base+3.9 → a point inside the hull
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y > baseY + 3.9 || v.y < baseY + 0.5) continue;
+      const a = eng.find(q => Math.hypot(v.x - q.x, v.z - q.z) < 1.3); if (!a) continue; v.set(a.x, baseY + 3.3, a.z).applyMatrix4(inv); p.setXYZ(i, v.x, v.y, v.z); bells++; hit = true; }
+    if (hit) { p.needsUpdate = true; m.geometry.computeBoundingSphere(); } }
+  const legA = [0, 60, 120, 180, 240, 300].map(d => THREE.MathUtils.degToRad(d + 60)), win = THREE.MathUtils.degToRad(14);   // old 6 legs: triangles past r 4.1 below base + 8.7 within ±14° of a leg
+  const angOff = (a) => Math.min(...legA.map(b => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)))));
+  for (const m of meshes) { inv.copy(m.matrixWorld).invert(); const p = m.geometry.attributes.position, idx = m.geometry.index; if (!idx) continue;
+    const W = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); W[i * 3] = v.x - sc.x; W[i * 3 + 1] = v.y; W[i * 3 + 2] = v.z - sc.z; }
+    let hit = false; const done = new Uint8Array(p.count);
+    for (let t = 0; t < idx.count; t += 3) { const ids = [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)]; let rMax = 0, yMin = 1e9, ax = 0, az = 0;
+      for (const i of ids) { const x = W[i * 3], y = W[i * 3 + 1], z = W[i * 3 + 2]; rMax = Math.max(rMax, Math.hypot(x, z)); yMin = Math.min(yMin, y); ax += x; az += z; }
+      if (rMax <= 4.1 || yMin > baseY + 8.7) continue; const a = Math.atan2(-az, ax); if (angOff(a) > win) continue;
+      v.set(sc.x + 3.0 * Math.cos(a), baseY + 4, sc.z - 3.0 * Math.sin(a)).applyMatrix4(inv);
+      for (const i of ids) { p.setXYZ(i, v.x, v.y, v.z); if (!done[i]) { done[i] = 1; legs++; } } hit = true; }
+    if (hit) { p.needsUpdate = true; m.geometry.computeBoundingSphere(); } }
+  // module frame: Ship_Center x/z, baseY, +60° pad yaw (the module is yaw-neutral), expressed in Engine_Ring_Mount space
+  mount.updateMatrixWorld(true);
+  const Mw = new THREE.Matrix4().compose(new THREE.Vector3(sc.x, baseY, sc.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(60)), new THREE.Vector3(1, 1, 1));
+  const local = new THREE.Matrix4().copy(mount.matrixWorld).invert().multiply(Mw);
+  // cockpit window CW-1 (SPEC_cockpit_window.md): cache the 96 glass vertices (in a box AND pane colour), switch via COLOR_0; default on (#ffb46a)
+  const cwN = rig.getObjectByName('Cockpit_Window'), cw = { n: 0, on: true, idx: [], mesh: null };
+  try { const boxes = JSON.parse((cwN && cwN.userData.glass_boxes_ship_local_gltf) || '[]');
+    for (const m of meshes) { const col = m.geometry.attributes.color; if (!col) continue; const p = m.geometry.attributes.position, ids = [];
+      for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrix);
+        if (!boxes.some(b => v.x >= b.min[0] - 1e-3 && v.x <= b.max[0] + 1e-3 && v.y >= b.min[1] - 1e-3 && v.y <= b.max[1] + 1e-3 && v.z >= b.min[2] - 1e-3 && v.z <= b.max[2] + 1e-3)) continue;
+        const r = col.getX(i), g = col.getY(i), b = col.getZ(i), on = Math.abs(r - 1.0) < .006 && Math.abs(g - 116 / 255) < .006 && Math.abs(b - 37 / 255) < .006, off = r < .02 && g < .02 && b < .02 && !(Math.abs(r - 6 / 255) < .003 && Math.abs(g - 7 / 255) < .003);
+        if (on || off) ids.push(i); }
+      if (ids.length) { cw.idx = ids; cw.mesh = m; cw.n = ids.length; break; } } } catch (e) { console.warn('cockpit window: pane lookup failed', e); }
+  cw.set = (on) => { if (!cw.mesh) return; const col = cw.mesh.geometry.attributes.color, c = on ? [1.0, 0.4564, 0.1441] : [0.0070, 0.0110, 0.0160];
+    for (const i of cw.idx) col.setXYZ(i, c[0], c[1], c[2]); col.needsUpdate = true; cw.on = !!on; };
+  if (cw.n) cw.set(true);
+  return { mount, local, baseY, bells, legs, eng: eng.map(e => [+e.x.toFixed(2), +e.y.toFixed(3), +e.z.toFixed(2)]), cw };
+}
+function shipSkirtLoaded(g, prep) {
+  const sk = g.scene; sk.name = 'Aft_Skirt_Module'; prep.local.decompose(sk.position, sk.quaternion, sk.scale);
+  sk.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false; } });
+  prep.mount.add(sk); sk.updateMatrixWorld(true);
+  const gear = createGear(sk); if (!gear) throw new Error('aft skirt: no extras.gear');
+  cg3.skirt = sk; cg3.gear = gear; gear.update('land', 0, 0);   // rest: legs down, doors shut
+  window.__ps3d.shipSkirt = { url: SKIRT_GLB, baseY: +prep.baseY.toFixed(3), bellVerts: prep.bells, legVerts: prep.legs, bells: prep.eng, cockpitVerts: prep.cw.n, nozzles: (() => { let n = 0; sk.traverse(o => { if (/^Engine_Nozzle_\d+$/.test(o.name)) n++; }); return n; })() };
+}
+function updGear(s, t, alt) {          // cargo clock: launch rel LO (= launch t0), landing rel TD (= land t0 + landSec)
+  const G = cg3.gear; if (!G) return;
+  if (s.st === 'launch') G.update('launch', t - s.t0, alt);
+  else if (s.st === 'land') G.update('land', t - (s.t0 + CG.landSec * 1000), alt);
+  else if (s.st === 'away') { if (G.ph !== 'away') { G.update('launch', 1e9, 1e3); G.ph = 'away'; } }
+  else if (G.ph !== 'pad') { G.update('land', 0, 0); G.ph = 'pad'; }
+}
 function padLoaded(g) {
   const o = g.scene; o.name = 'LaunchPad_Art'; o.position.set(PX, 0, 0);
   o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
@@ -1586,6 +1686,9 @@ function padLoaded(g) {
   const hull = o.getObjectByName('Ship_Placeholder'), rig = new THREE.Group(); rig.name = 'Ship_Rig'; rig.position.copy(hull.position); o.add(rig); rig.updateMatrixWorld(true);
   for (const n of ['Ship_Placeholder', 'Cargo_Door', 'Hold_Door', ...Array.from({ length: CG.holdCap }, (_, i) => 'Hold_' + String(i + 1).padStart(2, '0'))]) rig.attach(o.getObjectByName(n));
   rig.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
+  try { const prep = shipSkirtPrep(o, rig); cg3.cockpit = prep.cw; window.__ps3d.cockpit = prep.cw;
+    loader.load(SKIRT_GLB, (gs) => { try { shipSkirtLoaded(gs, prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
+  } catch (e) { console.warn('detailed ship prep failed (plain hull stays)', e); }
   const crane = o.getObjectByName('Crane'); crane.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   for (const n of ['Slew', 'Trolley', 'Hoist', 'Hook']) { const j = crane.getObjectByName(n); j.userData.q0 = j.quaternion.clone(); }
   // swap the gray placeholder group (slab, bay, crane, ship, gauge) out
@@ -1655,7 +1758,7 @@ function updCargo() {
   if (s.st === 'launch') { const u = clamp((t - s.t0) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; }
   else if (s.st === 'away') vis = false;
   else if (s.st === 'land') { const u = clamp((t - s.t0) / (CG.landSec * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
-  sh.visible = vis; sh.position.y = sy; sh.updateMatrixWorld(true);
+  sh.visible = vis; sh.position.y = sy; updGear(s, t, sy - (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop)); sh.updateMatrixWorld(true);
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
   const ap = astroPhase(c, t), as = cg3.astro, H = cg3.home, Rv = cg3.receive; let ax, az, ay = 0, ayaw;
