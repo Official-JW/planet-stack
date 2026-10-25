@@ -1,3 +1,8 @@
+# TOP AFTER PAUSE (Director 02:17)
+1. Clean Lv1 ship export without the old built-in bells and legs (AA3). Coder is using the SPEC 9.3 fold-away workaround for now.
+2. Dock box visibility: the game counts 4 stored but only 2 show at 393. Slots 01-04 are in one row under the runway. Render with 4 stored, then change the fill order if they are hidden.
+3. Optional: lower the leg deploy on screen (now doors at -7 s, legs locked at -4 s) if Jacob wants it.
+
 # Art & Animation restart note (written 10/25/2026 01:25 PT)
 
 Planet Stack is Jacob's game, and this file is about Art & Animation's work. The repo is /workspace/planet-stack, branch main. Commits are named "MM/DD/YYYY - planet-stack - HH:MM", and each agent commits only its own paths.
