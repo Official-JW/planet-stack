@@ -650,7 +650,15 @@ pt_crate(-1.4, -12.9)
 for k, (dx, h) in enumerate(((-0.4, 0.6), (0.35, 0.6), (0.0, 0.5))):
     box('crate_small', (0.7, 0.9, h), (-0.3 + dx, -9.0, ZP + 0.14 + (0.6 if k == 2 else 0) + h / 2), [PALE, WHITE_S, GRAPH2][k], bevel=0.03)
 box('crate_pallet', (1.8, 1.2, 0.14), (-0.3, -9.0, ZP + 0.07), GRAPH, bevel=0.01)
-GAME['markers']['Road_Entry'] = (0.0, -17.2, ZP)
+# 10/24 lane B (Director): flatbed lanes z 23 (out, +X) / z 32 (back, -X) pass in front of the Dock; FB-05 pulls off into a bay at glTF z 19.4
+# (x -16..+20: 12 m taper in, 12 m straight, 12 m taper out). Road surface = the game's road tiles (no mesh here: draws unchanged).
+BAYZ = 19.4
+GAME['markers']['Road_Entry'] = (-4.0, -BAYZ, 0.0)          # start of the bay straight (end of the 12 m entry taper from the z 23 lane at x -16)
+GAME['markers']['Truck_Stop_Dock'] = (0.0, -BAYZ, 0.0)      # FB-05 root while stopped (heading +X), gantry centre x 0
+GAME['markers']['Bay_Taper_In'] = (-16.0, -23.0, 0.0)       # leaves the out-lane
+GAME['markers']['Bay_Exit'] = (8.0, -BAYZ, 0.0)             # end of the bay straight
+GAME['markers']['Bay_Taper_Out'] = (20.0, -23.0, 0.0)       # back on the out-lane
+GAME.setdefault('marker_extras', {})
 
 # ====================================================================== RADIATOR WING RAD-1 + power line on masts + solar masts
 radiator_array('rad1', -14.6, 6.0, 20.0, 2.2, 4.6, 4, axis='y')
@@ -785,16 +793,16 @@ plate('tf_plate', 'TF-1  TANK FARM', (TWX, TWY - 1.25, 2.2), '-y', 1.9, 0.42, 0.
 # insulated headers, tie-ins with valves, pump skid, line out TO LAUNCH PAD
 HDR = {'LOX': (3.0, 1.15, 0.24), 'LCH4': (3.7, 1.15, 0.26), 'HE3': (4.4, 1.3, 0.16)}
 HX0, HX1 = 15.0, 35.0
-VLX, VLY = HX1 + 2.7, -7.3   # buried-line vault where the launch-pad line goes underground
+VLX, VLY = HX1 + 2.7, 3.7    # buried-line vault where the launch-pad line goes underground. 10/24 lane B: flipped to run EAST
+# (the pad is at Dock +160 m): the headers run straight on along +X into a vault at the east end of the rack (was a turn to the front at y -7.3)
 for nm, (hy_, hz_, hr_) in HDR.items():
-    xe = HX1 + 2.0 + (hy_ - 3.0)
-    pipe('hdr_' + nm.lower(), [(HX0, hy_, hz_), (xe, hy_, hz_), (xe, -6.7, hz_), (xe, -6.7, 0.55)], hr_, WHITE_S, bend=1.0)
+    xe = VLX - 0.9 + (hy_ - 3.0) * 1.3
+    pipe('hdr_' + nm.lower(), [(HX0, hy_, hz_), (xe, hy_, hz_), (xe, hy_, 0.55)], hr_, WHITE_S, bend=0.5)
     for k in range(int((HX1 - HX0) / 1.8)):
         x = HX0 + 0.9 + k * 1.8; rod('hdr_band', (x - 0.1, hy_, hz_), (x + 0.1, hy_, hz_), hr_ * 1.07, GRAPH if nm != 'HE3' else CYANL, segs=16)
 for x in range(16, int(HX1) + 1, 3):
     box('hdr_sleeper', (0.3, 2.2, 0.9), (x, 3.7, 0.45), GRAPH, bevel=0.02)
     beam('hdr_sleeper_cap', (x, 2.6, 0.92), (x, 4.8, 0.92), 0.36, 0.08, STEEL)
-for y in (-1.0, -4.0): box('hdr_sleeper', (2.6, 0.3, 1.2), (VLX, y, 0.3), GRAPH, bevel=0.02)
 box('bpl_vault', (3.6, 2.2, 0.6), (VLX, VLY, 0.3), GRAPH2, bevel=0.05)
 box('bpl_vault_lid', (3.2, 1.8, 0.08), (VLX, VLY, 0.62), STEEL, bevel=0.02)
 box('bpl_vault_cyan', (3.62, 0.03, 0.05), (VLX, VLY - 1.11, 0.45), CYANL, bevel=0.0)
@@ -832,7 +840,7 @@ plate('ps_plate', 'PS-1', (PSX - 1.0, PSY - 1.0, 0.8), '-y', 1.2, 0.36, 0.16, su
 for x in (PSX - 1.6, PSX - 0.4): box('ps_plate_post', (0.06, 0.06, 0.62), (x, PSY - 0.98, 0.31), STEEL)
 plate('tlp_plate', 'TO LAUNCH PAD', (VLX, VLY - 1.6, 1.5), '-y', 2.2, 0.4, 0.22, bg=GRAPH, fg=INKW, sub='BURIED LINE  LOX / LCH4 / HE-3')
 for x in (VLX - 0.8, VLX + 0.8): box('tlp_post', (0.08, 0.08, 1.4), (x, VLY - 1.55, 0.7), STEEL)
-GAME['markers']['Pipe_LaunchPad'] = (VLX, VLY, 0.66)   # top of the buried-line vault: the launch-pad line goes underground here
+GAME['markers']['Pipe_LaunchPad'] = (VLX, VLY, 0.66)   # top of the buried-line vault: the launch-pad line goes underground here; buried line leaves +X (east) at glTF z -3.7
 # fuel arrives from the Refinery (to the left) by buried pipeline: it surfaces in a riser vault between the hall and the tank farm
 RVX, RVY = 14.5, 12.6
 box('rfl_vault', (2.4, 1.6, 0.6), (RVX, RVY, 0.3), GRAPH2, bevel=0.04)
@@ -908,7 +916,7 @@ for k, (x, y) in enumerate(((-36.0, 9.0), (-48.0, 6.0), (-60.0, 2.5))):
     prev = pts
 for k in range(14):   # buried launch-pad line: marker posts with cyan caps along its route (Stage only)
     t = k / 13
-    p = Vector((VLX, -10.0)).lerp(Vector((VLX + 22.0, -32.0)), t * 2) if t < 0.5 else Vector((VLX + 22.0, -32.0)).lerp(Vector((VLX + 60.0, -48.0)), (t - 0.5) * 2)
+    p = Vector((VLX + 3.5 + 4.5 * k, VLY + 1.3))   # lane B: the line runs east (+X) along glTF z -3.7; posts just behind it
     gz_ = height(p.x, p.y)
     box('bpl_post', (0.16, 0.16, 1.0), (p.x, p.y, gz_ + 0.5), GRAPH, c='Stage', bevel=0.01)
     box('bpl_post_cyan', (0.17, 0.17, 0.12), (p.x, p.y, gz_ + 0.9), CYANL, c='Stage', bevel=0.0)
@@ -958,7 +966,17 @@ GAME['markers']['Cam_Target'] = CAM_TARGET
 _ct = bpy.data.objects.new('Cam_Target', None); _ct.empty_display_type = 'SPHERE'; _ct.empty_display_size = 0.5
 _ct.location = CAM_TARGET; coll('Mine').objects.link(_ct)
 FRAME_W = float(A.get('fw', 64.0))      # metres of station that span the screen width at Cam_Target (game camera spec)
-_ct['frame_w'] = FRAME_W; GAME['marker_extras'] = {'Cam_Target': {'frame_w': FRAME_W}}
+_ct['frame_w'] = FRAME_W; GAME.setdefault('marker_extras', {})['Cam_Target'] = {'frame_w': FRAME_W}
+_bay = {'lane_out_z': 23.0, 'lane_back_z': 32.0, 'bay_z': BAYZ, 'taper_m': 12.0, 'taper_r_m': 10.9, 'truck': 'FB-05', 'heading': '+X'}
+GAME['marker_extras'].update({
+    'Road_Entry': dict(_bay, kind='road', note='Dock pull-off bay: start of the bay straight (glTF z 19.4); entry taper from the z 23 out-lane starts at Bay_Taper_In'),
+    'Truck_Stop_Dock': dict(_bay, kind='truck_pose', yaw_deg=0, dwell_store_s=31.4, dwell_load_s=42.0,
+                            note='FB-05 root while stopped in the bay, heading +X. Dwell: store 31.4 s / load 42.0 s (standing)'),
+    'Bay_Taper_In': dict(_bay, kind='road', note='leave the z 23 out-lane here (taper 12 m, two r 10.9 arcs, 3.6 m offset)'),
+    'Bay_Exit': dict(_bay, kind='road', note='end of the bay straight; exit taper to Bay_Taper_Out'),
+    'Bay_Taper_Out': dict(_bay, kind='road', note='back on the z 23 out-lane'),
+    'Pipe_LaunchPad': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4', 'HE3'], 'direction': '+X', 'buried': True,
+                       'note': 'buried launch-pad line leaves the vault heading +X (east) along glTF z -3.7 to the pad west side'}})
 bpy.context.scene['game_nodes'] = json.dumps(GAME)
 print('HEIGHTS', [round(height(x, y), 3) for x, y in ((0, -16), (21.5, 7.5), (47, -8), (-24, 11), (0, 20), (31.5, 15.5))], flush=True)
 

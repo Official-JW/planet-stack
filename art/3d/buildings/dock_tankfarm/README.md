@@ -9,7 +9,7 @@ no regolith cover. There are no glass domes and no real logos, only invented ste
 |---|---|
 | Triangles (master, `Mine` collection) | **529,500** (2,248 objects + the `Cam_Target` empty) |
 | Master GLB | `dock_tankfarm_master.glb`, 3,394,564 B, meshopt + quantization (`gltfpack -cc -kn -km -ke -vpf`), **no Draco**, one node per part. Review asset only: it keeps the master's clearcoat and emissive-strength material extensions. md5 `689ab09630633494ae92fc947a15bd80` |
-| **Game GLB** | `dock_tankfarm_game.glb`, **183,184 B (0.17 MB)**, **27,682 triangles and 12 draw calls with every tier visible** (base 17,542 tris / 4 draws). Materials `SHM_Paint`, `SHM_Metal`, `SHM_GlowCyan`, `SHM_GlowWhite` from `../_shared/shared_materials.json`. Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. Plain metallic/roughness, no transmission/clearcoat/ior, no images or textures. Colour comes from `COLOR_0` vertex colours. No astronauts. md5 `7959ae74c3ef106095bbdbab492c9820` |
+| **Game GLB** | `dock_tankfarm_game.glb`, **186,476 B (0.18 MB)**, **27,682 triangles and 12 draw calls with every tier visible** (base 17,542 tris / 4 draws). Materials `SHM_Paint`, `SHM_Metal`, `SHM_GlowCyan`, `SHM_GlowWhite` from `../_shared/shared_materials.json`. Extensions: `EXT_meshopt_compression` and `KHR_mesh_quantization` only. Plain metallic/roughness, no transmission/clearcoat/ior, no images or textures. Colour comes from `COLOR_0` vertex colours. No astronauts. md5 `88137c0b42699f12d2ff334f6b030b32` (10/24 lane B: launch-pad headers run east, bay markers; was 183,184 B, md5 `7959ae74…`, same 12 draws / 27,682 tris). CAM_OVERRIDE must be re-keyed |
 | Units / axes / origin | 1 m, Y up. The dock front (rolling door, container yard) faces +Z. The **origin is the station focus**: on the yard pad, on the hall/door axis. The tank farm extends to +X. |
 | Footprint | X −18.2…39.5 m (feeder power mast to the buried-line vault), Z −36.3…16.9 m (solar masts behind to the road entry in front). Hall crown 13.2 m, sign top ~12.6 m, LCH4 vessel tops 16.2 m (vents ~17.8 m). |
 | Scale | astronaut = 1.8 m (three in the review renders only; Stage collection, never exported) |
@@ -74,10 +74,16 @@ Clips:
 - `Beacon_Lights_Blink` (1.5 s loop, step): 0.3 s on, then scale 0.001 for 1.2 s.
 
 Markers (empty nodes, glTF coords; glTF Z = −Blender Y):
-- `Road_Entry` (0, 0.12, 17.20): where the road meets the yard pad.
+- **Lane B pull-off bay (10/24)** (glTF local; world = local + (480, 0, 0)). Lanes: out z 23 (+X), back z 32 (−X). FB-05 heading +X, yaw 0, direction (1, 0, 0). Tapers are two reverse arcs r 10.9 m over 12 m of x, 3.6 m offset (path 12.71 m).
+  - `Bay_Taper_In` (−16, 0, 23) → world x 464: leaves the z 23 out-lane.
+  - `Road_Entry` (−4, 0, 19.4) → world x 476: start of the bay straight at z 19.4.
+  - `Truck_Stop_Dock` (0, 0, 19.4) → world (480, 0, 19.4): FB-05 root stop, extras dwell_store_s 31.4 / dwell_load_s 42.0, yaw_deg 0.
+  - `Bay_Exit` (8, 0, 19.4) → world x 488: end of the bay straight.
+  - `Bay_Taper_Out` (20, 0, 23) → world x 500: back on the out-lane.
+  - No bay road mesh in this GLB (the game's road tiles draw it). Dock meshes end at z 16.94; the bay road edge is 17.1.
 - `Crate_Drop` (0, 0.12, 6.00): crane drop spot in the yard lane, in front of the door.
 - `Container_Stack` (−4.00, 5.30, 3.00): top of the left front stack.
-- `Pipe_LaunchPad` (37.70, 0.66, 7.30): top of the buried-line vault where the LOX / LCH4 / He-3 line to the launch pad goes underground.
+- `Pipe_LaunchPad` (37.70, 0.66, −3.70) → world (517.7, 0.66, −3.7): top of the buried-line vault. The LOX / LCH4 / He-3 headers now run straight east (+X) into it and the buried line leaves heading +X toward the launch pad's west side (extras direction +X, buried). It stays at z −3.7, north of the lanes and west of the Shipyard crawler road start.
 - `Pipe_Refinery` (14.50, 0.60, −12.60): FROM REFINERY riser vault where the buried fuel line from the Refinery surfaces.
 - `Cam_Target` (12.00, 6.00, 2.00), `extras {"frame_w": 64}`: station-camera look-at (empty, no draws). Aim the camera at it from 18° down with 38° vertical FOV, at the distance where 64 m spans the screen width.
 - `Crew_Path_01..08`: from the airlock hatch over the dust mat and out to the hall front: (9.25, 0.32, 0.28), (9.25, 0.32, 1.60), (9.25, 0.12, 3.70), (8.65, 0.12, 6.00), (5.60, 0.12, 14.30), (2.30, 0.12, 11.90), (0, 0.12, 6.00), (0, 0.12, −2.10).

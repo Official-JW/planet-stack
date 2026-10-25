@@ -14,7 +14,7 @@ The build is fully standalone: it reads no Mine markers, layout or GLB (`REFINER
 |---|---|
 | Master | `refinery_master.blend` (10/23 22:41 rebuild with `_src/intake_db2.py`, incl. stage and the placed HT-04, Blender 4.2, procedural shading) |
 | Master GLB | `refinery_master.glb` (10/23 23:17, DB-2 / intake upgrade + shared HT-04), 3,137,720 B, md5 `b301255d3d1c8aad709535e32f06a546`, 397,420 tris, `gltfpack -cc -kn -km -vpf` (meshopt + quantization, float positions because of the 370 m stage; no Draco), then clearcoat / transmission / ior stripped from the JSON (no images). Review asset, not for the game |
-| **Game GLB** | `refinery_game.glb`, **265,392 B**, md5 `93c44166ecc39031966a9be130dfc093` (10/24 00:40: road ruts / tread / dust in vertex colour + Base_Paint skin merge, see *Road paint + draw merge* at the end). **29,356 tris and 13 draws with every tier visible**, so with HT-04 + FB-05 at 1 draw each the station is 15. CAM_OVERRIDE must be re-keyed. Before: 260,192 B, md5 `ea5ab7af54134c312cdd43f284fac642`, 15 draws |
+| **Game GLB** | `refinery_game.glb`, **266,480 B**, md5 `04d18bf4182376279ef5591472d22258` (10/24 lane B: marker extras only via `_src/patch_lane_b.py`, geometry and 13 draws unchanged; was 265,392 B, md5 `93c44166…`). Earlier (10/24 00:40: road ruts / tread / dust in vertex colour + Base_Paint skin merge, see *Road paint + draw merge* at the end). **29,356 tris and 13 draws with every tier visible**, so with HT-04 + FB-05 at 1 draw each the station is 15. CAM_OVERRIDE must be re-keyed. Before: 260,192 B, md5 `ea5ab7af54134c312cdd43f284fac642`, 15 draws |
 | Game GLB format | `EXT_meshopt_compression` + `KHR_mesh_quantization` only (no Draco). 4 shared materials `SHM_Paint`, `SHM_GlowCyan`, `SH_GlowRed`, `SH_Dust` (dust only: `alphaMode` BLEND, alpha from `COLOR_0`.a), each only `pbrMetallicRoughness` + `emissiveFactor` (no transmission / clearcoat / ior / emissive_strength), no images or textures. Colour comes from `COLOR_0` vertex colours. **No truck geometry** (only the `Truck_*` markers), no astronauts. `strings refinery_game.glb \| grep -i lh2` is empty (same for the master GLB) |
 | Units / axes / origin | 1 m, Y up. **Origin = `Truck_Dump`** (HT-04 centre while tipping). No rotation: place it like any station, `position.set(i*GAP, 0, 0)` |
 | Station camera | **`Cam_Target` glTF (−6.90, 2.08, 5.45)**, extras `frame_w` **34.4**, `fov_y_deg` 38, `pitch_down_deg` 18, `distance_m_393x852` 108.29 (refit 10/23 21:05 for the iPhone-inset band, see Fit). Camera on +Z looking down −Z |
@@ -171,7 +171,7 @@ Clips (all loop): `kiln_spin` 4.0 s (one turn), `conveyor_he3_run` / `conveyor_f
 | `He3_Output` | (−15.76, 0.10, −29.65) | | HELIUM-3 dewar rack (ship cargo pickup) |
 | `Fuel_Output` | (−16.57, 0.10, −19.15) | | LOX-1 / LCH4-1 |
 | `Pipe_TankFarm` | (−13.85, 0, −18.62) | 0 | PL-1 pipeline head: LOX + LCH4 go below grade here and run **buried along +X** (z −18.62) toward the Dock / pad |
-| `Pipeline_Exit` | (15.90, 0, −18.62) | 0 | buried PL-1 leaves the Refinery footprint, continuing +X |
+| `Pipeline_Exit` | (15.90, 0, −18.62) | 0 | buried PL-1 leaves the Refinery footprint, continuing +X. Lane B (10/24): extras span_m 160, meets Dock `Pipe_Refinery` at world (494.5, 0.6, −12.6), route_world (335.9, 0, −18.62) → (480, 0, −18.62) → (494.5, 0, −12.6) |
 | `Crew_Path_01..07` | (−7.3, 0.1, −20.95), (−8.0, 0.1, −20.95), (−10.7, 0.1, −19.55), (−12.5, 5.45, −21.6), (−17.1, 0.1, −19.75), (1.0, 0.1, −20.35), (2.0, 0.1, −5.0) | | airlock → intake |
 
 ## Validation

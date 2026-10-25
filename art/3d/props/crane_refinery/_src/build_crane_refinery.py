@@ -190,7 +190,8 @@ PICK = PSLOTS[0]                  # Pick_Point = Pallet_Slot_01 (over the pallet
 PROOF_PICK = PSLOTS[4]            # proof clip cycle 1 lifts the top box over slot 01 (Pallet_Slot_05) onto Bed_Slot_01
 PROOF_PICK2 = PSLOTS[5]           # cycle 2: Pallet_Slot_06 onto Bed_Slot_02
 CRANE_WORLD = (311.0, 0.0, 17.5)
-TRUCK = (318.0 - CRANE_WORLD[0], 0.0, 13.0 - CRANE_WORLD[2])   # glTF (7, 0, -4.5): FB-05 root at Truck_Park = world (318, 0, 13), heading +X
+LOAD_Z = 23.0        # 10/24 lane B (Director): out-lane z 23 / back-lane z 32; FB-05 loads at world (318, 0, 23) (was z 13)
+TRUCK = (318.0 - CRANE_WORLD[0], 0.0, LOAD_Z - CRANE_WORLD[2])   # glTF (7, 0, 5.5): FB-05 root at Truck_Park = world (318, 0, 23), heading +X
 SLOTS = [(TRUCK[0] - 1.15, 1.9, TRUCK[2]), (TRUCK[0] - 3.65, 1.9, TRUCK[2])]
 BOX_H = 1.5
 def solve(x, y_hook, z):
@@ -212,7 +213,7 @@ arm['prop'] = 'RC-1 Refinery loading crane (slewing jib crane on a pedestal)'
 arm['origin'] = 'ground centre of the pedestal, +Y up; jib points +X at Slew = 0'
 arm['world_position'] = list(CRANE_WORLD); arm['world_yaw_deg'] = 0
 arm['concrete_pad'] = {'min': [PXA, 0.0, -PY], 'max': [PXB, PAD_H, PY], 'note': 'static concrete pad under the pallet (crane-local glTF bbox, 0.04 m bevel); pallet deck sits on it, Pallet_Slot_* raised by PAD_H'}
-arm['layout_note'] = ('place the root at world (311, 0, 17.5), yaw 0 (median of the flatbed road, lanes z 13 / z 22). FB-05 parks at world (318, 0, 13) = Truck_Park. '
+arm['layout_note'] = ('place the root at world (311, 0, 17.5), yaw 0 (south of the flatbed road, lanes z 23 / z 32 since 10/24 lane B). FB-05 parks at world (318, 0, 23) = Truck_Park. '
                       'Pallet west of the mast (world x 302.25-307.65). Chosen so the Refinery game camera sees both bed slots and the cab clear of the mast')
 arm.update(LIM) if hasattr(arm, 'update') else None
 for k, v in LIM.items(): arm[k] = v

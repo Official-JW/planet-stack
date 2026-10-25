@@ -1,0 +1,173 @@
+{
+ "units": "world glTF m, +X east, +Z toward camera, y 0",
+ "lanes": {
+  "out": 23.0,
+  "back": 32.0,
+  "road_w": 4.6,
+  "band": [
+   20.2,
+   34.8
+  ],
+  "clear": 1.0
+ },
+ "dock_bay": {
+  "z": 19.4,
+  "x": [
+   464,
+   500
+  ],
+  "taper_m": 12,
+  "taper_r": 10.9,
+  "taper_len": 12.708,
+  "road_strip_z": [
+   17.099999999999998,
+   21.7
+  ]
+ },
+ "turn_limits": "tapers r 10.9 and U-turns r 4.5 / 6.125 are < TURN_R_MAX 25 -> TURN_SPEED 4 m/s; no S-bends in the corridor (only the bay lane-change tapers)",
+ "out": [
+  {
+   "n": "Refinery Truck_Park (RC-1 load)",
+   "p": [
+    318.0,
+    23.0
+   ],
+   "hdg": "+X",
+   "stop": "load (RC-1)"
+  },
+  {
+   "n": "Dock Bay_Taper_In",
+   "p": [
+    464.0,
+    23.0
+   ],
+   "seg_in": "straight 146.0 m"
+  },
+  {
+   "n": "Dock Road_Entry (bay straight start)",
+   "p": [
+    476.0,
+    19.4
+   ],
+   "seg_in": "taper 2 arcs r 10.90 (33.4 deg each), 12.71 m"
+  },
+  {
+   "n": "Dock Truck_Stop_Dock",
+   "p": [
+    480.0,
+    19.4
+   ],
+   "seg_in": "straight 4.0 m",
+   "stop": "dwell store 31.4 s / load 42.0 s"
+  },
+  {
+   "n": "Dock Bay_Exit",
+   "p": [
+    488.0,
+    19.4
+   ],
+   "seg_in": "straight 8.0 m"
+  },
+  {
+   "n": "Dock Bay_Taper_Out",
+   "p": [
+    500.0,
+    23.0
+   ],
+   "seg_in": "taper 12.71 m"
+  },
+  {
+   "n": "OUT-LANE END -> AA2 pad spur taper start (proposed)",
+   "p": [
+    620.5,
+    23.0
+   ],
+   "seg_in": "straight 120.5 m",
+   "aa2": true
+  },
+  {
+   "n": "(AA2) pad spur straight start, proposed",
+   "p": [
+    632.5,
+    19.75
+   ],
+   "seg_in": "taper 12 m / 3.25 m offset",
+   "aa2": true
+  },
+  {
+   "n": "(AA2) pad Truck_Stop, proposed",
+   "p": [
+    639.5,
+    19.75
+   ],
+   "seg_in": "straight 7.0 m",
+   "stop": "pad unload",
+   "aa2": true
+  }
+ ],
+ "back": [
+  {
+   "n": "(AA2) pad Truck_Stop, proposed",
+   "p": [
+    639.5,
+    19.75
+   ],
+   "hdg": "+X",
+   "aa2": true
+  },
+  {
+   "n": "(AA2) U-turn start (Turn_Start), proposed",
+   "p": [
+    641.0,
+    19.75
+   ],
+   "seg_in": "straight 1.5 m",
+   "aa2": true
+  },
+  {
+   "n": "BACK-LANE START <- AA2 U-turn end",
+   "p": [
+    641.0,
+    32.0
+   ],
+   "seg_in": "U-turn r 6.125 about (641.0, 25.875), 19.24 m (AA2)",
+   "hdg": "-X",
+   "aa2": true
+  },
+  {
+   "n": "Refinery U-turn start",
+   "p": [
+    295.0,
+    32.0
+   ],
+   "seg_in": "straight 346.0 m"
+  },
+  {
+   "n": "Refinery U-turn end",
+   "p": [
+    295.0,
+    23.0
+   ],
+   "seg_in": "U-turn r 4.5 about (295.0, 27.5), 14.14 m",
+   "hdg": "+X"
+  },
+  {
+   "n": "Refinery Truck_Park",
+   "p": [
+    318.0,
+    23.0
+   ],
+   "seg_in": "straight 23.0 m",
+   "stop": "load"
+  }
+ ],
+ "lengths": {
+  "out_ref_to_dock_stop": 162.71,
+  "out_dock_stop_to_pad_stop": 160.79,
+  "out_total": 323.49,
+  "back_pad_stop_to_ref": 403.88,
+  "old_out": 318.5,
+  "old_back": 401.77
+ },
+ "road_tiles_hint": "straight tiles z 23: x 296..464 and 500..620.5; z 32: x 295..641; bay tiles z 19.4 x 476..488 + 2 taper pieces (instanced: no new draws)"
+}

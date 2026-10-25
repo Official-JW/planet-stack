@@ -7,7 +7,7 @@ A slewing tower crane in the median of the flatbed road at the Refinery, placed 
 | File | `crane_refinery_game.glb`: meshopt + quantization, no Draco, no images, **0 clips** |
 | Budget | **2,918 tris / 2 draws** (SHM_Paint + SHM_GlowCyan), one skinned mesh, pallet and concrete pad included (the pad is 30 tris on SHM_Paint, no extra draw). Limit ≤3k / ≤3 |
 | Root | `Crane_Refinery`. Origin = ground centre of the pedestal, +Y up. At slew 0 the jib points +X |
-| World placement (Director layout) | root at **world (311, 0, 17.5)**, yaw 0, in the median between the flatbed lanes z 13 (eastbound) and z 22 (westbound). FB-05 still parks at world (318, 0, 13). (Moved from x 318 after the game-camera check below.) |
+| World placement (Director layout) | root at **world (311, 0, 17.5)**, yaw 0, north of the lane-B flatbed lanes (out z 23 eastbound, back z 32 westbound; 10/24). FB-05 parks at world (318, 0, 23) on the out-lane. (Moved from x 318 after the game-camera check below.) |
 | Size | 13.7 m tall, jib tip r 11.25 m at y 10, pedestal 3.4 × 3.4 m (fills the 3.4 m median between berm toes), pallet 5.4 × 3.2 m **west of the mast** at crane-local x −8.75…−3.35 (world 302.25…307.65), on a concrete pad 6.15 × 3.36 × 0.12 m at x −9.15…−3.0, z ±1.68 (world 301.85…308.0, z 15.82…19.18) |
 
 ## Joints
@@ -35,9 +35,9 @@ Hook is a sibling of Hoist, so the cable scale never scales the hook.
 | `Pallet_Slot_06` | (-7.3, 1.77, -0.725) | (303.7, 1.77, 16.775) | top layer, on 02 |
 | `Pallet_Slot_07` | (-4.8, 1.77, 0.725) | (306.2, 1.77, 18.225) | top layer, on 03 |
 | `Pallet_Slot_08` | (-7.3, 1.77, 0.725) | (303.7, 1.77, 18.225) | top layer, on 04 |
-| `Drop_Point` | (5.85, 1.9, -4.5) | (316.85, 1.9, 13) | FB-05 `Bed_Slot_01` with the truck at `Truck_Park` |
-| `Drop_Point_02` | (3.35, 1.9, -4.5) | (314.35, 1.9, 13) | FB-05 `Bed_Slot_02` |
-| `Truck_Park` | (7, 0, −4.5), yaw 0 | (318, 0, 13), heading +X | FB-05 root while loading (loading spot x 318 on the z 13 lane) |
+| `Drop_Point` | (5.85, 1.9, 5.5) | (316.85, 1.9, 23) | FB-05 `Bed_Slot_01` with the truck at `Truck_Park` |
+| `Drop_Point_02` | (3.35, 1.9, 5.5) | (314.35, 1.9, 23) | FB-05 `Bed_Slot_02` |
+| `Truck_Park` | (7, 0, 5.5), yaw 0 | (318, 0, 23), heading +X | FB-05 root while loading (loading spot x 318 on the z 23 out-lane, lane B) |
 
 All slot markers are box `Base` positions (box yaw 0, long axis +X). Slot pitch is 2.5 m in x and 1.45 m in z (≈0.1 m gaps); the top layer sits on the bottom boxes (box height 1.5). Suggested fill order 01→08, pick order 08→01. The pallet is part of the crane GLB (static on `Crane_Base`, no extra draw). Its corner stacking guides are 0.78 m tall, so they hold the bottom layer only.
 
@@ -134,3 +134,10 @@ gltfpack -i /tmp/crane_raw.glb -o crane_refinery_game.glb -cc -kn -ke       # no
 node ../_shared_src/verify_props.mjs crane crane_refinery_game.glb          # 8 slots, solve error + limits for every target, 0 clips, cable/hook match
 blender -b -P _src/build_crane_refinery.py -- /tmp/crane_proof.glb --proofclip   # renders only
 ```
+
+## Lane B re-key (10/24)
+
+The Director's lane B moves the flatbed lanes to out z 23 / back z 32, so the load point moved from z 13 to **z 23** (`LOAD_Z` in `_src/build_crane_refinery.py`). Only the markers changed: `Truck_Park` (7, 0, 5.5), `Drop_Point` (5.85, 1.9, 5.5), `Drop_Point_02` (3.35, 1.9, 5.5). Mesh, joints, pallet and pad are unchanged (2 draws). Joints are code-driven, so the game's solve re-keys the swing: θ = atan2(−z, x), r = hypot(x, z).
+- Reach: Bed_Slot_01 r 8.03 m, θ −43.2°; Bed_Slot_02 r 6.44 m, θ −58.7°; both inside the trolley range 2.6…10.3. Pallet slots r 4.85…7.34 at θ ≈ ±171…174°.
+- Clipping: carry height puts the hook at y 6.4 (box bottom 4.9), above the FB-05 top 4.21 (cab 3.8) and the full pallet. The pick → drop swing goes over the +z side (lane side). A vertex scan of the Refinery GLB for that swept volume (θ 165…323°, r 1…11.9, y 4.4…8.4) found 0 vertices. The FB-05 box at Truck_Park (x 312.9…321.75, z 21.05…24.95) is clear of the pedestal and the pallet pad (z ≤ 19.18).
+- Lane band check (`../../buildings/dock_tankfarm/proofs/lane_b_scan.json`): the pedestal footing touches the 1 m clearance edge at z 19.2 (0 m spare), 1.5 m from the road edge at z 20.7. The jib is overhead (y ≥ 8.25).

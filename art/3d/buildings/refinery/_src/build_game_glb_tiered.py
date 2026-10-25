@@ -263,8 +263,10 @@ MEX = {'Road_Entry': {'kind': 'road', 'note': 'inbound lane at the left edge (gl
        'He3_Output': {'kind': 'output', 'product': 'HELIUM-3 dewars (loaded into the ship cargo at pickup)'}, 'Fuel_Output': {'kind': 'output', 'product': 'LOX + LCH4'},
        'Pipe_TankFarm': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4'], 'direction': '+X', 'buried': True,
                          'note': 'PL-1 fuel pipeline head: pipes drop below grade here and run buried along +X (glTF z -18.62) toward the Dock / pad'},
-       'Pipeline_Exit': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4'], 'direction': '+X', 'buried': True,
-                         'note': 'buried PL-1 leaves the Refinery footprint here, continuing +X to the Dock / pad (no tanker, no hose cart)'}}
+       'Pipeline_Exit': {'kind': 'pipe_connection', 'lines': ['LOX', 'LCH4'], 'direction': '+X', 'buried': True},
+       }
+import importlib.util as _ilu   # 10/24 lane B: Pipeline_Exit spans 160 m to the Dock (patch_lane_b.EXTRAS is the one source)
+_sp = _ilu.spec_from_file_location('patch_lane_b', os.path.join(HERE, 'patch_lane_b.py')); _pl = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_pl); MEX.update(_pl.EXTRAS)
 for n, p in sorted(GN['markers'].items()):
     old = bpy.data.objects.get(n)
     if old: bpy.data.objects.remove(old, do_unlink=True)
