@@ -59,11 +59,18 @@ let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
 const nowMs = () => (HOLD !== null ? HOLD : rawMs());
-const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs() };
+const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 2 };
 let hadRt = false;
 try { const sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); hadRt = sv.rt > 0;
-  if (hadRt && !('chute' in sv) && sv.site >= 2) sv.site++;   // 11:12 and older saves: the Refinery slot (index 2) shifts the later stations by one
-  Object.assign(S, sv); } catch (e) {}
+  migrateSave(sv, hadRt); Object.assign(S, sv); } catch (e) {}
+// S.site is a station index, so a save keeps its named station across station-order changes (each step runs once):
+//   11:12 and older saves (no 'chute'): the Refinery slot (index 2) shifts the later stations by one;
+//   ord < 2 (18:44 and older order LS, Mine, Refinery, Pad, Dock, Habitat, Shipyard, Eng): Pad 3→4, Dock 4→3, Habitat 5→6, Shipyard 6→5 (Director 10/24 order)
+function migrateSave(sv, hadRt) {
+  if (hadRt && !('chute' in sv) && sv.site >= 2) sv.site++;
+  if (!(sv.ord >= 2)) { const m = { 3: 4, 4: 3, 5: 6, 6: 5 }; if (hadRt && sv.site in m) sv.site = m[sv.site]; sv.ord = 2; }
+  return sv;
+}
 for (const k of ['eve', 'calls', 'log', 'pend', 'trips']) if (!Array.isArray(S[k])) S[k] = [];
 if (!(S.chute >= 1)) S.chute = 1; if (!(S.loads >= 0)) S.loads = 0; if (!(S.missed >= 0)) S.missed = 0;
 if (!(S.rt > 0)) S.rt = nowMs();
@@ -78,8 +85,9 @@ if (!S.tk || typeof S.tk !== 'object') S.tk = { c0: nowMs(), add: 0, lr: 0, dep:
 if (!Array.isArray(S.tk.qd)) S.tk.qd = [];
 const save = () => { try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} };
 
-const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Takeoff & Landing', 'Cargo Space Dock', 'Habitat', 'Shipyard', 'Engineering'];
+const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
 const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP, REF = 2, RX = REF * GAP;   // stations 160 m apart, origin = i·160 on X
+const DOCKI = 3, PADI = 4, SHIPI = 5, HABI = 6;   // Cargo Space Dock x 480, Launch Pad x 640, Shipyard x 800, Habitat x 960
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (t) => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
@@ -177,7 +185,7 @@ const GROUND_MESHES = [];
 // gray placeholders for the other stations
 let _ldr = null; function loader0() { if (!_ldr) { _ldr = new GLTFLoader(); _ldr.setMeshoptDecoder(MeshoptDecoder); } return _ldr; }
 const ph = new THREE.MeshStandardMaterial({ color: 0x8a8d94, roughness: .85, metalness: .05 });
-const SIZES = [[10, 8, 8], null, null, [10, 1, 10], [14, 7, 9], [9, 12, 9], [12, 9, 10], [10, 10, 8]];   // Mine: Art's GLB; Refinery: Art's GLB (STATION_GLB)
+const SIZES = []; SIZES[0] = [10, 8, 8]; SIZES[DOCKI] = [14, 7, 9]; SIZES[PADI] = [10, 1, 10]; SIZES[SHIPI] = [12, 9, 10]; SIZES[HABI] = [9, 12, 9]; SIZES[7] = [10, 10, 8];   // by station; Mine / Refinery: Art's GLBs (STATION_GLB)
 const phBox = [];
 STATIONS.forEach((name, i) => {
   if (!SIZES[i]) return; const [w, h, d] = SIZES[i];
@@ -190,9 +198,9 @@ const STATION_GLB = [
   { i: 0, url: 'models/life_support_adfaac9.glb?v=e8427ec4', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Cam_Target (0, 2.5, -12.5), frame_w 34
   { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
-  { i: 4, url: 'models/dock_tankfarm_fd286b9.glb?v=7959ae74', loops: ['Beacon_Lights_Blink', 'crane_gantry_move'], onLoad: (o) => {   // Cam_Target (12, 6, 2), frame_w 64; dock door stays shut
-    const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; } },
-  { i: 6, url: '../qa3d-next/models/shipyard_bcbd0934.glb?v=bcbd0934', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Shipyard f2ebfe6 (Director 00:25 cleared; own Cam_Target (7.7, 23.5, 84.55) frame_w 100). Its crane_jib_swing is still the old 6 s idle loop (snaps), so the jib stays held in its GLB rest pose until the ship-build Shipyard bcbd0934 replaces it
+  { i: DOCKI, url: 'models/dock_tankfarm_fd286b9.glb?v=7959ae74', loops: ['Beacon_Lights_Blink', 'crane_gantry_move'], onLoad: (o) => {   // Cam_Target (12, 6, 2), frame_w 64; dock door stays shut
+    const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; dockRoadCheck(o); } },
+  { i: SHIPI, url: '../qa3d-next/models/shipyard_bcbd0934.glb?v=bcbd0934', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Shipyard f2ebfe6 (Director 00:25 cleared; own Cam_Target (7.7, 23.5, 84.55) frame_w 100). Its crane_jib_swing is still the old 6 s idle loop (snaps), so the jib stays held in its GLB rest pose until the ship-build Shipyard bcbd0934 replaces it
 ];
 // Shipyard hall door (Director 20:58): plays hall_door_open once and holds it open (LoopOnce + clampWhenFinished). 2d57b95's clip is 1.2 s;
 // 8c9cee7's is a 3.6 s loop — only its first CFG.hallDoor.openSec (the open move) is used, so it works unchanged with either GLB.
@@ -217,7 +225,7 @@ const CAM_OVERRIDE = {
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
-  '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (480, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
+  '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (PX = 640, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
   '93c44166': { glb: 'refinery d6389a7 (re-keyed from b45b4649, same 3c5e6f8 framing)', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },
   'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },   // Art 3c5e6f8 final: Cam_Target world (313.1, 2.08, 13.55), W 37.5
 };
@@ -1175,7 +1183,7 @@ setInterval(() => { if (document.hidden || !RT.ready) return; const t = nowMs();
 // through CARGO_ALIAS, so the GLBs drop in with the same code path.
 //   Refinery dump → 1 sealed He-3 box at the Refinery crane's Pick_Point (after sealSec) → Refinery crane loads 2 onto flatbed FB-05 (Bed_Slot_01/02)
 //   → FB-05 drives the Refinery↔Launch Pad road: lane z 13 east (loaded), U-turn past the pad, lane z 22 west (empty), U-turn back into the
-//     loading spot. Lane choice: both cargo lanes are on the camera side (+z) of the Refinery, z 13 / 22, world x 307–481; the Mine↔Refinery haul road and
+//     loading spot. Lane choice: both cargo lanes are on the camera side (+z) of the Refinery, z 13 / 22, world x 295–641 (Refinery 320 → past the Cargo Space Dock at 480 → Launch Pad 640); the Mine↔Refinery haul road and
 //     HT-04's Refinery U-turn stay at z ≤ 9 (truck body ≤ z 10.3, FB-05 body ≥ z 11.7), so the two loops never cross or share a lane.
 //   → at the pad the astronaut walks out to Receive_Point (walk_out), guides each lift (guide), checks each box in (check_in), walks back (walk_back)
 //   → pad crane sets each box in the cargo bay → while a ship is on the pad the pad crane moves bay boxes into Hold_01..10
@@ -1195,7 +1203,7 @@ const CARGO_ALIAS = {        // one table for every name the code looks up (firs
 };
 // Placeholder layout, station-local metres (x from the station origin i·160, z world). Swap a GLB in and its markers replace these.
 const CPH = {
-  lanes: { out: 13, back: 22 }, road: { x0: RX - 24, n: 23, tile: 8 },                       // 23 strip tiles, world x 296–480, lanes z 13 / 22
+  lanes: { out: 13, back: 22 }, road: { x0: RX - 24, n: 0, tile: 8 },                        // strip tiles from world x 296 to the pad (n = roadN(): 43 tiles to x 640), lanes z 13 / 22
   // Refinery side sits inside Art's Cam_Target frame (x ≈ 300–330): FB-05 loads at x 318; the crane + sealed-box pallet stand in the median between the lanes
   // Art affea57 RC-1: crane root world (318, 0, 17.5), Truck_Park (318, 0, 13) heading +X, Pallet_Slot_01..08 (Pick_Point = 01), Drop_Point/_02 over FB-05's bed slots
   // Art 014d751 RC-1 (Director-cleared 21:10, default): root world (311, 0, 17.5), jib mirrored, pallet WEST of the mast (x 302.25–307.65) so the mast
@@ -1213,7 +1221,8 @@ const CPH = {
   padRoad: { z0: 10.2, z1: 24.8, clear: 1 },
   turnR: 4.5, hookHi: 6.4,   // carry height: box bottom 4.9 clears the FB-05 cab (3.8) and a full pallet (3.15)
 };
-const PADI = 3, PX = PADI * GAP;
+const PX = PADI * GAP;   // 640 (PADI is declared with GAP / DOCKI / SHIPI / HABI)
+const roadN = () => Math.max(1, Math.floor((PX + CPH.pad.uturn[0] - CPH.road.x0) / CPH.road.tile));   // strip tiles up to the pad's Turn_Start (PX 480: 23 / 21, as before)
 // Refinery crane GLBs. CRANE_ART is the default (Art 014d751, md5 d98f602c…); CRANE_ART_AFFEA57 (md5 d1e577ce…, root x 318, pallet east) is kept as the
 // fallback const: ?crane=affea57 swaps it back (its layout numbers included). A GLB's own markers replace these placeholder numbers on load.
 // Art 93590a0 (Director-cleared 21:42, md5 755815ec…): same layout as 014d751 + the concrete pallet pad baked into Crane_Mesh (6.15×3.36×0.12 m, x 301.85–308.0,
@@ -1222,7 +1231,7 @@ const CRANE_ART = { url: 'models/crane_refinery_755815ec.glb?v=755815ec', crane:
 const CRANE_ART_D98F602C = Object.assign({}, CRANE_ART, { url: 'models/crane_refinery_d98f602c.glb?v=d98f602c', bakedPad: false });
 const CRANE_ART_AFFEA57 = { url: 'models/crane_refinery_d1e577ce.glb?v=d1e577ce', crane: [-2, 17.5], sx: 1, uturn: [-8, 17.5], drop: [-1.15, -4.5], drop2: [-3.65, -4.5], park: [0, -4.5] };
 const CRANE = Q.get('crane') === 'affea57' ? CRANE_ART_AFFEA57 : Q.get('crane') === 'd98f602c' ? CRANE_ART_D98F602C : CRANE_ART;
-CPH.ref.crane = CRANE.crane; CPH.ref.uturn = CRANE.uturn; if (CRANE.sx > 0) { CPH.road.x0 = RX - 8; CPH.road.n = 21; }
+CPH.ref.crane = CRANE.crane; CPH.ref.uturn = CRANE.uturn; if (CRANE.sx > 0) CPH.road.x0 = RX - 8; CPH.road.n = roadN();
 const RC_SLOTS = [[4.8, .15, -.725], [7.3, .15, -.725], [4.8, .15, .725], [7.3, .15, .725], [4.8, 1.65, -.725], [7.3, 1.65, -.725], [4.8, 1.65, .725], [7.3, 1.65, .725]].map(([x, y, z]) => [x * CRANE.sx, y, z]);   // crane-local
 // Concrete pad under the pallet (Director 21:10: plain, ≤ 0.15 m). Art will likely add it to the crane GLB; until a mesh named like 'Pallet_Pad' /
 // 'Concrete' is in the GLB this gray 0.12 m placeholder stands under the pallet (+0.5 m in x; z held inside the 3.4 m median, clear of both lanes).
@@ -1236,6 +1245,7 @@ function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launc
   sh: { st: 'pad', t0: t, hold: 0, f0: t, req: 0 } }; }
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0;   // a6a00d3 saves
+stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
 
 // ---- flatbed route (same speed profile as HT-04: 8.33 m/s straights, TURN_SPEED in the 4.5 m U-turns, same 3 m pull-away / 4 m brake)
 const FB = { pOut: null, pBack: null, kOut: null, kBack: null, S: null, U: null };
@@ -1311,6 +1321,24 @@ function cgSettle(T, acc) {
   }
 }
 function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; }
+// Save-stamp guard (10/24): a save written on a clock ahead of this one (?speed=N / warpTo QA runs, a device clock set back) holds its stamps in the
+// future, and the loops would freeze until the clock caught up. gap = newest already-happened stamp − now (S.rt, S.tk c0/lr/dep, S.cg t/rc/fb/pc/as/sh
+// t0, f0, req, S.log / S.calls at). Over 1 s, every stamp moves back by gap (shiftTk: S.tk + S.pend + S.cg; S.rt; log / calls), so the state and every
+// relative gap are kept and nothing is credited. 0 / unset stamps stay 0. Box-ready times (c.ref) and S.pend pay times are ahead of their event by
+// design (sealSec, richPayDelay), so they move with the rest but do not set the gap.
+function stampGap(now) {
+  const k = S.tk || {}, c = S.cg; let m = S.rt > 0 ? S.rt : 0;
+  const v = [k.c0, k.lr, k.dep]; if (c) v.push(c.t, c.rc, c.fb && c.fb.t0, c.pc && c.pc.k ? c.pc.t0 : 0, c.as && c.as.t0, c.sh && c.sh.t0, c.sh && c.sh.f0, c.sh && c.sh.req);
+  for (const a of [S.log, S.calls]) if (Array.isArray(a)) for (const e of a) if (e) v.push(e.at);
+  for (const x of v) if (x > m) m = x;
+  return m - now;
+}
+function stampGuard(now = nowMs()) {
+  const g = stampGap(now); if (!(g > 1000)) return 0;
+  shiftTk(-g); S.rt -= g; for (const a of [S.log, S.calls]) if (Array.isArray(a)) for (const e of a) if (e && e.at > 0) e.at -= g;
+  cgEv('stamp_guard', now, { gap: Math.round(g) }); (window.__ps3d = window.__ps3d || {}).stampGuard = { at: now, gap: Math.round(g) };
+  return g;
+}
 const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? clamp((t - s.f0) / (CG.fuelFillSec * 1000), 0, 1) : s.st === 'launch' ? 1 : 0; };   // PLACEHOLDER fuel: fills over fuelFillSec from touchdown
 const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
 const canLaunch = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };
@@ -1418,7 +1446,7 @@ function padFromMarkers(root) {
   cg3.baySlots = sl.length === 12 ? sl : null; if (cg3.baySlots) got.push('Bay_Slot_01..12');
   buildCargoRoute(); (window.__ps3d = window.__ps3d || {}).padMarkers = got; return got;
 }
-// Jacob rule: nothing of the pad stands in the road band (+ 1 m). Every ground-level mesh of the pad group, the ship and the station-3 slab is checked;
+// Jacob rule: nothing of the pad stands in the road band (+ 1 m). Every ground-level mesh of the pad group, the ship and the pad slab (station PADI) is checked;
 // the crane's slewing jib / trolley / hook are overhead (they must swing over FB-05) and are skipped. Result in __ps3d.padRoad; violations are console errors.
 function padRoadCheck() {
   const B = CPH.padRoad, z0 = B.z0 - B.clear, z1 = B.z1 + B.clear, bb = new THREE.Box3(), hits = [], roots = [cg3.pg, cg3.padArt ? null : cg3.ship, phBox[PADI]].filter(Boolean);
@@ -1428,6 +1456,16 @@ function padRoadCheck() {
   let zMax = -Infinity; for (const r of roots) r.traverse(n => { if (!n.isMesh || n.material.visible === false || skip(n)) return; bb.setFromObject(n); if (bb.min.y <= 2.5) zMax = Math.max(zMax, bb.max.z); });
   const res = { ok: !hits.length, hits, padZMax: +zMax.toFixed(2), band: [B.z0, B.z1], clear: B.clear };
   window.__ps3d.padRoad = res; if (hits.length) console.error('Launch Pad intrudes on the flatbed road band', JSON.stringify(hits)); return res;
+}
+// 10/24 order: the Cargo Space Dock (x 480) now stands between the Refinery and the pad, on the flatbed road. Its GLB was laid for the old order, so its
+// ground-level meshes in the road band (+ 1 m) are reported in __ps3d.dockRoad (warning: Art re-lays the Dock truck stop / apron in a separate change).
+function dockRoadCheck(o) {
+  const B = CPH.padRoad, z0 = B.z0 - B.clear, z1 = B.z1 + B.clear, bb = new THREE.Box3(), hits = [];
+  const hid = (n) => { for (let q = n; q; q = q.parent) if (!q.visible) return true; return false; };
+  o.updateMatrixWorld(true); o.traverse(n => { if (!n.isMesh || n.material.visible === false || hid(n)) return; bb.setFromObject(n); if (bb.min.y > 2.5) return;
+    if (bb.max.z > z0 && bb.min.z < z1) hits.push({ name: ((n.parent && n.parent.name) || '?') + '/' + n.name, z: [+bb.min.z.toFixed(2), +bb.max.z.toFixed(2)], x: [+bb.min.x.toFixed(1), +bb.max.x.toFixed(1)] }); });
+  const res = { ok: !hits.length, hits, band: [B.z0, B.z1], clear: B.clear, x: DOCKI * GAP };
+  window.__ps3d.dockRoad = res; if (hits.length) console.warn('Cargo Space Dock (x 480) stands in the flatbed road band (Art re-lay pending)', JSON.stringify(hits)); return res;
 }
 // read every joint / marker through the alias table (the placeholders above are named like the art, so this is the same path a GLB takes)
 const BOXP = { hookY: 1.5 };
@@ -1495,7 +1533,7 @@ function fbPoseAt(c, t, o) {
 // ===== Art affea57 cargo props (Director-cleared 20:51): FB-05, HELIUM-3 box, RC-1 Refinery crane, Receiver. Each swaps its gray placeholder
 // on load (same alias table / markers, so the sim and poses don't change); a GLB that fails keeps its placeholder.
 const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad: false }, err: [] };
-// ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (480, 0, 0). Everything comes from its empties:
+// ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (PX = 640, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
 const PAD_GLB = '../qa3d-next/models/launch_pad_db78a6f7.glb?v=db78a6f7';   // plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
@@ -1613,8 +1651,8 @@ function updCargo() {
 let cargoRoadMesh = null;
 function buildCargoRoad() {         // Art's haul-road strip tiles (same as the Mine↔Refinery road), lanes z 13 / 22; flat temp tiles if the strip is not in
   if (cargoRoadMesh) scene.remove(cargoRoadMesh);
-  const R0 = CPH.road, M = (i) => new THREE.Matrix4().makeTranslation(R0.x0 + R0.tile * i, 0, CPH.lanes.out);
-  // the strip ends at x0 + n·tile (480); Art's pad Road_UTurn starts at Turn_Start (481): a 1 m filler (one tile scaled in x) closes the gap
+  const R0 = CPH.road; R0.n = roadN(); const M = (i) => new THREE.Matrix4().makeTranslation(R0.x0 + R0.tile * i, 0, CPH.lanes.out);
+  // the strip ends at x0 + n·tile (640); Art's pad Road_UTurn starts at Turn_Start (PX + 1 = 641): a 1 m filler (one tile scaled in x) closes the gap
   const xe = R0.x0 + R0.tile * R0.n, fill = Math.max(0, PX + CPH.pad.uturn[0] - xe), F = (z) => new THREE.Matrix4().makeTranslation(xe, 0, z).multiply(new THREE.Matrix4().makeScale(fill / R0.tile, 1, 1));
   if (roadSeg) { const nf = fill > .01 ? 1 : 0, im = new THREE.InstancedMesh(roadSeg.geo, roadSeg.mat, R0.n + nf); for (let i = 0; i < R0.n; i++) im.setMatrixAt(i, M(i).multiply(roadSeg.m));
     if (nf) im.setMatrixAt(R0.n, F(CPH.lanes.out).multiply(roadSeg.m)); im.receiveShadow = true; cargoRoadMesh = im; }
@@ -1998,7 +2036,7 @@ function catchUp(card) {
   return X;
 }
 function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
-  if (document.hidden || !RT.ready) return; const t = nowMs(); if (t < S.rt - 1000) { S.rt = t; return; }
+  if (document.hidden || !RT.ready) return; const t = nowMs(); if (t < S.rt - 1000) { stampGuard(t); return; }   // clock behind the save: shift every stamp back, credit nothing
   if ((t - S.rt) / 1000 > 60) catchUp(true); else { settleTo(t, null); S.rt = t; }
 }
 for (const ev of ['resume', 'pageshow', 'focus']) (ev === 'resume' ? document : window).addEventListener(ev, resync);   // iOS freeze/thaw and bfcache restores
@@ -2015,7 +2053,7 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), document.hidden ? 0.1 : 0.25), gdt = dt * SPD; time += gdt; window.__ps3d.frames = (window.__ps3d.frames || 0) + 1;
   const now = nowMs();
-  if (now < S.rt - 1000) S.rt = now;                              // clock went backward mid-session: credit nothing
+  if (now < S.rt - 1000) stampGuard(now);                        // clock went backward mid-session: every stamp shifts back with S.rt, credit nothing
   if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > 60) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
   updFocus(); updViewShift(); updCrew(); placeCamera();
@@ -2046,7 +2084,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); },
-  get cargo() { return cargoState(); }, shiftTk, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return EVA.el ? EVA.el.src : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
+  get cargo() { return cargoState(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return EVA.el ? EVA.el.src : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
   warpTo: (t) => { if (t > nowMs()) { if (HOLD !== null) HOLD = t; else WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } },
   hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
