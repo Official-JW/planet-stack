@@ -1,0 +1,480 @@
+{
+ "rule": "spare px inside the safe band, per group, real vertices, qa3d camera math",
+ "bands": {
+  "393x852": [
+   12,
+   381,
+   165,
+   534
+  ],
+  "375x667": [
+   12,
+   363,
+   144,
+   383
+  ]
+ },
+ "cam_target": [
+  0,
+  4,
+  -0.699999988
+ ],
+ "frame_w": 78.25,
+ "worst_spare_px": 5.3,
+ "exempt_groups": {
+  "Road_UTurn": "Director ruling 10/24: roads, lanes and the pad U-turn may run off screen edges."
+ },
+ "prop_groups": {
+  "Truck": "flatbed at Truck_Stop + boxes",
+  "Crane_Reach": "swept crane + hanging boxes"
+ },
+ "hud_line": {
+  "375x667": 547
+ },
+ "sizes": {
+  "393x852": {
+   "distance_m": 246.337,
+   "groups": {
+    "Pad_Base": {
+     "px": [
+      55.4,
+      337.6,
+      323.5,
+      461.5
+     ],
+     "spare": {
+      "left": 43.4,
+      "right": 43.4,
+      "top": 158.5,
+      "bottom": 72.5
+     }
+    },
+    "Crane_Mesh": {
+     "px": [
+      180.5,
+      292,
+      335.3,
+      463.6
+     ],
+     "spare": {
+      "left": 168.5,
+      "right": 89,
+      "top": 170.3,
+      "bottom": 70.4
+     }
+    },
+    "Hose_LOX": {
+     "px": [
+      213.7,
+      260.4,
+      402.8,
+      434.7
+     ],
+     "spare": {
+      "left": 201.7,
+      "right": 120.6,
+      "top": 237.8,
+      "bottom": 99.3
+     }
+    },
+    "Hose_LCH4": {
+     "px": [
+      209.8,
+      264,
+      400.7,
+      421.2
+     ],
+     "spare": {
+      "left": 197.8,
+      "right": 117,
+      "top": 235.7,
+      "bottom": 112.8
+     }
+    },
+    "Ship_Placeholder": {
+     "px": [
+      152.4,
+      240.7,
+      232.9,
+      437.2
+     ],
+     "spare": {
+      "left": 140.4,
+      "right": 140.3,
+      "top": 67.9,
+      "bottom": 96.8
+     }
+    },
+    "Cargo_Door": {
+     "px": [
+      189.7,
+      206.6,
+      349.4,
+      373.2
+     ],
+     "spare": {
+      "left": 177.7,
+      "right": 174.4,
+      "top": 184.4,
+      "bottom": 160.8
+     }
+    },
+    "Tier_12": {
+     "px": [
+      131.5,
+      261.5,
+      405.4,
+      446
+     ],
+     "spare": {
+      "left": 119.5,
+      "right": 119.5,
+      "top": 240.4,
+      "bottom": 88
+     }
+    },
+    "Tier_03": {
+     "px": [
+      104.6,
+      150.4,
+      404.3,
+      419.9
+     ],
+     "spare": {
+      "left": 92.6,
+      "right": 230.6,
+      "top": 239.3,
+      "bottom": 114.1
+     }
+    },
+    "Tier_08": {
+     "px": [
+      242.8,
+      272.2,
+      384.5,
+      414.3
+     ],
+     "spare": {
+      "left": 230.8,
+      "right": 108.8,
+      "top": 219.5,
+      "bottom": 119.7
+     }
+    },
+    "Tier_20": {
+     "px": [
+      150.4,
+      164,
+      358.9,
+      404.2
+     ],
+     "spare": {
+      "left": 138.4,
+      "right": 217,
+      "top": 193.9,
+      "bottom": 129.8
+     }
+    },
+    "Tier_05": {
+     "px": [
+      96,
+      142.3,
+      331.8,
+      391.5
+     ],
+     "spare": {
+      "left": 84,
+      "right": 238.7,
+      "top": 166.8,
+      "bottom": 142.5
+     }
+    },
+    "Truck": {
+     "px": [
+      184.1,
+      232.9,
+      465.1,
+      490.8
+     ],
+     "spare": {
+      "left": 184.1,
+      "right": 160.1,
+      "top": 465.1,
+      "bottom": 361.2
+     },
+     "prop_rule": "full frame"
+    },
+    "Crane_Reach": {
+     "px": [
+      107,
+      292.4,
+      333.8,
+      478.6
+     ],
+     "spare": {
+      "left": 107,
+      "right": 100.6,
+      "top": 333.8,
+      "bottom": 373.4
+     },
+     "prop_rule": "full frame"
+    },
+    "Receiver": {
+     "px": [
+      153.1,
+      158.5,
+      449.4,
+      458.9
+     ],
+     "spare": {
+      "left": 141.1,
+      "right": 222.5,
+      "top": 284.4,
+      "bottom": 75.1
+     }
+    }
+   },
+   "exempt": {
+    "Road_UTurn": {
+     "px": [
+      234.5,
+      276.7,
+      481.1,
+      511.7
+     ],
+     "spare": {
+      "left": 222.5,
+      "right": 104.3,
+      "top": 316.1,
+      "bottom": 22.3
+     },
+     "exempt": true,
+     "min_edge_px": 22.3,
+     "reason": "Director ruling 10/24: roads, lanes and the pad U-turn may run off screen edges."
+    }
+   }
+  },
+  "375x667": {
+   "distance_m": 202.105,
+   "groups": {
+    "Pad_Base": {
+     "px": [
+      54,
+      321,
+      238.6,
+      367.6
+     ],
+     "spare": {
+      "left": 42,
+      "right": 42,
+      "top": 94.6,
+      "bottom": 15.4
+     }
+    },
+    "Crane_Mesh": {
+     "px": [
+      172,
+      279.9,
+      245.6,
+      369.7
+     ],
+     "spare": {
+      "left": 160,
+      "right": 83.1,
+      "top": 101.6,
+      "bottom": 13.3
+     }
+    },
+    "Hose_LOX": {
+     "px": [
+      203.7,
+      248.2,
+      311.6,
+      341.8
+     ],
+     "spare": {
+      "left": 191.7,
+      "right": 114.8,
+      "top": 167.6,
+      "bottom": 41.2
+     }
+    },
+    "Hose_LCH4": {
+     "px": [
+      200,
+      251.1,
+      309.6,
+      329
+     ],
+     "spare": {
+      "left": 188,
+      "right": 111.9,
+      "top": 165.6,
+      "bottom": 54
+     }
+    },
+    "Ship_Placeholder": {
+     "px": [
+      145.9,
+      229.2,
+      149.3,
+      344.1
+     ],
+     "spare": {
+      "left": 133.9,
+      "right": 133.8,
+      "top": 5.3,
+      "bottom": 38.9
+     }
+    },
+    "Cargo_Door": {
+     "px": [
+      181,
+      197.1,
+      260.7,
+      283.3
+     ],
+     "spare": {
+      "left": 169,
+      "right": 165.9,
+      "top": 116.7,
+      "bottom": 99.7
+     }
+    },
+    "Tier_12": {
+     "px": [
+      126.1,
+      248.9,
+      314.2,
+      352.6
+     ],
+     "spare": {
+      "left": 114.1,
+      "right": 114.1,
+      "top": 170.2,
+      "bottom": 30.4
+     }
+    },
+    "Tier_03": {
+     "px": [
+      100.9,
+      144.2,
+      313.1,
+      327.8
+     ],
+     "spare": {
+      "left": 88.9,
+      "right": 218.8,
+      "top": 169.1,
+      "bottom": 55.2
+     }
+    },
+    "Tier_08": {
+     "px": [
+      230.9,
+      258.7,
+      294.6,
+      322.5
+     ],
+     "spare": {
+      "left": 218.9,
+      "right": 104.3,
+      "top": 150.6,
+      "bottom": 60.5
+     }
+    },
+    "Tier_20": {
+     "px": [
+      144.4,
+      157.1,
+      270.8,
+      313.2
+     ],
+     "spare": {
+      "left": 132.4,
+      "right": 205.9,
+      "top": 126.8,
+      "bottom": 69.8
+     }
+    },
+    "Tier_05": {
+     "px": [
+      94.3,
+      137.3,
+      246.1,
+      301.5
+     ],
+     "spare": {
+      "left": 82.3,
+      "right": 225.7,
+      "top": 102.1,
+      "bottom": 81.5
+     }
+    },
+    "Truck": {
+     "px": [
+      175.4,
+      223,
+      371.6,
+      396.8
+     ],
+     "spare": {
+      "left": 175.4,
+      "right": 152,
+      "top": 371.6,
+      "bottom": 150.2
+     },
+     "prop_rule": "full frame + HUD y 547"
+    },
+    "Crane_Reach": {
+     "px": [
+      100.9,
+      280.3,
+      245.6,
+      384.9
+     ],
+     "spare": {
+      "left": 100.9,
+      "right": 94.7,
+      "top": 245.6,
+      "bottom": 162.1
+     },
+     "prop_rule": "full frame + HUD y 547"
+    },
+    "Receiver": {
+     "px": [
+      145.8,
+      151,
+      356,
+      365.1
+     ],
+     "spare": {
+      "left": 133.8,
+      "right": 212,
+      "top": 212,
+      "bottom": 17.9
+     }
+    }
+   },
+   "exempt": {
+    "Road_UTurn": {
+     "px": [
+      224.5,
+      266.1,
+      387.1,
+      418.1
+     ],
+     "spare": {
+      "left": 212.5,
+      "right": 96.9,
+      "top": 243.1,
+      "bottom": -35.1
+     },
+     "exempt": true,
+     "min_edge_px": -35.1,
+     "reason": "Director ruling 10/24: roads, lanes and the pad U-turn may run off screen edges."
+    }
+   }
+  }
+ }
+}

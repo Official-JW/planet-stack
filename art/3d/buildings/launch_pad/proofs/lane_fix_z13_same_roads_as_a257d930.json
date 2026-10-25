@@ -1,0 +1,14 @@
+{
+ "a": "base_a257d930.glb",
+ "b": "lp_next_z13.glb",
+ "differ": [
+  "Crane TRS"
+ ],
+ "same": 78,
+ "road_uturn": {
+  "verts": [
+   1169
+  ],
+  "identical": true
+ }
+}

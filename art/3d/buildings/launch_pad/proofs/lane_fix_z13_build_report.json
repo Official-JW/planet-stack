@@ -1,0 +1,285 @@
+{
+ "in": "base_a257d930.glb",
+ "jib": {
+  "stretched_verts": 936,
+  "k": 1.1944,
+  "dx_m": 2,
+  "tip_local_x_m": 17.276
+ },
+ "solves": {
+  "Pick_Point": {
+   "slew_rad": -1.4545,
+   "trolley_m": 10.773,
+   "hoist_m": 15.3,
+   "hook_yaw_rad": 1.4545
+  },
+  "Pick_Point_02": {
+   "slew_rad": -1.6871,
+   "trolley_m": 10.773,
+   "hoist_m": 15.3,
+   "hook_yaw_rad": 1.6871
+  },
+  "Bay_Slot_01": {
+   "slew_rad": 2.9433,
+   "trolley_m": 10.914,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.9433
+  },
+  "Bay_Slot_02": {
+   "slew_rad": 2.8821,
+   "trolley_m": 8.38,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.8821
+  },
+  "Bay_Slot_03": {
+   "slew_rad": 2.7689,
+   "trolley_m": 5.905,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.7689
+  },
+  "Bay_Slot_04": {
+   "slew_rad": 2.8045,
+   "trolley_m": 11.338,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.8045
+  },
+  "Bay_Slot_05": {
+   "slew_rad": 2.708,
+   "trolley_m": 8.926,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.708
+  },
+  "Bay_Slot_06": {
+   "slew_rad": 2.5432,
+   "trolley_m": 6.657,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.5432
+  },
+  "Bay_Slot_07": {
+   "slew_rad": 2.6779,
+   "trolley_m": 11.963,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.6779
+  },
+  "Bay_Slot_08": {
+   "slew_rad": 2.5579,
+   "trolley_m": 9.707,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.5579
+  },
+  "Bay_Slot_09": {
+   "slew_rad": 2.37,
+   "trolley_m": 7.673,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.37
+  },
+  "Bay_Slot_10": {
+   "slew_rad": 2.5655,
+   "trolley_m": 12.759,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.5655
+  },
+  "Bay_Slot_11": {
+   "slew_rad": 2.4325,
+   "trolley_m": 10.673,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.4325
+  },
+  "Bay_Slot_12": {
+   "slew_rad": 2.2403,
+   "trolley_m": 8.863,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.2403
+  },
+  "Drop_Point": {
+   "slew_rad": 2.9433,
+   "trolley_m": 10.914,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.9433
+  },
+  "Pick_Point_Bay": {
+   "slew_rad": 2.7689,
+   "trolley_m": 5.905,
+   "hoist_m": 16.9,
+   "hook_yaw_rad": -2.7689
+  },
+  "Hold_Door": {
+   "slew_rad": 1.5729,
+   "trolley_m": 15.315,
+   "hoist_m": 4.292,
+   "hook_yaw_rad": -1.4857
+  }
+ },
+ "clips": {
+  "crane_lift": {
+   "from": "Pick_Point",
+   "to": "Pick_Point",
+   "slew_old": [
+    -1.4711,
+    -1.4711
+   ],
+   "slew_new": [
+    -1.4545,
+    -1.4545
+   ],
+   "trolley_new": [
+    10.773,
+    10.773
+   ],
+   "trolley_range": [
+    10.773,
+    10.773
+   ]
+  },
+  "crane_lift_bay": {
+   "from": "Pick_Point_Bay",
+   "to": "Pick_Point_Bay",
+   "slew_old": [
+    3.078,
+    3.078
+   ],
+   "slew_new": [
+    2.7689,
+    2.7689
+   ],
+   "trolley_new": [
+    5.905,
+    5.905
+   ],
+   "trolley_range": [
+    5.905,
+    5.905
+   ]
+  },
+  "crane_lower": {
+   "from": "Drop_Point",
+   "to": "Drop_Point",
+   "slew_old": [
+    3.1091,
+    3.1091
+   ],
+   "slew_new": [
+    2.9433,
+    2.9433
+   ],
+   "trolley_new": [
+    10.914,
+    10.914
+   ],
+   "trolley_range": [
+    10.914,
+    10.914
+   ]
+  },
+  "crane_lower_hold": {
+   "from": "Hold_Door",
+   "to": "Hold_Door",
+   "slew_old": [
+    1.5727,
+    1.5727
+   ],
+   "slew_new": [
+    1.5729,
+    1.5729
+   ],
+   "trolley_new": [
+    15.315,
+    15.315
+   ],
+   "trolley_range": [
+    15.315,
+    15.315
+   ]
+  },
+  "crane_swing": {
+   "from": "Pick_Point",
+   "to": "Drop_Point",
+   "slew_old": [
+    -1.4715,
+    -3.1739
+   ],
+   "slew_new": [
+    -1.4545,
+    -3.3399
+   ],
+   "trolley_new": [
+    10.773,
+    10.914
+   ],
+   "trolley_range": [
+    10.773,
+    10.914
+   ]
+  },
+  "crane_swing_hold": {
+   "from": "Pick_Point_Bay",
+   "to": "Hold_Door",
+   "slew_old": [
+    3.078,
+    1.5727
+   ],
+   "slew_new": [
+    2.7689,
+    1.5729
+   ],
+   "trolley_new": [
+    5.905,
+    15.315
+   ],
+   "trolley_range": [
+    5.905,
+    15.315
+   ]
+  }
+ },
+ "poses": {
+  "pick_low": [
+   -1.4545,
+   10.773,
+   15.3,
+   1.4545
+  ],
+  "pick_high": [
+   -1.4545,
+   10.773,
+   12.9,
+   1.4545
+  ],
+  "drop_high": [
+   2.9433,
+   10.914,
+   14.3,
+   -2.9433
+  ],
+  "drop_low": [
+   2.9433,
+   10.914,
+   16.9,
+   -2.9433
+  ],
+  "bay_low": [
+   2.7689,
+   5.905,
+   16.9,
+   -2.7689
+  ],
+  "bay_high": [
+   2.7689,
+   5.905,
+   3.042,
+   -2.7689
+  ],
+  "hold_high": [
+   1.5729,
+   15.315,
+   3.042,
+   -1.4857
+  ],
+  "hold_low": [
+   1.5729,
+   15.315,
+   4.292,
+   -1.4857
+  ]
+ }
+}

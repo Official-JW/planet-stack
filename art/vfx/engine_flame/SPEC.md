@@ -236,7 +236,7 @@ const fx = createEngineFlames(engines, { groundY: padTopY });   // the flame use
 
 ## 10. Landing gear (in the aft skirt module)
 
-- **Layout:** 4 slim legs at build 60 / 150 / 240 / 330°, one bay each in the band, each closed by a pair of flush doors hinged on the bay's vertical edges (open 100°, outward). The leg angles miss the ladder (270°) and the cargo hoist (215°). With 6 engines at 45 + 60k°, each leg sits **15° from the nearest bell**; 4 legs can't sit exactly between 6 bells, and the plume never comes near a leg anyway (clearance below). The same 4 legs serve every level (Lv1–9 rule; the module is the same up to 11 engines).
+- **Layout:** 4 slim legs at build 60 / 150 / 240 / 330°, one bay each in the band (0.84 m wide, sill y 2.50 to header y 6.35 = 3.85 m tall; sill raised 5 cm from 2.45 on 10/24 so the closed doors' bottom edge clears the plume at every level), each closed by a pair of flush doors hinged on the bay's vertical edges (open 100°, outward). The leg angles miss the ladder (270°) and the cargo hoist (215°). With 6 engines at 45 + 60k°, each leg sits **15° from the nearest bell**; 4 legs can't sit exactly between 6 bells, and the plume never comes near a leg anyway (clearance below). The same 4 legs serve every level (Lv1–9 rule; the module is the same up to 11 engines).
 - **Leg:** hip pivot inside the bay top (R 4.19, y 6.05), upper strut 17 cm with a fairing sleeve, knee block, shock body 14 cm with an amber lock collar, chrome piston, 38 cm foot pad. Foot pad centre at R 6.4 m; pad bottom on the Lv1 contact plane (1.142 m below the nozzle exit plane, `extras.gear.contact_y`). The doors have a notch round the locked upper strut, so they close flush round a deployed leg.
 - **Nodes (joints of the one skinned mesh):** `Aft_Skirt_Root`; per leg k = 0..3: `Gear_Leg_k` (hip swing), `Gear_Knee_k` (fold), `Gear_Foot_k` (shock slide), `Gear_Door_ka` and `Gear_Door_kb`. Rest pose = legs down and locked, shocks compressed, doors shut.
 - **Clips (baked, 30 fps, from `gear_pose.py`):** `Gear_Retract` (3.2 s, clip t 0 = LO + 1.0 s) and `Gear_Deploy` (3.6 s, clip t 0 = TD − 7.0 s). Preferred runtime is `aft_skirt/gear.js`: `const gear = createGear(skirtRoot); gear.update('launch', t − liftoffAt, alt)` / `gear.update('land', t − touchdownAt, alt)` every frame, on the **same clock as the flame**. It reads its numbers from the GLB (`scene.extras.gear`), so it matches the clips exactly and also does the 5 cm compression from altitude.
@@ -246,17 +246,19 @@ const fx = createEngineFlames(engines, { groundY: padTopY });   // the flame use
   |---|---|---|---|
   | Lift-off | legs down, locked | until LO + 1.0 | – 56.99 |
   | | doors open | LO + 1.0 → 1.6 | 56.99 → 57.59 |
-  | | knee folds (first) | LO + 1.6 → 2.8 | 57.59 → 58.79 |
-  | | leg swings in | LO + 2.4 → 3.6 | 58.39 → 59.59 |
+  | | knee folds | LO + 1.6 → 3.4 | 57.59 → 59.39 |
+  | | leg swings in (overlaps the fold; both finish together) | LO + 2.2 → 3.4 | 58.19 → 59.39 |
+  | | stow settle as the leg seats (`R_SETTLE`, hip 0.025 rad peak, out toward the doors first, damped) | LO + 3.4 → 3.6 | 59.39 → 59.59 |
   | | doors close (flush) | LO + 3.6 → 4.2 | 59.59 → 60.19 |
   | Trip | stowed, doors shut | | 60.19 → 664.99 |
   | Landing | doors open | TD − 7.0 → 6.4 | 664.99 → 665.59 |
-  | | leg swings out | TD − 6.4 → 5.3 | 665.59 → 666.69 |
-  | | knee extends and locks | TD − 5.8 → 4.3 | 666.19 → 667.69 |
-  | | settle bounce at lock (0.07 rad, damped) | TD − 4.3 → 4.0 | 667.69 → 667.99 |
+  | | knee extends and locks | TD − 6.4 → 4.4 | 665.59 → 667.59 |
+  | | leg swings out (overlaps the knee; both start together) | TD − 6.3 → 5.2 | 665.69 → 666.79 |
+  | | lock beat (`D_BOUNCE`, knee 0.07 rad peak, damped, 43 % rebound) | TD − 4.4 → 4.0 | 667.59 → 667.99 |
   | | doors close round the legs | TD − 4.0 → 3.4 | 667.99 → 668.59 |
   | | feet compress 5 cm (last 5 cm of altitude) | ≈ TD − 0.55 → TD | 671.44 → 671.99 |
 
-  Constants: `GEAR_T` in `aft_skirt/gear.js` and `T` in `_src/gear_pose.py` (same numbers).
+  Constants: `GEAR_T` in `aft_skirt/gear.js` and `T` in `_src/gear_pose.py` (same numbers). The knee may only reach fully folded once the swing is ≥ 0.9 stowed: folded any earlier, the foot-pad rim cuts up to 4 cm into the bay back wall (60 Hz scan, 10/24). Settle and lock beats are sin²(πu)·sin(2πu)·e^(−2.5u), normalised to peak 1: zero value and zero speed at both ends, so there are no snaps. 60 Hz scan of both clips at 6–11 engines: no interpenetration, no pops, no velocity jumps.
 - **Budget:** +0 draw calls (measured 12 → 12 vs the bare ring), 0 textures; per frame, 20 bone transforms.
-- **Flames never touch the gear (measured):** `S.gearScan()` in the preview takes every frame at 30 fps (lift-off −2.0 … +8.0 s, landing −8.0 … +0.22 s), skins every leg and door vertex to world space, and measures it against the plume as the vertex shader builds it (cone r(x) with wobble and lip shimmer, the exit disk, and the deck splash sheet). To keep the splash off the feet, the splash sheet is now clamped to `FLAME.SPLASH_R = 5.6 m` from the cluster centre and fades over its last 1.5 m (`uSplashR`, `uCenter`). **Minimum clearance: plume 1.66 m at 6 engines and 1.64 m at 11; deck splash 0.61 m (foot pads, at ignition and touchdown) at both.**
+- **Flames never touch the gear (measured):** `S.gearScan()` in the preview takes every frame at 30 fps (lift-off −2.0 … +8.0 s, landing −8.0 … +0.22 s), skins every leg and door vertex to world space, and measures it against the plume as the vertex shader builds it (cone r(x) with wobble and lip shimmer, the exit disk, and the deck splash sheet). To keep the splash off the feet, the splash sheet is now clamped to `FLAME.SPLASH_R = 5.6 m` from the cluster centre and fades over its last 1.5 m (`uSplashR`, `uCenter`). **Minimum clearance (10/24, every frame at 60 Hz, 2.50 sill): plume 1.710 m at 6 engines, 1.671 m at 7 / 9 / 10, 1.752 m at 8, 1.686 m at 11 (closed-door bottom edge; limit 1.64 m). Deck splash 0.613 m at every level (foot pads, at ignition and touchdown; limit 0.61 m).**
+- **Splash margin is only about 3 mm (0.613 m against the 0.61 m limit).** Do not move the feet inward (`R_FOOT` 6.4 m), enlarge the pads (`PAD_R` 0.19 m), or grow `SPLASH_R` without re-running the gear scan.
