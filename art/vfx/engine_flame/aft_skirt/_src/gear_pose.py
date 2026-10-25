@@ -6,7 +6,7 @@ LEG_DEG = [60.0, 150.0, 240.0, 330.0]      # build angles: 15 deg off the 6-ring
 BAND_R = 4.45                               # aft-skirt band outer skin (doors sit flush in it)
 LINER_R = 4.04                              # bay back wall
 BAY_HW = 0.42 / BAND_R                      # bay half width (rad): 0.84 m wide bays
-BAY_Y0, BAY_Y1 = 2.45, 6.35                 # bay sill / header
+BAY_Y0, BAY_Y1 = 2.50, 6.35                 # bay sill / header (sill 2.45 -> 2.50, A&A3 10/24: door bottom edge 5 cm further from the exit plane = plume >= 1.67 m at every level)
 NOTCH_Y0, NOTCH_Y1, NOTCH_HW = 4.95, 5.85, 0.14 / 4.45   # door notch round the locked upper strut (crosses the skin at y ~5.0-5.7)
 R_HIP, Y_HIP = 4.19, 6.05                   # hip pivot (bay top, mid depth)
 R_FOOT = 6.4                                # foot pad centre radius when down
@@ -16,11 +16,15 @@ LO_OFF = 0.17                               # lower strut sits 17 cm to the side
 DOOR_OPEN_DEG = 100.0
 STROKE = 0.05                               # shock stroke: feet compress 5 cm at touchdown
 # timeline (ms). Launch: rel lift-off (LO = tap + 55.99 s). Landing: rel touchdown (TD = LO + 616 s).
-T = dict(R_DOOR_OPEN=(1000, 1600), R_KNEE=(1600, 2800), R_SWING=(2400, 3600), R_DOOR_CLOSE=(3600, 4200),
-         D_DOOR_OPEN=(-7000, -6400), D_SWING=(-6400, -5300), D_KNEE=(-5800, -4300), D_BOUNCE=(-4300, -4000), D_DOOR_CLOSE=(-4000, -3400))
-BOUNCE_RAD = 0.07
-CLIP_NOTES = {'Gear_Retract': 'clip t = 0 at LO + 1.0 s (tap 56.99 s); 3.2 s long; doors open 0-0.6, knee 0.6-1.8, swing 1.4-2.6, doors close 2.6-3.2',
-              'Gear_Deploy': 'clip t = 0 at TD - 7.0 s (tap 664.99 s); 3.6 s long; doors open 0-0.6, swing 0.6-1.7, knee 1.2-2.7, lock bounce 2.7-3.0, doors close 3.0-3.6'}
+T = dict(R_DOOR_OPEN=(1000, 1600), R_KNEE=(1600, 3400), R_SWING=(2200, 3400), R_SETTLE=(3400, 3600), R_DOOR_CLOSE=(3600, 4200),
+         D_DOOR_OPEN=(-7000, -6400), D_KNEE=(-6400, -4400), D_SWING=(-6300, -5200), D_BOUNCE=(-4400, -4000), D_DOOR_CLOSE=(-4000, -3400))
+# knee and swing finish together (retract) / start together (deploy): the pad rim only clears the bay liner when the knee is not fully
+# folded until the swing is >= 0.9 stowed (A&A3 60 Hz scan, 10/24/2026); fully folded with the leg still out it dipped 4 cm into the liner.
+BOUNCE_RAD = 0.07          # knee lock settle, peak (rad): hyperextends past lock, rebounds 43 %, C1 (zero speed in and out)
+STOW_SETTLE_RAD = 0.025    # hip settle as the leg seats in the bay, peak (rad): out toward the door plane first, never into the liner
+def settle(u): return math.sin(math.pi * u) ** 2 * math.sin(2 * math.pi * u) * math.exp(-2.5 * u) / 0.2940373 if 0 <= u <= 1 else 0.0   # damped, peak 1
+CLIP_NOTES = {'Gear_Retract': 'clip t = 0 at LO + 1.0 s (tap 56.99 s); 3.2 s long; doors open 0-0.6, knee 0.6-2.4, swing 1.2-2.4, stow settle 2.4-2.6, doors close 2.6-3.2',
+              'Gear_Deploy': 'clip t = 0 at TD - 7.0 s (tap 664.99 s); 3.6 s long; doors open 0-0.6, knee 0.6-2.6, swing 0.7-1.8, lock bounce 2.6-3.0, doors close 3.0-3.6'}
 def ease(x): x = min(1.0, max(0.0, x)); return 4 * x ** 3 if x < 0.5 else 1 - (-2 * x + 2) ** 3 / 2
 def win(t, ab): a, b = ab; return ease((t - a) / (b - a))
 def rot(axis, ang):
@@ -57,14 +61,15 @@ def state(phase, t, alt=0.0):
     """phase 'launch' (t rel LO) or 'land' (t rel TD) -> door (0 shut..1 open), knee (0 locked..1 folded), swing (0 down..1 stowed), ext (0..1 of the 5 cm stroke)"""
     if phase == 'launch':
         door = win(t, T['R_DOOR_OPEN']) - win(t, T['R_DOOR_CLOSE']); knee = win(t, T['R_KNEE']); swing = win(t, T['R_SWING']); bounce = 0.0
+        a, b = T['R_SETTLE']; hip = STOW_SETTLE_RAD * settle((t - a) / (b - a))
     else:
         door = win(t, T['D_DOOR_OPEN']) - win(t, T['D_DOOR_CLOSE']); swing = 1 - win(t, T['D_SWING']); knee = 1 - win(t, T['D_KNEE'])
-        a, b = T['D_BOUNCE']; u = (t - a) / (b - a); bounce = -BOUNCE_RAD * math.sin(2 * math.pi * u) * (1 - u) if 0 <= u <= 1 else 0.0
+        a, b = T['D_BOUNCE']; bounce = -BOUNCE_RAD * settle((t - a) / (b - a)); hip = 0.0
     ext = 1 - min(1.0, max(0.0, (STROKE - alt) / STROKE))
-    return dict(door=door, knee=knee, swing=swing, bounce=bounce, ext=ext)
+    return dict(door=door, knee=knee, swing=swing, bounce=bounce, settle=hip, ext=ext)
 def joint_values(lg, st):
     t = lg['t']; up = [0, 1, 0]
-    v = {f"Gear_Leg_{lg['k']}": ('rotation', quat(t, lg['hip_sign'] * lg['theta'] * st['swing'])),
+    v = {f"Gear_Leg_{lg['k']}": ('rotation', quat(t, lg['hip_sign'] * (lg['theta'] * st['swing'] - st.get('settle', 0.0)))),
          f"Gear_Knee_{lg['k']}": ('rotation', quat(t, lg['knee_sign'] * (math.pi * st['knee'] + st['bounce']))),
          f"Gear_Foot_{lg['k']}": ('translation', (np.array(lg['F']) + np.array(lg['off']) - np.array(lg['K']) + np.array(lg['d']) * STROKE * st['ext']).tolist())}
     for dr in lg['doors']: v[f"Gear_Door_{lg['k']}{dr['side']}"] = ('rotation', quat(up, dr['sign'] * math.radians(DOOR_OPEN_DEG) * st['door']))
@@ -80,5 +85,5 @@ def bake_clips(L):
         out[name] = (times, [(jn, path, vals) for (jn, path), vals in chans.items()])
     return out
 def export_meta(L):
-    return dict(legs=[{k: v for k, v in lg.items()} for lg in L], timeline_ms=T, door_open_deg=DOOR_OPEN_DEG, stroke_m=STROKE, bounce_rad=BOUNCE_RAD,
+    return dict(legs=[{k: v for k, v in lg.items()} for lg in L], timeline_ms=T, door_open_deg=DOOR_OPEN_DEG, stroke_m=STROKE, bounce_rad=BOUNCE_RAD, stow_settle_rad=STOW_SETTLE_RAD,
                 band_r=BAND_R, contact_y=FOOT_Y, bay=dict(half_width_rad=BAY_HW, y0=BAY_Y0, y1=BAY_Y1, liner_r=LINER_R), clip_notes=CLIP_NOTES)
