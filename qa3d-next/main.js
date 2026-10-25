@@ -1807,6 +1807,60 @@ function updGear(s, t, alt) {          // cargo clock: launch rel LO (= launch t
   else if (s.st === 'away') { if (G.ph !== 'away') { G.update('launch', 1e9, 1e3); G.ph = 'away'; } }
   else if (G.ph !== 'pad') { G.update('land', 0, 0); G.ph = 'pad'; }
 }
+// ===== Lv1 launch VFX (AA2 a422b9c: art/vfx/lv1_launch/lv1_launch_vfx.glb md5 b6d5beb7…, NOTES_for_Coder.md md5 04f0264d…; Jacob-approved, relayed 10/25 12:13).
+// Plume_Root goes under the aft skirt (cg3.skirt: rides the ship + gear), Dust_Ring + the two driver empties in pad space (Dust_Ring at Ship_Center x/z, deck top + 0.02).
+// Pure function of S.cg.sh + now (reload / offline catch-up / ?speed land on the exact frame), like the gear and the Receiver:
+//   takeoff clips: t = 0 at ignition = LO − 2.0 s (LO = 'launch' t0 = board t0 + BOARD_SEC: the last 2 s of 'board', crew already inside), 10 s → LO + 8 s = 'away';
+//   landing clips: t = 0 at the 'land' t0 (= TD − 8 s, landSec 8), 9.6 s → the first 1.6 s of 'pad' after touchdown (pad t0 = TD, only after a launch).
+// Anything else (pad, away, off-site camera, clip intensity ≈ 0): Plume_Idle_Off once + visible = false (0 draws). ?vfx=off: never loaded.
+const VFX_GLB = '../art/vfx/lv1_launch/lv1_launch_vfx.glb?v=b6d5beb7';   // Art's committed path (NOTES §: art/vfx/lv1_launch/), loaded as-is
+const VFX = { on: Q.get('vfx') !== 'off', plume: null, dust: null, pI: null, dI: null, mx: null, acts: {}, cur: '', matP: null, matD: null, gainP: 1, gainD: 1, ign: 2.0, toff: 10, land: 9.6, ph: null };
+function vfxLoad(prep) { if (!VFX.on) return;
+  loader.load(VFX_GLB, (g) => { try { vfxLoaded(g, prep); } catch (e) { console.warn('launch vfx bind failed (no vfx)', e); } }, undefined, (e) => console.warn('launch vfx failed to load', e)); }
+function vfxLoaded(g, prep) {
+  const s = g.scene, P = s.getObjectByName('Plume_Root'), D = s.getObjectByName('Dust_Ring'), pI = s.getObjectByName('Plume_Intensity'), dI = s.getObjectByName('Dust_Intensity'), pad = cg3.padArt;
+  if (!P || !D || !pI || !dI) throw new Error('launch vfx: nodes missing'); if (!pad || !cg3.skirt) throw new Error('launch vfx: no pad / aft skirt');
+  const clips = {}; for (const n of ['Plume_Takeoff', 'Dust_Takeoff', 'Plume_Landing', 'Dust_Landing', 'Plume_Idle_Off']) { clips[n] = g.animations.find(a => a.name === n); if (!clips[n]) throw new Error('launch vfx: clip ' + n + ' missing'); }
+  cg3.skirt.add(P);                     // NOTES §1: skirt space; Plume_Root's own (0, 0.9, 0) = the nozzle exit plane
+  const sc = pad.getObjectByName('Ship_Center'), w = sc.getWorldPosition(new THREE.Vector3()); pad.worldToLocal(w);
+  pad.add(D); D.position.set(w.x, prep.baseY - pad.position.y + .02, w.z);   // pad space, NOT the ship: deck top (skirt baseY at rest) + 0.02
+  pad.add(pI); pad.add(dI);             // driver empties under the mixer root
+  P.traverse(m => { if (!m.isMesh) return; const mt = m.material;   // NOTES §3: additive plume (glTF can't say additive: GLB extras.blending = 'additive')
+    mt.blending = THREE.AdditiveBlending; mt.transparent = true; mt.depthWrite = false; mt.depthTest = true; mt.toneMapped = false; mt.forceSinglePass = true;   // single pass: 1 draw, not 2
+    m.renderOrder = 11; m.frustumCulled = false; m.castShadow = m.receiveShadow = false; VFX.matP = mt; });
+  D.traverse(m => { if (!m.isMesh) return; const mt = m.material;   // normal alpha dust (extras.blending = 'normal (alpha)'), radial fade in COLOR_0 alpha
+    mt.blending = THREE.NormalBlending; mt.transparent = true; mt.depthWrite = false; mt.depthTest = true; mt.toneMapped = false; mt.forceSinglePass = true; mt.color.setScalar(1);
+    m.renderOrder = 10; m.frustumCulled = false; m.castShadow = m.receiveShadow = false; VFX.matD = mt; });
+  if (!VFX.matP || !VFX.matD) throw new Error('launch vfx: meshes missing');
+  if (VFX.matD.map && VFX.matD.map === VFX.matP.map) VFX.matD.map = VFX.matD.map.clone();   // the dust UV scroll must not move the plume
+  VFX.mx = new THREE.AnimationMixer(pad); for (const n in clips) { const a = VFX.mx.clipAction(clips[n]); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; VFX.acts[n] = a; }
+  Object.assign(VFX, { plume: P, dust: D, pI, dI, cur: '' }); vfxOff();
+  window.__ps3d.launchVfx = { url: VFX_GLB, plumeParent: P.parent.name, dust: D.position.toArray().map(v => +v.toFixed(3)), clips: Object.keys(clips) };
+}
+function vfxPhase(c, t) {              // → { k: 'Takeoff' | 'Landing', x: clip seconds } or null (pure: S.cg.sh + now)
+  const s = c && c.sh; if (!s) return null;
+  if (s.st === 'board') { const x = (t - (s.t0 + (BOARD_SEC - VFX.ign) * 1000)) / 1000, inside = BOARD_FLY.length ? s.t0 + (BCAM.in + Math.max(...BOARD_FLY.map(f => BOARD_INSIDE[f.board]))) * 1000 : s.t0;
+    return x >= 0 && t >= inside ? { k: 'Takeoff', x } : null; }   // NOTES: never ignite while anyone is outside
+  if (s.st === 'launch') { const x = (BOARD_SEC ? VFX.ign : 0) + (t - s.t0) / 1000; return x < VFX.toff ? { k: 'Takeoff', x } : null; }   // ?board=off: no board phase, clip starts at ignition
+  if (s.st === 'land') return { k: 'Landing', x: (t - s.t0) / 1000 };
+  if (s.st === 'pad' && c.launches > 0) { const x = CG.landSec + (t - s.t0) / 1000; return x >= CG.landSec && x < VFX.land ? { k: 'Landing', x } : null; }
+  return null;
+}
+function vfxOff() { if (VFX.cur !== 'off') { VFX.mx.stopAllAction(); const a = VFX.acts.Plume_Idle_Off; a.play(); a.time = 0; VFX.mx.update(0); VFX.cur = 'off'; } VFX.plume.visible = VFX.dust.visible = false; VFX.ph = null; }
+function updVfx(c, t) {
+  if (!VFX.mx) return;
+  const ph = Math.abs(camX - PX) < GAP * .75 ? vfxPhase(c, t) : null;   // off-site: nothing drawn (the sim still runs; the next on-site frame lands on the exact pose)
+  if (!ph) { vfxOff(); return; }
+  const pn = 'Plume_' + ph.k, dn = 'Dust_' + ph.k;
+  if (VFX.cur !== ph.k) { VFX.mx.stopAllAction(); VFX.acts[pn].play(); VFX.acts[dn].play(); VFX.cur = ph.k; }
+  for (const n of [pn, dn]) { const a = VFX.acts[n]; a.time = clamp(ph.x, 0, a.getClip().duration - 1e-3); }
+  VFX.mx.update(0);
+  const flick = 1 + 0.06 * Math.sin(t * 0.113) * Math.sin(t * 0.037), pi = VFX.pI.scale.x, di = VFX.dI.scale.x;   // NOTES §3 per-frame code
+  VFX.matP.color.setScalar(pi * flick * VFX.gainP); VFX.matD.opacity = Math.min(1, di * VFX.gainD);
+  VFX.plume.visible = pi > 0.002; VFX.dust.visible = di > 0.002;
+  if (VFX.matD.map) VFX.matD.map.offset.y = (-1.6 * t / 1000) % 1;
+  VFX.ph = { k: ph.k, x: +ph.x.toFixed(3), pI: +pi.toFixed(3), dI: +di.toFixed(3) };
+}
 function padLoaded(g) {
   const o = g.scene; o.name = 'LaunchPad_Art'; o.position.set(PX, 0, 0);
   o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
@@ -1818,7 +1872,7 @@ function padLoaded(g) {
   for (const n of ['Ship_Placeholder', 'Cargo_Door', 'Hold_Door', ...Array.from({ length: CG.holdCap }, (_, i) => 'Hold_' + String(i + 1).padStart(2, '0'))]) rig.attach(o.getObjectByName(n));
   rig.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   try { const prep = shipSkirtPrep(o, rig); cg3.cockpit = prep.cw; window.__ps3d.cockpit = prep.cw;
-    loader.load(prep.url, (gs) => { try { shipSkirtLoaded(gs, prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
+    loader.load(prep.url, (gs) => { try { shipSkirtLoaded(gs, prep); vfxLoad(prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
   } catch (e) { console.warn('detailed ship prep failed (plain hull stays)', e); }
   const crane = o.getObjectByName('Crane'); crane.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   { const bx = new THREE.Box3().setFromObject(crane), cb = crane.getWorldPosition(new THREE.Vector3());   // pad load camera: PC-1 at its GLB rest (Slew 0 = jib along +X)
@@ -1892,7 +1946,7 @@ function updCargo() {
   if (s.st === 'launch') { const u = clamp((t - s.t0) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; }
   else if (s.st === 'away') vis = false;
   else if (s.st === 'land') { const u = clamp((t - s.t0) / (CG.landSec * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
-  sh.visible = vis; sh.position.y = sy; updGear(s, t, sy - (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop)); sh.updateMatrixWorld(true);
+  sh.visible = vis; sh.position.y = sy; updGear(s, t, sy - (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop)); sh.updateMatrixWorld(true); updVfx(c, t);
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
   const ap = astroPhase(c, t), as = cg3.astro, H = cg3.home, Rv = cg3.receive; let ax, az, ay = 0, ayaw;
@@ -2465,7 +2519,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
-Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
 loadRig(); loadTruck(); loadOperator(); loadCrew();
