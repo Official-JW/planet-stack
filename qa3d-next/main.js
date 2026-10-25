@@ -1880,7 +1880,9 @@ function cargoUI() {                  // Launch button (bottom-right of the safe
 // ===== Cargo Bay label (Director 10/25): floating 'CARGO BAY' / '<stored>/<max> crates' over the Cargo Space Dock, in the FUEL panel's HUD style.
 // Read-only from outside the Dock code: stored = S.cg.dk (the save state the cargo sim changes when a store / load finishes), max = CPH.dock.cap, and
 // the Dock root stationObjs[DOCKI] for its geometry. Polled every frame from frame(); the DOM is written only when a shown value changes (no allocation
-// in steady state). Placement: centred on the Dock building (visible vertices above CB.yMin), bottom CB.gap px above its projected top, inside band().
+// in steady state). Placement (Director 11:23: never hidden for lack of room while the Dock is on screen): the first of these that fits clear of the Dock
+// building and the HUD — 0 normal 112×36 centred CB.gap px above the building top inside band(); 1 compact 92×26 there; 2/3 normal beside the building's
+// screen x span (left / right), top-aligned to it; 4 normal / 5 compact docked CB.hud px under the HUD edge (band top − 24); else 6 = 5's spot (least overlap).
 // The camera looks straight down −Z (no azimuth), so a point's screen y depends only on its (y, z): the building's (z, y) convex hull, built once on the
 // first show, holds every candidate for its top. Those few points (and the anchor) are projected each frame through one reused Matrix4 (projection × view)
 // into locals and a Float64Array, so no number is stored into an object field per frame (Node harness: 0 GCs over 10^6 steady frames).
@@ -1891,23 +1893,25 @@ const CB_CSS = '#cargoBay{position:fixed;left:0;top:0;z-index:5;width:112px;heig
   '#cargoBay b{display:block;height:12px;white-space:nowrap;font:800 9px/12px system-ui;font-stretch:condensed;letter-spacing:.2em;color:#9fdff5}' +
   '#cargoBay em{display:block;margin-top:2px;height:12px;white-space:nowrap;font:800 11px/12px system-ui;font-style:normal;font-variant-numeric:tabular-nums;color:#eafcff;text-shadow:0 0 6px #3ad0ff99}' +
   '#cargoBay.full::before{background:linear-gradient(110deg,#ffb340,#ffd58a 45%,#ff7a00aa);filter:drop-shadow(0 0 8px #ff7a0088)}' +
-  '#cargoBay.full b{color:#ffd58a;text-shadow:0 0 8px #ff7a00cc}#cargoBay.full em{color:#ffe7c2;text-shadow:0 0 6px #ff7a0099}';
+  '#cargoBay.full b{color:#ffd58a;text-shadow:0 0 8px #ff7a00cc}#cargoBay.full em{color:#ffe7c2;text-shadow:0 0 6px #ff7a0099}' +
+  '#cargoBay.cmp{width:92px;height:26px;padding:3px 8px 0 9px}#cargoBay.cmp b{height:10px;font-size:8px;line-height:10px;letter-spacing:.16em}#cargoBay.cmp em{margin-top:1px;height:11px;font-size:10px;line-height:11px}';
 const cbEl = document.createElement('div'); cbEl.id = 'cargoBay'; cbEl.setAttribute('role', 'status'); cbEl.setAttribute('aria-label', 'Cargo Space Dock storage');
 cbEl.innerHTML = '<b>CARGO BAY</b><em>0/0 crates</em>';
 { const st = document.createElement('style'); st.textContent = CB_CSS; document.head.appendChild(st); document.body.appendChild(cbEl); }
 const cbTxt = cbEl.querySelector('em').firstChild;
-const CB = { on: false, n: -1, m: -1, full: false, x: -1e9, y: -1e9, w: 112, h: 36, gap: 6, yMin: .4, hull: null, x0: 0, x1: 0, ay: 0, az: 0, bd: null };   // last written values
+const CB = { on: false, n: -1, m: -1, full: false, x: -1e9, y: -1e9, w: 112, h: 36, gap: 6, yMin: .4, hull: null, x0: 0, x1: 0, ay: 0, az: 0, bd: null,   // last written values
+  mode: -1, cmp: false, hud: 4, NW: 112, NH: 36, NG: 6, CW: 92, CH: 26, CG: 4, y1: 0, z0: 0, z1: 0 };   // placement mode (see above); normal / compact sizes + gaps
 const _cbV = new THREE.Vector3(), _cbM = new THREE.Matrix4(), _cbO = new Float64Array(3);   // _cbV: build-time only
 addEventListener('resize', () => { CB.bd = null; });   // the band only moves on resize / rotation while the label can show (it hides while the sheet is open)
 function cbHull(o) {                   // once: the Dock building's (z, y) convex hull (monotone chain) + its x span and highest point (the label's x anchor)
-  o.updateMatrixWorld(true); const v = _cbV, P = []; let x0 = 1e9, x1 = -1e9, ay = -1e9, az = 0;
+  o.updateMatrixWorld(true); const v = _cbV, P = []; let x0 = 1e9, x1 = -1e9, ay = -1e9, az = 0, z0 = 1e9, z1 = -1e9;
   o.traverse(m => { if (!m.isMesh) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const p = m.geometry.attributes.position;
-    for (let i = 0; i < p.count; i++) { m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld); if (v.y <= CB.yMin) continue; P.push([v.z, v.y]); if (v.x < x0) x0 = v.x; if (v.x > x1) x1 = v.x; if (v.y > ay) { ay = v.y; az = v.z; } } });
+    for (let i = 0; i < p.count; i++) { m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld); if (v.y <= CB.yMin) continue; P.push([v.z, v.y]); if (v.x < x0) x0 = v.x; if (v.x > x1) x1 = v.x; if (v.z < z0) z0 = v.z; if (v.z > z1) z1 = v.z; if (v.y > ay) { ay = v.y; az = v.z; } } });
   P.sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
   for (const p of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
   for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
   const h = lo.slice(0, -1).concat(up.slice(0, -1)), f = new Float32Array(h.length * 2); h.forEach((p, i) => { f[2 * i] = p[1]; f[2 * i + 1] = p[0]; });
-  Object.assign(CB, { hull: f, x0, x1, ay, az }); window.__ps3d.cargoBay = CB;
+  Object.assign(CB, { hull: f, x0, x1, ay, az, y1: ay, z0, z1 }); window.__ps3d.cargoBay = CB;
 }
 function cargoBayLabel() {
   const o = stationObjs[DOCKI], c = S.cg; let on = !!o && !document.hidden && !sheetOpen && !document.body.classList.contains('sheet-drag'), x = 0, y = 0;
@@ -1917,10 +1921,20 @@ function cargoBayLabel() {
       const sy = (1 - (e[1] * cx + e[5] * y + e[9] * z + e[13]) / w) / 2 * H; if (sy < top) top = sy; }
     { const y = CB.ay, z = CB.az, w = e[3] * cx + e[7] * y + e[11] * z + e[15]; _cbO[0] = ((e[0] * cx + e[4] * y + e[8] * z + e[12]) / w + 1) / 2 * W; _cbO[2] = w; }   // the Dock anchor: building top centre
     const ax = _cbO[0]; if (_cbO[2] <= 0) behind = true;
-    if (behind || !(ax >= 0 && ax <= W)) on = false;          // Dock off screen (or behind the camera)
-    else { if (!CB.bd) CB.bd = band(); const bd = CB.bd;
-      x = Math.round(clamp(ax - CB.w / 2, bd.l, bd.r - CB.w)); y = Math.round(Math.min(top - CB.gap, bd.bot) - CB.h);
-      if (y < bd.top) on = false; } }                          // no room between the HUD band and the Dock's top: hide rather than cover either
+    let bx0 = 1e9, bx1 = -1e9;                                 // the building's screen x span: its world box corners
+    for (let q = 0; q < 8; q++) { const px = q & 1 ? CB.x1 : CB.x0, py = q & 2 ? CB.y1 : CB.yMin, pz = q & 4 ? CB.z1 : CB.z0, w = e[3] * px + e[7] * py + e[11] * pz + e[15];
+      if (w <= 0) { behind = true; break; } const sx = ((e[0] * px + e[4] * py + e[8] * pz + e[12]) / w + 1) / 2 * W; if (sx < bx0) bx0 = sx; if (sx > bx1) bx1 = sx; }
+    if (behind || !(bx1 > 0 && bx0 < W)) on = false;          // Dock off screen: no part of its building's box on screen (or behind the camera)
+    else { if (!CB.bd) CB.bd = band(); const bd = CB.bd, hy = bd.top - 24 + CB.hud;   // hy: just under the HUD edge (band() puts its top 24 px below it)
+      const NW = CB.NW, NH = CB.NH, NG = CB.NG, CW = CB.CW, CH = CB.CH, CG = CB.CG, xN = Math.round(clamp(ax - NW / 2, bd.l, bd.r - NW)), xC = Math.round(clamp(ax - CW / 2, bd.l, bd.r - CW));
+      let md = 6; const yN = Math.round(Math.min(top - NG, bd.bot) - NH), yC = Math.round(Math.min(top - CG, bd.bot) - CH), yS = Math.round(clamp(top, bd.top, bd.bot - NH));
+      if (yN >= bd.top) { md = 0; x = xN; y = yN; }
+      else if (yC >= bd.top) { md = 1; x = xC; y = yC; }
+      else if (bx0 - NG - NW >= bd.l) { md = 2; x = Math.round(bx0 - NG - NW); y = yS; }
+      else if (bx1 + NG + NW <= bd.r) { md = 3; x = Math.round(bx1 + NG); y = yS; }
+      else if (Math.round(hy) + NH <= top - NG) { md = 4; x = xN; y = Math.round(hy); }
+      else { md = Math.round(hy) + CH <= top - CG ? 5 : 6; x = xC; y = Math.round(hy); }   // 6: nothing fits; the smallest label, highest spot = the least Dock covered
+      const cm = md === 1 || md >= 5; if (md !== CB.mode) { CB.mode = md; if (cm !== CB.cmp) { CB.cmp = cm; CB.w = cm ? CW : NW; CB.h = cm ? CH : NH; cbEl.classList.toggle('cmp', cm); } } } }
   if (on !== CB.on) { CB.on = on; cbEl.classList.toggle('on', on); }
   if (!on) return;
   if (x !== CB.x || y !== CB.y) { CB.x = x; CB.y = y; cbEl.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
