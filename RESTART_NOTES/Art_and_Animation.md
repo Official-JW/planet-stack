@@ -51,3 +51,6 @@ The helpers report to me: Art Assistant (AA), AA2 and AA3. Their notes are in th
 ## 12:31 update
 - Tire-track trails (all truck routes) final try 3 sent to Jacob via Art Manager. Files in /workspace/mine_trail/ (GLB 205f8acb, 1 draw, 70 KB; notracks mine 864fab15, refinery 22f13a9d; pad still e98f89ab). NOT committed; wait for Jacob's OK, then commit + hand Coder (hide HaulRoad/HaulRoad_Tiles, CargoRoad, Road_UTurn; polygonOffset -2/-2, renderOrder 1).
 - Known: Mine ruts still subtle, dust band faint.
+
+## 12:38 update
+- Trails DONE: Jacob approved (via Art Manager). Final file qa3d-next/models/all_truck_trails_205f8acb.glb, commit 01ff411 (renamed from 6916868). Both managers confirmed this name; Coder uses it. Notracks copies stay uncommitted.
