@@ -1,6 +1,6 @@
 # Lv1 launch VFX: engine plume (mach diamonds) + lunar dust (AA2, 10/25/2026, pass 2)
 
-**Status: look proof, NOT approved.** Do not wire in or commit until Art Manager / Director OK it.
+**Status: Approved by Jacob 10/25 12:12 PM, wired in ded282f.**
 
 - **GLB:** `art/vfx/lv1_launch/lv1_launch_vfx.glb` (md5 in the hand-off message). meshopt + KHR_mesh_quantization, no Draco. 1 unit = 1 m, Y up.
 - **Built for:** AA3's `aft_skirt_N06_thick.glb` (md5 63d0289d…) on hull `launch_pad_game_lv1ship_clean_v3.glb` (b24e0f08…): 6 bells, re-read from `Engine_Nozzle_0..5` (exit plane y 0.9 in skirt space, ring r 3.05, exit_r 0.84; same positions as the old 344311ab skirt). On clean v3 the skirt hangs on `Aft_Skirt_Seat` (pad-local (0, 0.492, −13)) with identity transform, with no shipSkirtPrep needed.
