@@ -46,7 +46,7 @@ B was measured at k = 0.09 (p25 65–67.8). A uses the same paint, emissive and 
   - sweeps k 0.06–0.12;
   - if k ≠ 0.09, rebuilds and repacks, **which changes the md5 above**;
   - renders 12 frames to `proofs/gamecam_a_game/` (loaded and empty at 375 and 393, as in `proofs/gamecam_b_game`);
-  - redraws `proofs/transport_road_plan_topdown.png`.
+  - redraws `proofs/transport_road_plan_topdown.png` (v5: `_src/road_plan_v5.py --png`).
 - **Run time:** about 2.5–3 min on an idle box, up to about 6 min under load.
 
 ## Clearance (light check, no renders): `_src/clearance_st10a.py` → `proofs/clearance_st10a.json`; `_src/saddle_yaw_check.py` → `proofs/saddle_yaw_check_st10a.json`
@@ -86,3 +86,28 @@ B was measured at k = 0.09 (p25 65–67.8). A uses the same paint, emissive and 
 3. **Ship height.** There is no Lv10 ship yet, so the Lv2 ship (43.85 m) was used. Loaded top 44.55 m leaves 1.45 m under D-10 (46 m). Flagged in the road plan as well.
 4. The Lv2 committed files still carry the Lv1 legs; the skirt modules N06/N11 were used for the gear.
 5. **Shade numbers are pending** until the queue runs. If the sweep picks k ≠ 0.09, the GLB md5 changes.
+
+## Transport road v5 (10/24/2026, station order d729465: Cargo Space Dock 480 | Launch Pad 640 | Shipyard 800)
+- **GLB:** `game/st10a_transport_road.glb`, one mesh `ST10A_TransportRoad`, material `ST10_Road` (roughness 0.92), vertex colour only (gltfpack `-cc -kn -ke -vpf`, like `_shared/road/haul_road_seg.glb`). Place at world (669.5, 0, −13), no rotation.
+- **Look:** compacted regolith, 34.62 m running width (ST-10A 27.12 m + 3.75 m each side), 2.6 m dusty shoulders (39.82 m graded), surface y 0.045. Two dark crawler lanes at |w| 9.7–13.3 m with track-cleat imprints 0.40 m every 1.24 m, and survey edge dashes.
+- **Path (crawler ship axis):**
+  - pick-up at the pad Ship_Center (640, −13), heading +X;
+  - straight to x 682.0 (42.0 m), leaving the pad's right side on the far side (−Z);
+  - one right arc, R 100 m through 40° (69.81 m), centre (682.0, 87.0);
+  - straight 11.21 m at heading 40° into Shipyard Road_Entry (754.871, 0.23, 17.604).
+  - **Length 123.03 m.** One turn, no S-bend, minimum radius 100 m.
+  - The road mesh runs from the pad edge x 669.5 to Road_Entry (93.53 m).
+- **Crawler stop:** Shipyard props sit at the entry (x 752–767.5, z −2.5..14, up to 25.5 m). The last pose with ≥ 2 m gap from the footprint is at s 98.35 m: ship axis (735.42, 2.46), heading 32.3°, gap 2.22 m, leading face 9.04 m short of Road_Entry. The far side of the road end is trimmed to the prop-free envelope from s 112.3; the camera side runs full width to Road_Entry.
+- **Other roads:** none crossed.
+  - Flatbed lanes z 23 and z 32 (toes z 20.2–34.8): 29.9 and 35.2 m clear.
+  - Their pad U-turn (x ≤ 648.3, z ≥ 20.2): 27.9 m clear.
+  - Haul road: 391 m clear.
+  - **Near x 640 the road uses z −32.91..6.91** (running −30.31..4.31; crawler footprint −26.56..0.56; ship skirt/gear −19.6..−6.4).
+- **Cargo Space Dock (x 480, bbox x ≤ 519.5):** 107 m west of the crawler's rear at pick-up and 150 m from the road mesh; the road never passes it.
+- **Pad flags (owner pad/AA2; db78a6f7 is not edited):** see `proofs/transport_road_plan.json` → flags.
+  - No right-side gate: berm 2.5–4.5 m, x 656–668, z −28..−2. Needs G-1, 30.8 m wide, z −28.4..2.4.
+  - Pylon blocks 9–12 m at x 654–658 / z −20..−16 and x 652–656 / z −6..−2.
+  - Tier_08.
+  - Hoses must disconnect before the move.
+  - Pipe_LaunchPad_End (660.3, −9.6) is on the right under the crawler.
+- **Aft skirt / gear:** in the crawler frame this is unchanged (see Clearance). Along the road, the skirt/gear (r 6.6) and hull (r 5.7) sweep only meet pad-owner items (above) and nothing beyond the pad edge before the stop pose.

@@ -1,344 +1,403 @@
 {
- "version": "v4",
- "rebased": "10/24 v4: world coordinates from the approved station table (pad 457, Cargo Dock (360, 0, -8), Shipyard 960); the old pad-local check (Shipyard at pad +160, i.e. pad 480 / Shipyard 640) is retired; road sized to ST-10A (B shelved)",
- "crawler": {
-  "name": "ST-10A",
-  "glb": "game/st10a_game.glb",
-  "width": 27.12,
-  "length": 29.0,
-  "loaded_height": 44.55,
-  "track_bands_abs_dz": [
+ "version": "v5",
+ "date": "10/24/2026",
+ "order": "d729465: Cargo Space Dock 480 | Launch Pad 640 | Shipyard 800 (GAP 160)",
+ "supersedes": "v4 (road_plan.py, pad 457 -> Shipyard 960)",
+ "glb": {
+  "file": "game/st10a_transport_road.glb",
+  "md5": "587ea1cb434d35e0463425df9f4f6c68",
+  "bytes": 46156,
+  "place_world": [
+   669.5,
+   0,
+   -13.0
+  ],
+  "rotation": "none"
+ },
+ "endpoints": {
+  "crawler_pickup_pad": [
+   640.0,
+   0.25,
+   -13.0
+  ],
+  "road_mesh_start_pad_right_edge": [
+   669.5,
+   0.0,
+   -13.0
+  ],
+  "road_end_shipyard_road_entry": [
+   754.871,
+   0.23,
+   17.604
+  ],
+  "crawler_stop": {
+   "rule": "last pose with >= 2.0 m horizontal gap from the ST-10A footprint (29.0 x 27.12 m) to any Shipyard mesh above 0.32 m",
+   "ship_axis": [
+    735.42,
+    2.46
+   ],
+   "heading_deg": 32.3,
+   "s_m": 98.35,
+   "gap_m": 2.22,
+   "leading_face_centre": [
+    748.64,
+    10.81
+   ],
+   "short_of_road_entry_m": 9.04
+  }
+ },
+ "path": {
+  "start_pickup": [
+   640.0,
+   -13.0
+  ],
+  "heading_start_deg": 0,
+  "straight_to_x": 682.0,
+  "arc": {
+   "radius_m": 100.0,
+   "angle_deg": 40.0,
+   "dir": "right (+X turning toward +Z)",
+   "center": [
+    682.0,
+    87.0
+   ],
+   "start": [
+    682.0,
+    -13.0
+   ],
+   "end": [
+    746.28,
+    10.4
+   ]
+  },
+  "final_straight_m": 11.21,
+  "end_road_entry": [
+   754.871,
+   0.23,
+   17.604
+  ],
+  "heading_end_deg": 40.0,
+  "turns": 1,
+  "s_bends": 0,
+  "length_m": 123.03,
+  "segments_m": {
+   "straight_640_to_682": 42.0,
+   "arc_R100_40deg": 69.81,
+   "final_straight": 11.21
+  },
+  "length_pickup_to_road_entry_m": 123.03,
+  "length_pickup_to_crawler_stop_m": 98.35,
+  "length_road_mesh_m": 93.53,
+  "min_turn_radius_m": 100.0
+ },
+ "road": {
+  "mesh_start_s": 29.5,
+  "mesh_start_center": [
+   669.5,
+   -13.0
+  ],
+  "mesh_end_center": [
+   754.871,
+   17.604
+  ],
+  "mesh_length_m": 93.53,
+  "running_width_m": 34.62,
+  "graded_width_m": 39.82,
+  "crawler_lanes_w": [
    9.7,
    13.3
-  ]
- },
- "gates": {
-  "G1": {
-   "name": "G-1",
-   "pad": "Lv1 pad (AA2)",
-   "width": 30.8,
-   "z": [
-    -28.4,
-    2.4
+  ],
+  "z_near_x640": {
+   "crawler_footprint": [
+    -26.56,
+    0.56
    ],
-   "changed": false,
-   "note": "unchanged 30.8 m: ST-10A is 27.12 m wide (|dz| <= 13.56 about the ship axis z -13) and passes with 1.84 m each side"
-  },
-  "G10": {
-   "name": "G-10",
-   "pad": "Lv10 pad (owner: Lv10 pad / AA2)",
-   "width": 34.6,
-   "z": [
+   "ship_skirt_gear": [
+    -19.6,
+    -6.4
+   ],
+   "planned_running": [
     -30.31,
     4.31
    ],
-   "changed": true,
-   "note": "ONLY the Lv10 pad gate widens: to the crawler road running width (ST-10A 27.12 m + 3.75 m each side), centred on the road axis z -13"
-  }
- },
- "pipe_end": {
-  "world": [
-   430,
-   0.95,
-   2.6
-  ],
-  "source": "AA2 launch_pad_game_lv1door.glb Pipe_LaunchPad_End (pad-local -27, 0.95, 2.6), md5 bb532e07c0f7e50759d5bad0537d2102",
-  "clear_of_crawler_at_pickup_m": 13.79,
-  "old": "(477.3, -9.6) VV-1 / (430, -9.6) in v3: both retired"
- },
- "keep_out": {
-  "crossings_of_other_roads": [],
-  "haul_road": {
-   "x_max": 321,
-   "gap_to_road_m": 161.1
+   "planned_graded": [
+    -32.91,
+    6.91
+   ],
+   "max_z_any_road_or_crawler_x600_700": 8.92
   },
-  "flatbed_lanes": {
-   "z": [
-    13,
-    22
-   ],
-   "x": [
-    296,
-    464
-   ],
-   "gap_m": 6.09
-  },
-  "pad_uturn": {
-   "x": [
-    458,
-    465.3
-   ],
-   "z": [
-    10.2,
-    24.8
-   ],
-   "gap_m": 3.29
-  },
-  "cargo_dock": {
-   "origin": [
-    360,
-    0,
-    -8
-   ],
-   "bbox_world": [
-    [
-     345.1,
-     -60.2
+  "other_roads": [
+   {
+    "road": "flatbed OUT z 23",
+    "toe_z": [
+     20.2,
+     25.8
     ],
-    [
-     388,
-     8.94
-    ]
-   ],
-   "gap_to_road_m": 94.09,
-   "gap_to_crawler_path_m": 55.64
-  },
-  "shipyard_first_vertex_in_corridor_x": 918.07,
-  "apron_start_x": 836.1,
-  "shipyard_corridor_clear_west_of_apron": true
- },
- "units": "world glTF m (+X right, +Z toward camera)",
- "layout": "cargo_dock/layout_v3 cae8f39 (compact_v3 9fb1ddbe) + v3 order: Life Support 0 | Mine 160 | Refinery 320 | Cargo Dock 360 z-8 | Launch Pad 457 | Shipyard 960 (shipyard_game.glb c0e9d54e) | Habitat 1068 | Engineering 1120",
- "director": "10/24 13:31: road v2, HB-10 + D-10 (7 cells), pad exit APPROVED; ST-10B picked; Habitat east of the Shipyard, no S-jog",
- "centerline": [
-  [
-   457.0,
-   -13.0
-  ],
-  [
-   482.1,
-   -13.0
-  ],
-  [
-   880.1,
-   -13.0
-  ],
-  [
-   900.1,
-   -13.0
-  ]
- ],
- "turns": 0,
- "s_bends": 0,
- "running_width": 34.62,
- "graded_width": 39.8,
- "crawler_lanes_abs_dz": [
-  9.7,
-  13.3
- ],
- "grade_pct": 0.0,
- "cross_fall_pct": 0.5,
- "length_pad_edge_to_D10": 398.1,
- "ship_travel_pad_centre_to_bay_centre": 443.1,
- "apron_RA1_x": [
-  836.1,
-  880.1
- ],
- "lv10_high_bay_HB10": {
-  "x": [
-   880.1,
-   920.1
-  ],
-  "z": [
-   -35.0,
-   9.0
-  ],
-  "inner_height": 52.0,
-  "door_D10": {
-   "x": 880.1,
-   "width": 34.0,
-   "clear_height": 46.0,
-   "faces": "-X (the road)"
-  },
-  "sizing": "ST-10A 27.12 m wide + 3.44 m each side within 34.0 m; loaded height 44.55 m (Lv2 ship 43.85 m; no Lv10 height exists yet) -> 1.45 m under D-10 46.0 m (v3 margin 5.3 m with the Lv1 ship): FLAG"
- },
- "existing_door": "Hall_Door (940.6, 4.9) faces +Z: 10.3 m between Hall_Door_L/R (bcbd0934), 8-14 m forecourt: unusable for ST-10 (layout_v2 item 9)",
- "shipyard_cells_to_clear": [
-  {
-   "x": 918.0,
-   "z": -20,
-   "h": 25.6
-  },
-  {
-   "x": 918.0,
-   "z": -18,
-   "h": 24.2
-  },
-  {
-   "x": 918.0,
-   "z": -14,
-   "h": 23.9
-  },
-  {
-   "x": 918.0,
-   "z": -2,
-   "h": 3.3
-  },
-  {
-   "x": 918.0,
-   "z": 0,
-   "h": 2.8
-  },
-  {
-   "x": 918.0,
-   "z": 2,
-   "h": 3.2
-  },
-  {
-   "x": 918.0,
-   "z": 8,
-   "h": 21.2
-  }
- ],
- "habitat": {
-  "origin": [
-   1068.0,
-   0.0
-  ],
-  "footprint": {
-   "x0": 1063.5,
-   "x1": 1072.5,
-   "z0": -4.5,
-   "z1": 4.5
-  },
-  "size_whd": [
-   9,
-   12,
-   9
-  ],
-  "was": {
-   "origin": [
-    800.0,
-    0.0
-   ],
-   "footprint": {
-    "x0": 795.5,
-    "x1": 804.5,
-    "z0": -4.5,
-    "z1": 4.5
-   },
-   "note": "inside the road corridor (z -33.6..+7.6): removed"
-  },
-  "clear_to_shipyard_east_edge": 41.6,
-  "shipyard_east_edge_x": 1021.9,
-  "clear_to_engineering": 42.5,
-  "road": "no Habitat in the road path: the corridor x 486.4-880.1 is clear, z unchanged (0), no jog / no S-bend"
- },
- "engineering": {
-  "origin": [
-   1120.0,
-   0.0
-  ],
-  "footprint": {
-   "x0": 1115.0,
-   "x1": 1125.0,
-   "z0": -4.0,
-   "z1": 4.0
-  },
-  "size_whd": [
-   10,
-   10,
-   8
-  ],
-  "changed": false
- },
- "station_x_table": {
-  "note": "Coder: replace origin = i*160 with this per-station table (index = v3 order). qa3d/main.js STATIONS order today is Life Support, Mine, Refinery, Takeoff & Landing, Cargo Space Dock, Habitat, Shipyard, Engineering; the v3 order swaps Pad/Dock and moves Habitat after the Shipyard (SIZES entries move with their names).",
-  "stations": [
-   {
-    "index": 0,
-    "name": "Life Support",
-    "x": 0,
-    "z": 0.0,
-    "note": "unchanged"
+    "min_gap_graded_edge_m": 29.93,
+    "crosses": false
    },
    {
-    "index": 1,
-    "name": "Mine",
-    "x": 160,
-    "z": 0.0,
-    "note": "unchanged"
+    "road": "flatbed BACK z 32",
+    "toe_z": [
+     29.2,
+     34.8
+    ],
+    "min_gap_graded_edge_m": 35.17,
+    "crosses": false
    },
    {
-    "index": 2,
-    "name": "Refinery",
-    "x": 320,
-    "z": 0.0,
-    "note": "unchanged"
+    "road": "flatbed pad U-turn (centre 641, 27.5, r 4.5, toe 2.8 -> x <= 648.3, z 20.2-34.8)",
+    "min_gap_graded_edge_m": 27.86,
+    "crosses": false
    },
    {
-    "index": 3,
-    "name": "Cargo Dock",
-    "x": 360,
-    "z": -8.0,
-    "note": "cargo_dock/layout_v3 cae8f39 (was 373 in layout_v2)"
+    "road": "flatbed U-turn vs crawler footprint on pad (z <= 0.56)",
+    "min_gap_m": 19.64
    },
    {
-    "index": 4,
-    "name": "Launch Pad",
-    "x": 457,
-    "z": 0.0,
-    "note": "layout_v2"
-   },
-   {
-    "index": 5,
-    "name": "Shipyard",
-    "x": 960,
-    "z": 0.0,
-    "note": "unchanged"
-   },
-   {
-    "index": 6,
-    "name": "Habitat",
-    "x": 1068.0,
-    "z": 0.0,
-    "note": "v3: moved from 800 (road corridor) to east of the Shipyard"
-   },
-   {
-    "index": 7,
-    "name": "Engineering",
-    "x": 1120,
-    "z": 0.0,
-    "note": "unchanged (checked: 42.5 m clear of the Habitat)"
+    "road": "Mine<->Refinery haul road (x 186-274)",
+    "min_gap_graded_edge_m": 391.5,
+    "crosses": false
    }
-  ]
- },
- "pad_hits_world": [
-  {
-   "x": [
-    443.6,
-    445.1
+  ],
+  "cargo_dock": {
+   "bbox_x": [
+    461.85,
+    519.51
    ],
-   "z": [
-    -3.4,
-    -2.7
+   "gap_to_road_mesh_m": 149.99,
+   "gap_to_crawler_on_pad_m": 107.13,
+   "dock_road_entry": [
+    480,
+    17.2
    ],
-   "h": 9.26,
-   "node": "Pad_Base"
+   "note": "Dock is west of the pad; the road leaves east - never passes the Dock"
   },
-  {
+  "shipyard_props_in_graded_band": {
+   "count_pts": 5309,
    "x": [
-    445,
-    445.3
+    752.0,
+    767.5
    ],
    "z": [
-    -0.8,
-    -0.6
+    -2.5,
+    14.0
    ],
-   "h": 1.48,
-   "node": "Tier_08"
+   "ymax": 25.5
   },
-  {
-   "x": [
-    445.5,
-    446.5
-   ],
-   "z": [
-    -26.3,
-    -22.6
-   ],
-   "h": 1,
-   "node": "Pad_Base"
+  "shipyard_props_in_graded_band_note": "full 39.82 m band before the end trim; the built mesh is trimmed (see road_mesh_vs_shipyard)",
+  "road_mesh_vs_shipyard": {
+   "props_over_0p32m_under_mesh": 0,
+   "min_horizontal_gap_m": 0.61,
+   "method": "raw mesh triangles (world) vs shipyard_bcbd0934 triangles sampled 0.5 m, y > 0.32"
   }
- ]
+ },
+ "obstacles": {
+  "LaunchPad": {
+   "pts": 29665,
+   "hits": [
+    {
+     "node": "Pad_Base",
+     "hit_by": "crawler",
+     "x": [
+      628.5,
+      666.5
+     ],
+     "z": [
+      -26.5,
+      -1.0
+     ],
+     "ymax": 12.0,
+     "first_s": 0.0
+    },
+    {
+     "node": "Tier_12",
+     "hit_by": "crawler",
+     "x": [
+      630.25,
+      649.75
+     ],
+     "z": [
+      -26.5,
+      0.5
+     ],
+     "ymax": 0.25,
+     "first_s": 0.0
+    },
+    {
+     "node": "Tier_08",
+     "hit_by": "crawler",
+     "x": [
+      650.25,
+      655.0
+     ],
+     "z": [
+      -26.5,
+      -22.5
+     ],
+     "ymax": 5.25,
+     "first_s": 0.0
+    },
+    {
+     "node": "Hose_LCH4",
+     "hit_by": "ship skirt/gear/hull",
+     "x": [
+      642.75,
+      653.75
+     ],
+     "z": [
+      -16.5,
+      -15.25
+     ],
+     "ymax": 4.75,
+     "first_s": 0.0
+    },
+    {
+     "node": "Hose_LOX",
+     "hit_by": "ship skirt/gear/hull",
+     "x": [
+      643.5,
+      648.25
+     ],
+     "z": [
+      -14.25,
+      -10.0
+     ],
+     "ymax": 4.75,
+     "first_s": 0.0
+    },
+    {
+     "node": "Pad_Base",
+     "hit_by": "ship skirt/gear/hull",
+     "x": [
+      644.0,
+      668.0
+     ],
+     "z": [
+      -19.5,
+      -6.5
+     ],
+     "ymax": 12.0,
+     "first_s": 0.0
+    },
+    {
+     "node": "Tier_08",
+     "hit_by": "ship skirt/gear/hull",
+     "x": [
+      654.5,
+      656.25
+     ],
+     "z": [
+      -19.5,
+      -18.75
+     ],
+     "ymax": 1.0,
+     "first_s": 12.0
+    },
+    {
+     "node": "Hose_LCH4",
+     "hit_by": "crawler",
+     "x": [
+      642.75,
+      643.5
+     ],
+     "z": [
+      -16.0,
+      -15.25
+     ],
+     "ymax": 4.75,
+     "first_s": 14.5
+    },
+    {
+     "node": "Hose_LOX",
+     "hit_by": "crawler",
+     "x": [
+      643.5,
+      644.25
+     ],
+     "z": [
+      -14.25,
+      -13.75
+     ],
+     "ymax": 4.75,
+     "first_s": 15.0
+    }
+   ],
+   "first_hit_s": 0.0,
+   "min_footprint_gap_m": -13.56,
+   "min_gap_at_s": 3.0
+  },
+  "CargoDock": {
+   "pts": 0,
+   "hits": [],
+   "first_hit_s": null,
+   "min_footprint_gap_m": null,
+   "gap_west_of_crawler_rear_at_pickup_m": 107.14,
+   "mesh_x_max": 519.5,
+   "note": "no mesh within 40 m of the path bbox"
+  },
+  "Shipyard": {
+   "pts": 88816,
+   "hits": [
+    {
+     "node": "shipyard_base",
+     "hit_by": "crawler",
+     "x": [
+      755.75,
+      774.25
+     ],
+     "z": [
+      1.75,
+      37.0
+     ],
+     "ymax": 25.5,
+     "first_s": 101.59
+    },
+    {
+     "node": "shipyard_base",
+     "hit_by": "ship skirt/gear/hull",
+     "x": [
+      752.0,
+      759.25
+     ],
+     "z": [
+      10.5,
+      23.0
+     ],
+     "ymax": 17.5,
+     "first_s": 111.07
+    }
+   ],
+   "first_hit_s": 101.59,
+   "min_footprint_gap_m": -12.11,
+   "min_gap_at_s": 123.03
+  }
+ },
+ "inputs": {
+  "CargoDock": {
+   "file": "qa3d/models/dock_tankfarm_fd286b9.glb",
+   "md5": "7959ae74c3ef106095bbdbab492c9820",
+   "x0": 480
+  },
+  "LaunchPad": {
+   "file": "qa3d-next/models/launch_pad_db78a6f7.glb",
+   "md5": "db78a6f71c35df8753958a51c4d7e349",
+   "x0": 640
+  },
+  "Shipyard": {
+   "file": "qa3d-next/models/shipyard_bcbd0934.glb",
+   "md5": "bcbd093418c43c0d2c74e026f6683cf2",
+   "x0": 800
+  }
+ },
+ "flags": [
+  "PAD (db78a6f7, owner pad/AA2): no gate on the RIGHT. Berm Pad_Base 2.5-4.5 m tall, x 656-668, z -28..-2 crosses both crawler track bands -> gate G-1 needed, 30.8 m wide, z -28.4..2.4.",
+  "PAD: two Pad_Base pylon blocks 9-12 m tall at x 654-658 / z -20..-16 and x 652-656 / z -6..-2 are inside the crawler + ship skirt/gear sweep east of the ship -> move or open them.",
+  "PAD: Tier_08 (x 650-656, z -26.5..-22.5, 5.25 m) in the far track band; low Pad_Base items at x 628-630 z -24..-22 (1.8 m) under the crawler at pick-up.",
+  "PAD: Hose_LOX / Hose_LCH4 (y <= 4.75) cross the skirt/gear sweep -> must disconnect / retract before the move (game state, not geometry).",
+  "PAD: Pipe_LaunchPad_End (660.3, 0.95, -9.6) is on the pad RIGHT inside the crawler path (between the track bands, under the body); the Dock is now WEST (x 480) so the pipe should come in from the pad LEFT.",
+  "SHIPYARD (bcbd0934): props at Road_Entry (shipyard_base x 752-767.5, z -2.5..14, up to 25.5 m) -> the 27.12 m crawler stops 9.04 m short of Road_Entry (leading face (748.64, 10.81)); the Lv10 bay / wider entry still needs a Shipyard change. The road mesh reaches Road_Entry; its far side is trimmed to the prop-free envelope from s 112.3.",
+  "D-10: loaded height 44.55 m (Lv2 ship) leaves 1.45 m under D-10 (46 m) - unchanged flag."
+ ],
+ "other_roads_rule": "no crossing: flatbed z 23 / 32 lanes + pad U-turn are on the camera side (z >= 20.2); the crawler road stays z <= 6.91 west of x 700 and only bends toward +Z east of x 682 (no other road there)."
 }
