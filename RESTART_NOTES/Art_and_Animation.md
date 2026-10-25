@@ -47,3 +47,7 @@ The helpers report to me: Art Assistant (AA), AA2 and AA3. Their notes are in th
 - Cockpit ship committed b8dc5b1 (AA2, launch_pad_game_lv1ship.glb md5 1042e767). Posted to room. Needs ladder cage + gate a0584fb checks.
 - Detailed ship = gear + cockpit; Coder must wire (live/ loads no aft_skirt/engine_ring/engine_flame).
 - AA2 and AA3 stopped for the night.
+
+## 12:31 update
+- Tire-track trails (all truck routes) final try 3 sent to Jacob via Art Manager. Files in /workspace/mine_trail/ (GLB 205f8acb, 1 draw, 70 KB; notracks mine 864fab15, refinery 22f13a9d; pad still e98f89ab). NOT committed; wait for Jacob's OK, then commit + hand Coder (hide HaulRoad/HaulRoad_Tiles, CargoRoad, Road_UTurn; polygonOffset -2/-2, renderOrder 1).
+- Known: Mine ruts still subtle, dust band faint.
