@@ -223,7 +223,8 @@ const CAM_OVERRIDE = {
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
-  '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
+  '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,
+    load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -638,7 +639,7 @@ function resize() {
 addEventListener('resize', resize); resize();
 function poseCam(cam, x) {
   const f = clamp(x / GAP, 0, N - 1), i0 = Math.floor(f), i1 = Math.min(N - 1, i0 + 1), u = f - i0, sm = u * u * (3 - 2 * u);
-  const A = SITECAM[i0], B = SITECAM[i1], k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;
+  const A = padCamAt(i0), B = padCamAt(i1), k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;   // pad: rest ↔ load blend (padCamAt)
   let lx = x + dx, lyy = ly, lz = dz, kk = k;
   if (cam === camera && FOC.w > 0) { const w = FOC.w; lx += (FOC.lx - lx) * w; lyy += (FOC.ly - lyy) * w; lz += (FOC.lz - lz) * w; kk += (FOC.k - kk) * w; }   // tier focus blend
   if (cam === camera && BC.w > 0) { const w = BC.w; lx += (BC.lx - lx) * w; lyy += (BC.ly - lyy) * w; lz += (BC.lz - lz) * w; kk *= Math.pow(BC.k / kk, w); }   // crew boarding camera blend (k in log space)
@@ -734,6 +735,62 @@ function updFocus() {
     FOC.lz = f && u < 1 ? f.lz + (to.lz - f.lz) * u : to.lz; FOC.k = f && u < 1 ? f.k + (to.k - f.k) * u : to.k;
     if (t >= T.in && f) FOC.from = null;
   }
+}
+// ===== pad load camera (Director 10:57, code-only): while PC-1 lifts a bay box into the hold (c.pc.k 'hold', ship on the pad) and until Hold_Door / Cargo_Door
+// has shut again, the pad's frame eases (PADCAM.easeSec, smoothstep, wall clock) from its RESTING frame (CAM_OVERRIDE / Cam_Target, unchanged) to a LOAD frame,
+// then eases back. Only the pad's own SITECAM entry blends, so a swipe away mid-load just carries the blend off with the station (no snap).
+// LOAD frame = padLoadFit(): the world points of the crane's jib sweep on this lift (rest → every Bay_Slot → Hold_Door → rest, at the jib tip and counter-jib,
+// from the crane's GLB rest bounds), the mast, every Bay_Slot box, Hold_Door + Hold_01..NN boxes, and Cargo_Door shut + swung open into its shelf;
+// fitted straight down -Z at the fixed 18° / 38° vFOV inside the HUD–bar band with a PADCAM.margin (3%) margin of the width L/R and of the band T/B.
+// Read from the pad GLB at load time, so AA1's moved crane / AA3's pad file re-fit by themselves. The override's load {ct, frame_w} is only a fallback.
+const PADCAM = { easeSec: .8, margin: .03, boxH: 1.5, boxR: 1.2, arcN: 12 };
+const LD = { p: 0, w: 0, want: false, src: '', fit: null };
+const _ldc = { k: 1, dx: 0, dz: 0, ly: 0 };
+function padCamAt(i) {
+  const C = SITECAM[i]; if (i !== PADI || LD.w <= 0 || !C.load) return C;
+  const L = C.load, w = LD.w; _ldc.k = C.k * Math.pow(L.k / C.k, w); _ldc.dx = C.dx + (L.dx - C.dx) * w; _ldc.dz = C.dz + (L.dz - C.dz) * w; _ldc.ly = C.ly + (L.ly - C.ly) * w; return _ldc;   // k in log space (as the crew camera)
+}
+function padLoadPts() {
+  const PC = cg3.PC, R = cg3.pcRest, sh = cg3.ship; if (!cg3.padArt || !PC || !PC.base || !R || !sh || !cg3.holdDoor) return null;
+  sh.updateMatrixWorld(true); const pts = [], V = (x, y, z) => pts.push(new THREE.Vector3(x, y, z)), b = PC.base, hd = cg3.holdDoor.clone().applyMatrix4(sh.matrixWorld);
+  const box = (p) => { for (const dx of [-PADCAM.boxR, PADCAM.boxR]) for (const dz of [-PADCAM.boxR, PADCAM.boxR]) { V(p.x + dx, p.y, p.z + dz); V(p.x + dx, p.y + PADCAM.boxH, p.z + dz); } };
+  const bays = cg3.baySlots || [PC.drop], aH = polar(PC, hd).a, aR = polar(PC, PC.drop).a, arcs = [];
+  for (const bs of bays) { const aB = polar(PC, bs).a; arcs.push([aR, aB], [aB, aH]); box(bs); } arcs.push([aH, aR]);
+  for (const [a0, a1] of arcs) for (let q = 0; q <= PADCAM.arcN; q++) { const a = lerpA(a0, a1, q / PADCAM.arcN), cx = Math.cos(a), cz = -Math.sin(a);
+    V(b.x + R.tip * cx, R.top, b.z + R.tip * cz); V(b.x - R.cj * cx, R.top, b.z - R.cj * cz); }   // jib tip / counter-jib at the crane's top
+  for (const dx of [-R.hw, R.hw]) for (const dz of [-R.hw, R.hw]) { V(b.x + dx, 0, b.z + dz); V(b.x + dx, R.top, b.z + dz); }   // mast + footing
+  box(hd); for (const h of cg3.holds) box(h.clone().applyMatrix4(sh.matrixWorld));
+  if (cg3.doorBox) { const D = cg3.doorBox, o = sh.getWorldPosition(new THREE.Vector3()), hgt = D.max.y - D.min.y, c = D.getCenter(new THREE.Vector3()), n = Math.hypot(c.x, c.z) || 1, ox = c.x / n * hgt, oz = c.z / n * hgt;
+    for (const x of [D.min.x, D.max.x]) for (const z of [D.min.z, D.max.z]) { for (const y of [D.min.y, D.max.y]) V(o.x + x, o.y + y, o.z + z); V(o.x + x + ox, o.y + D.min.y, o.z + z + oz); } }   // shut + swung out flat (shelf)
+  return pts;
+}
+function padLoadFit(pts) {             // fitBox's method on a point set, from close in outwards (3% a step), with a fractional margin
+  const mc = camera.clone(); mc.clearViewOffset(); const bd = band(), mx = PADCAM.margin * W, my = PADCAM.margin * (bd.bot - bd.top), e = THREE.MathUtils.degToRad(CAM.elev), vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const bb = new THREE.Box3().setFromPoints(pts), t = { lx: (bb.min.x + bb.max.x) / 2, ly: Math.max(0, (bb.min.y + bb.max.y) / 2), lz: (bb.min.z + bb.max.z) / 2, k: .05 }, p = { x: 0, y: 0, z: 0 };
+  const ext = () => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, bh = false; for (const v of pts) { toScreen(v.x, v.y, v.z, mc, p); if (p.z > 1) bh = true; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); } return { x0, x1, y0, y1, bh }; };
+  for (let n = 0; n < 240; n++, t.k *= 1.03) {
+    for (let it = 0; it < 4; it++) { poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = ext(); if (s.bh) break;
+      const pxm = (H / 2) / (camera.userData.dist * t.k * vt); t.lx -= (W / 2 - (s.x0 + s.x1) / 2) / pxm; const dy = ((bd.top + bd.bot) / 2 - (s.y0 + s.y1) / 2) / pxm; t.ly += Math.cos(e) * dy; t.lz -= Math.sin(e) * dy; }
+    poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = ext();
+    if (!s.bh && s.x0 >= mx && s.x1 <= W - mx && s.y0 >= bd.top + my && s.y1 <= bd.bot - my) return Object.assign(t, { fit: true, spare: { l: s.x0, r: W - s.x1, t: s.y0 - bd.top, b: bd.bot - s.y1 }, band: [bd.top, bd.bot], n: pts.length });
+  }
+  return null;
+}
+function padLoadTarget() {             // lazily, once per fitSite (pad load / resize): SITECAM[PADI].load in fitSite's shape
+  const C = SITECAM[PADI], o = stationObjs[PADI]; if (!C || C.load !== undefined || !o || !camera.userData.dist) return C && C.load;
+  let pts = null, t = null; try { pts = padLoadPts(); t = pts && padLoadFit(pts); } catch (e) { console.warn('pad load camera: fit failed', e); }
+  if (t) { C.load = { k: t.k, dx: t.lx - PADI * GAP, dz: t.lz, ly: t.ly, src: 'fit', spare: t.spare, band: t.band, n: t.n }; }
+  else { const ov = o.userData.camOv && o.userData.camOv.load; if (ov && ov.frame_w > 0 && ov.ct) { const d = (ov.frame_w / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+      C.load = { k: d / camera.userData.dist, dx: o.position.x + ov.ct.x - PADI * GAP, dz: o.position.z + ov.ct.z, ly: o.position.y + ov.ct.y, src: 'hand' }; } else C.load = null;
+    if (cg3.padArt) console.warn('pad load camera: no fit (' + (pts ? pts.length + ' pts' : 'pad / crane not bound') + '), ' + (C.load ? 'hand numbers' : 'rest view only')); }
+  if (C.load) C.load.fw = 2 * camera.userData.dist * C.load.k * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+  return C.load;
+}
+function updPadCam(dt) {               // dt = wall-clock frame dt (not game speed)
+  const c = S.cg, D = cg3.door; LD.want = S.site === PADI && !!cg3.padArt && !!c && !!c.pc && ((c.pc.k === 'hold' && c.sh && c.sh.st === 'pad') || !!(D && D.k > 1e-3));   // lift → box on the shelf → Hold_NN → door shut
+  if (LD.want && SITECAM[PADI].load === undefined && cg3.pcRest) padLoadTarget();
+  if (!SITECAM[PADI].load) { LD.p = LD.w = 0; return; }
+  LD.p = clamp(LD.p + (LD.want ? dt : -dt) / PADCAM.easeSec, 0, 1); LD.w = fss(LD.p); LD.src = SITECAM[PADI].load.src;
 }
 let shK = 1;
 function placeCamera() { poseCam(camera, camX);
@@ -1690,6 +1747,9 @@ function padLoaded(g) {
     loader.load(SKIRT_GLB, (gs) => { try { shipSkirtLoaded(gs, prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
   } catch (e) { console.warn('detailed ship prep failed (plain hull stays)', e); }
   const crane = o.getObjectByName('Crane'); crane.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
+  { const bx = new THREE.Box3().setFromObject(crane), cb = crane.getWorldPosition(new THREE.Vector3());   // pad load camera: PC-1 at its GLB rest (Slew 0 = jib along +X)
+    cg3.pcRest = { tip: bx.max.x - cb.x, cj: cb.x - bx.min.x, top: bx.max.y, hw: Math.max(bx.max.z - cb.z, cb.z - bx.min.z, 1) };
+    cg3.doorBox = new THREE.Box3().setFromObject(rig.getObjectByName('Cargo_Door')).translate(rig.getWorldPosition(new THREE.Vector3()).negate()); }   // shut, relative to the Ship_Rig origin (= Ship_Center)
   for (const n of ['Slew', 'Trolley', 'Hoist', 'Hook']) { const j = crane.getObjectByName(n); j.userData.q0 = j.quaternion.clone(); }
   // swap the gray placeholder group (slab, bay, crane, ship, gauge) out
   scene.remove(cg3.pg); scene.remove(cg3.ship); if (phBox[PADI]) phBox[PADI] = null;
@@ -2229,7 +2289,7 @@ function frame() {
   if (now < S.rt - 1000) stampGuard(now);                        // clock went backward mid-session: every stamp shifts back with S.rt, credit nothing
   if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > 60) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
-  updFocus(); updViewShift(); updCrew(); placeCamera();
+  updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
   updCargo();
   updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
@@ -2265,7 +2325,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
-Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band,
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
 loadRig(); loadTruck(); loadOperator(); loadCrew();
