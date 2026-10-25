@@ -4,14 +4,17 @@
 // v2: per-crew phase times + hull wall / hatch jamb + sole support + sole gap.
 // Clearance of the 4 skinned climbers (all clips back to back, 15 Hz, pad-local) against the hatch landing solids (analytic SDF, mirrors
 // lp_stainless_ship.py), plus a check that the GLB's landing triangles sit on those solids. Usage: node landing_clear.mjs crew.glb pad.glb out.json
+//   or env CREW_GLB= PAD_GLB= OUT= (args win; defaults: repo crew_boarding.glb, launch_pad_next.glb, ./landing_clear_out.json); NODE_MODULES= (three), HZ= (sample rate, default 30; HZ=1 = smoke test), TIMINGS=
 import fs from 'fs';
-const NM = '/home/box/apps/gltftools/node_modules';
+const NM = process.env.NODE_MODULES || '/home/box/apps/gltftools/node_modules';
 const THREE = await import(NM + '/three/build/three.module.js');
 const { GLTFLoader } = await import(NM + '/three/examples/jsm/loaders/GLTFLoader.js');
 const { MeshoptDecoder } = await import(NM + '/three/examples/jsm/libs/meshopt_decoder.module.js');
 await MeshoptDecoder.ready;
 const load = p => new Promise((res, rej) => { const b = fs.readFileSync(p); const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder); l.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), '', res, rej); });
-const [crewF, padF, outF] = process.argv.slice(2);
+const HERE = new URL('.', import.meta.url).pathname, A_ = process.argv.slice(2);
+const crewF = A_[0] || process.env.CREW_GLB || HERE + '../../../crew/boarding/crew_boarding.glb', padF = A_[1] || process.env.PAD_GLB || HERE + '../launch_pad_next.glb', outF = A_[2] || process.env.OUT || 'landing_clear_out.json';
+console.error('landing_clear: crew', crewF, '| pad', padF, '| out', outF, '| hz', process.env.HZ || 30);
 const pad = (await load(padF)).scene; pad.updateMatrixWorld(true);
 const C = pad.getObjectByName('Ship_Center').getWorldPosition(new THREE.Vector3());
 const LF = pad.getObjectByName('Ladder_Foot').getWorldPosition(new THREE.Vector3());
