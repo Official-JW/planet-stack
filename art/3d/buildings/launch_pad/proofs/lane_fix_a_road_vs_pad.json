@@ -1,0 +1,40 @@
+{
+ "route_minus_halfwidth_min_m": {
+  "c": 9.9,
+  "what": "Crane",
+  "at": [
+   639.1,
+   0.5,
+   10.3
+  ]
+ },
+ "per_node_min_m": {
+  "Pad_Base": 11.048,
+  "Crane": 9.9,
+  "Hose_LOX": 25.468,
+  "Hose_LCH4": 35.573,
+  "Ship_Placeholder": 25.041
+ },
+ "uturn_mesh_bbox_world_xz": [
+  [
+   647,
+   20.2
+  ],
+  [
+   654.3,
+   34.8
+  ]
+ ],
+ "uturn_mesh_to_nearest_pad_vertex_m": {
+  "d": 11.048,
+  "pad": [
+   642.1009400718846,
+   10.300033909920593,
+   "Crane"
+  ],
+  "road": [
+   647,
+   20.2
+  ]
+ }
+}
