@@ -228,9 +228,9 @@ const CAM_OVERRIDE = {
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '0a5806f4': { glb: 'launch_pad 97763ba (detailed starter ship, thick cyan rings; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (PX = 640, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
-  // Art 141b354 refinery_bridge_footprint.json camera_proposed (frames the Refinery + CV-3 bridge; v5.3 footprint is within v5.2's): Cam_Target world (318.9, 2.08, 13.55),
-  // W 38.25; angle unchanged. Was ct x -6.9 / frame_w FW_REF 37.5 (the bridge's south tower cropped ~55 px on the right at 393 and 375).
-  '93c44166': { glb: 'refinery d6389a7 + bridge 5d862767 v5.3 (Art 141b354 official Refinery box)', ct: { x: -1.1, y: 2.08, z: 13.55 }, frame_w: 38.25 },
+  // Director 10/25: Refinery bridge must be fully visible at 393/375 portrait. Cam_Target world (320.75, 2.08, 13.55), W 38.25; angle/FOV/height unchanged.
+  // Node projection: building + whole bridge/conveyor inside the band with 3% margin at 393x852 and 375x812 (spare ~13 px L/R). Was x -1.1 (318.9): bridge's right edge ~5 px past the margin.
+  '93c44166': { glb: 'refinery d6389a7 + bridge 5d862767 v5.3 (Art 141b354 official Refinery box)', ct: { x: 0.75, y: 2.08, z: 13.55 }, frame_w: 38.25 },
   'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },   // Art 3c5e6f8 final: Cam_Target world (313.1, 2.08, 13.55), W 37.5
 };
 const camOvFor = (url) => { const m = /[?&]v=([0-9a-f]{8})/.exec(url || ''); return m && CAM_OVERRIDE[m[1]] ? Object.assign({ md5: m[1] }, CAM_OVERRIDE[m[1]]) : null; };
