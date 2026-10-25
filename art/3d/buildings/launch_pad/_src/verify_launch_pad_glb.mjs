@@ -40,6 +40,11 @@ l.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '', (
     out.truck_stop_rule = { rule: 'Truck_Stop on the spur bay z, both Pick_Points within trolley_max - 0.3 m', bay_z: +bz.toFixed(3), reach: {} };
     if (Math.abs(out.truck_stop_world[2] - bz) > 1e-3 || Math.abs(oz - bz) > 1e-3) fail.push('Truck_Stop not on the spur bay z ' + bz);
     for (const n of ['Pick_Point', 'Pick_Point_02']) { const q = W(n); const r = Math.hypot(q.x - cp.x, q.z - cp.z); out.truck_stop_rule.reach[n] = { r_m: +r.toFixed(3), margin_m: +(cu.trolley_max_m - r).toFixed(3) }; if (r > cu.trolley_max_m - 0.3) fail.push(n + ' outside crane reach - 0.3 m'); }
+  } else if (S.getObjectByName('Turn_Start') && Math.abs(W('Turn_Start').z - 13) > 1e-3) {   // lane fix A (10/25): Truck_Stop on the out lane itself (z = Turn_Start z), both bed slots within trolley_max - 0.3 m
+    const lz = W('Turn_Start').z, cu = S.getObjectByName('Crane').userData, cp = W('Crane');
+    out.truck_stop_rule = { rule: 'Truck_Stop on the out lane z (Turn_Start z), both Pick_Points within trolley_max - 0.3 m', lane_z: +lz.toFixed(3), reach: {} };
+    if (Math.abs(out.truck_stop_world[2] - lz) > 1e-3) fail.push('Truck_Stop not on the out lane z ' + lz);
+    for (const n of ['Pick_Point', 'Pick_Point_02']) { const q = W(n); const r = Math.hypot(q.x - cp.x, q.z - cp.z); out.truck_stop_rule.reach[n] = { r_m: +r.toFixed(3), margin_m: +(cu.trolley_max_m - r).toFixed(3) }; if (r > cu.trolley_max_m - 0.3) fail.push(n + ' outside crane reach - 0.3 m'); }
   } else if (Math.abs(out.truck_stop_world[2] - 13) > 1e-3) fail.push('Truck_Stop not on z 13');
   const rs = W('Receiver_Spot'), rh = W('Receiver_Home'); out.receiver = { spot: r3(rs), home: r3(rh), dist_m: +rs.distanceTo(rh).toFixed(3),
     spot_yaw_deg: +(S.getObjectByName('Receiver_Spot').rotation.y * 180 / Math.PI).toFixed(2), home_yaw_deg: +(S.getObjectByName('Receiver_Home').rotation.y * 180 / Math.PI).toFixed(2) };
