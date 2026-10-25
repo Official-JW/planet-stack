@@ -314,15 +314,57 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
 }, undefined, (e) => { console.warn('station GLB failed, keeping gray box', G.url, e); if (G.i === 2) routeReady('ref'); });
 // ===== CV-3 Refinery box bridge v5.3 (Art e661ba1, md5 5d862767…, 4 draws; open-front lowerator, drop-in for v5.2 bc081489). Load-and-place only:
 // its root Refinery_Bridge is already at Refinery-local (12.28, 0, 12.25), so the scene sits at the Refinery origin (RX, 0, 0) with no offset (the
-// Refinery is station REF = 2 in the 10/24 order too). Scenery loop: GLB clips roller_spin + box_convey loop (box_convey scales/drives Box_1..3), no tie to cargo/saves/pallets;
-// the cargo sim (pallet → RC-1 → FB-05) is unchanged. Spans flatbed lane E (z 13) at deck underside y 7.25. ?bridge=off skips it.
+// Refinery is station REF = 2 in the 10/24 order too). Spans flatbed lane E (z 13) at deck underside y 7.25. ?bridge=off skips it.
+// Bridge cargo (Director final rulings 10/25, Code Assistant): DISPLAY only. The economy is the old one (cgMake: seal sealSec, c.ref ready times,
+// palletCap 8 counted from credited crates in c.ref, the dump waits only when that is full), identical to ?bridgecargo=off. The bridge shows trips:
+// a trip departs when ≥ 1 sealed crate is not yet shown (c.brS = their seal times) and the carriage is free (gap after the last departure, Art
+// carriage_cycle min_box_start_gap_s 14.64 → one box on the carriage); its one box stands in for every crate sealed since the previous departure and
+// rides box_path for ride s (box_convey hidden_after_s 36.937) to Pickup_Point. On arrival the pallet display adds all of its crates at once (c.brQ
+// [depart, firstId, endId, n]; crate id = c.made − c.ref.length + i), so the stack never shows a crate before its box. The economy crane still lifts on
+// the old timing; one that lifts a crate whose box is still on the bridge (flatbed waiting) picks it from the turntable. Speed factor BRC.k (1.0).
+// The 3 Box_1..3 bones are the pool (trip n → bone n % 3); no box on the belt → rollers stop, bones hidden. ?bridgecargo=off = the old scenery loop.
+const BRC = { on: Q.get('bridge') !== 'off' && Q.get('bridgecargo') !== 'off', k: 1.0, gap: 14.64, ride: 36.937, belt: [9.059, 32.8], lift: [18.313, 30.667] };
+const BR = { bones: null, ip: null, car: null, cip: null, roll: null, pick: null, u: [-1, -1, -1], info: { on: BRC.on, n: 0, bound: false, speed: BRC.k } };
+function brInit(c) { if (c.brS) return; c.brS = []; c.brQ = []; c.brD = null; c.brK = c.made; c.brAr = c.made; c.brN = 0; delete c.brE; delete c.rcR; }   // older saves: their pallet is all shown
+function brAdv(c, t) {               // departures up to t (all crates sealed ≤ t are made by then; allocates only when a trip departs)
+  brInit(c); const G = BRC.gap * 1000 / BRC.k;
+  while (c.brS.length) { const D = c.brD == null ? c.brS[0] : Math.max(c.brS[0], c.brD + G); if (D > t) break;
+    let n = 0; while (n < c.brS.length && c.brS[n] <= D) n++; c.brS.splice(0, n); c.brQ.push([D, c.brK, c.brK + n, c.brN++]); c.brK += n; c.brD = D; }
+}
+function brArr(c, t) { let e = c.brAr; const T = BRC.ride * 1000 / BRC.k; for (let i = 0; i < c.brQ.length; i++) if (c.brQ[i][0] + T <= t) e = c.brQ[i][2]; return e; }   // crates [0, e) shown
+function brShown(c, t) { return Math.max(0, Math.min(c.ref.length, brArr(c, t) - (c.made - c.ref.length))); }   // crates the pallet display shows (≤ credited)
+function brSlots(c, t, u) {          // box_path time per pool bone (-1 = none), from the departed trips; returns the boxes on the bridge
+  u[0] = u[1] = u[2] = -1; let n = 0; if (!c.brQ) return 0;
+  for (let i = 0; i < c.brQ.length; i++) { const a = (t - c.brQ[i][0]) / 1000 * BRC.k; if (a < 0 || a >= BRC.ride) continue; u[c.brQ[i][3] % 3] = a; n++; }
+  return n;
+}
+function brFrame(c, t) {             // per frame, no allocation: pose the pooled bridge boxes + lift carriage from the trips; rollers run only with a box on them
+  if (!BR.bones) return; let belt = false, cu = 0; brAdv(c, t); BR.info.n = brSlots(c, t, BR.u);
+  for (let k = 0; k < 3; k++) { const b = BR.bones[k], a = BR.u[k];
+    if (a < 0) { if (b.scale.x !== 0) b.scale.setScalar(0); continue; }
+    b.position.fromArray(BR.ip[0].evaluate(a)); b.quaternion.fromArray(BR.ip[1].evaluate(a)); if (BR.ip[2]) b.scale.fromArray(BR.ip[2].evaluate(a)); else b.scale.setScalar(1);
+    if (a >= BRC.belt[0] && a < BRC.belt[1]) belt = true; if (a >= BRC.lift[0] && a < BRC.lift[1]) cu = a; }
+  if (BR.cip) BR.car.position.fromArray(BR.cip.evaluate(cu)); if (BR.roll) BR.roll.paused = !belt;
+}
+function brBind(o, g, bmx) {         // true = bridge cargo bound; false = the GLB lacks box_path / Box_1..3 (the old scenery loop plays instead)
+  const bp = THREE.AnimationClip.findByName(g.animations, 'box_path'), rs = THREE.AnimationClip.findByName(g.animations, 'roller_spin');
+  const tr = (n, p) => bp && bp.tracks.find(k => k.name === n + '.' + p), bones = ['Box_1', 'Box_2', 'Box_3'].map(n => o.getObjectByName(n));
+  if (!bp || !bones.every(Boolean) || !tr('Box_1', 'position') || !tr('Box_1', 'quaternion')) { console.warn('bridge cargo: box_path / Box_1..3 missing, scenery loop'); return false; }
+  const ex = ((o.getObjectByName('Refinery_Bridge') || {}).userData || {}), cc = ex.carriage_cycle || {}, bc = (ex.clips || {}).box_convey || {};
+  if ((cc.min_box_start_gap_s && Math.abs(cc.min_box_start_gap_s - BRC.gap) > .01) || (bc.hidden_after_s && Math.abs(bc.hidden_after_s - BRC.ride) > .01)) console.warn('bridge cargo: GLB timings differ from BRC', cc.min_box_start_gap_s, bc.hidden_after_s);
+  BR.ip = ['position', 'quaternion', 'scale'].map(p => { const k = tr('Box_1', p); return k ? k.createInterpolant() : null; });
+  const ct = tr('Lift_Carriage', 'position'); BR.car = o.getObjectByName('Lift_Carriage'); BR.cip = ct && BR.car ? ct.createInterpolant() : null;
+  if (rs) { BR.roll = bmx.clipAction(rs).setLoop(THREE.LoopRepeat); BR.roll.play(); BR.roll.paused = true; }
+  const pp = o.getObjectByName('Pickup_Point'); if (pp) BR.pick = pp.getWorldPosition(new THREE.Vector3());
+  for (const b of bones) b.scale.setScalar(0); BR.bones = bones; BR.info.bound = true; return true;
+}
 const BRIDGE_GLB = '../qa3d-next/models/refinery_bridge_5d862767.glb?v=5d862767';
 if (Q.get('bridge') !== 'off') loader0().load(BRIDGE_GLB, (g) => {
   const o = g.scene; o.name = 'Refinery_Bridge_Art'; o.position.set(RX, 0, 0);
-  const bmx = new THREE.AnimationMixer(o); stationMixers.push(bmx); // scenery loop only
-  for (const c of ['roller_spin', 'box_convey']) { const k = THREE.AnimationClip.findByName(g.animations, c); if (k) bmx.clipAction(k).setLoop(THREE.LoopRepeat).play(); }
+  const bmx = new THREE.AnimationMixer(o); stationMixers.push(bmx); o.updateMatrixWorld(true);
+  if (!(BRC.on && brBind(o, g, bmx))) for (const c of ['roller_spin', 'box_convey']) { const k = THREE.AnimationClip.findByName(g.animations, c); if (k) bmx.clipAction(k).setLoop(THREE.LoopRepeat).play(); }   // ?bridgecargo=off: scenery loop
   o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; if (m.isSkinnedMesh) m.frustumCulled = false; } });
-  scene.add(o); o.updateMatrixWorld(true); window.__ps3d.bridge = { on: true, url: BRIDGE_GLB, obj: o };
+  scene.add(o); o.updateMatrixWorld(true); window.__ps3d.bridge = { on: true, url: BRIDGE_GLB, obj: o, cargo: BR.info, slots: (t = nowMs()) => (brSlots(S.cg, t, BR.u), BR.u.slice()) };
 }, undefined, (e) => console.warn('refinery bridge GLB failed (Refinery shows without it)', BRIDGE_GLB, e));
 
 // ===== B1 (Playtester 20:58): the truck timeline is final only once BOTH marker sets are in (Mine Path_Out_*/Path_Ret_*, Refinery Truck_*), or
@@ -1285,12 +1327,14 @@ function buildCargoRoute() {
 // lift (off the stack / bed / bay) and land at its end (bed / bay / hold), so one crane never double-counts a box.
 function cgMake(tDump) {           // called at the dump time, after the cargo sim has been settled up to it (so the pallet count is exact)
   const c = S.cg; if (c.ref.length >= CG.palletCap) { c.full++; cgEv('dump_pallet_full', tDump, { full: c.full }); return; }   // truck still pays; no box
-  c.ref.push(tDump + CG.sealSec * 1000); c.made++; cgEv('box_made', tDump);
+  const r = tDump + CG.sealSec * 1000;
+  if (BRC.on) { brAdv(c, tDump); const T = BRC.ride * 1000 / BRC.k; while (c.brQ.length && c.brQ[0][0] + T <= tDump) c.brAr = c.brQ.shift()[2]; c.brS.push(r); }   // display only: queue the crate for a trip
+  c.ref.push(r); c.made++; cgEv('box_made', tDump);
 }
 function cgDecide(c, t, acc) {      // acc = away catch-up (Director 23:00): the ship never auto-launches while the player is away; a full ship waits for a Launch tap (sh.man)
   for (let g = 0; g < 50; g++) {
     let ch = false; const f = c.fb, s = c.sh;
-    if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
+    if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : 0; } c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
     // Cargo Dock (Director 01:32): ship away / refuelling → a loaded flatbed stores at the Dock if stored ≤ 18 (Dock full: drives through and waits at the pad);
     // ship on the pad and fuelled → a loaded flatbed drives through; an empty one leaves for the Dock when stored ≥ 2 and loads 2 (LIFO) for the pad
     if (!c.rc && f.st === 'load' && f.bed >= CG.perTrip) { const st = !shipReady(c, t) && c.dk <= CPH.dock.cap - 2 ? 'store' : '';
@@ -1355,7 +1399,7 @@ function cgSettle(T, acc) {
     c.t = Math.max(c.t, nx); cgComplete(c, c.t, acc);
   }
 }
-function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; }
+function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } }
 // Save-stamp guard (10/24): a save written on a clock ahead of this one (?speed=N / warpTo QA runs, a device clock set back) holds its stamps in the
 // future, and the loops would freeze until the clock caught up. gap = newest already-happened stamp − now (S.rt, S.tk c0/lr/dep, S.cg t/rc/fb/pc/as/sh
 // t0, f0, req, S.log / S.calls at). Over 1 s, every stamp moves back by gap (shiftTk: S.tk + S.pend + S.cg; S.rt; log / calls), so the state and every
@@ -1747,7 +1791,7 @@ function rxPose(c, t, ap) {           // Receiver clips are sampled from S.cg ti
   act.time = x; X.mx.update(0);
 }
 function updCargo() {
-  if (!cg3.fb || !FB.kOut) return; const c = S.cg, t = nowMs();
+  if (!cg3.fb || !FB.kOut) return; const c = S.cg, t = nowMs(); brFrame(c, t);
   fbPoseAt(c, t, FBS); const fb = cg3.fb; fb.position.set(FBS.x, 0, FBS.z); fb.rotation.set(0, FBS.yaw, 0); fb.updateMatrixWorld(true);
   if (FBS.wx !== null) { const dx = FBS.x - FBS.wx, dz = FBS.z - FBS.wz; if (Math.hypot(dx, dz) < 20) FBS.wa += (dx * Math.cos(FBS.yaw) - dz * Math.sin(FBS.yaw)) / cg3.wheelR; }   // roll by real distance
   FBS.wx = FBS.x; FBS.wz = FBS.z;
@@ -1771,9 +1815,10 @@ function updCargo() {
   // cranes + boxes
   nBox = 0; const RC = cg3.RC, PC = cg3.PC, now = t;
   const restR = { a: polar(RC, RC.pick).a + CPH.ref.rest[0], r: 3 }, restP = { a: polar(PC, PC.drop).a, r: PC.glb ? 6 : 5 };
-  const ready = c.ref.length;           // the pallet shows every box on it (sealing ones included): up to palletCap, 2 layers of 4
+  let ready = c.ref.length;             // the pallet shows every box on it (sealing ones included): up to palletCap, 2 layers of 4
+  if (BRC.on && c.brQ) ready = brShown(c, t);   // bridge cargo: only crates whose box has reached the turntable (the rest are on the bridge)
   for (let i = 0; i < Math.min(ready, 8); i++) boxAt(stackPos(i, _cp));
-  let u = -1; if (c.rc) { u = (now - c.rc) / (CG.refLoadSec * 1000); stackPos(ready, _pk); slotW(c.fb.bed, _dp); }
+  let u = -1; if (c.rc) { u = (now - c.rc) / (CG.refLoadSec * 1000); if (BRC.on && BR.pick && c.rcP) _pk.copy(BR.pick); else stackPos(ready, _pk); slotW(c.fb.bed, _dp); }   // its box still on the bridge: from the turntable
   const carryR = cranePose(RC, u, c.rc ? _pk : null, _dp, restR);
   if (c.rc && u >= 0) boxAt(u < .3 ? _pk : carryR ? _hw.copy(RC.hookW).setY(RC.hookW.y - BOXP.hookY) : _dp);
   for (let i = 0; i < (c.fb.st === 'dock' ? 0 : c.fb.bed); i++) boxAt(slotW(i, _cp), FBS.yaw);   // at the Dock stop dockFrame draws the bed boxes
