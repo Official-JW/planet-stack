@@ -22,3 +22,9 @@
 ## Rules I follow
 - Push only on EM's "push now". Commit name "mm/dd/yyyy - planet-stack - HH:MM" PT, author and committer Game Coder via -c. Explicit paths only, never art/ or the qa3d WIP files. Merge only. Kill only my own PIDs (not ports 8731/18931). No headless browser while testers are active. Two tries per fix.
 - Tools: /workspace/padcam_work (padfit, roadchk, routecheck, drawcount, sweep3, truegap).
+
+## Live status (10/25/2026 13:35 PT)
+- live/ serves 6df2e40 (trails commit 6920b45 merged with 0f46d3f), on Pages since 13:35:07. live/main.js 214a66a8aaa2d2ec7cb4db92cd39eb77, live/index.html 1877e39edacaf3a28d65a532b861b042, tag LIVE · 13:22.
+- That is 49f9def (live copy 44623ca, 13:20:28) plus the 7f55a03 trails: all_truck_trails_205f8acb, mine_864fab15, refinery_22f13a9d, camera keys and road hiding. Save key planetstack-live.
+- Known issues: the nose is cut off under the Eve banner in the load camera; the flatbed crane lifts each crate while its box is still on the bridge; the old ladder climb is still in use; the Mine trail is faint.
+- Boarding (access tower) is PARKED. No @Jacob notes: Director tells Jacob.
