@@ -1,6 +1,10 @@
 // PLATE (A&A / Director 10/24 21:47-21:48): copy of landing_clear.mjs 50dd4b68 + the hatch floor plate as a resting surface for still soles ONLY inside the plate's
 //   real footprint (point-in-polygon on the sole vertex u,t = pad xz, footprint taken from the mesh), same 0-5 mm sink allowance as the deck. Off the plate,
-//   or for any other geometry (hatch sill, jambs, hull, ...), the 3 cm rule is unchanged. PLATE_TEST=1 runs the planted-sole harness and exits.
+//   or for any other geometry (hatch sill, jambs, hull, ...), the 3 cm rule is unchanged. PLATE_TEST=1 runs the planted-sole/hand harness and exits.
+// CREW=1,2 (A&A 21:51): score only those crew (all crew still simulated); summary.all_crew always has the all-crew score.
+// HELD GRIP (A&A 22:23, = Playtester frozen wb.js 0e8a30b7 gradeHands): a hand/finger vertex (bone /(^|_)(Hand|Finger|Thumb|Index|Middle|Ring|Pinky|Palm)/i) may sink
+//   <= 10 mm into a rung ONLY if it is the rung that hand holds (rung nearest the centroid of that hand's vertices) and the hand is HELD: max distance between any two
+//   hand-bone positions over +-0.1 s (+-HOLD_HALF samples, same clip run, all present) <= 5 mm, and the held rung is the same throughout. Else 5 mm. Feet keep isStill.
 // v3.1 (art lead rulings 02:15): hand grips may sink <= 5 mm into a rail/rung and the rod axis must not lie inside the hand's skin (rod-through-hand test,
 //   generalized winding number); resting soles (still) on the deck or a rung top exempt within 0-5 mm sink; everything else >= 3 cm.
 // v3: 3 cm rule on every Ship-node triangle (spatial grid), ladder rails/rungs/cage added; exemptions = planted soles on deck, hands gripping ladder.
@@ -182,7 +186,7 @@ function winding(p, T, X) { let w = 0; for (const [a, b, c] of T) { const A = su
   w += 2 * Math.atan2(num, den); } return w / (4 * Math.PI); }
 // rod axes that hands may grip: the 2 rails + every rung (rung axis runs along t at u 4.45, z = rung centre)
 const gripRods = [...ladCaps.filter(c => c[0] === 'ladder_rail').map(c => ['ladder_rail', c[1], c[2]]), ...rungs.map(z => ['rung', [4.45, -0.28, z], [4.45, 0.28, z]])];
-const RULES = { min_clearance_m: 0.03, hand_grip: { applies: 'Hand_L/Hand_R vertices whose nearest part is a ladder rail or rung', max_sink_m: 0.005, rod_through_hand: 'per sample, for each rail/rung axis clipped to the hand bbox + 1 cm (so the clipped axis starts and ends outside the hand): exact segment-triangle intersection against every Hand-bone triangle, then the generalized winding number at the midpoint of each interval between crossings. FLAG if the axis crosses the hand skin at all, or any interval is inside a closed hand piece (|w| > 0.5). A wrapped grip leaves the axis in the palm/finger cavity with 0 crossings; a rod through the hand (incl. through the back of the glove) must cross the skin. Reports solid inside length and samples where only zero-thickness (double-sided) hand faces are crossed.' },
+const RULES = { min_clearance_m: 0.03, hand_grip_resting: { applies: 'HELD hand (wb.js 0e8a30b7): hand/finger vertices inside the rung that hand holds (rung nearest the hand-vertex centroid, no distance cap) while held: max pairwise distance of the hand-bone world position over +-0.1 s (+-hold_half_samples, within one clip run, hand present in every sample) <= 5 mm and the held rung unchanged in the window; rails, cage, plate, other rungs and non-held hands stay at 5 mm', max_sink_m: 0.010, hold_still_m: 0.005, hold_window_s: 0.1, source: 'playtest/qnext_frozen_hf23/wbody/wb.js md5 0e8a30b7 gradeHands()' }, hand_grip: { applies: 'Hand_L/Hand_R vertices whose nearest part is a ladder rail or rung', max_sink_m: 0.005, rod_through_hand: 'per sample, for each rail/rung axis clipped to the hand bbox + 1 cm (so the clipped axis starts and ends outside the hand): exact segment-triangle intersection against every Hand-bone triangle, then the generalized winding number at the midpoint of each interval between crossings. FLAG if the axis crosses the hand skin at all, or any interval is inside a closed hand piece (|w| > 0.5). A wrapped grip leaves the axis in the palm/finger cavity with 0 crossings; a rod through the hand (incl. through the back of the glove) must cross the skin. Reports solid inside length and samples where only zero-thickness (double-sided) hand faces are crossed.' },
   resting_soles: { applies: 'Foot_L/Foot_R sole vertices (within 1.5 cm of that foot\'s lowest vertex) of a still foot (sole centroid moved < 5 mm and lowest z < 3 mm since the previous sample) on the deck wing/bridge top (z 21.85) or a rung top (rung centre + 0.025)', max_sink_m: 0.005 },
   everything_else: 'any other crew vertex closer than 0.03 m to any Ship-node triangle or inside an analytic solid is flagged (ladder rails, rungs swung past, cage hoops/bars, hatch jamb/lintel, kerb, guard rail, ladder-top rails, shins over the deck, hull, other ship parts)', sample_hz: null };
 const group = (part, bn, z, cat) => cat === 'hand_sink' ? 'hand_grip_sink_gt_5mm' : cat === 'rod_through' ? 'hand_grip_rod_through_hand' : cat === 'sole_sink' ? 'resting_sole_sink_gt_5mm' :
@@ -201,11 +205,23 @@ const isStill = (pr, cu, ct, mz) => !!pr && Math.hypot(cu - pr[0], ct - pr[1]) <
 function clearOf(u, tt, z, plateFloor) {   // plateFloor: the sole vertex is inside the plate outline -> the plate faces and the analytic doorway floor under it are the plate
   let [s, who] = sdf(u, tt, z); { const [sw, ww] = sdWall(u, tt, plateFloor ? Math.max(z, DOOR.z0 + 1e-4) : z); if (sw < s) { s = sw; who = ww; } } { const [sl, wl] = sdLadder(u, tt, z); if (sl < s) { s = sl; who = wl; } }
   const [dt_, wt] = nearTri(u, tt, z, plateFloor); const D = s < 0 ? s : Math.min(s, dt_); const part = s < 0 || s <= dt_ ? who : wt; return [D, part]; }
-function judge(u, tt, z, bn, soleBand, still) {
+const HANDRE = /(^|_)(Hand|Finger|Thumb|Index|Middle|Ring|Pinky|Palm)/i, isHandBone = bn => HANDRE.test(bn);
+const handKey = bn => !isHandBone(bn) ? null : /_L(\b|$|_)/.test(bn) ? 'Hand_L' : /_R(\b|$|_)/.test(bn) ? 'Hand_R' : null;   // side, as wb.js
+const rungIdx = z => Math.round((z - LTOP - 0.4) / 0.6);
+function gripRungOf(c) { let best = 1e9, bi = -1; for (let i = 0; i < rungs.length; i++) { const d = segD(c, [4.45, -0.28, rungs[i]], [4.45, 0.28, rungs[i]]); if (d < best) { best = d; bi = i; } } return bi; }   // wb.js: nearest rung, no cap
+const HOLD_STILL_M = RULES.hand_grip_resting.hold_still_m, HOLD_HALF = Math.max(1, Math.round(RULES.hand_grip_resting.hold_window_s * SHZ)); RULES.hand_grip_resting.hold_half_samples = HOLD_HALF;
+function heldOf(W, i) {   // W[j] = { bp: hand-bone position, rung } or null (hand not drawn), one clip run; = wb.js gradeHands
+  if (i - HOLD_HALF < 0 || i + HOLD_HALF >= W.length) return { held: false, why: 'window incomplete (run edge)', move_m: 0 };
+  let why = null; const P = []; for (let j = i - HOLD_HALF; j <= i + HOLD_HALF; j++) { const q = W[j]; if (!q) return { held: false, why: 'hand not visible in window', move_m: 0 }; if (q.rung !== W[i].rung) why = 'held rung changes in window'; P.push(q.bp); }
+  let mv = 0; for (let a = 0; a < P.length; a++) for (let b = a + 1; b < P.length; b++) mv = Math.max(mv, Math.hypot(P[a][0] - P[b][0], P[a][1] - P[b][1], P[a][2] - P[b][2]));
+  if (!why && mv > HOLD_STILL_M + 1e-9) why = 'hand moved ' + (mv * 1000).toFixed(2) + ' mm'; return { held: !why, why, move_m: mv }; }
+function judge(u, tt, z, bn, soleBand, still, hc) {   // hc = { held, rung } for this vertex's hand (held-grip rule)
   const [D, part] = clearOf(u, tt, z, false);
   if (D > 0.03) return { cat: 'clear', part, D };
-  const isHand = bn.startsWith('Hand_'), isFoot = bn.startsWith('Foot_');
-  if (isHand && (part === 'ladder_rail' || part === 'rung')) return D >= -RULES.hand_grip.max_sink_m ? { cat: 'hand_grip', part, D, grip: true } : { cat: 'flag', part, D, extra: 'hand_sink', grip: true };
+  const isHand = isHandBone(bn), isFoot = bn.startsWith('Foot_');
+  if (isHand && (part === 'ladder_rail' || part === 'rung')) { if (D >= -RULES.hand_grip.max_sink_m) return { cat: 'hand_grip', part, D, grip: true };
+    if (part === 'rung' && hc && hc.held && hc.rung >= 0 && rungIdx(z) === hc.rung && D >= -RULES.hand_grip_resting.max_sink_m) return { cat: 'hand_grip_resting', part, D, grip: true };
+    return { cat: 'flag', part, D, extra: 'hand_sink', grip: true }; }
   if (isFoot && soleBand && still) {
     if (onPlate(u, tt) && z < PLATE.top + 0.03) {   // resting sole over the plate's real footprint
       const sink = z - PLATE.top; if (sink < -RULES.resting_soles.max_sink_m) return { cat: 'flag', part: 'hatch_plate', D: sink, extra: 'sole_sink' };
@@ -232,10 +248,32 @@ if (process.env.PLATE_TEST) {
     for (const off of [0.002, 0.05]) cases.push(run('plate height, still, ' + (off * 100) + ' cm outside edge ' + i + ' ' + side + ': not exempt (normal 3 cm rule only)', patch(m[0] + nO[0] * (off + 0.01), m[1] + nO[1] * (off + 0.01), PLATE.top, dn, nO), false, 'NO_PLATE_EXEMPTION')); }
   { const a = fp.find(p => p[0] === Math.max(...fp.map(q => q[0]))); const outU = Math.max(...fp.map(q => q[0])) + 0.03;
     cases.push(run('2 cm ABOVE plate height, still, just off the outboard edge over the hatch sill (u ' + outU.toFixed(3) + ', t 0) - normal rules', patch(outU + 0.01, 0, PLATE.top + 0.02), false, 'FAIL')); }
+  // ---- held-grip hand cases (vertices pushed into a rung/rail; hand ctx = heldOf over a synthetic +-HOLD_HALF window, the same function the crew loop uses)
+  const RI = 5, rz = rungs[RI], STEP = 0.002 * 60 / SHZ;   // moving = wb.js plant: slides 2 mm per 1/60 s along the rung axis (t)
+  const hand = (pts, moving, centroid, name, expect, rungSwap) => { const c = centroid || pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length, a[2] + p[2] / pts.length], [0, 0, 0]);
+      const W = []; for (let k = -HOLD_HALF; k <= HOLD_HALF; k++) { const ck = [c[0], c[1] + (moving ? k * STEP : 0), c[2]]; W.push({ bp: ck, rung: rungSwap && k === HOLD_HALF ? gripRungOf(c) + 1 : gripRungOf(ck) }); }
+      const H_ = heldOf(W, HOLD_HALF); const hc = { held: H_.held, rung: W[HOLD_HALF].rung }; const cats = {}; let worst = null;
+      for (const [u, t, z] of pts) { const J = judge(u, t, z, 'Hand_R', false, false, hc); const kk = J.cat + (J.extra ? ':' + J.extra : '') + '@' + J.part; cats[kk] = (cats[kk] || 0) + 1; if (J.cat === 'flag' && (!worst || J.D < worst.D)) worst = { part: J.part, D: +J.D.toFixed(4), extra: J.extra || null, group: group(J.part, 'Hand_R', z, J.extra) }; }
+      const got = Object.keys(cats).some(k => k.startsWith('flag')) ? 'FAIL' : 'PASS'; return { case: name, hand_held: hc.held, not_held_why: H_.why, window_move_mm: +(H_.move_m * 1000).toFixed(2), held_rung: hc.rung, expect, got, ok: got === expect, verdicts: cats, worst_flag: worst }; };
+  const onRung = (sink, i = RI) => { const P = []; for (const du of [-0.008, 0, 0.008]) for (const t of [-0.06, -0.03, 0, 0.03, 0.06]) P.push([4.45 + du, t, rungs[i] + 0.025 - sink]); return P; };
+  for (const [mm, mv, ex, pt] of [[8, false, 'PASS', 'PT'], [12, false, 'FAIL', 'PT'], [8, true, 'FAIL', 'PT'], [3, false, 'PASS'], [10, false, 'PASS'], [11, false, 'FAIL']]) cases.push(hand(onRung(mm / 1000), mv, null, (pt ? '[Playtester] ' : '') + (mv ? 'MOVING hand (2 mm per 1/60 s along the rung)' : 'held hand') + ', ' + mm + ' mm into its own rung ' + RI + ' (z ' + rz.toFixed(2) + ')', ex));
+  { const zr = (rungs[RI] + rungs[RI + 1]) / 2, P = []; for (const dz of [-0.01, 0, 0.01]) P.push([4.45, 0.28 + 0.035 - 0.008, zr + dz]); cases.push(hand(P, false, [4.45, 0.0, rungs[RI] + 0.02], '[Playtester] held hand (holding rung ' + RI + '), 8 mm into the ladder RAIL', 'FAIL')); }
+  cases.push(hand(onRung(0.008), false, null, 'held hand still, 8 mm into its rung ' + RI + ' but held rung changes at the window edge', 'FAIL', true));
+  cases.push(hand(onRung(0.008, RI), false, [4.45, 0, rungs[RI + 1] + 0.02], 'held hand on rung ' + (RI + 1) + ', a vertex 8 mm into a DIFFERENT rung ' + RI, 'FAIL'));
+  { const hz = LTOP + 3.2, P = []; for (const dz of [-0.004, 0, 0.004]) P.push([4.45 + 0.75 * Math.sin(Math.PI / 2) - 0.025 + 0.008, 0.5 * Math.cos(Math.PI / 2), hz + dz]); cases.push(hand(P, false, null, 'held hand, 8 mm into a cage hoop (z ' + hz.toFixed(2) + ')', 'FAIL')); }
   const out = { mode: 'PLATE_TEST', script_md5_note: 'see the md5 of landing_clear_plate.mjs that produced this file', pad: padF, plate: { mesh: PLATE.mesh, top_y: PLATE.top, bottom_y: PLATE.bottom, top_tris: PLATE.top_tris, plate_faces: [...PLATE.faces], plate_faces_in_tri_grid: PLATE_T.size, footprint_pad_xz: PLATE.fp_xz, footprint_ut: PLATE.fp_ut },
-    patch: '5 x 3 sole vertices, 8 x 2 cm, flat at the given z; resting test = isStill(prev, cur) with prev = cur (still) or 10 mm back (moving)', all_ok: cases.every(c => c.ok), cases };
+    patch: '5 x 3 sole vertices, 8 x 2 cm, flat at the given z; resting test = isStill(prev, cur) with prev = cur (still) or 10 mm back (moving); hands: heldOf over +-' + HOLD_HALF + ' samples at ' + SHZ + ' Hz', hold_half_samples: HOLD_HALF, sample_hz: SHZ, all_ok: cases.every(c => c.ok), cases };
   fs.writeFileSync(outF, JSON.stringify(out, null, 1)); for (const c of cases) console.log((c.ok ? 'ok  ' : 'BAD ') + c.got.padEnd(5) + c.case + '  ' + JSON.stringify(c.verdicts)); console.log('all_ok', out.all_ok); process.exit(out.all_ok ? 0 : 1); }
 const res2 = { ...res, clip: crewF, sample_hz: SHZ, phases: PH, hull_tris: hullTris.length, frames: 0, hits: 0, minClear: 1e9, per_crew: {}, plants: {}, tri_labels: labelCount, rule: 'see rules block', flag: {}, hand_grip: {}, sole_on_deck: {}, sole_on_rung: {} };
+// held-grip pre-pass: per clip run, per skinned mesh and hand: hand-bone position + held rung at every sample (needed for the +-0.1 s window)
+const HB = {}; for (const m of meshes) { const bo = boneOf[m.uuid], H = {}; for (const hn of ['Hand_L', 'Hand_R']) { const ix = []; for (let i = 0; i < bo.length; i++) if (handKey(bo[i]) === hn) ix.push(i); const b = m.skeleton.bones.find(x => x.name.replace(/^C\d_/, '') === hn); if (ix.length && b) H[hn] = { ix, b }; } HB[m.uuid] = H; }
+const HOLDW = {}; { const v2 = new THREE.Vector3(); for (const cn of ['crew_call', 'crew_walk_to_pad', 'crew_climb']) { const clip = clips[cn]; mixer.stopAllAction(); const act = mixer.clipAction(clip); act.reset(); act.setLoop(THREE.LoopOnce); act.clampWhenFinished = true; act.play();
+  const N = Math.round(clip.duration * SHZ); const W = HOLDW[cn] = {}; for (const m of meshes) for (const hn in HB[m.uuid]) W[m.uuid + ':' + hn] = new Array(N + 1).fill(null);
+  for (let fi = 0; fi <= N; fi++) { mixer.setTime(Math.min(fi * dt, clip.duration)); S.updateMatrixWorld(true);
+    for (const m of meshes) { const sc = new THREE.Vector3(); m.skeleton.bones[0].getWorldScale(sc); if (sc.x < 1e-2) continue;
+      for (const hn in HB[m.uuid]) { const { ix, b } = HB[m.uuid][hn]; const c = [0, 0, 0]; for (const i of ix) { m.getVertexPosition(i, v2); v2.applyMatrix4(m.matrixWorld); const q = toUTZ(v2); c[0] += q[0] / ix.length; c[1] += q[1] / ix.length; c[2] += q[2] / ix.length; }
+        W[m.uuid + ':' + hn][fi] = { bp: toUTZ(b.getWorldPosition(v2)), rung: gripRungOf(c) }; } } } } }
+const holdStat = { samples: 0, held: 0, why: {} };
 const v = new THREE.Vector3(); let T = 0; const prevSole = {}, open = {};
 for (const cn of ['crew_call', 'crew_walk_to_pad', 'crew_climb']) {
   const clip = clips[cn]; mixer.stopAllAction(); const act = mixer.clipAction(clip); act.reset(); act.setLoop(THREE.LoopOnce); act.clampWhenFinished = true; act.play();
@@ -253,6 +291,8 @@ for (const cn of ['crew_call', 'crew_walk_to_pad', 'crew_climb']) {
       for (const fn of ['Foot_L', 'Foot_R']) { const F = feet[fn]; let mz = 1e9; for (const p of F) mz = Math.min(mz, p[2]); const so = F.filter(p => p[2] < mz + 0.015);
         const cu = so.reduce((q, p) => q + p[0], 0) / so.length, ct = so.reduce((q, p) => q + p[1], 0) / so.length; const pr = prevSole[k + ':' + fn];
         soleZ[fn] = mz; footStill[fn] = isStill(pr, cu, ct, mz); }
+      const handCtx = {}; for (const hn in HB[m.uuid]) { const W = HOLDW[cn][m.uuid + ':' + hn]; if (!W[fi]) continue; const h = heldOf(W, fi); handCtx[hn] = { held: h.held, rung: W[fi].rung };
+        holdStat.samples++; if (h.held) holdStat.held++; else { const w = h.why.startsWith('hand moved') ? 'hand moved > 5 mm' : h.why; holdStat.why[w] = (holdStat.why[w] || 0) + 1; } }
       const rec = (cat, part, bn, D, u, tt, z, extra) => { const bucket = res2[cat] || (res2[cat] = {}); const kk = k + '|' + part + '|' + bn + (extra ? '|' + extra : ''); const e = bucket[kk] || (bucket[kk] = { crew: k, part, bone: bn, group: group(part, bn, z, extra), min_m: 1e9, at_s: null, utz: null, frames_n: 0, t_range: [1e9, -1e9], phase: null, penetrating_n: 0, max_depth_m: 0 });
         e.frames_n++; e.t_range[0] = Math.min(e.t_range[0], tm); e.t_range[1] = Math.max(e.t_range[1], tm); if (D < 0) { e.penetrating_n++; e.max_depth_m = Math.max(e.max_depth_m, -D); }
         if (D < e.min_m) { e.min_m = D; e.at_s = tm; e.utz = [u, tt, z]; e.phase = P; } if (cat === 'flag') { res2.hits += D < 0 ? 1 : 0; res2.minClear = Math.min(res2.minClear, D); } return e; };
@@ -260,7 +300,7 @@ for (const cn of ['crew_call', 'crew_walk_to_pad', 'crew_climb']) {
       for (let i = 0; i < pos.count; i++) {
         const [u, tt, z] = X[i]; const bn = bones[i];
         if (u < 3.0 || u > 6.2 || Math.abs(tt) > 2.4 || z > 24.6) continue;
-        const J = judge(u, tt, z, bn, bn.startsWith('Foot_') && z < soleZ[bn] + 0.015, !!footStill[bn]);
+        const J = judge(u, tt, z, bn, bn.startsWith('Foot_') && z < soleZ[bn] + 0.015, !!footStill[bn], handCtx[handKey(bn)]);
         if (J.cat === 'clear') { if (J.D < pc.min_m) { pc.min_m = J.D; pc.at_s = +tm.toFixed(3); pc.part = J.part; pc.bone = bn; pc.utz = [u, tt, z]; } continue; }
         if (J.grip) handNearRod[bn] = true;
         rec(J.cat, J.part, bn, J.D, u, tt, z, J.extra);
@@ -311,7 +351,7 @@ for (const k in res2.plants) for (const p of res2.plants[k]) {
   if (p.unsupported_vertex_frames > 0) sumP.unsupported_plants++;
   if (p.surface !== 'hatch_doorway') { sumP.gap_m[0] = Math.min(sumP.gap_m[0], p.gap_to_surface_m); sumP.gap_m[1] = Math.max(sumP.gap_m[1], p.gap_to_surface_m); if (p.gap_to_surface_m > 0.02) sumP.hover_gt_2cm++; if (p.gap_to_surface_m < -0.002) sumP.sinking++; }
   if (p.land_s > PH[k].s && p.u[0] < 4.4 && p.u[0] > 3.85 && Math.abs(p.t[0] + p.t[1]) / 2 > 0.6) sumP.walk_in_wing_plants.push({ crew: k, foot: p.foot, land_s: p.land_s, u: p.u, t: p.t, surface: p.surface, unsupported_vertex_frames: p.unsupported_vertex_frames, gap_m: p.gap_to_surface_m }); }
-res2.plant_summary = sumP; RULES.sample_hz = SHZ; res2.rules = RULES;
+res2.plant_summary = sumP; RULES.sample_hz = SHZ; res2.hand_hold_samples = holdStat; res2.rules = RULES;
 const CREW_SEL = process.env.CREW ? process.env.CREW.split(',').map(x => 'Crew_' + x.trim().replace(/^Crew_/, '')) : null;   // scoring filter only; all crew are still simulated
 const scoreOf = flags => { const byGroup = {}; for (const e of Object.values(flags)) { const g = byGroup[e.group] || (byGroup[e.group] = { n_entries: 0, min_m: 1e9, worst: null, crews: [] }); g.n_entries++; if (!g.crews.includes(e.crew)) g.crews.push(e.crew); if (e.min_m < g.min_m) { g.min_m = e.min_m; g.worst = { crew: e.crew, part: e.part, bone: e.bone, at_s: e.at_s, utz: e.utz, max_depth_m: e.max_depth_m, axis_inside_solid_len_m: e.axis_inside_solid_len_m, max_axis_crossings: e.max_axis_crossings } } } return byGroup; };
 const allGroups = ['hand_grip_sink_gt_5mm', 'hand_grip_rod_through_hand', 'resting_sole_sink_gt_5mm', 'ladder_rails', 'ladder_top_rails', 'rungs', 'cage', 'hatch_jamb_lintel', 'kerb', 'guard_rail', 'shins_over_deck', 'deck_non_resting', 'hull', 'other_ship'];
@@ -321,7 +361,7 @@ const catsOf = bg => Object.fromEntries(allGroups.map(g => [g, bg[g] ? { status:
 const nPass = bg => allGroups.filter(g => !bg[g]).length;
 res2.summary = { scored_crew: CREW_SEL || 'all (Crew_1-4)', result: Object.keys(selFlags).length ? 'FAIL' : 'PASS', pass_n: nPass(byGroup) + '/' + allGroups.length, clip: crewF, pad: padF, by_category: catsOf(byGroup),
   all_crew: { result: Object.keys(allFlags).length ? 'FAIL' : 'PASS', pass_n: nPass(byGroupAll) + '/' + allGroups.length, by_category: catsOf(byGroupAll) },
-  exempt: { hand_grip_within_5mm: exStat(res2.hand_grip), sole_on_deck_within_5mm: exStat(res2.sole_on_deck), sole_on_rung_within_5mm: exStat(res2.sole_on_rung), sole_on_plate_within_5mm: exStat(res2.sole_on_plate) }, plate: PLATE ? { top_y: PLATE.top, footprint_pad_xz: PLATE.fp_xz, faces: PLATE.faces.size } : null, plants: { n: sumP.plants, unsupported: sumP.unsupported_plants, hover_gt_2cm: sumP.hover_gt_2cm, sinking: sumP.sinking } };
+  exempt: { hand_grip_within_5mm: exStat(res2.hand_grip), hand_grip_resting_within_10mm: exStat(res2.hand_grip_resting), hand_hold_samples: holdStat, sole_on_deck_within_5mm: exStat(res2.sole_on_deck), sole_on_rung_within_5mm: exStat(res2.sole_on_rung), sole_on_plate_within_5mm: exStat(res2.sole_on_plate) }, plate: PLATE ? { top_y: PLATE.top, footprint_pad_xz: PLATE.fp_xz, faces: PLATE.faces.size } : null, plants: { n: sumP.plants, unsupported: sumP.unsupported_plants, hover_gt_2cm: sumP.hover_gt_2cm, sinking: sumP.sinking } };
 res2.summary.line = 'scored ' + (CREW_SEL ? CREW_SEL.join(',') : 'all crew') + ': ' + res2.summary.result + ' ' + res2.summary.pass_n + ' - ' + allGroups.map(g => g + ':' + res2.summary.by_category[g].status).join(', ');
 res2.summary.all_crew.line = 'all crew: ' + res2.summary.all_crew.result + ' ' + res2.summary.all_crew.pass_n;
 const r3 = x => typeof x === 'number' ? +x.toFixed(4) : Array.isArray(x) ? x.map(r3) : x && typeof x === 'object' ? Object.fromEntries(Object.entries(x).map(([a, b]) => [a, r3(b)])) : x;

@@ -413,6 +413,20 @@
     "entries": 15,
     "min_m": -0.0006
    },
+   "hand_grip_resting_within_10mm": {
+    "entries": 0,
+    "min_m": null
+   },
+   "hand_hold_samples": {
+    "samples": 440,
+    "held": 9,
+    "why": {
+     "window incomplete (run edge)": 40,
+     "held rung changes in window": 185,
+     "hand moved > 5 mm": 198,
+     "hand not visible in window": 8
+    }
+   },
    "sole_on_deck_within_5mm": {
     "entries": 6,
     "min_m": -0.0007
@@ -458,6 +472,14 @@
  },
  "rules": {
   "min_clearance_m": 0.03,
+  "hand_grip_resting": {
+   "applies": "HELD hand (wb.js 0e8a30b7): hand/finger vertices inside the rung that hand holds (rung nearest the hand-vertex centroid, no distance cap) while held: max pairwise distance of the hand-bone world position over +-0.1 s (+-hold_half_samples, within one clip run, hand present in every sample) <= 5 mm and the held rung unchanged in the window; rails, cage, plate, other rungs and non-held hands stay at 5 mm",
+   "max_sink_m": 0.01,
+   "hold_still_m": 0.005,
+   "hold_window_s": 0.1,
+   "source": "playtest/qnext_frozen_hf23/wbody/wb.js md5 0e8a30b7 gradeHands()",
+   "hold_half_samples": 1
+  },
   "hand_grip": {
    "applies": "Hand_L/Hand_R vertices whose nearest part is a ladder rail or rung",
    "max_sink_m": 0.005,
@@ -2287,5 +2309,15 @@
     "gap_m": 0.0003
    }
   ]
+ },
+ "hand_hold_samples": {
+  "samples": 440,
+  "held": 9,
+  "why": {
+   "window incomplete (run edge)": 40,
+   "held rung changes in window": 185,
+   "hand moved > 5 mm": 198,
+   "hand not visible in window": 8
+  }
  }
 }

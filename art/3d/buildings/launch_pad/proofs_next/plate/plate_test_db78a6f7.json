@@ -62,7 +62,9 @@
    ]
   ]
  },
- "patch": "5 x 3 sole vertices, 8 x 2 cm, flat at the given z; resting test = isStill(prev, cur) with prev = cur (still) or 10 mm back (moving)",
+ "patch": "5 x 3 sole vertices, 8 x 2 cm, flat at the given z; resting test = isStill(prev, cur) with prev = cur (still) or 10 mm back (moving); hands: heldOf over +-3 samples at 30 Hz",
+ "hold_half_samples": 3,
+ "sample_hz": 30,
  "all_ok": true,
  "cases": [
   {
@@ -376,6 +378,181 @@
     "D": 0.02,
     "extra": null,
     "group": "hatch_jamb_lintel"
+   }
+  },
+  {
+   "case": "[Playtester] held hand, 8 mm into its own rung 5 (z 3.65)",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "PASS",
+   "got": "PASS",
+   "ok": true,
+   "verdicts": {
+    "hand_grip_resting@rung": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "[Playtester] held hand, 12 mm into its own rung 5 (z 3.65)",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag:hand_sink@rung": 15
+   },
+   "worst_flag": {
+    "part": "rung",
+    "D": -0.012,
+    "extra": "hand_sink",
+    "group": "hand_grip_sink_gt_5mm"
+   }
+  },
+  {
+   "case": "[Playtester] MOVING hand (2 mm per 1/60 s along the rung), 8 mm into its own rung 5 (z 3.65)",
+   "hand_held": false,
+   "not_held_why": "hand moved 24.00 mm",
+   "window_move_mm": 24,
+   "held_rung": 5,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag:hand_sink@rung": 15
+   },
+   "worst_flag": {
+    "part": "rung",
+    "D": -0.008,
+    "extra": "hand_sink",
+    "group": "hand_grip_sink_gt_5mm"
+   }
+  },
+  {
+   "case": "held hand, 3 mm into its own rung 5 (z 3.65)",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "PASS",
+   "got": "PASS",
+   "ok": true,
+   "verdicts": {
+    "hand_grip@rung": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "held hand, 10 mm into its own rung 5 (z 3.65)",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "PASS",
+   "got": "PASS",
+   "ok": true,
+   "verdicts": {
+    "hand_grip_resting@rung": 15
+   },
+   "worst_flag": null
+  },
+  {
+   "case": "held hand, 11 mm into its own rung 5 (z 3.65)",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag:hand_sink@rung": 15
+   },
+   "worst_flag": {
+    "part": "rung",
+    "D": -0.011,
+    "extra": "hand_sink",
+    "group": "hand_grip_sink_gt_5mm"
+   }
+  },
+  {
+   "case": "[Playtester] held hand (holding rung 5), 8 mm into the ladder RAIL",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag:hand_sink@ladder_rail": 3
+   },
+   "worst_flag": {
+    "part": "ladder_rail",
+    "D": -0.008,
+    "extra": "hand_sink",
+    "group": "hand_grip_sink_gt_5mm"
+   }
+  },
+  {
+   "case": "held hand still, 8 mm into its rung 5 but held rung changes at the window edge",
+   "hand_held": false,
+   "not_held_why": "held rung changes in window",
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag:hand_sink@rung": 15
+   },
+   "worst_flag": {
+    "part": "rung",
+    "D": -0.008,
+    "extra": "hand_sink",
+    "group": "hand_grip_sink_gt_5mm"
+   }
+  },
+  {
+   "case": "held hand on rung 6, a vertex 8 mm into a DIFFERENT rung 5",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 6,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag:hand_sink@rung": 15
+   },
+   "worst_flag": {
+    "part": "rung",
+    "D": -0.008,
+    "extra": "hand_sink",
+    "group": "hand_grip_sink_gt_5mm"
+   }
+  },
+  {
+   "case": "held hand, 8 mm into a cage hoop (z 3.45)",
+   "hand_held": true,
+   "not_held_why": null,
+   "window_move_mm": 0,
+   "held_rung": 5,
+   "expect": "FAIL",
+   "got": "FAIL",
+   "ok": true,
+   "verdicts": {
+    "flag@cage_hoop": 3
+   },
+   "worst_flag": {
+    "part": "cage_hoop",
+    "D": -0.0092,
+    "extra": null,
+    "group": "cage"
    }
   }
  ]
