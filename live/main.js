@@ -39,11 +39,12 @@ const CFG = {
 const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide in portrait, 18° down
 
 const Q = new URLSearchParams(location.search);
+const TRAIL_ON = Q.get('trail') !== 'off';   // tire-track trail on (default) / ?trail=off: old road strips (see TRAIL_GLB); top-level so every road builder sees it
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
-const MINE_GLB = '../live/models/mine_ef45f6f1.glb?v=ef45f6f1';   // Art 449757b (Director 01:18): painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b
+const MINE_GLB = '../live/models/mine_864fab15.glb?v=864fab15';   // Art 5933388: ef45f6f1 with the painted tire tracks removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../live/models/mine_ef45f6f1.glb?v=ef45f6f1' (Art 449757b, Director 01:18: painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b)
 //  // Art 12bdb4a (Director 23:10): Deposit_01/_02 split into their own fadeable nodes (look unchanged), own copy under qa3d-next/; was 'models/mine_2123a050.glb'
 //  // Art a4f93eb (Director 21:17): ore patches + veins baked, 2-lane haul road, fewer Path_* legs; previous: 'models/mine_219e774.glb'
-const REFINERY_GLB = '../live/models/refinery_93c44166.glb?v=93c44166';   // Art d6389a7 (Director 00:51): 13 draws, conveyors merged into skinned Base_Paint, sizer_spin, dump_dust opacity_curve, white/cyan posts, painted ruts; was b45b4649
+const REFINERY_GLB = '../live/models/refinery_22f13a9d.glb?v=22f13a9d';   // Art 5933388: 93c44166 with the painted ruts removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../live/models/refinery_93c44166.glb?v=93c44166' (Art d6389a7, Director 00:51: 13 draws, conveyors merged into skinned Base_Paint, sizer_spin, dump_dust opacity_curve, white/cyan posts, painted ruts; was b45b4649)
 //   // Art f4d4a2c (Director 21:17): dump bay, r 4.5 U-turn at x −3.5, 3.5 m reverse, dump_dust; previous: 'models/refinery_bb5eed2.glb'
 const TURN_SPEED = 4.0;   // m/s through curves (Mine 4.5 m arcs on Path_Out_*/Path_Ret_*, Refinery U-turn Truck_Path_01..07); straights stay TV.v = 8.33
 const TURN_R_MAX = 25;    // m: any stretch turning tighter than this radius counts as a curve
@@ -227,6 +228,7 @@ const _ct = new THREE.Vector3();
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
+  '864fab15': { glb: 'mine 5933388 (ef45f6f1 minus painted tracks; re-keyed from ef45f6f1, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'cc084a9b': { glb: 'mine 12bdb4a (re-keyed from 2123a050, same framing)', ct: { y: 5.6 }, frame_w: 39.9 },                            // Art 5d16bad: Cam_Target y 6.0 → 5.6 (x, z unchanged), W 37.6 → 39.9; ~9 px spare top+bottom at 375×667 (drill rig / Dep_01)
   'c16d8565': { glb: 'cargo_dock_overhead_v4 (Art 8ca56d1 handoff)', ct: { x: 4.6 } },   // Art 01:29: centre x 489.5 → 484.6 (Dock + 4.6 m); y / z / frame_w 48 stay the GLB's Cam_Target
@@ -244,6 +246,7 @@ const CAM_OVERRIDE = {
   '816f18f3': { glb: 'launch_pad 62a5dcb', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },   // re-keyed from a82251e2 (4017f16): Art 62a5dcb GLB carries the same Cam_Target/frame_w in its extras;        // Art final (Director: U-turn may sit off-screen): Cam_Target world (PX = 640, 4, −0.7) = pad-local (0, 4, −0.7), W 78.25; was z 9.5 / W 82 (Director 21:50)
   // Director 10/25: Refinery bridge must be fully visible at 393/375 portrait. Cam_Target world (320.75, 2.08, 13.55), W 38.25; angle/FOV/height unchanged.
   // Node projection: building + whole bridge/conveyor inside the band with 3% margin at 393x852 and 375x812 (spare ~13 px L/R). Was x -1.1 (318.9): bridge's right edge ~5 px past the margin.
+  '22f13a9d': { glb: 'refinery 5933388 (93c44166 minus painted ruts; re-keyed from 93c44166, Cam_Target unchanged) + bridge 5d862767 v5.3', ct: { x: 0.75, y: 2.08, z: 13.55 }, frame_w: 38.25 },
   '93c44166': { glb: 'refinery d6389a7 + bridge 5d862767 v5.3 (Art 141b354 official Refinery box)', ct: { x: 0.75, y: 2.08, z: 13.55 }, frame_w: 38.25 },
   'b45b4649': { glb: 'refinery f4d4a2c', ct: { x: -6.9, y: 2.08, z: 13.55 }, frame_w: FW_REF },   // Art 3c5e6f8 final: Cam_Target world (313.1, 2.08, 13.55), W 37.5
 };
@@ -1226,10 +1229,22 @@ let roadMesh = null;
 // Art's 8 m haul-road strip (shared/road 6f06c39, md5 661e3582…, pending Director review): 11 unscaled tiles at Mine-local x 26 + 8i, both lanes (z +9 / z 0).
 // Swap back to the flat temp tiles with ?road=temp (or set ROAD_GLB to null).
 const ROAD_GLB = Q.get('road') === 'temp' ? null : '../live/models/haul_road_seg_b3c636f9.glb?v=b3c636f9';
+// Art's tire-track trails (A&A 6916868, renamed in 01ff411; md5 205f8acb…; 1 mesh / 1 material / 1 draw): every truck route in one world-space mesh (Mine loop, flatbed
+// loop incl. the Refinery + pad U-turns; the Dock legs lie on the z 13 lane), built on handoff/truck_path_points.json (md5 28e1525c). It REPLACES the haul-road strips:
+// with the trail on, HaulRoad / HaulRoad_Tiles and CargoRoad (haul_road_seg_b3c636f9) are not built and the pad GLB's Road_UTurn is hidden (A&A wiring notes).
+// Placed as authored: scene root, no transform (the +0.02 m lift over the ground is in the vertices), material as authored (BLEND) + polygonOffset −2/−2, renderOrder 1.
+// ?trail=off: no trail, the old roads come back.
+const TRAIL_GLB = '../live/models/all_truck_trails_205f8acb.glb?v=205f8acb';
+if (TRAIL_ON) loader.load(TRAIL_GLB, (g) => { try { const o = g.scene; o.name = 'Truck_Trails_Art'; let n = 0;
+    o.traverse(m => { if (!m.isMesh) return; n++; for (const mt of [].concat(m.material)) { mt.polygonOffset = true; mt.polygonOffsetFactor = -2; mt.polygonOffsetUnits = -2; }
+      m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true; });   // receives shadows like the road strips it replaces
+    scene.add(o); window.__ps3d.trail = { url: TRAIL_GLB, meshes: n }; } catch (e) { console.warn('truck trails bind failed', e); } },
+  undefined, (e) => console.warn('truck trails failed to load', e));
 let roadSeg = null;
-if (ROAD_GLB) loader.load(ROAD_GLB, (g) => { g.scene.updateMatrixWorld(true); g.scene.traverse(o => { if (!roadSeg && o.isMesh) roadSeg = { geo: o.geometry, mat: o.material, m: o.matrixWorld.clone() }; }); buildTempRoad(); },
+if (ROAD_GLB && !TRAIL_ON) loader.load(ROAD_GLB, (g) => { g.scene.updateMatrixWorld(true); g.scene.traverse(o => { if (!roadSeg && o.isMesh) roadSeg = { geo: o.geometry, mat: o.material, m: o.matrixWorld.clone() }; }); buildTempRoad(); },
   undefined, (e) => console.warn('haul road strip failed, keeping the temp road', e));
 function buildTempRoad() {            // haul road across the gap: Art's strip when loaded, else TEMP flat tiles (same layout; z 0 lane only once the Mine has a return lane)
+  if (TRAIL_ON) { if (window.__ps3d) window.__ps3d.road = 'trail'; return; }   // the tire-track trail replaces the strip (and the cargo road)
   if (roadMesh) { scene.remove(roadMesh); roadMesh.traverse(o => o.geometry && o.geometry !== (roadSeg && roadSeg.geo) && o.geometry.dispose()); }
   if (roadSeg) {
     roadMesh = new THREE.Group(); roadMesh.name = 'HaulRoad';
@@ -1908,6 +1923,7 @@ function updVfx(c, t) {
 function padLoaded(g) {
   const o = g.scene; o.name = 'LaunchPad_Art'; o.position.set(PX, 0, 0);
   o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false; });
+  if (TRAIL_ON) { const ru = o.getObjectByName('Road_UTurn'); if (ru) ru.visible = false; }   // the trail's pad U-turn replaces the road piece
   for (const n of ['Crane', 'Slew', 'Trolley', 'Hoist', 'Hook', 'Ship_Placeholder', 'Cargo_Door', 'Hold_Door', 'Truck_Stop', 'Receiver_Spot', 'Receiver_Home', 'Bay_Slot_12', 'Hold_10'])
     if (!o.getObjectByName(n)) throw new Error('pad marker ' + n + ' missing');
   scene.add(o); o.updateMatrixWorld(true);
@@ -2056,6 +2072,7 @@ function dockFrame(c, t) {
 }
 let cargoRoadMesh = null;
 function buildCargoRoad() {         // Art's haul-road strip tiles (same as the Mine↔Refinery road), lanes z 13 / 22; flat temp tiles if the strip is not in
+  if (TRAIL_ON) return;               // replaced by the tire-track trail
   if (cargoRoadMesh) scene.remove(cargoRoadMesh);
   const R0 = CPH.road; R0.n = roadN(); const M = (i) => new THREE.Matrix4().makeTranslation(R0.x0 + R0.tile * i, 0, CPH.lanes.out);
   // the strip ends at x0 + n·tile (640); Art's pad Road_UTurn starts at Turn_Start (PX + 1 = 641): a 1 m filler (one tile scaled in x) closes the gap
