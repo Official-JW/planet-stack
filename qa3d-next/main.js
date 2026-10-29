@@ -10,6 +10,20 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
 const CFG = {
+  // ===== Phase 1 economy (Locked design, Jacob 10/29; PLANS/ECONOMY_EXECUTION_PLAN.md). Single source for every economy number:
+  // other lanes read CFG.econ.* and never edit this block. Step 2 / lanes wire these in; until then the old balance below still runs the game.
+  // "~" values and anything marked PLACEHOLDER are inside the plan's ranges or from Engineering Manager 10/29, pending Director's Phase 2 pacing sim.
+  econ: {
+    startMoney: 5000,                   // Locked: start money $5,000
+    truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
+    dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
+    purity: { base: 0.40, max: 1.00, step: 0.05, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
+    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, cost0: 12000, costGrowth: 1.6 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6
+    chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
+    drill: { cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
+    offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
+    specialistTripCost: 0,              // Locked: specialist trip costs OFF for now
+  },
   startMoney: 500, startCrystals: 0, showCrystals: false,   // Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
   oreValue: 1,                          // $ per ore
   drillRate0: 6, drillRatePerLvl: 3,    // ore/min at Lv1, + per level
@@ -23,7 +37,7 @@ const CFG = {
   roverBonus: 8, roverMax: 2, roverCost: 60,
   crew0: 4,                             // starting crew; the Mine operator (Operator_Deck) is one of them
   depositMax: 2, depositEvery: 8,
-  offlineRate: 0.5, offlineCapSec: 4 * 3600, awayCardMin: 5, offlineAfterSec: 300,   // Director 10/23: the 50% cut + away card only after 5 min away; shorter locks catch up at full rate
+  awayCardMin: 5, offlineAfterSec: 300,   // (offlineRate / offlineCapSec: set from CFG.econ.offline just below) Director 10/23: the 50% cut + away card only after 5 min away; shorter locks catch up at full rate
   saveEvery: 3,
   hallDoor: { clip: 'hall_door_open', openSec: 1.2 },   // Director 20:58: open once and stay open; longer clips (8c9cee7 3.6 s loop) use 0–openSec
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
@@ -36,6 +50,13 @@ const CFG = {
   // Eve stays text-only (no TTS). Optional recorded line audio: { beatId: ['file_for_line_0.mp3', null, …] } under audio/eve/; plays only if listed here.
   eveVoice: { dir: 'audio/eve/', lines: {} },
 };
+CFG.offlineRate = CFG.econ.offline.rate; CFG.offlineCapSec = CFG.econ.offline.capSec;   // same 0.5 / 4 h as before, now read from the econ block
+// Earth drop-off value for a ship's cargo at purity p (0–1): linear from $50k at base purity (40%) to $150k at max purity (100%), clamped, whole dollars
+function dropoffValue(purity) {
+  const E = CFG.econ, P = E.purity, D = E.dropoff;
+  const k = Math.min(1, Math.max(0, ((+purity || 0) - P.base) / (P.max - P.base)));
+  return Math.round(D.base + (D.max - D.base) * k);
+}
 const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide in portrait, 18° down
 
 const Q = new URLSearchParams(location.search);
