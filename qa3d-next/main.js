@@ -28,6 +28,7 @@ const CFG = {
     offlineFormula: false,              // false = the catch-up replay is the only source of offline drop-off money; true = also credit offlineEarn() (formula estimate; double-pays with the replay)
     payAt: 'touchdown',                 // Director open call: 'touchdown' = credited at the Moon touchdown; 'earth' = credited mid-trip (away phase half-way, ship at Earth)
     eveDeliveredCall: true,             // Director open call: true = Eve rings 'Cargo delivered! +$X' (HUD dims); false = money pop-up + Updates line only
+    deposits: false,                    // Jacob 10/29: false = the old tap-a-deposit mechanic is off (Deposit_01/_02 hidden, no spawns/taps/rich loads, Eve skips the deposit beats); true = back on
   },
   startMoney: 500, startCrystals: 0, showCrystals: false,   // startMoney: replaced by CFG.econ.startMoney just below CFG (Step 2). Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
   oreValue: 1,                          // $ per ore
@@ -114,12 +115,13 @@ if (!(S.rt > 0)) S.rt = nowMs();
 if (!S.set || typeof S.set !== 'object') S.set = { music: true };
 // legacy saves: ore left in the old bin and unpaid deposit trips settle exactly once, then the new truck loop starts
 if (S.bin > 0) S.money += Math.floor(S.bin) * CFG.oreValue; delete S.bin;
-for (const tr of S.trips) if (tr && !tr.paid && tr.bonus > 0) { S.money += tr.bonus; S.dep++; }
+for (const tr of S.trips) if (tr && !tr.paid && tr.bonus > 0 && CFG.econ.deposits !== false) { S.money += tr.bonus; S.dep++; }   // deposits off: legacy deposit-trip bonuses are dropped, not paid
 S.trips = [];
 // truck loop state (all timestamps, ms): c0 fill start, add pre-filled fraction, lr last rich drop, dep departure (0 = parked under the chute),
 // paid base load paid for this trip, val base load value frozen at departure, q / qd rich loads queued while the truck is away
 if (!S.tk || typeof S.tk !== 'object') S.tk = { c0: nowMs(), add: 0, lr: 0, dep: 0, paid: false, val: 0, q: 0, qd: [] };
 if (!Array.isArray(S.tk.qd)) S.tk.qd = [];
+if (CFG.econ.deposits === false) { S.tk.q = 0; S.tk.qd = []; S.pend = []; }   // deposits off: queued rich loads and unpaid rich bonuses (S.pend, $8 each) are dropped on load; nothing pays
 const save = () => { try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} };
 
 const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
@@ -1094,8 +1096,10 @@ function bindDepNodes() {
   window.__ps3d.depNodes = Object.fromEntries(Object.entries(depNodes).map(([k, v]) => [k, v.name]));
   return found.length;
 }
+function depsOn() { return CFG.econ.deposits !== false; }   // CFG.econ.deposits switch (Jacob 10/29: off)
 function depShow(mk, a) {             // a = opacity 0..1, null = used up (hidden)
   const n = depNodes[mk]; if (!n) return;
+  if (!depsOn()) { n.node.visible = false; return; }   // deposits off: Art's patch nodes stay hidden for good
   n.node.visible = a != null && a > 0.001;
   for (const m of n.mats) m.opacity = a == null ? 1 : a;   // SHM_DepositRock/Glow are alphaMode BLEND at alpha 1 already (transparent): only opacity moves
 }
@@ -1112,7 +1116,7 @@ function band() {                     // Playtester 20:58: the safe-area insets 
   return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top, innerHeight - sa.b) - 34, l: 34, r: W - 34, sat: sa.t, sab: sa.b };
 }
 function spawnDeposit(name) {
-  if (!mine || deposits.length >= CFG.depositMax) return null;
+  if (!depsOn() || !mine || deposits.length >= CFG.depositMax) return null;
   const free = DEP_NAMES.filter(n => MK[n] && !deposits.some(d => d.mk === n)); if (!free.length) return null;
   return makeDeposit(name && free.includes(name) ? name : free[Math.floor(Math.random() * free.length)]);
 }
@@ -1124,6 +1128,7 @@ function makeDeposit(mk, claimed = false) {
 }
 function removeDeposit(d) { if (!d || !deposits.includes(d)) return; deposits.splice(deposits.indexOf(d), 1); depShow(d.mk, null); }   // used up: patch hidden
 function restoreDeposits() {          // rich loads queued while the truck was away (saved in S.tk.qd) re-show with their ring until the truck is back
+  if (!depsOn()) return;
   for (const mk of S.tk.qd) if (MK[mk] && !MK[mk].fb && !deposits.some(d => d.mk === mk)) { const d = makeDeposit(mk, true); d.tkq = true; }
 }
 // queued deposits (tapped while the truck is away) get no ring any more (Director 10/24 00:00): the queue (S.tk.q / S.tk.qd) still drops into the next fill; QA reads stay
@@ -1132,6 +1137,7 @@ function updQueued() {
   window.__ps3d.queued = deposits.filter(d => d.queued).map(d => d.mk);
 }
 function updDeposits(dt, time) {
+  if (!depsOn()) { depTimer = 0; return; }   // deposits off: the spawn timer does nothing
   depTimer += dt;
   if (deposits.length < CFG.depositMax && depTimer >= CFG.depositEvery) { depTimer = 0; spawnDeposit(); }
   if (deposits.length >= CFG.depositMax) depTimer = 0;
@@ -1330,7 +1336,7 @@ function poseAt(t, o = TS) {
 const truckOnRoad = () => (TS.ph === 'out' || TS.ph === 'back') && TS.x > MX + 13.5 && TS.x < RX - 46;
 // ---- settling: everything due up to time T happens exactly once (acc = away accumulator → offline 50%, no pops)
 function payPend(T, acc) {
-  for (let i = S.pend.length - 1; i >= 0; i--) { const p = S.pend[i]; if (p.at > T) continue; S.pend.splice(i, 1); S.money += p.v; if (acc) acc.rich += p.v; else richPop(p.v); window.__ps3d.richPaid = (window.__ps3d.richPaid || []).concat({ at: p.at, paidAt: nowMs(), v: p.v }).slice(-10); }
+  for (let i = S.pend.length - 1; i >= 0; i--) { const p = S.pend[i]; if (p.at > T) continue; S.pend.splice(i, 1); if (!depsOn()) continue; S.money += p.v; if (acc) acc.rich += p.v; else richPop(p.v); window.__ps3d.richPaid = (window.__ps3d.richPaid || []).concat({ at: p.at, paidAt: nowMs(), v: p.v }).slice(-10); }
 }
 function payBase(v, acc) {            // Phase 1 econ (10/29): a truck load pays CFG.econ.truckLoadPay (Locked $0), not v; the ore feeds the Refinery
   const p = Math.max(0, +CFG.econ.truckLoadPay || 0), amt = acc && !acc.full ? p * CFG.offlineRate : p; if (amt > 0) S.money += amt; S.loads++;
@@ -1351,7 +1357,7 @@ function richPop(v) {
 let richTw = null;
 function playRich() { const a = tActs.truck_load_rich; if (a) { a.reset(); a.play(); } }
 function arrive(t, acc) {             // back under the chute: the next fill starts; rich loads queued while away drop in now
-  const k = S.tk, q = Math.min(k.q || 0, 4);
+  const k = S.tk, q = depsOn() ? Math.min(k.q || 0, 4) : 0;   // deposits off: no queued rich loads drop in
   k.c0 = t; k.add = Math.min(1, q * CFG.richFill); k.lr = q ? t : 0; k.dep = 0; k.paid = false; k.val = 0; k.q = 0; k.qd = [];
   for (let i = 0; i < q; i++) S.pend.push({ at: t + CFG.richPayDelay * 1000, v: CFG.richBonus });
   for (const d of deposits) if (d.tkq) { d.tkq = false; d.at = t; }
@@ -1370,6 +1376,7 @@ function settleTo(T, acc) {
 }
 function shiftTk(d) { const k = S.tk; k.c0 += d; if (k.lr) k.lr += d; if (k.dep) k.dep += d; for (const p of S.pend) p.at += d; cgShift(d); }
 function tapDeposit(d) {
+  if (!depsOn() || !d) return null;
   const t = nowMs(), k = S.tk; settleTo(t, null);
   let res;
   if (!k.dep && fillAt(t) < 1) {         // parked and filling: the drill sends a rich load down the chute now (+25%, capped at 100%; overflow is lost)
@@ -2299,6 +2306,7 @@ function updFx(dt) {
 
 // ===== taps on the 3D scene (deposits): screen-space hit test, radius ≥ 44 CSS px whatever the camera distance
 function tap(x, y) {
+  if (!depsOn()) return;   // deposits off: scene taps hit nothing
   if (S.site !== MINE || Math.abs(camX - MX) > 3 || !mine) return;
   let best = null, bd = Infinity;
   for (const d of deposits) {
@@ -2447,7 +2455,9 @@ function updConveyor() { const on = TS.ph === 'fill' && TS.fill < 1 && !sheetOpe
 // Tutorial calls ring until opened; story calls time out after 8 s and leave a missed-call badge. Motion constants mirror MOTION.md.
 const EVE_BEATS = [
   { id: 'mine_first_view', tut: true, point: null, lines: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",
-    "Tap the dark ore patch and the drill drops a rich load into the bed. Over."] },
+    "Tap the dark ore patch and the drill drops a rich load into the bed. Over."],
+    linesNoDep: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",   // CFG.econ.deposits off: no ore-patch line
+    "Once it's full it hauls the ore to the Refinery on its own. Over."] },
   { id: 'first_deposit', tut: false, point: null, lines: ["Rich load, nice. Once that truck is full it hauls to the Refinery and pays as the bed tips. Over."] },
   { id: 'upgrade_ready', tut: true, point: null, lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."] },
   // Director 20:34: first launch only. Rings once the first flatbed trip (2 boxes) is in the hold and the tanks are full; points at Launch
@@ -2456,8 +2466,8 @@ const EVE_BEATS = [
 ];
 const EVE_TRIG = {
   mine_first_view: () => S.site === MINE && coverGone && Math.abs(camX - MX) < 1,
-  first_deposit: () => S.dep >= 1,
-  upgrade_ready: () => S.dep >= 1 && canPay(drillCost()) && !sheetOpen,
+  first_deposit: () => depsOn() && S.dep >= 1,                   // deposits off: never rings (no rich loads)
+  upgrade_ready: () => (S.dep >= 1 || !depsOn()) && canPay(drillCost()) && !sheetOpen,
   cargo_early: () => S.cg.launches === 0 && S.cg.sh.hold >= CG.perTrip && canLaunch(),
 };
 const ECM = { toastIn: 420, tapOut: 160, typeStart: 420, charMs: 30, commaMs: 120, stopMs: 240, closeCrt: 120, closeSlide: 260, toastTimeout: 8000, rmFade: 150 };
@@ -2478,10 +2488,10 @@ function addCall(id, missed) { S.calls.unshift({ id, at: nowMs(), missed: !!miss
 function setMissed(n) { S.missed = n; ecBadge.dataset.count = n; ecBadge.textContent = n || '';
   const tb = ecPanel.querySelector('.ec-tab[data-tab="calls"] .ec-badge'); tb.dataset.count = n; tb.textContent = n || ''; }
 function renderTask() {
-  const g = !S.dep ? ['Send a rich load', 'Tap the dark ore patch', S.dep, 1] : S.loads < 3 ? ['Haul 3 loads to the Refinery', 'Loads delivered', S.loads, 3]
+  const g = !S.dep && depsOn() ? ['Send a rich load', 'Tap the dark ore patch', S.dep, 1] : S.loads < 3 ? ['Haul 3 loads to the Refinery', 'Loads delivered', S.loads, 3]
     : S.chute < 3 ? ['Upgrade the Chute Feed Rate to Lv 3', 'Chute level', S.chute, 3] : ["Fill the ship's tanks", 'Oxygen + methane loads', 0, 3];
   $('ecTask').innerHTML = `<div class="ec-kicker">CURRENT GOAL</div><div class="ec-goal">${esc(g[0])}</div><div class="ec-prog"><span>${esc(g[1])}</span><b>${Math.min(g[2], g[3])}/${g[3]}</b></div>`
-    + `<div class="ec-bar"><i style="width:${Math.round(100 * Math.min(1, g[2] / g[3]))}%"></i></div><div class="ec-tip">A full truck leaves on its own. Rich loads tapped while it's away drop in when it's back.</div>`;
+    + `<div class="ec-bar"><i style="width:${Math.round(100 * Math.min(1, g[2] / g[3]))}%"></i></div><div class="ec-tip">${depsOn() ? "A full truck leaves on its own. Rich loads tapped while it's away drop in when it's back." : 'A full truck leaves on its own.'}</div>`;
 }
 function renderUpd() { $('ecUpd').innerHTML = S.log.length ? S.log.map(u => `<li><span class="ec-ico"${u.type === 'upgrade' ? ' data-type="unlock"' : ''}>${ICO[u.type] || ICO.truck}</span><span>${esc(u.text)}</span><time>${ago(u.at)}</time></li>`).join('') : '<li><span>No updates yet.</span></li>'; }
 function renderCalls() { $('ecCalls').innerHTML = S.calls.map(c => { const b = EVE_BEATS.find(x => x.id === c.id); if (!b) return '';
@@ -2507,7 +2517,7 @@ function eveDelivered(amt) {
   ecRing({ id: 'cargo_delivered', tut: false, rep: true, point: null, lines: [`Cargo delivered! +${fmt(amt)}`] });
 }
 function ecAnswer(b = EC.ring) {
-  if (!b) return; clearTimeout(EC.toastT); EC.ring = null; EC.call = b; EC.lines = b.lines; EC.li = 0;
+  if (!b) return; clearTimeout(EC.toastT); EC.ring = null; EC.call = b; EC.lines = (!depsOn() && b.linesNoDep) || b.lines; EC.li = 0;
   ecBubble.classList.remove('is-ringing'); showTab('call');
   if (ecToast.classList.contains('is-in')) { ecToast.classList.replace('is-in', 'is-tapped'); setTimeout(() => hudDim(false), ECM.tapOut); } else hudDim(false);
   ecPanel.classList.remove('is-closing', 'is-out'); ecPanel.classList.add('is-open');
@@ -2537,7 +2547,7 @@ function ecHangUp() {
   ecPanel.classList.remove('is-talking', 'is-waiting'); ecPanel.classList.add('is-closing');
   setTimeout(() => { ecPanel.classList.remove('is-open'); ecPanel.classList.add('is-out'); }, 0);
   setTimeout(() => { if (!EC.call && !EC.ring) ecResetUI(); }, (ecReduced() ? ECM.rmFade : ECM.closeCrt + ECM.closeSlide) + 30);
-  if (b && b.point) { pointBeat = b.point; pointerDone = false; if (b.point === 'deposit' && !deposits.some(d => !d.claimed)) spawnDeposit('Dep_02'); }
+  if (b && b.point) { pointBeat = b.point; pointerDone = false; if (b.point === 'deposit' && !depsOn()) pointerDone = true; if (b.point === 'deposit' && !deposits.some(d => !d.claimed)) spawnDeposit('Dep_02'); }   // deposits off: a 'deposit' pointer is done at once
 }
 function ecOpen(tab) { clearTimeout(EC.toastT); EC.ring = null; ecToast.className = 'ec-toast'; hudDim(false); ecBubble.classList.remove('is-ringing');
   showTab(tab || 'task'); ecPanel.className = 'ec-panel is-open'; }
