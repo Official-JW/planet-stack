@@ -2336,7 +2336,7 @@ const meterKeys = {};
 function meter(id, n, on) { const k = n + ':' + on; if (meterKeys[id] === k) return; meterKeys[id] = k; const el = $(id);
   if (el.children.length !== n) el.innerHTML = '<i></i>'.repeat(n); [...el.children].forEach((x, i) => x.classList.toggle('on', i < on)); }
 function sheetUI() {
-  const m = S.site === REF ? 1 : 0;
+  const m = S.site === REF && S.drill > 1 ? 1 : 0;   // the 'Tap Upgrade' tutorial (upgrade_ready) means the Drill: until the first Drill buy the Refinery sheet keeps the Mine rows, Drill first
   if (m !== RS.mode) { RS.mode = m; RS.k = -1; rowDrill.style.display = rowChute.style.display = m ? 'none' : ''; rowFuel.style.display = rowPur.style.display = m ? '' : 'none'; }
   if (m) { $('canDot').hidden = !refSheetUI(); return; }
   const c = drillCost(), ok = canPay(c);
