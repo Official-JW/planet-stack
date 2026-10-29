@@ -1481,7 +1481,7 @@ function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launc
   sh: { st: 'pad', t0: t, hold: 0, f0: t - refuelMs(), req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
 for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
-if (!(S.cg.pendPay >= 0)) S.cg.pendPay = 0; if (!S.cg.pay || typeof S.cg.pay !== 'object') S.cg.pay = null;   // econ: held drop-off $ (offlineDropoff off) + last shown payout
+if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
 if (!(typeof S.cg.pendPay === 'number' && isFinite(S.cg.pendPay) && S.cg.pendPay >= 0)) S.cg.pendPay = 0;   // Phase 1 econ: a drop-off held while away (offlineDropoff off); old saves / new games / bad value → 0, saved with S.cg
 if (DOCKFILL) { S.cg.dk = CPH.dock.cap; cgEv('qa_dockfill', S.cg.t, { stored: S.cg.dk }); }   // ?dockfill: Dock full on every load (20/20, amber label)
