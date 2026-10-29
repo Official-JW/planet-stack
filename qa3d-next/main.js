@@ -23,10 +23,10 @@ const CFG = {
     drill: { cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
     specialistTripCost: 0,              // Locked: specialist trip costs OFF for now
-    oldSaveTopUp: false,                // Director open call: false = old saves keep their money; true = top them up to startMoney on load (save lane reads this)
-    offlineDropoff: false,              // Director open call: false = a landing while away is held and paid in full when the player is back; true = paid while away at offline.rate
+    oldSaveTopUp: true,                 // Director 10/29 ruling: true = an old save below startMoney is topped up to it once (tu flag); false = old saves keep their money
+    offlineDropoff: true,               // Director 10/29 ruling: true = a landing while away pays at offline.rate (4 h cap), one Eve summary on return; false = held, paid in full when the player is back
     offlineFormula: false,              // false = the catch-up replay is the only source of offline drop-off money; true = also credit offlineEarn() (formula estimate; double-pays with the replay)
-    payAt: 'touchdown',                 // Director open call: 'touchdown' = credited at the Moon touchdown; 'earth' = credited mid-trip (away phase half-way, ship at Earth)
+    payAt: 'earth',                     // Director 10/29 ruling: 'earth' = credited mid-trip (away phase half-way, ship at Earth); 'touchdown' = credited at the Moon touchdown
     eveDeliveredCall: true,             // Director open call: true = Eve rings 'Cargo delivered! +$X' (HUD dims); false = money pop-up + Updates line only
     deposits: false,                    // Jacob 10/29: false = the old tap-a-deposit mechanic is off (Deposit_01/_02 hidden, no spawns/taps/rich loads, Eve skips the deposit beats); true = back on
   },
@@ -1489,7 +1489,9 @@ function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launc
 for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
+if (S.cg.sh.man) S.cg.sh.man = 0;   // 10/29: a full ship left waiting for a tap by an older away replay launches on its own again
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
+if (S.cg.asum && !(typeof S.cg.asum === 'object' && S.cg.asum.n > 0 && S.cg.asum.amt >= 0)) S.cg.asum = null;   // econ 10/29: Eve's away summary {at, n, amt, shown}; bad value → none
 if (!(typeof S.cg.pendPay === 'number' && isFinite(S.cg.pendPay) && S.cg.pendPay >= 0)) S.cg.pendPay = 0;   // Phase 1 econ: a drop-off held while away (offlineDropoff off); old saves / new games / bad value → 0, saved with S.cg
 if (DOCKFILL) { S.cg.dk = CPH.dock.cap; cgEv('qa_dockfill', S.cg.t, { stored: S.cg.dk }); }   // ?dockfill: Dock full on every load (20/20, amber label)
 stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
@@ -1517,7 +1519,7 @@ function cgMake(tDump) {           // called at the dump time, after the cargo s
   if (BRC.on) { brAdv(c, tDump); const T = BRC.ride * 1000 / BRC.k; while (c.brQ.length && c.brQ[0][0] + T <= tDump) c.brAr = c.brQ.shift()[2]; c.brS.push(r); }   // display only: queue the crate for a trip
   c.ref.push(r); c.made++; cgEv('box_made', tDump);
 }
-function cgDecide(c, t, acc) {      // acc = away catch-up (Director 23:00): the ship never auto-launches while the player is away; a full ship waits for a Launch tap (sh.man)
+function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a full, fuelled ship launches on its own while away too (was Director 23:00: waited for a Launch tap, sh.man), inside the 4 h cap
   for (let g = 0; g < 50; g++) {
     let ch = false; const f = c.fb, s = c.sh;
     if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : 0; } c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
@@ -1531,8 +1533,7 @@ function cgDecide(c, t, acc) {      // acc = away catch-up (Director 23:00): the
       else if (s.st === 'pad' && !s.req && c.bay > 0 && s.hold < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t }; ch = true; cgEv('pad_crane_hold', t, { slot: s.hold + 1 }); }
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
-    if (acc && s.st === 'pad' && s.hold >= CG.holdCap && !s.man) { s.man = 1; ch = true; cgEv('full_wait_manual', t, { hold: s.hold }); }   // came full while away: stays on the pad until tapped (also after the return)
-    if (s.st === 'pad' && c.pc.k !== 'hold' && t >= s.f0 + refuelMs() && ((s.hold >= CG.holdCap && !acc && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live only), or the Launch button (partial or a full ship that waited)
+    if (s.st === 'pad' && c.pc.k !== 'hold' && t >= s.f0 + refuelMs() && ((s.hold >= CG.holdCap && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live or away, 10/29), or the Launch button (partial)
       c.sh = Object.assign({}, s, { st: BOARD_SEC ? 'board' : 'launch', t0: t, req: 0, man: 0 }); ch = true; cgEv(BOARD_SEC ? 'board' : 'launch', t, { hold: s.hold, partial: s.hold < CG.holdCap }); }   // the crew boards first (BOARD_SEC), then the launch
     else if (s.st === 'pad' && s.req && t >= s.req && s.hold < 1) { s.req = 0; ch = true; }
     if (!ch) break;
@@ -1581,14 +1582,14 @@ function cgComplete(c, t, acc) {
   }
 }
 const payEarth = () => CFG.econ.payAt === 'earth';
-// one drop-off credit (either payAt): held for the next live settle while away (offlineDropoff off), 50% while away (on), full live.
+// one drop-off credit (either payAt): 50% while away (offlineDropoff on, Director 10/29: counted for Eve's one return summary), held for the next live settle (off), full live.
 // Live payouts are recorded in c.pay {at, amt, shown} and saved at once, so a reload can never replay a drop-off that already paid and showed.
 function cgDeliver(c, boxes, pur, t, acc) {
   const v = cargoValue(boxes, pur), away = acc && !acc.full;
   if (away && !CFG.econ.offlineDropoff) { c.pendPay = (c.pendPay || 0) + v; c.sold += boxes; cgEv('landed_held', t, { boxes, v, pur }); return; }   // held: paid in full on the next live settle
   const amt = away ? v * CFG.offlineRate : v; S.money += amt; c.sold += boxes; c.earned += amt;
   cgEv('sold', t, { boxes, amt, pur }); logU('truck', `Cargo delivered! +${fmt(amt)}`);
-  if (acc) acc.cargo = (acc.cargo || 0) + amt; else cgShowPay(c, t, amt);
+  if (acc) { acc.cargo = (acc.cargo || 0) + amt; acc.dn = (acc.dn || 0) + 1; } else cgShowPay(c, t, amt);   // away: no pop / Eve per drop-off, counted for the one return summary
 }
 function cgShowPay(c, t, amt) {        // pop-up + Eve exactly once per payout, then save immediately (the 3 s autosave could otherwise miss it)
   if (c.pay && c.pay.at === t && c.pay.shown) return;
@@ -2516,6 +2517,14 @@ function eveDelivered(amt) {
   if (!CFG.econ.eveDeliveredCall || EC.ring || EC.call || ecIsOpen()) return;   // switch off: light toast only (cargoPop + Updates line)
   ecRing({ id: 'cargo_delivered', tut: false, rep: true, point: null, lines: [`Cargo delivered! +${fmt(amt)}`] });
 }
+// Eve on return from away (Director 10/29): ONE call 'While you were away: N deliveries, +$X.' for every drop-off replayed while away (no per-drop-off call);
+// waits for the cover and for Eve to be free, then is marked shown and saved at once, so a reload never replays it. N = 0 → no summary.
+function eveAwaySum() {
+  const a = S.cg.asum; if (!a || a.shown || !(a.n > 0) || !coverGone || EC.ring || EC.call || ecIsOpen()) return;
+  const line = `While you were away: ${a.n} ${a.n === 1 ? 'delivery' : 'deliveries'}, +${fmt(a.amt)}.`;
+  a.shown = true; logU('truck', line); save(); window.__ps3d.awaySum = Object.assign({}, a);
+  ecRing({ id: 'away_summary', tut: false, rep: true, point: null, lines: [line] });
+}
 function ecAnswer(b = EC.ring) {
   if (!b) return; clearTimeout(EC.toastT); EC.ring = null; EC.call = b; EC.lines = (!depsOn() && b.linesNoDep) || b.lines; EC.li = 0;
   ecBubble.classList.remove('is-ringing'); showTab('call');
@@ -2582,7 +2591,8 @@ function updViewShift() {
 }
 function updEve() {
   if (EC.ring && EC.ring.id === 'cargo_early' && S.cg.launches > 0) { ecResetUI(); EC.ring = null; hudDim(false); if (!S.eve.includes('cargo_early')) S.eve.push('cargo_early'); save(); }   // shipped before the call was answered
-  if (!EC.ring && !EC.call && !ecIsOpen()) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }
+  eveAwaySum();                       // away summary first when Eve is free (a story beat already ringing / open goes on; the next beat waits for it)
+  if (!EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
   if (pointBeat && !pointerDone) {
     if (pointBeat === 'launch') { if (S.cg.launches > 0) pointerDone = true; else if (launchEl.classList.contains('on')) { const r = launchEl.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 2; p.l = 'LAUNCH'; p.up = false; } }
@@ -2673,11 +2683,12 @@ function catchUp(card) {
   const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
   acc.drop = acc.full || !CFG.econ.offlineFormula ? 0 : offlineEarn(el); S.money += acc.drop;   // off by default: the replay above already credits (or holds) every landing; under offlineAfterSec it paid at the live rate
+  if (acc.dn > 0) { const a = S.cg.asum && !S.cg.asum.shown ? S.cg.asum : { n: 0, amt: 0 }; S.cg.asum = { at: now, n: a.n + acc.dn, amt: a.amt + (acc.cargo || 0), shown: false }; }   // one Eve summary per return (adds to one not yet shown)
   S.rt = now; save();
   const X = acc.base + acc.rich + (acc.cargo || 0) + acc.drop;
-  if (card && !acc.full && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t);
+  if (card && !acc.full && !(acc.dn > 0) && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t);
     const arm = () => { if (!coverGone) { catchUp.t = setTimeout(arm, 100); return; } catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }; arm(); }   // B9: 9 s counted from when the card can be seen
-  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, cargo: +(acc.cargo || 0).toFixed(2), drop: acc.drop, full: acc.full };
+  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, deliveries: acc.dn || 0, cargo: +(acc.cargo || 0).toFixed(2), drop: acc.drop, full: acc.full };
   return X;
 }
 function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
