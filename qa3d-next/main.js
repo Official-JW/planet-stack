@@ -1644,7 +1644,8 @@ function astroPhase(c, t) {
 }
 // Earth drop-off (Phase 1 Step 2): dropoffValue(purity) is a full hold's pay; a partial launch pays its share (boxes / holdCap)
 function cargoPurity() { return refineryPurity(); }   // the one purity source (Refinery lane: S.purLv → purityAt); frozen into the cargo at launch
-function cargoValue(boxes, pur = cargoPurity()) { const b = Math.max(0, Math.min(boxes || 0, CG.holdCap)); return dropoffValue(pur) * b / CG.holdCap; }   // Director 10/29 16:07: pay scales with the hold (boxes carried at launch / holdCap 10); a full hold pays dropoffValue, an empty one nothing
+function perCrateValue(pur = cargoPurity()) { return dropoffValue(pur) / 10; }   // Director 10/29 16:39: each crate is worth its purity value ($5k at Lv1); 10 = today's hold, fixed so a bigger hold later pays more
+function cargoValue(boxes, pur = cargoPurity()) { return Math.max(0, boxes || 0) * perCrateValue(pur); }   // pay = crates on board x per-crate value, no cap at the hold size
 function cargoPop(amt) {
   if (S.site === PADI && Math.abs(camX - PX) < 3 && !document.hidden && cg3.ship) { const sp = toScreen(cg3.ship.position.x, cg3.ship.position.y + 6, cg3.ship.position.z); pop('+' + fmt(amt), sp.x, sp.y, 'bonus big'); bumpMoney(); }
   else smallPop(amt);
