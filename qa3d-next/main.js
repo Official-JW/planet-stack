@@ -85,9 +85,9 @@ let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
 const nowMs = () => (HOLD !== null ? HOLD : rawMs());
-const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 2 };
+const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 2, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29)
 let hadRt = false;
-try { const sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); hadRt = sv.rt > 0;
+try { let sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; hadRt = sv.rt > 0;
   migrateSave(sv, hadRt); Object.assign(S, sv); } catch (e) {}
 // S.site is a station index, so a save keeps its named station across station-order changes (each step runs once):
 //   11:12 and older saves (no 'chute'): the Refinery slot (index 2) shifts the later stations by one;
@@ -95,6 +95,13 @@ try { const sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); hadRt = sv.r
 function migrateSave(sv, hadRt) {
   if (hadRt && !('chute' in sv) && sv.site >= 2) sv.site++;
   if (!(sv.ord >= 2)) { const m = { 3: 4, 4: 3, 5: 6, 6: 5 }; if (hadRt && sv.site in m) sv.site = m[sv.site]; sv.ord = 2; }
+  // ev < 1 (6df2e40 and older, pre Phase 1 econ): money, levels and every loop stamp are kept as saved (no wipe, no re-pay); a key holding a
+  // non-number or non-finite value is dropped so the new-game default fills it instead of NaN spreading. A truck mid-trip just tips for $0 now.
+  if (!(sv.ev >= 1)) {
+    for (const k of ['money', 'crystals', 'drill', 'chute', 'rovers', 'dep', 'loads', 'missed', 'site', 'rt']) if (k in sv && !(typeof sv[k] === 'number' && isFinite(sv[k]))) delete sv[k];
+    if (sv.money < 0) sv.money = 0; for (const k of ['drill', 'chute', 'rovers']) if (k in sv && sv[k] < 1) sv[k] = 1;
+    sv.ev = 1;
+  }
   return sv;
 }
 for (const k of ['eve', 'calls', 'log', 'pend', 'trips']) if (!Array.isArray(S[k])) S[k] = [];
@@ -1306,14 +1313,14 @@ const truckOnRoad = () => (TS.ph === 'out' || TS.ph === 'back') && TS.x > MX + 1
 function payPend(T, acc) {
   for (let i = S.pend.length - 1; i >= 0; i--) { const p = S.pend[i]; if (p.at > T) continue; S.pend.splice(i, 1); S.money += p.v; if (acc) acc.rich += p.v; else richPop(p.v); window.__ps3d.richPaid = (window.__ps3d.richPaid || []).concat({ at: p.at, paidAt: nowMs(), v: p.v }).slice(-10); }
 }
-function payBase(v, acc) {
-  const amt = acc && !acc.full ? v * CFG.offlineRate : v; S.money += amt; S.loads++;
-  logU('truck', `Truck dropped a load at the Refinery, +${fmt(amt)}`);
+function payBase(v, acc) {            // Phase 1 econ (10/29): a truck load pays CFG.econ.truckLoadPay (Locked $0), not v; the ore feeds the Refinery
+  const p = Math.max(0, +CFG.econ.truckLoadPay || 0), amt = acc && !acc.full ? p * CFG.offlineRate : p; if (amt > 0) S.money += amt; S.loads++;
+  logU('truck', amt > 0 ? `Truck dropped a load at the Refinery, +${fmt(amt)}` : 'Truck dropped a load at the Refinery');
   window.__ps3d.dumps = (window.__ps3d.dumps || []).concat({ at: nowMs(), amt, off: !!acc }).slice(-20);
   if (acc) { acc.base += amt; acc.n++; return; }
   if (S.site === REF && Math.abs(camX - RX) < 3 && !document.hidden) { const b = rw('Truck_Dump'), w = new THREE.Vector3(b[0] + 3, 3.5, b[1]), sp = toScreen(w.x, w.y, w.z);
-    pop('+' + fmt(amt), sp.x, sp.y - 24, 'bonus big'); flyChunks(8, w, amt, '', true); }   // full pop on the Refinery screen
-  else smallPop(amt);
+    if (amt > 0) { pop('+' + fmt(amt), sp.x, sp.y - 24, 'bonus big'); flyChunks(8, w, amt, '', true); } }   // full pop on the Refinery screen
+  else if (amt > 0) smallPop(amt);
   if (refActs.intake_shake) refActs.intake_shake.reset().play();
   if (refActs.dump_dust) refActs.dump_dust.reset().play();   // Art f4d4a2c: once at the start of each tip
 }
@@ -2547,21 +2554,35 @@ musTgl.addEventListener('click', (e) => { e.stopPropagation(); setMusic(S.set.mu
 document.addEventListener('pointerdown', (e) => { if (setPop.classList.contains('on') && !e.target.closest('#setPop,#setBtn')) { setPop.classList.remove('on'); setBtn.setAttribute('aria-expanded', false); } });
 renderSettings();
 
-// ===== away catch-up: the truck loop is replayed from its timestamps; loads that tipped while away pay 50%, capped at 4 h
+// ===== away catch-up: the truck + cargo loops are replayed from their timestamps (sales while away pay 50%), capped at 4 h, plus offlineEarn below
 const awayEl = $('away');
 $('awayOk').addEventListener('click', () => awayEl.classList.remove('on'));
 awayEl.addEventListener('pointerdown', (e) => e.stopPropagation());
+// Offline earnings (Phase 1 econ, Locked: 50%, 4 h cap, valued by dropoffValue): away past offlineAfterSec, the player is credited
+// CFG.econ.offline.rate × (live drop-offs per second) × dropoffValue(purity) × min(away, CFG.econ.offline.capSec). One drop-off = one full hold
+// (CG.holdCap boxes, one box per truck tip), so a cycle is the slower of making a hold (holdCap × truck cycle) and the ship turnaround.
+const offPurity = () => (typeof S.purity === 'number' && isFinite(S.purity) ? S.purity : CFG.econ.purity.base);   // purity lane's state when it lands; base until then
+function offlineDropSec() {           // live seconds per Earth drop-off at the current drill / chute levels
+  const truck = fillSec() + (R.tl ? R.tl.trip : 60), ship = CG.fuelFillSec + BOARD_SEC + CG.launchSec + CG.awaySec + CG.landSec;
+  return Math.max(CG.holdCap * truck, ship);
+}
+function offlineEarn(sec) {           // whole dollars credited for sec seconds away (0 for ≤ 0, NaN or a bad config)
+  const O = CFG.econ.offline, t = Math.min(+sec, O.capSec), cyc = offlineDropSec();
+  if (!(t > 0) || !(cyc > 0) || !(O.rate > 0)) return 0;
+  const v = Math.floor(O.rate * dropoffValue(offPurity()) * t / cyc); return v > 0 ? v : 0;
+}
 function catchUp(card) {
   if (!RT.ready) { RT.card = RT.card || card; return 0; }             // B1: replayed once the marker route is final (routeReady)
   const now = nowMs(), el = (now - S.rt) / 1000;
   if (!(el > 0)) { S.rt = now; window.__ps3d.lastAway = { sec: Math.round(el), X: 0 }; return 0; }   // clock set backward: nothing
   const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
+  acc.drop = acc.full ? 0 : offlineEarn(el); S.money += acc.drop;   // under offlineAfterSec the replay above already paid at the live rate
   S.rt = now; save();
-  const X = acc.base + acc.rich + (acc.cargo || 0);
+  const X = acc.base + acc.rich + (acc.cargo || 0) + acc.drop;
   if (card && !acc.full && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t);
     const arm = () => { if (!coverGone) { catchUp.t = setTimeout(arm, 100); return; } catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }; arm(); }   // B9: 9 s counted from when the card can be seen
-  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, cargo: +(acc.cargo || 0).toFixed(2), full: acc.full };
+  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, cargo: +(acc.cargo || 0).toFixed(2), drop: acc.drop, full: acc.full };
   return X;
 }
 function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
