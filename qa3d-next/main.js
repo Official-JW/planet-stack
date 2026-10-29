@@ -1587,7 +1587,7 @@ function astroPhase(c, t) {
 }
 // Earth drop-off (Phase 1 Step 2): dropoffValue(purity) is a full hold's pay; a partial launch pays its share (boxes / holdCap)
 function cargoPurity() { return CFG.econ.purity.base; }   // PLACEHOLDER until the Refinery lane (ca-econ-refinery) tracks purity levels
-function cargoValue(boxes, pur = cargoPurity()) { return Math.round(dropoffValue(pur) * boxes / CG.holdCap); }
+function cargoValue(boxes, pur = cargoPurity()) { return boxes > 0 ? dropoffValue(pur) : 0; }   // EM 10/29: one flat value per drop-off (not prorated by boxes), pending Director; an empty hold pays nothing
 function cargoPop(amt) {
   if (S.site === PADI && Math.abs(camX - PX) < 3 && !document.hidden && cg3.ship) { const sp = toScreen(cg3.ship.position.x, cg3.ship.position.y + 6, cg3.ship.position.z); pop('+' + fmt(amt), sp.x, sp.y, 'bonus big'); bumpMoney(); }
   else smallPop(amt);
