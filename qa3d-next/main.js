@@ -1589,7 +1589,12 @@ function cgDeliver(c, boxes, pur, t, acc) {
   if (away && !CFG.econ.offlineDropoff) { c.pendPay = (c.pendPay || 0) + v; c.sold += boxes; cgEv('landed_held', t, { boxes, v, pur }); return; }   // held: paid in full on the next live settle
   const amt = away ? v * CFG.offlineRate : v; S.money += amt; c.sold += boxes; c.earned += amt;
   cgEv('sold', t, { boxes, amt, pur }); logU('truck', `Cargo delivered! +${fmt(amt)}`);
-  if (acc) { acc.cargo = (acc.cargo || 0) + amt; acc.dn = (acc.dn || 0) + 1; } else cgShowPay(c, t, amt);   // away: no pop / Eve per drop-off, counted for the one return summary
+  if (away) { acc.cargo = (acc.cargo || 0) + amt; acc.dn = (acc.dn || 0) + 1; }   // away (≥ offlineAfterSec): no pop / Eve per drop-off, counted for the one return summary
+  else if (acc) { acc.cargo = (acc.cargo || 0) + amt; acc.ln = (acc.ln || 0) + 1; cgQueuePay(c, t, amt); }   // Director 10/29: a reload / absence under offlineAfterSec is live: full pay (above) + the live pop + Eve call, shown once the cover is gone
+  else cgShowPay(c, t, amt);
+}
+function cgQueuePay(c, t, amt) {     // short-gap drop-off: already credited; c.pay {shown: false} is saved with it, so the live pop + Eve show exactly once (eveLivePay), even across another reload
+  const a = c.pay && c.pay.shown === false ? c.pay.amt : 0; c.pay = { at: t, amt: a + amt, shown: false }; save();
 }
 function cgShowPay(c, t, amt) {        // pop-up + Eve exactly once per payout, then save immediately (the 3 s autosave could otherwise miss it)
   if (c.pay && c.pay.at === t && c.pay.shown) return;
@@ -2519,6 +2524,10 @@ function eveDelivered(amt) {
 }
 // Eve on return from away (Director 10/29): ONE call 'While you were away: N deliveries, +$X.' for every drop-off replayed while away (no per-drop-off call);
 // waits for the cover and for Eve to be free, then is marked shown and saved at once, so a reload never replays it. N = 0 → no summary.
+function eveLivePay() {               // a short-gap drop-off (cgQueuePay): the same pop-up + 'Cargo delivered! +$X' call as a live landing, once the cover is gone and Eve is free
+  const p = S.cg.pay; if (!p || p.shown !== false || !coverGone || EC.ring || EC.call || ecIsOpen()) return;
+  p.shown = true; save(); window.__ps3d.livePayShown = Object.assign({}, p); cargoPop(p.amt); eveDelivered(p.amt);
+}
 function eveAwaySum() {
   const a = S.cg.asum; if (!a || a.shown || !(a.n > 0) || !coverGone || EC.ring || EC.call || ecIsOpen()) return;
   const line = `While you were away: ${a.n} ${a.n === 1 ? 'delivery' : 'deliveries'}, +${fmt(a.amt)}.`;
@@ -2591,8 +2600,8 @@ function updViewShift() {
 }
 function updEve() {
   if (EC.ring && EC.ring.id === 'cargo_early' && S.cg.launches > 0) { ecResetUI(); EC.ring = null; hudDim(false); if (!S.eve.includes('cargo_early')) S.eve.push('cargo_early'); save(); }   // shipped before the call was answered
-  eveAwaySum();                       // away summary first when Eve is free (a story beat already ringing / open goes on; the next beat waits for it)
-  if (!EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
+  eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
+  if (!EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
   if (pointBeat && !pointerDone) {
     if (pointBeat === 'launch') { if (S.cg.launches > 0) pointerDone = true; else if (launchEl.classList.contains('on')) { const r = launchEl.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 2; p.l = 'LAUNCH'; p.up = false; } }
@@ -2688,7 +2697,7 @@ function catchUp(card) {
   const X = acc.base + acc.rich + (acc.cargo || 0) + acc.drop;
   if (card && !acc.full && !(acc.dn > 0) && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t);
     const arm = () => { if (!coverGone) { catchUp.t = setTimeout(arm, 100); return; } catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }; arm(); }   // B9: 9 s counted from when the card can be seen
-  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, deliveries: acc.dn || 0, cargo: +(acc.cargo || 0).toFixed(2), drop: acc.drop, full: acc.full };
+  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, deliveries: acc.dn || 0, liveDeliveries: acc.ln || 0, cargo: +(acc.cargo || 0).toFixed(2), drop: acc.drop, full: acc.full };
   return X;
 }
 function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
