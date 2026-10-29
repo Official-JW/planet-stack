@@ -101,8 +101,11 @@ function migrateSave(sv, hadRt) {
   if (!(sv.ev >= 1)) {
     for (const k of ['money', 'crystals', 'drill', 'chute', 'rovers', 'dep', 'loads', 'missed', 'site', 'rt']) if (k in sv && !(typeof sv[k] === 'number' && isFinite(sv[k]))) delete sv[k];
     if (sv.money < 0) sv.money = 0; for (const k of ['drill', 'chute', 'rovers']) if (k in sv && sv[k] < 1) sv[k] = 1;
+    if (hadRt) sv.tu = 0;               // tu = old-save top-up: 0 = due (old save), 1 = done; new games never get the key
     sv.ev = 1;
   }
+  // CFG.econ.oldSaveTopUp (Director open call): true = an old save below CFG.econ.startMoney is raised to it, once (tu 0 → 1, saved); false = money kept, tu stays 0
+  if (sv.tu === 0 && CFG.econ.oldSaveTopUp) { if (!(sv.money >= CFG.econ.startMoney)) sv.money = CFG.econ.startMoney; sv.tu = 1; }
   return sv;
 }
 for (const k of ['eve', 'calls', 'log', 'pend', 'trips']) if (!Array.isArray(S[k])) S[k] = [];
@@ -1480,6 +1483,7 @@ for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!(S.cg.pendPay >= 0)) S.cg.pendPay = 0; if (!S.cg.pay || typeof S.cg.pay !== 'object') S.cg.pay = null;   // econ: held drop-off $ (offlineDropoff off) + last shown payout
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
+if (!(typeof S.cg.pendPay === 'number' && isFinite(S.cg.pendPay) && S.cg.pendPay >= 0)) S.cg.pendPay = 0;   // Phase 1 econ: a drop-off held while away (offlineDropoff off); old saves / new games / bad value → 0, saved with S.cg
 if (DOCKFILL) { S.cg.dk = CPH.dock.cap; cgEv('qa_dockfill', S.cg.t, { stored: S.cg.dk }); }   // ?dockfill: Dock full on every load (20/20, amber label)
 stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
 
