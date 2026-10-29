@@ -23,6 +23,8 @@ const CFG = {
     drill: { cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
     specialistTripCost: 0,              // Locked: specialist trip costs OFF for now
+    oldSaveTopUp: false,                // Director open call: false = old saves keep their money; true = top them up to startMoney on load (save lane reads this)
+    offlineDropoff: false,              // Director open call: false = a landing while away is held and paid in full when the player is back; true = paid while away at offline.rate
   },
   startMoney: 500, startCrystals: 0,   // startMoney: replaced by CFG.econ.startMoney just below CFG (Step 2); showCrystals: false,   // Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
   oreValue: 1,                          // $ per ore
@@ -1538,7 +1540,9 @@ function cgComplete(c, t, acc) {
   else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
     c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; cgEv('landed', t);
     if (s.cargo > 0) {                   // saves from before Step 2 that were already away carry no cargo: they were paid at the climb
-      const v = cargoValue(s.cargo, s.pur), amt = acc && !acc.full ? v * CFG.offlineRate : v; S.money += amt; c.sold += s.cargo; c.earned += amt;
+      const v = cargoValue(s.cargo, s.pur), away = acc && !acc.full;
+      if (away && !CFG.econ.offlineDropoff) { c.pendPay = (c.pendPay || 0) + v; c.sold += s.cargo; cgEv('landed_held', t, { boxes: s.cargo, v, pur: s.pur }); return; }   // held: paid in full on the next live settle
+      const amt = away ? v * CFG.offlineRate : v; S.money += amt; c.sold += s.cargo; c.earned += amt;
       cgEv('sold', t, { boxes: s.cargo, amt, pur: s.pur }); logU('truck', `Cargo delivered! +${fmt(amt)}`);
       if (acc) acc.cargo = (acc.cargo || 0) + amt; else { cargoPop(amt); eveDelivered(amt); }
     }
@@ -1546,6 +1550,7 @@ function cgComplete(c, t, acc) {
 }
 function cgSettle(T, acc) {
   const c = S.cg; if (!FB.kOut) return;
+  if (!acc && c.pendPay > 0) { const amt = c.pendPay; c.pendPay = 0; S.money += amt; c.earned += amt; cgEv('sold', c.t, { amt, held: true }); logU('truck', `Cargo delivered! +${fmt(amt)}`); cargoPop(amt); eveDelivered(amt); }   // landing that happened while away (offlineDropoff off): paid now, once
   for (let g = 0; g < 200000; g++) {
     cgDecide(c, c.t, acc);
     const nx = cgNext(c); if (!(nx <= T)) break;
