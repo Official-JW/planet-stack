@@ -24,7 +24,7 @@ const CFG = {
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
     specialistTripCost: 0,              // Locked: specialist trip costs OFF for now
   },
-  startMoney: 500, startCrystals: 0, showCrystals: false,   // Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
+  startMoney: 500, startCrystals: 0,   // startMoney: replaced by CFG.econ.startMoney just below CFG (Step 2); showCrystals: false,   // Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
   oreValue: 1,                          // $ per ore
   drillRate0: 6, drillRatePerLvl: 3,    // ore/min at Lv1, + per level
   drillCost0: 15, drillCostGrowth: 1.65,// Lv1→2 costs $15, then ×1.65 per level
@@ -50,6 +50,7 @@ const CFG = {
   // Eve stays text-only (no TTS). Optional recorded line audio: { beatId: ['file_for_line_0.mp3', null, …] } under audio/eve/; plays only if listed here.
   eveVoice: { dir: 'audio/eve/', lines: {} },
 };
+CFG.startMoney = CFG.econ.startMoney;   // Step 2: new games start with $5,000 (saves keep their own money: the load overwrites S.money)
 CFG.offlineRate = CFG.econ.offline.rate; CFG.offlineCapSec = CFG.econ.offline.capSec;   // same 0.5 / 4 h as before, now read from the econ block
 // Earth drop-off value for a ship's cargo at purity p (0–1): linear from $50k at base purity (40%) to $150k at max purity (100%), clamped, whole dollars
 function dropoffValue(purity) {
@@ -1530,13 +1531,18 @@ function cgComplete(c, t, acc) {
   }
   const s = c.sh;
   if (s.st === 'board' && s.t0 + BOARD_SEC * 1000 <= t) { c.sh = Object.assign({}, s, { st: 'launch', t0: s.t0 + BOARD_SEC * 1000 }); cgEv('launch', s.t0 + BOARD_SEC * 1000, { hold: s.hold, partial: s.hold < CG.holdCap, board: BOARD_SEC }); }   // crew inside: lift-off
-  else if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold sells
-    const v = s.hold * CG.boxValue, amt = acc && !acc.full ? v * CFG.offlineRate : v; S.money += amt; c.sold += s.hold; c.earned += amt; c.launches++;
-    cgEv('sold', t, { boxes: s.hold, amt }); logU('truck', `Cargo ship sold ${s.hold} He-3 boxes, +${fmt(amt)}`);
-    if (acc) acc.cargo = (acc.cargo || 0) + amt; else cargoPop(amt);
-    c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0 };
-  } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0 }; cgEv('landing', t); }
-  else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) { c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; cgEv('landed', t); }   // refuelling starts on touchdown
+  else if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
+    c.launches++; cgEv('departed', t, { boxes: s.hold });
+    c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, pur: cargoPurity() };
+  } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, pur: s.pur }; cgEv('landing', t); }
+  else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
+    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; cgEv('landed', t);
+    if (s.cargo > 0) {                   // saves from before Step 2 that were already away carry no cargo: they were paid at the climb
+      const v = cargoValue(s.cargo, s.pur), amt = acc && !acc.full ? v * CFG.offlineRate : v; S.money += amt; c.sold += s.cargo; c.earned += amt;
+      cgEv('sold', t, { boxes: s.cargo, amt, pur: s.pur }); logU('truck', `Cargo delivered! +${fmt(amt)}`);
+      if (acc) acc.cargo = (acc.cargo || 0) + amt; else { cargoPop(amt); eveDelivered(amt); }
+    }
+  }   // refuelling starts on touchdown
 }
 function cgSettle(T, acc) {
   const c = S.cg; if (!FB.kOut) return;
@@ -1579,6 +1585,9 @@ function astroPhase(c, t) {
   if (c.pc.k === 'unload') { const u = (t - c.pc.t0) / (CG.padUnloadSec * 1000); return u >= 1 - CG.checkSec / CG.padUnloadSec ? 'check_in' : 'guide'; }
   return 'guide';
 }
+// Earth drop-off (Phase 1 Step 2): dropoffValue(purity) is a full hold's pay; a partial launch pays its share (boxes / holdCap)
+function cargoPurity() { return CFG.econ.purity.base; }   // PLACEHOLDER until the Refinery lane (ca-econ-refinery) tracks purity levels
+function cargoValue(boxes, pur = cargoPurity()) { return Math.round(dropoffValue(pur) * boxes / CG.holdCap); }
 function cargoPop(amt) {
   if (S.site === PADI && Math.abs(camX - PX) < 3 && !document.hidden && cg3.ship) { const sp = toScreen(cg3.ship.position.x, cg3.ship.position.y + 6, cg3.ship.position.z); pop('+' + fmt(amt), sp.x, sp.y, 'bonus big'); bumpMoney(); }
   else smallPop(amt);
@@ -2128,7 +2137,7 @@ const _sp = {};
 function cargoUI() {                  // Launch button (bottom-right of the safe band, Launch Pad only) and the Storage full chip (over the Refinery pallet)
   const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen && !document.body.classList.contains('sheet-drag'), bd = band();
   const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && canLaunch(t);
-  if (onPad) { const v = c.sh.hold * CG.boxValue; launchEl.querySelector('small').textContent = `${c.sh.hold}/${CG.holdCap} BOXES · +${fmt(v)}`;
+  if (onPad) { const v = cargoValue(c.sh.hold); launchEl.querySelector('small').textContent = `${c.sh.hold}/${CG.holdCap} BOXES · +${fmt(v)}`;
     launchEl.style.top = Math.round(bd.bot - launchEl.offsetHeight) + 'px'; }
   launchEl.classList.toggle('on', onPad);
   const full = live && S.site === REF && Math.abs(camX - RX) < 3 && c.ref.length >= CG.palletCap;
@@ -2390,10 +2399,15 @@ function ecRing(b) {
   ecResetUI(); EC.ring = b; void ecToast.offsetWidth; ecToast.classList.add('is-in'); hudDim(true); ecBubble.classList.add('is-ringing');
   if (b.tut) { ecToast.dataset.tutorial = ''; ecBubble.dataset.tutorial = ''; return; }     // tutorial: no timeout, pulses until opened
   delete ecToast.dataset.tutorial; delete ecBubble.dataset.tutorial;
-  S.eve.push(b.id); save();                                                                   // story beat: rings once, never repeats
+  if (!b.rep) { S.eve.push(b.id); save(); }                                                   // story beat: rings once, never repeats (rep: delivery calls ring every time)
   EC.toastT = setTimeout(() => { if (EC.ring !== b) return; ecToast.classList.replace('is-in', 'is-out'); setTimeout(() => hudDim(false), ECM.closeSlide); ecBubble.classList.remove('is-ringing');
-    EC.ring = null; setMissed(S.missed + 1); addCall(b.id, true); save(); }, ECM.toastTimeout);
+    EC.ring = null; if (!b.rep) { setMissed(S.missed + 1); addCall(b.id, true); save(); } }, ECM.toastTimeout);
   window.__ps3d.eveShown = (window.__ps3d.eveShown || []).concat(b.id);
+}
+// Eve on each live drop-off (Phase 1 Step 2): "Cargo delivered! +$X" rings like a story call (8 s, no missed-call badge); if Eve is busy the line stays in Updates only
+function eveDelivered(amt) {
+  if (EC.ring || EC.call || ecIsOpen()) return;
+  ecRing({ id: 'cargo_delivered', tut: false, rep: true, point: null, lines: [`Cargo delivered! +${fmt(amt)}`] });
 }
 function ecAnswer(b = EC.ring) {
   if (!b) return; clearTimeout(EC.toastT); EC.ring = null; EC.call = b; EC.lines = b.lines; EC.li = 0;
