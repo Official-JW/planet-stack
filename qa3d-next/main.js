@@ -85,7 +85,7 @@ let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
 const nowMs = () => (HOLD !== null ? HOLD : rawMs());
-const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 2, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29)
+const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, fuelLv: 1, purLv: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 2, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29)
 let hadRt = false;
 try { let sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; hadRt = sv.rt > 0;
   migrateSave(sv, hadRt); Object.assign(S, sv); } catch (e) {}
@@ -136,9 +136,24 @@ const ease = (t) => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 
 // ===== economy helpers
 const rate = () => CFG.drillRate0 + CFG.drillRatePerLvl * (S.drill - 1);           // ore/min
-const drillCost = () => Math.round(CFG.drillCost0 * CFG.drillCostGrowth ** (S.drill - 1));
+const drillCost = () => econCost(CFG.econ.drill, S.drill);   // Phase 1: CFG.econ.drill cost0 / costGrowth (was CFG.drillCost0 / drillCostGrowth)
 const fillSec = (lv = S.chute) => Math.max(CFG.fillFloor, CFG.fill0 * CFG.chuteMul ** (lv - 1));   // Lv2 96 s, Lv5 49 s, Lv10 16.1 s, Lv11 15 s (floor)
-const chuteCost = () => Math.round(CFG.chuteCost0 * CFG.chuteCostGrowth ** (S.chute - 1));
+const chuteCost = () => econCost(CFG.econ.chute, S.chute);   // Phase 1: CFG.econ.chute cost0 / costGrowth (was CFG.chuteCost0 / chuteCostGrowth)
+// ===== Refinery upgrades (Phase 1 steps 4-5): one building, two outputs (He-3 crates + ship fuel). Every number comes from CFG.econ (Coder's block).
+// cost(lv) = round(cost0 · costGrowth^(lv−1)) is the price of the next level when you are at lv (same rule as drill / chute)
+function econCost(tr, lv) { return Math.round(tr.cost0 * tr.costGrowth ** (lv - 1)); }
+// Fuel: free (CFG.econ.fuel.price), refuel at the Launch Pad from refuelSec at Lv1 down to refuelMinSec at Lv `levels`, linear per level, clamped
+function refuelSec(lv = S.fuelLv) { const F = CFG.econ.fuel, n = F.levels, l = clamp(Math.round(lv) || 1, 1, n);
+  return n > 1 ? F.refuelSec + (F.refuelMinSec - F.refuelSec) * (l - 1) / (n - 1) : F.refuelSec; }
+const refuelMs = () => refuelSec() * 1000;                          // the cargo sim, gauge and canLaunch all read this (was CFG.cargo.fuelFillSec)
+const fuelMaxLv = () => CFG.econ.fuel.levels;
+const fuelCost = () => econCost(CFG.econ.fuel, S.fuelLv);          // fuel UPGRADE price (the fuel itself costs CFG.econ.fuel.price)
+const fuelPrice = () => CFG.econ.fuel.price;
+// Purity: purity(lv) = min(max, base + step·(lv−1)); max level = round((max − base) / step) + 1
+const purityMaxLv = () => { const P = CFG.econ.purity; return Math.round((P.max - P.base) / P.step) + 1; };
+const purityAt = (lv) => { const P = CFG.econ.purity; return Math.min(P.max, P.base + P.step * (lv - 1)); };
+const refineryPurity = () => purityAt(clamp(S.purLv, 1, purityMaxLv()));   // drop-off lane: dropoffValue(refineryPurity())
+const purityCost = () => econCost(CFG.econ.purity, S.purLv);
 // ORE/MIN (Director 20:58): real throughput over the full cycle = ore per load / (fill + trip incl. reverse/dump/settle) — ≈4 at Lv1; drill and chute upgrades move it
 const oreMin = (dl = S.drill, cl = S.chute) => (loadValue(dl) / CFG.oreValue) * 60 / (fillSec(cl) + (R.tl ? R.tl.trip : 60));
 const loadValue = (lv = S.drill) => CFG.load0 + CFG.loadPerLvl * (lv - 1);   // Director 10/23: fixed per load, scales with drill level only
@@ -1459,7 +1474,7 @@ function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (
 // ref = boxes on the Refinery pallet (sealing or sealed: their ready times), full = dumps that made no box because the pallet was full,
 // sh.req = Launch button tap time (partial launch; 0 = none)
 function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
-  sh: { st: 'pad', t0: t, hold: 0, f0: t - CG.fuelFillSec * 1000, req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
+  sh: { st: 'pad', t0: t, hold: 0, f0: t - refuelMs(), req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
 if (DOCKFILL) { S.cg.dk = CPH.dock.cap; cgEv('qa_dockfill', S.cg.t, { stored: S.cg.dk }); }   // ?dockfill: Dock full on every load (20/20, amber label)
@@ -1503,24 +1518,24 @@ function cgDecide(c, t, acc) {      // acc = away catch-up (Director 23:00): the
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (acc && s.st === 'pad' && s.hold >= CG.holdCap && !s.man) { s.man = 1; ch = true; cgEv('full_wait_manual', t, { hold: s.hold }); }   // came full while away: stays on the pad until tapped (also after the return)
-    if (s.st === 'pad' && c.pc.k !== 'hold' && t >= s.f0 + CG.fuelFillSec * 1000 && ((s.hold >= CG.holdCap && !acc && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live only), or the Launch button (partial or a full ship that waited)
+    if (s.st === 'pad' && c.pc.k !== 'hold' && t >= s.f0 + refuelMs() && ((s.hold >= CG.holdCap && !acc && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live only), or the Launch button (partial or a full ship that waited)
       c.sh = Object.assign({}, s, { st: BOARD_SEC ? 'board' : 'launch', t0: t, req: 0, man: 0 }); ch = true; cgEv(BOARD_SEC ? 'board' : 'launch', t, { hold: s.hold, partial: s.hold < CG.holdCap }); }   // the crew boards first (BOARD_SEC), then the launch
     else if (s.st === 'pad' && s.req && t >= s.req && s.hold < 1) { s.req = 0; ch = true; }
     if (!ch) break;
   }
 }
-const shipReady = (c, t) => c.sh.st === 'pad' && t >= c.sh.f0 + CG.fuelFillSec * 1000;   // on the pad and fuelled (else away / refuelling)
+const shipReady = (c, t) => c.sh.st === 'pad' && t >= c.sh.f0 + refuelMs();   // on the pad and fuelled (else away / refuelling)
 const dockSec = (f) => f.dk === 'load' ? CPH.dock.loadSec : CPH.dock.storeSec;
 function cgNext(c) {
   let n = Infinity; const T = (x) => { if (x < n) n = x; }, s = c.sh;
   if (c.rc) T(c.rc + CG.refLoadSec * 1000); else if (c.fb.st === 'load' && c.fb.bed < CG.perTrip && c.ref.length && c.ref[0] > c.t) T(c.ref[0]);
   if (c.fb.st === 'out') T(c.fb.t0 + (c.fb.dk ? FB.kD1.T : FB.kOut.T) * 1000); else if (c.fb.st === 'back') T(c.fb.t0 + FB.kBack.T * 1000);
   else if (c.fb.st === 'dock') T(c.fb.t0 + dockSec(c.fb) * 1000); else if (c.fb.st === 'out2') T(c.fb.t0 + FB.kD2.T * 1000);
-  else if (c.fb.st === 'load' && !c.fb.bed && c.dk >= CG.perTrip && s.st === 'pad' && s.f0 + CG.fuelFillSec * 1000 > c.t) T(s.f0 + CG.fuelFillSec * 1000);   // ship fuelled: the empty flatbed may leave for the Dock
+  else if (c.fb.st === 'load' && !c.fb.bed && c.dk >= CG.perTrip && s.st === 'pad' && s.f0 + refuelMs() > c.t) T(s.f0 + refuelMs());   // ship fuelled: the empty flatbed may leave for the Dock
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
   if (c.pc.k) T(c.pc.t0 + (c.pc.k === 'unload' ? CG.padUnloadSec : CG.holdLoadSec) * 1000);
   if (s.st === 'board') T(s.t0 + BOARD_SEC * 1000); else if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
-  else { if (s.hold >= CG.holdCap && c.pc.k !== 'hold' && s.f0 + CG.fuelFillSec * 1000 > c.t) T(s.f0 + CG.fuelFillSec * 1000); if (s.req > c.t) T(s.req); }
+  else { if (s.hold >= CG.holdCap && c.pc.k !== 'hold' && s.f0 + refuelMs() > c.t) T(s.f0 + refuelMs()); if (s.req > c.t) T(s.req); }
   return n;
 }
 function cgComplete(c, t, acc) {
@@ -1583,7 +1598,7 @@ function stampGuard(now = nowMs()) {
   cgEv('stamp_guard', now, { gap: Math.round(g) }); (window.__ps3d = window.__ps3d || {}).stampGuard = { at: now, gap: Math.round(g) };
   return g;
 }
-const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? clamp((t - s.f0) / (CG.fuelFillSec * 1000), 0, 1) : s.st === 'launch' ? 1 : 0; };   // PLACEHOLDER fuel: fills over fuelFillSec from touchdown
+const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? clamp((t - s.f0) / refuelMs(), 0, 1) : s.st === 'launch' ? 1 : 0; };   // fuel fills over refuelSec(S.fuelLv) from touchdown (Refinery fuel output; free)
 const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
 const canLaunch = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };
 function cgLaunch() {                 // Launch button: stored as a timestamp in S.cg (sh.req); the sim launches at it (after a lift into the hold finishes)
@@ -2306,10 +2321,45 @@ const endSheet = (e) => {
 grab.addEventListener('pointerup', endSheet); grab.addEventListener('pointercancel', endSheet);
 sheet.addEventListener('pointerdown', (e) => e.stopPropagation());
 const bDrill = $('bDrill'), bRover = $('bRover'), bChute = $('bChute');
+// Refinery rows (Fuel + Purity): cloned from the Chute row so the style matches; at the Refinery the sheet shows these instead of Drill / Chute
+// (same sheet height, so the safe-area / peek layout is unchanged)
+function refRow(name, id, tint) {
+  const r = bChute.closest('.row').cloneNode(true), ch = r.querySelector('.chip i');
+  r.querySelector('.hl').textContent = name; r.querySelector('.lv').id = id + 'Lvl'; r.querySelector('.meter').id = id + 'Meter'; r.querySelector('.meter').innerHTML = '';
+  r.querySelector('small').id = id + 'Gain'; r.querySelector('button').id = 'b' + id; r.style.display = 'none'; if (tint) ch.style.background = tint;
+  bRover.closest('.row').before(r); return r;
+}
+const rowDrill = bDrill.closest('.row'), rowChute = bChute.closest('.row');
+const rowFuel = refRow('Fuel Refill', 'Fu', '#ffb340'), rowPur = refRow('He-3 Purity', 'Pu', ''), bFuel = $('bFu'), bPur = $('bPu');
+const RS = { mode: -1, k: -1 };                                     // sheet rows: last mode (0 Mine rows, 1 Refinery rows) and Refinery text key
+const fmtMin = (sec) => Math.round(sec / 6) / 10 + ' min';           // 1800 → '30 min', 450 → '7.5 min'
+const pct = (p) => Math.round(p * 100) + '%';
+function refSheetUI() {                                             // only rebuilds text when a level, price or affordability changes (no per-tick strings)
+  const fl = S.fuelLv, fmax = fl >= fuelMaxLv(), fc = fuelCost(), fok = !fmax && canPay(fc);
+  const pl = S.purLv, pmax = pl >= purityMaxLv(), pc = purityCost(), pok = !pmax && canPay(pc);
+  const k = ((fl * 2 + (fok ? 1 : 0)) * 1024 + pl) * 2 + (pok ? 1 : 0);
+  if (k !== RS.k) { RS.k = k;
+    const fp = fuelPrice(), fs = fp > 0 ? fmt(fp) + '/refuel' : 'fuel free';
+    $('FuLvl').textContent = 'LV ' + fl; meter('FuMeter', fuelMaxLv(), Math.min(fl, fuelMaxLv()));
+    $('FuGain').textContent = fmax ? `Refuel ${fmtMin(refuelSec())} · Max · ${fs}` : `Refuel ${fmtMin(refuelSec())} → ${fmtMin(refuelSec(fl + 1))} · ${fs}`;
+    if (fmax) { bFuel.textContent = 'Max'; bFuel.className = 'max'; } else { bFuel.textContent = fok ? fmt(fc) : 'Need ' + fmt(fc); bFuel.className = fok ? '' : 'need'; }
+    bFuel.parentNode.classList.toggle('ok', fok);
+    $('PuLvl').textContent = 'LV ' + pl; meter('PuMeter', 10, pmax ? 10 : (pl - 1) % 10 + 1);
+    const p = refineryPurity(), dv = 'drop-off ' + fmt(dropoffValue(p));
+    $('PuGain').textContent = pmax ? `${pct(p)} · Max · ${dv}` : `${pct(p)} → ${pct(purityAt(pl + 1))} · ${dv}`;
+    if (pmax) { bPur.textContent = 'Max'; bPur.className = 'max'; } else { bPur.textContent = pok ? fmt(pc) : 'Need ' + fmt(pc); bPur.className = pok ? '' : 'need'; }
+    bPur.parentNode.classList.toggle('ok', pok);
+    if (RS.mode === 1) $('sum').textContent = `Fuel Lv ${fl} · Purity Lv ${pl}`;
+  }
+  return fok || pok;
+}
 const meterKeys = {};
 function meter(id, n, on) { const k = n + ':' + on; if (meterKeys[id] === k) return; meterKeys[id] = k; const el = $(id);
   if (el.children.length !== n) el.innerHTML = '<i></i>'.repeat(n); [...el.children].forEach((x, i) => x.classList.toggle('on', i < on)); }
 function sheetUI() {
+  const m = S.site === REF ? 1 : 0;
+  if (m !== RS.mode) { RS.mode = m; RS.k = -1; rowDrill.style.display = rowChute.style.display = m ? 'none' : ''; rowFuel.style.display = rowPur.style.display = m ? '' : 'none'; }
+  if (m) { $('canDot').hidden = !refSheetUI(); return; }
   const c = drillCost(), ok = canPay(c);
   $('dLvl').textContent = 'LV ' + S.drill; meter('dMeter', 10, S.drill >= 50 ? 10 : (S.drill - 1) % 10 + 1);   // segments = progress through the current 10-level tier
   $('dGain').textContent = `${fmt(loadValue())} per load → ${fmt(loadValue(S.drill + 1))}`;
@@ -2351,6 +2401,24 @@ bindBuy(bChute, () => {
   logU('upgrade', `Chute Feed Rate Lv ${S.chute}: fills in ${Math.round(fillSec())} s`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 });
+bindBuy(bFuel, () => {
+  const c = fuelCost(); if (S.fuelLv >= fuelMaxLv() || !canPay(c)) return;
+  const t = nowMs(); settleTo(t, null); const s = S.cg.sh, f = s.st === 'pad' ? fuelAt(t) : 1;
+  pay(c); S.fuelLv++;
+  if (f < 1) s.f0 = t - f * refuelMs();                               // mid-refuel: rebase so the gauge never jumps; the faster rate applies from now
+  save(); sheetUI(); hud();
+  const r = bFuel.getBoundingClientRect(); pop('Fuel Lv ' + S.fuelLv, r.left + r.width / 2, r.top - 8, 'info');
+  logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())}`);
+  window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
+});
+bindBuy(bPur, () => {
+  const c = purityCost(); if (S.purLv >= purityMaxLv() || !canPay(c)) return;
+  pay(c); S.purLv++; save(); sheetUI(); hud();
+  const r = bPur.getBoundingClientRect(); pop('Purity ' + pct(refineryPurity()), r.left + r.width / 2, r.top - 8, 'info');
+  logU('upgrade', `He-3 Purity Lv ${S.purLv}: ${pct(refineryPurity())}, drop-off ${fmt(dropoffValue(refineryPurity()))}`);
+  window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
+});
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue });   // QA hooks (Refinery lane)
 const TRUCK_SALE = false;   // extra trucks come later: the button is hidden and a stray click can't buy
 bindBuy(bRover, () => { if (!TRUCK_SALE) return; });
 
