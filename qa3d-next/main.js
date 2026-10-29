@@ -25,16 +25,17 @@ const CFG = {
     specialistTripCost: 0,              // Locked: specialist trip costs OFF for now
     oldSaveTopUp: false,                // Director open call: false = old saves keep their money; true = top them up to startMoney on load (save lane reads this)
     offlineDropoff: false,              // Director open call: false = a landing while away is held and paid in full when the player is back; true = paid while away at offline.rate
+    offlineFormula: false,              // false = the catch-up replay is the only source of offline drop-off money; true = also credit offlineEarn() (formula estimate; double-pays with the replay)
+    payAt: 'touchdown',                 // Director open call: 'touchdown' = credited at the Moon touchdown; 'earth' = credited mid-trip (away phase half-way, ship at Earth)
+    eveDeliveredCall: true,             // Director open call: true = Eve rings 'Cargo delivered! +$X' (HUD dims); false = money pop-up + Updates line only
   },
-  startMoney: 500, startCrystals: 0,   // startMoney: replaced by CFG.econ.startMoney just below CFG (Step 2); showCrystals: false,   // Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
+  startMoney: 500, startCrystals: 0, showCrystals: false,   // startMoney: replaced by CFG.econ.startMoney just below CFG (Step 2). Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
   oreValue: 1,                          // $ per ore
   drillRate0: 6, drillRatePerLvl: 3,    // ore/min at Lv1, + per level
-  drillCost0: 15, drillCostGrowth: 1.65,// Lv1→2 costs $15, then ×1.65 per level
   drillScalePerLvl: 0.08, drillScaleStop: 6,
   // HT-04 truck loop (Director 10/23): park under the chute, fill, auto-depart when full, 12 s haul leg, tip at the Refinery, 12 s back
   fill0: 120, chuteMul: 0.80, fillFloor: 15, chuteMax: 11,   // fill s at Lv1; Chute Feed Rate ×0.80/level (Director 20:58 B8); 15 s floor (reached at Lv11 = max)
-  chuteCost0: 10, chuteCostGrowth: 1.5,                      // Director 20:58 B8: $10, ×1.5 per level
-  load0: 12, loadPerLvl: 6,             // base load value: fixed $ per load ($12 at drill Lv1, +$6 per drill level); independent of the fill time, so Chute Feed Rate = more loads/h at the same value
+  load0: 12, loadPerLvl: 6,             // ore per load (12 at drill Lv1, +6 per drill level; × oreValue for the ore/min readout). Phase 1: loads pay $0 (CFG.econ.truckLoadPay)
   richFill: 0.25, richBonus: 8, richPayDelay: 1.0,            // deposit tap: +25% bed (tweened over the 1 s truck_load_rich), bonus pays ~1 s later
   roverBonus: 8, roverMax: 2, roverCost: 60,
   crew0: 4,                             // starting crew; the Mine operator (Operator_Deck) is one of them
@@ -43,9 +44,9 @@ const CFG = {
   saveEvery: 3,
   hallDoor: { clip: 'hall_door_open', openSec: 1.2 },   // Director 20:58: open once and stay open; longer clips (8c9cee7 3.6 s loop) use 0–openSec
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
-  // Director 20:34: boxValue 36 (full hold $360), fuel 180 s, away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
+  // Director 20:34: boxValue 36 (full hold $360), fuel → refuelSec() (CFG.econ.fuel, Refinery lane), away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
   cargo: { sealSec: 4, perTrip: 2, refLoadSec: 6, padUnloadSec: 6, checkSec: 2, walkOutSec: 4.0, walkBackSec: 4.4, holdLoadSec: 5, bayCap: 12, holdCap: 10, palletCap: 8,
-           fuelFillSec: 180, launchSec: 8, awaySec: 600, landSec: 8, boxValue: 36 },
+           launchSec: 8, awaySec: 600, landSec: 8, boxValue: 36 },
   // music (Director 20:35): Every Day Stuff sources CC0 tracks, Jacob picks; list file names found in qa3d/audio/music/ here. Empty = silent.
   music: { dir: 'audio/music/', tracks: ['outer_space_loop.mp3', 'space_flight.mp3', 'devonair.mp3', 'freame.mp3'],   // rotates; outer_space_loop = main track (Jacob 20:56)
            vol: 0.28, duckTo: 0.35, dwellSec: 150, xfadeSec: 4 },
@@ -1475,7 +1476,9 @@ function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (
 // sh.req = Launch button tap time (partial launch; 0 = none)
 function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
   sh: { st: 'pad', t0: t, hold: 0, f0: t - refuelMs(), req: 0 } }; }   // Director 10:46: a new game starts with the ship fully fuelled
+for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
+if (!(S.cg.pendPay >= 0)) S.cg.pendPay = 0; if (!S.cg.pay || typeof S.cg.pay !== 'object') S.cg.pay = null;   // econ: held drop-off $ (offlineDropoff off) + last shown payout
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
 if (DOCKFILL) { S.cg.dk = CPH.dock.cap; cgEv('qa_dockfill', S.cg.t, { stored: S.cg.dk }); }   // ?dockfill: Dock full on every load (20/20, amber label)
 stampGuard();                         // future-stamped save: bring every stamp back to now (see stampGuard)
@@ -1498,7 +1501,7 @@ function buildCargoRoute() {
 // ---- event simulation (exactly once). Activities start at an event time; their end is the next event. Box counts move at the start of a
 // lift (off the stack / bed / bay) and land at its end (bed / bay / hold), so one crane never double-counts a box.
 function cgMake(tDump) {           // called at the dump time, after the cargo sim has been settled up to it (so the pallet count is exact)
-  const c = S.cg; if (c.ref.length >= CG.palletCap) { c.full++; cgEv('dump_pallet_full', tDump, { full: c.full }); return; }   // truck still pays; no box
+  const c = S.cg; if (c.ref.length >= CG.palletCap) { c.full++; cgEv('dump_pallet_full', tDump, { full: c.full }); return; }   // pallet full: this load makes no box (Phase 1: truck loads pay $0)
   const r = tDump + CG.sealSec * 1000;
   if (BRC.on) { brAdv(c, tDump); const T = BRC.ride * 1000 / BRC.k; while (c.brQ.length && c.brQ[0][0] + T <= tDump) c.brAr = c.brQ.shift()[2]; c.brS.push(r); }   // display only: queue the crate for a trip
   c.ref.push(r); c.made++; cgEv('box_made', tDump);
@@ -1534,7 +1537,7 @@ function cgNext(c) {
   else if (c.fb.st === 'load' && !c.fb.bed && c.dk >= CG.perTrip && s.st === 'pad' && s.f0 + refuelMs() > c.t) T(s.f0 + refuelMs());   // ship fuelled: the empty flatbed may leave for the Dock
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
   if (c.pc.k) T(c.pc.t0 + (c.pc.k === 'unload' ? CG.padUnloadSec : CG.holdLoadSec) * 1000);
-  if (s.st === 'board') T(s.t0 + BOARD_SEC * 1000); else if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
+  if (s.st === 'board') T(s.t0 + BOARD_SEC * 1000); else if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + CG.awaySec * 500 : s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
   else { if (s.hold >= CG.holdCap && c.pc.k !== 'hold' && s.f0 + refuelMs() > c.t) T(s.f0 + refuelMs()); if (s.req > c.t) T(s.req); }
   return n;
 }
@@ -1558,21 +1561,31 @@ function cgComplete(c, t, acc) {
   else if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
     c.launches++; cgEv('departed', t, { boxes: s.hold });
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, pur: cargoPurity() };
+  } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + CG.awaySec * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
+    c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
   } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, pur: s.pur }; cgEv('landing', t); }
   else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
-    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; cgEv('landed', t);
-    if (s.cargo > 0) {                   // saves from before Step 2 that were already away carry no cargo: they were paid at the climb
-      const v = cargoValue(s.cargo, s.pur), away = acc && !acc.full;
-      if (away && !CFG.econ.offlineDropoff) { c.pendPay = (c.pendPay || 0) + v; c.sold += s.cargo; cgEv('landed_held', t, { boxes: s.cargo, v, pur: s.pur }); return; }   // held: paid in full on the next live settle
-      const amt = away ? v * CFG.offlineRate : v; S.money += amt; c.sold += s.cargo; c.earned += amt;
-      cgEv('sold', t, { boxes: s.cargo, amt, pur: s.pur }); logU('truck', `Cargo delivered! +${fmt(amt)}`);
-      if (acc) acc.cargo = (acc.cargo || 0) + amt; else { cargoPop(amt); eveDelivered(amt); }
-    }
-  }   // refuelling starts on touchdown
+    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; cgEv('landed', t);   // refuelling starts on touchdown
+    if (s.cargo > 0) cgDeliver(c, s.cargo, s.pur, t, acc);   // saves from before Step 2 that were already away carry no cargo (paid at the climb); payAt 'earth' already zeroed it
+  }
+}
+const payEarth = () => CFG.econ.payAt === 'earth';
+// one drop-off credit (either payAt): held for the next live settle while away (offlineDropoff off), 50% while away (on), full live.
+// Live payouts are recorded in c.pay {at, amt, shown} and saved at once, so a reload can never replay a drop-off that already paid and showed.
+function cgDeliver(c, boxes, pur, t, acc) {
+  const v = cargoValue(boxes, pur), away = acc && !acc.full;
+  if (away && !CFG.econ.offlineDropoff) { c.pendPay = (c.pendPay || 0) + v; c.sold += boxes; cgEv('landed_held', t, { boxes, v, pur }); return; }   // held: paid in full on the next live settle
+  const amt = away ? v * CFG.offlineRate : v; S.money += amt; c.sold += boxes; c.earned += amt;
+  cgEv('sold', t, { boxes, amt, pur }); logU('truck', `Cargo delivered! +${fmt(amt)}`);
+  if (acc) acc.cargo = (acc.cargo || 0) + amt; else cgShowPay(c, t, amt);
+}
+function cgShowPay(c, t, amt) {        // pop-up + Eve exactly once per payout, then save immediately (the 3 s autosave could otherwise miss it)
+  if (c.pay && c.pay.at === t && c.pay.shown) return;
+  c.pay = { at: t, amt, shown: true }; cargoPop(amt); eveDelivered(amt); save();
 }
 function cgSettle(T, acc) {
   const c = S.cg; if (!FB.kOut) return;
-  if (!acc && c.pendPay > 0) { const amt = c.pendPay; c.pendPay = 0; S.money += amt; c.earned += amt; cgEv('sold', c.t, { amt, held: true }); logU('truck', `Cargo delivered! +${fmt(amt)}`); cargoPop(amt); eveDelivered(amt); }   // landing that happened while away (offlineDropoff off): paid now, once
+  if (!acc && c.pendPay > 0) { const amt = c.pendPay; c.pendPay = 0; S.money += amt; c.earned += amt; cgEv('sold', c.t, { amt, held: true }); logU('truck', `Cargo delivered! +${fmt(amt)}`); cgShowPay(c, c.t, amt); }   // landing that happened while away (offlineDropoff off): paid now, once
   for (let g = 0; g < 200000; g++) {
     cgDecide(c, c.t, acc);
     const nx = cgNext(c); if (!(nx <= T)) break;
@@ -1613,7 +1626,7 @@ function astroPhase(c, t) {
   return 'guide';
 }
 // Earth drop-off (Phase 1 Step 2): dropoffValue(purity) is a full hold's pay; a partial launch pays its share (boxes / holdCap)
-function cargoPurity() { return CFG.econ.purity.base; }   // PLACEHOLDER until the Refinery lane (ca-econ-refinery) tracks purity levels
+function cargoPurity() { return refineryPurity(); }   // the one purity source (Refinery lane: S.purLv → purityAt); frozen into the cargo at launch
 function cargoValue(boxes, pur = cargoPurity()) { return boxes > 0 ? dropoffValue(pur) : 0; }   // EM 10/29: one flat value per drop-off (not prorated by boxes), pending Director; an empty hold pays nothing
 function cargoPop(amt) {
   if (S.site === PADI && Math.abs(camX - PX) < 3 && !document.hidden && cg3.ship) { const sp = toScreen(cg3.ship.position.x, cg3.ship.position.y + 6, cg3.ship.position.z); pop('+' + fmt(amt), sp.x, sp.y, 'bonus big'); bumpMoney(); }
@@ -2362,7 +2375,7 @@ function sheetUI() {
   if (m) { $('canDot').hidden = !refSheetUI(); return; }
   const c = drillCost(), ok = canPay(c);
   $('dLvl').textContent = 'LV ' + S.drill; meter('dMeter', 10, S.drill >= 50 ? 10 : (S.drill - 1) % 10 + 1);   // segments = progress through the current 10-level tier
-  $('dGain').textContent = `${fmt(loadValue())} per load → ${fmt(loadValue(S.drill + 1))}`;
+  $('dGain').textContent = `${Math.round(loadValue() / CFG.oreValue)} ore per load → ${Math.round(loadValue(S.drill + 1) / CFG.oreValue)}`;   // Phase 1: loads pay $0, so ore, not $
   bDrill.textContent = ok ? fmt(c) : 'Need ' + fmt(c); bDrill.className = ok ? '' : 'need'; bDrill.parentNode.classList.toggle('ok', ok);
   const cc = chuteCost(), cmax = S.chute >= CFG.chuteMax, cok = !cmax && canPay(cc);
   $('chLvl').textContent = 'LV ' + S.chute; meter('chMeter', 10, cmax ? 10 : (S.chute - 1) % 10 + 1);
@@ -2486,7 +2499,7 @@ function ecRing(b) {
 }
 // Eve on each live drop-off (Phase 1 Step 2): "Cargo delivered! +$X" rings like a story call (8 s, no missed-call badge); if Eve is busy the line stays in Updates only
 function eveDelivered(amt) {
-  if (EC.ring || EC.call || ecIsOpen()) return;
+  if (!CFG.econ.eveDeliveredCall || EC.ring || EC.call || ecIsOpen()) return;   // switch off: light toast only (cargoPop + Updates line)
   ecRing({ id: 'cargo_delivered', tut: false, rep: true, point: null, lines: [`Cargo delivered! +${fmt(amt)}`] });
 }
 function ecAnswer(b = EC.ring) {
@@ -2629,9 +2642,9 @@ awayEl.addEventListener('pointerdown', (e) => e.stopPropagation());
 // Offline earnings (Phase 1 econ, Locked: 50%, 4 h cap, valued by dropoffValue): away past offlineAfterSec, the player is credited
 // CFG.econ.offline.rate × (live drop-offs per second) × dropoffValue(purity) × min(away, CFG.econ.offline.capSec). One drop-off = one full hold
 // (CG.holdCap boxes, one box per truck tip), so a cycle is the slower of making a hold (holdCap × truck cycle) and the ship turnaround.
-const offPurity = () => (typeof S.purity === 'number' && isFinite(S.purity) ? S.purity : CFG.econ.purity.base);   // purity lane's state when it lands; base until then
+const offPurity = () => cargoPurity();   // one purity source (was S.purity with a base fallback)
 function offlineDropSec() {           // live seconds per Earth drop-off at the current drill / chute levels
-  const truck = fillSec() + (R.tl ? R.tl.trip : 60), ship = CG.fuelFillSec + BOARD_SEC + CG.launchSec + CG.awaySec + CG.landSec;
+  const truck = fillSec() + (R.tl ? R.tl.trip : 60), ship = refuelSec() + BOARD_SEC + CG.launchSec + CG.awaySec + CG.landSec;
   return Math.max(CG.holdCap * truck, ship);
 }
 function offlineEarn(sec) {           // whole dollars credited for sec seconds away (0 for ≤ 0, NaN or a bad config)
@@ -2645,7 +2658,7 @@ function catchUp(card) {
   if (!(el > 0)) { S.rt = now; window.__ps3d.lastAway = { sec: Math.round(el), X: 0 }; return 0; }   // clock set backward: nothing
   const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
-  acc.drop = acc.full ? 0 : offlineEarn(el); S.money += acc.drop;   // under offlineAfterSec the replay above already paid at the live rate
+  acc.drop = acc.full || !CFG.econ.offlineFormula ? 0 : offlineEarn(el); S.money += acc.drop;   // off by default: the replay above already credits (or holds) every landing; under offlineAfterSec it paid at the live rate
   S.rt = now; save();
   const X = acc.base + acc.rich + (acc.cargo || 0) + acc.drop;
   if (card && !acc.full && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t);
