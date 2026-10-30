@@ -2651,15 +2651,44 @@ function ecAnswer(b = EC.ring) {
   if (b.tut && !S.eve.includes(b.id)) { S.eve.push(b.id); addCall(b.id, false); save(); window.__ps3d.eveShown = (window.__ps3d.eveShown || []).concat(b.id); }
   setTimeout(() => sayLine(EC.lines[0]), ecReduced() ? ECM.rmFade : ECM.typeStart);
 }
-// optional recorded line audio (text stays the call; no TTS): plays CFG.eveVoice.lines[beat][line] only if a file is listed there
-const EVA = { el: null };
-function eveVoiceStop() { if (EVA.el) { EVA.el.pause(); EVA.el.onended = EVA.el.onerror = null; EVA.el = null; musicDuck(false); } }
-function eveVoice(id, li) {
-  eveVoiceStop(); const f = ((CFG.eveVoice.lines || {})[id] || [])[li]; if (!f) return;
-  const a = new Audio(CFG.eveVoice.dir + f); a.volume = .9; EVA.el = a; musicDuck(true);
-  a.onended = a.onerror = () => { if (EVA.el === a) { EVA.el = null; musicDuck(false); } };
-  a.play().catch(() => { if (EVA.el === a) { EVA.el = null; musicDuck(false); } });
+// ===== DEV: Eve voice hook (EM 10/29 22:28). Every Eve line plays ../dev/audio/eve/<msgId>.mp3, msgId = '<beat id>_<line no>' (1-based), e.g.
+// mine_first_view_1, mine_first_view_2, cargo_full_1, cargo_delivered_1, away_summary_1 (dynamic lines share one clip). Only ids listed in
+// dev/audio/eve/manifest.json {"clips":[...]} are ever requested (manifest fetched once, lazily, on the first tap); anything else is silent with no
+// request. Web Audio: the context is created/resumed inside the first tap (iOS Safari) with a 1-sample silent buffer. A clip that fails to load or
+// decode is cached as missing (one console.debug line, never warn/error). Settings ▸ Voice on/off is saved in localStorage 'planetstack-dev-voice' (default on).
+const VOX = PSD.voice = { dir: '../dev/audio/eve/', manifest: null, manP: null, bufs: {}, loading: {}, miss: {}, ctx: null, src: null, tok: 0, unlocked: false, played: [], on: true };
+try { VOX.on = localStorage.getItem('planetstack-dev-voice') !== '0'; } catch (e) {}
+function voxManifest() {
+  if (VOX.manP) return VOX.manP;
+  return VOX.manP = fetch(VOX.dir + 'manifest.json?v=' + (PSD.v || ''), { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null)
+    .then(j => { VOX.manifest = j && Array.isArray(j.clips) ? j.clips.map(String) : []; if (!j) console.debug('eve voice: no manifest, staying silent'); return VOX.manifest; });
 }
+function voxUnlock() {                 // first tap anywhere (and any later tap after an iOS interruption): create/resume the voice context inside the gesture
+  if (!VOX.on || document.hidden) return;
+  try { if (!VOX.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; VOX.ctx = new AC(); }
+    if (VOX.ctx.state !== 'running') { const pr = VOX.ctx.resume(); if (pr && pr.catch) pr.catch(() => {}); }
+    if (!VOX.unlocked) { const b = VOX.ctx.createBuffer(1, 1, 22050), s = VOX.ctx.createBufferSource(); s.buffer = b; s.connect(VOX.ctx.destination); s.start(0); VOX.unlocked = true; voxManifest(); }
+  } catch (e) { console.debug('eve voice: audio unavailable', e && e.message); }
+}
+for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, voxUnlock, { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => { if (!VOX.ctx) return; if (document.hidden) { eveVoiceStop(); VOX.ctx.suspend().catch(() => {}); } else if (VOX.on) VOX.ctx.resume().catch(() => {}); });
+function voxClip(id) {
+  if (VOX.miss[id]) return Promise.resolve(null); if (VOX.bufs[id]) return Promise.resolve(VOX.bufs[id]); if (VOX.loading[id]) return VOX.loading[id];
+  return VOX.loading[id] = fetch(VOX.dir + id + '.mp3?v=' + (PSD.v || '')).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then(ab => new Promise((res, rej) => { const pr = VOX.ctx.decodeAudioData(ab, res, rej); if (pr && pr.catch) pr.catch(rej); }))
+    .then(b => (VOX.bufs[id] = b)).catch(e => { VOX.miss[id] = true; console.debug('eve voice: no clip', id, e && e.message); return null; })
+    .finally(() => { VOX.loading[id] = null; });
+}
+function eveVoiceStop() { VOX.tok++; const s = VOX.src; if (s) { VOX.src = null; s.onended = null; try { s.stop(); } catch (e) {} musicDuck(false); } }
+function eveVoice(id, li) {
+  eveVoiceStop(); if (!VOX.on || !VOX.ctx) return; const msgId = `${id}_${li + 1}`, tok = VOX.tok;
+  voxManifest().then(list => (list.includes(msgId) && !VOX.miss[msgId] ? voxClip(msgId) : null)).then(buf => {
+    if (!buf || tok !== VOX.tok || !EC.call || !VOX.on || !VOX.ctx) return;
+    const s = VOX.ctx.createBufferSource(), g = VOX.ctx.createGain(); g.gain.value = .9; s.buffer = buf; s.connect(g); g.connect(VOX.ctx.destination);
+    s.onended = () => { if (VOX.src === s) { VOX.src = null; musicDuck(false); } }; VOX.src = s; musicDuck(true); s.start(0); VOX.played.push(msgId); if (VOX.played.length > 20) VOX.played.shift();
+  }).catch(() => {});
+}
+function setVoice(on) { VOX.on = !!on; try { localStorage.setItem('planetstack-dev-voice', on ? '1' : '0'); } catch (e) {} if (on) voxUnlock(); else eveVoiceStop(); renderSettings(); }
 function sayLine(s) {
   if (!EC.call || s == null) return; EC.full = s; eveVoice(EC.call.id, EC.li); ecTxt.textContent = ''; ecPanel.classList.remove('is-waiting');
   if (ecReduced()) return lineDone();
@@ -2767,13 +2796,15 @@ function setMusic(on) { S.set.music = !!on; save(); if (on) musUnlock(); else if
 document.addEventListener('visibilitychange', () => { if (!MUS.ctx) return; if (document.hidden) MUS.ctx.suspend(); else if (S.set.music !== false) { MUS.ctx.resume(); musSetGain(.6); } });
 addEventListener('pagehide', () => { if (MUS.ctx) MUS.ctx.suspend(); });
 // settings (gear under the Eve bubble): Music on/off
-const setBtn = $('setBtn'), setPop = $('setPop'), musTgl = $('musTgl');
+const setBtn = $('setBtn'), setPop = $('setPop'), musTgl = $('musTgl'), voiceTgl = $('voiceTgl');
 function renderSettings() { const on = S.set.music !== false; musTgl.setAttribute('aria-checked', on); musTgl.querySelector('b').textContent = on ? 'ON' : 'OFF';
   $('musNote').textContent = musTracks().length ? '' : 'No tracks yet';
+  voiceTgl.setAttribute('aria-checked', VOX.on); voiceTgl.querySelector('b').textContent = VOX.on ? 'ON' : 'OFF';
   $('devBuild').textContent = `BUILD ${PSD.build}${PSD.v ? ' · ' + PSD.v : ''}\nTESTER ${PSD.code || '—'}${MOCK ? ' · MOCK ' + MOCK : ''}`; }
 for (const el of [setBtn, setPop]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
 setBtn.addEventListener('click', (e) => { e.stopPropagation(); renderSettings(); setPop.classList.toggle('on'); setBtn.setAttribute('aria-expanded', setPop.classList.contains('on')); });
 musTgl.addEventListener('click', (e) => { e.stopPropagation(); setMusic(S.set.music === false); });
+voiceTgl.addEventListener('click', (e) => { e.stopPropagation(); setVoice(!VOX.on); });
 document.addEventListener('pointerdown', (e) => { if (setPop.classList.contains('on') && !e.target.closest('#setPop,#setBtn')) { setPop.classList.remove('on'); setBtn.setAttribute('aria-expanded', false); } });
 renderSettings();
 
@@ -2858,7 +2889,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); },
-  get cargo() { return cargoState(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return EVA.el ? EVA.el.src : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
+  get cargo() { return cargoState(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },

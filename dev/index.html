@@ -183,9 +183,9 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 #setPop::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}
 #setPop::after{inset:1px;background:linear-gradient(180deg,#0f1a2ef5,#090f1df5)}
 #setPop .k{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#3ad0ff}
-#musTgl{display:flex;align-items:center;justify-content:space-between;gap:14px;height:44px;margin:-4px 0;border:0;background:none;padding:0;color:#eafcff;font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer}
-#musTgl b{min-width:44px;padding:5px 0;text-align:center;font:800 11px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#3ad0ff;box-shadow:0 0 8px #3ad0ff88;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
-#musTgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
+#musTgl,#voiceTgl{display:flex;align-items:center;justify-content:space-between;gap:14px;height:44px;margin:-4px 0;border:0;background:none;padding:0;color:#eafcff;font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer}
+#musTgl b,#voiceTgl b{min-width:44px;padding:5px 0;text-align:center;font:800 11px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#3ad0ff;box-shadow:0 0 8px #3ad0ff88;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
+#musTgl[aria-checked=false] b,#voiceTgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
 #musNote{font:600 9px/1 system-ui;letter-spacing:.1em;color:#c9d3e6;opacity:.6}
 #musNote:empty{display:none}
 /* ---- DEV build: tester-code start screen, DEV tag, build line ---- */
@@ -206,7 +206,7 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="DEV · 22:32">
+<body data-tag="DEV · 22:37">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <div id="hud" class="ec-hud">
@@ -296,7 +296,7 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 <div id="storeChip" role="status"><i></i>STORAGE FULL</div>
 <div id="fuelG" role="status" aria-label="Launch Pad fuel"><div class="hd"><b>FUEL</b><em>0%</em></div><div class="tr"><i></i><s></s></div></div>
 <button id="setBtn" aria-label="Settings" aria-expanded="false"><i></i></button>
-<div id="setPop" role="dialog" aria-label="Settings"><div class="k">SETTINGS <span class="devtag">DEV</span></div><button id="musTgl" role="switch" aria-checked="true">MUSIC<b>ON</b></button><div id="musNote"></div><div id="devBuild" class="devinfo"></div></div>
+<div id="setPop" role="dialog" aria-label="Settings"><div class="k">SETTINGS <span class="devtag">DEV</span></div><button id="musTgl" role="switch" aria-checked="true">MUSIC<b>ON</b></button><div id="musNote"></div><button id="voiceTgl" role="switch" aria-checked="true">VOICE<b>ON</b></button><div id="devBuild" class="devinfo"></div></div>
 <div id="point"><b></b><i></i></div>
 <div id="away"><p>While you were away</p><h3 id="awayAmt">+$0</h3><button id="awayOk">Nice</button></div>
 <svg id="farc" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#0a1424cc" stroke-width="5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle cx="20" cy="20" r="15" fill="none" stroke="#ffffff2e" stroke-width="2.5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle id="farcV" cx="20" cy="20" r="15" fill="none" stroke="#7ff3ff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 999" transform="rotate(150 20 20)"/><text id="farcT" x="20" y="24">0%</text></svg>
@@ -304,6 +304,6 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
  <input id="gateCode" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="00000" aria-label="5-digit tester code">
  <button id="gateGo">START</button><div id="gateMsg" role="alert"></div><div id="gateBuild" class="devinfo"></div></div></div>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../dev/main.js?v=dev2232"></script>
+<script type="module" src="../dev/main.js?v=dev2237"></script>
 <!-- bugreport.js: <script src="../dev/bugreport.js?v=..."></script> -->
 </body></html>
