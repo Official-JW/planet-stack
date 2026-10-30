@@ -59,3 +59,17 @@ The helpers report to me: Art Assistant (AA), AA2 and AA3. Their notes are in th
 
 ## 12:38 update
 - Trails DONE: Jacob approved (via Art Manager). Final file qa3d-next/models/all_truck_trails_205f8acb.glb, commit 01ff411 (renamed from 6916868). Both managers confirmed this name; Coder uses it. Notracks copies stay uncommitted.
+
+## Hibernate state — 10/29/2026 9:55 PM PT
+Nothing running. No renders in progress. Nothing uncommitted from Habitat work (concept only, no commits until Jacob approves).
+
+Habitat v2 exterior (Art Manager reports Jacob approved try 4 as the direction; glow pass delivered 8:15 PM):
+- /workspace/habitat_concept/v2/exterior/habitat_v2_exterior_1179x2556.png  md5 fe10ca5c3e9ed98c9b29df54ce2e67de
+- /workspace/habitat_concept/v2/exterior/habitat_v2_exterior_393.png        md5 2f7df9a8b40d8cbda353b6c22da46c3d
+- Massing GLB untouched: _src/habitat_v2_massing.glb md5 7ba33b955865d5afa8e3337a01acb05d
+- Scripts: _src/build_habitat_v2_exterior.py (a00f5123…), _src/glow_post.py (4adcc5fc…); raw + glow mask in _src/glowpass/
+- Rebuild: blender with --glowmask <dir> --hspan 2.4 --pool 1.5 --strip 1.3 --halo 1.2 --samples 32, then python3 _src/glow_post.py <raw> <mask> <out> 0.9 1.6, then Lanczos downscale to 393
+- Backups: _src/try3/ (c508e000… / 217e6dc6…), _src/try4/ (9af171f6… / caf8e412…)
+- Known nit: halo right leg reads a little weaker than the left.
+
+Next step: wait for Art Manager's verdict on the glow pass. Then the queued nose-door slide animation (NOT started): top crew door near the nose, crew tower 725f88a6 + hull v4, match AA3's still in /workspace/habitat_concept/entrance/, check walkway clearance, one still + short clip, two tries max, no commits before Jacob approves.
