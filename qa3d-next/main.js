@@ -2404,8 +2404,8 @@ function refSheetUI() {                                             // only rebu
     if (fmax) { bFuel.textContent = 'Max'; bFuel.className = 'max'; } else { bFuel.textContent = fok ? fmt(fc) : 'Need ' + fmt(fc); bFuel.className = fok ? '' : 'need'; }
     bFuel.parentNode.classList.toggle('ok', fok);
     $('PuLvl').textContent = 'LV ' + pl; meter('PuMeter', 10, pmax ? 10 : (pl - 1) % 10 + 1);
-    const p = refineryPurity(), dv = 'drop-off ' + fmt(dropoffValue(p));
-    $('PuGain').textContent = pmax ? `${pct(p)} · Max · ${dv}` : `${pct(p)} → ${pct(purityAt(pl + 1))} · ${dv}`;
+    const p = refineryPurity();   // 10/29: per-crate + full-hold value; the short form is the only one that fits 375 at every level ('Need $251,658' leaves 163 px)
+    $('PuGain').textContent = `${fmt(perCrateValue(p))}/crate · ${fmt(dropoffValue(p))}/hold`;
     if (pmax) { bPur.textContent = 'Max'; bPur.className = 'max'; } else { bPur.textContent = pok ? fmt(pc) : 'Need ' + fmt(pc); bPur.className = pok ? '' : 'need'; }
     bPur.parentNode.classList.toggle('ok', pok);
     if (RS.mode === 1) $('sum').textContent = `Fuel Lv ${fl} · Purity Lv ${pl}`;
@@ -2498,15 +2498,16 @@ const EVE_BEATS = [
     "Once it's full it hauls the ore to the Refinery on its own. Over."] },
   { id: 'first_deposit', tut: false, point: null, lines: ["Rich load, nice. Once that truck is full it hauls to the Refinery and pays as the bed tips. Over."] },
   { id: 'upgrade_ready', tut: true, point: null, lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."] },
-  // Director 20:34: first launch only. Rings once the first flatbed trip (2 boxes) is in the hold and the tanks are full; points at Launch
-  { id: 'cargo_early', tut: true, point: 'launch', lines: ["Moonbase, Eve here. Your first He-3 boxes are in the ship's hold and the tanks are full.",
-    "Earth needs that shipment now. Don't wait for a full hold: tap Launch and send what's aboard. Over."] },
+  // 10/29 (was cargo_early, Director 20:34: rang at 2 boxes and asked for a partial launch): Eve calls for a launch ONLY at a full hold (10/10), first launch only.
+  // A full, fuelled ship lifts off on its own (cgDecide), so there is no Launch pointer; an early launch by hand still works and still pays per crate.
+  { id: 'cargo_full', tut: true, point: null, lines: ["Moonbase, Eve here. The ship's hold is full: ten He-3 boxes aboard. Time to launch.",
+    "With her tanks full she lifts off for Earth on her own. Earth pays for every box. Over."] },
 ];
 const EVE_TRIG = {
   mine_first_view: () => S.site === MINE && coverGone && Math.abs(camX - MX) < 1,
   first_deposit: () => depsOn() && S.dep >= 1,                   // deposits off: never rings (no rich loads)
   upgrade_ready: () => (S.dep >= 1 || !depsOn()) && canPay(drillCost()) && !sheetOpen,
-  cargo_early: () => S.cg.launches === 0 && S.cg.sh.hold >= CG.perTrip && canLaunch(),
+  cargo_full: () => S.cg.launches === 0 && S.cg.sh.hold >= CG.holdCap,   // full hold only (pad, boarding or lift-off: hold stays 10 until departure); never at 1..9
 };
 const ECM = { toastIn: 420, tapOut: 160, typeStart: 420, charMs: 30, commaMs: 120, stopMs: 240, closeCrt: 120, closeSlide: 260, toastTimeout: 8000, rmFade: 150 };
 const ecRoot = $('ec'), ecToast = $('ecToast'), ecPanel = $('ecPanel'), ecTxt = $('ecTxt'), ecTx = $('ecTx'), ecBubble = $('ecBubble'), ecBadge = $('ecBadge');
@@ -2631,7 +2632,6 @@ function updViewShift() {
   window.__ps3d.viewShift = Math.round(VS.cur);
 }
 function updEve() {
-  if (EC.ring && EC.ring.id === 'cargo_early' && S.cg.launches > 0) { ecResetUI(); EC.ring = null; hudDim(false); if (!S.eve.includes('cargo_early')) S.eve.push('cargo_early'); save(); }   // shipped before the call was answered
   eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
   if (!EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
