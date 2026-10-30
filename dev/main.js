@@ -89,7 +89,7 @@ const MOCKW = { codes: Array.from({ length: 11 }, (_, i) => String(i).padStart(5
       if (!this.codes.includes(b.code)) return { status: 400, json: { ok: false, reason: 'bad_code' } };
       const h = this.held[b.code];
       if (b.op === 'acquire') { if (h && h !== b.deviceId) return { status: 409, json: { ok: false, reason: 'in_use' } }; this.held[b.code] = b.deviceId; return { status: 200, json: { ok: true, ttl: 90 } }; }
-      if (b.op === 'beat') { if (MOCK === 'drop' && ++this.beats > 1) return { unreachable: true };
+      if (b.op === 'beat') { if (MOCK === 'drop' && !this.healed && ++this.beats > 1) return { unreachable: true };
         if (h !== b.deviceId) return { status: 404, json: { ok: false, reason: 'not_held' } }; return { status: 200, json: { ok: true, ttl: 90 } }; }
       if (b.op === 'release') { if (h !== b.deviceId) return { status: 404, json: { ok: false, reason: 'not_held' } }; delete this.held[b.code]; return { status: 200, json: { ok: true } }; }
     }
@@ -2651,17 +2651,22 @@ function ecAnswer(b = EC.ring) {
   if (b.tut && !S.eve.includes(b.id)) { S.eve.push(b.id); addCall(b.id, false); save(); window.__ps3d.eveShown = (window.__ps3d.eveShown || []).concat(b.id); }
   setTimeout(() => sayLine(EC.lines[0]), ecReduced() ? ECM.rmFade : ECM.typeStart);
 }
-// ===== DEV: Eve voice hook (EM 10/29 22:28). Every Eve line plays ../dev/audio/eve/<msgId>.mp3, msgId = '<beat id>_<line no>' (1-based), e.g.
-// mine_first_view_1, mine_first_view_2, cargo_full_1, cargo_delivered_1, away_summary_1 (dynamic lines share one clip). Only ids listed in
-// dev/audio/eve/manifest.json {"clips":[...]} are ever requested (manifest fetched once, lazily, on the first tap); anything else is silent with no
-// request. Web Audio: the context is created/resumed inside the first tap (iOS Safari) with a 1-sample silent buffer. A clip that fails to load or
+// ===== DEV: Eve voice hook (EM 10/29 22:28), on the existing CFG.eveVoice { dir, lines } map. Line n (0-based) of Eve call <id> plays
+// CFG.eveVoice.dir + '<id>_<n>.mp3' (e.g. mine_first_view_0, mine_first_view_1, upgrade_ready_0, cargo_full_0, cargo_full_1, first_deposit_0;
+// see AUDIO/eve_line_list.md). dir is dev/audio/eve/ resolved from this file's own URL (the page's <base href="../qa3d/"> would send 'audio/eve/' to qa3d/).
+// CFG.eveVoice.lines is filled from dev/audio/eve/manifest.json, format {"clips":["mine_first_view_0","cargo_full_1",...]} (each entry '<id>_<n>', no
+// extension; committed empty). The manifest is fetched once, lazily (first tap); an id/line not listed is silent with no request; a missing manifest
+// = silent. Web Audio: the context is created/resumed inside the first tap (iOS Safari) with a 1-sample silent buffer. A clip that fails to load or
 // decode is cached as missing (one console.debug line, never warn/error). Settings ▸ Voice on/off is saved in localStorage 'planetstack-dev-voice' (default on).
-const VOX = PSD.voice = { dir: '../dev/audio/eve/', manifest: null, manP: null, bufs: {}, loading: {}, miss: {}, ctx: null, src: null, tok: 0, unlocked: false, played: [], on: true };
+CFG.eveVoice.dir = new URL('audio/eve/', import.meta.url).href.replace(/\?.*$/, ''); CFG.eveVoice.lines = {};
+const VOX = PSD.voice = { manifest: null, manP: null, bufs: {}, loading: {}, miss: {}, ctx: null, src: null, tok: 0, unlocked: false, played: [], on: true, get dir() { return CFG.eveVoice.dir; } };
 try { VOX.on = localStorage.getItem('planetstack-dev-voice') !== '0'; } catch (e) {}
 function voxManifest() {
   if (VOX.manP) return VOX.manP;
-  return VOX.manP = fetch(VOX.dir + 'manifest.json?v=' + (PSD.v || ''), { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null)
-    .then(j => { VOX.manifest = j && Array.isArray(j.clips) ? j.clips.map(String) : []; if (!j) console.debug('eve voice: no manifest, staying silent'); return VOX.manifest; });
+  return VOX.manP = fetch(CFG.eveVoice.dir + 'manifest.json?v=' + (PSD.v || ''), { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null)
+    .then(j => { VOX.manifest = j && Array.isArray(j.clips) ? j.clips.map(String) : []; if (!j) console.debug('eve voice: no manifest, staying silent');
+      for (const c of VOX.manifest) { const m = /^(.+)_(\d+)$/.exec(c); if (m) (CFG.eveVoice.lines[m[1]] = CFG.eveVoice.lines[m[1]] || [])[+m[2]] = c + '.mp3'; }
+      return CFG.eveVoice.lines; });
 }
 function voxUnlock() {                 // first tap anywhere (and any later tap after an iOS interruption): create/resume the voice context inside the gesture
   if (!VOX.on || document.hidden) return;
@@ -2672,20 +2677,20 @@ function voxUnlock() {                 // first tap anywhere (and any later tap 
 }
 for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, voxUnlock, { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => { if (!VOX.ctx) return; if (document.hidden) { eveVoiceStop(); VOX.ctx.suspend().catch(() => {}); } else if (VOX.on) VOX.ctx.resume().catch(() => {}); });
-function voxClip(id) {
-  if (VOX.miss[id]) return Promise.resolve(null); if (VOX.bufs[id]) return Promise.resolve(VOX.bufs[id]); if (VOX.loading[id]) return VOX.loading[id];
-  return VOX.loading[id] = fetch(VOX.dir + id + '.mp3?v=' + (PSD.v || '')).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+function voxClip(f) {                 // f = file name from CFG.eveVoice.lines, e.g. 'cargo_full_0.mp3'
+  if (VOX.miss[f]) return Promise.resolve(null); if (VOX.bufs[f]) return Promise.resolve(VOX.bufs[f]); if (VOX.loading[f]) return VOX.loading[f];
+  return VOX.loading[f] = fetch(CFG.eveVoice.dir + f + '?v=' + (PSD.v || '')).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
     .then(ab => new Promise((res, rej) => { const pr = VOX.ctx.decodeAudioData(ab, res, rej); if (pr && pr.catch) pr.catch(rej); }))
-    .then(b => (VOX.bufs[id] = b)).catch(e => { VOX.miss[id] = true; console.debug('eve voice: no clip', id, e && e.message); return null; })
-    .finally(() => { VOX.loading[id] = null; });
+    .then(b => (VOX.bufs[f] = b)).catch(e => { VOX.miss[f] = true; console.debug('eve voice: no clip', f, e && e.message); return null; })
+    .finally(() => { VOX.loading[f] = null; });
 }
 function eveVoiceStop() { VOX.tok++; const s = VOX.src; if (s) { VOX.src = null; s.onended = null; try { s.stop(); } catch (e) {} musicDuck(false); } }
 function eveVoice(id, li) {
-  eveVoiceStop(); if (!VOX.on || !VOX.ctx) return; const msgId = `${id}_${li + 1}`, tok = VOX.tok;
-  voxManifest().then(list => (list.includes(msgId) && !VOX.miss[msgId] ? voxClip(msgId) : null)).then(buf => {
+  eveVoiceStop(); if (!VOX.on || !VOX.ctx) return; const tok = VOX.tok; let f = null;
+  voxManifest().then(L => { f = (L[id] || [])[li]; return f && !VOX.miss[f] ? voxClip(f) : null; }).then(buf => {
     if (!buf || tok !== VOX.tok || !EC.call || !VOX.on || !VOX.ctx) return;
     const s = VOX.ctx.createBufferSource(), g = VOX.ctx.createGain(); g.gain.value = .9; s.buffer = buf; s.connect(g); g.connect(VOX.ctx.destination);
-    s.onended = () => { if (VOX.src === s) { VOX.src = null; musicDuck(false); } }; VOX.src = s; musicDuck(true); s.start(0); VOX.played.push(msgId); if (VOX.played.length > 20) VOX.played.shift();
+    s.onended = () => { if (VOX.src === s) { VOX.src = null; musicDuck(false); } }; VOX.src = s; musicDuck(true); s.start(0); VOX.played.push(f); if (VOX.played.length > 20) VOX.played.shift();
   }).catch(() => {});
 }
 function setVoice(on) { VOX.on = !!on; try { localStorage.setItem('planetstack-dev-voice', on ? '1' : '0'); } catch (e) {} if (on) voxUnlock(); else eveVoiceStop(); renderSettings(); }
@@ -2905,3 +2910,40 @@ frame();
 
 // ===== DEV build: a new tester code gets its own save at once (key planetstack-dev-<code>)
 if (!hadRt) save();
+
+// ===== DEV: hooks for Code Assistant (bug form, worker.js). CA's code replaces window.PS_DEV.openBugReport / window.PS_DEV.lock; the game always
+// looks them up at call time. PS_DEV = { WORKER_URL, code, build, settingsEl, lock: { acquire(code), heartbeat(), release() }, openBugReport(), canvas, renderNow }.
+PSD.canvas = renderer.domElement;
+PSD.renderNow = () => renderer.render(scene, camera);
+const devToastEl = $('devToast'); let devToastT = 0;
+PSD.toast = (t, ms = 2200) => { devToastEl.textContent = t; devToastEl.classList.add('on'); clearTimeout(devToastT); devToastT = setTimeout(() => devToastEl.classList.remove('on'), ms); };
+PSD.openBugReport = function () { console.log('[dev] openBugReport stub: bug form coming soon (code ' + PSD.code + ', ' + PSD.build + ')'); PSD.toast('Bug reports are coming soon.'); };
+window.openBugReport = (...a) => window.PS_DEV.openBugReport(...a);
+$('devBugBtn').addEventListener('click', (e) => { e.stopPropagation(); setPop.classList.remove('on'); setBtn.setAttribute('aria-expanded', false); window.PS_DEV.openBugReport(); });
+// lock heartbeat: every 30 s while held. A failed beat keeps the game running and retries quietly; after HB_FAIL_MS of continuous failure the game
+// pauses (game clock frozen, state kept) under the reconnect screen, which closes and resumes by itself on the next good beat. not_held → re-acquire.
+const HB_MS = (MOCK && +QD.get('hb') > 0 ? +QD.get('hb') : 30) * 1000, HB_FAIL_MS = (MOCK && +QD.get('hbfail') > 0 ? +QD.get('hbfail') : 300) * 1000;
+const HB = PSD.hb = { t: 0, failSince: 0, ok: 0, fail: 0, busy: false, stopped: false, last: '' };
+const reconEl = $('recon'), reconBtn = $('reconBtn');
+PSD.paused = false;
+function devPause(on) {
+  if (on === PSD.paused) return; PSD.paused = on;
+  if (on) { if (HOLD === null) HOLD = rawMs(); save(); reconEl.hidden = false; reconEl.classList.add('on'); }
+  else { if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } reconEl.classList.remove('on'); reconEl.hidden = true; }
+}
+async function devBeat() {
+  if (HB.busy || HB.stopped) return; HB.busy = true; clearTimeout(HB.t); reconBtn.disabled = true;
+  let r; try { const L = window.PS_DEV.lock; r = await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+  HB.busy = false; reconBtn.disabled = false; HB.last = r.ok ? 'ok' : r.reason; if (HB.stopped) return;
+  if (r.ok) { HB.ok++; HB.failSince = 0; devPause(false); }
+  else { HB.fail++; if (!HB.failSince) HB.failSince = Date.now(); if (Date.now() - HB.failSince >= HB_FAIL_MS) devPause(true); }
+  HB.t = setTimeout(devBeat, PSD.paused ? Math.min(HB_MS, 10000) : HB_MS);
+}
+reconBtn.addEventListener('click', (e) => { e.stopPropagation(); devBeat(); });
+for (const ev of ['pointerdown', 'click', 'touchstart']) reconEl.addEventListener(ev, (e) => e.stopPropagation());
+HB.t = setTimeout(devBeat, HB_MS);
+addEventListener('pagehide', () => { HB.stopped = true; clearTimeout(HB.t); try { window.PS_DEV.lock.release(); } catch (e) {} });
+addEventListener('pageshow', async (e) => { if (!e.persisted || !HB.stopped) return; HB.stopped = false;   // back from the bfcache: take the lock again
+  let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
+if (MOCK) PSD.__mockHeal = () => { MOCKW.healed = true; };   // smoke only: the mock Worker answers beats again
+renderSettings();
