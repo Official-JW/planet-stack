@@ -68,7 +68,7 @@ const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide 
 // No cheats/skips here: every QA query flag (?dev, ?speed, ?fresh, ?dockfill, ?board, ...) is ignored; only ?rm=1 (reduced motion) passes through.
 // Test-only flags (read from QD, never from Q): ?mock=1 in-page mock Worker (codes 00000..00010), ?mock=down unreachable, ?mock=drop heartbeats fail
 // after the first success; with ?mock: ?hb=N heartbeat seconds, ?hbfail=N seconds of failed heartbeats before the reconnect screen (default 300).
-const DEV_WORKER_URL = '';   // Code Assistant's Worker, e.g. 'https://ps-dev.<acct>.workers.dev' (no trailing slash). Empty + no ?mock = unreachable
+const DEV_WORKER_URL = 'https://planet-stack-dev.official-jw.workers.dev';   // Code Assistant's Worker, e.g. 'https://ps-dev.<acct>.workers.dev' (no trailing slash). Empty + no ?mock = unreachable
 const QD = new URLSearchParams(location.search);
 const Q = new URLSearchParams(); if (QD.get('rm') === '1') Q.set('rm', '1');
 const MOCK = ['1', 'down', 'drop'].includes(QD.get('mock')) ? QD.get('mock') : '';
