@@ -166,6 +166,10 @@ body:not(.sheet-open) #sheet:not(.dragging) .row{opacity:0;transition:opacity .1
 #fuelG.wait .tr i{animation:none}
 #fuelG.wait b{letter-spacing:.06em}
 #fuelG.wait em{display:none}
+#fuelG.nofuel::before{background:linear-gradient(110deg,#ffb340cc,#c9d3e699 45%,#8794ad55)}
+#fuelG.nofuel b{color:#ffcf80;letter-spacing:.04em;text-shadow:0 0 6px #ffb34099}
+#fuelG.nofuel em{display:none}
+#fuelG.nofuel .tr i{background:linear-gradient(90deg,#a8620f,#ffb340);box-shadow:0 0 6px #ffb340;animation:fgPulse 1.6s ease-in-out infinite}
 /* ---- settings: gear under the Eve bubble + small holo popover (Music on/off) ---- */
 #setBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 90px);right:calc(env(safe-area-inset-right,0px) + 14px);width:36px;height:36px;border:0;padding:0;background:none;z-index:6;isolation:isolate;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #setBtn::before{content:'';position:absolute;inset:-4px;}
@@ -187,7 +191,7 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="QA3D-next · 16:40">
+<body data-tag="QA3D-next · 20:03">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <script>if(/[?&]dev=1(&|$)/.test(location.search)){var d=document.getElementById('dev');d.hidden=false;d.textContent='measuring…';}</script>
@@ -283,5 +287,5 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 <div id="away"><p>While you were away</p><h3 id="awayAmt">+$0</h3><button id="awayOk">Nice</button></div>
 <svg id="farc" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#0a1424cc" stroke-width="5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle cx="20" cy="20" r="15" fill="none" stroke="#ffffff2e" stroke-width="2.5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle id="farcV" cx="20" cy="20" r="15" fill="none" stroke="#7ff3ff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 999" transform="rotate(150 20 20)"/><text id="farcT" x="20" y="24">0%</text></svg>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../qa3d-next/main.js?v=next1640"></script>
+<script type="module" src="../qa3d-next/main.js?v=next2003"></script>
 </body></html>
