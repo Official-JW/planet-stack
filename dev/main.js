@@ -124,7 +124,7 @@ PSD.lock = { code: null, held: false,
 const DEV_CODE = await new Promise((resolve) => {
   const g = document.getElementById('gate'), inp = document.getElementById('gateCode'), btn = document.getElementById('gateGo'), msg = document.getElementById('gateMsg');
   document.getElementById('gateBuild').textContent = PSD.build + (PSD.v ? ' · ' + PSD.v : '');
-  try { const last = localStorage.getItem('planetstack-dev-last'); if (/^\d{5}$/.test(last || '')) inp.value = last; } catch (e) {}
+  inp.value = '';   // box starts blank (Jacob 10/30): no example number, no prefilled last code
   g.classList.add('on'); let busy = false;
   const say = (t) => { msg.textContent = t; msg.classList.toggle('on', !!t); window.__ps3d.gateMsg = t; };
   const go = async () => { if (busy) return; const code = inp.value.trim();
