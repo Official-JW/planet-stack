@@ -67,7 +67,7 @@ const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide 
 const Q = new URLSearchParams(location.search);
 const TRAIL_ON = Q.get('trail') !== 'off';   // tire-track trail on (default) / ?trail=off: old road strips (see TRAIL_GLB); top-level so every road builder sees it
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
-const MINE_GLB = '../qa3d-next/models/mine_864fab15.glb?v=864fab15';   // Art 5933388: ef45f6f1 with the painted tire tracks removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1' (Art 449757b, Director 01:18: painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b)
+const MINE_GLB = '../qa3d-next/models/mine_cap_fix_v2_a60eae4b.glb?v=a60eae4b';   // ART-SWAP commit 3 (EM 9:00): Art's Mine cap fix v2 (art_next/mine_cap, md5 a60eae4b…; built from 864fab15: recessed status light in the chute-box top, only Base_Paint + Tier_03 primitives edited, 12 meshes / 14 draws / 0 textures, 16,594 → 16,740 tris, nodes/clips unchanged); was '../qa3d-next/models/mine_864fab15.glb?v=864fab15' — Art 5933388: ef45f6f1 with the painted tire tracks removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1' (Art 449757b, Director 01:18: painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b)
 //  // Art 12bdb4a (Director 23:10): Deposit_01/_02 split into their own fadeable nodes (look unchanged), own copy under qa3d-next/; was 'models/mine_2123a050.glb'
 //  // Art a4f93eb (Director 21:17): ore patches + veins baked, 2-lane haul road, fewer Path_* legs; previous: 'models/mine_219e774.glb'
 const REFINERY_GLB = '../qa3d-next/models/refinery_22f13a9d.glb?v=22f13a9d';   // Art 5933388: 93c44166 with the painted ruts removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/refinery_93c44166.glb?v=93c44166' (Art d6389a7, Director 00:51: 13 draws, conveyors merged into skinned Base_Paint, sizer_spin, dump_dust opacity_curve, white/cyan posts, painted ruts; was b45b4649)
@@ -305,6 +305,7 @@ const _ct = new THREE.Vector3();
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
+  'a60eae4b': { glb: 'mine cap fix v2 (864fab15 + recessed chute-box status light; re-keyed from 864fab15, nodes/Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   '864fab15': { glb: 'mine 5933388 (ef45f6f1 minus painted tracks; re-keyed from ef45f6f1, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'cc084a9b': { glb: 'mine 12bdb4a (re-keyed from 2123a050, same framing)', ct: { y: 5.6 }, frame_w: 39.9 },                            // Art 5d16bad: Cam_Target y 6.0 → 5.6 (x, z unchanged), W 37.6 → 39.9; ~9 px spare top+bottom at 375×667 (drill rig / Dep_01)
@@ -567,7 +568,43 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe
   if (tActs.truck_dump) { tActs.truck_dump.setLoop(THREE.LoopOnce, 1); tActs.truck_dump.clampWhenFinished = true; }
   truckDone = true; maybeReady();
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
-}, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); }
+}, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); metBind(); }
+
+// ===== ART-SWAP (EM 10/31): Art's meteorite fragment on the ore load (art_next/meteorite, md5 c603f0ce…: 1 mesh, SHM_MeteoriteIron, 2,200 tris = +1 draw while shown).
+// clearance.json is in the truck-local glTF frame: seat x −2.55 z +0.30 yaw 0, bottom = heap surface − 0.06 sink, top capped at y 4.20.
+// Heap surface (Art's checks: fill 0 → 2.441, 1 → 3.791, linear in the morph influence) → bottom = min(2.441 + 1.35·inf − 0.06, 4.20 − h).
+// Child of Truck_Bed (rides the drive rattle and the dump tilt); its seat goes through Truck_Load's live scale so it sinks with the heap
+// as truck_dump pours it out, and it hides once the load is empty (inf 0) or poured (Truck_Load scale.y < .25). ?meteor=off leaves it out.
+const MET = { on: Q.get('meteor') !== 'off', seat: [-2.55, 0.30], sink: 0.06, top: 4.20, surf0: 2.441, surfK: 1.35, g: null, o: null, h: 0, y0: 0, bed: null, load: null, b0: null, l0: null, inf: 0, bottom: 0, topY: 0 };
+function metBind() {
+  if (!MET.g || !truckRoot || MET.o) return;
+  const bed = truckRoot.getObjectByName('Truck_Bed'), load = truckRoot.getObjectByName('Truck_Load');
+  if (!bed || !load) { console.warn('meteorite: Truck_Bed / Truck_Load bones missing (left out)'); return; }
+  const o = MET.g; o.name = 'Meteorite_Fragment_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o); MET.h = bb.max.y - bb.min.y; MET.y0 = bb.min.y;
+  const vs = []; o.traverse(m => { if (m.isMesh) { const a = m.geometry.attributes.position; for (let i = 0; i < a.count; i++) vs.push(new THREE.Vector3().fromBufferAttribute(a, i).applyMatrix4(m.matrixWorld)); } });
+  MET.vs = vs;                       // rock vertices in Meteorite_Seat space: the cap check below uses the real hull, not a box
+  const r = new THREE.Group(); r.name = 'Meteorite_Seat'; r.add(o); r.visible = false; bed.add(r);
+  Object.assign(MET, { o: r, bed, load, b0: bed.position.clone(), l0: load.position.clone() });   // rest pose (Truck_Chassis is identity, Truck_Bed rest rotation 0)
+  window.__ps3d.MET = MET;
+}
+function loadMeteor() { if (MET.on) loader.load('../qa3d-next/models/meteorite_fragment_c603f0ce.glb?v=c603f0ce', (g) => { MET.g = g.scene; metBind(); },
+  undefined, (e) => console.warn('meteorite GLB failed (load stays plain)', e)); }
+function updMet() {                  // after tMixer.update: Truck_Load's scale is this frame's
+  if (!MET.o) return; const L = MET.load, ls = L.scale.y, vis = MET.inf > 0 && ls > .25; MET.o.visible = vis; if (!vis) return;
+  MET.bottom = Math.min(MET.surf0 + MET.surfK * MET.inf - MET.sink, MET.top - MET.h); MET.topY = MET.bottom + MET.h;
+  const ox = MET.seat[0] - MET.b0.x - MET.l0.x, oy = MET.bottom - MET.y0 - MET.b0.y - MET.l0.y, oz = MET.seat[1] - MET.b0.z - MET.l0.z;   // seat relative to the rest Truck_Load origin
+  MET.o.position.set(L.position.x + L.scale.x * ox, L.position.y + ls * oy, L.position.z + L.scale.z * oz);
+  // FIX (EM 9:45): hold top ≤ 4.20 in the truck-local frame in EVERY pose, incl. the truck_dump bed tilt before the pour: measure the rock's
+  // truck-local top through this frame's bed transform and, if it is over, slide the rock straight down (truck-local −Y) by the excess.
+  // The excess grows smoothly with the tilt (no pop), and only sinks it a little deeper into the heap (≤ ~6 cm; bed floor is > 1 m below).
+  truck.updateMatrixWorld(true); _mk.copy(truck.matrixWorld).invert().multiply(MET.bed.matrixWorld);
+  let top = -1e9; for (const v of MET.vs) { _mv.copy(v).add(MET.o.position).applyMatrix4(_mk); if (_mv.y > top) top = _mv.y; }
+  const ex = top - MET.top; MET.clampDy = 0;
+  if (ex > 0) { _mk.invert(); _mv.set(0, 0, 0).applyMatrix4(_mk); _mw.set(0, -ex, 0).applyMatrix4(_mk).sub(_mv); MET.o.position.add(_mw); MET.clampDy = ex; top = MET.top; }
+  MET.liveTop = top;
+}
+const _mk = new THREE.Matrix4(), _mv = new THREE.Vector3(), _mw = new THREE.Vector3();
 
 // ===== Mine operator prop (Art 9209246, md5 2cfa57a6…): at Operator_Deck, facing +Z, sibling of the Mine at scale 1.
 // Chain (no snaps): op_sit_type ×2–4 → op_stand_walk_to_rail (once, clamp) → op_watch_rail (while the truck is on the road, 1–3 loops) → op_walk_back_sit → …
@@ -1435,6 +1472,7 @@ function updTruck() {
   if (dA) { if (TS.ph === 'dump') { dA.enabled = true; if (!dA.isScheduled()) dA.play(); dA.paused = true; dA.setEffectiveWeight(1); dA.time = Math.min(TS.el - R.tl.t2, dA.getClip().duration - 1e-3); } else if (dA.isScheduled()) dA.stop(); }
   const pct = TS.ph === 'fill' ? TS.shown : TS.fill, inf = pct > 0 ? .5 + .5 * pct ** .8 : 0;
   for (const [m, i] of fillMeshes) m.morphTargetInfluences[i] = inf;
+  MET.inf = inf;
 }
 function updFillArc() {                // slim cyan fill-% arc at Fill_Arc while the truck is under the chute (hidden once it leaves)
   let on = !!(fillArcNode && TS.ph === 'fill' && S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden);
@@ -2081,7 +2119,8 @@ function loadCargoArt() {
     undefined, (e) => { CART.err.push(key + ': load'); console.warn('cargo art ' + key + ' failed to load (placeholder stays)', e); });
   L('fb05', '../qa3d-next/models/fb05_195461ef.glb?v=195461ef', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     o.position.copy(cg3.fb.position); o.rotation.copy(cg3.fb.rotation); cartSwap(cg3.fb, o); cg3.fb = o; FBS.wx = null; });
-  L('box', 'models/cargo_box_66a3a00c.glb?v=66a3a00c', (g) => { const o = g.scene; o.updateMatrixWorld(true); const parts = [];
+  L('box', '../qa3d-next/models/he3_crate_lbl_cfc95657.glb?v=cfc95657', (g) => {   // ART-SWAP (EM 10/31): Art's labelled He-3 crate (art_next/crates he3_crate_lbl, md5 cfc95657…: "HE-3" stencil letters as geometry on the glow slot, 612 tris, SHM_Paint + SHM_GlowCyan, no textures = the same 2 instanced draws); was 'models/cargo_box_66a3a00c.glb?v=66a3a00c'
+    const o = g.scene; o.updateMatrixWorld(true); const parts = [];
     o.traverse(m => { if (m.isMesh) { const im = new THREE.InstancedMesh(m.geometry, m.material, 64); im.name = 'CargoBoxes_' + (m.material.name || parts.length); im.castShadow = true; im.receiveShadow = true; im.count = 0;
       parts.push({ im, L: m.matrixWorld.clone() }); } });
     if (!parts.length) throw new Error('no box mesh');
@@ -2757,6 +2796,7 @@ function frame() {
   updCargo();
   updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
+  updMet();
   if (mixer) mixer.update(gdt);
   updOperator(gdt);
   for (const m of stationMixers) m.update(gdt);
@@ -2780,7 +2820,7 @@ function frame() {
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS,
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
-  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); },
+  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); updMet(); },
   get cargo() { return cargoState(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return EVA.el ? EVA.el.src : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
   warpTo: (t) => { if (t > nowMs()) { if (HOLD !== null) HOLD = t; else WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } },
   hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
@@ -2792,5 +2832,5 @@ setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading af
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
-loadRig(); loadTruck(); loadOperator(); loadCrew();
+loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew();
 frame();
