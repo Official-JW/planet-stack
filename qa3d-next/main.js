@@ -568,7 +568,8 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe
   if (tActs.truck_dump) { tActs.truck_dump.setLoop(THREE.LoopOnce, 1); tActs.truck_dump.clampWhenFinished = true; }
   truckDone = true; maybeReady();
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
-}, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); metBind(); }
+  metBind();                         // META-RACE fix (EM 10/31): bind here too: when the meteorite GLB lands first, its own metBind() finds no truck yet
+}, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); }
 
 // ===== ART-SWAP (EM 10/31): Art's meteorite fragment on the ore load (art_next/meteorite, md5 c603f0ce…: 1 mesh, SHM_MeteoriteIron, 2,200 tris = +1 draw while shown).
 // clearance.json is in the truck-local glTF frame: seat x −2.55 z +0.30 yaw 0, bottom = heap surface − 0.06 sink, top capped at y 4.20.
@@ -576,10 +577,13 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe
 // Child of Truck_Bed (rides the drive rattle and the dump tilt); its seat goes through Truck_Load's live scale so it sinks with the heap
 // as truck_dump pours it out, and it hides once the load is empty (inf 0) or poured (Truck_Load scale.y < .25). ?meteor=off leaves it out.
 const MET = { on: Q.get('meteor') !== 'off', seat: [-2.55, 0.30], sink: 0.06, top: 4.20, surf0: 2.441, surfK: 1.35, g: null, o: null, h: 0, y0: 0, bed: null, load: null, b0: null, l0: null, inf: 0, bottom: 0, topY: 0 };
+let metBound = false;               // binds exactly once, whichever GLB (truck or meteorite) lands second calls it with both ready
 function metBind() {
-  if (!MET.g || !truckRoot || MET.o) return;
+  if (metBound || MET.o || !MET.on || !MET.g || !truckRoot) return;
   const bed = truckRoot.getObjectByName('Truck_Bed'), load = truckRoot.getObjectByName('Truck_Load');
   if (!bed || !load) { console.warn('meteorite: Truck_Bed / Truck_Load bones missing (left out)'); return; }
+  if (MET.g.parent && MET.g.parent.parent === bed) { metBound = true; return; }   // already seated under Truck_Bed: never double-add
+  metBound = true;
   const o = MET.g; o.name = 'Meteorite_Fragment_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o); MET.h = bb.max.y - bb.min.y; MET.y0 = bb.min.y;
   const vs = []; o.traverse(m => { if (m.isMesh) { const a = m.geometry.attributes.position; for (let i = 0; i < a.count; i++) vs.push(new THREE.Vector3().fromBufferAttribute(a, i).applyMatrix4(m.matrixWorld)); } });
