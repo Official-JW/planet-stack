@@ -18,7 +18,12 @@ const CFG = {
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
     dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
     purity: { base: 0.40, max: 1.00, step: 0.05, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
-    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
+    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
+    // P2-FUEL (Director LOCKED 10/31 8:29-8:31 AM PT; STATUS/engineering.md 246, QA/phase2_sim/summary_v4.md fuel table): LOX + LCH4 output per minute
+    // = makePerMin + makePerLvl·(FuelLv−1) → 4/5/6/7/8 at Lv1-5; stock cap = stockCap·out/makePerMin (200·out/4) → 200/250/300/350/400. See fuelMake / fuelCap.
+    // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
+    p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 1500000,
+                v2PerShip: 2000000, v3PerShip: 3000000, mars: 5500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $19.3M
     chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
     drill: { cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
@@ -155,6 +160,10 @@ const refuelMs = () => refuelSec() * 1000;                          // the cargo
 const fuelMaxLv = () => CFG.econ.fuel.levels;
 const fuelCost = () => econCost(CFG.econ.fuel, S.fuelLv);          // fuel UPGRADE price (the fuel itself costs CFG.econ.fuel.price)
 const fuelPrice = () => CFG.econ.fuel.price;
+// P2-FUEL: Refinery LOX + LCH4 output (fuel/min) and stock cap scale with the Fuel level (a missing / bad level reads as Lv1, clamped to levels)
+const fuelLvOk = (lv = S.fuelLv) => clamp(Math.floor(+lv) || 1, 1, CFG.econ.fuel.levels);
+const fuelMake = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return F.makePerMin + F.makePerLvl * (fuelLvOk(lv) - 1); };   // 4/5/6/7/8
+const fuelCap = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return Math.round(F.stockCap * fuelMake(lv) / F.makePerMin); };   // 200/250/300/350/400
 // ---- Refinery fuel stock (Director 10/29 16:40), closed-form (no ticks). S.cg.fu = { t, v, g }: stock v and ship tank g (fuel units) at anchor time t.
 // The Refinery makes makePerMin into the stock all the time (capped at stockCap). On the pad the ship pumps at tank / refuelMs() (fuel level = pump speed)
 // and draws from the stock; at 0 stock it fills at the make rate (WAITING FOR FUEL). Full tank: no draw (away, boarding, launch). Re-anchored at
@@ -174,11 +183,11 @@ function fuelSolve(a, t, ms, r, C, K, o) {                         // a anchor, 
 function fuelFu(c) {                                                // old saves (before ca-econ-fuelstock) / bad value: stock oldSaveStock, tank from the old timer at c.t
   const a = c.fu; if (a && typeof a === 'object' && isFinite(a.t) && a.v >= 0 && a.g >= 0) return a;
   const F = CFG.econ.fuel, s = c.sh, ok = s && s.st === 'pad' && isFinite(s.f0);
-  return c.fu = { t: c.t, v: Math.min(F.stockCap, F.oldSaveStock), g: ok ? F.tank * clamp((c.t - s.f0) / refuelMs(), 0, 1) : F.tank };
+  return c.fu = { t: c.t, v: Math.min(fuelCap(), F.oldSaveStock), g: ok ? F.tank * clamp((c.t - s.f0) / refuelMs(), 0, 1) : F.tank };
 }
-function fuelNow(t, c = S.cg) { const F = CFG.econ.fuel; return fuelSolve(fuelFu(c), t, refuelMs(), F.makePerMin / 60000, F.tank, F.stockCap, FS); }
+function fuelNow(t, c = S.cg) { const F = CFG.econ.fuel; return fuelSolve(fuelFu(c), t, refuelMs(), fuelMake() / 60000, F.tank, fuelCap(), FS); }   // P2-FUEL: rate + cap from the Fuel level
 function fuelFinishAt(c = S.cg) { return fuelNow(fuelFu(c).t, c).fin; }   // tank full at (−: the anchor time when already full; Infinity: no production)
-function fuelAnchor(c, t, g) { const o = fuelNow(t, c), a = c.fu; a.v = o.v; a.g = g == null ? o.g : g; a.t = t; }   // call BEFORE S.fuelLv changes
+function fuelAnchor(c, t, g) { const o = fuelNow(t, c), a = c.fu; a.v = o.v; a.g = g == null ? o.g : g; a.t = t; }   // call BEFORE S.fuelLv changes (the old rate + cap run up to t)
 function fuelStock(t = nowMs()) { return fuelNow(t).v; }
 // Purity: purity(lv) = min(max, base + step·(lv−1)); max level = round((max − base) / step) + 1
 const purityMaxLv = () => { const P = CFG.econ.purity; return Math.round((P.max - P.base) / P.step) + 1; };
@@ -1612,9 +1621,10 @@ function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (
 // sh.req = Launch button tap time (partial launch; 0 = none)
 function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
   sh: { st: 'pad', t0: t, hold: 0, f0: t - refuelMs(), req: 0 }, fu: { t, v: CFG.econ.fuel.stockStart, g: CFG.econ.fuel.tank } }; }   // Director 10:46: a new game starts with the ship fully fuelled
-for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
+for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);
+S.fuelLv = fuelLvOk();                 // P2-FUEL: a missing / bad FuelLv is Lv1, never above the max level   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
-fuelFu(S.cg);                         // fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
+fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an old save's stock is clamped to this level's cap (200/250/300/350/400). fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (S.cg.sh.man) S.cg.sh.man = 0;   // 10/29: a full ship left waiting for a tap by an older away replay launches on its own again
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
@@ -2511,7 +2521,7 @@ function refRow(name, id, tint) {
 }
 const rowDrill = bDrill.closest('.row'), rowChute = bChute.closest('.row');
 const rowFuel = refRow('Fuel Refill', 'Fu', '#ffb340'), rowPur = refRow('He-3 Purity', 'Pu', ''), bFuel = $('bFu'), bPur = $('bPu');
-const fuStk = document.createElement('span'), fuTxt = document.createTextNode(''); $('FuGain').append(fuStk, fuTxt);   // Fuel Refill row: 'Stock 137/200 +4/min' (own node, set only when the whole number changes) + the refuel text
+const fuStk = document.createElement('span'), fuTxt = document.createTextNode(''); $('FuGain').append(fuStk, fuTxt);   // Fuel Refill row: 'LOX+LCH4 137/200 +4/min' (own node, set only when the whole number changes) + the refuel text
 const RS = { mode: -1, k: -1, s: -1 };                                     // sheet rows: last mode (0 Mine rows, 1 Refinery rows) and Refinery text key
 const fmtMin = (sec) => Math.round(sec / 6) / 10 + ' min';           // 1800 → '30 min', 450 → '7.5 min'
 const pct = (p) => Math.round(p * 100) + '%';
@@ -2522,7 +2532,7 @@ function refSheetUI() {                                             // only rebu
   if (k !== RS.k) { RS.k = k;
     const fp = fuelPrice(), fs = fp > 0 ? fmt(fp) + '/refuel' : 'fuel free';
     $('FuLvl').textContent = 'LV ' + fl; meter('FuMeter', fuelMaxLv(), Math.min(fl, fuelMaxLv()));
-    fuTxt.data = ' · ' + (fmax ? `Max ${fmtMin(refuelSec())}` : `${fmtMin(refuelSec()).slice(0, -4)}→${fmtMin(refuelSec(fl + 1)).slice(0, -4)}m`) + (fp > 0 ? ' · ' + fs : ''); RS.s = -1;   // short: fits 375 px next to 'Need $12,000' ('Stock 137/200 +4/min · 30→25m')
+    fuTxt.data = ' · ' + (fmax ? `Max ${fmtMin(refuelSec())}` : `${fmtMin(refuelSec()).slice(0, -4)}→${fmtMin(refuelSec(fl + 1)).slice(0, -4)}m`) + (fp > 0 ? ' · ' + fs : ''); RS.s = -1;   // short: fits 375 px next to 'Need $12,000' ('LOX+LCH4 137/200 +4/min · 30→25m')
     if (fmax) { bFuel.textContent = 'Max'; bFuel.className = 'max'; } else { bFuel.textContent = fok ? fmt(fc) : 'Need ' + fmt(fc); bFuel.className = fok ? '' : 'need'; }
     bFuel.parentNode.classList.toggle('ok', fok);
     $('PuLvl').textContent = 'LV ' + pl; meter('PuMeter', 10, pmax ? 10 : (pl - 1) % 10 + 1);
@@ -2532,7 +2542,7 @@ function refSheetUI() {                                             // only rebu
     bPur.parentNode.classList.toggle('ok', pok);
     if (RS.mode === 1) $('sum').textContent = `Fuel Lv ${fl} · Purity Lv ${pl}`;
   }
-  const sv = Math.floor(fuelStock() + 1e-9); if (sv !== RS.s) { RS.s = sv; fuStk.textContent = `Stock ${sv}/${CFG.econ.fuel.stockCap} +${CFG.econ.fuel.makePerMin}/min`; }
+  const sv = Math.floor(fuelStock() + 1e-9); if (sv !== RS.s) { RS.s = sv; fuStk.textContent = `LOX+LCH4 ${sv}/${fuelCap()} +${fuelMake()}/min`; }   // P2-FUEL: cap + rate follow the Fuel level
   return fok || pok;
 }
 const meterKeys = {};
@@ -2586,11 +2596,11 @@ bindBuy(bChute, () => {
 bindBuy(bFuel, () => {
   const c = fuelCost(); if (S.fuelLv >= fuelMaxLv() || !canPay(c)) return;
   const t = nowMs(); settleTo(t, null); const s = S.cg.sh, f = s.st === 'pad' ? fuelAt(t) : 1;
-  if (f < 1) fuelAnchor(S.cg, t);                                     // mid-refuel: re-anchor tank + stock at the old pump rate, so the gauge never jumps; the faster rate applies from now
+  fuelAnchor(S.cg, t);                                                // re-anchor tank + stock at the old pump rate, make rate and cap (P2-FUEL: rate + cap change every level, so always), so nothing jumps; the new rates apply from now
   pay(c); S.fuelLv++;
   save(); sheetUI(); hud();
   const r = bFuel.getBoundingClientRect(); pop('Fuel Lv ' + S.fuelLv, r.left + r.width / 2, r.top - 8, 'info');
-  logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())}`);
+  logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())} · LOX+LCH4 +${fuelMake()}/min, stock ${fuelCap()}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 });
 bindBuy(bPur, () => {
@@ -2601,9 +2611,9 @@ bindBuy(bPur, () => {
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 });
 Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue });   // QA hooks (Refinery lane)
-Object.assign(window.__ps3d, { fuelStock, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
+Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
-    if (o.v >= 0) S.cg.fu.v = Math.min(CFG.econ.fuel.stockCap, o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); RS.k = -1; settleTo(t, null); save(); sheetUI(); return window.__ps3d.fuelState(t); } });
+    if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); RS.k = -1; settleTo(t, null); save(); sheetUI(); return window.__ps3d.fuelState(t); } });
 const TRUCK_SALE = false;   // extra trucks come later: the button is hidden and a stray click can't buy
 bindBuy(bRover, () => { if (!TRUCK_SALE) return; });
 
