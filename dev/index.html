@@ -191,13 +191,13 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 /* ---- DEV build: tester-code start screen, DEV tag, build line ---- */
 #gate{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#13213bf2,#05080ff8);padding:24px}
 #gate.on{display:flex}
-#gate .gbox,#recon .gbox{width:min(320px,100%);display:flex;flex-direction:column;gap:12px;padding:20px 18px;color:#eafcff;font:600 13px/1.35 system-ui;background:linear-gradient(180deg,#0f1a2ef5,#090f1df5);box-shadow:inset 0 0 0 1px #3ad0ff66;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
-#gate .k,#recon .k{font:700 10px/1 system-ui;letter-spacing:.24em;color:#3ad0ff}
-#gate h2,#recon h2{margin:0;font:800 22px/1.1 system-ui;letter-spacing:.04em}
-#gate p,#recon p{margin:0;color:#c9d3e6}
+#gate .gbox,#recon .gbox,#devStop .gbox{width:min(320px,100%);display:flex;flex-direction:column;gap:12px;padding:20px 18px;color:#eafcff;font:600 13px/1.35 system-ui;background:linear-gradient(180deg,#0f1a2ef5,#090f1df5);box-shadow:inset 0 0 0 1px #3ad0ff66;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+#gate .k,#recon .k,#devStop .k{font:700 10px/1 system-ui;letter-spacing:.24em;color:#3ad0ff}
+#gate h2,#recon h2,#devStop h2{margin:0;font:800 22px/1.1 system-ui;letter-spacing:.04em}
+#gate p,#recon p,#devStop p{margin:0;color:#c9d3e6}
 #gateCode{height:52px;border:0;border-radius:0;background:#05080f;color:#eafcff;box-shadow:inset 0 0 0 1px #3ad0ff99;text-align:center;font:800 28px/1 ui-monospace,Menlo,monospace;letter-spacing:.35em;padding-left:.35em;outline:none}
 #gateCode:focus{box-shadow:inset 0 0 0 2px #3ad0ff}
-#gateGo,#reconBtn{height:46px;border:0;background:#3ad0ff;color:#090f1d;font:800 14px/1 system-ui;letter-spacing:.18em;cursor:pointer;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+#gateGo,#reconBtn,#devStopBtn{height:46px;border:0;background:#3ad0ff;color:#090f1d;font:800 14px/1 system-ui;letter-spacing:.18em;cursor:pointer;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
 #gateGo:disabled,#reconBtn:disabled{opacity:.6}
 #nameGate{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#13213bf2,#05080ff8);padding:24px}
 #nameGate.on{display:flex}
@@ -219,6 +219,8 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 #recon{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;background:#05080fd9;padding:24px}
 #recon.on{display:flex}
 #recon .sub{font-size:11px;opacity:.75}
+#devStop{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#13213bf2,#05080ff8);box-sizing:border-box;padding:calc(env(safe-area-inset-top,0px) + 24px) calc(env(safe-area-inset-right,0px) + 24px) calc(env(safe-area-inset-bottom,0px) + 24px) calc(env(safe-area-inset-left,0px) + 24px)}
+#devStop.on{display:flex}#devStop #devStopMsg{color:#ffd84d;font-weight:700}#devStop .sub{font-size:11px;opacity:.75}#devStopBtn[hidden]{display:none}
 #devBugBtn{height:36px;margin-top:2px;border:0;background:#c9d3e622;color:#eafcff;font:700 11px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer;box-shadow:inset 0 0 0 1px #3ad0ff66;clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px)}
 #devToast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 110px);transform:translateX(-50%);z-index:58;display:none;max-width:80vw;padding:10px 14px;color:#eafcff;font:700 12px/1.3 system-ui;background:#0f1a2ef5;box-shadow:inset 0 0 0 1px #3ad0ff99;pointer-events:none}
 #devToast.on{display:block}
@@ -226,7 +228,7 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="DEV · 07:55">
+<body data-tag="DEV · 10:06">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <div id="hud" class="ec-hud">
@@ -327,8 +329,9 @@ body.sheet-open #setBtn{opacity:0;pointer-events:none}
  <input id="nameIn" type="text" maxlength="16" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" aria-label="Your name">
  <button id="nameGo">OK</button><div id="nameMsg" role="alert"></div></div></div>
 <div id="recon" role="alertdialog" aria-label="Reconnecting" hidden><div class="gbox"><div class="k">PLANET STACK <span class="devtag">DEV</span></div><h2>Paused</h2><p>Reconnecting to the tester server…</p><p class="sub">Your game is saved and will carry on as soon as the connection is back.</p><button id="reconBtn">RETRY</button></div></div>
+<div id="devStop" role="alertdialog" aria-label="Game stopped" hidden><div class="gbox"><div class="k">PLANET STACK <span class="devtag">DEV</span></div><h2>Can't play here</h2><p id="devStopMsg"></p><p class="sub" id="devStopSub"></p><button id="devStopBtn" hidden>RELOAD</button></div></div>
 <div id="devToast" role="status"></div>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../dev/main.js?v=dev0755"></script>
-<script src="../dev/bugreport.js?v=devform0825"></script>
+<script type="module" src="../dev/main.js?v=dev1006"></script>
+<script src="../dev/bugreport.js?v=dev1006"></script>
 </body></html>
