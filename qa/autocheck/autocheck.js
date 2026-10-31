@@ -78,7 +78,7 @@ async function touchSwipe(cdp, x0, y, dx, steps = 4, ms = 160) {   // real CDP t
 }
 const hitId = (page, x, y) => page.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return e ? (e.id || e.tagName.toLowerCase()) + (e.closest('#ec') ? '@ec' : '') : 'none'; }, [x, y]);
 
-// settle after a station switch: S.site == want, the camera within 0.5 m of its resting x (want * gap), and at least 2 more frames
+// settle after a station switch: S.site == want, the camera within 0.5 m of its resting x (want * gap), and at least 1 more frame
 // drawn after that, so projected tap rects come from a finished glide. Times out after 4 s; with vp given, a timeout adds a WARN row.
 // Older builds with no frames / PX hooks: falls back to "camX stopped moving" (< 0.05 m between two reads).
 async function settle(page, want, vp = null, ms = 4000) {
@@ -86,7 +86,7 @@ async function settle(page, want, vp = null, ms = 4000) {
   while (Date.now() - t0 < ms) {
     s = await page.evaluate(PAGE_STATE);
     const atRest = s.camX !== null && (s.gap ? Math.abs(s.camX - want * s.gap) < 0.5 : last !== null && Math.abs(s.camX - last) < 0.05);
-    if (s.site === want && atRest) { if (s.frames === null) return s; if (f0 === null) f0 = s.frames; else if (s.frames >= f0 + 2) return s; }
+    if (s.site === want && atRest) { if (s.frames === null) return s; if (f0 === null) f0 = s.frames; else if (s.frames > f0) return s; }
     else f0 = null;
     last = s.camX; await sleep(100);
   }
@@ -119,6 +119,35 @@ async function setOldSheet(page, want) {
 const NEW_PANEL = () => { const P = window.__ps3d || {}, el = document.getElementById('upPanel');
   return { cur: P.upCur || null, shown: !!el && !el.hidden, name: ((document.getElementById('upName') || {}).textContent || '').trim(),
     kick: ((document.getElementById('upKick') || {}).textContent || '').trim(), site: P.S ? P.S.site : null }; };
+
+// card title: [data-card-title] (gc-ui2 and later: its value, else its text) or, on builds without it, #upName's text (gc-ui1 7c27f98). src says which.
+const CARD_TITLE = () => { const el = document.getElementById('upPanel'), open = !!el && !el.hidden && getComputedStyle(el).display !== 'none';
+  const a = (el && el.querySelector('[data-card-title]')) || document.querySelector('[data-card-title]');
+  if (a) return { open, src: 'attr', title: ((a.getAttribute('data-card-title') || '') || a.textContent || '').trim() };
+  return { open, src: 'fallback #upName', title: ((document.getElementById('upName') || {}).textContent || '').trim() }; };
+// what each tap should open (EM 10/31). Title match = starts with (case-insensitive), so 'Fuel' passes 'Fuel Refill'.
+// padFuel = the Launch Pad fuel hoses + tanks box (Hose_LOX / Hose_LCH4; 7c27f98's pad GLB has no separate tank node). Empty stations = stations with no UPT target of their own.
+const CARD_WANT = { drill: 'Drill', padFuel: 'Fuel', fuelPlant: 'Fuel' }, CARD_EMPTY = 'Coming soon';
+const cardRow = (vp, label, c, want) => { if (!c || !c.open) return add(vp, label, 'NO CARD', `no card opened (want "${want}")${c && c.why ? '; ' + c.why : ''}`);
+  const ok = c.title.toLowerCase().startsWith(want.toLowerCase()); add(vp, label, ok ? 'PASS' : 'FAIL', `title "${c.title}" (${c.src})${ok ? '' : `, want "${want}"`}`); };
+async function closeCard(page) { const x = await page.locator('#upX').boundingBox().catch(() => null); if (x && (await page.evaluate(NEW_PANEL)).cur) { await page.touchscreen.tap(x.x + x.width / 2, x.y + x.height / 2); await sleep(300); }
+  if ((await page.evaluate(NEW_PANEL)).cur) await page.evaluate(() => window.__ps3d.closeUp('qa')); }
+// empty station: tap the middle of the station's own model (projected world box centre, then a 5x5 grid of its rect on the canvas)
+async function emptyStationCard(page, i, W, H) {
+  const pt = await page.evaluate(([i, W, H]) => { const P = window.__ps3d, o = P.stationObjs && P.stationObjs[i];
+    let l = Infinity, r = -Infinity, t = Infinity, bt = -Infinity, src = 'the station model';
+    const b = o && P.THREE ? new P.THREE.Box3().setFromObject(o) : null;
+    if (b && !b.isEmpty()) for (let k = 0; k < 8; k++) { const q = P.toScreen(k & 1 ? b.max.x : b.min.x, k & 2 ? b.max.y : b.min.y, k & 4 ? b.max.z : b.min.z); if (q.z > 1) continue; l = Math.min(l, q.x); r = Math.max(r, q.x); t = Math.min(t, q.y); bt = Math.max(bt, q.y); }
+    else { src = 'mid-screen (no station model loaded)'; l = W * 0.3; r = W * 0.7; t = H * 0.3; bt = H * 0.6; }
+    l = Math.max(l, 8); r = Math.min(r, W - 8); t = Math.max(t, 8); bt = Math.min(bt, H - 8); if (!(r > l && bt > t)) return { why: 'station model off screen' };
+    for (const fy of [.5, .4, .6, .3, .7]) for (const fx of [.5, .4, .6, .3, .7]) { const x = l + (r - l) * fx, y = t + (bt - t) * fy, e = document.elementFromPoint(x, y), h = P.pickUp(x, y);
+      if (e && e.tagName === 'CANVAS' && !h) return { x, y, src }; }
+    return { why: 'no free canvas point on ' + src }; }, [i, W, H]);
+  if (pt.x == null) return { open: false, why: pt.why };
+  await page.touchscreen.tap(pt.x, pt.y); let c = null;
+  for (let k = 0; k < 8; k++) { await sleep(250); c = await page.evaluate(CARD_TITLE); if (c.open) break; }
+  c.why = `tapped ${pt.src} at ${Math.round(pt.x)},${Math.round(pt.y)}`; if (c.open) await closeCard(page); return c;
+}
 
 // ---------- Eve (E2) ----------
 const EVE_SAMPLE = () => {
@@ -265,7 +294,9 @@ async function runViewport(browser, A, vp, served, devId) {
         if (other.length) add(VP, `TAP ${ST[i]}: skipped`, 'info', `other station's target(s) on screen, not tapped: ${other.map(t => `${t.id} (${ST[t.site]})`).join(', ')}`);
         const R = all.filter(t => t.r && !(t.site >= 0 && t.site !== i));
         if (!R.length) add(VP, `TAP ${ST[i]}`, 'n/a', 'no upgradeable object of this station on screen here (upRects)');
+        const card = {};   // target id -> CARD_TITLE result after its real tap (null = no card)
         for (const t of R) {
+          card[t.id] = null; await settle(page, i, VP);   // camera at rest before every tap
           // moving targets (trucks) drift, so find the point and tap right away; retry up to 3 times
           // tap point: elementFromPoint must hit the 3D canvas (the browser skips pointer-events:none layers such as #hud, exactly like a
           // real tap) and the game's own pickUp must pick this target. Points below #hud's real bottom edge are tried first (not hidden
@@ -292,12 +323,18 @@ async function runViewport(browser, A, vp, served, devId) {
           if (up && under) add(VP, `TAP ${ST[i]}: ${t.id} under HUD`, 'info', 'only tap point was under #hud (pointer-events:none, so the tap still reached the canvas)');
           await sleep(200);
           const p = await page.evaluate(NEW_PANEL), want = await page.evaluate((k) => (window.__ps3d.UP[k] || {}).name, t.p);
+          if (up) card[t.id] = await page.evaluate(CARD_TITLE);
           const ok = p.shown && p.cur === t.p && p.name === want && p.kick.toLowerCase().startsWith(String(ST[i]).toLowerCase());
           add(VP, `E1 ${ST[i]}: ${t.id}`, ok ? 'PASS' : 'FAIL', ok ? `title "${p.name}", kicker "${p.kick}"` : `opened=${p.cur} (last close reason: ${await page.evaluate(() => window.__ps3d.upClosed)}; lastPick ${await page.evaluate(() => window.__ps3d.lastPick)}) title="${p.name}" kicker="${p.kick}", expected "${want}" at ${ST[i]}`);
           if (!ok) await shot(page, `panel${i}-${t.id}`);
           const x = await page.locator('#upX').boundingBox().catch(() => null); if (x && p.shown) { await page.touchscreen.tap(x.x + x.width / 2, x.y + x.height / 2); await sleep(300); }
           if ((await page.evaluate(NEW_PANEL)).cur) add(VP, `E1 ${ST[i]}: ${t.id} close`, 'FAIL', 'X did not close the card');
         }
+        // CARD title check (EM 10/31): each listed object at this station, plus 'Coming soon' at a station with no target of its own
+        const home = await page.evaluate(() => (window.__ps3d.UPT || []).map(t => t.site));
+        for (const id of Object.keys(CARD_WANT)) { const ut = all.find(t => t.id === id); if (!ut || ut.site !== i) continue;
+          cardRow(VP, `CARD ${ST[i]}: ${id}`, R.some(t => t.id === id) ? card[id] : { open: false, why: `not on screen (${ut.why || 'no rect'}), not tapped` }, CARD_WANT[id]); }
+        if (!home.includes(i)) { await settle(page, i, VP); await closeCard(page); cardRow(VP, `CARD ${ST[i]}: empty station`, await emptyStationCard(page, i, W, H), CARD_EMPTY); }
         if (R.length && i < N - 1) { const pt = R[0]; await page.evaluate((id) => window.__ps3d.openUp(id), pt.p); await sleep(300); opened = (await page.evaluate(NEW_PANEL)).cur ? 'new' : null; }   // hook only sets up the swipe test
       } else add(VP, `E1 ${ST[i]}`, 'n/a', s.ui === 'new-nohook' ? 'new panel present but no __ps3d.upRects hook to find targets' : 'no upgrade sheet or panel in this build');
       if (i === N - 1) { if (opened === 'old') await setOldSheet(page, false); break; }
@@ -394,13 +431,13 @@ async function md5Check(A, served) {
 }
 
 function printTable() {
-  const head = ['VIEWPORT', 'CHECK', 'RESULT', 'DETAIL'], w = [8, 40, 6];
+  const head = ['VIEWPORT', 'CHECK', 'RESULT', 'DETAIL'], w = [8, 40, 7];
   const pad = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s.padEnd(n));
   console.log('\n' + head.map((h, i) => i < 3 ? pad(h, w[i]) : h).join(' | '));
   console.log('-'.repeat(120));
   for (const r of rows) console.log([pad(r.vp, w[0]), pad(r.check, w[1]), pad(r.res, w[2]), r.detail].join(' | '));
   const c = (x) => rows.filter(r => r.res === x).length;
-  console.log('-'.repeat(120)); console.log(`PASS ${c('PASS')} · FAIL ${c('FAIL')} · WARN ${c('WARN')} · n/a ${c('n/a')}` + (c('ERROR') ? ` · script ERROR ${c('ERROR')}` : ''));
+  console.log('-'.repeat(120)); console.log(`PASS ${c('PASS')} · FAIL ${c('FAIL')} · WARN ${c('WARN')} · NO CARD ${c('NO CARD')} · n/a ${c('n/a')}` + (c('ERROR') ? ` · script ERROR ${c('ERROR')}` : ''));
 }
 
 (async () => {
