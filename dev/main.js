@@ -282,6 +282,7 @@ const DOCKFILL = Q.has('dockfill') && /\/qa3d-next\//.test(location.pathname);  
 const SAVEKEY = 'planetstack-dev-' + DEV_CODE;   // DEV: one fresh save per tester code (DEV/DOCKFILL are always false here: Q carries no QA flags)   // qa3d-next: own save so it never touches /qa3d/'s save on the same origin; ?dockfill uses its own save so QA's normal save is untouched
 if (Q.has('fresh')) try { localStorage.removeItem(SAVEKEY); } catch (e) {}
 const SPD = QA_TS, T0 = Date.now();   // the ONE game-clock scale (dev/: ?qa=1&ts=N, else 1; ?speed is stripped here): rawMs/nowMs and the frame's gdt run N× (truck loop, fill, refinery, cargo/ship trip, fuel, deposits, settle/catch-up, 3D anims)
+const AWAY_SEC = 60 * SPD, AWAY_MS = AWAY_SEC * 1000;   // EM 15:18: a settle gap counts as 'away' after 60 s of REAL time (= 60·SPD s of game time), so a stall at high ts never runs offline rules; 1x: 60 s / 60000 ms as before
 let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live play (no offline rate)
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
@@ -1753,7 +1754,7 @@ function updFillArc() {                // slim cyan fill-% arc at Fill_Arc while
       if (k !== farcK) { farcK = k; farcV.setAttribute('stroke-dasharray', (62.83 * TS.shown).toFixed(2) + ' 999'); farcT.textContent = pc + '%'; } } }
   if (farc._on !== on) { farc._on = on; farc.style.display = on ? 'block' : 'none'; }
 }
-setInterval(() => { if (document.hidden || !RT.ready) return; const t = nowMs(); if (t - S.rt < 60000 && t >= S.rt - 1000) { settleTo(t, null); S.rt = t; } }, 200);   // payouts keep wall-clock time even when frames stall
+setInterval(() => { if (document.hidden || !RT.ready) return; const t = nowMs(); if (t - S.rt < AWAY_MS && t >= S.rt - 1000) { settleTo(t, null); S.rt = t; } }, 200);   // payouts keep wall-clock time even when frames stall
 // ===== CARGO LOOP (Director spec 10/23, Jacob's request). GRAY-BOX PLACEHOLDERS until Art's GLBs land; every joint/marker is read by name
 // through CARGO_ALIAS, so the GLBs drop in with the same code path.
 //   Refinery dump → 1 sealed He-3 box at the Refinery crane's Pick_Point (after sealSec) → Refinery crane loads 2 onto flatbed FB-05 (Bed_Slot_01/02)
@@ -1969,7 +1970,7 @@ const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelNow(t).g 
 const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
 const canLaunch = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };
 function cgLaunch() {                 // Launch button: stored as a timestamp in S.cg (sh.req); the sim launches at it (after a lift into the hold finishes)
-  const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < 60000) { settleTo(t, null); S.rt = t; }
+  const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; }
   if (!canLaunch(t)) return false;
   S.cg.sh.req = Math.max(t, S.cg.t); cgEv('launch_tap', t, { hold: S.cg.sh.hold }); settleTo(t, null); save();
   if (pointBeat === 'launch') pointerDone = true; return true;
@@ -3117,7 +3118,7 @@ function catchUp(card) {
 }
 function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
   if (document.hidden || !RT.ready) return; const t = nowMs(); if (t < S.rt - 1000) { stampGuard(t); return; }   // clock behind the save: shift every stamp back, credit nothing
-  if ((t - S.rt) / 1000 > 60) catchUp(true); else { settleTo(t, null); S.rt = t; }
+  if ((t - S.rt) / 1000 > AWAY_SEC) catchUp(true); else { settleTo(t, null); S.rt = t; }
 }
 for (const ev of ['resume', 'pageshow', 'focus']) (ev === 'resume' ? document : window).addEventListener(ev, resync);   // iOS freeze/thaw and bfcache restores
 document.addEventListener('visibilitychange', () => {
@@ -3135,7 +3136,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), document.hidden ? 0.1 : 0.25), gdt = dt * SPD; time += gdt; window.__ps3d.frames = (window.__ps3d.frames || 0) + 1;
   const now = nowMs();
   if (now < S.rt - 1000) stampGuard(now);                        // clock went backward mid-session: every stamp shifts back with S.rt, credit nothing
-  if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > 60) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
+  if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > AWAY_SEC) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
   updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
   updCargo();
