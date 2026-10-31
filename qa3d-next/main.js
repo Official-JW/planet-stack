@@ -567,7 +567,32 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe
   if (tActs.truck_dump) { tActs.truck_dump.setLoop(THREE.LoopOnce, 1); tActs.truck_dump.clampWhenFinished = true; }
   truckDone = true; maybeReady();
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
-}, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); }
+}, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); metBind(); }
+
+// ===== ART-SWAP (EM 10/31): Art's meteorite fragment on the ore load (art_next/meteorite, md5 c603f0ce…: 1 mesh, SHM_MeteoriteIron, 2,200 tris = +1 draw while shown).
+// clearance.json is in the truck-local glTF frame: seat x −2.55 z +0.30 yaw 0, bottom = heap surface − 0.06 sink, top capped at y 4.20.
+// Heap surface (Art's checks: fill 0 → 2.441, 1 → 3.791, linear in the morph influence) → bottom = min(2.441 + 1.35·inf − 0.06, 4.20 − h).
+// Child of Truck_Bed (rides the drive rattle and the dump tilt); its seat goes through Truck_Load's live scale so it sinks with the heap
+// as truck_dump pours it out, and it hides once the load is empty (inf 0) or poured (Truck_Load scale.y < .25). ?meteor=off leaves it out.
+const MET = { on: Q.get('meteor') !== 'off', seat: [-2.55, 0.30], sink: 0.06, top: 4.20, surf0: 2.441, surfK: 1.35, g: null, o: null, h: 0, y0: 0, bed: null, load: null, b0: null, l0: null, inf: 0, bottom: 0, topY: 0 };
+function metBind() {
+  if (!MET.g || !truckRoot || MET.o) return;
+  const bed = truckRoot.getObjectByName('Truck_Bed'), load = truckRoot.getObjectByName('Truck_Load');
+  if (!bed || !load) { console.warn('meteorite: Truck_Bed / Truck_Load bones missing (left out)'); return; }
+  const o = MET.g; o.name = 'Meteorite_Fragment_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o); MET.h = bb.max.y - bb.min.y; MET.y0 = bb.min.y;
+  const r = new THREE.Group(); r.name = 'Meteorite_Seat'; r.add(o); r.visible = false; bed.add(r);
+  Object.assign(MET, { o: r, bed, load, b0: bed.position.clone(), l0: load.position.clone() });   // rest pose (Truck_Chassis is identity, Truck_Bed rest rotation 0)
+  window.__ps3d.MET = MET;
+}
+function loadMeteor() { if (MET.on) loader.load('../qa3d-next/models/meteorite_fragment_c603f0ce.glb?v=c603f0ce', (g) => { MET.g = g.scene; metBind(); },
+  undefined, (e) => console.warn('meteorite GLB failed (load stays plain)', e)); }
+function updMet() {                  // after tMixer.update: Truck_Load's scale is this frame's
+  if (!MET.o) return; const L = MET.load, ls = L.scale.y, vis = MET.inf > 0 && ls > .25; MET.o.visible = vis; if (!vis) return;
+  MET.bottom = Math.min(MET.surf0 + MET.surfK * MET.inf - MET.sink, MET.top - MET.h); MET.topY = MET.bottom + MET.h;
+  const ox = MET.seat[0] - MET.b0.x - MET.l0.x, oy = MET.bottom - MET.y0 - MET.b0.y - MET.l0.y, oz = MET.seat[1] - MET.b0.z - MET.l0.z;   // seat relative to the rest Truck_Load origin
+  MET.o.position.set(L.position.x + L.scale.x * ox, L.position.y + ls * oy, L.position.z + L.scale.z * oz);
+}
 
 // ===== Mine operator prop (Art 9209246, md5 2cfa57a6…): at Operator_Deck, facing +Z, sibling of the Mine at scale 1.
 // Chain (no snaps): op_sit_type ×2–4 → op_stand_walk_to_rail (once, clamp) → op_watch_rail (while the truck is on the road, 1–3 loops) → op_walk_back_sit → …
@@ -1435,6 +1460,7 @@ function updTruck() {
   if (dA) { if (TS.ph === 'dump') { dA.enabled = true; if (!dA.isScheduled()) dA.play(); dA.paused = true; dA.setEffectiveWeight(1); dA.time = Math.min(TS.el - R.tl.t2, dA.getClip().duration - 1e-3); } else if (dA.isScheduled()) dA.stop(); }
   const pct = TS.ph === 'fill' ? TS.shown : TS.fill, inf = pct > 0 ? .5 + .5 * pct ** .8 : 0;
   for (const [m, i] of fillMeshes) m.morphTargetInfluences[i] = inf;
+  MET.inf = inf;
 }
 function updFillArc() {                // slim cyan fill-% arc at Fill_Arc while the truck is under the chute (hidden once it leaves)
   let on = !!(fillArcNode && TS.ph === 'fill' && S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden);
@@ -2758,6 +2784,7 @@ function frame() {
   updCargo();
   updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
+  updMet();
   if (mixer) mixer.update(gdt);
   updOperator(gdt);
   for (const m of stationMixers) m.update(gdt);
@@ -2781,7 +2808,7 @@ function frame() {
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS,
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
-  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); },
+  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); updMet(); },
   get cargo() { return cargoState(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return EVA.el ? EVA.el.src : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
   warpTo: (t) => { if (t > nowMs()) { if (HOLD !== null) HOLD = t; else WARP += t - nowMs(); settleTo(t, null); S.rt = nowMs(); } },
   hold: (on) => { if (on && HOLD === null) HOLD = rawMs(); else if (!on && HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } return HOLD; }, TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
@@ -2793,5 +2820,5 @@ setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading af
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
-loadRig(); loadTruck(); loadOperator(); loadCrew();
+loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew();
 frame();
