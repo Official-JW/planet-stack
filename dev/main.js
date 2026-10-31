@@ -17,15 +17,15 @@ const CFG = {
     startMoney: 10000,                  // Director 10/31 15:08: start money $10,000 (was $5,000)
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
     dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
-    purity: { base: 0.40, max: 1.00, step: 0.05, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
-    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
+    purity: { base: 0.40, max: 1.00, step: 0.05, first: 8000, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
+    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, first: 8000, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
     // P2-FUEL (Director LOCKED 10/31 8:29-8:31 AM PT; STATUS/engineering.md 246, QA/phase2_sim/summary_v4.md fuel table): LOX + LCH4 output per minute
     // = makePerMin + makePerLvl·(FuelLv−1) → 4/5/6/7/8 at Lv1-5; stock cap = stockCap·out/makePerMin (200·out/4) → 200/250/300/350/400. See fuelMake / fuelCap.
     // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
     p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 1500000,
                 v2PerShip: 2000000, v3PerShip: 3000000, mars: 5500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $19.3M
     chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
-    drill: { cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
+    drill: { first: 8000, cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
     specialistTripCost: 0,              // Locked: specialist trip costs OFF for now
     oldSaveTopUp: true,                 // Director 10/29 ruling: true = an old save below startMoney is topped up to it once (tu flag); false = old saves keep their money
@@ -359,7 +359,7 @@ const fillSec = (lv = S.chute) => Math.max(CFG.fillFloor, CFG.fill0 * CFG.chuteM
 const chuteCost = () => econCost(CFG.econ.chute, S.chute);   // Phase 1: CFG.econ.chute cost0 / costGrowth (was CFG.chuteCost0 / chuteCostGrowth)
 // ===== Refinery upgrades (Phase 1 steps 4-5): one building, two outputs (He-3 crates + ship fuel). Every number comes from CFG.econ (Coder's block).
 // cost(lv) = round(cost0 · costGrowth^(lv−1)) is the price of the next level when you are at lv (same rule as drill / chute)
-function econCost(tr, lv) { return Math.round(tr.cost0 * tr.costGrowth ** (lv - 1)); }
+function econCost(tr, lv) { if (lv <= 1 && tr.first != null) return tr.first; return Math.round(tr.cost0 * tr.costGrowth ** (lv - 1)); }   // gc-ui2 (EM 15:52 item 11): 'first' = the Lv1→2 price only (every station's first upgrade ≤ $8,000); later levels unchanged
 // Fuel: free (CFG.econ.fuel.price), refuel at the Launch Pad from refuelSec at Lv1 down to refuelMinSec at Lv `levels`, linear per level, clamped
 function refuelSec(lv = S.fuelLv) { const F = CFG.econ.fuel, n = F.levels, l = clamp(Math.round(lv) || 1, 1, n);
   return n > 1 ? F.refuelSec + (F.refuelMinSec - F.refuelSec) * (l - 1) / (n - 1) : F.refuelSec; }
@@ -1092,6 +1092,7 @@ function poseCam(cam, x) {
   const A = padCamAt(i0), B = padCamAt(i1), k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;   // pad: rest ↔ load blend (padCamAt)
   let lx = x + dx, lyy = ly, lz = dz, kk = k;
   if (cam === camera && FOC.w > 0) { const w = FOC.w; lx += (FOC.lx - lx) * w; lyy += (FOC.ly - lyy) * w; lz += (FOC.lz - lz) * w; kk += (FOC.k - kk) * w; }   // tier focus blend
+  if (cam === camera && UC.w > 0) { const w = UC.w; lx += (UC.lx - lx) * w; lyy += (UC.ly - lyy) * w; lz += (UC.lz - lz) * w; kk += (UC.k - kk) * w; }   // gc-ui2: upgrade-card camera (tapped object above the card)
   if (cam === camera && BC.w > 0) { const w = BC.w; lx += (BC.lx - lx) * w; lyy += (BC.ly - lyy) * w; lz += (BC.lz - lz) * w; kk *= Math.pow(BC.k / kk, w); }   // crew boarding camera blend (k in log space)
   if (cam === camera) { CAMLOOK.lx = lx; CAMLOOK.ly = lyy; CAMLOOK.lz = lz; CAMLOOK.k = kk; }
   poseLook(cam, lx, lyy, lz, kk);
@@ -1122,8 +1123,8 @@ const _fp = { x: 0, y: 0, z: 0 };
 function boxScreen(cam, b) { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, behind = false;
   for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) { const p = toScreen(x, y, z, cam, _fp); if (p.z > 1) behind = true; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
   return { x0, x1, y0, y1, behind }; }
-function fitBox(mc, b, k0) {
-  const bd = band(), M = 12, e = THREE.MathUtils.degToRad(CAM.elev), ue = [0, Math.cos(e), -Math.sin(e)], vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+function fitBox(mc, b, k0, bb) {     // bb (optional): { top, bot, m } screen band to fit in instead of band()
+  const bd = bb || band(), M = bb ? bb.m : 12, e = THREE.MathUtils.degToRad(CAM.elev), ue = [0, Math.cos(e), -Math.sin(e)], vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const t = { lx: (b.min.x + b.max.x) / 2, ly: Math.max(0, (b.min.y + b.max.y) / 2), lz: (b.min.z + b.max.z) / 2, k: k0 };
   for (let n = 0; n < 200; n++) {
     for (let it = 0; it < 4; it++) {         // re-centre: box centre → band centre
@@ -1306,6 +1307,7 @@ ui();
 
 // ===== swipe: always exactly one station from S.site; tiny drags spring back; taps go to deposits, then to upgrade cards
 let drag = null;
+const TAP_PX = 12, TAP_MS = 800;   // gc-ui2: tap = finger lifted within TAP_MS and never more than TAP_PX from where it went down; anything further is a swipe
 canvas.addEventListener('pointerdown', (e) => {
   crewCancel('tap');                                              // any tap or swipe ends the boarding camera
   if (ecIsOpen()) { ecHangUp(); return; }                       // a tap on the scene first closes the Earth Coms panel
@@ -1317,8 +1319,8 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   if (!drag || e.pointerId !== drag.id) return; const t = e.timeStamp || performance.now();
   const dx = e.clientX - drag.x0; drag.moved = Math.max(drag.moved, Math.hypot(dx, e.clientY - drag.y0));
-  if (drag.moved > 10 && FOC.i >= 0) cancelFocus('swipe');              // a swipe cancels a tier focus and takes over
-  if (drag.moved > 10) closeUp('swipe');                                // UI-1: a swipe closes the open upgrade card (and, being a swipe, never opens one)
+  if (drag.moved > TAP_PX && FOC.i >= 0) cancelFocus('swipe');              // a swipe cancels a tier focus and takes over
+  if (drag.moved > TAP_PX) closeUp('swipe');                                // UI-1: a swipe closes the open upgrade card (and, being a swipe, never opens one)
   const lo = Math.max((drag.base - 1) * GAP, -GAP * .3), hi = Math.min((drag.base + 1) * GAP, GAP * (N - 1 + .3));
   camX = clamp(drag.cx - dx * mPerPx(), lo, hi);
   drag.s.push([t, e.clientX]); while (drag.s.length > 2 && t - drag.s[1][0] > 250) drag.s.shift();
@@ -1339,7 +1341,7 @@ function endDrag(e) {
   if (Math.abs(dx) > 0.15 * W) dir = dx < 0 ? 1 : -1;
   else if (Math.abs(v) > 0.35 && Math.abs(dx) >= 30) dir = v < 0 ? 1 : -1;   // a flick needs speed AND ≥30 px travel
   window.__ps3d.lastSwipe = { dx, v: +v.toFixed(3), dir, from: d.base };
-  if (!dir && d.moved < 10 && t - d.t0 < 500 && !cancel) tap(e.clientX, e.clientY);
+  if (!dir && d.moved <= TAP_PX && t - d.t0 <= TAP_MS && !cancel) tap(d.x0, d.y0);   // gc-ui2 (EM 15:52 item 1): lifted within 800 ms AND moved ≤ 12 px; picks at the touch-START point
   goSite(d.base + dir);
 }
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('lostpointercapture', endDrag);
@@ -2552,7 +2554,7 @@ function cgPad() {                    // placeholder concrete pad under the pall
   scene.add(m); cg3.pad = m; cg3.padBox = { x0: +x0.toFixed(2), x1: +x1.toFixed(2), z0: +z0.toFixed(2), z1: +z1.toFixed(2), h: PALLET_PAD.h };
 }
 buildCargoRoute(); buildCargoProps(); buildCargoRoad(); loadCargoArt(); cgPad();
-const launchEl = $('launchBtn'), storeEl = $('storeChip');
+const launchEl = $('launchBtn'), storeEl = $('storeChip'), LAUNCH_H = 54;   // LAUNCH_H = #launchBtn CSS height
 const fgEl = $('fuelG'), fgFill = fgEl.querySelector('.tr i'), fgLbl = fgEl.querySelector('b'), fgPct = fgEl.querySelector('em');
 const FG = { on: false, x: -1, y: -1, q: -1, p: -1, k: '' };   // last written values: the gauge touches the DOM only when what it shows changes (no layout reads)
 for (const el of [launchEl, storeEl]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -2561,8 +2563,8 @@ const _sp = {};
 function cargoUI() {                  // Launch button (bottom-right of the safe band, Launch Pad only) and the Storage full chip (over the Refinery pallet)
   const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen, bd = band();
   const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && canLaunch(t);
-  if (onPad) { const v = cargoValue(c.sh.hold); launchEl.querySelector('small').textContent = `${c.sh.hold}/${CG.holdCap} BOXES · +${fmt(v)}`;
-    launchEl.style.top = Math.round(bd.bot - launchEl.offsetHeight) + 'px'; }
+  if (onPad) { const v = cargoValue(c.sh.hold); launchEl.querySelector('small').textContent = `${c.sh.hold}/${CG.holdCap} BOXES · +${fmt(v)}`; }
+  { const y = Math.round(bd.bot - LAUNCH_H) + 'px'; if (launchEl.style.top !== y) launchEl.style.top = y; }   // gc-ui2 (item 9): placed every frame, shown or not (it was display:none → offsetHeight 0 on its first frame → a 54 px jump)
   launchEl.classList.toggle('on', onPad);
   const full = live && S.site === REF && Math.abs(camX - RX) < 3 && c.ref.length >= CG.palletCap;
   if (full && cg3.RC) { const p = toScreen(cg3.RC.pick.x, 2.6, cg3.RC.pick.z, camera, _sp), w = storeEl.offsetWidth || 120;
@@ -2693,12 +2695,30 @@ function tapDeposit3d(x, y) {
   if (pointBeat === 'deposit') pointerDone = true;
   return true;
 }
+// gc-ui2 slide guard (EM 15:52 item 2): a card only opens from a settled camera (upSettled: camX within UP_SETTLE m of the station it is going to), so a
+// stale station's object can never be picked. UP_SETTLE 0.3 m ≈ 8 px on screen (< TAP_PX); a tap while the scene still moves is dropped (UP_LATE = UP_SETTLE:
+// a deferred tap was re-picked at the same screen point after the scene had moved under it and opened the wrong object). A tap once settled works.
+const UP_SETTLE = 0.3, UP_LATE = 0.3, UP_WAIT = 700, upPend = { x: 0, y: 0, t: 0, site: -1 };
+let upTapAt = -1e9;   // gc-ui2: the touch's own trailing click lands on the card that just opened under the finger (it could hit Upgrade and buy): swallowed
+let upDownAt = 0; addEventListener('pointerdown', () => { upDownAt = performance.now(); }, true);   // a new press after the card opened is a real one: its click goes through
+addEventListener('click', (e) => { if (upDownAt < upTapAt && performance.now() - upTapAt < 700 && e.target instanceof Node && upEl.contains(e.target)) { upTapAt = -1e9; e.stopPropagation(); e.preventDefault(); } }, true);
+const upSettled = () => !drag && Math.abs(camX - S.site * GAP) <= UP_SETTLE;
 function tap(x, y) {
+  upPend.site = -1;
   if (tapDeposit3d(x, y)) return;
-  const h = Math.abs(camX - S.site * GAP) < 20 ? pickUp(x, y) : null;   // mid-glide between stations: no card
-  if (!h) return closeUp('empty');                                      // empty scene: closes the open card
-  hlStart(h.t, h.r); openUp(h.t.p);                                     // an object: its card (switches if another was open)
+  if (!upSettled()) {                                                   // mid-glide between stations: no card from this frame
+    if (Math.abs(camX - S.site * GAP) <= UP_LATE) Object.assign(upPend, { x, y, t: performance.now(), site: S.site });
+    window.__ps3d.lastPick = upPend.site >= 0 ? 'deferred' : 'sliding'; return;
+  }
+  const h = pickUp(x, y);
+  if (!h) { window.__ps3d.lastPick = null; return closeUp('empty'); }  // empty scene: closes the open card
+  upTapT = h.t; hlStart(h.t, h.r); openUp(h.t.p); upTapT = null; upTapAt = performance.now();   // an object: its card (switches if another was open)
   window.__ps3d.lastPick = h.t.id;
+}
+function updUpPend() {                 // frame(): run a deferred tap once the camera has settled (dropped on a station change or after UP_WAIT ms)
+  if (upPend.site < 0) return;
+  if (upPend.site !== S.site || drag || performance.now() - upPend.t > UP_WAIT) { upPend.site = -1; window.__ps3d.lastPick = 'deferred-dropped'; return; }
+  if (upSettled()) { const { x, y } = upPend; upPend.site = -1; tap(x, y); }
 }
 
 // ===== upgrade panels (UI-2 + UI-3 look, Jacob-approved 10/31): tap a 3D object → that object's own centered card (UI3_SPEC: kicker, name + level,
@@ -2728,10 +2748,16 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     meter: () => [fuelMaxLv(), Math.min(S.fuelLv, fuelMaxLv())] },
   truck: { name: 'Haul Truck', ico: 'truck', info: true, big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: () => 'More trucks coming soon' },
   ship: { name: 'Cargo Ship', ico: 'ship', info: true, big: () => ['Lv 1', 'cargo ship'], sub: () => 'Ship upgrades coming soon' },
+  // gc-ui2 (item 3): station buildings with no upgrades yet
+  soonLS: { name: 'Life Support', ico: 'soon', info: true, big: () => ['Lv 1', 'life support'], sub: () => 'Life Support upgrades coming soon' },
+  soonDock: { name: 'Cargo Space Dock', ico: 'soon', info: true, big: () => ['Lv 1', 'cargo dock'], sub: () => 'Dock upgrades coming soon' },
+  soonShipyard: { name: 'Shipyard', ico: 'soon', info: true, big: () => ['Lv 1', 'shipyard'], sub: () => 'Shipyard upgrades coming soon' },
+  soonHabitat: { name: 'Habitat', ico: 'soon', info: true, big: () => ['Lv 1', 'habitat'], sub: () => 'Habitat upgrades coming soon' },
+  soonEng: { name: 'Engineering', ico: 'soon', info: true, big: () => ['Lv 1', 'engineering'], sub: () => 'Engineering upgrades coming soon' },
 };
 // tap targets (p = card). objs: nodes whose world boxes make the rect; box: a world box made here (no own mesh); hl: what glows on tap
 const nodesOf = (root, names) => root ? names.map(n => root.getObjectByName(n)).filter(Boolean) : [];
-const _ub = new THREE.Box3(), _uv = new THREE.Vector3(), _uo = { x: 0, y: 0, z: 0 };
+const _ub = new THREE.Box3(), _ub2 = new THREE.Box3(), _uv = new THREE.Vector3(), _uo = { x: 0, y: 0, z: 0 };
 function upBox(nodes, hx, y1, hz, b) {   // world box around marker nodes: ±hx / ±hz metres, ground to y1
   b.makeEmpty(); for (const n of nodes) { n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x - hx, 0, _uv.z - hz)); n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x + hx, y1, _uv.z + hz)); } return b;
 }
@@ -2740,19 +2766,35 @@ const UPT = [
   { id: 'chute', p: 'chute', site: MINE, objs: () => nodesOf(mine, ['Conveyor', 'Silo']), hl: () => nodesOf(mine, ['Conveyor', 'Silo']) },
   { id: 'refinery', p: 'purity', site: REF, objs: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Tier_05', 'Tier_08', 'Base_GlowRed']), hl: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Base_GlowRed']) },
   { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBox(n, 4, 9, 4, b) : null; }, hl: () => [] },
-  { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBox(n, 3, 8, 3, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']) },
+  { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBox(n, 3, 8, 3, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
+    add: (b) => padTankBox(b) },   // gc-ui2 (item 4): + the LOX / LCH4 tanks (part of the Pad_Base mesh, no own node)
   { id: 'truck', p: 'truck', site: -1, own: true, objs: () => truckRoot ? [truckRoot] : [], hl: () => truckRoot ? [truckRoot] : [] },
   { id: 'ship', p: 'ship', site: PADI, own: true, objs: () => cg3.ship ? [cg3.ship] : [], hl: () => cg3.ship ? [cg3.ship] : [] },
+  // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
+  { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
+  { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
+  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base']), hl: () => soonObjs(SHIPI, ['shipyard_base']) },
+  { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => soonObjs(HABI, []), hl: () => soonObjs(HABI, []) },
+  { id: 'engineering', p: 'soonEng', site: 7, objs: () => soonObjs(7, []), hl: () => soonObjs(7, []) },
 ];
+function soonObjs(i, names) {          // the station GLB's main building nodes, else its gray placeholder box (if it is still shown)
+  const n = nodesOf(stationObjs[i], names); if (n.length) return n;
+  return phBox[i] && phBox[i].parent && phBox[i].visible ? [phBox[i]] : [];
+}
+const PAD_TANKS = { min: [-19.9, 0, -10.7], max: [-11.6, 10.9, -0.5] };   // pad-local box around both fuel tanks (measured from Pad_Base hits at 393×852)
+function padTankBox(b) { const o = stationObjs[PADI]; if (!o || !o.getObjectByName('Hose_LOX')) return null; o.updateWorldMatrix(true, false);
+  b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0], i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
 const upShown = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };   // own: the object itself must show (truck / ship); else only its parents (hidden Tier_NN boxes still widen the tap rect)
 const upSiteNow = () => clamp(Math.round(camX / GAP), 0, N - 1);   // the station the camera is at (not S.site, which flips at the start of a glide)
 let upWhy = '';                        // why the last upRect() gave null (QA: upRects() reports it per target)
 function upRect(t) {                   // projected CSS-px rect of a target now, or null (other station, not loaded, hidden, behind the camera, off screen)
   upWhy = '';
-  if (t.site >= 0 && t.site !== upSiteNow()) { upWhy = 'other station'; return null; }
+  if (t.site >= 0 && t.site !== S.site) { upWhy = 'other station'; return null; }
+  if (!upSettled()) { upWhy = 'camera sliding'; return null; }      // gc-ui2: never measure mid-glide (lists were one station behind)
   let b = null;
   if (t.box) b = t.box(_ub);
   else { const os = t.objs().filter(o => upShown(t.own ? o : o.parent)); if (!os.length) { upWhy = 'not loaded / hidden'; return null; } _ub.makeEmpty(); for (const o of os) { o.updateWorldMatrix(true, true); _ub.expandByObject(o); } b = _ub; }
+  if (b && t.add) { const b2 = t.add(_ub2); if (b2 && !b2.isEmpty()) b.union(b2); }   // gc-ui2: extra world box (pad fuel tanks)
   if (!b || b.isEmpty()) { upWhy = 'not loaded'; return null; }
   camera.updateMatrixWorld();
   let l = Infinity, r = -Infinity, tp = Infinity, bt = -Infinity;
@@ -2806,17 +2848,44 @@ function updHL() {                     // wall clock (not the clamped frame dt),
 // open / close (UI-3 motion, all CSS: transform + opacity only). Open 240 ms (140 ease-out to 1.05, 100 ease-in-out to 1); close 120 ms card / 160 ms scrim, then hidden.
 // prefers-reduced-motion: 120 ms opacity fade only (CSS media query). The scrim blocks the 3D view while open; HUD stays visible under it.
 const upScrim = $('upScrim'), upIn = $('upIn'), upH2 = $('upH2');
-let upCloseT = 0;
+let upCloseT = 0, upTapT = null;
+// gc-ui2 (EM 15:53 item 6): the card stays centred; while it is open the camera eases (UC_SEC, smoothstep) so the tapped object's whole projected box (and
+// its highlight) sits in the strip between the HUD and the card's top edge (fitBox on that strip: re-centre, pull back only if needed), and eases
+// back to the station's normal view when the card closes (faster on a swipe / station change, so the glide isn't held back).
+const UC = { want: 0, p: 0, w: 0, lx: 0, ly: 0, lz: 0, k: 1, t: null, dur: .35, fit: null };
+function ucBand() { const top = Math.max(hudEl.getBoundingClientRect().bottom, safeArea().t) + 6 + 6, bot = upEl.offsetTop - 10 - 6; return { top, bot, m: 14 }; }   // + 6 px each side for the highlight ring
+function ucOpen(t) {
+  if (!t || !camera.userData.dist) { UC.t = null; return; }
+  const r0 = upRect(t); if (!r0) { UC.t = null; return; }
+  const bb = ucBand(), b = new THREE.Box3();
+  if (t.box) t.box(b); else { for (const o of t.objs()) { o.updateWorldMatrix(true, true); b.expandByObject(o); } }
+  if (t.add) { const b2 = t.add(new THREE.Box3()); if (b2 && !b2.isEmpty()) b.union(b2); }
+  if (b.isEmpty()) { UC.t = null; return; }
+  const mc = camera.clone(); mc.clearViewOffset();
+  const tg = fitBox(mc, b, CAMLOOK.k, bb);   // never closer than the station view; backs off only as far as the object needs
+  if (!tg.fit) { UC.t = null; window.__ps3d.ucFit = { id: t.id, fit: false }; return; }
+  if (UC.w <= 0) Object.assign(UC, { lx: tg.lx, ly: tg.ly, lz: tg.lz, k: tg.k });
+  Object.assign(UC, { want: 1, t, dur: .35, tg }); window.__ps3d.ucFit = { id: t.id, fit: true, k: +tg.k.toFixed(3), band: [bb.top, bb.bot] };
+}
+function ucClose(why) { UC.want = 0; UC.dur = why === 'swipe' || why === 'site' ? .15 : .35; }
+function updUC(dt) {                   // frame(): ease the blend weight; glide the look point toward the current target (a card switched while open)
+  if (UC.want === 0 && UC.p === 0) return;
+  UC.p = clamp(UC.p + (UC.want ? dt : -dt) / UC.dur, 0, 1); UC.w = fss(UC.p);
+  if (UC.tg) { const a = 1 - Math.exp(-dt * 10); UC.lx += (UC.tg.lx - UC.lx) * a; UC.ly += (UC.tg.ly - UC.ly) * a; UC.lz += (UC.tg.lz - UC.lz) * a; UC.k += (UC.tg.k - UC.k) * a; }
+  if (UC.p === 0) { UC.t = UC.tg = null; return; }
+  if (upCur && UC.t && upHlEl.classList.contains('on')) { const r = upRect(UC.t); if (r) { const p = 6, w = Math.max(r.r - r.l + 2 * p, UP_R), h = Math.max(r.b - r.t + 2 * p, UP_R);   // the ring follows the object
+    upHlEl.style.left = ((r.l + r.r) / 2 - w / 2) + 'px'; upHlEl.style.top = ((r.t + r.b) / 2 - h / 2) + 'px'; upHlEl.style.width = w + 'px'; upHlEl.style.height = h + 'px'; } }
+}
 function openUp(id) {                  // id: a card (drill / chute / purity / fuel / truck / ship) or a tap target id (refinery, fuelPlant, padFuel)
   if (!UP[id]) { const t = UPT.find(q => q.id === id); if (!t) return; id = t.p; } clearTimeout(upCloseT); const was = !!upCur;
   upCur = id; sheetOpen = true; UPK.k = ''; UPK.s = -1; UPK.site = S.site;
-  upEl.hidden = upScrim.hidden = false; upUI();
+  upEl.hidden = upScrim.hidden = false; upEl.dataset.card = id; upUI(); ucOpen(upTapT || UPT.find(q => q.p === id && q.site === S.site) || null);
   if (!was) { for (const el of [upEl, upScrim]) { el.classList.remove('out'); el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); } }
   if (pointBeat === 'upgrade') pointerDone = true;
   window.__ps3d.upOpens = (window.__ps3d.upOpens || 0) + 1;
 }
 function closeUp(why) {
-  if (!upCur) return; upCur = null; sheetOpen = false; window.__ps3d.upClosed = why;
+  if (!upCur) return; upCur = null; sheetOpen = false; window.__ps3d.upClosed = why; ucClose(why);
   for (const el of [upEl, upScrim]) { el.classList.remove('in'); el.classList.add('out'); }
   clearTimeout(upCloseT); upCloseT = setTimeout(() => { if (!upCur) { upEl.hidden = upScrim.hidden = true; upEl.classList.remove('out'); upScrim.classList.remove('out'); } }, 170);
 }
@@ -2841,6 +2910,11 @@ function upUI() {                      // refreshes the open card (0.1 s tick + 
   else if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
 }
 upEl.addEventListener('pointerdown', (e) => e.stopPropagation());   // taps inside the card never close it
+// gc-ui2 (EM 15:52 item 5): a swipe that starts ON the card (any direction, > TAP_PX) closes it; buttons (Upgrade, ✕) stop their own pointerdown, so they still work
+let cardP = null;
+upEl.addEventListener('pointerdown', (e) => { if (!upCur || cardP || e.target.closest('button')) return; cardP = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { upEl.setPointerCapture(e.pointerId); } catch (_) {} });
+upEl.addEventListener('pointermove', (e) => { if (cardP && e.pointerId === cardP.id && Math.hypot(e.clientX - cardP.x, e.clientY - cardP.y) > TAP_PX) { cardP = null; closeUp('swipe-card'); } });
+for (const ev of ['pointerup', 'pointercancel']) upEl.addEventListener(ev, (e) => { if (cardP && e.pointerId === cardP.id) cardP = null; });
 $('upX').addEventListener('click', () => closeUp('x'));
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && upCur) closeUp('esc'); });
 // scrim: a tap closes; a swipe closes too (UI-1) and, past the same distance / flick thresholds as the scene swipe, moves one station
@@ -2902,7 +2976,9 @@ Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, 
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
     if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
-Object.assign(window.__ps3d, { UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, r, why: r ? '' : upWhy }; }) });   // QA hooks (upgrade cards)
+Object.assign(window.__ps3d, { UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => { const a = UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, title: UP[t.p].name, site: t.site, r, why: r ? '' : upWhy }; });   // gc-ui2: + station, settled and a reason when nothing here is tappable
+    const n = a.filter(e => e.r).length; return Object.assign(a, { station: S.site, name: STATIONS[S.site], settled: upSettled(), n, why: n ? '' : !upSettled() ? 'camera sliding' : 'no tappable objects here' }); } });
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ get uc() { return { w: +UC.w.toFixed(3), want: UC.want, id: UC.t && UC.t.id, look: [CAMLOOK.lx, CAMLOOK.ly, CAMLOOK.lz, CAMLOOK.k].map(v => +v.toFixed(2)) }; }, get upSettled() { return upSettled(); } }));   // QA hooks (upgrade cards)
 Object.defineProperty(window.__ps3d, 'upCur', { get: () => upCur, configurable: true });
 // extra trucks come later: the truck card shows 'Coming soon' (was TRUCK_SALE = false on the sheet's hidden truck row)
 
@@ -3222,7 +3298,7 @@ function frame() {
   if (now < S.rt - 1000) stampGuard(now);                        // clock went backward mid-session: every stamp shifts back with S.rt, credit nothing
   if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > AWAY_SEC) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
-  updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
+  updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
   updCargo();
   updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
