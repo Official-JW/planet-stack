@@ -582,6 +582,8 @@ function metBind() {
   if (!bed || !load) { console.warn('meteorite: Truck_Bed / Truck_Load bones missing (left out)'); return; }
   const o = MET.g; o.name = 'Meteorite_Fragment_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o); MET.h = bb.max.y - bb.min.y; MET.y0 = bb.min.y;
+  const vs = []; o.traverse(m => { if (m.isMesh) { const a = m.geometry.attributes.position; for (let i = 0; i < a.count; i++) vs.push(new THREE.Vector3().fromBufferAttribute(a, i).applyMatrix4(m.matrixWorld)); } });
+  MET.vs = vs;                       // rock vertices in Meteorite_Seat space: the cap check below uses the real hull, not a box
   const r = new THREE.Group(); r.name = 'Meteorite_Seat'; r.add(o); r.visible = false; bed.add(r);
   Object.assign(MET, { o: r, bed, load, b0: bed.position.clone(), l0: load.position.clone() });   // rest pose (Truck_Chassis is identity, Truck_Bed rest rotation 0)
   window.__ps3d.MET = MET;
@@ -593,7 +595,16 @@ function updMet() {                  // after tMixer.update: Truck_Load's scale 
   MET.bottom = Math.min(MET.surf0 + MET.surfK * MET.inf - MET.sink, MET.top - MET.h); MET.topY = MET.bottom + MET.h;
   const ox = MET.seat[0] - MET.b0.x - MET.l0.x, oy = MET.bottom - MET.y0 - MET.b0.y - MET.l0.y, oz = MET.seat[1] - MET.b0.z - MET.l0.z;   // seat relative to the rest Truck_Load origin
   MET.o.position.set(L.position.x + L.scale.x * ox, L.position.y + ls * oy, L.position.z + L.scale.z * oz);
+  // FIX (EM 9:45): hold top ≤ 4.20 in the truck-local frame in EVERY pose, incl. the truck_dump bed tilt before the pour: measure the rock's
+  // truck-local top through this frame's bed transform and, if it is over, slide the rock straight down (truck-local −Y) by the excess.
+  // The excess grows smoothly with the tilt (no pop), and only sinks it a little deeper into the heap (≤ ~6 cm; bed floor is > 1 m below).
+  truck.updateMatrixWorld(true); _mk.copy(truck.matrixWorld).invert().multiply(MET.bed.matrixWorld);
+  let top = -1e9; for (const v of MET.vs) { _mv.copy(v).add(MET.o.position).applyMatrix4(_mk); if (_mv.y > top) top = _mv.y; }
+  const ex = top - MET.top; MET.clampDy = 0;
+  if (ex > 0) { _mk.invert(); _mv.set(0, 0, 0).applyMatrix4(_mk); _mw.set(0, -ex, 0).applyMatrix4(_mk).sub(_mv); MET.o.position.add(_mw); MET.clampDy = ex; top = MET.top; }
+  MET.liveTop = top;
 }
+const _mk = new THREE.Matrix4(), _mv = new THREE.Vector3(), _mw = new THREE.Vector3();
 
 // ===== Mine operator prop (Art 9209246, md5 2cfa57a6…): at Operator_Deck, facing +Z, sibling of the Mine at scale 1.
 // Chain (no snaps): op_sit_type ×2–4 → op_stand_walk_to_rail (once, clamp) → op_watch_rail (while the truck is on the road, 1–3 loops) → op_walk_back_sit → …
