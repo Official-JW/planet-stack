@@ -71,11 +71,13 @@ const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide 
 const DEV_WORKER_URL = 'https://planet-stack-dev.official-jw.workers.dev';   // Code Assistant's Worker, e.g. 'https://ps-dev.<acct>.workers.dev' (no trailing slash). Empty + no ?mock = unreachable
 const QD = new URLSearchParams(location.search);
 const Q = new URLSearchParams(); if (QD.get('rm') === '1') Q.set('rm', '1');
-const MOCK = ['1', 'down', 'drop'].includes(QD.get('mock')) ? QD.get('mock') : '';
+const DEV_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);   // QA run 2 BUG-1: ?mock= is honoured only on a local test server (any port); anywhere else it is ignored and the real Worker check runs
+const MOCK = DEV_LOCAL && ['1', 'down', 'drop'].includes(QD.get('mock')) ? QD.get('mock') : '';
+let DEVHALT = false;   // set by devHalt(): game loop stopped, save() a no-op, heartbeat stopped (code in use elsewhere / taken by another tab)
 const PSD = window.PS_DEV = Object.assign(window.PS_DEV || {}, { WORKER_URL: DEV_WORKER_URL, code: null, build: document.body.dataset.tag || 'DEV',
   v: ((document.querySelector('script[src*="dev/main.js"]') || {}).src || '').split('v=')[1] || '', mock: MOCK,
   settingsEl: document.getElementById('setPop'), canvas: null, renderNow: null });
-const DEVMSG = { unreachable: "Can't reach the tester server. Try again in a minute.", in_use: 'That code is already in use on another device.',
+const DEVMSG = { unreachable: "Can't reach the tester server. Try again in a minute.", in_use: 'This code is in use on another device.', tab: 'This code is already open in another tab.',
   bad_code: "That code isn't valid. Check it and try again.", format: 'Enter your 5-digit tester code.' };
 const devDeviceId = (() => { const k = 'planetstack-dev-device'; let id = null; try { id = localStorage.getItem(k); } catch (e) {}
   if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); try { localStorage.setItem(k, id); } catch (e) {} }
@@ -133,11 +135,69 @@ async function devCodes() { const r = await devReq('GET', '/codes'); if (r.unrea
 PSD.lock = { code: null, held: false,
   async acquire(code) { const r = devLockRes(await devReq('POST', '/lock', { code, deviceId: devDeviceId, op: 'acquire' })); if (r.ok) { this.code = code; this.held = true; } return r; },
   async heartbeat() { if (!this.code) return { ok: false, reason: 'not_held' }; return devLockRes(await devReq('POST', '/lock', { code: this.code, deviceId: devDeviceId, op: 'beat' })); },
-  release() { if (!this.code || !this.held) return; this.held = false; const body = { code: this.code, deviceId: devDeviceId, op: 'release' };
+  release() { if (!this.code || !this.held || !tabOwn()) return; this.held = false;   // only the tab that owns the tab lock right now (tabs share the deviceId)
+    const body = { code: this.code, deviceId: devDeviceId, op: 'release' };
     if (MOCK) { MOCKW.handle('POST', '/lock', body); return; }
     const base = (window.PS_DEV.WORKER_URL || '').replace(/\/+$/, ''); if (!base) return;
     try { fetch(base + '/lock', { method: 'POST', keepalive: true, body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }).catch(() => {}); }
     catch (e) { try { navigator.sendBeacon && navigator.sendBeacon(base + '/lock', new Blob([JSON.stringify(body)], { type: 'text/plain;charset=UTF-8' })); } catch (e2) {} } } };
+// ===== DEV: one game tab per code per browser (QA run 2 BUG-2). Browser-local only (BroadcastChannel + a localStorage heartbeat lock as the fallback),
+// never the Worker, so other devices are unaffected. Lock 'planetstack-dev-tab-<code>' = { id, n, t }: id = this tab's sessionStorage id (a reloaded tab
+// finds its own lock and takes it at once, even if pagehide never ran), n = this page load's nonce, t = last beat. Beat every 2 s on a timer (no per-frame
+// work), stale after 6 s (crashed / killed tab). A claim first asks live tabs on the channel ('ask' → 'here'), so a fresh lock from a living tab blocks and
+// a dead one does not. Released on pagehide. A blocked tab never starts the game, never reads or writes the save and never calls the Worker lock.
+const TAB_BEAT = 2000, TAB_STALE = 6000, TAB_ASK_MS = 300, tabKey = (c) => 'planetstack-dev-tab-' + c;
+const tabRand = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const TAB = { id: '', n: tabRand(), code: '', held: false, since: 0, timer: 0, ask: null, watch: '', bc: null };
+TAB.id = (() => { const k = 'planetstack-dev-tabid'; let v = ''; try { v = sessionStorage.getItem(k) || ''; } catch (e) {} if (!v) { v = tabRand(); try { sessionStorage.setItem(k, v); } catch (e) {} } return v; })();
+const tabRead = (c) => { try { const v = JSON.parse(localStorage.getItem(tabKey(c)) || 'null'); return v && typeof v === 'object' && v.n ? v : null; } catch (e) { return null; } };
+const tabWrite = () => { try { localStorage.setItem(tabKey(TAB.code), JSON.stringify({ id: TAB.id, n: TAB.n, t: Date.now() })); } catch (e) {} };
+const tabOther = (L) => !!L && L.n !== TAB.n && L.id !== TAB.id && Date.now() - (+L.t || 0) < TAB_STALE;   // a live lock that isn't this tab's
+const tabOwn = () => { if (!TAB.held) return false; const L = tabRead(TAB.code); return !!L && L.n === TAB.n; };   // this page holds the tab lock at this moment
+const tabSend = (m) => { try { if (TAB.bc) TAB.bc.postMessage(m); } catch (e) {} };
+try { TAB.bc = typeof BroadcastChannel === 'function' ? new BroadcastChannel('planetstack-dev-tabs') : null; } catch (e) { TAB.bc = null; }
+if (TAB.bc) TAB.bc.onmessage = (e) => { const m = e.data || {}; if (!m || m.n === TAB.n) return;
+  if (m.type === 'ask' && TAB.held && m.code === TAB.code) tabSend({ type: 'here', code: TAB.code, n: TAB.n, to: m.n });
+  else if (m.type === 'here' && TAB.ask && m.to === TAB.n && m.code === TAB.ask.code) TAB.ask.busy = true;
+  else if (m.type === 'claim' && TAB.held && m.code === TAB.code) { if (Date.now() - TAB.since < 1500 && TAB.n < m.n) return; tabLost(); }   // simultaneous claims: lower nonce keeps it; otherwise we were frozen and lost it
+  else if (m.type === 'free' && TAB.watch && m.code === TAB.watch) tabFreed(); };
+async function tabClaim(code) {           // -> true when this tab now holds the code's tab lock
+  const L = tabRead(code);
+  if (!TAB.bc && tabOther(L)) return false;
+  if (TAB.bc) { TAB.ask = { code, busy: false }; tabSend({ type: 'ask', code, n: TAB.n }); await new Promise(r => setTimeout(r, TAB_ASK_MS)); const busy = TAB.ask.busy; TAB.ask = null;
+    if (busy) { if (L && L.id === TAB.id) { TAB.id = tabRand(); try { sessionStorage.setItem('planetstack-dev-tabid', TAB.id); } catch (e) {} } return false; }   // a duplicated tab copied our sessionStorage id
+    if (tabOther(L)) return false; }      // fresh lock, no answer (that tab is frozen right now): wait for it to go stale
+  if (tabOther(tabRead(code))) return false;
+  TAB.code = code; TAB.held = true; TAB.since = Date.now(); tabWrite(); tabSend({ type: 'claim', code, n: TAB.n });
+  clearInterval(TAB.timer); TAB.timer = setInterval(tabBeat, TAB_BEAT); return true;
+}
+function tabBeat() { if (!TAB.held) return; const L = tabRead(TAB.code); if (L && L.n !== TAB.n && Date.now() - (+L.t || 0) < TAB_STALE) return tabLost(); tabWrite(); }   // someone else's live lock: we lost it while frozen
+function tabRelease() { clearInterval(TAB.timer); TAB.timer = 0; if (!TAB.held) return; TAB.held = false; const L = tabRead(TAB.code);
+  if (L && L.n === TAB.n) { try { localStorage.removeItem(tabKey(TAB.code)); } catch (e) {} } tabSend({ type: 'free', code: TAB.code, n: TAB.n }); }
+function tabLost() { clearInterval(TAB.timer); TAB.timer = 0; TAB.held = false; devHalt(DEVMSG.tab, 'tab'); }   // the lock is the other tab's: leave it
+// full-screen stop message (#devStop). reload: show RELOAD now; otherwise it appears once the other tab lets go (tabFreed)
+function devStopShow(text, reload, sub) { const el = document.getElementById('devStop'); document.getElementById('devStopMsg').textContent = text;
+  document.getElementById('devStopSub').textContent = sub || ''; document.getElementById('devStopBtn').hidden = !reload; el.hidden = false; el.classList.add('on');
+  window.__ps3d.stopMsg = text; window.__ps3d.stopReload = !!reload; }
+document.getElementById('devStopBtn').addEventListener('click', (e) => { e.stopPropagation(); location.reload(); });
+for (const ev of ['pointerdown', 'click', 'touchstart', 'keydown']) document.getElementById('devStop').addEventListener(ev, (e) => e.stopPropagation());
+function tabFreed() { if (!TAB.watch) return; TAB.watch = ''; clearInterval(TAB.wt); devStopShow(DEVMSG.tab, true, 'The other tab has closed. Reload to play here.'); }
+function tabBlocked(code) {               // second tab: message only; RELOAD once the other tab closes ('free') or its lock goes stale (2 s check, no game running)
+  TAB.watch = code; devStopShow(DEVMSG.tab, false, 'Close the other tab to play here.'); window.__ps3d.tabBlocked = code;
+  clearInterval(TAB.wt); TAB.wt = setInterval(() => { if (!tabOther(tabRead(code))) tabFreed(); }, TAB_BEAT);
+}
+// stop the game for good on this page: loop stopped, no more saves (the save is left as it is), heartbeat stopped, the Worker lock is not released
+// (it is the other tab's / device's now, and a tab shares this browser's deviceId), music paused. Reload starts over at the code screen.
+function devHalt(text, why) { if (DEVHALT) return; DEVHALT = true; window.__ps3d.halted = why || 'stop';
+  try { window.PS_DEV.lock.held = false; } catch (e) {}
+  const hb = window.PS_DEV.hb; if (hb) { hb.stopped = true; clearTimeout(hb.t); }
+  if (why !== 'tab') tabRelease();
+  try { MUS.ctx && MUS.ctx.suspend(); } catch (e) {}
+  const rc = document.getElementById('recon'); if (rc) { rc.classList.remove('on'); rc.hidden = true; }
+  devStopShow(text, true, why === 'tab' ? 'This tab has stopped. Your game carries on in the other tab.' : 'This tab has stopped. Reload to try again.');
+}
+addEventListener('pagehide', () => { try { window.PS_DEV.lock.release(); } catch (e) {} tabRelease(); });   // Worker lock first, while we still own the tab lock
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tabBeat(); });
 // start screen: wait for a code the Worker accepts (GET /codes, then lock.acquire); nothing else in this file runs until then
 const DEV_CODE = await new Promise((resolve) => {
   const g = document.getElementById('gate'), inp = document.getElementById('gateCode'), btn = document.getElementById('gateGo'), msg = document.getElementById('gateMsg');
@@ -148,11 +208,14 @@ const DEV_CODE = await new Promise((resolve) => {
   const go = async () => { if (busy) return; const code = inp.value.trim();
     if (!/^\d{5}$/.test(code)) return say(DEVMSG.format);
     busy = true; btn.disabled = true; say(''); btn.textContent = 'CHECKING…';
-    try { const list = await devCodes();
+    try { if (!(await tabClaim(code))) { tabBlocked(code); return; }   // open in another tab of this browser: stop here (no Worker call, no save)
+      const ok = await (async () => { const list = await devCodes();
       if (!list) return say(DEVMSG.unreachable);
       if (!list.includes(code)) return say(DEVMSG.bad_code);
       const r = await window.PS_DEV.lock.acquire(code);
       if (!r.ok) return say(DEVMSG[r.reason] || DEVMSG.unreachable);
+      return true; })();
+      if (!ok) { tabRelease(); return; }   // refused: let the code go for other tabs
       try { localStorage.setItem('planetstack-dev-last', code); } catch (e) {}
       PSD.code = code; g.classList.remove('on'); g.hidden = true; resolve(code);
     } finally { busy = false; btn.disabled = false; btn.textContent = 'START'; } };
@@ -168,7 +231,7 @@ const devSaveKey = 'planetstack-dev-' + DEV_CODE;
 let devName = (() => { try { const sv = JSON.parse(localStorage.getItem(devSaveKey) || 'null'); return sv && typeof sv === 'object' && !Array.isArray(sv) ? devCleanName(sv.name) : ''; } catch (e) { return ''; } })();
 Object.defineProperty(PSD, 'playerName', { get: () => devName, enumerable: true, configurable: true });
 function devStoreName(n) {                // writes the name into the code's save at once (merging with whatever is there), so a reload skips the screen
-  devName = n; let sv = null; try { sv = JSON.parse(localStorage.getItem(devSaveKey) || 'null'); } catch (e) {}
+  devName = n; if (DEVHALT) return; let sv = null; try { sv = JSON.parse(localStorage.getItem(devSaveKey) || 'null'); } catch (e) {}
   if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; sv.name = n; try { localStorage.setItem(devSaveKey, JSON.stringify(sv)); } catch (e) {}
 }
 function devAskName(cur = '') {           // resolves with the cleaned name (non-empty). cur = '' on first ask (blank box); the current name when changing it
@@ -243,7 +306,7 @@ S.trips = [];
 if (!S.tk || typeof S.tk !== 'object') S.tk = { c0: nowMs(), add: 0, lr: 0, dep: 0, paid: false, val: 0, q: 0, qd: [] };
 if (!Array.isArray(S.tk.qd)) S.tk.qd = [];
 if (CFG.econ.deposits === false) { S.tk.q = 0; S.tk.qd = []; S.pend = []; }   // deposits off: queued rich loads and unpaid rich bonuses (S.pend, $8 each) are dropped on load; nothing pays
-const save = () => { try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} };
+const save = () => { if (DEVHALT) return; try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} };
 
 const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
 const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP, REF = 2, RX = REF * GAP;   // stations 160 m apart, origin = i·160 on X
@@ -2668,7 +2731,8 @@ function ecRing(b) {
   if (b.tut) { ecToast.dataset.tutorial = ''; ecBubble.dataset.tutorial = ''; return; }     // tutorial: no timeout, pulses until opened
   delete ecToast.dataset.tutorial; delete ecBubble.dataset.tutorial;
   if (!b.rep) { S.eve.push(b.id); save(); }                                                   // story beat: rings once, never repeats (rep: delivery calls ring every time)
-  EC.toastT = setTimeout(() => { if (EC.ring !== b) return; ecToast.classList.replace('is-in', 'is-out'); setTimeout(() => hudDim(false), ECM.closeSlide); ecBubble.classList.remove('is-ringing');
+  if (!b.stay) EC.toastT = setTimeout(() => { if (EC.ring !== b) return;   // b.stay (greeting): no auto-hide, rings until tapped
+    ecToast.classList.replace('is-in', 'is-out'); setTimeout(() => hudDim(false), ECM.closeSlide); ecBubble.classList.remove('is-ringing');
     EC.ring = null; if (!b.rep) { setMissed(S.missed + 1); addCall(b.id, true); save(); } }, ECM.toastTimeout);
   window.__ps3d.eveShown = (window.__ps3d.eveShown || []).concat(b.id);
 }
@@ -2787,12 +2851,12 @@ function updViewShift() {
   if (VS.cur > .5) camera.setViewOffset(W, H, 0, -VS.cur, W, H); else if (camera.view && camera.view.enabled) camera.clearViewOffset();
   window.__ps3d.viewShift = Math.round(VS.cur);
 }
-// DEV greeting (Director 10/31 07:31): once per page load, first thing after the cover, Eve rings 'Welcome aboard, Commander <name>.' The typed name is
+// DEV greeting (Director 10/31 07:31): once per page load, first thing after the cover (coverGone: rings only once the loading cover has been removed), Eve rings 'Welcome aboard, Commander <name>.' The typed name is
 // text only (toast banner + call line, set with textContent); the voice is the fixed clip name_greeting_0 ("Welcome aboard, Commander"), if listed.
 const GREET = { done: false };
 function eveGreet() {
   if (GREET.done || !coverGone || !PSD.playerName || EC.ring || EC.call || ecIsOpen()) return; GREET.done = true;
-  const line = `Welcome aboard, Commander ${PSD.playerName}.`, b = { id: 'name_greeting', tut: false, rep: true, point: null, lines: [line] }; ecRing(b);
+  const line = `Welcome aboard, Commander ${PSD.playerName}.`, b = { id: 'name_greeting', tut: false, rep: true, stay: true, point: null, lines: [line] }; ecRing(b);   // QA run 2 BUG-3: stays up until tapped (no 8 s timeout)
   ecToastKick.textContent = 'WELCOME ABOARD'; const nb = document.createElement('b'); nb.textContent = `Commander ${PSD.playerName}`; ecToastWho.replaceChildren(nb); ecToastWho.classList.add('ps-greet');   // banner: kicker + name (wraps to 2 lines if long), fits 375 px
   window.__ps3d.greeting = line; window.__ps3d.greetAnswer = () => ecAnswer(b);   // QA hook: answer the greeting even after its toast timed out
 }
@@ -2918,6 +2982,7 @@ const devEl = $('dev'); devEl.hidden = !DEV; if (DEV) devEl.textContent = 'measu
 const clock = new THREE.Clock(); let frames = 0, acc = 0, fps = 0, saveT = 0, uiT = 0, time = 0; const hist = [];
 renderer.info.autoReset = true;
 function frame() {
+  if (DEVHALT) return;                   // devHalt: the loop stops for good (no rAF scheduled)
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), document.hidden ? 0.1 : 0.25), gdt = dt * SPD; time += gdt; window.__ps3d.frames = (window.__ps3d.frames || 0) + 1;
   const now = nowMs();
@@ -2981,7 +3046,7 @@ $('devBugBtn').addEventListener('click', (e) => { e.stopPropagation(); setPop.cl
 // lock heartbeat: every 30 s while held. A failed beat keeps the game running and retries quietly; after HB_FAIL_MS of continuous failure the game
 // pauses (game clock frozen, state kept) under the reconnect screen, which closes and resumes by itself on the next good beat. not_held → re-acquire.
 const HB_MS = (MOCK && +QD.get('hb') > 0 ? +QD.get('hb') : 30) * 1000, HB_FAIL_MS = (MOCK && +QD.get('hbfail') > 0 ? +QD.get('hbfail') : 300) * 1000;
-const HB = PSD.hb = { t: 0, failSince: 0, ok: 0, fail: 0, busy: false, stopped: false, last: '' };
+const HB = PSD.hb = { t: 0, failSince: 0, ok: 0, fail: 0, busy: false, stopped: false, last: '', at: Date.now(), okAt: Date.now(), ttl: 90 };
 const reconEl = $('recon'), reconBtn = $('reconBtn');
 PSD.paused = false;
 function devPause(on) {
@@ -2991,8 +3056,10 @@ function devPause(on) {
 }
 async function devBeat() {
   if (HB.busy || HB.stopped) return; HB.busy = true; clearTimeout(HB.t); reconBtn.disabled = true;
-  let r; try { const L = window.PS_DEV.lock; r = await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
-  HB.busy = false; reconBtn.disabled = false; HB.last = r.ok ? 'ok' : r.reason; if (HB.stopped) return;
+  let r; try { const L = window.PS_DEV.lock; const gone = Date.now() - HB.okAt >= HB.ttl * 1000 - 2000;   // past the TTL (thawed / long sleep): acquire directly, no 404 beat
+    r = gone ? await L.acquire(PSD.code) : await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+  HB.busy = false; reconBtn.disabled = false; HB.last = r.ok ? 'ok' : r.reason; HB.at = Date.now(); if (r.ok) { HB.okAt = HB.at; HB.ttl = +r.ttl || 90; } if (HB.stopped) return;
+  if (!r.ok && r.reason === 'in_use') { HB.inUse = (HB.inUse || 0) + 1; devHalt(DEVMSG.in_use, 'in_use'); return; }   // QA run 1 BUG-1: another device holds the code now (beat 409, or not_held → acquire 409): stop at once; only a network failure counts as unreachable
   if (r.ok) { HB.ok++; HB.failSince = 0; devPause(false); }
   else { HB.fail++; if (!HB.failSince) HB.failSince = Date.now(); if (Date.now() - HB.failSince >= HB_FAIL_MS) devPause(true); }
   HB.t = setTimeout(devBeat, PSD.paused ? Math.min(HB_MS, 10000) : HB_MS);
@@ -3000,8 +3067,12 @@ async function devBeat() {
 reconBtn.addEventListener('click', (e) => { e.stopPropagation(); devBeat(); });
 for (const ev of ['pointerdown', 'click', 'touchstart']) reconEl.addEventListener(ev, (e) => e.stopPropagation());
 HB.t = setTimeout(devBeat, HB_MS);
+// back on screen (phone unlocked / tab shown / page thawed): check in at once instead of waiting for the 30 s timer (at most one extra check per 3 s)
+const devBeatNow = () => { if (document.hidden || HB.stopped || DEVHALT || HB.busy || Date.now() - (HB.at || 0) < 3000) return; devBeat(); };
+document.addEventListener('visibilitychange', devBeatNow); document.addEventListener('resume', devBeatNow); addEventListener('pageshow', (e) => { if (!e.persisted) devBeatNow(); });
 addEventListener('pagehide', () => { HB.stopped = true; clearTimeout(HB.t); try { window.PS_DEV.lock.release(); } catch (e) {} });
-addEventListener('pageshow', async (e) => { if (!e.persisted || !HB.stopped) return; HB.stopped = false;   // back from the bfcache: take the lock again
-  let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
+addEventListener('pageshow', async (e) => { if (!e.persisted || !HB.stopped || DEVHALT) return; HB.stopped = false;   // back from the bfcache: take the tab lock, then the Worker lock again
+  if (!(await tabClaim(PSD.code))) return tabLost();
+  let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use'); if (r.ok) { HB.okAt = Date.now(); HB.ttl = +r.ttl || 90; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
 if (MOCK) PSD.__mockHeal = () => { MOCKW.healed = true; };   // smoke only: the mock Worker answers beats again
 renderSettings();

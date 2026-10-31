@@ -6,7 +6,7 @@
 // UUID reportId before its first send and removed only after a 200 (dup:true included) or a permanent 4xx (bad_code/bad_request/bad_shot/too_big, shown as
 // an error). Network failure, 5xx, 429 and 409 keep it; retried with backoff, on 'online', on page load and when the form opens (single-flight; no timer
 // while the queue is empty). If storage is full, screenshots are dropped (oldest first) before any text is lost. deviceId is the game's own (localStorage planetstack-dev-device), so the
-// Worker's lock check sees the same device that holds the code. ?mock=… builds never touch the network (mock=down answers 'unreachable').
+// Worker's lock check sees the same device that holds the code. ?mock=… (local hosts only) never touches the network and queues under planetstack-dev-bugq-mock (mock=down answers 'unreachable').
 (function () {
   'use strict';
   const PS = window.PS_DEV = window.PS_DEV || {};
@@ -37,7 +37,10 @@
   const workerUrl = () => String(PS.WORKER_URL || '').replace(/\/+$/, '');
   const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
   // ---- offline queue ----
-  const QK = 'planetstack-dev-bugq', QMAX = 10, PERM = ['bad_code', 'bad_request', 'bad_shot', 'too_big'];
+  // mock mode (QA run 2): only on a local test server (localhost / 127.0.0.1, any port), the same rule as main.js. Mock reports live in their own queue and
+  // never touch the network, so one can never reach the real Worker; on any other host ?mock= is ignored and the real queue + Worker are used.
+  const MOCKQ = ['localhost', '127.0.0.1'].includes(location.hostname) && ['1', 'down', 'drop'].includes(new URLSearchParams(location.search).get('mock'));
+  const QK = MOCKQ ? 'planetstack-dev-bugq-mock' : 'planetstack-dev-bugq', QMAX = 10, PERM = ['bad_code', 'bad_request', 'bad_shot', 'too_big'];
   let mem = null;   // used only when localStorage is unavailable
   function qLoad() { if (mem) return mem.slice(); try { const v = JSON.parse(localStorage.getItem(QK) || '[]'); return Array.isArray(v) ? v.filter(x => x && typeof x === 'object' && x.reportId && x.text) : []; } catch (e) { return []; } }
   function qSave(q) {   // stores q; on quota errors drops screenshots (oldest first), never text
@@ -55,7 +58,7 @@
     if (flushing) return flushing;
     flushing = (async () => { clearTimeout(timer); timer = 0;
       for (;;) { const q = qLoad(); if (!q.length) return; const it = q[0];
-        if (!PS.mock && !workerUrl()) { schedule(30000); return; }
+        if (!MOCKQ && !workerUrl()) { schedule(30000); return; }
         const body = { reportId: it.reportId, code: it.code, deviceId: it.deviceId, playerName: it.playerName, text: it.text, build: it.build, v: it.v, device: it.device, shot: it.shot || '' };
         const r = await post(body), j = r.json || {}; PS.lastBug = { body: Object.assign({}, body, { shot: body.shot.length }), res: r };
         if (!r.unreachable && r.status >= 200 && r.status < 300 && j.ok) { qDel(it.reportId); notify(it, j.issue ? `Sent (issue #${j.issue})` : 'Sent', 'ok'); if (it.reportId === curRid) sentRid = curRid; continue; }
@@ -127,17 +130,17 @@
     shot = captureShot(); curRid = ''; sentRid = ''; curText = null;
     $b('bugImg').src = shot ? shot.url : ''; $b('bugImg').style.display = shot ? '' : 'none';
     $b('bugMeta').textContent = metaText(); $b('bugSend').disabled = false;
-    msg(PS.mock || workerUrl() ? '' : 'Bug server not set up yet', PS.mock || workerUrl() ? '' : 'err');
+    msg(MOCKQ || workerUrl() ? '' : 'Bug server not set up yet', MOCKQ || workerUrl() ? '' : 'err');
     ov.classList.add('on'); setTimeout(() => { try { $b('bugTxt').focus({ preventScroll: true }); } catch (e) {} }, 50);
     if (qLoad().length) flush();
     return shot;
   }
   function close() { if (!ov) return; ov.classList.remove('on'); shot = null; $b('bugImg').src = ''; }
   const ERR = { bad_code: "Your tester code wasn't accepted. Reload and enter it again.", bad_request: 'That report was not accepted. Add a description and try again.',
-    bad_shot: 'The screenshot could not be read. Try again.', in_use: 'This tester code is in use on another device.', too_big: 'Screenshot too large.',
+    bad_shot: 'The screenshot could not be read. Try again.', in_use: 'This code is in use on another device.', too_big: 'Screenshot too large.',
     rate_limited: 'Too many reports from this code. Wait about 10 minutes and try again.', unreachable: "Couldn't reach the bug server. Check your connection and try again." };
   async function post(body) {   // -> { status, json } or { unreachable: true }
-    if (PS.mock) { await new Promise(r => setTimeout(r, 80)); if (PS.mock === 'down') return { unreachable: true };
+    if (MOCKQ) { await new Promise(r => setTimeout(r, 80)); if (PS.mock === 'down') return { unreachable: true };   // mock: never the network (PS.mock = 'down' simulates an outage)
       PS.mockBugs = PS.mockBugs || []; PS.mockBugs.push(body); return { status: 200, json: { ok: true, issue: 900 + PS.mockBugs.length, mock: true } }; }
     const W = workerUrl(); if (!W) return { unreachable: true };
     const ac = typeof AbortController === 'function' ? new AbortController() : null, to = setTimeout(() => ac && ac.abort(), 20000);
