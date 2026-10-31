@@ -140,12 +140,17 @@ async function devCodes() { const r = await devReq('GET', '/codes'); if (r.unrea
 PSD.lock = { code: null, held: false,
   async acquire(code) { const r = devLockRes(await devReq('POST', '/lock', { code, deviceId: devDeviceId, op: 'acquire' })); if (r.ok) { this.code = code; this.held = true; } return r; },
   async heartbeat() { if (!this.code) return { ok: false, reason: 'not_held' }; return devLockRes(await devReq('POST', '/lock', { code: this.code, deviceId: devDeviceId, op: 'beat' })); },
-  release() { if (!this.code || !this.held || !tabOwn()) return; this.held = false;   // only the tab that owns the tab lock right now (tabs share the deviceId)
+  // release (lock fix 10/31): idempotent (held=false first). Gate = tabMine(), not tabOwn(): a missing/unreadable localStorage tab lock (storage full or
+  // blocked) no longer skips the release; only another tab's lock does. Sent with sendBeacon first (survives unload in every browser, incl. Firefox < 133,
+  // which ignores fetch keepalive), then fetch keepalive if sendBeacon is missing or refuses (returns false). text/plain body: CORS-safelisted, so no
+  // preflight; the Worker reads it with req.json() and checks Origin (both send it). -> 'beacon' | 'keepalive' | 'mock' | '' (not sent)
+  release() { if (!this.code || !this.held || !tabMine()) return ''; this.held = false;   // only the tab that holds the tab lock (tabs share the deviceId)
     const body = { code: this.code, deviceId: devDeviceId, op: 'release' };
-    if (MOCK) { MOCKW.handle('POST', '/lock', body); return; }
-    const base = (window.PS_DEV.WORKER_URL || '').replace(/\/+$/, ''); if (!base) return;
-    try { fetch(base + '/lock', { method: 'POST', keepalive: true, body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }).catch(() => {}); }
-    catch (e) { try { navigator.sendBeacon && navigator.sendBeacon(base + '/lock', new Blob([JSON.stringify(body)], { type: 'text/plain;charset=UTF-8' })); } catch (e2) {} } } };
+    if (MOCK) { MOCKW.handle('POST', '/lock', body); return 'mock'; }
+    const base = (window.PS_DEV.WORKER_URL || '').replace(/\/+$/, ''); if (!base) return '';
+    const s = JSON.stringify(body);
+    try { if (navigator.sendBeacon && navigator.sendBeacon(base + '/lock', new Blob([s], { type: 'text/plain;charset=UTF-8' }))) return 'beacon'; } catch (e) {}
+    try { fetch(base + '/lock', { method: 'POST', keepalive: true, cache: 'no-store', body: s, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }).catch(() => {}); return 'keepalive'; } catch (e) { return ''; } } };
 // ===== DEV: one game tab per code per browser (QA run 2 BUG-2). Browser-local only (BroadcastChannel + a localStorage heartbeat lock as the fallback),
 // never the Worker, so other devices are unaffected. Lock 'planetstack-dev-tab-<code>' = { id, n, t }: id = this tab's sessionStorage id (a reloaded tab
 // finds its own lock and takes it at once, even if pagehide never ran), n = this page load's nonce, t = last beat. Beat every 2 s on a timer (no per-frame
@@ -159,6 +164,7 @@ const tabRead = (c) => { try { const v = JSON.parse(localStorage.getItem(tabKey(
 const tabWrite = () => { try { localStorage.setItem(tabKey(TAB.code), JSON.stringify({ id: TAB.id, n: TAB.n, t: Date.now() })); } catch (e) {} };
 const tabOther = (L) => !!L && L.n !== TAB.n && L.id !== TAB.id && Date.now() - (+L.t || 0) < TAB_STALE;   // a live lock that isn't this tab's
 const tabOwn = () => { if (!TAB.held) return false; const L = tabRead(TAB.code); return !!L && L.n === TAB.n; };   // this page holds the tab lock at this moment
+const tabMine = () => { if (!TAB.held) return false; const L = tabRead(TAB.code); return !L || L.n === TAB.n; };   // held by this page and not taken by another tab (an unreadable / unwritten lock counts as ours)
 const tabSend = (m) => { try { if (TAB.bc) TAB.bc.postMessage(m); } catch (e) {} };
 try { TAB.bc = typeof BroadcastChannel === 'function' ? new BroadcastChannel('planetstack-dev-tabs') : null; } catch (e) { TAB.bc = null; }
 if (TAB.bc) TAB.bc.onmessage = (e) => { const m = e.data || {}; if (!m || m.n === TAB.n) return;
@@ -3201,9 +3207,19 @@ reconBtn.addEventListener('click', (e) => { e.stopPropagation(); devBeat(); });
 for (const ev of ['pointerdown', 'click', 'touchstart']) reconEl.addEventListener(ev, (e) => e.stopPropagation());
 HB.t = setTimeout(devBeat, HB_MS);
 // back on screen (phone unlocked / tab shown / page thawed): check in at once instead of waiting for the 30 s timer (at most one extra check per 3 s)
-const devBeatNow = () => { if (document.hidden || HB.stopped || DEVHALT || HB.busy || Date.now() - (HB.at || 0) < 3000) return; devBeat(); };
-document.addEventListener('visibilitychange', devBeatNow); document.addEventListener('resume', devBeatNow); addEventListener('pageshow', (e) => { if (!e.persisted) devBeatNow(); });
-addEventListener('pagehide', () => { HB.stopped = true; clearTimeout(HB.t); try { window.PS_DEV.lock.release(); } catch (e) {} });
+// lock fix 10/31: hidden = release the Worker lock too. iOS Safari often never fires pagehide when a tab is closed from the switcher or the app is
+// swiped away / killed while in the background, but it does fire visibilitychange 'hidden' first, so the code is freed at once instead of after the
+// 90 s TTL. The tab lock (this browser only) is kept. While away the heartbeat is stopped (a background timer would re-acquire); back on screen the
+// lock is taken again at once (acquire, no 3 s throttle); in_use there means another device took the code meanwhile -> the normal stop screen.
+const DEV_RELEASE_ON_HIDDEN = true;
+const devAway = () => { if (!DEV_RELEASE_ON_HIDDEN || HB.stopped || DEVHALT) return; HB.away = true; HB.stopped = true; clearTimeout(HB.t);
+  try { window.PS_DEV.lock.release(); } catch (e) {} };
+const devBack = () => { if (!HB.away || document.hidden || DEVHALT) return false; HB.away = false; HB.stopped = false; HB.okAt = 0; HB.at = 0;   // okAt 0 -> devBeat acquires directly
+  if (HB.busy) HB.t = setTimeout(devBeat, 1000); else devBeat(); return true; };   // a beat still in flight from before: check again right after it
+const devBeatNow = () => { if (devBack() || document.hidden || HB.stopped || DEVHALT || HB.busy || Date.now() - (HB.at || 0) < 3000) return; devBeat(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) devAway(); else devBeatNow(); });
+document.addEventListener('resume', devBeatNow); addEventListener('pageshow', (e) => { if (!e.persisted) devBeatNow(); });
+addEventListener('pagehide', () => { HB.away = false; HB.stopped = true; clearTimeout(HB.t); try { window.PS_DEV.lock.release(); } catch (e) {} });   // pagehide owns the bfcache return (pageshow below)
 addEventListener('pageshow', async (e) => { if (!e.persisted || !HB.stopped || DEVHALT) return; HB.stopped = false;   // back from the bfcache: take the tab lock, then the Worker lock again
   if (!(await tabClaim(PSD.code))) return tabLost();
   let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use'); if (r.ok) { HB.okAt = Date.now(); HB.ttl = +r.ttl || 90; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
