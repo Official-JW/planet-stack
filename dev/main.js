@@ -135,7 +135,8 @@ async function devCodes() { const r = await devReq('GET', '/codes'); if (r.unrea
 PSD.lock = { code: null, held: false,
   async acquire(code) { const r = devLockRes(await devReq('POST', '/lock', { code, deviceId: devDeviceId, op: 'acquire' })); if (r.ok) { this.code = code; this.held = true; } return r; },
   async heartbeat() { if (!this.code) return { ok: false, reason: 'not_held' }; return devLockRes(await devReq('POST', '/lock', { code: this.code, deviceId: devDeviceId, op: 'beat' })); },
-  release() { if (!this.code || !this.held || !tabOwn()) return; this.held = false;   // only the tab that owns the tab lock right now (tabs share the deviceId) const body = { code: this.code, deviceId: devDeviceId, op: 'release' };
+  release() { if (!this.code || !this.held || !tabOwn()) return; this.held = false;   // only the tab that owns the tab lock right now (tabs share the deviceId)
+    const body = { code: this.code, deviceId: devDeviceId, op: 'release' };
     if (MOCK) { MOCKW.handle('POST', '/lock', body); return; }
     const base = (window.PS_DEV.WORKER_URL || '').replace(/\/+$/, ''); if (!base) return;
     try { fetch(base + '/lock', { method: 'POST', keepalive: true, body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }).catch(() => {}); }
