@@ -293,16 +293,19 @@ let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
 const nowMs = () => (HOLD !== null ? HOLD : rawMs());
-const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, fuelLv: 1, purLv: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 2, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29)
+const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, fuelLv: 1, purLv: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 3, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29)
 let hadRt = false;
 try { let sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; hadRt = sv.rt > 0;
   migrateSave(sv, hadRt); Object.assign(S, sv); } catch (e) {}
 // S.site is a station index, so a save keeps its named station across station-order changes (each step runs once):
 //   11:12 and older saves (no 'chute'): the Refinery slot (index 2) shifts the later stations by one;
 //   ord < 2 (18:44 and older order LS, Mine, Refinery, Pad, Dock, Habitat, Shipyard, Eng): Pad 3→4, Dock 4→3, Habitat 5→6, Shipyard 6→5 (Director 10/24 order)
+//   ord < 3 (before the Life Support move 10/31): no index changes (Life Support stays index 0, only its x moves 0 → 910, see SX); a bad or
+//   out-of-range site goes back to the Mine (the new-game default). The camera starts at SX[site], so an old save on Life Support opens at 910.
 function migrateSave(sv, hadRt) {
   if (hadRt && !('chute' in sv) && sv.site >= 2) sv.site++;
   if (!(sv.ord >= 2)) { const m = { 3: 4, 4: 3, 5: 6, 6: 5 }; if (hadRt && sv.site in m) sv.site = m[sv.site]; sv.ord = 2; }
+  if (!(sv.ord >= 3)) { if ('site' in sv && !(Number.isInteger(sv.site) && sv.site >= 0 && sv.site < 8)) sv.site = 1; sv.ord = 3; }
   // ev < 1 (6df2e40 and older, pre Phase 1 econ): money, levels and every loop stamp are kept as saved (no wipe, no re-pay); a key holding a
   // non-number or non-finite value is dropped so the new-game default fills it instead of NaN spreading. A truck mid-trip just tips for $0 now.
   if (!(sv.ev >= 1)) {
@@ -339,6 +342,18 @@ function qaShift(d) { shiftTk(d); S.rt += d; for (const a of [S.log, S.calls]) i
 const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
 const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP, REF = 2, RX = REF * GAP;   // stations 160 m apart, origin = i·160 on X
 const DOCKI = 3, PADI = 4, SHIPI = 5, HABI = 6;   // Cargo Space Dock x 480, Launch Pad x 640, Shipyard x 800, Habitat x 960
+// Life Support move (Director 10/31): per-station x. Indices stay as they are (saves, UPT targets, cards, STATION_GLB); only the x moves.
+// Life Support 910 sits between Shipyard 800 and Habitat 960; the others stay at i·160. Swipe / snap / dots / keys follow x order (ORD), not index:
+// Mine, Refinery, Dock, Pad, Shipyard, Life Support, Habitat, Engineering. RANK[i] = place of station i in that order.
+const SX = STATIONS.map((n, i) => i === 0 ? 910 : i * GAP);
+const ORD = SX.map((x, i) => i).sort((a, b) => SX[a] - SX[b]), RANK = []; ORD.forEach((s, r) => { RANK[s] = r; });
+const stepSite = (i, dir) => ORD[Math.max(0, Math.min(N - 1, RANK[i] + dir))];   // neighbour in x order (clamped at the ends)
+function nearSite(x) { let b = 0; for (let i = 1; i < N; i++) if (Math.abs(x - SX[i]) < Math.abs(x - SX[b])) b = i; return b; }   // station whose x is closest
+const _seg = { i0: 0, i1: 0, u: 0 };
+function camSeg(x) {               // the two x-order neighbours around x and the 0..1 blend between them (was f = x / GAP); no allocation
+  let r = 0; while (r < N - 2 && x > SX[ORD[r + 1]]) r++;
+  const a = SX[ORD[r]], b = SX[ORD[r + 1]]; _seg.i0 = ORD[r]; _seg.i1 = ORD[r + 1]; _seg.u = Math.max(0, Math.min(1, (x - a) / (b - a))); return _seg;
+}
 // ===== pad REST camera (Director 10/25): the ship nodes the rest view is fitted to. A new pad / ship file only needs these names checked
 // (node /workspace/padcam_work/padfit.mjs <pad.glb> prints the fit). Every visible mesh under a matched node counts (skinned legs at their pose).
 // hull: whole-ship nodes; legs: landing-leg nodes (exact names or the regex). Both must match, else the CAM_OVERRIDE / Cam_Target rest frame is used.
@@ -537,12 +552,12 @@ const phBox = [];
 STATIONS.forEach((name, i) => {
   if (!SIZES[i]) return; const [w, h, d] = SIZES[i];
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), ph);
-  m.position.set(i * GAP, h / 2, 0); m.castShadow = m.receiveShadow = true; scene.add(m); phBox[i] = m;
+  m.position.set(SX[i], h / 2, 0); m.castShadow = m.receiveShadow = true; scene.add(m); phBox[i] = m;
 });
 // ===== passed station GLBs (Art): swap in for the gray box once loaded; tiers hidden; idle loops play; doors stay shut
 const DOCK = { pipeLaunchPad: [37.70, 0.66, 7.30] };   // Dock-local glTF; read from the GLB on load (the Launch Pad pipe joins here)
 const STATION_GLB = [
-  { i: 0, url: 'models/life_support_adfaac9.glb?v=e8427ec4', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Cam_Target (0, 2.5, -12.5), frame_w 34
+  { i: 0, url: 'models/life_support_adfaac9.glb?v=e8427ec4', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'], onLoad: lsHideTankFarm },   // Cam_Target (0, 2.5, -12.5), frame_w 34
   { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
@@ -637,7 +652,7 @@ function fitSite(i) {
     o.updateMatrixWorld(true); if (ct) ct.getWorldPosition(_ct); else _ct.copy(o.position); const ov = ov0, fw = ov && ov.frame_w || ct.userData.frame_w;
     if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
     const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-    SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - i * GAP, dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
+    SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - SX[i], dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
     if (i === PADI) padRestApply();   // pad: the ship fit replaces this (kept as the fallback)
     return;
   }
@@ -650,12 +665,16 @@ function fitSite(i) {
   for (let k = 1; k < 24; k += .02) for (const ly of [CAM.lookY, (CAM.lookY + cy) / 2, cy]) {
     const d = camera.userData.dist * k; mc.position.set(cx, ly + d * Math.sin(e), cz + d * Math.cos(e)); mc.lookAt(cx, ly, cz); mc.updateMatrixWorld();
     const ps = c.map(p => toScreen(p[0], p[1], p[2], mc));
-    if (ps.every(p => p.x >= 12 && p.x <= W - 12 && p.y >= top && p.y <= bot)) { SITECAM[i] = { k, dx: cx - i * GAP, dz: cz, ly, ct: false }; return; }
+    if (ps.every(p => p.x >= 12 && p.x <= W - 12 && p.y >= top && p.y <= bot)) { SITECAM[i] = { k, dx: cx - SX[i], dz: cz, ly, ct: false }; return; }
   }
-  console.warn('fitSite: no fit for', STATIONS[i]); SITECAM[i] = { k: 24, dx: cx - i * GAP, dz: cz, ly: cy, ct: false };
+  console.warn('fitSite: no fit for', STATIONS[i]); SITECAM[i] = { k: 24, dx: cx - SX[i], dz: cz, ly: cy, ct: false };
 }
+// Life Support at 910 has no Tank Farm next to it: hide the CO2 'TO TANK FARM' stub by node name. In adfaac9 only the empty marker Pipe_TankFarm
+// is its own node (the pipe, sleeper and sign are merged into LS_Metal / LS_Paint), so until Art splits them out this hides the marker only.
+function lsHideTankFarm(o) { const hid = []; o.traverse(n => { if (/tank.?farm|^co2_(tf|transfer|sleeper)/i.test(n.name || '')) { n.visible = false; hid.push(n.name); } });
+  window.__ps3d.lsTankFarm = { hidden: hid, meshes: hid.filter(nm => { const n = o.getObjectByName(nm); let m = 0; n.traverse(q => { if (q.isMesh) m++; }); return m > 0; }).length }; }
 for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
-  const o = gltf.scene; o.position.set(G.i * GAP, 0, G.z || 0);
+  const o = gltf.scene; o.position.set(SX[G.i], 0, G.z || 0);
   o.traverse(n => {
     if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; if (n.isSkinnedMesh) n.frustumCulled = false; }   // Refinery 93c44166: Base_Paint is skinned
     if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false;
@@ -1074,7 +1093,7 @@ function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
 }, undefined, (e) => console.warn('crew boarding GLB failed (ship launches without crew)', e)); }
 
 // ===== camera framing (fixed camera, ~14 m wide in portrait)
-let camX = S.site * GAP, target = camX, W = 1, H = 1;
+let camX = SX[S.site], target = camX, W = 1, H = 1;
 function camDist(aspect) {
   const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   // short screens (iPhone SE): back off just enough that the full-size rig (Lv6+ incl. tier parts) tops out ≥104 px,
@@ -1088,7 +1107,7 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 function poseCam(cam, x) {
-  const f = clamp(x / GAP, 0, N - 1), i0 = Math.floor(f), i1 = Math.min(N - 1, i0 + 1), u = f - i0, sm = u * u * (3 - 2 * u);
+  const g = camSeg(x), i0 = g.i0, i1 = g.i1, u = g.u, sm = u * u * (3 - 2 * u);   // x-order neighbours (Life Support 910 sits between Shipyard and Habitat)
   const A = padCamAt(i0), B = padCamAt(i1), k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;   // pad: rest ↔ load blend (padCamAt)
   let lx = x + dx, lyy = ly, lz = dz, kk = k;
   if (cam === camera && FOC.w > 0) { const w = FOC.w; lx += (FOC.lx - lx) * w; lyy += (FOC.ly - lyy) * w; lz += (FOC.lz - lz) * w; kk += (FOC.k - kk) * w; }   // tier focus blend
@@ -1137,7 +1156,7 @@ function fitBox(mc, b, k0) {
   }
   t.fit = false; return t;
 }
-function focusHome(i) { const C = SITECAM[i]; return { lx: i * GAP + C.dx, ly: C.ly, lz: C.dz, k: C.k }; }
+function focusHome(i) { const C = SITECAM[i]; return { lx: SX[i] + C.dx, ly: C.ly, lz: C.dz, k: C.k }; }
 function focusTier(i, node) {
   if (!node || !camera.userData.dist || S.site !== i || drag) return 0;
   const vis = node.visible, sc = node.scale.x; node.visible = true; node.scale.setScalar(1); node.updateMatrixWorld(true);
@@ -1285,7 +1304,7 @@ function updPadCam(dt) {               // dt = wall-clock frame dt (not game spe
 }
 let shK = 1;
 function placeCamera() { poseCam(camera, camX);
-  const f = clamp(camX / GAP, 0, N - 1), i0 = Math.floor(f), A = SITECAM[i0], B = SITECAM[Math.min(N - 1, i0 + 1)], u = f - i0, k = A.k + (B.k - A.k) * u, dx = A.dx + (B.dx - A.dx) * u, dz = A.dz + (B.dz - A.dz) * u;
+  const g = camSeg(camX), A = SITECAM[g.i0], B = SITECAM[g.i1], u = g.u, k = A.k + (B.k - A.k) * u, dx = A.dx + (B.dx - A.dx) * u, dz = A.dz + (B.dz - A.dz) * u;
   if (Math.abs(k - shK) > .01) { shK = k; Object.assign(sun.shadow.camera, { left: -22 * k, right: 22 * k, top: 22 * k, bottom: -22 * k, far: 120 * k }); sun.shadow.camera.updateProjectionMatrix(); }
   sun.position.set(camX + dx - 30 * k, 22 * k, dz + 18 * k); sun.target.position.set(camX + dx, 0, dz); }
 const _v = new THREE.Vector3();
@@ -1296,11 +1315,11 @@ const mPerPx = () => (2 * camera.userData.dist * SITECAM[S.site].k * Math.tan(TH
 // ===== UI: tag, name, dots
 $('tag').textContent = document.body.dataset.tag + (DEV ? ' · DEV' : '');
 const nameEl = $('name'), dotsEl = $('dots');
-STATIONS.forEach((n, i) => { const b = document.createElement('button'); b.setAttribute('aria-label', n); dotsEl.appendChild(b); });
-function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === S.site)); }
-function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); closeUp('site'); } target = k * GAP; ui(); }
+ORD.forEach((i) => { const b = document.createElement('button'); b.setAttribute('aria-label', STATIONS[i]); dotsEl.appendChild(b); });   // dots in x order
+function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === RANK[S.site])); }
+function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); closeUp('site'); } target = SX[k]; ui(); }
 dotsEl.addEventListener('pointerdown', (e) => {   // 44 px tap band: nearest dot wins
-  e.stopPropagation(); cancelFocus('dot'); crewCancel('dot'); const r = dotsEl.getBoundingClientRect(); goSite(Math.round((e.clientX - r.left) / r.width * N - .5));
+  e.stopPropagation(); cancelFocus('dot'); crewCancel('dot'); const r = dotsEl.getBoundingClientRect(); goSite(ORD[clamp(Math.round((e.clientX - r.left) / r.width * N - .5), 0, N - 1)]);
 });
 ui();
 
@@ -1319,7 +1338,7 @@ canvas.addEventListener('pointermove', (e) => {
   const dx = e.clientX - drag.x0; drag.moved = Math.max(drag.moved, Math.hypot(dx, e.clientY - drag.y0));
   if (drag.moved > 10 && FOC.i >= 0) cancelFocus('swipe');              // a swipe cancels a tier focus and takes over
   if (drag.moved > 10) closeUp('swipe');                                // UI-1: a swipe closes the open upgrade card (and, being a swipe, never opens one)
-  const lo = Math.max((drag.base - 1) * GAP, -GAP * .3), hi = Math.min((drag.base + 1) * GAP, GAP * (N - 1 + .3));
+  const rb = RANK[drag.base], lo = rb > 0 ? SX[ORD[rb - 1]] : SX[ORD[0]] - GAP * .3, hi = rb < N - 1 ? SX[ORD[rb + 1]] : SX[ORD[N - 1]] + GAP * .3;   // x-order neighbours; 0.3·GAP overscroll at the ends
   camX = clamp(drag.cx - dx * mPerPx(), lo, hi);
   drag.s.push([t, e.clientX]); while (drag.s.length > 2 && t - drag.s[1][0] > 250) drag.s.shift();
 });
@@ -1340,7 +1359,7 @@ function endDrag(e) {
   else if (Math.abs(v) > 0.35 && Math.abs(dx) >= 30) dir = v < 0 ? 1 : -1;   // a flick needs speed AND ≥30 px travel
   window.__ps3d.lastSwipe = { dx, v: +v.toFixed(3), dir, from: d.base };
   if (!dir && d.moved < 10 && t - d.t0 < 500 && !cancel) tap(e.clientX, e.clientY);
-  goSite(d.base + dir);
+  goSite(stepSite(d.base, dir));   // one step in x order
 }
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('lostpointercapture', endDrag);
 
@@ -2695,7 +2714,7 @@ function tapDeposit3d(x, y) {
 }
 function tap(x, y) {
   if (tapDeposit3d(x, y)) return;
-  const h = Math.abs(camX - S.site * GAP) < 20 ? pickUp(x, y) : null;   // mid-glide between stations: no card
+  const h = Math.abs(camX - SX[S.site]) < 20 ? pickUp(x, y) : null;   // mid-glide between stations: no card
   if (!h) return closeUp('empty');                                      // empty scene: closes the open card
   hlStart(h.t, h.r); openUp(h.t.p);                                     // an object: its card (switches if another was open)
   window.__ps3d.lastPick = h.t.id;
@@ -2745,7 +2764,7 @@ const UPT = [
   { id: 'ship', p: 'ship', site: PADI, own: true, objs: () => cg3.ship ? [cg3.ship] : [], hl: () => cg3.ship ? [cg3.ship] : [] },
 ];
 const upShown = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };   // own: the object itself must show (truck / ship); else only its parents (hidden Tier_NN boxes still widen the tap rect)
-const upSiteNow = () => clamp(Math.round(camX / GAP), 0, N - 1);   // the station the camera is at (not S.site, which flips at the start of a glide)
+const upSiteNow = () => nearSite(camX);   // the station the camera is at (not S.site, which flips at the start of a glide)
 let upWhy = '';                        // why the last upRect() gave null (QA: upRects() reports it per target)
 function upRect(t) {                   // projected CSS-px rect of a target now, or null (other station, not loaded, hidden, behind the camera, off screen)
   upWhy = '';
@@ -2851,7 +2870,7 @@ const scrimEnd = (e) => { const d = scrimP; if (!d || e.pointerId !== d.id) retu
   const dx = e.clientX - d.x, dt = Math.max(16, (e.timeStamp || performance.now()) - d.t), m = Math.max(d.m, Math.hypot(dx, e.clientY - d.y));
   if (m <= 10) return closeUp('outside');
   closeUp('swipe'); let dir = 0; if (Math.abs(dx) > 0.15 * W) dir = dx < 0 ? 1 : -1; else if (Math.abs(dx / dt) > 0.35 && Math.abs(dx) >= 30) dir = dx < 0 ? 1 : -1;
-  if (dir) { cancelFocus('swipe'); crewCancel('tap'); goSite(S.site + dir); } };
+  if (dir) { cancelFocus('swipe'); crewCancel('tap'); goSite(stepSite(S.site, dir)); } };
 upScrim.addEventListener('pointerup', scrimEnd); upScrim.addEventListener('pointercancel', scrimEnd);
 // buy buttons fire on pointerup (one tap = one buy even when frames lag); the trailing click is swallowed,
 // keyboard / assistive clicks (no pointer press) still work
@@ -2902,7 +2921,7 @@ Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, 
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
     if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
-Object.assign(window.__ps3d, { UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, r, why: r ? '' : upWhy }; }) });   // QA hooks (upgrade cards)
+Object.assign(window.__ps3d, { SX, ORD, stepSite, nearSite, UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, r, why: r ? '' : upWhy }; }) });   // QA hooks (upgrade cards)
 Object.defineProperty(window.__ps3d, 'upCur', { get: () => upCur, configurable: true });
 // extra trucks come later: the truck card shows 'Coming soon' (was TRUCK_SALE = false on the sheet's hidden truck row)
 
