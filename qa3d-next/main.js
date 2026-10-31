@@ -2081,7 +2081,8 @@ function loadCargoArt() {
     undefined, (e) => { CART.err.push(key + ': load'); console.warn('cargo art ' + key + ' failed to load (placeholder stays)', e); });
   L('fb05', '../qa3d-next/models/fb05_195461ef.glb?v=195461ef', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     o.position.copy(cg3.fb.position); o.rotation.copy(cg3.fb.rotation); cartSwap(cg3.fb, o); cg3.fb = o; FBS.wx = null; });
-  L('box', 'models/cargo_box_66a3a00c.glb?v=66a3a00c', (g) => { const o = g.scene; o.updateMatrixWorld(true); const parts = [];
+  L('box', '../qa3d-next/models/he3_crate_lbl_cfc95657.glb?v=cfc95657', (g) => {   // ART-SWAP (EM 10/31): Art's labelled He-3 crate (art_next/crates he3_crate_lbl, md5 cfc95657…: "HE-3" stencil letters as geometry on the glow slot, 612 tris, SHM_Paint + SHM_GlowCyan, no textures = the same 2 instanced draws); was 'models/cargo_box_66a3a00c.glb?v=66a3a00c'
+    const o = g.scene; o.updateMatrixWorld(true); const parts = [];
     o.traverse(m => { if (m.isMesh) { const im = new THREE.InstancedMesh(m.geometry, m.material, 64); im.name = 'CargoBoxes_' + (m.material.name || parts.length); im.castShadow = true; im.receiveShadow = true; im.count = 0;
       parts.push({ im, L: m.matrixWorld.clone() }); } });
     if (!parts.length) throw new Error('no box mesh');
