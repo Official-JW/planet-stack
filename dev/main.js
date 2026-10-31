@@ -18,7 +18,12 @@ const CFG = {
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
     dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
     purity: { base: 0.40, max: 1.00, step: 0.05, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
-    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
+    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
+    // P2-FUEL (Director LOCKED 10/31 8:29-8:31 AM PT; STATUS/engineering.md 246, QA/phase2_sim/summary_v4.md fuel table): LOX + LCH4 output per minute
+    // = makePerMin + makePerLvl·(FuelLv−1) → 4/5/6/7/8 at Lv1-5; stock cap = stockCap·out/makePerMin (200·out/4) → 200/250/300/350/400. See fuelMake / fuelCap.
+    // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
+    p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 1500000,
+                v2PerShip: 2000000, v3PerShip: 3000000, mars: 5500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $19.3M
     chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
     drill: { cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
@@ -251,7 +256,7 @@ function devAskName(cur = '') {           // resolves with the cleaned name (non
 if (!devName) devStoreName(await devAskName(''));
 const TRAIL_ON = Q.get('trail') !== 'off';   // tire-track trail on (default) / ?trail=off: old road strips (see TRAIL_GLB); top-level so every road builder sees it
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
-const MINE_GLB = '../qa3d-next/models/mine_864fab15.glb?v=864fab15';   // Art 5933388: ef45f6f1 with the painted tire tracks removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1' (Art 449757b, Director 01:18: painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b)
+const MINE_GLB = '../qa3d-next/models/mine_cap_fix_v2_a60eae4b.glb?v=a60eae4b';   // ART-SWAP commit 3 (EM 9:00): Art's Mine cap fix v2 (art_next/mine_cap, md5 a60eae4b…; built from 864fab15: recessed status light in the chute-box top, only Base_Paint + Tier_03 primitives edited, 12 meshes / 14 draws / 0 textures, 16,594 → 16,740 tris, nodes/clips unchanged); was '../qa3d-next/models/mine_864fab15.glb?v=864fab15' — Art 5933388: ef45f6f1 with the painted tire tracks removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1' (Art 449757b, Director 01:18: painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b)
 //  // Art 12bdb4a (Director 23:10): Deposit_01/_02 split into their own fadeable nodes (look unchanged), own copy under qa3d-next/; was 'models/mine_2123a050.glb'
 //  // Art a4f93eb (Director 21:17): ore patches + veins baked, 2-lane haul road, fewer Path_* legs; previous: 'models/mine_219e774.glb'
 const REFINERY_GLB = '../qa3d-next/models/refinery_22f13a9d.glb?v=22f13a9d';   // Art 5933388: 93c44166 with the painted ruts removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/refinery_93c44166.glb?v=93c44166' (Art d6389a7, Director 00:51: 13 draws, conveyors merged into skinned Base_Paint, sizer_spin, dump_dust opacity_curve, white/cyan posts, painted ruts; was b45b4649)
@@ -339,6 +344,10 @@ const refuelMs = () => refuelSec() * 1000;                          // the cargo
 const fuelMaxLv = () => CFG.econ.fuel.levels;
 const fuelCost = () => econCost(CFG.econ.fuel, S.fuelLv);          // fuel UPGRADE price (the fuel itself costs CFG.econ.fuel.price)
 const fuelPrice = () => CFG.econ.fuel.price;
+// P2-FUEL: Refinery LOX + LCH4 output (fuel/min) and stock cap scale with the Fuel level (a missing / bad level reads as Lv1, clamped to levels)
+const fuelLvOk = (lv = S.fuelLv) => clamp(Math.floor(+lv) || 1, 1, CFG.econ.fuel.levels);
+const fuelMake = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return F.makePerMin + F.makePerLvl * (fuelLvOk(lv) - 1); };   // 4/5/6/7/8
+const fuelCap = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return Math.round(F.stockCap * fuelMake(lv) / F.makePerMin); };   // 200/250/300/350/400
 // ---- Refinery fuel stock (Director 10/29 16:40), closed-form (no ticks). S.cg.fu = { t, v, g }: stock v and ship tank g (fuel units) at anchor time t.
 // The Refinery makes makePerMin into the stock all the time (capped at stockCap). On the pad the ship pumps at tank / refuelMs() (fuel level = pump speed)
 // and draws from the stock; at 0 stock it fills at the make rate (WAITING FOR FUEL). Full tank: no draw (away, boarding, launch). Re-anchored at
@@ -358,11 +367,11 @@ function fuelSolve(a, t, ms, r, C, K, o) {                         // a anchor, 
 function fuelFu(c) {                                                // old saves (before ca-econ-fuelstock) / bad value: stock oldSaveStock, tank from the old timer at c.t
   const a = c.fu; if (a && typeof a === 'object' && isFinite(a.t) && a.v >= 0 && a.g >= 0) return a;
   const F = CFG.econ.fuel, s = c.sh, ok = s && s.st === 'pad' && isFinite(s.f0);
-  return c.fu = { t: c.t, v: Math.min(F.stockCap, F.oldSaveStock), g: ok ? F.tank * clamp((c.t - s.f0) / refuelMs(), 0, 1) : F.tank };
+  return c.fu = { t: c.t, v: Math.min(fuelCap(), F.oldSaveStock), g: ok ? F.tank * clamp((c.t - s.f0) / refuelMs(), 0, 1) : F.tank };
 }
-function fuelNow(t, c = S.cg) { const F = CFG.econ.fuel; return fuelSolve(fuelFu(c), t, refuelMs(), F.makePerMin / 60000, F.tank, F.stockCap, FS); }
+function fuelNow(t, c = S.cg) { const F = CFG.econ.fuel; return fuelSolve(fuelFu(c), t, refuelMs(), fuelMake() / 60000, F.tank, fuelCap(), FS); }   // P2-FUEL: rate + cap from the Fuel level
 function fuelFinishAt(c = S.cg) { return fuelNow(fuelFu(c).t, c).fin; }   // tank full at (−: the anchor time when already full; Infinity: no production)
-function fuelAnchor(c, t, g) { const o = fuelNow(t, c), a = c.fu; a.v = o.v; a.g = g == null ? o.g : g; a.t = t; }   // call BEFORE S.fuelLv changes
+function fuelAnchor(c, t, g) { const o = fuelNow(t, c), a = c.fu; a.v = o.v; a.g = g == null ? o.g : g; a.t = t; }   // call BEFORE S.fuelLv changes (the old rate + cap run up to t)
 function fuelStock(t = nowMs()) { return fuelNow(t).v; }
 // Purity: purity(lv) = min(max, base + step·(lv−1)); max level = round((max − base) / step) + 1
 const purityMaxLv = () => { const P = CFG.econ.purity; return Math.round((P.max - P.base) / P.step) + 1; };
@@ -403,9 +412,43 @@ scene.add(sun); scene.add(sun.target);
 
 // ground (1 draw)
 const GROUND_MESHES = [];
+// gc-art2 Mine terrain v3b hole (world XZ): the terrain GLB replaces the global ground inside the Mine patch (Mine-local x ±80, z −460..+94; its ground mesh
+// ends at z 93.985, measured, not the +95 in the notes). The ground grid lines nearest these 4 edges are snapped onto them (UVs follow), so the hole is
+// whole cells: no overlap strip (z-fight) and no gap. The apron under the ground gets the same hole. Both holes switch on only once the terrain is in.
+const MINE_HOLE = { x0: GAP - 80, x1: GAP + 79.99, z0: -460, z1: 93.98 };   // the terrain's own edge verts (x −80.005 / +79.991, z −460.003 / +93.985) so ground and terrain meet with no gap
+const GROUND_HOLE = { on: false, set: null, M: null, macro: null, tm: null };
+// tone match (seam fix): the v3b atlas is not the global M_ground (no 10 m albedo tile, no 76 m macro), so its edge reads as a lighter, smoother rectangle.
+// In the last TERRAIN_EDGE_M metres inside the hole the terrain's base colour blends to exactly what M_ground draws at that world spot (same KTX2 albedo at
+// world phase x/10, −z/10 = M_ground's uv·repeat, × macro(xz/76)·2), so both meshes have the same colour on the seam line. Ground fragments only, 2 extra taps.
+const TERRAIN_EDGE_M = 15;
+function terrainEdgeBlend() {
+  const H = GROUND_HOLE, m = H.tm; if (!m || !H.M || m.userData.edgeBlend) return; m.userData.edgeBlend = true;
+  const f = (v) => v.toFixed(3);
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.gAlb = { value: H.M.map }; sh.uniforms.gMac = { value: H.macro };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;').replace('#include <project_vertex>', '#include <project_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nuniform sampler2D gAlb;\nuniform sampler2D gMac;')
+      .replace('#include <map_fragment>', '#include <map_fragment>\n{ float d = min(min(vTW.x - ' + f(MINE_HOLE.x0) + ', ' + f(MINE_HOLE.x1) + ' - vTW.x), min(vTW.z - (' + f(MINE_HOLE.z0) + '), ' + f(MINE_HOLE.z1) + ' - vTW.z));\n' +
+        '  float w = d < 0.0 ? 1.0 : smoothstep(0.0, ' + f(TERRAIN_EDGE_M) + ', d);\n' +
+        '  if (w < 1.0) { vec3 gc = texture2D(gAlb, vec2(vTW.x, -vTW.z) / 10.0).rgb * texture2D(gMac, vTW.xz / 76.0).r * 2.0; diffuseColor.rgb = mix(gc, diffuseColor.rgb, w); } }');
+  };
+  m.customProgramCacheKey = () => 'M_TerrainGround_edge'; m.needsUpdate = true;
+  if (window.__ps3d.mineTerrain) window.__ps3d.mineTerrain.edgeBlend = TERRAIN_EDGE_M;
+}
 {
   const W = GAP * (N - 1) + 600, D = 1400;   // deep enough in +z for the farthest bounds-fit camera (Shipyard, k≈9)
   const g = new THREE.PlaneGeometry(W, D, 260, 110); g.rotateX(-Math.PI / 2);
+  const GX0 = GAP * (N - 1) / 2, GZ0 = -100;   // = GX / GZ below (ground centre)
+  { const ps = g.attributes.position, uv = g.attributes.uv, dx = W / 260, dz = D / 110, snapX = {}, snapZ = {};
+    for (const x of [MINE_HOLE.x0, MINE_HOLE.x1]) snapX[Math.round((x - (GX0 - W / 2)) / dx)] = x;
+    for (const z of [MINE_HOLE.z0, MINE_HOLE.z1]) snapZ[Math.round((z - (GZ0 - D / 2)) / dz)] = z;
+    for (let i = 0; i < ps.count; i++) { const ix = i % 261, iy = Math.floor(i / 261);
+      if (snapX[ix] !== undefined) ps.setX(i, snapX[ix] - GX0); if (snapZ[iy] !== undefined) ps.setZ(i, snapZ[iy] - GZ0);
+      uv.setXY(i, (ps.getX(i) + W / 2) / W, 1 - (ps.getZ(i) + D / 2) / D); }
+    const full = g.index.array.slice(), keep = [];
+    for (let t = 0; t < full.length; t += 6) { let cx = 0, cz = 0; for (let k = 0; k < 6; k++) { cx += ps.getX(full[t + k]); cz += ps.getZ(full[t + k]); } cx = cx / 6 + GX0; cz = cz / 6 + GZ0;
+      if (!(cx > MINE_HOLE.x0 && cx < MINE_HOLE.x1 && cz > MINE_HOLE.z0 && cz < MINE_HOLE.z1)) for (let k = 0; k < 6; k++) keep.push(full[t + k]); }
+    GROUND_HOLE.full = full; GROUND_HOLE.holed = new full.constructor(keep); GROUND_HOLE.cut = (full.length - keep.length) / 3; }
   const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
   const rnd = (a) => { const s = Math.sin(a * 127.1) * 43758.5453; return s - Math.floor(s); };
   const craters = []; for (let i = 0; i < 260; i++) craters.push([(rnd(i + .3) - .5) * W, (rnd(i + 7.7) - .5) * D - 20, 1.5 + rnd(i + 3.1) * 6]);
@@ -425,6 +468,14 @@ const GROUND_MESHES = [];
     for (let i = 0; i < uv.count; i++) { const wx = FX + ps.getX(i), wz = FZ + ps.getZ(i); uv.setXY(i, (wx - (GX - W / 2)) / W, 1 - (wz - (GZ - D / 2)) / D); } }
   const far = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ color: new THREE.Color().setRGB(.42, .42, .433) }));   // flat apron to the horizon so wide station frames never show the ground's edge (1 draw)
   far.position.set(FX, -0.06, FZ); scene.add(far);
+  { const H = MINE_HOLE, X0 = FX - FW / 2, X1 = FX + FW / 2, Z0 = FZ - FD / 2, Z1 = FZ + FD / 2, P = [], U = [];   // apron with the Mine hole: 4 quads round it, same UV formula (still 1 draw)
+    const quad = (a, b, c, d) => { for (const [x, z] of [[a, c], [a, d], [b, d], [a, c], [b, d], [b, c]]) { P.push(x - FX, 0, z - FZ); U.push((x - (GX - W / 2)) / W, 1 - (z - (GZ - D / 2)) / D); } };
+    quad(X0, H.x0, Z0, Z1); quad(H.x1, X1, Z0, Z1); quad(H.x0, H.x1, Z0, H.z0); quad(H.x0, H.x1, H.z1, Z1);
+    const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); hg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); hg.computeVertexNormals();
+    const fullG = far.geometry;
+    GROUND_HOLE.set = (on) => { on = !!on; if (on === GROUND_HOLE.on) return; GROUND_HOLE.on = on;
+      ground.geometry.setIndex(new THREE.BufferAttribute(on ? GROUND_HOLE.holed : GROUND_HOLE.full, 1)); far.geometry = on ? hg : fullG;
+      window.__ps3d.groundHole = { on, rect: MINE_HOLE, groundTrisCut: GROUND_HOLE.cut, apronTris: far.geometry.attributes.position.count / 3 }; }; }
   // ===== shared M_ground (Art b422778): KTX2 detail albedo + normal (10 m repeat, standard UVs), macro multiplier in world XZ (76 m), one material for every station
   const TILE_M = 10, MACRO_M = 76, GB = 'models/ground/', GV = '?v=b422778';
   const ktx2 = new KTX2Loader().setTranscoderPath('vendor/addons/libs/basis/').detectSupport(renderer);
@@ -443,6 +494,7 @@ const GROUND_MESHES = [];
     };
     M.customProgramCacheKey = () => 'M_ground_macro';
     const old = [ground.material, far.material]; ground.material = M; far.material = M; old.forEach(m => m.dispose());
+    GROUND_HOLE.M = M; GROUND_HOLE.macro = macro; terrainEdgeBlend();
     window.__ps3d.ground = { ktx2: true, aniso, mat: M.name, shared: ground.material === far.material, repeat: albedo.repeat.toArray() };
   }).catch((e) => { console.warn('KTX2 ground failed, keeping the vertex-colour ground', e); window.__ps3d.ground = { ktx2: false, err: String(e) }; });
   GROUND_MESHES.push(ground, far);
@@ -489,6 +541,7 @@ const _ct = new THREE.Vector3();
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
+  'a60eae4b': { glb: 'mine cap fix v2 (864fab15 + recessed chute-box status light; re-keyed from 864fab15, nodes/Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   '864fab15': { glb: 'mine 5933388 (ef45f6f1 minus painted tracks; re-keyed from ef45f6f1, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'cc084a9b': { glb: 'mine 12bdb4a (re-keyed from 2123a050, same framing)', ct: { y: 5.6 }, frame_w: 39.9 },                            // Art 5d16bad: Cam_Target y 6.0 → 5.6 (x, z unchanged), W 37.6 → 39.9; ~9 px spare top+bottom at 375×667 (drill rig / Dep_01)
@@ -500,6 +553,7 @@ const CAM_OVERRIDE = {
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
   // repeat the GLB's Cam_Target as the fallback. load = hand fallback from padfit.mjs (used only if padLoadFit fails). /workspace/padcam_work/final_drop.sh writes it.
+  'c404636f': { glb: 'V1 cargo door v2 pad (5fcd4d67 + slat panel / tray / lift lugs; same markers and Cam_Target; md5 c404636fad25064e99c78d7991618460)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // gc-art2: re-keyed copy of 5fcd4d67 (fallbacks only)
   '5fcd4d67': { glb: 'AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat; md5 5fcd4d67c1bb3094d136dd8003bf9e7d)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // rest: FALLBACK only (runtime ship fit); load: hand fallback = padfit load fit (final_drop.sh)
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -701,6 +755,19 @@ function maybeReady() {
   requestAnimationFrame(() => requestAnimationFrame(hideCover));   // fade only once the Mine has been drawn
 }
 const loader = loader0();
+// ===== gc-art2 Mine terrain v3b (art_next/terrain mine_terrain_hilldetail_v3b, md5 a4a2a4d2…; Jacob-approved, Art 11:23): ground + crater-rim hills (1 mesh, 8,960 tris,
+// atlas terrain_mine_basecolor_hilldetail_v3b_1024 70b83993… + shared_ground_normal_512 102c25a9… embedded, normal on UV1) + Rock_S ×150 / Rock_M ×67 (EXT_mesh_gpu_instancing)
+// = 17,320 tris, 3 draws. Mine-local, so it sits at (MX, 0, 0). Rocks / keep-clear match v3: no Mine marker or truck path changes. The ground receives shadows
+// but does not cast (its far hills would only fill the ±22 m shadow map); the rocks cast + receive. On load the global ground + apron get the Mine hole.
+const MINE_TERRAIN_GLB = '../qa3d-next/models/mine_terrain_v3b_a4a2a4d2.glb?v=a4a2a4d2';
+function loadMineTerrain() { if (Q.get('terrain') === 'off') return;
+  loader.load(MINE_TERRAIN_GLB, (g) => { const o = g.scene; o.name = 'Mine_Terrain'; o.position.set(MX, 0, 0); let tris = 0, draws = 0;
+    o.traverse(m => { if (!m.isMesh) return; const ground = m.name === 'Terrain_Ground' || (m.parent && m.parent.name === 'Terrain_Ground'); m.receiveShadow = true; m.castShadow = !ground; draws++;
+      const n = (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; tris += n * (m.isInstancedMesh ? m.count : 1); });
+    o.traverse(m => { if (m.isMesh && m.name === 'Terrain_Ground') GROUND_HOLE.tm = m.material; });
+    scene.add(o); GROUND_HOLE.set(true); window.__ps3d.mineTerrain = { url: MINE_TERRAIN_GLB, tris, draws, obj: o }; terrainEdgeBlend(); },
+    undefined, (e) => { console.warn('Mine terrain failed to load (flat ground stays, no hole)', e); window.__ps3d.mineTerrain = { err: String(e) }; });
+}
 function loadRig() { loader.load(MINE_GLB, (gltf) => {
   clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
   mine = gltf.scene; mine.position.set(MX, 0, 0);
@@ -751,7 +818,47 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe
   if (tActs.truck_dump) { tActs.truck_dump.setLoop(THREE.LoopOnce, 1); tActs.truck_dump.clampWhenFinished = true; }
   truckDone = true; maybeReady();
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
+  metBind();                         // META-RACE fix (EM 10/31): bind here too: when the meteorite GLB lands first, its own metBind() finds no truck yet
 }, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); }
+
+// ===== ART-SWAP (EM 10/31): Art's meteorite fragment on the ore load (art_next/meteorite, md5 c603f0ce…: 1 mesh, SHM_MeteoriteIron, 2,200 tris = +1 draw while shown).
+// clearance.json is in the truck-local glTF frame: seat x −2.55 z +0.30 yaw 0, bottom = heap surface − 0.06 sink, top capped at y 4.20.
+// Heap surface (Art's checks: fill 0 → 2.441, 1 → 3.791, linear in the morph influence) → bottom = min(2.441 + 1.35·inf − 0.06, 4.20 − h).
+// Child of Truck_Bed (rides the drive rattle and the dump tilt); its seat goes through Truck_Load's live scale so it sinks with the heap
+// as truck_dump pours it out, and it hides once the load is empty (inf 0) or poured (Truck_Load scale.y < .25). ?meteor=off leaves it out.
+const MET = { on: Q.get('meteor') !== 'off', seat: [-2.55, 0.30], sink: 0.06, top: 4.20, surf0: 2.441, surfK: 1.35, g: null, o: null, h: 0, y0: 0, bed: null, load: null, b0: null, l0: null, inf: 0, bottom: 0, topY: 0 };
+let metBound = false;               // binds exactly once, whichever GLB (truck or meteorite) lands second calls it with both ready
+function metBind() {
+  if (metBound || MET.o || !MET.on || !MET.g || !truckRoot) return;
+  const bed = truckRoot.getObjectByName('Truck_Bed'), load = truckRoot.getObjectByName('Truck_Load');
+  if (!bed || !load) { console.warn('meteorite: Truck_Bed / Truck_Load bones missing (left out)'); return; }
+  if (MET.g.parent && MET.g.parent.parent === bed) { metBound = true; return; }   // already seated under Truck_Bed: never double-add
+  metBound = true;
+  const o = MET.g; o.name = 'Meteorite_Fragment_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  o.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(o); MET.h = bb.max.y - bb.min.y; MET.y0 = bb.min.y;
+  const vs = []; o.traverse(m => { if (m.isMesh) { const a = m.geometry.attributes.position; for (let i = 0; i < a.count; i++) vs.push(new THREE.Vector3().fromBufferAttribute(a, i).applyMatrix4(m.matrixWorld)); } });
+  MET.vs = vs;                       // rock vertices in Meteorite_Seat space: the cap check below uses the real hull, not a box
+  const r = new THREE.Group(); r.name = 'Meteorite_Seat'; r.add(o); r.visible = false; bed.add(r);
+  Object.assign(MET, { o: r, bed, load, b0: bed.position.clone(), l0: load.position.clone() });   // rest pose (Truck_Chassis is identity, Truck_Bed rest rotation 0)
+  window.__ps3d.MET = MET;
+}
+function loadMeteor() { if (MET.on) loader.load('../qa3d-next/models/meteorite_fragment_c603f0ce.glb?v=c603f0ce', (g) => { MET.g = g.scene; metBind(); },
+  undefined, (e) => console.warn('meteorite GLB failed (load stays plain)', e)); }
+function updMet() {                  // after tMixer.update: Truck_Load's scale is this frame's
+  if (!MET.o) return; const L = MET.load, ls = L.scale.y, vis = MET.inf > 0 && ls > .25; MET.o.visible = vis; if (!vis) return;
+  MET.bottom = Math.min(MET.surf0 + MET.surfK * MET.inf - MET.sink, MET.top - MET.h); MET.topY = MET.bottom + MET.h;
+  const ox = MET.seat[0] - MET.b0.x - MET.l0.x, oy = MET.bottom - MET.y0 - MET.b0.y - MET.l0.y, oz = MET.seat[1] - MET.b0.z - MET.l0.z;   // seat relative to the rest Truck_Load origin
+  MET.o.position.set(L.position.x + L.scale.x * ox, L.position.y + ls * oy, L.position.z + L.scale.z * oz);
+  // FIX (EM 9:45): hold top ≤ 4.20 in the truck-local frame in EVERY pose, incl. the truck_dump bed tilt before the pour: measure the rock's
+  // truck-local top through this frame's bed transform and, if it is over, slide the rock straight down (truck-local −Y) by the excess.
+  // The excess grows smoothly with the tilt (no pop), and only sinks it a little deeper into the heap (≤ ~6 cm; bed floor is > 1 m below).
+  truck.updateMatrixWorld(true); _mk.copy(truck.matrixWorld).invert().multiply(MET.bed.matrixWorld);
+  let top = -1e9; for (const v of MET.vs) { _mv.copy(v).add(MET.o.position).applyMatrix4(_mk); if (_mv.y > top) top = _mv.y; }
+  const ex = top - MET.top; MET.clampDy = 0;
+  if (ex > 0) { _mk.invert(); _mv.set(0, 0, 0).applyMatrix4(_mk); _mw.set(0, -ex, 0).applyMatrix4(_mk).sub(_mv); MET.o.position.add(_mw); MET.clampDy = ex; top = MET.top; }
+  MET.liveTop = top;
+}
+const _mk = new THREE.Matrix4(), _mv = new THREE.Vector3(), _mw = new THREE.Vector3();
 
 // ===== Mine operator prop (Art 9209246, md5 2cfa57a6…): at Operator_Deck, facing +Z, sibling of the Mine at scale 1.
 // Chain (no snaps): op_sit_type ×2–4 → op_stand_walk_to_rail (once, clamp) → op_watch_rail (while the truck is on the road, 1–3 loops) → op_walk_back_sit → …
@@ -1080,7 +1187,9 @@ function padLoadPts() {
     V(b.x + R.tip * cx, R.top, b.z + R.tip * cz); V(b.x - R.cj * cx, R.top, b.z - R.cj * cz); }   // jib tip / counter-jib at the crane's top
   for (const dx of [-R.hw, R.hw]) for (const dz of [-R.hw, R.hw]) { V(b.x + dx, 0, b.z + dz); V(b.x + dx, R.top, b.z + dz); }   // mast + footing
   box(hd); for (const h of cg3.holds) box(h.clone().applyMatrix4(sh.matrixWorld));
-  if (cg3.doorBox) { const D = cg3.doorBox, o = sh.getWorldPosition(new THREE.Vector3()), hgt = D.max.y - D.min.y, c = D.getCenter(new THREE.Vector3()), n = Math.hypot(c.x, c.z) || 1, ox = c.x / n * hgt, oz = c.z / n * hgt;
+  if (cg3.doorBox && cg3.doorBoxOpen) { const o = sh.getWorldPosition(new THREE.Vector3());   // door v2: shut box + open box (panel parked up, tray out on the sill)
+    for (const D of [cg3.doorBox, cg3.doorBoxOpen]) for (const x of [D.min.x, D.max.x]) for (const y of [D.min.y, D.max.y]) for (const z of [D.min.z, D.max.z]) V(o.x + x, o.y + y, o.z + z); }
+  else if (cg3.doorBox) { const D = cg3.doorBox, o = sh.getWorldPosition(new THREE.Vector3()), hgt = D.max.y - D.min.y, c = D.getCenter(new THREE.Vector3()), n = Math.hypot(c.x, c.z) || 1, ox = c.x / n * hgt, oz = c.z / n * hgt;
     for (const x of [D.min.x, D.max.x]) for (const z of [D.min.z, D.max.z]) { for (const y of [D.min.y, D.max.y]) V(o.x + x, o.y + y, o.z + z); V(o.x + x + ox, o.y + D.min.y, o.z + z + oz); } }   // shut + swung out flat (shelf)
   return pts;
 }
@@ -1619,6 +1728,7 @@ function updTruck() {
   if (dA) { if (TS.ph === 'dump') { dA.enabled = true; if (!dA.isScheduled()) dA.play(); dA.paused = true; dA.setEffectiveWeight(1); dA.time = Math.min(TS.el - R.tl.t2, dA.getClip().duration - 1e-3); } else if (dA.isScheduled()) dA.stop(); }
   const pct = TS.ph === 'fill' ? TS.shown : TS.fill, inf = pct > 0 ? .5 + .5 * pct ** .8 : 0;
   for (const [m, i] of fillMeshes) m.morphTargetInfluences[i] = inf;
+  MET.inf = inf;
 }
 function updFillArc() {                // slim cyan fill-% arc at Fill_Arc while the truck is under the chute (hidden once it leaves)
   let on = !!(fillArcNode && TS.ph === 'fill' && S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden);
@@ -1695,9 +1805,10 @@ function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (
 // sh.req = Launch button tap time (partial launch; 0 = none)
 function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
   sh: { st: 'pad', t0: t, hold: 0, f0: t - refuelMs(), req: 0 }, fu: { t, v: CFG.econ.fuel.stockStart, g: CFG.econ.fuel.tank } }; }   // Director 10:46: a new game starts with the ship fully fuelled
-for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
+for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);
+S.fuelLv = fuelLvOk();                 // P2-FUEL: a missing / bad FuelLv is Lv1, never above the max level   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
-fuelFu(S.cg);                         // fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
+fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an old save's stock is clamped to this level's cap (200/250/300/350/400). fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (S.cg.sh.man) S.cg.sh.man = 0;   // 10/29: a full ship left waiting for a tap by an older away replay launches on its own again
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
@@ -2052,7 +2163,9 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (PX = 640, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../qa3d-next/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat -> thick skirt, identity). Was:
+const PAD_GLB = '../qa3d-next/models/launch_pad_door2_c404636f.glb?v=c404636f';   // gc-art2 (EM 11:27, Jacob-approved): V1 cargo door v2 (ship_parts/cargo_door launch_pad_game_lv1ship_v5_nosol1_door2, md5 c404636f…): 5fcd4d67 + slide-up slat panel
+//   (Cargo_Door_Panel) + slide-out tray (Cargo_Tray) + 4 lift lugs at y 33; same markers / Cam_Target; 16 → 17 draws. Cargo_Door itself is static now (sill y 12.65).
+// const PAD_GLB = '../qa3d-next/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat -> thick skirt, identity). Was:
 // const PAD_GLB = '../qa3d-next/models/launch_pad_1042e767.glb?v=1042e767';   // AA2 b8dc5b1 lv1ship (cockpit window CW-1 + Engine_Ring_Mount, Lv1 door changes); was plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
 //   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
 // ===== detailed ship (AA3 8c5c7bf aft skirt + gear, AA2 b8dc5b1 cockpit window). Lv1 = 6 engines → aft_skirt_N06 (SPEC §9 engineCountForLevel(1)).
@@ -2060,6 +2173,8 @@ const PAD_GLB = '../qa3d-next/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // A
 // The lv1ship hull still carries its merged 4 bells + 6 fixed legs, so (as in AA3's preview, SPEC §9.3) those triangles are collapsed into the
 // hull and the module sits 0.9 m below the old bell exit plane (feet on the deck). Gear runs on the cargo clock: Gear_Retract from LO + 1.0 s,
 // Gear_Deploy from TD − 7.0 s (art/vfx/engine_flame/aft_skirt/gear.js, inlined below; numbers read from the GLB's extras.gear).
+const HOLD_GLB = '../qa3d-next/models/part_hold_lv1_18b5cc6c.glb?v=18b5cc6c';   // gc-art2: AA1 V1 hold Lv1 (ship_parts/hold/part_hold_lv1, md5 18b5cc6c…, 564 tris, 1 prim SHM_Stainless): door-trim jambs + lintel round the cargo door
+const HOLD_ATTACH = [0, 12.3, 0];   // SPEC_attach_palette Attach_Hold: Ship_Placeholder-local (0, 12.3, 0), identity rotation; rides the Ship_Rig
 const SKIRT_GLB = '../qa3d-next/models/aft_skirt_N06_344311ab.glb?v=344311ab';   // old path (1042e767: squash + frame under Engine_Ring_Mount)
 const SKIRT_GLB_SEAT = '../qa3d-next/models/aft_skirt_N06_thick_63d0289d.glb?v=63d0289d';   // AA3 thick N06 (md5 63d0289d…): any pad with Aft_Skirt_Seat (AA3 v4 clean ship) gets this one, identity under the seat
 const GEAR_T = { R_DOOR_OPEN: [1000, 1600], R_KNEE: [1600, 3400], R_SWING: [2200, 3400], R_SETTLE: [3400, 3600], R_DOOR_CLOSE: [3600, 4200],
@@ -2245,12 +2360,28 @@ function padLoaded(g) {
   const cu = crane.userData; let poses = {}; try { poses = JSON.parse(cu.poses || '{}'); } catch (e) {}
   const hy = (L) => cu.sheave_y - L - cu.hook_drop_m; CPH.pad.hiUnload = hy(poses.pick_high ? poses.pick_high[2] : 14.3); CPH.pad.hiHold = hy(poses.hold_high ? poses.hold_high[2] : 3.042);
   // cargo door: open / close clips sampled from a 0..1 state (2.0 s each way)
-  const mx = new THREE.AnimationMixer(o), ca = {}; for (const c of g.animations) if (/^cargo_door_(open|close)$/.test(c.name)) ca[c.name] = mx.clipAction(c);
+  // door v2 (c404636f): the clips move the CHILDREN Cargo_Door_Panel (slats out + up) and Cargo_Tray (out + down to the sill); Cargo_Door itself never rotates,
+  // so any track on the Cargo_Door node itself (the old hinge swing) is dropped here and nothing else in the code turns it
+  const mx = new THREE.AnimationMixer(o), ca = {}, cdTr = [];
+  for (const c of g.animations) if (/^cargo_door_(open|close)$/.test(c.name)) { const keep = c.tracks.filter(t => !/^Cargo_Door\./.test(t.name)); if (keep.length !== c.tracks.length) cdTr.push(c.name); c.tracks = keep; ca[c.name] = mx.clipAction(c); }
   if (ca.cargo_door_open) cg3.door = { mx, ca, k: 0, last: 0, cur: '' };
+  { const cd = rig.getObjectByName('Cargo_Door'), kids = ['Cargo_Door_Panel', 'Cargo_Tray'].filter(n => cd.getObjectByName(n));
+    if (ca.cargo_door_open && kids.length) {   // open pose (clip end) for the load camera: panel parked up + tray out on the sill; then back to shut
+      const a = ca.cargo_door_open; a.play(); a.time = a.getClip().duration; mx.update(0); rig.updateMatrixWorld(true);
+      cg3.doorBoxOpen = new THREE.Box3().setFromObject(cd).translate(rig.getWorldPosition(new THREE.Vector3()).negate()); a.time = 0; mx.update(0); a.stop(); rig.updateMatrixWorld(true); }
+    window.__ps3d.cargoDoor = { v2: kids.length === 2, kids, sillY: +cd.position.y.toFixed(3), droppedSelfTracks: cdTr, clips: Object.keys(ca) }; }
+  shipHoldLoad(rig);
   const before = CPH.pad.unload.join() + CPH.pad.uturn.join(); padFromMarkers(o);
   window.__ps3d.padRouteChanged = before !== CPH.pad.unload.join() + CPH.pad.uturn.join();   // false: the defaults already are this GLB's markers
   if (cg3.rx) { const rv = findA(o, CARGO_ALIAS.receive); cg3.rx.root.position.copy(rv.getWorldPosition(new THREE.Vector3())); cg3.rx.root.quaternion.copy(rv.getWorldQuaternion(new THREE.Quaternion())); }
   stationObjs[PADI] = o; o.userData.camTarget = camTargetOf(o); o.userData.camOv = camOvFor(PAD_GLB); fitSite(PADI); padRoadCheck(); window.__ps3d.pad = o;
+}
+function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder at Attach_Hold (rides launch / landing with the hull); a failed load just leaves the hull bare
+  const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull || Q.get('hold') === 'off') return;
+  loader.load(HOLD_GLB, (g) => { const h = g.scene; h.name = 'Part_Hold'; h.position.fromArray(HOLD_ATTACH);
+    h.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; } });
+    hull.add(h); h.updateMatrixWorld(true); cg3.hold = h; window.__ps3d.shipHold = { url: HOLD_GLB, parent: h.parent.name, at: HOLD_ATTACH, part: (h.children[0] && h.children[0].userData.part) || h.userData.part || '' }; },
+    undefined, (e) => console.warn('ship hold part failed to load (bare hull)', e));
 }
 function padDoor(open) {               // 2.0 s each way; open while PC-1 is on a bay→hold lift (the shelf takes the box), closes after
   const D = cg3.door, now = performance.now(), dt = D.last ? Math.min(.25, (now - D.last) / 1000) : 0; D.last = now;
@@ -2265,7 +2396,8 @@ function loadCargoArt() {
     undefined, (e) => { CART.err.push(key + ': load'); console.warn('cargo art ' + key + ' failed to load (placeholder stays)', e); });
   L('fb05', '../qa3d-next/models/fb05_195461ef.glb?v=195461ef', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     o.position.copy(cg3.fb.position); o.rotation.copy(cg3.fb.rotation); cartSwap(cg3.fb, o); cg3.fb = o; FBS.wx = null; });
-  L('box', 'models/cargo_box_66a3a00c.glb?v=66a3a00c', (g) => { const o = g.scene; o.updateMatrixWorld(true); const parts = [];
+  L('box', '../qa3d-next/models/he3_crate_lbl_cfc95657.glb?v=cfc95657', (g) => {   // ART-SWAP (EM 10/31): Art's labelled He-3 crate (art_next/crates he3_crate_lbl, md5 cfc95657…: "HE-3" stencil letters as geometry on the glow slot, 612 tris, SHM_Paint + SHM_GlowCyan, no textures = the same 2 instanced draws); was 'models/cargo_box_66a3a00c.glb?v=66a3a00c'
+    const o = g.scene; o.updateMatrixWorld(true); const parts = [];
     o.traverse(m => { if (m.isMesh) { const im = new THREE.InstancedMesh(m.geometry, m.material, 64); im.name = 'CargoBoxes_' + (m.material.name || parts.length); im.castShadow = true; im.receiveShadow = true; im.count = 0;
       parts.push({ im, L: m.matrixWorld.clone() }); } });
     if (!parts.length) throw new Error('no box mesh');
@@ -2573,7 +2705,7 @@ function refRow(name, id, tint) {
 }
 const rowDrill = bDrill.closest('.row'), rowChute = bChute.closest('.row');
 const rowFuel = refRow('Fuel Refill', 'Fu', '#ffb340'), rowPur = refRow('He-3 Purity', 'Pu', ''), bFuel = $('bFu'), bPur = $('bPu');
-const fuStk = document.createElement('span'), fuTxt = document.createTextNode(''); $('FuGain').append(fuStk, fuTxt);   // Fuel Refill row: 'Stock 137/200 +4/min' (own node, set only when the whole number changes) + the refuel text
+const fuStk = document.createElement('span'), fuTxt = document.createTextNode(''); $('FuGain').append(fuStk, fuTxt);   // Fuel Refill row: 'LOX+LCH4 137/200 +4/min' (own node, set only when the whole number changes) + the refuel text
 const RS = { mode: -1, k: -1, s: -1 };                                     // sheet rows: last mode (0 Mine rows, 1 Refinery rows) and Refinery text key
 const fmtMin = (sec) => Math.round(sec / 6) / 10 + ' min';           // 1800 → '30 min', 450 → '7.5 min'
 const pct = (p) => Math.round(p * 100) + '%';
@@ -2584,7 +2716,7 @@ function refSheetUI() {                                             // only rebu
   if (k !== RS.k) { RS.k = k;
     const fp = fuelPrice(), fs = fp > 0 ? fmt(fp) + '/refuel' : 'fuel free';
     $('FuLvl').textContent = 'LV ' + fl; meter('FuMeter', fuelMaxLv(), Math.min(fl, fuelMaxLv()));
-    fuTxt.data = ' · ' + (fmax ? `Max ${fmtMin(refuelSec())}` : `${fmtMin(refuelSec()).slice(0, -4)}→${fmtMin(refuelSec(fl + 1)).slice(0, -4)}m`) + (fp > 0 ? ' · ' + fs : ''); RS.s = -1;   // short: fits 375 px next to 'Need $12,000' ('Stock 137/200 +4/min · 30→25m')
+    fuTxt.data = ' · ' + (fmax ? `Max ${fmtMin(refuelSec())}` : `${fmtMin(refuelSec()).slice(0, -4)}→${fmtMin(refuelSec(fl + 1)).slice(0, -4)}m`) + (fp > 0 ? ' · ' + fs : ''); RS.s = -1;   // short: fits 375 px next to 'Need $12,000' ('LOX+LCH4 137/200 +4/min · 30→25m')
     if (fmax) { bFuel.textContent = 'Max'; bFuel.className = 'max'; } else { bFuel.textContent = fok ? fmt(fc) : 'Need ' + fmt(fc); bFuel.className = fok ? '' : 'need'; }
     bFuel.parentNode.classList.toggle('ok', fok);
     $('PuLvl').textContent = 'LV ' + pl; meter('PuMeter', 10, pmax ? 10 : (pl - 1) % 10 + 1);
@@ -2594,7 +2726,7 @@ function refSheetUI() {                                             // only rebu
     bPur.parentNode.classList.toggle('ok', pok);
     if (RS.mode === 1) $('sum').textContent = `Fuel Lv ${fl} · Purity Lv ${pl}`;
   }
-  const sv = Math.floor(fuelStock() + 1e-9); if (sv !== RS.s) { RS.s = sv; fuStk.textContent = `Stock ${sv}/${CFG.econ.fuel.stockCap} +${CFG.econ.fuel.makePerMin}/min`; }
+  const sv = Math.floor(fuelStock() + 1e-9); if (sv !== RS.s) { RS.s = sv; fuStk.textContent = `LOX+LCH4 ${sv}/${fuelCap()} +${fuelMake()}/min`; }   // P2-FUEL: cap + rate follow the Fuel level
   return fok || pok;
 }
 const meterKeys = {};
@@ -2648,11 +2780,11 @@ bindBuy(bChute, () => {
 bindBuy(bFuel, () => {
   const c = fuelCost(); if (S.fuelLv >= fuelMaxLv() || !canPay(c)) return;
   const t = nowMs(); settleTo(t, null); const s = S.cg.sh, f = s.st === 'pad' ? fuelAt(t) : 1;
-  if (f < 1) fuelAnchor(S.cg, t);                                     // mid-refuel: re-anchor tank + stock at the old pump rate, so the gauge never jumps; the faster rate applies from now
+  fuelAnchor(S.cg, t);                                                // re-anchor tank + stock at the old pump rate, make rate and cap (P2-FUEL: rate + cap change every level, so always), so nothing jumps; the new rates apply from now
   pay(c); S.fuelLv++;
   save(); sheetUI(); hud();
   const r = bFuel.getBoundingClientRect(); pop('Fuel Lv ' + S.fuelLv, r.left + r.width / 2, r.top - 8, 'info');
-  logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())}`);
+  logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())} · LOX+LCH4 +${fuelMake()}/min, stock ${fuelCap()}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 });
 bindBuy(bPur, () => {
@@ -2663,9 +2795,9 @@ bindBuy(bPur, () => {
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 });
 Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue });   // QA hooks (Refinery lane)
-Object.assign(window.__ps3d, { fuelStock, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
+Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
-    if (o.v >= 0) S.cg.fu.v = Math.min(CFG.econ.fuel.stockCap, o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); RS.k = -1; settleTo(t, null); save(); sheetUI(); return window.__ps3d.fuelState(t); } });
+    if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); RS.k = -1; settleTo(t, null); save(); sheetUI(); return window.__ps3d.fuelState(t); } });
 const TRUCK_SALE = false;   // extra trucks come later: the button is hidden and a stray click can't buy
 bindBuy(bRover, () => { if (!TRUCK_SALE) return; });
 
@@ -2993,6 +3125,7 @@ function frame() {
   updCargo();
   updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
+  updMet();
   if (mixer) mixer.update(gdt);
   updOperator(gdt);
   for (const m of stationMixers) m.update(gdt);
@@ -3016,7 +3149,7 @@ function frame() {
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS,
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
-  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); },
+  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); updMet(); },
   get cargo() { return cargoState(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
@@ -3028,7 +3161,7 @@ setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading af
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
-loadRig(); loadTruck(); loadOperator(); loadCrew();
+loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain();
 frame();
 
 // ===== DEV build: a new tester code gets its own save at once (key planetstack-dev-<code>)
