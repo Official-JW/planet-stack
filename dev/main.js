@@ -2691,17 +2691,18 @@ function tap(x, y) {
   if (tapDeposit3d(x, y)) return;
   const h = Math.abs(camX - S.site * GAP) < 20 ? pickUp(x, y) : null;   // mid-glide between stations: no card
   if (!h) return closeUp('empty');                                      // empty scene: closes the open card
+  glowTap(h.t);                                                         // UI-2 item 7: first real tap at this station ends its glow (saved)
   hlStart(h.t, h.r); openUp(h.t.p);                                     // an object: its card (switches if another was open)
   window.__ps3d.lastPick = h.t.id;
 }
 
 // ===== upgrade panels (UI-2 + UI-3 look, Jacob-approved 10/31): tap a 3D object → that object's own centered card (UI3_SPEC: kicker, name + level,
-// next-level effect + tier meter, cost, one Upgrade button; X / tap or swipe on the scrim / Esc close). Replaces the drag-up upgrade sheet (handle, spring, rows: all gone). Swiping (or any station change) closes the card (UI-1).
+// next-level effect + tier meter, cost, one buy button; X / tap or swipe on the scrim / Esc close). Replaces the drag-up upgrade sheet (handle, spring, rows: all gone). Swiping (or any station change) closes the card (UI-1).
 // Picking is screen-space: each target's world box projected to a CSS-px rect, grown to a ≥ 44 px radius; a rect the finger is really inside wins
 // (smallest first), otherwise the nearest grown rect. Same economy / buy code and CFG prices as the sheet had; nothing about the save changes.
 const upEl = $('upPanel'), upBuy = $('upBuy'), upStk = $('upStk'), upHlEl = $('upHl');
 let sheetOpen = false;    // compat name: true while an upgrade card is open (Eve's upgrade_ready trigger + the Launch / Dock labels read it)
-const grab = upBuy;       // compat name: Eve's 'upgrade' pointer beat aims at the Upgrade button (no beat uses that point today)
+const grab = upBuy;       // compat name: Eve's 'upgrade' pointer beat aims at the card's buy button (no beat uses that point today)
 let upCur = null;         // open card id (UP key) or null
 const UPK = { k: '', s: -1, site: 0 };   // last card text key / last fuel stock shown (DOM is written only when they change)
 const fmtMin = (sec) => Math.round(sec / 6) / 10 + ' min';           // 1800 → '30 min', 450 → '7.5 min'
@@ -2792,6 +2793,52 @@ function hlStart(t, r) {
   upHlEl.classList.remove('on'); void upHlEl.offsetWidth; upHlEl.classList.add('on');
 }
 upHlEl.addEventListener('animationend', () => upHlEl.classList.remove('on'));
+// UI-2 item 7 (EM 15:52/15:53, Director): until the player's first successful tap at a station, that station's tappable objects (UPT targets with a
+// station and hl() meshes: drill, chute, refinery kiln, pad hoses, ship) softly pulse their OWN emissive (no ring / icon / arrow: 'tap here' symbols
+// were removed 10/23). Per-mesh material clones are made ONCE at setup (only meshes of those objects, so other objects sharing the original material
+// never glow); each frame a clone = its original's live emissive (so applyRigLevel's drill glow still shows) lerped toward cyan, ~1.5 s cycle on the game
+// clock (time / SPD), no allocations. Stop = the mesh gets its original material object back (originals are never written, so colour + intensity are
+// exactly as before) and the clones are disposed. Saved per station in S.tg ({ site: 1 }); old saves (made before this build) count every station as
+// tapped, so only new games glow. Reduced motion: a steady faint glow, no pulse. tap() calls glowTap() after a pick succeeds (the 800 ms / 12 px rule
+// lives in endDrag; a drag or long press never reaches tap()).
+const GLOW = { list: [], done: {}, nextTry: 0, C: new THREE.Color(0x3ad0ff), per: 1.5, amt: .25, rm: .4 };
+const GLOW_SITES = [...new Set(UPT.filter(t => t.site >= 0).map(t => t.site))];
+if (!S.tg || typeof S.tg !== 'object' || Array.isArray(S.tg)) S.tg = hadRt ? Object.fromEntries(GLOW_SITES.map(k => [k, 1])) : {};
+const glowRM = () => matchMedia('(prefers-reduced-motion: reduce)').matches || Q.get('rm') === '1';
+function glowSetup() {                 // clones once per target as its meshes load (tried every 0.5 s until all are set up)
+  for (const t of UPT) {
+    if (t.site < 0 || GLOW.done[t.id] || S.tg[t.site]) continue;
+    const roots = t.hl(); if (!roots.length) continue; GLOW.done[t.id] = true;
+    for (const root of roots) root.traverse((m) => {
+      if (!m.isMesh || !m.material) return;
+      const orig = m.material, arr = Array.isArray(orig) ? orig : [orig];
+      if (!arr.some(c => c.emissive && !c.transparent)) return;
+      const cl = arr.map(c => c.emissive && !c.transparent ? c.clone() : c);
+      const e = { site: t.site, id: t.id, m, orig, cl: Array.isArray(orig) ? cl : cl[0], cla: cl, src: arr,
+        e0: arr.map(c => c.emissive ? c.emissive.getHex() : null), i0: arr.map(c => c.emissiveIntensity) };   // QA: originals' emissive at setup
+      m.material = e.cl; GLOW.list.push(e);
+    });
+  }
+}
+function glowStop(site) {
+  for (let i = GLOW.list.length - 1; i >= 0; i--) { const e = GLOW.list[i]; if (e.site !== site) continue;
+    if (e.m.material === e.cl) e.m.material = e.orig;
+    e.cla.forEach((c, j) => { if (c !== e.src[j]) c.dispose(); }); GLOW.list.splice(i, 1); }
+}
+function glowTap(t) {                  // the one call from tap(): the station the camera is at (the target's own for station objects)
+  const site = t && t.site >= 0 ? t.site : upSiteNow(); if (S.tg[site]) return;
+  S.tg[site] = 1; save(); glowStop(site); window.__ps3d.glowStopped = (window.__ps3d.glowStopped || []).concat(site);
+}
+function updGlow() {
+  if (GLOW_SITES.some(k => !S.tg[k]) && time >= GLOW.nextTry) { GLOW.nextTry = time + .5 * SPD; glowSetup(); }
+  if (!GLOW.list.length) return;
+  const k = glowRM() ? GLOW.rm : .5 - .5 * Math.cos((time / SPD) / GLOW.per * Math.PI * 2), a = GLOW.amt * k;
+  for (const e of GLOW.list) { if (e.m.material !== e.cl) continue;   // something else (tap highlight) has the mesh right now
+    for (let j = 0; j < e.cla.length; j++) { const c = e.cla[j], o = e.src[j]; if (c === o) continue;
+      c.emissive.copy(o.emissive).lerp(GLOW.C, a); const i0 = o.emissiveIntensity; c.emissiveIntensity = i0 + (Math.max(i0, 1) - i0) * k; } }
+}
+Object.defineProperty(window.__ps3d, 'glow', { configurable: true, get: () => ({ sites: GLOW_SITES.slice(), tg: Object.assign({}, S.tg), n: GLOW.list.length,
+  on: [...new Set(GLOW.list.map(e => e.id))], list: GLOW.list }) });   // QA (UI-2 item 7)
 function updHL() {                     // wall clock (not the clamped frame dt), so the pulse stays ~200 ms even when frames are slow
   if (HL.t < 0) return; const u = (performance.now() - HL.t0) / 1000 / (window.__ps3d.qaHlSec || HL_SEC);   // qaHlSec: QA-only slow pulse for screenshots if (u >= 1) return hlEnd();
   const k = Math.sin(u * Math.PI);
@@ -2908,7 +2955,8 @@ const EVE_BEATS = [
     linesNoDep: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",   // CFG.econ.deposits off: no ore-patch line
     "Once it's full it hauls the ore to the Refinery on its own. Over."] },
   { id: 'first_deposit', tut: false, point: null, lines: ["Rich load, nice. Once that truck is full it hauls to the Refinery and pays as the bed tips. Over."] },
-  { id: 'upgrade_ready', tut: true, point: null, lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap Upgrade."] },
+  // UI-2 item 8 (Director, EM 15:52): no wording that points at a button; the clip upgrade_ready_0 still says the old line, so this beat is silent until a new clip lands
+  { id: 'upgrade_ready', tut: true, silent: true, point: null, lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap the drill to upgrade it."] },
   // 10/29 (was cargo_early, Director 20:34: rang at 2 boxes and asked for a partial launch): Eve calls for a launch ONLY at a full hold (10/10), first launch only.
   // A full, fuelled ship lifts off on its own (cgDecide), so there is no Launch pointer; an early launch by hand still works and still pays per crate.
   { id: 'cargo_full', tut: true, point: null, lines: ["Moonbase, Eve here. The ship's hold is full: ten He-3 boxes aboard. Time to launch.",
@@ -3023,7 +3071,7 @@ function voxClip(f) {                 // f = file name from CFG.eveVoice.lines, 
 }
 function eveVoiceStop() { VOX.tok++; const s = VOX.src; if (s) { VOX.src = null; s.onended = null; try { s.stop(); } catch (e) {} musicDuck(false); } }
 function eveVoice(id, li) {
-  eveVoiceStop(); if (!VOX.on || !VOX.ctx) return; const tok = VOX.tok; let f = null;
+  eveVoiceStop(); if (!VOX.on || !VOX.ctx || (EC.call && EC.call.silent)) return; const tok = VOX.tok; let f = null;
   voxManifest().then(L => { f = (L[id] || [])[li]; return f && !VOX.miss[f] ? voxClip(f) : null; }).then(buf => {
     if (!buf || tok !== VOX.tok || !EC.call || !VOX.on || !VOX.ctx) return;
     const s = VOX.ctx.createBufferSource(), g = VOX.ctx.createGain(); g.gain.value = .9; s.buffer = buf; s.connect(g); g.connect(VOX.ctx.destination);
@@ -3080,16 +3128,22 @@ function updViewShift() {
 }
 // DEV greeting (Director 10/31 07:31): once per page load, first thing after the cover (coverGone: rings only once the loading cover has been removed), Eve rings 'Welcome aboard, Commander <name>.' The typed name is
 // text only (toast banner + call line, set with textContent); the voice is the fixed clip name_greeting_0 ("Welcome aboard, Commander"), if listed.
-const GREET = { done: false };
+// UI-2 item 8 (Director, EM 15:52): a NEW game (no save with a clock stamp: S.wel = 1, saved) rings the welcome first, name or not ('Commander <name>' /
+// 'Commander', the ui4 rule), with a second line 'Tap the drill to upgrade it.'; every story beat (upgrade_ready included) waits until it is answered (S.wel → 0).
+// Saves made before this build have no S.wel: unchanged (named greeting once per page load, one line, story beats as before).
+if (!hadRt && !('wel' in S)) S.wel = 1;
+const GREET = { done: false, b: null };
 function eveGreet() {
-  if (GREET.done || !coverGone || !PSD.playerName || EC.ring || EC.call || ecIsOpen()) return; GREET.done = true;
-  const line = `Welcome aboard, Commander ${PSD.playerName}.`, b = { id: 'name_greeting', tut: false, rep: true, stay: true, point: null, lines: [line] }; ecRing(b);   // QA run 2 BUG-3: stays up until tapped (no 8 s timeout)
-  ecToastKick.textContent = 'WELCOME ABOARD'; const nb = document.createElement('b'); nb.textContent = `Commander ${PSD.playerName}`; ecToastWho.replaceChildren(nb); ecToastWho.classList.add('ps-greet');   // banner: kicker + name (wraps to 2 lines if long), fits 375 px
+  if (GREET.b && S.wel === 1 && EC.call === GREET.b) { S.wel = 0; save(); }   // welcome answered: story beats may ring after it
+  if (GREET.done || !coverGone || !(PSD.playerName || S.wel === 1) || EC.ring || EC.call || ecIsOpen()) return; GREET.done = true;
+  const who = PSD.playerName ? `Commander ${PSD.playerName}` : 'Commander';
+  const line = `Welcome aboard, ${who}.`, b = GREET.b = { id: 'name_greeting', tut: false, rep: true, stay: true, point: null, lines: S.wel === 1 ? [line, 'Tap the drill to upgrade it.'] : [line] }; ecRing(b);   // QA run 2 BUG-3: stays up until tapped (no 8 s timeout)
+  ecToastKick.textContent = 'WELCOME ABOARD'; const nb = document.createElement('b'); nb.textContent = who; ecToastWho.replaceChildren(nb); ecToastWho.classList.add('ps-greet');   // banner: kicker + name (wraps to 2 lines if long), fits 375 px
   window.__ps3d.greeting = line; window.__ps3d.greetAnswer = () => ecAnswer(b);   // QA hook: answer the greeting even after its toast timed out
 }
 function updEve() {
   eveGreet(); eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
-  if (!EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
+  if (S.wel !== 1 && !EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
   if (pointBeat && !pointerDone) {
     if (pointBeat === 'launch') { if (S.cg.launches > 0) pointerDone = true; else if (launchEl.classList.contains('on')) { const r = launchEl.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 2; p.l = 'LAUNCH'; p.up = false; } }
@@ -3225,7 +3279,7 @@ function frame() {
   updOperator(gdt);
   for (const m of stationMixers) m.update(gdt);
   updFillArc();
-  updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updHL(); updTiers(dt);
+  updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updHL(); updGlow(); updTiers(dt);
   updEve(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); upUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
