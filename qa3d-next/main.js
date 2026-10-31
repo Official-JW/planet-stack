@@ -219,9 +219,43 @@ scene.add(sun); scene.add(sun.target);
 
 // ground (1 draw)
 const GROUND_MESHES = [];
+// gc-art2 Mine terrain v3b hole (world XZ): the terrain GLB replaces the global ground inside the Mine patch (Mine-local x ±80, z −460..+94; its ground mesh
+// ends at z 93.985, measured, not the +95 in the notes). The ground grid lines nearest these 4 edges are snapped onto them (UVs follow), so the hole is
+// whole cells: no overlap strip (z-fight) and no gap. The apron under the ground gets the same hole. Both holes switch on only once the terrain is in.
+const MINE_HOLE = { x0: GAP - 80, x1: GAP + 79.99, z0: -460, z1: 93.98 };   // the terrain's own edge verts (x −80.005 / +79.991, z −460.003 / +93.985) so ground and terrain meet with no gap
+const GROUND_HOLE = { on: false, set: null, M: null, macro: null, tm: null };
+// tone match (seam fix): the v3b atlas is not the global M_ground (no 10 m albedo tile, no 76 m macro), so its edge reads as a lighter, smoother rectangle.
+// In the last TERRAIN_EDGE_M metres inside the hole the terrain's base colour blends to exactly what M_ground draws at that world spot (same KTX2 albedo at
+// world phase x/10, −z/10 = M_ground's uv·repeat, × macro(xz/76)·2), so both meshes have the same colour on the seam line. Ground fragments only, 2 extra taps.
+const TERRAIN_EDGE_M = 15;
+function terrainEdgeBlend() {
+  const H = GROUND_HOLE, m = H.tm; if (!m || !H.M || m.userData.edgeBlend) return; m.userData.edgeBlend = true;
+  const f = (v) => v.toFixed(3);
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.gAlb = { value: H.M.map }; sh.uniforms.gMac = { value: H.macro };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;').replace('#include <project_vertex>', '#include <project_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nuniform sampler2D gAlb;\nuniform sampler2D gMac;')
+      .replace('#include <map_fragment>', '#include <map_fragment>\n{ float d = min(min(vTW.x - ' + f(MINE_HOLE.x0) + ', ' + f(MINE_HOLE.x1) + ' - vTW.x), min(vTW.z - (' + f(MINE_HOLE.z0) + '), ' + f(MINE_HOLE.z1) + ' - vTW.z));\n' +
+        '  float w = d < 0.0 ? 1.0 : smoothstep(0.0, ' + f(TERRAIN_EDGE_M) + ', d);\n' +
+        '  if (w < 1.0) { vec3 gc = texture2D(gAlb, vec2(vTW.x, -vTW.z) / 10.0).rgb * texture2D(gMac, vTW.xz / 76.0).r * 2.0; diffuseColor.rgb = mix(gc, diffuseColor.rgb, w); } }');
+  };
+  m.customProgramCacheKey = () => 'M_TerrainGround_edge'; m.needsUpdate = true;
+  if (window.__ps3d.mineTerrain) window.__ps3d.mineTerrain.edgeBlend = TERRAIN_EDGE_M;
+}
 {
   const W = GAP * (N - 1) + 600, D = 1400;   // deep enough in +z for the farthest bounds-fit camera (Shipyard, k≈9)
   const g = new THREE.PlaneGeometry(W, D, 260, 110); g.rotateX(-Math.PI / 2);
+  const GX0 = GAP * (N - 1) / 2, GZ0 = -100;   // = GX / GZ below (ground centre)
+  { const ps = g.attributes.position, uv = g.attributes.uv, dx = W / 260, dz = D / 110, snapX = {}, snapZ = {};
+    for (const x of [MINE_HOLE.x0, MINE_HOLE.x1]) snapX[Math.round((x - (GX0 - W / 2)) / dx)] = x;
+    for (const z of [MINE_HOLE.z0, MINE_HOLE.z1]) snapZ[Math.round((z - (GZ0 - D / 2)) / dz)] = z;
+    for (let i = 0; i < ps.count; i++) { const ix = i % 261, iy = Math.floor(i / 261);
+      if (snapX[ix] !== undefined) ps.setX(i, snapX[ix] - GX0); if (snapZ[iy] !== undefined) ps.setZ(i, snapZ[iy] - GZ0);
+      uv.setXY(i, (ps.getX(i) + W / 2) / W, 1 - (ps.getZ(i) + D / 2) / D); }
+    const full = g.index.array.slice(), keep = [];
+    for (let t = 0; t < full.length; t += 6) { let cx = 0, cz = 0; for (let k = 0; k < 6; k++) { cx += ps.getX(full[t + k]); cz += ps.getZ(full[t + k]); } cx = cx / 6 + GX0; cz = cz / 6 + GZ0;
+      if (!(cx > MINE_HOLE.x0 && cx < MINE_HOLE.x1 && cz > MINE_HOLE.z0 && cz < MINE_HOLE.z1)) for (let k = 0; k < 6; k++) keep.push(full[t + k]); }
+    GROUND_HOLE.full = full; GROUND_HOLE.holed = new full.constructor(keep); GROUND_HOLE.cut = (full.length - keep.length) / 3; }
   const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
   const rnd = (a) => { const s = Math.sin(a * 127.1) * 43758.5453; return s - Math.floor(s); };
   const craters = []; for (let i = 0; i < 260; i++) craters.push([(rnd(i + .3) - .5) * W, (rnd(i + 7.7) - .5) * D - 20, 1.5 + rnd(i + 3.1) * 6]);
@@ -241,6 +275,14 @@ const GROUND_MESHES = [];
     for (let i = 0; i < uv.count; i++) { const wx = FX + ps.getX(i), wz = FZ + ps.getZ(i); uv.setXY(i, (wx - (GX - W / 2)) / W, 1 - (wz - (GZ - D / 2)) / D); } }
   const far = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ color: new THREE.Color().setRGB(.42, .42, .433) }));   // flat apron to the horizon so wide station frames never show the ground's edge (1 draw)
   far.position.set(FX, -0.06, FZ); scene.add(far);
+  { const H = MINE_HOLE, X0 = FX - FW / 2, X1 = FX + FW / 2, Z0 = FZ - FD / 2, Z1 = FZ + FD / 2, P = [], U = [];   // apron with the Mine hole: 4 quads round it, same UV formula (still 1 draw)
+    const quad = (a, b, c, d) => { for (const [x, z] of [[a, c], [a, d], [b, d], [a, c], [b, d], [b, c]]) { P.push(x - FX, 0, z - FZ); U.push((x - (GX - W / 2)) / W, 1 - (z - (GZ - D / 2)) / D); } };
+    quad(X0, H.x0, Z0, Z1); quad(H.x1, X1, Z0, Z1); quad(H.x0, H.x1, Z0, H.z0); quad(H.x0, H.x1, H.z1, Z1);
+    const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); hg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); hg.computeVertexNormals();
+    const fullG = far.geometry;
+    GROUND_HOLE.set = (on) => { on = !!on; if (on === GROUND_HOLE.on) return; GROUND_HOLE.on = on;
+      ground.geometry.setIndex(new THREE.BufferAttribute(on ? GROUND_HOLE.holed : GROUND_HOLE.full, 1)); far.geometry = on ? hg : fullG;
+      window.__ps3d.groundHole = { on, rect: MINE_HOLE, groundTrisCut: GROUND_HOLE.cut, apronTris: far.geometry.attributes.position.count / 3 }; }; }
   // ===== shared M_ground (Art b422778): KTX2 detail albedo + normal (10 m repeat, standard UVs), macro multiplier in world XZ (76 m), one material for every station
   const TILE_M = 10, MACRO_M = 76, GB = 'models/ground/', GV = '?v=b422778';
   const ktx2 = new KTX2Loader().setTranscoderPath('vendor/addons/libs/basis/').detectSupport(renderer);
@@ -259,6 +301,7 @@ const GROUND_MESHES = [];
     };
     M.customProgramCacheKey = () => 'M_ground_macro';
     const old = [ground.material, far.material]; ground.material = M; far.material = M; old.forEach(m => m.dispose());
+    GROUND_HOLE.M = M; GROUND_HOLE.macro = macro; terrainEdgeBlend();
     window.__ps3d.ground = { ktx2: true, aniso, mat: M.name, shared: ground.material === far.material, repeat: albedo.repeat.toArray() };
   }).catch((e) => { console.warn('KTX2 ground failed, keeping the vertex-colour ground', e); window.__ps3d.ground = { ktx2: false, err: String(e) }; });
   GROUND_MESHES.push(ground, far);
@@ -317,6 +360,7 @@ const CAM_OVERRIDE = {
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
   // repeat the GLB's Cam_Target as the fallback. load = hand fallback from padfit.mjs (used only if padLoadFit fails). /workspace/padcam_work/final_drop.sh writes it.
+  'c404636f': { glb: 'V1 cargo door v2 pad (5fcd4d67 + slat panel / tray / lift lugs; same markers and Cam_Target; md5 c404636fad25064e99c78d7991618460)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // gc-art2: re-keyed copy of 5fcd4d67 (fallbacks only)
   '5fcd4d67': { glb: 'AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat; md5 5fcd4d67c1bb3094d136dd8003bf9e7d)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // rest: FALLBACK only (runtime ship fit); load: hand fallback = padfit load fit (final_drop.sh)
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
   '82131aba': { glb: 'launch_pad 6b5c76e (flush hatch + ship tone; same Cam_Target/frame_w)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -518,6 +562,19 @@ function maybeReady() {
   requestAnimationFrame(() => requestAnimationFrame(hideCover));   // fade only once the Mine has been drawn
 }
 const loader = loader0();
+// ===== gc-art2 Mine terrain v3b (art_next/terrain mine_terrain_hilldetail_v3b, md5 a4a2a4d2…; Jacob-approved, Art 11:23): ground + crater-rim hills (1 mesh, 8,960 tris,
+// atlas terrain_mine_basecolor_hilldetail_v3b_1024 70b83993… + shared_ground_normal_512 102c25a9… embedded, normal on UV1) + Rock_S ×150 / Rock_M ×67 (EXT_mesh_gpu_instancing)
+// = 17,320 tris, 3 draws. Mine-local, so it sits at (MX, 0, 0). Rocks / keep-clear match v3: no Mine marker or truck path changes. The ground receives shadows
+// but does not cast (its far hills would only fill the ±22 m shadow map); the rocks cast + receive. On load the global ground + apron get the Mine hole.
+const MINE_TERRAIN_GLB = '../qa3d-next/models/mine_terrain_v3b_a4a2a4d2.glb?v=a4a2a4d2';
+function loadMineTerrain() { if (Q.get('terrain') === 'off') return;
+  loader.load(MINE_TERRAIN_GLB, (g) => { const o = g.scene; o.name = 'Mine_Terrain'; o.position.set(MX, 0, 0); let tris = 0, draws = 0;
+    o.traverse(m => { if (!m.isMesh) return; const ground = m.name === 'Terrain_Ground' || (m.parent && m.parent.name === 'Terrain_Ground'); m.receiveShadow = true; m.castShadow = !ground; draws++;
+      const n = (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; tris += n * (m.isInstancedMesh ? m.count : 1); });
+    o.traverse(m => { if (m.isMesh && m.name === 'Terrain_Ground') GROUND_HOLE.tm = m.material; });
+    scene.add(o); GROUND_HOLE.set(true); window.__ps3d.mineTerrain = { url: MINE_TERRAIN_GLB, tris, draws, obj: o }; terrainEdgeBlend(); },
+    undefined, (e) => { console.warn('Mine terrain failed to load (flat ground stays, no hole)', e); window.__ps3d.mineTerrain = { err: String(e) }; });
+}
 function loadRig() { loader.load(MINE_GLB, (gltf) => {
   clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
   mine = gltf.scene; mine.position.set(MX, 0, 0);
@@ -933,7 +990,9 @@ function padLoadPts() {
     V(b.x + R.tip * cx, R.top, b.z + R.tip * cz); V(b.x - R.cj * cx, R.top, b.z - R.cj * cz); }   // jib tip / counter-jib at the crane's top
   for (const dx of [-R.hw, R.hw]) for (const dz of [-R.hw, R.hw]) { V(b.x + dx, 0, b.z + dz); V(b.x + dx, R.top, b.z + dz); }   // mast + footing
   box(hd); for (const h of cg3.holds) box(h.clone().applyMatrix4(sh.matrixWorld));
-  if (cg3.doorBox) { const D = cg3.doorBox, o = sh.getWorldPosition(new THREE.Vector3()), hgt = D.max.y - D.min.y, c = D.getCenter(new THREE.Vector3()), n = Math.hypot(c.x, c.z) || 1, ox = c.x / n * hgt, oz = c.z / n * hgt;
+  if (cg3.doorBox && cg3.doorBoxOpen) { const o = sh.getWorldPosition(new THREE.Vector3());   // door v2: shut box + open box (panel parked up, tray out on the sill)
+    for (const D of [cg3.doorBox, cg3.doorBoxOpen]) for (const x of [D.min.x, D.max.x]) for (const y of [D.min.y, D.max.y]) for (const z of [D.min.z, D.max.z]) V(o.x + x, o.y + y, o.z + z); }
+  else if (cg3.doorBox) { const D = cg3.doorBox, o = sh.getWorldPosition(new THREE.Vector3()), hgt = D.max.y - D.min.y, c = D.getCenter(new THREE.Vector3()), n = Math.hypot(c.x, c.z) || 1, ox = c.x / n * hgt, oz = c.z / n * hgt;
     for (const x of [D.min.x, D.max.x]) for (const z of [D.min.z, D.max.z]) { for (const y of [D.min.y, D.max.y]) V(o.x + x, o.y + y, o.z + z); V(o.x + x + ox, o.y + D.min.y, o.z + z + oz); } }   // shut + swung out flat (shelf)
   return pts;
 }
@@ -1906,7 +1965,9 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (PX = 640, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../qa3d-next/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat -> thick skirt, identity). Was:
+const PAD_GLB = '../qa3d-next/models/launch_pad_door2_c404636f.glb?v=c404636f';   // gc-art2 (EM 11:27, Jacob-approved): V1 cargo door v2 (ship_parts/cargo_door launch_pad_game_lv1ship_v5_nosol1_door2, md5 c404636f…): 5fcd4d67 + slide-up slat panel
+//   (Cargo_Door_Panel) + slide-out tray (Cargo_Tray) + 4 lift lugs at y 33; same markers / Cam_Target; 16 → 17 draws. Cargo_Door itself is static now (sill y 12.65).
+// const PAD_GLB = '../qa3d-next/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat -> thick skirt, identity). Was:
 // const PAD_GLB = '../qa3d-next/models/launch_pad_1042e767.glb?v=1042e767';   // AA2 b8dc5b1 lv1ship (cockpit window CW-1 + Engine_Ring_Mount, Lv1 door changes); was plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
 //   // Art 62a5dcb (md5 816f18f3…): own copy under qa3d-next/ so /qa3d/ keeps loading a82251e2
 // ===== detailed ship (AA3 8c5c7bf aft skirt + gear, AA2 b8dc5b1 cockpit window). Lv1 = 6 engines → aft_skirt_N06 (SPEC §9 engineCountForLevel(1)).
@@ -1914,6 +1975,8 @@ const PAD_GLB = '../qa3d-next/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // A
 // The lv1ship hull still carries its merged 4 bells + 6 fixed legs, so (as in AA3's preview, SPEC §9.3) those triangles are collapsed into the
 // hull and the module sits 0.9 m below the old bell exit plane (feet on the deck). Gear runs on the cargo clock: Gear_Retract from LO + 1.0 s,
 // Gear_Deploy from TD − 7.0 s (art/vfx/engine_flame/aft_skirt/gear.js, inlined below; numbers read from the GLB's extras.gear).
+const HOLD_GLB = '../qa3d-next/models/part_hold_lv1_18b5cc6c.glb?v=18b5cc6c';   // gc-art2: AA1 V1 hold Lv1 (ship_parts/hold/part_hold_lv1, md5 18b5cc6c…, 564 tris, 1 prim SHM_Stainless): door-trim jambs + lintel round the cargo door
+const HOLD_ATTACH = [0, 12.3, 0];   // SPEC_attach_palette Attach_Hold: Ship_Placeholder-local (0, 12.3, 0), identity rotation; rides the Ship_Rig
 const SKIRT_GLB = '../qa3d-next/models/aft_skirt_N06_344311ab.glb?v=344311ab';   // old path (1042e767: squash + frame under Engine_Ring_Mount)
 const SKIRT_GLB_SEAT = '../qa3d-next/models/aft_skirt_N06_thick_63d0289d.glb?v=63d0289d';   // AA3 thick N06 (md5 63d0289d…): any pad with Aft_Skirt_Seat (AA3 v4 clean ship) gets this one, identity under the seat
 const GEAR_T = { R_DOOR_OPEN: [1000, 1600], R_KNEE: [1600, 3400], R_SWING: [2200, 3400], R_SETTLE: [3400, 3600], R_DOOR_CLOSE: [3600, 4200],
@@ -2099,12 +2162,28 @@ function padLoaded(g) {
   const cu = crane.userData; let poses = {}; try { poses = JSON.parse(cu.poses || '{}'); } catch (e) {}
   const hy = (L) => cu.sheave_y - L - cu.hook_drop_m; CPH.pad.hiUnload = hy(poses.pick_high ? poses.pick_high[2] : 14.3); CPH.pad.hiHold = hy(poses.hold_high ? poses.hold_high[2] : 3.042);
   // cargo door: open / close clips sampled from a 0..1 state (2.0 s each way)
-  const mx = new THREE.AnimationMixer(o), ca = {}; for (const c of g.animations) if (/^cargo_door_(open|close)$/.test(c.name)) ca[c.name] = mx.clipAction(c);
+  // door v2 (c404636f): the clips move the CHILDREN Cargo_Door_Panel (slats out + up) and Cargo_Tray (out + down to the sill); Cargo_Door itself never rotates,
+  // so any track on the Cargo_Door node itself (the old hinge swing) is dropped here and nothing else in the code turns it
+  const mx = new THREE.AnimationMixer(o), ca = {}, cdTr = [];
+  for (const c of g.animations) if (/^cargo_door_(open|close)$/.test(c.name)) { const keep = c.tracks.filter(t => !/^Cargo_Door\./.test(t.name)); if (keep.length !== c.tracks.length) cdTr.push(c.name); c.tracks = keep; ca[c.name] = mx.clipAction(c); }
   if (ca.cargo_door_open) cg3.door = { mx, ca, k: 0, last: 0, cur: '' };
+  { const cd = rig.getObjectByName('Cargo_Door'), kids = ['Cargo_Door_Panel', 'Cargo_Tray'].filter(n => cd.getObjectByName(n));
+    if (ca.cargo_door_open && kids.length) {   // open pose (clip end) for the load camera: panel parked up + tray out on the sill; then back to shut
+      const a = ca.cargo_door_open; a.play(); a.time = a.getClip().duration; mx.update(0); rig.updateMatrixWorld(true);
+      cg3.doorBoxOpen = new THREE.Box3().setFromObject(cd).translate(rig.getWorldPosition(new THREE.Vector3()).negate()); a.time = 0; mx.update(0); a.stop(); rig.updateMatrixWorld(true); }
+    window.__ps3d.cargoDoor = { v2: kids.length === 2, kids, sillY: +cd.position.y.toFixed(3), droppedSelfTracks: cdTr, clips: Object.keys(ca) }; }
+  shipHoldLoad(rig);
   const before = CPH.pad.unload.join() + CPH.pad.uturn.join(); padFromMarkers(o);
   window.__ps3d.padRouteChanged = before !== CPH.pad.unload.join() + CPH.pad.uturn.join();   // false: the defaults already are this GLB's markers
   if (cg3.rx) { const rv = findA(o, CARGO_ALIAS.receive); cg3.rx.root.position.copy(rv.getWorldPosition(new THREE.Vector3())); cg3.rx.root.quaternion.copy(rv.getWorldQuaternion(new THREE.Quaternion())); }
   stationObjs[PADI] = o; o.userData.camTarget = camTargetOf(o); o.userData.camOv = camOvFor(PAD_GLB); fitSite(PADI); padRoadCheck(); window.__ps3d.pad = o;
+}
+function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder at Attach_Hold (rides launch / landing with the hull); a failed load just leaves the hull bare
+  const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull || Q.get('hold') === 'off') return;
+  loader.load(HOLD_GLB, (g) => { const h = g.scene; h.name = 'Part_Hold'; h.position.fromArray(HOLD_ATTACH);
+    h.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; } });
+    hull.add(h); h.updateMatrixWorld(true); cg3.hold = h; window.__ps3d.shipHold = { url: HOLD_GLB, parent: h.parent.name, at: HOLD_ATTACH, part: (h.children[0] && h.children[0].userData.part) || h.userData.part || '' }; },
+    undefined, (e) => console.warn('ship hold part failed to load (bare hull)', e));
 }
 function padDoor(open) {               // 2.0 s each way; open while PC-1 is on a bay→hold lift (the shelf takes the box), closes after
   const D = cg3.door, now = performance.now(), dt = D.last ? Math.min(.25, (now - D.last) / 1000) : 0; D.last = now;
@@ -2832,5 +2911,5 @@ setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading af
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); sheetUI();
-loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew();
+loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain();
 frame();
