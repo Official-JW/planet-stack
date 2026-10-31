@@ -80,6 +80,24 @@ const DEVMSG = { unreachable: "Can't reach the tester server. Try again in a min
 const devDeviceId = (() => { const k = 'planetstack-dev-device'; let id = null; try { id = localStorage.getItem(k); } catch (e) {}
   if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); try { localStorage.setItem(k, id); } catch (e) {} }
   return id; })();
+// PS_DEV.deviceInfo (getter, fresh every read) for CA's bug form: { type, os, browser, browserVersion, screen:'WxH', viewport:'WxH', dpr, orientation, touch, userAgent }.
+// iPadOS 13+ reports a Mac user agent: a 'Macintosh' UA with maxTouchPoints > 1 is an iPad.
+function devDeviceInfo() {
+  const ua = navigator.userAgent || '', tp = navigator.maxTouchPoints || 0, m = (re) => { const x = re.exec(ua); return x ? x[1] : ''; };
+  const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && tp > 1), iphone = /iPhone|iPod/.test(ua), android = /Android/.test(ua);
+  const iosV = m(/OS (\d+(?:_\d+)*) like Mac/).replace(/_/g, '.') || (ipad ? m(/Version\/(\d+(?:\.\d+)*)/) : '');
+  const type = ipad ? 'iPad' : iphone ? 'iPhone' : android ? (/Mobile/.test(ua) ? 'Android phone' : 'Android tablet') : /Mobi/.test(ua) ? 'mobile' : 'desktop';
+  const os = ipad ? ('iPadOS ' + iosV).trim() : iphone ? ('iOS ' + iosV).trim() : android ? ('Android ' + m(/Android (\d+(?:\.\d+)*)/)).trim()
+    : /Windows NT/.test(ua) ? 'Windows' : /CrOS/.test(ua) ? 'ChromeOS' : /Mac OS X/.test(ua) ? ('macOS ' + m(/Mac OS X (\d+(?:[._]\d+)*)/).replace(/_/g, '.')).trim() : /Linux/.test(ua) ? 'Linux' : 'unknown';
+  const B = [['Edge', /(?:Edg|EdgiOS|EdgA)\/([\d.]+)/], ['Opera', /(?:OPR|OPiOS)\/([\d.]+)/], ['Samsung Internet', /SamsungBrowser\/([\d.]+)/], ['Firefox', /(?:FxiOS|Firefox)\/([\d.]+)/],
+    ['Chrome', /(?:CriOS|Chrome|HeadlessChrome)\/([\d.]+)/], ['Safari', /Version\/([\d.]+).*Safari/]];
+  let browser = 'unknown', browserVersion = ''; for (const [n, re] of B) { const v = m(re); if (v) { browser = n; browserVersion = v; break; } }
+  if (browser === 'Chrome' && /HeadlessChrome/.test(ua)) browser = 'Chrome (headless)';
+  const so = screen.orientation && screen.orientation.type, orientation = so ? so.split('-')[0] : (innerWidth > innerHeight ? 'landscape' : 'portrait');
+  return { type, os, browser, browserVersion, screen: `${screen.width}x${screen.height}`, viewport: `${innerWidth}x${innerHeight}`, dpr: window.devicePixelRatio || 1,
+    orientation, touch: tp > 0 || 'ontouchstart' in window, userAgent: ua };
+}
+Object.defineProperty(PSD, 'deviceInfo', { get: devDeviceInfo, enumerable: true, configurable: true });
 // in-page mock Worker (same contract as CA's worker.js; no network request is ever made)
 const MOCKW = { codes: Array.from({ length: 11 }, (_, i) => String(i).padStart(5, '0')), held: {}, beats: 0,
   handle(method, path, body) {
@@ -141,6 +159,33 @@ const DEV_CODE = await new Promise((resolve) => {
   btn.addEventListener('click', go); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 5); say(''); });
 });
+// ===== DEV: player name (EM 10/31 07:30). Asked once per tester code, right after the lock is held and before the game loads; stored as 'name' in the
+// planetstack-dev-<code> save (old saves without one get the screen). Shown only as text (textContent, never innerHTML); Eve's greeting voice is a fixed
+// clip with no name in it (name_greeting_0). Settings ▸ Name reopens the screen to change it. PS_DEV.playerName = '' until a name is set.
+const NAME_MAX = 16;
+const devCleanName = (v) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX).trim();
+const devSaveKey = 'planetstack-dev-' + DEV_CODE;
+let devName = (() => { try { const sv = JSON.parse(localStorage.getItem(devSaveKey) || 'null'); return sv && typeof sv === 'object' && !Array.isArray(sv) ? devCleanName(sv.name) : ''; } catch (e) { return ''; } })();
+Object.defineProperty(PSD, 'playerName', { get: () => devName, enumerable: true, configurable: true });
+function devStoreName(n) {                // writes the name into the code's save at once (merging with whatever is there), so a reload skips the screen
+  devName = n; let sv = null; try { sv = JSON.parse(localStorage.getItem(devSaveKey) || 'null'); } catch (e) {}
+  if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; sv.name = n; try { localStorage.setItem(devSaveKey, JSON.stringify(sv)); } catch (e) {}
+}
+function devAskName(cur = '') {           // resolves with the cleaned name (non-empty). cur = '' on first ask (blank box); the current name when changing it
+  return new Promise((resolve) => {
+    const g = document.getElementById('nameGate'), inp = document.getElementById('nameIn'), btn = document.getElementById('nameGo'), msg = document.getElementById('nameMsg');
+    const say = (t) => { msg.textContent = t; msg.classList.toggle('on', !!t); window.__ps3d.nameMsg = t; };
+    inp.value = cur; inp.maxLength = NAME_MAX; say(''); g.hidden = false; g.classList.add('on'); window.__ps3d.nameGate = true;
+    setTimeout(() => { try { inp.focus(); } catch (e) {} }, 50);
+    const go = () => { const n = devCleanName(inp.value); if (!n) { inp.value = ''; return say('Enter a name to continue.'); }
+      btn.removeEventListener('click', go); inp.removeEventListener('keydown', key); inp.removeEventListener('input', typed);
+      g.classList.remove('on'); g.hidden = true; window.__ps3d.nameGate = false; inp.blur(); resolve(n); };
+    const key = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); go(); } };
+    const typed = () => { if (inp.value.length > NAME_MAX) inp.value = inp.value.slice(0, NAME_MAX); say(''); };
+    btn.addEventListener('click', go); inp.addEventListener('keydown', key); inp.addEventListener('input', typed);
+  });
+}
+if (!devName) devStoreName(await devAskName(''));
 const TRAIL_ON = Q.get('trail') !== 'off';   // tire-track trail on (default) / ?trail=off: old road strips (see TRAIL_GLB); top-level so every road builder sees it
 // ---- Swappable art (pending Director review). The filename carries the commit hash, so it is also the cache-buster.
 const MINE_GLB = '../qa3d-next/models/mine_864fab15.glb?v=864fab15';   // Art 5933388: ef45f6f1 with the painted tire tracks removed (the tire-track trail GLB draws them now), nodes/clips unchanged; was '../qa3d-next/models/mine_ef45f6f1.glb?v=ef45f6f1' (Art 449757b, Director 01:18: painted tire tracks, mid-gray ore/deposits (100,97,92), 14 draws; was cc084a9b)
@@ -2616,7 +2661,8 @@ function showTab(t) {
   ecPanel.querySelectorAll('.ec-view').forEach(v => v.classList.toggle('is-on', v.dataset.view === t));
   if (t === 'task') renderTask(); if (t === 'updates') renderUpd(); if (t === 'calls') renderCalls();
 }
-function ecResetUI() { clearTimeout(EC.toastT); clearTimeout(EC.typing); ecToast.className = 'ec-toast'; ecPanel.className = 'ec-panel'; ecBubble.classList.remove('is-ringing'); ecTxt.textContent = ''; ecTx.textContent = 'STANDING BY'; }
+const ecToastWho = ecToast.querySelector('.ec-toast__who'), ecToastWho0 = ecToastWho.innerHTML, ecToastKick = ecToast.querySelector('.ec-toast__kicker'), ecToastKick0 = ecToastKick.textContent;   // static kit markup, restored after the greeting
+function ecResetUI() { ecToastWho.innerHTML = ecToastWho0; ecToastWho.classList.remove('ps-greet'); ecToastKick.textContent = ecToastKick0; clearTimeout(EC.toastT); clearTimeout(EC.typing); ecToast.className = 'ec-toast'; ecPanel.className = 'ec-panel'; ecBubble.classList.remove('is-ringing'); ecTxt.textContent = ''; ecTx.textContent = 'STANDING BY'; }
 function ecRing(b) {
   ecResetUI(); EC.ring = b; void ecToast.offsetWidth; ecToast.classList.add('is-in'); hudDim(true); ecBubble.classList.add('is-ringing');
   if (b.tut) { ecToast.dataset.tutorial = ''; ecBubble.dataset.tutorial = ''; return; }     // tutorial: no timeout, pulses until opened
@@ -2652,7 +2698,7 @@ function ecAnswer(b = EC.ring) {
   setTimeout(() => sayLine(EC.lines[0]), ecReduced() ? ECM.rmFade : ECM.typeStart);
 }
 // ===== DEV: Eve voice hook (EM 10/29 22:28), on the existing CFG.eveVoice { dir, lines } map. Line n (0-based) of Eve call <id> plays
-// CFG.eveVoice.dir + '<id>_<n>.mp3' (e.g. mine_first_view_0, mine_first_view_1, upgrade_ready_0, cargo_full_0, cargo_full_1, first_deposit_0;
+// CFG.eveVoice.dir + '<id>_<n>.mp3' (e.g. mine_first_view_0, mine_first_view_1, upgrade_ready_0, cargo_full_0, cargo_full_1, first_deposit_0, cargo_delivered_0, away_summary_0, name_greeting_0;
 // see AUDIO/eve_line_list.md). dir is dev/audio/eve/ resolved from this file's own URL (the page's <base href="../qa3d/"> would send 'audio/eve/' to qa3d/).
 // CFG.eveVoice.lines is filled from dev/audio/eve/manifest.json, format {"clips":["mine_first_view_0","cargo_full_1",...]} (each entry '<id>_<n>', no
 // extension; committed empty). The manifest is fetched once, lazily (first tap); an id/line not listed is silent with no request; a missing manifest
@@ -2741,8 +2787,17 @@ function updViewShift() {
   if (VS.cur > .5) camera.setViewOffset(W, H, 0, -VS.cur, W, H); else if (camera.view && camera.view.enabled) camera.clearViewOffset();
   window.__ps3d.viewShift = Math.round(VS.cur);
 }
+// DEV greeting (Director 10/31 07:31): once per page load, first thing after the cover, Eve rings 'Welcome aboard, Commander <name>.' The typed name is
+// text only (toast banner + call line, set with textContent); the voice is the fixed clip name_greeting_0 ("Welcome aboard, Commander"), if listed.
+const GREET = { done: false };
+function eveGreet() {
+  if (GREET.done || !coverGone || !PSD.playerName || EC.ring || EC.call || ecIsOpen()) return; GREET.done = true;
+  const line = `Welcome aboard, Commander ${PSD.playerName}.`, b = { id: 'name_greeting', tut: false, rep: true, point: null, lines: [line] }; ecRing(b);
+  ecToastKick.textContent = 'WELCOME ABOARD'; const nb = document.createElement('b'); nb.textContent = `Commander ${PSD.playerName}`; ecToastWho.replaceChildren(nb); ecToastWho.classList.add('ps-greet');   // banner: kicker + name (wraps to 2 lines if long), fits 375 px
+  window.__ps3d.greeting = line; window.__ps3d.greetAnswer = () => ecAnswer(b);   // QA hook: answer the greeting even after its toast timed out
+}
 function updEve() {
-  eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
+  eveGreet(); eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
   if (!EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
   if (pointBeat && !pointerDone) {
@@ -2805,11 +2860,14 @@ const setBtn = $('setBtn'), setPop = $('setPop'), musTgl = $('musTgl'), voiceTgl
 function renderSettings() { const on = S.set.music !== false; musTgl.setAttribute('aria-checked', on); musTgl.querySelector('b').textContent = on ? 'ON' : 'OFF';
   $('musNote').textContent = musTracks().length ? '' : 'No tracks yet';
   voiceTgl.setAttribute('aria-checked', VOX.on); voiceTgl.querySelector('b').textContent = VOX.on ? 'ON' : 'OFF';
+  $('nameBtn').querySelector('b').textContent = PSD.playerName || '—';
   $('devBuild').textContent = `BUILD ${PSD.build}${PSD.v ? ' · ' + PSD.v : ''}\nTESTER ${PSD.code || '—'}${MOCK ? ' · MOCK ' + MOCK : ''}`; }
 for (const el of [setBtn, setPop]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
 setBtn.addEventListener('click', (e) => { e.stopPropagation(); renderSettings(); setPop.classList.toggle('on'); setBtn.setAttribute('aria-expanded', setPop.classList.contains('on')); });
 musTgl.addEventListener('click', (e) => { e.stopPropagation(); setMusic(S.set.music === false); });
 voiceTgl.addEventListener('click', (e) => { e.stopPropagation(); setVoice(!VOX.on); });
+$('nameBtn').addEventListener('click', async (e) => { e.stopPropagation(); setPop.classList.remove('on'); setBtn.setAttribute('aria-expanded', false);
+  const n = await devAskName(PSD.playerName); devStoreName(n); S.name = n; save(); renderSettings(); });
 document.addEventListener('pointerdown', (e) => { if (setPop.classList.contains('on') && !e.target.closest('#setPop,#setBtn')) { setPop.classList.remove('on'); setBtn.setAttribute('aria-expanded', false); } });
 renderSettings();
 
