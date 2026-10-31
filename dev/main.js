@@ -76,6 +76,12 @@ const CAM = { halfW: 7.5, elev: 18, lookY: 2.5 };   // fixed camera: ~15 m wide 
 const DEV_WORKER_URL = 'https://planet-stack-dev.official-jw.workers.dev';   // Code Assistant's Worker, e.g. 'https://ps-dev.<acct>.workers.dev' (no trailing slash). Empty + no ?mock = unreachable
 const QD = new URLSearchParams(location.search);
 const Q = new URLSearchParams(); if (QD.get('rm') === '1') Q.set('rm', '1');
+// QA fast-forward (EM 10/31 15:24, Director/Jacob): ?qa=1&ts=N, dev/ only. qa and ts are the ONLY QA flags read here (from QD, like ?mock); every
+// other QA flag stays stripped (Q above). ts = game-clock scale, 1–60 (decimals OK, out of range clamps, missing/invalid = 1). qa=1 also adds
+// window.PS_QA (skipToTouchdown) and, when ts ≠ 1, a small 'QA xN' badge. Off (no flag, or not under /dev/): scale 1, no hook, no badge.
+const QA_DEV = /(^|\/)dev\/(index\.html)?$/.test(location.pathname);   // only the dev/ page (live/, qa3d-next/ ship their own main.js and never read these)
+const QA_ON = QA_DEV && QD.get('qa') === '1';
+const QA_TS = (() => { if (!QA_ON) return 1; const v = QD.get('ts'), n = v === null || v.trim() === '' ? NaN : Number(v); return isFinite(n) ? Math.min(60, Math.max(1, n)) : 1; })();
 const DEV_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);   // QA run 2 BUG-1: ?mock= is honoured only on a local test server (any port); anywhere else it is ignored and the real Worker check runs
 const MOCK = DEV_LOCAL && ['1', 'down', 'drop'].includes(QD.get('mock')) ? QD.get('mock') : '';
 let DEVHALT = false;   // set by devHalt(): game loop stopped, save() a no-op, heartbeat stopped (code in use elsewhere / taken by another tab)
@@ -271,7 +277,7 @@ const DEV = Q.get('dev') === '1';
 const DOCKFILL = Q.has('dockfill') && /\/qa3d-next\//.test(location.pathname);   // QA (Director 11:41): ?dockfill starts the Dock full (20/20); qa3d-next only, never live/
 const SAVEKEY = 'planetstack-dev-' + DEV_CODE;   // DEV: one fresh save per tester code (DEV/DOCKFILL are always false here: Q carries no QA flags)   // qa3d-next: own save so it never touches /qa3d/'s save on the same origin; ?dockfill uses its own save so QA's normal save is untouched
 if (Q.has('fresh')) try { localStorage.removeItem(SAVEKEY); } catch (e) {}
-const SPD = Math.max(1, Math.min(100, +Q.get('speed') || 1)), T0 = Date.now();   // ?speed=N (QA only): the game clock (truck loop, fill, deposits, 3D anims) runs N×
+const SPD = QA_TS, T0 = Date.now();   // the ONE game-clock scale (dev/: ?qa=1&ts=N, else 1; ?speed is stripped here): rawMs/nowMs and the frame's gdt run N× (truck loop, fill, refinery, cargo/ship trip, fuel, deposits, settle/catch-up, 3D anims)
 let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live play (no offline rate)
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
@@ -311,7 +317,13 @@ S.trips = [];
 if (!S.tk || typeof S.tk !== 'object') S.tk = { c0: nowMs(), add: 0, lr: 0, dep: 0, paid: false, val: 0, q: 0, qd: [] };
 if (!Array.isArray(S.tk.qd)) S.tk.qd = [];
 if (CFG.econ.deposits === false) { S.tk.q = 0; S.tk.qd = []; S.pend = []; }   // deposits off: queued rich loads and unpaid rich bonuses (S.pend, $8 each) are dropped on load; nothing pays
-const save = () => { if (DEVHALT) return; try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} };
+const save = () => { if (DEVHALT) return; const off = QA_ON ? qaOff() : 0; if (off) qaShift(-off);   // QA: stamps are written in wall-clock time (see qaOff)
+  try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} if (off) qaShift(off); };
+// QA fast-forward saves: at ts=N (or after skipToTouchdown) the game clock runs ahead of the wall clock by qaOff() ms. save() shifts every loop stamp
+// back by that much for the write only (the same set stampGuard shifts), so the save holds real wall-clock stamps: a reload without the flag sees
+// no future stamps (stampGuard finds no gap) and credits only the real time since the save. Whole ms, so the shift back is exact. 0 = no shift.
+function qaOff() { if (!S.tk || !S.cg || !S.cg.fb) return 0; const d = Math.round(nowMs() - Date.now()); return d > 0 ? d : 0; }
+function qaShift(d) { shiftTk(d); S.rt += d; for (const a of [S.log, S.calls]) if (Array.isArray(a)) for (const e of a) if (e && e.at > 0) e.at += d; }
 
 const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
 const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP, REF = 2, RX = REF * GAP;   // stations 160 m apart, origin = i·160 on X
@@ -2384,7 +2396,7 @@ function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder 
     undefined, (e) => console.warn('ship hold part failed to load (bare hull)', e));
 }
 function padDoor(open) {               // 2.0 s each way; open while PC-1 is on a bay→hold lift (the shelf takes the box), closes after
-  const D = cg3.door, now = performance.now(), dt = D.last ? Math.min(.25, (now - D.last) / 1000) : 0; D.last = now;
+  const D = cg3.door, now = performance.now(), dt = D.last ? Math.min(.25, (now - D.last) / 1000) * SPD : 0; D.last = now;   // × SPD: the door keeps pace with the lift it serves (QA ts; 1 = unchanged)
   const k0 = D.k; D.k = clamp(D.k + (open ? dt : -dt) / 2, 0, 1); if (D.k === k0 && D.cur) return;
   const n = open || !D.ca.cargo_door_close ? 'cargo_door_open' : 'cargo_door_close', a = D.ca[n], dur = a.getClip().duration;
   if (D.cur !== n) { D.mx.stopAllAction(); a.play(); D.cur = n; }
@@ -3163,6 +3175,32 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, v
 hud(); sheetUI();
 loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain();
 frame();
+
+// ===== QA fast-forward hook + badge (dev/ with ?qa=1 only; see QA_ON). Nothing below exists on a normal load.
+// PS_QA.skipToTouchdown(): moves the game clock (WARP, as live play) to each next ship deadline (board → launch → away → [Earth] → land → touchdown)
+// and settles there through the normal settleTo/cgComplete path, so the drop-off pays exactly once (live rules: full value, pop + Eve). S.rt follows
+// the clock, so no catch-up / away rules run. Returns { ok, from, st, paid, skippedSec } or { ok: false, reason }.
+function qaSkipToTouchdown() {
+  if (DEVHALT || PSD.paused || HOLD !== null) return { ok: false, reason: 'paused' };
+  if (!RT.ready || !S.cg || !FB.kOut) return { ok: false, reason: 'not_ready' };
+  let t = nowMs(); settleTo(t, null); S.rt = t;
+  const from = S.cg.sh.st, m0 = S.money, w0 = WARP;
+  if (from === 'pad') return { ok: false, reason: 'no_trip', st: from };
+  for (let i = 0; i < 8 && S.cg.sh.st !== 'pad'; i++) {
+    const s = S.cg.sh, due = s.st === 'board' ? s.t0 + BOARD_SEC * 1000 : s.st === 'launch' ? s.t0 + CG.launchSec * 1000 : s.st === 'land' ? s.t0 + CG.landSec * 1000
+      : s.st === 'away' ? s.t0 + CG.awaySec * (payEarth() && s.cargo > 0 ? 500 : 1000) : t;
+    if (due > t) WARP += due - t + 1;
+    t = nowMs(); settleTo(t, null); S.rt = t;
+  }
+  save();
+  return { ok: S.cg.sh.st === 'pad', from, st: S.cg.sh.st, paid: S.money - m0, skippedSec: Math.round((WARP - w0) / 1000) };
+}
+if (QA_ON) {
+  window.PS_QA = Object.freeze({ scale: SPD, skipToTouchdown: qaSkipToTouchdown });
+  if (SPD !== 1) { const b = document.createElement('div'); b.id = 'qaBadge'; b.textContent = 'QA x' + +SPD.toFixed(2); b.setAttribute('aria-hidden', 'true');
+    b.style.cssText = 'position:fixed;left:110px;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:6;pointer-events:none;font:700 10px/1 ui-monospace,monospace;color:#ffd84d;background:#000a;padding:4px 6px;border-radius:6px';
+    document.body.appendChild(b); }
+}
 
 // ===== DEV build: a new tester code gets its own save at once (key planetstack-dev-<code>)
 if (!hadRt) save();
