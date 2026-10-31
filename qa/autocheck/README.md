@@ -67,9 +67,9 @@ dev Worker (`https://planet-stack-dev.official-jw.workers.dev`, `GET /codes`, th
 | CONSOLE errors / NETWORK failures | Every console error, pageerror, requestfailed and HTTP ≥ 400 is a FAIL and is listed in full. |
 | E2 Eve line N | Waits for Eve's first call, taps the toast, then samples about every 40 ms: text typed, talking or waiting, voice playing (WebAudio buffers and `<audio>` /eve/ plays, plus `PS_DEV.voice`), and a Next/Done cue. It FAILs if the cue shows before the text finishes or while the voice is playing, or if it says the wrong word (Next, or Done on the last line). If the build has no cue, it prints n/a with the timings. |
 | NAV i Station | A real touch swipe to each of the 8 stations. Checks `__ps3d.S.site` and the `#name` label. If a swipe doesn't land, it is a FAIL and the script recovers with `goSite`. |
-| SETTLE i | After every station switch the script waits until `S.site` is the new station, `camX` is within 0.5 m of its resting x (`i × PX/PADI`, i.e. i × 160 m) and `__ps3d.frames` has gone up since then. After 4 s it gives up with a WARN that shows site, camX and frames. Builds without `frames`/`PX` fall back to "camX stopped moving". |
+| SETTLE i | After every station switch the script waits until `S.site` is the new station, `camX` is within 0.5 m of its resting x (`i × PX/PADI`, i.e. i × 160 m) and `__ps3d.frames` has gone up since then. After 4 s it gives up with a WARN that shows site, camX, frames and the box's 1-minute load (WARN never changes the exit code). Builds without `frames`/`PX` fall back to "camX stopped moving". |
 | E1 / TAP (new panel) | For each `__ps3d.upRects()` target on screen that belongs to this station (`UPT[].site`; site −1 = the roaming truck, always kept), it finds a point where the canvas is on top and `pickUp` returns that target, then taps it for real. Other stations' targets get one `skipped` info row. The hit test is `elementFromPoint`, which skips pointer-events:none layers like `#hud`; points below `#hud`'s real bottom edge are tried first, and a tap that only fit under the HUD is an info row. A "no clear tap point" WARN lists what the 25 grid points hit instead. The card must be that object (`upCur`, `#upName == UP[p].name`, and `#upKick` starts with the station name). Then it closes the card with a tap on X. |
-| CARD Station: object | The card-title check (EM 10/31), from the same real taps (settle runs before every tap): `drill` (Mine) must open "Drill" at every viewport (393 and 375 by default), `padFuel` (Launch Pad fuel hoses/tanks) and `fuelPlant` (Refinery) must open "Fuel…". A station with no tap target of its own (5 on gc-ui1: Life Support, Cargo Space Dock, Shipyard, Habitat, Engineering) gets one real tap on its model (mid-screen if the station has no model loaded) and must open "Coming soon". Title = `[data-card-title]` (its value, else its text) when the build has it, else `#upName` text; the row says `attr` or `fallback #upName`. gc-ui2 should show `attr` everywhere. Result: PASS, FAIL (wrong title) or NO CARD (nothing opened; does not change the exit code). Works with `--qa --ts 10`: the camera glide runs on real time, so taps are unaffected. |
+| CARD Station: object | The card-title check (EM 10/31), from the same real taps (settle runs before every tap): `drill` (Mine) must open "Drill" at every viewport (393 and 375 by default); `padFuel` (Launch Pad fuel hoses) and `fuelPlant` (Refinery) must open a title starting "Fuel". **Pad tanks:** when padFuel has a tank box (gc-ui2: `UPT padFuel.add`) or the pad model has a `/tank/i` mesh, one extra real tap on the tanks must also open "Fuel"; otherwise an info row says "no pad tank meshes". **Coming soon:** gc-ui2 gives the 5 empty stations (Life Support, Cargo Space Dock, Shipyard, Habitat, Engineering) their own targets (`lifeSupport`, `dock`, `shipyard`, `habitat`, `engineering`); the title or kicker must contain "Coming soon". On older builds a station with no target of its own gets one real tap on its model (mid-screen if none is loaded). Title = `[data-card-title]` (its value, else its text) when the build has it, else `#upName` text; the row says `attr` or `fallback #upName`. gc-ui2 should show `attr` everywhere. Result: PASS, FAIL (wrong title) or NO CARD. NO CARD is a **FAIL when the build has `[data-card-title]`** and info on older builds. No glow or ring is checked (Director's spec is a soft glow on the object's own materials plus a centred card). Works with `--qa --ts 10`. |
 | E1 swipe i→i+1 card open | Opens a card (using the hook for setup only), then really swipes on the scrim. The card must close and the station must advance. |
 | E1 sheet (old sheet) | Real tap on the Upgrade handle `#grab`. The visible rows must match that station. It WARNs where the global sheet shows Mine rows at a station with no upgrade object of its own. |
 | E1 swipe … sheet open | Swipes above the open sheet. The sheet must close or show rows for the new station. |
@@ -80,6 +80,11 @@ dev Worker (`https://planet-stack-dev.official-jw.workers.dev`, `GET /codes`, th
 - `#upPanel` + `__ps3d.upRects`: the new tap-to-open panel (gc-ui1).
 - `#upPanel` without the hook: `new-nohook`, so E1 is n/a.
 - Neither: n/a.
+
+## Load gate
+Before it starts the browser the script reads `/proc/loadavg`. It starts only when the 1-minute load is under `--max-load` (default 10;
+`--max-load 0` turns the gate off). While waiting it prints the current load every 20 s. After `--load-wait` minutes (default 20) it
+gives up, prints why and exits 3 without starting a browser.
 
 ## Output and cleanup
 - Progress goes to stderr. The table goes to stdout.
@@ -103,7 +108,7 @@ Hooks are used only to find targets and read state. All input is real touch.
   `#ecNext`/`#ecDone`, `[data-eve-cue]`, a Next/Done button in `#ecPanel`, or a
   `__ps3d.eveCue` hook.
 - Moving targets such as trucks can drift off the tap point. That gives a WARN, not a FAIL
-  (info for the truck when `--ts` is above 1, since it then drives N× faster).
+  (info for the truck and the ship when `--ts` is above 1, since they then move N× faster).
   It is a FAIL only if the target was still under the finger and no card opened.
 - On a heavily loaded box a run takes 1.5–3.5 minutes. Under load the first tap on the old
   sheet handle sometimes needs a retry; that shows as a WARN.

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Planet Stack auto-check (QA_ESCAPES E1 + E2 + console / network / md5), one headless Chromium, ~1 min per viewport.
 // Usage: node autocheck.js [url, default dev/] [--expect md5s.json] [--code 00000 | env PS_TESTER_CODE] [--name "QA Bot"]
-//        [--viewports 393x852,375x812] [--out ./out] [--keep-shots] [--load-timeout 90] [--qa] [--ts N] [--skip] [--qa-ignored]
-// Exit: 0 = no FAIL, 1 = at least one FAIL, 2 = no FAIL but the script itself crashed / bad arguments / a hash fetch failed (ERROR row).
+//        [--viewports 393x852,375x812] [--out ./out] [--keep-shots] [--load-timeout 90] [--qa] [--ts N] [--skip] [--qa-ignored] [--max-load 10] [--load-wait 20]
+// Exit: 0 = no FAIL, 1 = at least one FAIL, 2 = no FAIL but the script itself crashed / bad arguments / a hash fetch failed (ERROR row),
+//       3 = load gate: the box stayed at/above --max-load (default 10) for --load-wait minutes (default 20), so no browser was started.
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const HERE = __dirname;
@@ -12,7 +13,7 @@ const { chromium } = require('playwright');
 // ---------- args ----------
 function parseArgs(argv) {
   const a = { url: null, expect: null, code: process.env.PS_TESTER_CODE || '', name: process.env.PS_TESTER_NAME || 'QA Autocheck',
-    viewports: '393x852,375x812', dpr: 3, out: path.join(HERE, 'out'), keepShots: false, loadTimeout: 90 };
+    viewports: '393x852,375x812', dpr: 3, out: path.join(HERE, 'out'), keepShots: false, loadTimeout: 90, maxLoad: 10, loadWait: 20 };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i], v = () => { if (i + 1 >= argv.length) throw new Error('missing value for ' + k); return argv[++i]; };
     if (k === '--expect') a.expect = v(); else if (k === '--code') a.code = v(); else if (k === '--name') a.name = v();
@@ -20,8 +21,9 @@ function parseArgs(argv) {
     else if (k === '--dpr') a.dpr = +v(); else if (k === '--quiet') QUIET = true;
     else if (k === '--ts') a.ts = v(); else if (k === '--skip') a.skip = true; else if (k === '--qa') a.qa = true;
     else if (k === '--qa-ignored') a.qaIgnored = true;   // live/ (or any non-dev build): load with ?qa=1&ts=N and assert it runs at 1x with no badge and no PS_QA, then stop   // QA fast-forward (dev/ build only): ?qa=1&ts=N; --skip calls PS_QA.skipToTouchdown()
+    else if (k === '--max-load') a.maxLoad = +v(); else if (k === '--load-wait') a.loadWait = +v();
     else if (k === '--keep-shots') a.keepShots = true; else if (k === '--load-timeout') a.loadTimeout = +v();
-    else if (k === '-h' || k === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 5).join('\n')); process.exit(0); }
+    else if (k === '-h' || k === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 6).join('\n')); process.exit(0); }
     else if (!k.startsWith('--') && !a.url) a.url = k; else throw new Error('unknown argument ' + k);
   }
   if (!a.url) a.url = 'https://official-jw.github.io/planet-stack/dev/';   // default target: dev/ (needs a tester code)
@@ -91,7 +93,7 @@ async function settle(page, want, vp = null, ms = 4000) {
     last = s.camX; await sleep(100);
   }
   s = await page.evaluate(PAGE_STATE);
-  if (vp) add(vp, `SETTLE ${want}`, 'WARN', `timeout after ${ms / 1000} s: site=${s.site} (want ${want}), camX=${s.camX === null ? 'n/a' : s.camX.toFixed(2)}${s.gap ? ` (rest ${want * s.gap})` : ''}, frames=${s.frames}${f0 !== null ? ` (${s.frames - f0} since at rest)` : ''}`);
+  if (vp) add(vp, `SETTLE ${want}`, 'WARN', `timeout after ${ms / 1000} s (box 1-min load ${load1() ?? 'n/a'}): site=${s.site} (want ${want}), camX=${s.camX === null ? 'n/a' : s.camX.toFixed(2)}${s.gap ? ` (rest ${want * s.gap})` : ''}, frames=${s.frames}${f0 !== null ? ` (${s.frames - f0} since at rest)` : ''}`);
   return s;
 }
 
@@ -123,13 +125,41 @@ const NEW_PANEL = () => { const P = window.__ps3d || {}, el = document.getElemen
 // card title: [data-card-title] (gc-ui2 and later: its value, else its text) or, on builds without it, #upName's text (gc-ui1 7c27f98). src says which.
 const CARD_TITLE = () => { const el = document.getElementById('upPanel'), open = !!el && !el.hidden && getComputedStyle(el).display !== 'none';
   const a = (el && el.querySelector('[data-card-title]')) || document.querySelector('[data-card-title]');
-  if (a) return { open, src: 'attr', title: ((a.getAttribute('data-card-title') || '') || a.textContent || '').trim() };
-  return { open, src: 'fallback #upName', title: ((document.getElementById('upName') || {}).textContent || '').trim() }; };
+  const kick = ((document.getElementById('upKick') || {}).textContent || '').trim();
+  if (a) return { open, kick, src: 'attr', title: ((a.getAttribute('data-card-title') || '') || a.textContent || '').trim() };
+  return { open, kick, src: 'fallback #upName', title: ((document.getElementById('upName') || {}).textContent || '').trim() }; };
 // what each tap should open (EM 10/31). Title match = starts with (case-insensitive), so 'Fuel' passes 'Fuel Refill'.
 // padFuel = the Launch Pad fuel hoses + tanks box (Hose_LOX / Hose_LCH4; 7c27f98's pad GLB has no separate tank node). Empty stations = stations with no UPT target of their own.
-const CARD_WANT = { drill: 'Drill', padFuel: 'Fuel', fuelPlant: 'Fuel' }, CARD_EMPTY = 'Coming soon';
-const cardRow = (vp, label, c, want) => { if (!c || !c.open) return add(vp, label, 'NO CARD', `no card opened (want "${want}")${c && c.why ? '; ' + c.why : ''}`);
-  const ok = c.title.toLowerCase().startsWith(want.toLowerCase()); add(vp, label, ok ? 'PASS' : 'FAIL', `title "${c.title}" (${c.src})${ok ? '' : `, want "${want}"`}`); };
+// gc-ui2 gives the 5 empty stations their own 'Coming soon' targets (title = station name, kicker '<Station> · Coming soon'), so those ids are listed too.
+// 'Coming soon' passes when the title OR the kicker contains it. NO CARD rows are settled at the end of each viewport: FAIL when the build has
+// [data-card-title] (gc-ui2 and later), info on older builds (CV.attr).
+const CARD_EMPTY = 'Coming soon', CARD_WANT = { drill: 'Drill', padFuel: 'Fuel', fuelPlant: 'Fuel', lifeSupport: CARD_EMPTY, dock: CARD_EMPTY, shipyard: CARD_EMPTY, habitat: CARD_EMPTY, engineering: CARD_EMPTY };
+let CV = { attr: false, nocard: [] };
+const cardRow = (vp, label, c, want) => { if (c && c.src === 'attr') CV.attr = true;
+  if (!c || !c.open) { add(vp, label, 'NO CARD', `no card opened (want "${want}")${c && c.why ? '; ' + c.why : ''}`); CV.nocard.push(rows[rows.length - 1]); return; }
+  const lw = want.toLowerCase(), ok = lw === 'coming soon' ? (c.title + ' ' + c.kick).toLowerCase().includes(lw) : c.title.toLowerCase().startsWith(lw);
+  add(vp, label, ok ? 'PASS' : 'FAIL', `title "${c.title}"${lw === 'coming soon' ? `, kicker "${c.kick}"` : ''} (${c.src})${ok ? '' : `, want "${want}"`}`); };
+// Launch Pad tanks (gc-ui2): padFuel's extra tank box (UPT padFuel.add), else a mesh named /tank/i in the pad model. Taps a point inside it where
+// the canvas is on top and pickUp gives padFuel. Returns null when the build has neither (-> info row 'no pad tank meshes').
+async function padTankCard(page, W, H) {
+  const pt = await page.evaluate(([W, H]) => { const P = window.__ps3d, T = P.THREE, o = P.stationObjs && P.stationObjs[P.PADI], u = (P.UPT || []).find(t => t.id === 'padFuel');
+    let b = null, src = '';
+    if (u && typeof u.add === 'function' && T) { b = u.add(new T.Box3()); src = 'padFuel tank box (UPT.add)'; }
+    if ((!b || b.isEmpty()) && o && T) { let m = null; o.traverse(n => { if (!m && n.isMesh && /tank/i.test(n.name || '') && n.visible) m = n; }); if (m) { b = new T.Box3().setFromObject(m); src = 'mesh ' + m.name; } }
+    if (!b || b.isEmpty()) return null;
+    let l = Infinity, r = -Infinity, t = Infinity, bt = -Infinity;
+    for (let k = 0; k < 8; k++) { const q = P.toScreen(k & 1 ? b.max.x : b.min.x, k & 2 ? b.max.y : b.min.y, k & 4 ? b.max.z : b.min.z); if (q.z > 1) continue; l = Math.min(l, q.x); r = Math.max(r, q.x); t = Math.min(t, q.y); bt = Math.max(bt, q.y); }
+    l = Math.max(l, 8); r = Math.min(r, W - 8); t = Math.max(t, 8); bt = Math.min(bt, H - 8); if (!(r > l && bt > t)) return { src, why: 'tank box off screen' };
+    for (const fy of [.5, .35, .65, .2, .8]) for (const fx of [.5, .3, .7, .15, .85]) { const x = l + (r - l) * fx, y = t + (bt - t) * fy, e = document.elementFromPoint(x, y), h = P.pickUp(x, y);
+      if (e && e.tagName === 'CANVAS' && h && h.t.id === 'padFuel') return { x, y, src }; }
+    return { src, why: 'no point on the tanks where the canvas is on top and pickUp gives padFuel' }; }, [W, H]);
+  if (!pt) return null;
+  if (pt.x == null) return { open: false, why: `${pt.src}: ${pt.why}` };
+  await closeCard(page); await page.touchscreen.tap(pt.x, pt.y); let c = null;
+  for (let k = 0; k < 8; k++) { await sleep(250); c = await page.evaluate(CARD_TITLE); if (c.open) break; }
+  c.why = `tapped ${pt.src} at ${Math.round(pt.x)},${Math.round(pt.y)}`; if (c.open) await closeCard(page); return c;
+}
+const load1 = () => { try { return +fs.readFileSync('/proc/loadavg', 'utf8').split(' ')[0]; } catch (e) { return null; } };
 async function closeCard(page) { const x = await page.locator('#upX').boundingBox().catch(() => null); if (x && (await page.evaluate(NEW_PANEL)).cur) { await page.touchscreen.tap(x.x + x.width / 2, x.y + x.height / 2); await sleep(300); }
   if ((await page.evaluate(NEW_PANEL)).cur) await page.evaluate(() => window.__ps3d.closeUp('qa')); }
 // empty station: tap the middle of the station's own model (projected world box centre, then a 5x5 grid of its rect on the canvas)
@@ -219,7 +249,7 @@ async function eveCheck(page, vp, shot) {
 
 // ---------- one viewport ----------
 async function runViewport(browser, A, vp, served, devId) {
-  const VP = `${vp.w}x${vp.h}`, t0 = Date.now();
+  const VP = `${vp.w}x${vp.h}`, t0 = Date.now(); CV = { attr: false, nocard: [] };
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, screen: { width: vp.w, height: vp.h }, deviceScaleFactor: A.dpr, isMobile: true, hasTouch: true,
     userAgent: IPHONE_UA, serviceWorkers: 'block', locale: 'en-US', timezoneId: 'America/Los_Angeles' });
   let closing = false; const consoleErr = [], netFail = [];
@@ -258,6 +288,7 @@ async function runViewport(browser, A, vp, served, devId) {
     if (!s.hook) { add(VP, 'LOAD', 'FAIL', 'no window.__ps3d QA hook; nothing else can be checked'); return; }
     if (!s.coverGone) { add(VP, 'LOAD', 'FAIL', `loading cover still up after ${A.loadTimeout} s`); await shot(page, 'cover'); return; }
     add(VP, 'LOAD', 'PASS', `cover gone in ${((Date.now() - t0) / 1000).toFixed(1)} s; UI = ${s.ui === 'old' ? 'old drag sheet' : s.ui === 'new' ? 'new tap-to-open panel' : s.ui}${nameDone ? '; name screen filled' : ''}`);
+    if (await page.evaluate(() => !!document.querySelector('[data-card-title]')).catch(() => false)) CV.attr = true;
     if (A.qaIgnored) { await qaIgnoredCheck(page, A, VP, shot); return; }   // light mode: just this check (+ console / network rows)
     // 2) E2 first: the first story call rings at the Mine right after the cover
     log(VP, 'Eve check'); await eveCheck(page, VP, shot);
@@ -316,10 +347,10 @@ async function runViewport(browser, A, vp, served, devId) {
             under = pt.underHud; await page.touchscreen.tap(pt.x, pt.y); taps++;
             for (let k = 0; k < 8 && !up; k++) { await sleep(250); up = !!(await page.evaluate(NEW_PANEL)).cur; }   // poll 2 s before re-tapping so a slow open isn't closed by a second tap on the scrim
             if (!up) still = await page.evaluate(([x, y, id]) => { const h = window.__ps3d.pickUp(x, y); return !!(h && h.t.id === id); }, [pt.x, pt.y, t.id]); }
-          const mover = t.id === 'truck' && Number(A.ts) > 1;   // at ts > 1 the truck drives N× faster, so a missed tap on it is expected: info, not WARN
+          const mover = (t.id === 'truck' || t.id === 'ship') && Number(A.ts) > 1;   // at ts > 1 the truck and ship move N× faster, so a missed tap on them is expected: info, not WARN
           if (!taps) { add(VP, `TAP ${ST[i]}: ${t.id}`, mover && why === 'target gone' ? 'info' : 'WARN', `on screen but no clear tap point (what the 25 grid points hit: ${why})`); continue; }
-          if (!up && !still) { add(VP, `TAP ${ST[i]}: ${t.id}`, mover ? 'info' : 'WARN', `moving target: ${taps} tap(s) missed because it had moved off the tap point; could not confirm${mover ? ` (truck at ts=${A.ts})` : ''}`); continue; }
-          if (up && taps > 1) add(VP, `TAP ${ST[i]}: ${t.id}`, mover ? 'info' : 'WARN', `needed ${taps} taps (target moving or first tap missed)${mover ? ` (truck at ts=${A.ts})` : ''}`);
+          if (!up && !still) { add(VP, `TAP ${ST[i]}: ${t.id}`, mover ? 'info' : 'WARN', `moving target: ${taps} tap(s) missed because it had moved off the tap point; could not confirm${mover ? ` (${t.id} at ts=${A.ts})` : ''}`); continue; }
+          if (up && taps > 1) add(VP, `TAP ${ST[i]}: ${t.id}`, mover ? 'info' : 'WARN', `needed ${taps} taps (target moving or first tap missed)${mover ? ` (${t.id} at ts=${A.ts})` : ''}`);
           if (up && under) add(VP, `TAP ${ST[i]}: ${t.id} under HUD`, 'info', 'only tap point was under #hud (pointer-events:none, so the tap still reached the canvas)');
           await sleep(200);
           const p = await page.evaluate(NEW_PANEL), want = await page.evaluate((k) => (window.__ps3d.UP[k] || {}).name, t.p);
@@ -333,7 +364,8 @@ async function runViewport(browser, A, vp, served, devId) {
         // CARD title check (EM 10/31): each listed object at this station, plus 'Coming soon' at a station with no target of its own
         const home = await page.evaluate(() => (window.__ps3d.UPT || []).map(t => t.site));
         for (const id of Object.keys(CARD_WANT)) { const ut = all.find(t => t.id === id); if (!ut || ut.site !== i) continue;
-          cardRow(VP, `CARD ${ST[i]}: ${id}`, R.some(t => t.id === id) ? card[id] : { open: false, why: `not on screen (${ut.why || 'no rect'}), not tapped` }, CARD_WANT[id]); }
+          cardRow(VP, `CARD ${ST[i]}: ${id}`, R.some(t => t.id === id) ? card[id] : { open: false, why: `not on screen (${ut.why || 'no rect'}), not tapped` }, CARD_WANT[id]);
+          if (id === 'padFuel') { await settle(page, i, VP); const c = await padTankCard(page, W, H); if (c) cardRow(VP, `CARD ${ST[i]}: pad tank`, c, 'Fuel'); else add(VP, `CARD ${ST[i]}: pad tank`, 'info', 'no pad tank meshes (no padFuel tank box and no /tank/i mesh in the pad model)'); } }
         if (!home.includes(i)) { await settle(page, i, VP); await closeCard(page); cardRow(VP, `CARD ${ST[i]}: empty station`, await emptyStationCard(page, i, W, H), CARD_EMPTY); }
         if (R.length && i < N - 1) { const pt = R[0]; await page.evaluate((id) => window.__ps3d.openUp(id), pt.p); await sleep(300); opened = (await page.evaluate(NEW_PANEL)).cur ? 'new' : null; }   // hook only sets up the swipe test
       } else add(VP, `E1 ${ST[i]}`, 'n/a', s.ui === 'new-nohook' ? 'new panel present but no __ps3d.upRects hook to find targets' : 'no upgrade sheet or panel in this build');
@@ -359,6 +391,7 @@ async function runViewport(browser, A, vp, served, devId) {
     await sleep(300);
   } catch (e) { add(VP, 'SCRIPT', 'FAIL', 'exception: ' + (e && e.message)); }
   finally {
+    for (const r of CV.nocard) { r.res = CV.attr ? 'FAIL' : 'info'; r.detail = `NO CARD: ${r.detail} (${CV.attr ? 'build has [data-card-title], so this is a FAIL' : 'no [data-card-title] in this build: info'})`.slice(0, 300); }
     add(VP, 'CONSOLE errors', consoleErr.length ? 'FAIL' : 'PASS', consoleErr.length ? `${consoleErr.length}: ` + [...new Set(consoleErr)].slice(0, 4).join(' | ') : 'none');
     add(VP, 'NETWORK failures', netFail.length ? 'FAIL' : 'PASS', netFail.length ? `${netFail.length}: ` + [...new Set(netFail)].slice(0, 4).join(' | ') : 'none');
     rowsFull.push({ vp: VP, consoleErr, netFail });
@@ -437,7 +470,7 @@ function printTable() {
   console.log('-'.repeat(120));
   for (const r of rows) console.log([pad(r.vp, w[0]), pad(r.check, w[1]), pad(r.res, w[2]), r.detail].join(' | '));
   const c = (x) => rows.filter(r => r.res === x).length;
-  console.log('-'.repeat(120)); console.log(`PASS ${c('PASS')} · FAIL ${c('FAIL')} · WARN ${c('WARN')} · NO CARD ${c('NO CARD')} · n/a ${c('n/a')}` + (c('ERROR') ? ` · script ERROR ${c('ERROR')}` : ''));
+  console.log('-'.repeat(120)); console.log(`PASS ${c('PASS')} · FAIL ${c('FAIL')} · WARN ${c('WARN')}  · n/a ${c('n/a')}` + (c('ERROR') ? ` · script ERROR ${c('ERROR')}` : ''));
 }
 
 (async () => {
@@ -445,6 +478,13 @@ function printTable() {
   const T0 = Date.now(), served = {}, devId = crypto.randomUUID();
   console.log(`Planet Stack autocheck · ${A.url} · viewports ${A.viewports} · ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT`);
   let browser = null, crashed = false;
+  // load gate: the browser starts only when the box's 1-minute load is under --max-load (default 10; 0 = off). Waits up to --load-wait minutes
+  // (default 20), printing what it waits for; at the ceiling it aborts the browser step (exit 3) instead of starting anyway.
+  if (A.maxLoad > 0 && load1() !== null) { const tEnd = Date.now() + A.loadWait * 60000; let l = load1();
+    while (l >= A.maxLoad) { if (Date.now() >= tEnd) { console.log(`LOAD GATE: 1-min load still ${l} (limit ${A.maxLoad}) after ${A.loadWait} min; browser step aborted, nothing was tested.`); process.exit(3); }
+      console.log(`LOAD GATE: waiting for the 1-min load to drop under ${A.maxLoad} before starting the browser (now ${l}; ${Math.ceil((tEnd - Date.now()) / 1000)} s left of ${A.loadWait} min)`);
+      await sleep(20000); l = load1(); }
+    console.log(`LOAD GATE: 1-min load ${l} < ${A.maxLoad}, starting the browser`); }
   try {
     browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined,
       args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--mute-audio'] });
