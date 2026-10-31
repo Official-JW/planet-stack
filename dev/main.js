@@ -135,7 +135,7 @@ async function devCodes() { const r = await devReq('GET', '/codes'); if (r.unrea
 PSD.lock = { code: null, held: false,
   async acquire(code) { const r = devLockRes(await devReq('POST', '/lock', { code, deviceId: devDeviceId, op: 'acquire' })); if (r.ok) { this.code = code; this.held = true; } return r; },
   async heartbeat() { if (!this.code) return { ok: false, reason: 'not_held' }; return devLockRes(await devReq('POST', '/lock', { code: this.code, deviceId: devDeviceId, op: 'beat' })); },
-  release() { if (!this.code || !this.held) return; this.held = false; const body = { code: this.code, deviceId: devDeviceId, op: 'release' };
+  release() { if (!this.code || !this.held || !tabOwn()) return; this.held = false;   // only the tab that owns the tab lock right now (tabs share the deviceId) const body = { code: this.code, deviceId: devDeviceId, op: 'release' };
     if (MOCK) { MOCKW.handle('POST', '/lock', body); return; }
     const base = (window.PS_DEV.WORKER_URL || '').replace(/\/+$/, ''); if (!base) return;
     try { fetch(base + '/lock', { method: 'POST', keepalive: true, body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=UTF-8' } }).catch(() => {}); }
@@ -152,6 +152,7 @@ TAB.id = (() => { const k = 'planetstack-dev-tabid'; let v = ''; try { v = sessi
 const tabRead = (c) => { try { const v = JSON.parse(localStorage.getItem(tabKey(c)) || 'null'); return v && typeof v === 'object' && v.n ? v : null; } catch (e) { return null; } };
 const tabWrite = () => { try { localStorage.setItem(tabKey(TAB.code), JSON.stringify({ id: TAB.id, n: TAB.n, t: Date.now() })); } catch (e) {} };
 const tabOther = (L) => !!L && L.n !== TAB.n && L.id !== TAB.id && Date.now() - (+L.t || 0) < TAB_STALE;   // a live lock that isn't this tab's
+const tabOwn = () => { if (!TAB.held) return false; const L = tabRead(TAB.code); return !!L && L.n === TAB.n; };   // this page holds the tab lock at this moment
 const tabSend = (m) => { try { if (TAB.bc) TAB.bc.postMessage(m); } catch (e) {} };
 try { TAB.bc = typeof BroadcastChannel === 'function' ? new BroadcastChannel('planetstack-dev-tabs') : null; } catch (e) { TAB.bc = null; }
 if (TAB.bc) TAB.bc.onmessage = (e) => { const m = e.data || {}; if (!m || m.n === TAB.n) return;
@@ -194,7 +195,7 @@ function devHalt(text, why) { if (DEVHALT) return; DEVHALT = true; window.__ps3d
   const rc = document.getElementById('recon'); if (rc) { rc.classList.remove('on'); rc.hidden = true; }
   devStopShow(text, true, why === 'tab' ? 'This tab has stopped. Your game carries on in the other tab.' : 'This tab has stopped. Reload to try again.');
 }
-addEventListener('pagehide', () => tabRelease());
+addEventListener('pagehide', () => { try { window.PS_DEV.lock.release(); } catch (e) {} tabRelease(); });   // Worker lock first, while we still own the tab lock
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tabBeat(); });
 // start screen: wait for a code the Worker accepts (GET /codes, then lock.acquire); nothing else in this file runs until then
 const DEV_CODE = await new Promise((resolve) => {
@@ -3044,7 +3045,7 @@ $('devBugBtn').addEventListener('click', (e) => { e.stopPropagation(); setPop.cl
 // lock heartbeat: every 30 s while held. A failed beat keeps the game running and retries quietly; after HB_FAIL_MS of continuous failure the game
 // pauses (game clock frozen, state kept) under the reconnect screen, which closes and resumes by itself on the next good beat. not_held → re-acquire.
 const HB_MS = (MOCK && +QD.get('hb') > 0 ? +QD.get('hb') : 30) * 1000, HB_FAIL_MS = (MOCK && +QD.get('hbfail') > 0 ? +QD.get('hbfail') : 300) * 1000;
-const HB = PSD.hb = { t: 0, failSince: 0, ok: 0, fail: 0, busy: false, stopped: false, last: '', at: Date.now() };
+const HB = PSD.hb = { t: 0, failSince: 0, ok: 0, fail: 0, busy: false, stopped: false, last: '', at: Date.now(), okAt: Date.now(), ttl: 90 };
 const reconEl = $('recon'), reconBtn = $('reconBtn');
 PSD.paused = false;
 function devPause(on) {
@@ -3054,8 +3055,9 @@ function devPause(on) {
 }
 async function devBeat() {
   if (HB.busy || HB.stopped) return; HB.busy = true; clearTimeout(HB.t); reconBtn.disabled = true;
-  let r; try { const L = window.PS_DEV.lock; r = await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
-  HB.busy = false; reconBtn.disabled = false; HB.last = r.ok ? 'ok' : r.reason; HB.at = Date.now(); if (HB.stopped) return;
+  let r; try { const L = window.PS_DEV.lock; const gone = Date.now() - HB.okAt >= HB.ttl * 1000 - 2000;   // past the TTL (thawed / long sleep): acquire directly, no 404 beat
+    r = gone ? await L.acquire(PSD.code) : await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+  HB.busy = false; reconBtn.disabled = false; HB.last = r.ok ? 'ok' : r.reason; HB.at = Date.now(); if (r.ok) { HB.okAt = HB.at; HB.ttl = +r.ttl || 90; } if (HB.stopped) return;
   if (!r.ok && r.reason === 'in_use') { HB.inUse = (HB.inUse || 0) + 1; devHalt(DEVMSG.in_use, 'in_use'); return; }   // QA run 1 BUG-1: another device holds the code now (beat 409, or not_held → acquire 409): stop at once; only a network failure counts as unreachable
   if (r.ok) { HB.ok++; HB.failSince = 0; devPause(false); }
   else { HB.fail++; if (!HB.failSince) HB.failSince = Date.now(); if (Date.now() - HB.failSince >= HB_FAIL_MS) devPause(true); }
@@ -3070,6 +3072,6 @@ document.addEventListener('visibilitychange', devBeatNow); document.addEventList
 addEventListener('pagehide', () => { HB.stopped = true; clearTimeout(HB.t); try { window.PS_DEV.lock.release(); } catch (e) {} });
 addEventListener('pageshow', async (e) => { if (!e.persisted || !HB.stopped || DEVHALT) return; HB.stopped = false;   // back from the bfcache: take the tab lock, then the Worker lock again
   if (!(await tabClaim(PSD.code))) return tabLost();
-  let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use'); if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
+  let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use'); if (r.ok) { HB.okAt = Date.now(); HB.ttl = +r.ttl || 90; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
 if (MOCK) PSD.__mockHeal = () => { MOCKW.healed = true; };   // smoke only: the mock Worker answers beats again
 renderSettings();
