@@ -1,6 +1,6 @@
 // Planet Stack QA3D: Mine A truck loop on Art's Mine GLB (582676b) + HT-04 truck prop (c0452bd) + Mine operator (9209246).
 // The drill fills the truck under the chute; full trucks haul to Art's Refinery (4a70acf) and pay as the bed tips.
-// Fixed camera, one-station swipes, upgrade sheet, offline catch-up, Earth Coms (Eve) kit, ?dev=1 readout, ?speed=N (QA clock).
+// Fixed camera, one-station swipes, tap-an-object upgrade cards, offline catch-up, Earth Coms (Eve) kit, ?dev=1 readout, ?speed=N (QA clock).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
@@ -14,7 +14,7 @@ const CFG = {
   // other lanes read CFG.econ.* and never edit this block. Step 2 / lanes wire these in; until then the old balance below still runs the game.
   // "~" values and anything marked PLACEHOLDER are inside the plan's ranges or from Engineering Manager 10/29, pending Director's Phase 2 pacing sim.
   econ: {
-    startMoney: 5000,                   // Locked: start money $5,000
+    startMoney: 10000,                  // Director 10/31 15:08: start money $10,000 (was $5,000)
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
     dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
     purity: { base: 0.40, max: 1.00, step: 0.05, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
@@ -59,7 +59,7 @@ const CFG = {
   // Eve stays text-only (no TTS). Optional recorded line audio: { beatId: ['file_for_line_0.mp3', null, …] } under audio/eve/; plays only if listed here.
   eveVoice: { dir: 'audio/eve/', lines: {} },
 };
-CFG.startMoney = CFG.econ.startMoney;   // Step 2: new games start with $5,000 (saves keep their own money: the load overwrites S.money)
+CFG.startMoney = CFG.econ.startMoney;   // Step 2: new games start with CFG.econ.startMoney ($10,000 since 10/31) (saves keep their own money: the load overwrites S.money)
 CFG.offlineRate = CFG.econ.offline.rate; CFG.offlineCapSec = CFG.econ.offline.capSec;   // same 0.5 / 4 h as before, now read from the econ block
 // Earth drop-off value for a ship's cargo at purity p (0–1): linear from $50k at base purity (40%) to $150k at max purity (100%), clamped, whole dollars
 function dropoffValue(purity) {
@@ -707,7 +707,7 @@ function routeReady(which) {
   if (which) RT[which] = true; if (RT.ready || !RT.mine || !RT.ref) return;
   RT.ready = true; RT.at = Math.round(performance.now()); window.__ps3d.routeReadyAt = RT.at;
   if (hadRt) catchUp(true); else { const t = nowMs(); settleTo(t, null); S.rt = t; }   // credit time away since the last save, on the final route
-  hud(); sheetUI();
+  hud(); upUI();
 }
 // ===== Mine station GLB (Art 582676b, md5 68e07c01…): rig + conveyor + chute, haul-loop markers, deposits, tiers, Cam_Target. No truck inside.
 let mixer = null, mine = null, rig = null, rigLoaded = false, coverGone = false;
@@ -1275,13 +1275,13 @@ $('tag').textContent = document.body.dataset.tag + (DEV ? ' · DEV' : '');
 const nameEl = $('name'), dotsEl = $('dots');
 STATIONS.forEach((n, i) => { const b = document.createElement('button'); b.setAttribute('aria-label', n); dotsEl.appendChild(b); });
 function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === S.site)); }
-function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); } target = k * GAP; ui(); }
+function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); closeUp('site'); } target = k * GAP; ui(); }
 dotsEl.addEventListener('pointerdown', (e) => {   // 44 px tap band: nearest dot wins
   e.stopPropagation(); cancelFocus('dot'); crewCancel('dot'); const r = dotsEl.getBoundingClientRect(); goSite(Math.round((e.clientX - r.left) / r.width * N - .5));
 });
 ui();
 
-// ===== swipe: always exactly one station from S.site; tiny drags spring back; taps go to deposits
+// ===== swipe: always exactly one station from S.site; tiny drags spring back; taps go to deposits, then to upgrade cards
 let drag = null;
 canvas.addEventListener('pointerdown', (e) => {
   crewCancel('tap');                                              // any tap or swipe ends the boarding camera
@@ -1295,6 +1295,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (!drag || e.pointerId !== drag.id) return; const t = e.timeStamp || performance.now();
   const dx = e.clientX - drag.x0; drag.moved = Math.max(drag.moved, Math.hypot(dx, e.clientY - drag.y0));
   if (drag.moved > 10 && FOC.i >= 0) cancelFocus('swipe');              // a swipe cancels a tier focus and takes over
+  if (drag.moved > 10) closeUp('swipe');                                // UI-1: a swipe closes the open upgrade card (and, being a swipe, never opens one)
   const lo = Math.max((drag.base - 1) * GAP, -GAP * .3), hi = Math.min((drag.base + 1) * GAP, GAP * (N - 1 + .3));
   camX = clamp(drag.cx - dx * mPerPx(), lo, hi);
   drag.s.push([t, e.clientX]); while (drag.s.length > 2 && t - drag.s[1][0] > 250) drag.s.shift();
@@ -1430,7 +1431,7 @@ function safeArea() { if (!SA.el) { SA.el = document.createElement('div'); SA.el
   const cs = getComputedStyle(SA.el); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; }
 function band() {                     // Playtester 20:58: the safe-area insets are part of the band (59/34 px on a 393×852 iPhone → y 165–534)
   const sa = safeArea(), top = Math.max(hudEl.getBoundingClientRect().bottom, 120, sa.t) + 24;   // station title moved to the bottom (above the dots); top of the band = under the HUD/Eve band (unchanged 144 px)
-  const sheetTop = $('sheetWrap').getBoundingClientRect().top;      // open sheet top edge
+  const sheetTop = innerHeight - 250 - sa.b;   // UI-2: the drag-up sheet is gone; its fixed 250 px + safe-area bottom strip still bounds the band so every station framing stays as it was
   return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top, innerHeight - sa.b) - 34, l: 34, r: W - 34, sat: sa.t, sab: sa.b };
 }
 function spawnDeposit(name) {
@@ -2535,7 +2536,7 @@ for (const el of [launchEl, storeEl]) el.addEventListener('pointerdown', (e) => 
 launchEl.addEventListener('click', (e) => { e.stopPropagation(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; } });
 const _sp = {};
 function cargoUI() {                  // Launch button (bottom-right of the safe band, Launch Pad only) and the Storage full chip (over the Refinery pallet)
-  const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen && !document.body.classList.contains('sheet-drag'), bd = band();
+  const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen, bd = band();
   const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && canLaunch(t);
   if (onPad) { const v = cargoValue(c.sh.hold); launchEl.querySelector('small').textContent = `${c.sh.hold}/${CG.holdCap} BOXES · +${fmt(v)}`;
     launchEl.style.top = Math.round(bd.bot - launchEl.offsetHeight) + 'px'; }
@@ -2582,7 +2583,7 @@ const cbTxt = cbEl.querySelector('em').firstChild;
 const CB = { on: false, n: -1, m: -1, full: false, x: -1e9, y: -1e9, w: 112, h: 36, gap: 6, yMin: .4, hull: null, x0: 0, x1: 0, ay: 0, az: 0, bd: null,   // last written values
   mode: -1, cmp: false, hud: 4, NW: 112, NH: 36, NG: 6, CW: 92, CH: 26, CG: 4, y1: 0, z0: 0, z1: 0 };   // placement mode (see above); normal / compact sizes + gaps
 const _cbV = new THREE.Vector3(), _cbM = new THREE.Matrix4(), _cbO = new Float64Array(3);   // _cbV: build-time only
-addEventListener('resize', () => { CB.bd = null; });   // the band only moves on resize / rotation while the label can show (it hides while the sheet is open)
+addEventListener('resize', () => { CB.bd = null; });   // the band only moves on resize / rotation while the label can show (it hides while an upgrade card is open)
 function cbHull(o) {                   // once: the Dock building's (z, y) convex hull (monotone chain) + its x span and highest point (the label's x anchor)
   o.updateMatrixWorld(true); const v = _cbV, P = []; let x0 = 1e9, x1 = -1e9, ay = -1e9, az = 0, z0 = 1e9, z1 = -1e9;
   o.traverse(m => { if (!m.isMesh) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const p = m.geometry.attributes.position;
@@ -2594,7 +2595,7 @@ function cbHull(o) {                   // once: the Dock building's (z, y) conve
   Object.assign(CB, { hull: f, x0, x1, ay, az, y1: ay, z0, z1 }); window.__ps3d.cargoBay = CB;
 }
 function cargoBayLabel() {
-  const o = stationObjs[DOCKI], c = S.cg; let on = !!o && !document.hidden && !sheetOpen && !document.body.classList.contains('sheet-drag'), x = 0, y = 0;
+  const o = stationObjs[DOCKI], c = S.cg; let on = !!o && !document.hidden && !sheetOpen, x = 0, y = 0;
   if (on) { if (!CB.hull) cbHull(o);
     const hl = CB.hull, cx = (CB.x0 + CB.x1) / 2, e = _cbM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements; let top = 1e9, behind = false;
     for (let i = 0; i < hl.length; i += 2) { const y = hl[i], z = hl[i + 1], w = e[3] * cx + e[7] * y + e[11] * z + e[15]; if (w <= 0) { behind = true; continue; }
@@ -2653,104 +2654,182 @@ function updFx(dt) {
   window.__ps3d.sy = sy;
 }
 
-// ===== taps on the 3D scene (deposits): screen-space hit test, radius ≥ 44 CSS px whatever the camera distance
-function tap(x, y) {
-  if (!depsOn()) return;   // deposits off: scene taps hit nothing
-  if (S.site !== MINE || Math.abs(camX - MX) > 3 || !mine) return;
+// ===== taps on the 3D scene: deposits first (screen-space hit test, radius ≥ 44 CSS px whatever the camera distance), then upgrade cards
+function tapDeposit3d(x, y) {
+  if (!depsOn()) return false;   // deposits off: no deposit taps
+  if (S.site !== MINE || Math.abs(camX - MX) > 3 || !mine) return false;
   let best = null, bd = Infinity;
   for (const d of deposits) {
     if (d.claimed) continue;
     const h = depTapR(d), dist = Math.hypot(x - h.x, y - h.y);
     if (dist < h.R && dist < bd) { bd = dist; best = d; }
   }
-  if (!best) return;
+  if (!best) return false;
   const r = tapDeposit(best);
   if (r === 'queued') pop('Queued for the next load', x, y - 20, 'info');
   if (pointBeat === 'deposit') pointerDone = true;
+  return true;
+}
+function tap(x, y) {
+  if (tapDeposit3d(x, y)) return;
+  const h = Math.abs(camX - S.site * GAP) < 20 ? pickUp(x, y) : null;   // mid-glide between stations: no card
+  if (!h) return closeUp('empty');                                      // empty scene: closes the open card
+  hlStart(h.t, h.r); openUp(h.t.p);                                     // an object: its card (switches if another was open)
+  window.__ps3d.lastPick = h.t.id;
 }
 
-// ===== upgrade sheet (drag up/down, springs to open or closed)
-const sheet = $('sheet'), grab = $('grab'), PEEK = 46;
-let sheetOpen = false, sheetDrag = null;
-const closedY = () => sheet.offsetHeight - PEEK - (parseFloat(getComputedStyle(sheet).paddingBottom) || 0);   // panel runs flush to the bottom edge; peek sits above the safe-area inset
-function setSheet(open) { sheetOpen = open; document.body.classList.toggle('sheet-open', open); sheet.classList.remove('dragging'); sheet.style.transform = `translateY(${open ? 0 : closedY()}px)`; if (open && pointBeat === 'upgrade') pointerDone = true; }
-setSheet(false);
-addEventListener('resize', () => { if (!sheetDrag) sheet.style.transform = `translateY(${sheetOpen ? 0 : closedY()}px)`; });   // inset can change (rotation)
-grab.addEventListener('pointerdown', (e) => { e.stopPropagation(); sheetDrag = { y0: e.clientY, b: sheetOpen ? 0 : closedY(), s: [[performance.now(), e.clientY]], moved: 0 }; sheet.classList.add('dragging'); document.body.classList.add('sheet-drag'); try { grab.setPointerCapture(e.pointerId); } catch (_) {} });
-grab.addEventListener('pointermove', (e) => {
-  if (!sheetDrag) return; const dy = e.clientY - sheetDrag.y0; sheetDrag.moved = Math.max(sheetDrag.moved, Math.abs(dy));
-  let y = sheetDrag.b + dy; const c = closedY(); if (y < 0) y = y * .3; if (y > c) y = c + (y - c) * .3;
-  sheet.style.transform = `translateY(${y}px)`; sheetDrag.y = y; sheetDrag.s.push([performance.now(), e.clientY]); if (sheetDrag.s.length > 8) sheetDrag.s.shift();
-});
-const endSheet = (e) => {
-  if (!sheetDrag) return; const d = sheetDrag; sheetDrag = null;
-  if (d.moved < 8) { document.body.classList.remove('sheet-drag'); return setSheet(!sheetOpen); }           // a tap on the handle toggles; drags still spring
-  const a = d.s[0], b = d.s[d.s.length - 1], v = (b[1] - a[1]) / Math.max(16, b[0] - a[0]);
-  document.body.classList.remove('sheet-drag');
-  const c = closedY(), y = d.y ?? d.b, FLICK = 0.5;            // px/ms: a fast flick wins; otherwise it needs 30% of the travel or it springs back
-  if (v > FLICK) setSheet(false); else if (v < -FLICK) setSheet(true);
-  else if (d.b > 0) setSheet(y < c * 0.7);                     // from closed: open only past 30% of the way up
-  else setSheet(y < c * 0.3);                                  // from open: close only past 30% of the way down
-};
-grab.addEventListener('pointerup', endSheet); grab.addEventListener('pointercancel', endSheet);
-sheet.addEventListener('pointerdown', (e) => e.stopPropagation());
-const bDrill = $('bDrill'), bRover = $('bRover'), bChute = $('bChute');
-// Refinery rows (Fuel + Purity): cloned from the Chute row so the style matches; at the Refinery the sheet shows these instead of Drill / Chute
-// (same sheet height, so the safe-area / peek layout is unchanged)
-function refRow(name, id, tint) {
-  const r = bChute.closest('.row').cloneNode(true), ch = r.querySelector('.chip i');
-  r.querySelector('.hl').textContent = name; r.querySelector('.lv').id = id + 'Lvl'; r.querySelector('.meter').id = id + 'Meter'; r.querySelector('.meter').innerHTML = '';
-  r.querySelector('small').id = id + 'Gain'; r.querySelector('button').id = 'b' + id; r.style.display = 'none'; if (tint) ch.style.background = tint;
-  bRover.closest('.row').before(r); return r;
-}
-const rowDrill = bDrill.closest('.row'), rowChute = bChute.closest('.row');
-const rowFuel = refRow('Fuel Refill', 'Fu', '#ffb340'), rowPur = refRow('He-3 Purity', 'Pu', ''), bFuel = $('bFu'), bPur = $('bPu');
-const fuStk = document.createElement('span'), fuTxt = document.createTextNode(''); $('FuGain').append(fuStk, fuTxt);   // Fuel Refill row: 'LOX+LCH4 137/200 +4/min' (own node, set only when the whole number changes) + the refuel text
-const RS = { mode: -1, k: -1, s: -1 };                                     // sheet rows: last mode (0 Mine rows, 1 Refinery rows) and Refinery text key
+// ===== upgrade panels (UI-2 + UI-3 look, Jacob-approved 10/31): tap a 3D object → that object's own centered card (UI3_SPEC: kicker, name + level,
+// next-level effect + tier meter, cost, one Upgrade button; X / tap or swipe on the scrim / Esc close). Replaces the drag-up upgrade sheet (handle, spring, rows: all gone). Swiping (or any station change) closes the card (UI-1).
+// Picking is screen-space: each target's world box projected to a CSS-px rect, grown to a ≥ 44 px radius; a rect the finger is really inside wins
+// (smallest first), otherwise the nearest grown rect. Same economy / buy code and CFG prices as the sheet had; nothing about the save changes.
+const upEl = $('upPanel'), upBuy = $('upBuy'), upStk = $('upStk'), upHlEl = $('upHl');
+let sheetOpen = false;    // compat name: true while an upgrade card is open (Eve's upgrade_ready trigger + the Launch / Dock labels read it)
+const grab = upBuy;       // compat name: Eve's 'upgrade' pointer beat aims at the Upgrade button (no beat uses that point today)
+let upCur = null;         // open card id (UP key) or null
+const UPK = { k: '', s: -1, site: 0 };   // last card text key / last fuel stock shown (DOM is written only when they change)
 const fmtMin = (sec) => Math.round(sec / 6) / 10 + ' min';           // 1800 → '30 min', 450 → '7.5 min'
 const pct = (p) => Math.round(p * 100) + '%';
-function refSheetUI() {                                             // only rebuilds text when a level, price or affordability changes (no per-tick strings)
-  const fl = S.fuelLv, fmax = fl >= fuelMaxLv(), fc = fuelCost(), fok = !fmax && canPay(fc);
-  const pl = S.purLv, pmax = pl >= purityMaxLv(), pc = purityCost(), pok = !pmax && canPay(pc);
-  const k = ((fl * 2 + (fok ? 1 : 0)) * 1024 + pl) * 2 + (pok ? 1 : 0);
-  if (k !== RS.k) { RS.k = k;
-    const fp = fuelPrice(), fs = fp > 0 ? fmt(fp) + '/refuel' : 'fuel free';
-    $('FuLvl').textContent = 'LV ' + fl; meter('FuMeter', fuelMaxLv(), Math.min(fl, fuelMaxLv()));
-    fuTxt.data = ' · ' + (fmax ? `Max ${fmtMin(refuelSec())}` : `${fmtMin(refuelSec()).slice(0, -4)}→${fmtMin(refuelSec(fl + 1)).slice(0, -4)}m`) + (fp > 0 ? ' · ' + fs : ''); RS.s = -1;   // short: fits 375 px next to 'Need $12,000' ('LOX+LCH4 137/200 +4/min · 30→25m')
-    if (fmax) { bFuel.textContent = 'Max'; bFuel.className = 'max'; } else { bFuel.textContent = fok ? fmt(fc) : 'Need ' + fmt(fc); bFuel.className = fok ? '' : 'need'; }
-    bFuel.parentNode.classList.toggle('ok', fok);
-    $('PuLvl').textContent = 'LV ' + pl; meter('PuMeter', 10, pmax ? 10 : (pl - 1) % 10 + 1);
-    const p = refineryPurity();   // 10/29: per-crate + full-hold value; the short form is the only one that fits 375 at every level ('Need $251,658' leaves 163 px)
-    $('PuGain').textContent = `${fmt(perCrateValue(p))}/crate · ${fmt(dropoffValue(p))}/hold`;
-    if (pmax) { bPur.textContent = 'Max'; bPur.className = 'max'; } else { bPur.textContent = pok ? fmt(pc) : 'Need ' + fmt(pc); bPur.className = pok ? '' : 'need'; }
-    bPur.parentNode.classList.toggle('ok', pok);
-    if (RS.mode === 1) $('sum').textContent = `Fuel Lv ${fl} · Purity Lv ${pl}`;
+const oreOf = (lv) => Math.round(loadValue(lv) / CFG.oreValue);
+const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) / sub line / meter [segments, on] / buy; info cards (no buy) show a disabled 'Coming soon'
+  drill: { name: 'Drill', ico: 'drill', lv: () => S.drill, max: () => false, cost: () => drillCost(), buy: () => buyDrill(),
+    big: (m) => [`${oreOf(S.drill)} → ${oreOf(S.drill + 1)}`, 'ore per load'], meter: () => [10, S.drill >= 50 ? 10 : (S.drill - 1) % 10 + 1] },   // segments = progress through the current 10-level tier (as the sheet had)
+  chute: { name: 'Chute', ico: 'chute', lv: () => S.chute, max: () => S.chute >= CFG.chuteMax, cost: () => chuteCost(), buy: () => buyChute(),
+    big: (m) => [m ? `${Math.round(fillSec())} s` : `${Math.round(fillSec())} s → ${Math.round(fillSec(S.chute + 1))} s`, 'fill time'], meter: () => [10, S.chute >= CFG.chuteMax ? 10 : (S.chute - 1) % 10 + 1] },
+  purity: { name: 'He-3 Purity', ico: 'purity', lv: () => S.purLv, max: () => S.purLv >= purityMaxLv(), cost: () => purityCost(), buy: () => buyPurity(),
+    big: (m) => [m ? pct(refineryPurity()) : `${pct(refineryPurity())} → ${pct(purityAt(S.purLv + 1))}`, 'He-3 purity'],
+    sub: (m) => { const p = m ? refineryPurity() : purityAt(S.purLv + 1); return `${fmt(perCrateValue(p))}/crate · ${fmt(dropoffValue(p))}/hold`; },
+    meter: () => [10, S.purLv >= purityMaxLv() ? 10 : (S.purLv - 1) % 10 + 1] },
+  fuel: { name: 'Fuel Refill', ico: 'fuel', lv: () => S.fuelLv, max: () => S.fuelLv >= fuelMaxLv(), cost: () => fuelCost(), buy: () => buyFuel(), fuel: true,
+    big: (m) => [m ? fmtMin(refuelSec()).slice(0, -4) : `${fmtMin(refuelSec()).slice(0, -4)} → ${fmtMin(refuelSec(S.fuelLv + 1)).slice(0, -4)}`, 'min refuel'],
+    sub: (m) => (m ? `+${fuelMake()}/min, stock ${fuelCap()}` : `+${fuelMake()} → +${fuelMake(S.fuelLv + 1)}/min, stock ${fuelCap()} → ${fuelCap(S.fuelLv + 1)}`) + (fuelPrice() > 0 ? ` · ${fmt(fuelPrice())}/refuel` : ''),
+    meter: () => [fuelMaxLv(), Math.min(S.fuelLv, fuelMaxLv())] },
+  truck: { name: 'Haul Truck', ico: 'truck', info: true, big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: () => 'More trucks coming soon' },
+  ship: { name: 'Cargo Ship', ico: 'ship', info: true, big: () => ['Lv 1', 'cargo ship'], sub: () => 'Ship upgrades coming soon' },
+};
+// tap targets (p = card). objs: nodes whose world boxes make the rect; box: a world box made here (no own mesh); hl: what glows on tap
+const nodesOf = (root, names) => root ? names.map(n => root.getObjectByName(n)).filter(Boolean) : [];
+const _ub = new THREE.Box3(), _uv = new THREE.Vector3(), _uo = { x: 0, y: 0, z: 0 };
+function upBox(nodes, hx, y1, hz, b) {   // world box around marker nodes: ±hx / ±hz metres, ground to y1
+  b.makeEmpty(); for (const n of nodes) { n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x - hx, 0, _uv.z - hz)); n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x + hx, y1, _uv.z + hz)); } return b;
+}
+const UPT = [
+  { id: 'drill', p: 'drill', site: MINE, objs: () => nodesOf(mine, ['Rig', 'Tier_20']), hl: () => nodesOf(mine, ['Rig']) },
+  { id: 'chute', p: 'chute', site: MINE, objs: () => nodesOf(mine, ['Conveyor', 'Silo']), hl: () => nodesOf(mine, ['Conveyor', 'Silo']) },
+  { id: 'refinery', p: 'purity', site: REF, objs: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Tier_05', 'Tier_08', 'Base_GlowRed']), hl: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Base_GlowRed']) },
+  { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBox(n, 4, 9, 4, b) : null; }, hl: () => [] },
+  { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBox(n, 3, 8, 3, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']) },
+  { id: 'truck', p: 'truck', site: -1, own: true, objs: () => truckRoot ? [truckRoot] : [], hl: () => truckRoot ? [truckRoot] : [] },
+  { id: 'ship', p: 'ship', site: PADI, own: true, objs: () => cg3.ship ? [cg3.ship] : [], hl: () => cg3.ship ? [cg3.ship] : [] },
+];
+const upShown = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };   // own: the object itself must show (truck / ship); else only its parents (hidden Tier_NN boxes still widen the tap rect)
+const upSiteNow = () => clamp(Math.round(camX / GAP), 0, N - 1);   // the station the camera is at (not S.site, which flips at the start of a glide)
+let upWhy = '';                        // why the last upRect() gave null (QA: upRects() reports it per target)
+function upRect(t) {                   // projected CSS-px rect of a target now, or null (other station, not loaded, hidden, behind the camera, off screen)
+  upWhy = '';
+  if (t.site >= 0 && t.site !== upSiteNow()) { upWhy = 'other station'; return null; }
+  let b = null;
+  if (t.box) b = t.box(_ub);
+  else { const os = t.objs().filter(o => upShown(t.own ? o : o.parent)); if (!os.length) { upWhy = 'not loaded / hidden'; return null; } _ub.makeEmpty(); for (const o of os) { o.updateWorldMatrix(true, true); _ub.expandByObject(o); } b = _ub; }
+  if (!b || b.isEmpty()) { upWhy = 'not loaded'; return null; }
+  camera.updateMatrixWorld();
+  let l = Infinity, r = -Infinity, tp = Infinity, bt = -Infinity;
+  for (let i = 0; i < 8; i++) {
+    toScreen(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z, camera, _uo);
+    if (_uo.z > 1) { upWhy = 'behind camera'; return null; } l = Math.min(l, _uo.x); r = Math.max(r, _uo.x); tp = Math.min(tp, _uo.y); bt = Math.max(bt, _uo.y);
   }
-  const sv = Math.floor(fuelStock() + 1e-9); if (sv !== RS.s) { RS.s = sv; fuStk.textContent = `LOX+LCH4 ${sv}/${fuelCap()} +${fuelMake()}/min`; }   // P2-FUEL: cap + rate follow the Fuel level
-  return fok || pok;
+  if (r < 0 || l > W || bt < 0 || tp > H) { upWhy = 'off screen'; return null; }
+  return { l, r, t: tp, b: bt };
 }
-const meterKeys = {};
-function meter(id, n, on) { const k = n + ':' + on; if (meterKeys[id] === k) return; meterKeys[id] = k; const el = $(id);
-  if (el.children.length !== n) el.innerHTML = '<i></i>'.repeat(n); [...el.children].forEach((x, i) => x.classList.toggle('on', i < on)); }
-function sheetUI() {
-  const m = S.site === REF && S.drill > 1 ? 1 : 0;   // the 'Tap Upgrade' tutorial (upgrade_ready) means the Drill: until the first Drill buy the Refinery sheet keeps the Mine rows, Drill first
-  if (m !== RS.mode) { RS.mode = m; RS.k = -1; rowDrill.style.display = rowChute.style.display = m ? 'none' : ''; rowFuel.style.display = rowPur.style.display = m ? '' : 'none'; }
-  if (m) { $('canDot').hidden = !refSheetUI(); return; }
-  const c = drillCost(), ok = canPay(c);
-  $('dLvl').textContent = 'LV ' + S.drill; meter('dMeter', 10, S.drill >= 50 ? 10 : (S.drill - 1) % 10 + 1);   // segments = progress through the current 10-level tier
-  $('dGain').textContent = `${Math.round(loadValue() / CFG.oreValue)} ore per load → ${Math.round(loadValue(S.drill + 1) / CFG.oreValue)}`;   // Phase 1: loads pay $0, so ore, not $
-  bDrill.textContent = ok ? fmt(c) : 'Need ' + fmt(c); bDrill.className = ok ? '' : 'need'; bDrill.parentNode.classList.toggle('ok', ok);
-  const cc = chuteCost(), cmax = S.chute >= CFG.chuteMax, cok = !cmax && canPay(cc);
-  $('chLvl').textContent = 'LV ' + S.chute; meter('chMeter', 10, cmax ? 10 : (S.chute - 1) % 10 + 1);
-  $('chGain').textContent = cmax ? `Fill ${Math.round(fillSec())} s · Max` : `Fill ${Math.round(fillSec())} s → ${Math.round(fillSec(S.chute + 1))} s`;
-  if (cmax) { bChute.textContent = 'Max'; bChute.className = 'max'; } else { bChute.textContent = cok ? fmt(cc) : 'Need ' + fmt(cc); bChute.className = cok ? '' : 'need'; }
-  bChute.parentNode.classList.toggle('ok', cok);
-  $('rLvl').textContent = S.rovers + '/' + CFG.roverMax; meter('rMeter', CFG.roverMax, S.rovers);
-  $('rGain').textContent = 'HT-04 haul truck · more trucks soon'; bRover.textContent = ''; bRover.className = 'off';
-  bRover.parentNode.hidden = true; bRover.parentNode.classList.toggle('ok', false);
-  $('sum').textContent = `Drill Lv ${S.drill} · Chute Lv ${S.chute}`;
-  $('canDot').hidden = !(ok || cok);
+const UP_R = 44;                       // tap radius floor (CSS px)
+function pickUp(x, y) {
+  let best = null, bA = Infinity, near = null, nD = Infinity;
+  for (const t of UPT) {
+    const r = upRect(t); if (!r) continue;
+    if (x >= r.l && x <= r.r && y >= r.t && y <= r.b) { const a = (r.r - r.l) * (r.b - r.t); if (a < bA) { bA = a; best = { t, r }; } continue; }
+    const cx = (r.l + r.r) / 2, cy = (r.t + r.b) / 2, hx = Math.max(UP_R, (r.r - r.l) / 2), hy = Math.max(UP_R, (r.b - r.t) / 2);
+    if (Math.abs(x - cx) > hx || Math.abs(y - cy) > hy) continue;
+    const d = Math.hypot(Math.max(r.l - x, 0, x - r.r), Math.max(r.t - y, 0, y - r.b)); if (d < nD) { nD = d; near = { t, r }; }
+  }
+  return best || near;
 }
+// tap highlight: ~200 ms cyan emissive pulse on the target's own meshes (per-mesh material clones, restored + disposed after) + a ring on its rect
+const HL = { t: -1, list: [] }, HL_SEC = 0.2, HL_C = new THREE.Color(0x3ad0ff);
+function hlEnd() {
+  for (const e of HL.list) { if (e.m.material === e.cl) e.m.material = e.orig; (Array.isArray(e.cl) ? e.cl : [e.cl]).forEach((c, i) => { if (c !== (Array.isArray(e.orig) ? e.orig[i] : e.orig)) c.dispose(); }); }
+  if (HL.t >= 0) window.__ps3d.hlDur = Math.round(performance.now() - HL.t0);   // QA: how long the last pulse really showed
+  clearTimeout(HL.to); HL.list.length = 0; HL.t = -1; window.__ps3d.hlOn = false;
+}
+function hlStart(t, r) {
+  hlEnd();
+  for (const root of t.hl()) root.traverse((m) => {
+    if (!m.isMesh || !m.visible || !m.material) return;
+    const orig = m.material, arr = Array.isArray(orig) ? orig : [orig];
+    if (!arr.some(c => c.emissive && !c.transparent)) return;
+    const cl = arr.map(c => c.emissive && !c.transparent ? c.clone() : c);
+    const e = { m, orig, cl: Array.isArray(orig) ? cl : cl[0], src: arr }; m.material = e.cl; HL.list.push(e);
+  });
+  HL.t = 0; HL.t0 = performance.now(); HL.to = setTimeout(hlEnd, (window.__ps3d.qaHlSec || HL_SEC) * 1000 + 30); window.__ps3d.hlOn = true;   // timer too: the glow ends on time even if frames stall
+  window.__ps3d.hlMeshes = HL.list.length; window.__ps3d.hlCount = (window.__ps3d.hlCount || 0) + 1;
+  const p = 6, w = Math.max(r.r - r.l + 2 * p, UP_R), h = Math.max(r.b - r.t + 2 * p, UP_R), cx = (r.l + r.r) / 2, cy = (r.t + r.b) / 2;
+  Object.assign(upHlEl.style, { left: (cx - w / 2) + 'px', top: (cy - h / 2) + 'px', width: w + 'px', height: h + 'px' });
+  upHlEl.classList.remove('on'); void upHlEl.offsetWidth; upHlEl.classList.add('on');
+}
+upHlEl.addEventListener('animationend', () => upHlEl.classList.remove('on'));
+function updHL() {                     // wall clock (not the clamped frame dt), so the pulse stays ~200 ms even when frames are slow
+  if (HL.t < 0) return; const u = (performance.now() - HL.t0) / 1000 / (window.__ps3d.qaHlSec || HL_SEC);   // qaHlSec: QA-only slow pulse for screenshots if (u >= 1) return hlEnd();
+  const k = Math.sin(u * Math.PI);
+  for (const e of HL.list) (Array.isArray(e.cl) ? e.cl : [e.cl]).forEach((c, i) => { const o = e.src[i]; if (c === o) return; c.emissive.copy(o.emissive).lerp(HL_C, k); c.emissiveIntensity = o.emissiveIntensity + (1.6 - o.emissiveIntensity) * k; });
+}
+// open / close (UI-3 motion, all CSS: transform + opacity only). Open 240 ms (140 ease-out to 1.05, 100 ease-in-out to 1); close 120 ms card / 160 ms scrim, then hidden.
+// prefers-reduced-motion: 120 ms opacity fade only (CSS media query). The scrim blocks the 3D view while open; HUD stays visible under it.
+const upScrim = $('upScrim'), upIn = $('upIn'), upH2 = $('upH2');
+let upCloseT = 0;
+function openUp(id) {                  // id: a card (drill / chute / purity / fuel / truck / ship) or a tap target id (refinery, fuelPlant, padFuel)
+  if (!UP[id]) { const t = UPT.find(q => q.id === id); if (!t) return; id = t.p; } clearTimeout(upCloseT); const was = !!upCur;
+  upCur = id; sheetOpen = true; UPK.k = ''; UPK.s = -1; UPK.site = S.site;
+  upEl.hidden = upScrim.hidden = false; upUI();
+  if (!was) { for (const el of [upEl, upScrim]) { el.classList.remove('out'); el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); } }
+  if (pointBeat === 'upgrade') pointerDone = true;
+  window.__ps3d.upOpens = (window.__ps3d.upOpens || 0) + 1;
+}
+function closeUp(why) {
+  if (!upCur) return; upCur = null; sheetOpen = false; window.__ps3d.upClosed = why;
+  for (const el of [upEl, upScrim]) { el.classList.remove('in'); el.classList.add('out'); }
+  clearTimeout(upCloseT); upCloseT = setTimeout(() => { if (!upCur) { upEl.hidden = upScrim.hidden = true; upEl.classList.remove('out'); upScrim.classList.remove('out'); } }, 170);
+}
+function fitTitle() { let f = 24; upH2.style.fontSize = ''; while (upH2.scrollWidth > upH2.clientWidth + 0.5 && f > 15) upH2.style.fontSize = (--f) + 'px'; }   // long names shrink to fit beside the X
+function upUI() {                      // refreshes the open card (0.1 s tick + after buys); DOM only rebuilt when something shown changes
+  if (!upCur) return; const P = UP[upCur], info = !!P.info, max = !info && P.max(), lv = info ? 0 : P.lv(), c = info || max ? 0 : P.cost(), ok = !info && !max && canPay(c);
+  const big = P.big(max), sub = P.sub ? P.sub(max) : '', mt = !info && P.meter ? P.meter() : null;
+  const k = [upCur, UPK.site, lv, c, ok, max, big[0], big[1], sub, mt && mt.join()].join('|');
+  if (k !== UPK.k) { UPK.k = k;
+    upEl.dataset.ico = P.ico; $('upKick').textContent = `${STATIONS[UPK.site]} · ${info ? 'Coming soon' : 'Upgrade'}`;
+    $('upName').textContent = P.name; $('upLv').textContent = info ? '' : `Level ${lv}`; fitTitle();
+    $('upEffK').textContent = info ? 'Status' : max ? 'Max level' : 'Next level';
+    const ll = $('upLvl'); ll.hidden = info; if (!info) ll.innerHTML = max ? `LV ${lv} <span class="ar"></span> <b>MAX</b>` : `LV ${lv} <span class="ar"></span> <b>LV ${lv + 1}</b>`;
+    const bg = $('upBig'); bg.textContent = big[0]; if (big[1]) { const sm = document.createElement('small'); sm.textContent = big[1]; bg.append(sm); }
+    $('upSub').textContent = sub;
+    const me = $('upMeter'); me.hidden = !mt; if (mt) { const [n, on] = mt; if (me.children.length !== n) me.innerHTML = '<i></i>'.repeat(n); [...me.children].forEach((x, i) => { x.className = i < on ? 'on' : (!max && i === on ? 'nx' : ''); }); }
+    $('upCostRow').hidden = info; $('upCost').textContent = max ? '—' : fmt(c);
+    upBuy.disabled = !ok; upBuy.className = info || max ? 'max' : ok ? '' : 'need';
+    upBuy.textContent = info ? 'Coming soon' : max ? 'Max' : ok ? 'Upgrade' : 'Need ' + fmt(c);
+  }
+  if (P.fuel) { const sv = Math.floor(fuelStock() + 1e-9); if (sv !== UPK.s) { UPK.s = sv; upStk.textContent = `LOX+LCH4 ${sv}/${fuelCap()} +${fuelMake()}/min`; } }   // P2-FUEL: cap + rate follow the Fuel level
+  else if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
+}
+upEl.addEventListener('pointerdown', (e) => e.stopPropagation());   // taps inside the card never close it
+$('upX').addEventListener('click', () => closeUp('x'));
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && upCur) closeUp('esc'); });
+// scrim: a tap closes; a swipe closes too (UI-1) and, past the same distance / flick thresholds as the scene swipe, moves one station
+let scrimP = null;
+upScrim.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (!upCur || scrimP) return; scrimP = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp || performance.now(), m: 0 }; try { upScrim.setPointerCapture(e.pointerId); } catch (_) {} });
+upScrim.addEventListener('pointermove', (e) => { if (scrimP && e.pointerId === scrimP.id) { scrimP.m = Math.max(scrimP.m, Math.hypot(e.clientX - scrimP.x, e.clientY - scrimP.y)); if (scrimP.m > 10) closeUp('swipe'); } });
+const scrimEnd = (e) => { const d = scrimP; if (!d || e.pointerId !== d.id) return; scrimP = null; if (e.type !== 'pointerup') return closeUp('outside');
+  const dx = e.clientX - d.x, dt = Math.max(16, (e.timeStamp || performance.now()) - d.t), m = Math.max(d.m, Math.hypot(dx, e.clientY - d.y));
+  if (m <= 10) return closeUp('outside');
+  closeUp('swipe'); let dir = 0; if (Math.abs(dx) > 0.15 * W) dir = dx < 0 ? 1 : -1; else if (Math.abs(dx / dt) > 0.35 && Math.abs(dx) >= 30) dir = dx < 0 ? 1 : -1;
+  if (dir) { cancelFocus('swipe'); crewCancel('tap'); goSite(S.site + dir); } };
+upScrim.addEventListener('pointerup', scrimEnd); upScrim.addEventListener('pointercancel', scrimEnd);
 // buy buttons fire on pointerup (one tap = one buy even when frames lag); the trailing click is swallowed,
 // keyboard / assistive clicks (no pointer press) still work
 function bindBuy(el, fn) {
@@ -2761,49 +2840,48 @@ function bindBuy(el, fn) {
   el.addEventListener('pointercancel', () => { press = null; swallow = true; });   // a cancelled press never buys, even if a stray click follows
   el.addEventListener('click', (e) => { if (swallow) { swallow = false; return; } if (!press) fn(); });
 }
-bindBuy(bDrill, () => {
+bindBuy(upBuy, () => { const P = upCur && UP[upCur]; if (P && P.buy && !upBuy.disabled) P.buy(); });
+const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
+function buyDrill() {
   const c = drillCost(); if (!canPay(c)) return;
-  pay(c); S.drill++; applyRigLevel(); applyTiers(S.drill); upgradeFx(); save(); sheetUI(); hud();
-  const r = bDrill.getBoundingClientRect(); pop('Drill Lv ' + S.drill, r.left + r.width / 2, r.top - 8, 'info');
+  pay(c); S.drill++; applyRigLevel(); applyTiers(S.drill); upgradeFx(); save(); upUI(); hud();
+  popAtBuy('Drill Lv ' + S.drill);
   logU('upgrade', `Drill upgraded to Lv ${S.drill}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
-});
-bindBuy(bChute, () => {
+}
+function buyChute() {
   const c = chuteCost(); if (S.chute >= CFG.chuteMax || !canPay(c)) return;
   const t = nowMs(); settleTo(t, null); const k = S.tk;
   if (!k.dep) { k.add = fillAt(t); k.c0 = t; }          // rebase so the bed level never jumps; the new rate applies from now
-  pay(c); S.chute++; save(); sheetUI(); hud();
-  const r = bChute.getBoundingClientRect(); pop('Chute Lv ' + S.chute, r.left + r.width / 2, r.top - 8, 'info');
+  pay(c); S.chute++; save(); upUI(); hud();
+  popAtBuy('Chute Lv ' + S.chute);
   logU('upgrade', `Chute Feed Rate Lv ${S.chute}: fills in ${Math.round(fillSec())} s`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
-});
-bindBuy(bFuel, () => {
+}
+function buyFuel() {
   const c = fuelCost(); if (S.fuelLv >= fuelMaxLv() || !canPay(c)) return;
-  const t = nowMs(); settleTo(t, null); const s = S.cg.sh, f = s.st === 'pad' ? fuelAt(t) : 1;
+  const t = nowMs(); settleTo(t, null);
   fuelAnchor(S.cg, t);                                                // re-anchor tank + stock at the old pump rate, make rate and cap (P2-FUEL: rate + cap change every level, so always), so nothing jumps; the new rates apply from now
   pay(c); S.fuelLv++;
-  save(); sheetUI(); hud();
-  const r = bFuel.getBoundingClientRect(); pop('Fuel Lv ' + S.fuelLv, r.left + r.width / 2, r.top - 8, 'info');
+  save(); upUI(); hud();
+  popAtBuy('Fuel Lv ' + S.fuelLv);
   logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())} · LOX+LCH4 +${fuelMake()}/min, stock ${fuelCap()}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
-});
-bindBuy(bPur, () => {
+}
+function buyPurity() {
   const c = purityCost(); if (S.purLv >= purityMaxLv() || !canPay(c)) return;
-  pay(c); S.purLv++; save(); sheetUI(); hud();
-  const r = bPur.getBoundingClientRect(); pop('Purity ' + pct(refineryPurity()), r.left + r.width / 2, r.top - 8, 'info');
+  pay(c); S.purLv++; save(); upUI(); hud();
+  popAtBuy('Purity ' + pct(refineryPurity()));
   logU('upgrade', `He-3 Purity Lv ${S.purLv}: ${pct(refineryPurity())}, drop-off ${fmt(dropoffValue(refineryPurity()))}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
-});
+}
 Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue });   // QA hooks (Refinery lane)
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
-    if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); RS.k = -1; settleTo(t, null); save(); sheetUI(); return window.__ps3d.fuelState(t); } });
-const TRUCK_SALE = false;   // extra trucks come later: the button is hidden and a stray click can't buy
-bindBuy(bRover, () => { if (!TRUCK_SALE) return; });
-
-// conveyor strip on the bar creeps (CSS background-position) only while the truck fills and the sheet is closed
-let convOn = null;
-function updConveyor() { const on = TS.ph === 'fill' && TS.fill < 1 && !sheetOpen && !(sheetDrag); if (on !== convOn) { convOn = on; sheet.classList.toggle('run', on); window.__ps3d.conveyor = on; } }
+    if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
+Object.assign(window.__ps3d, { UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, r, why: r ? '' : upWhy }; }) });   // QA hooks (upgrade cards)
+Object.defineProperty(window.__ps3d, 'upCur', { get: () => upCur, configurable: true });
+// extra trucks come later: the truck card shows 'Coming soon' (was TRUCK_SALE = false on the sheet's hidden truck row)
 
 // ===== Earth Coms (Art's kit, art/ui/earth_coms): bubble + incoming-call toast + panel (Task / Updates / Calls) + call view.
 // Tutorial calls ring until opened; story calls time out after 8 s and leave a missed-call badge. Motion constants mirror MOTION.md.
@@ -3130,9 +3208,9 @@ function frame() {
   updOperator(gdt);
   for (const m of stationMixers) m.update(gdt);
   updFillArc();
-  updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updTiers(dt);
-  updEve(); updConveyor(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
-  uiT += dt; if (uiT > .1) { uiT = 0; hud(); sheetUI(); cargoUI(); }
+  updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updHL(); updTiers(dt);
+  updEve(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
+  uiT += dt; if (uiT > .1) { uiT = 0; hud(); upUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
   renderer.render(scene, camera);
   if (DEV) {
@@ -3155,12 +3233,12 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
   get stationLoops() { return stationMixers.flatMap(m => m._actions.map(a => a.getClip().name + ':' + (a.loop === THREE.LoopPingPong ? 'pingpong' : a.loop === THREE.LoopRepeat ? 'repeat' : a.loop))); },
-  get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; }, setSheet }));
+  get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; } }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
-hud(); sheetUI();
+hud(); upUI();
 loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain();
 frame();
 
