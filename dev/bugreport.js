@@ -2,7 +2,10 @@
 // Uses the game's PS_DEV contract (dev/main.js): WORKER_URL, code, build, v, mock, canvas, renderNow, toast, and (Coder 10/31, read at send time)
 // playerName ('' when unset) and the deviceInfo getter {type, os, browser, browserVersion, screen, viewport, dpr, orientation, touch, userAgent}.
 // Builds without those two fall back to '' and a local copy of the same device object. POST ${WORKER_URL}/bug as text/plain JSON (no CORS preflight):
-// {reportId, code, deviceId, playerName, text, build, v, device, shot}. deviceId is the game's own (localStorage planetstack-dev-device), so the
+// {reportId, code, deviceId, playerName, text, build, v, device, shot}. Offline queue (localStorage planetstack-dev-bugq, max 10): a report is saved with a
+// UUID reportId before its first send and removed only after a 200 (dup:true included) or a permanent 4xx (bad_code/bad_request/bad_shot/too_big, shown as
+// an error). Network failure, 5xx, 429 and 409 keep it; retried with backoff, on 'online', on page load and when the form opens (single-flight; no timer
+// while the queue is empty). If storage is full, screenshots are dropped (oldest first) before any text is lost. deviceId is the game's own (localStorage planetstack-dev-device), so the
 // Worker's lock check sees the same device that holds the code. ?mock=… builds never touch the network (mock=down answers 'unreachable').
 (function () {
   'use strict';
@@ -32,7 +35,42 @@
   function deviceInfo() { let d = null; try { d = PS.deviceInfo; } catch (e) {} return d && typeof d === 'object' ? Object.assign({}, d) : localDevice(); }
   function playerName() { let n = ''; try { n = PS.playerName; } catch (e) {} return typeof n === 'string' ? n : ''; }
   const workerUrl = () => String(PS.WORKER_URL || '').replace(/\/+$/, '');
-  const newId = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const uuid = () => crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+  // ---- offline queue ----
+  const QK = 'planetstack-dev-bugq', QMAX = 10, PERM = ['bad_code', 'bad_request', 'bad_shot', 'too_big'];
+  let mem = null;   // used only when localStorage is unavailable
+  function qLoad() { if (mem) return mem.slice(); try { const v = JSON.parse(localStorage.getItem(QK) || '[]'); return Array.isArray(v) ? v.filter(x => x && typeof x === 'object' && x.reportId && x.text) : []; } catch (e) { return []; } }
+  function qSave(q) {   // stores q; on quota errors drops screenshots (oldest first), never text
+    for (;;) { try { if (q.length) localStorage.setItem(QK, JSON.stringify(q)); else localStorage.removeItem(QK); mem = null; return true; }
+      catch (e) { const it = q.find(x => x.shot); if (!it) { mem = q.slice(); return false; } it.shot = ''; it.shotDropped = true; } } }
+  function qAdd(item) { const q = qLoad(); q.push(item); while (q.length > QMAX) q.shift(); qSave(q); }
+  function qDel(id) { qSave(qLoad().filter(x => x.reportId !== id)); }
+  function qPatch(id, f) { const q = qLoad(), it = q.find(x => x.reportId === id); if (it) { f(it); qSave(q); } }
+  let flushing = null, timer = 0;
+  function schedule(ms) { clearTimeout(timer); timer = 0; if (qLoad().length) timer = setTimeout(() => { timer = 0; flush(); }, ms); }
+  function notify(it, text, kind) {   // the open form shows its own report's result; anything else goes to a toast
+    if (ov && ov.classList.contains('on') && it.reportId === curRid) return msg(text, kind);
+    if (kind === 'err' || kind === 'ok') toast(text); }
+  function flush() {
+    if (flushing) return flushing;
+    flushing = (async () => { clearTimeout(timer); timer = 0;
+      for (;;) { const q = qLoad(); if (!q.length) return; const it = q[0];
+        if (!PS.mock && !workerUrl()) { schedule(30000); return; }
+        const body = { reportId: it.reportId, code: it.code, deviceId: it.deviceId, playerName: it.playerName, text: it.text, build: it.build, v: it.v, device: it.device, shot: it.shot || '' };
+        const r = await post(body), j = r.json || {}; PS.lastBug = { body: Object.assign({}, body, { shot: body.shot.length }), res: r };
+        if (!r.unreachable && r.status >= 200 && r.status < 300 && j.ok) { qDel(it.reportId); notify(it, j.issue ? `Sent (issue #${j.issue})` : 'Sent', 'ok'); if (it.reportId === curRid) sentRid = curRid; continue; }
+        if (!r.unreachable && r.status >= 400 && r.status < 500 && PERM.includes(j.reason)) { qDel(it.reportId); notify(it, ERR[j.reason] || 'That report was not accepted.', 'err'); if (it.reportId === curRid && ov) $b('bugSend').disabled = false; continue; }
+        // keep it: network failure, 5xx, 429 (retryAfter), 409 in_use, anything else
+        const n = (it.n || 0) + 1; qPatch(it.reportId, x => { x.n = n; }); if (it.reportId === curRid && ov) $b('bugSend').disabled = false;
+        if (r.status === 429) notify(it, ERR.rate_limited + ' Saved, will send when online', 'warn'); else if (r.status === 409) notify(it, ERR.in_use + ' Saved, will retry', 'warn'); else notify(it, 'Saved, will send when online', 'warn');
+        schedule(Math.max(Math.min(300000, 5000 * 2 ** Math.min(n - 1, 6)), r.status === 429 && j.retryAfter > 0 ? j.retryAfter * 1000 : 0));
+        return; } })().finally(() => { flushing = null; });
+    return flushing;
+  }
+  let toastEl = null;
+  function toast(t) { if (typeof PS.toast === 'function') { try { return PS.toast(t, 3500); } catch (e) {} }
+    if (!toastEl) { toastEl = document.createElement('div'); toastEl.setAttribute('role', 'status'); toastEl.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 48px);transform:translateX(-50%);z-index:70;max-width:86vw;padding:8px 12px;background:#090f1df0;color:#eafcff;box-shadow:inset 0 0 0 1px #3ad0ff66;font:700 13px/1.3 system-ui;display:none'; (document.body || document.documentElement).appendChild(toastEl); }
+    toastEl.textContent = t; toastEl.style.display = 'block'; clearTimeout(toastEl._t); toastEl._t = setTimeout(() => { toastEl.style.display = 'none'; }, 3500); }
 
   // screenshot: render a frame and read it in the same task (no preserveDrawingBuffer); step quality, then scale, down until <= 300 KB
   function captureShot() {
@@ -60,9 +98,9 @@
 #bugF button{flex:1;min-height:44px;border:0;border-radius:0;margin:0;padding:0 12px;font:800 13px/1 system-ui;letter-spacing:.14em;cursor:pointer}
 #bugSend{background:#3ad0ff;color:#090f1d}#bugSend:disabled{opacity:.5}
 #bugClose,#bugX{background:#c9d3e633;color:#eafcff}#bugF #bugX{flex:0 0 44px;width:44px;height:44px;padding:0}
-#bugMsg{min-height:1.4em;font-weight:700}#bugMsg.err{color:#ffb340}#bugMsg.ok{color:#5dffa8}`;
+#bugMsg{min-height:1.4em;font-weight:700}#bugMsg.err{color:#ffb340}#bugMsg.warn{color:#ffd84d}#bugMsg.ok{color:#5dffa8}`;
 
-  let ov = null, shot = null, rid = '', sentText = null, busy = false;
+  let ov = null, shot = null, curRid = '', sentRid = '', curText = null;
   const $b = (id) => ov.querySelector('#' + id);
   function msg(t, k) { const m = $b('bugMsg'); m.textContent = t; m.className = k || ''; }
   function build() {
@@ -76,7 +114,7 @@
     for (const ev of ['pointerdown', 'pointerup', 'pointermove', 'touchstart', 'touchmove', 'touchend', 'wheel', 'keydown', 'keyup', 'click']) ov.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
     $b('bugX').onclick = $b('bugClose').onclick = close;
     $b('bugF').addEventListener('submit', (e) => { e.preventDefault(); send(); });
-    $b('bugTxt').addEventListener('input', () => { if (!busy) $b('bugSend').disabled = false; if (sentText !== null && $b('bugTxt').value.trim() !== sentText) { rid = newId(); sentText = null; } });
+    $b('bugTxt').addEventListener('input', () => { if ($b('bugTxt').value.trim() !== curText) { $b('bugSend').disabled = false; if (sentRid === curRid) { curRid = ''; curText = null; } } });
   }
   function metaText() {
     const d = deviceInfo(), n = playerName();
@@ -86,11 +124,12 @@
   }
   function openBugReport() {
     if (!ov) build();
-    shot = captureShot(); rid = newId(); sentText = null; busy = false;
+    shot = captureShot(); curRid = ''; sentRid = ''; curText = null;
     $b('bugImg').src = shot ? shot.url : ''; $b('bugImg').style.display = shot ? '' : 'none';
     $b('bugMeta').textContent = metaText(); $b('bugSend').disabled = false;
     msg(PS.mock || workerUrl() ? '' : 'Bug server not set up yet', PS.mock || workerUrl() ? '' : 'err');
     ov.classList.add('on'); setTimeout(() => { try { $b('bugTxt').focus({ preventScroll: true }); } catch (e) {} }, 50);
+    if (qLoad().length) flush();
     return shot;
   }
   function close() { if (!ov) return; ov.classList.remove('on'); shot = null; $b('bugImg').src = ''; }
@@ -106,23 +145,20 @@
       let j = null; try { j = await r.json(); } catch (e) {} return { status: r.status, json: j || {} };
     } catch (e) { return { unreachable: true }; } finally { clearTimeout(to); }
   }
-  async function send() {
-    if (busy) return;
-    if (!PS.mock && !workerUrl()) return msg('Bug server not set up yet', 'err');
+  function send() {
     const text = $b('bugTxt').value.trim().slice(0, TEXT_MAX), code = PS.code || '';
     if (!text) return msg('Describe the bug first.', 'err'); if (!code) return msg('Enter your tester code first.', 'err');
-    const body = { reportId: rid, code, deviceId: deviceId(), playerName: playerName(), text, build: PS.build || 'DEV', v: PS.v || '', device: deviceInfo(),
-      shot: shot ? shot.url.slice(shot.url.indexOf(',') + 1) : '' };
-    $b('bugMeta').textContent = metaText(); busy = true; $b('bugSend').disabled = true; msg('Sending…');
-    const r = await post(body); busy = false; PS.lastBug = { body: Object.assign({}, body, { shot: body.shot.length }), res: r };
-    const j = r.json || {};
-    if (!r.unreachable && r.status >= 200 && r.status < 300 && j.ok) { sentText = text; msg('Sent' + (j.issue ? ` (issue #${j.issue})` : '') + '. Thank you!', 'ok');
-      if (typeof PS.toast === 'function') try { PS.toast('Bug report sent. Thank you!'); } catch (e) {} return; }   // Send stays off until the text changes
-    $b('bugSend').disabled = false;
-    const reason = r.unreachable ? 'unreachable' : j.reason;
-    msg(ERR[reason] || (r.status === 429 ? ERR.rate_limited : r.status === 409 ? ERR.in_use : `Bug server error (${r.status}). Try again later.`), 'err');
+    $b('bugMeta').textContent = metaText();
+    if (curRid && curRid !== sentRid && text === curText && qLoad().some(x => x.reportId === curRid)) { msg('Sending…'); return flush(); }   // retry of the queued report
+    curRid = uuid(); curText = text; sentRid = '';
+    qAdd({ reportId: curRid, code, deviceId: deviceId(), playerName: playerName(), text, build: PS.build || 'DEV', v: PS.v || '', device: deviceInfo(),
+      shot: shot ? shot.url.slice(shot.url.indexOf(',') + 1) : '', t: Date.now() });   // saved before the first send
+    $b('bugSend').disabled = true; msg('Sending…'); return flush();
   }
   // main.js assigns a "coming soon" stub to PS_DEV.openBugReport after the game loads; keep ours whichever script runs first.
   try { Object.defineProperty(PS, 'openBugReport', { get: () => openBugReport, set: () => {}, enumerable: true, configurable: true }); } catch (e) { PS.openBugReport = openBugReport; }
-  PS.bugReport = { open: openBugReport, close, captureShot, deviceInfo, playerName };
+  PS.bugReport = { open: openBugReport, close, captureShot, deviceInfo, playerName, flush, queue: qLoad, pending: () => ({ timer: !!timer, flushing: !!flushing, queued: qLoad().length }) };
+  addEventListener('online', () => { if (qLoad().length) flush(); });
+  const boot = () => { if (qLoad().length) flush(); };   // page load: after main.js has set WORKER_URL / mock (module scripts run before DOMContentLoaded)
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else setTimeout(boot, 0);
 })();
