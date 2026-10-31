@@ -79,9 +79,11 @@ const Q = new URLSearchParams(); if (QD.get('rm') === '1') Q.set('rm', '1');
 // QA fast-forward (EM 10/31 15:24, Director/Jacob): ?qa=1&ts=N, dev/ only. qa and ts are the ONLY QA flags read here (from QD, like ?mock); every
 // other QA flag stays stripped (Q above). ts = game-clock scale, 1–60 (decimals OK, out of range clamps, missing/invalid = 1). qa=1 also adds
 // window.PS_QA (skipToTouchdown) and, when ts ≠ 1, a small 'QA xN' badge. Off (no flag, or not under /dev/): scale 1, no hook, no badge.
+// EM 15:14: it activates ONLY after a valid tester code passes the gate (QA_GATE, set on the gate's success path; QA_ON is computed after the gate's await).
 const QA_DEV = /(^|\/)dev\/(index\.html)?$/.test(location.pathname);   // only the dev/ page (live/, qa3d-next/ ship their own main.js and never read these)
-const QA_ON = QA_DEV && QD.get('qa') === '1';
-const QA_TS = (() => { if (!QA_ON) return 1; const v = QD.get('ts'), n = v === null || v.trim() === '' ? NaN : Number(v); return isFinite(n) ? Math.min(60, Math.max(1, n)) : 1; })();
+const QA_REQ = QA_DEV && QD.get('qa') === '1';   // requested by the URL; nothing happens until the gate passes
+let QA_GATE = false;                              // true only once the gate accepted a code (Worker list + lock held)
+const qaScale = (v) => { const n = v === null || v === undefined || String(v).trim() === '' ? NaN : Number(v); return isFinite(n) ? Math.min(60, Math.max(1, n)) : 1; };
 const DEV_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);   // QA run 2 BUG-1: ?mock= is honoured only on a local test server (any port); anywhere else it is ignored and the real Worker check runs
 const MOCK = DEV_LOCAL && ['1', 'down', 'drop'].includes(QD.get('mock')) ? QD.get('mock') : '';
 let DEVHALT = false;   // set by devHalt(): game loop stopped, save() a no-op, heartbeat stopped (code in use elsewhere / taken by another tab)
@@ -228,7 +230,7 @@ const DEV_CODE = await new Promise((resolve) => {
       return true; })();
       if (!ok) { tabRelease(); return; }   // refused: let the code go for other tabs
       try { localStorage.setItem('planetstack-dev-last', code); } catch (e) {}
-      PSD.code = code; g.classList.remove('on'); g.hidden = true; resolve(code);
+      PSD.code = code; QA_GATE = true; g.classList.remove('on'); g.hidden = true; resolve(code);   // QA_GATE: the only place QA fast-forward can be unlocked
     } finally { busy = false; btn.disabled = false; btn.textContent = 'START'; } };
   btn.addEventListener('click', go); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 5); say(''); });
@@ -238,6 +240,8 @@ const DEV_CODE = await new Promise((resolve) => {
 // clip with no name in it (name_greeting_0). Settings ▸ Name reopens the screen to change it. PS_DEV.playerName = '' until a name is set.
 const NAME_MAX = 16;
 const devCleanName = (v) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX).trim();
+const QA_ON = QA_REQ && QA_GATE && PSD.code === DEV_CODE;   // QA fast-forward active: dev/ + ?qa=1 + a code that passed the gate
+const QA_TS = QA_ON ? qaScale(QD.get('ts')) : 1;
 const devSaveKey = 'planetstack-dev-' + DEV_CODE;
 let devName = (() => { try { const sv = JSON.parse(localStorage.getItem(devSaveKey) || 'null'); return sv && typeof sv === 'object' && !Array.isArray(sv) ? devCleanName(sv.name) : ''; } catch (e) { return ''; } })();
 Object.defineProperty(PSD, 'playerName', { get: () => devName, enumerable: true, configurable: true });
