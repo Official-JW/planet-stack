@@ -214,6 +214,7 @@ function devHalt(text, why) { if (DEVHALT) return; DEVHALT = true; window.__ps3d
   try { MUS.ctx && MUS.ctx.suspend(); } catch (e) {}
   const rc = document.getElementById('recon'); if (rc) { rc.classList.remove('on'); rc.hidden = true; }
   devStopShow(text, true, why === 'tab' ? 'This tab has stopped. Your game carries on in the other tab.' : 'This tab has stopped. Reload to try again.');
+  if (why === 'in_use') { try { devRetakeStart(); } catch (e) {} }   // lock return fix 10/31: another device has the code; take it back here once it lets go (see devRetake)
 }
 addEventListener('pagehide', () => { try { window.PS_DEV.lock.release(); } catch (e) {} tabRelease(); });   // Worker lock first, while we still own the tab lock
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tabBeat(); });
@@ -3446,13 +3447,15 @@ function devPause(on) {
 }
 async function devBeat() {
   if (HB.busy || HB.stopped) return; HB.busy = true; clearTimeout(HB.t); reconBtn.disabled = true;
+  const back = HB.back; HB.back = false;   // first beat after coming back on screen (devBack)
   let r; try { const L = window.PS_DEV.lock; const gone = Date.now() - HB.okAt >= HB.ttl * 1000 - 2000;   // past the TTL (thawed / long sleep): acquire directly, no 404 beat
-    r = gone ? await L.acquire(PSD.code) : await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+    r = gone ? (back ? await devAcquireBack() : await L.acquire(PSD.code)) : await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = back ? await devAcquireBack() : await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+  if (back && r.ok) HB.confirm = 2;
   HB.busy = false; reconBtn.disabled = false; HB.last = r.ok ? 'ok' : r.reason; HB.at = Date.now(); if (r.ok) { HB.okAt = HB.at; HB.ttl = +r.ttl || 90; } if (HB.stopped) return;
   if (!r.ok && r.reason === 'in_use') { HB.inUse = (HB.inUse || 0) + 1; devHalt(DEVMSG.in_use, 'in_use'); return; }   // QA run 1 BUG-1: another device holds the code now (beat 409, or not_held → acquire 409): stop at once; only a network failure counts as unreachable
   if (r.ok) { HB.ok++; HB.failSince = 0; devPause(false); }
   else { HB.fail++; if (!HB.failSince) HB.failSince = Date.now(); if (Date.now() - HB.failSince >= HB_FAIL_MS) devPause(true); }
-  HB.t = setTimeout(devBeat, PSD.paused ? Math.min(HB_MS, 10000) : HB_MS);
+  HB.t = setTimeout(devBeat, PSD.paused ? Math.min(HB_MS, 10000) : r.ok && HB.confirm > 0 ? (HB.confirm--, HB_CONFIRM_MS) : HB_MS);
 }
 reconBtn.addEventListener('click', (e) => { e.stopPropagation(); devBeat(); });
 for (const ev of ['pointerdown', 'click', 'touchstart']) reconEl.addEventListener(ev, (e) => e.stopPropagation());
@@ -3462,17 +3465,47 @@ HB.t = setTimeout(devBeat, HB_MS);
 // swiped away / killed while in the background, but it does fire visibilitychange 'hidden' first, so the code is freed at once instead of after the
 // 90 s TTL. The tab lock (this browser only) is kept. While away the heartbeat is stopped (a background timer would re-acquire); back on screen the
 // lock is taken again at once (acquire, no 3 s throttle); in_use there means another device took the code meanwhile -> the normal stop screen.
-const DEV_RELEASE_ON_HIDDEN = true;
+// lock return fix 10/31 (QA ui2_PT1 bug 3): coming back re-acquires our own released code at once, and a stop caused by another device is no longer final.
+// - Return acquire (devAcquireBack): an in_use answer is retried twice (0.6 s apart) before it counts, so only a device that still holds the code stops us.
+// - Our hidden/pagehide release goes out as a sendBeacon that may reach the Worker AFTER the return acquire (iOS sends queued beacons on resume) and
+//   free our fresh lock. So after a return acquire two confirm beats run 2.5 s apart (HB.confirm): not_held -> acquire again at once.
+// - in_use stop (devHalt) is no longer final: when the player comes back to this page (visibilitychange visible, resume, bfcache pageshow, window
+//   focus, or a tap on the stop screen) it tries the code once more; if the other device has let go it takes the tab lock and the code back, closes
+//   the stop screen and restarts the loop (devUnhalt). No timer poll: a forgotten tab left on the stop screen must not grab the code while the real
+//   player only switched apps for a moment (the hidden release frees it). Saves were blocked while stopped, so the game carries on from where it
+//   stopped, like a return from the background. RELOAD still works as before.
+const DEV_RELEASE_ON_HIDDEN = true, HB_CONFIRM_MS = 2500;
+async function devAcquireBack(tries = 3) { let r;
+  for (let k = 0; k < tries; k++) { if (k) await new Promise(res => setTimeout(res, 600));
+    try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; } if (r.ok || r.reason !== 'in_use') return r; }
+  return r; }
+function devRetakeStart() { if (!HB.retake) HB.retake = { since: Date.now(), n: 0, busy: false }; }
+async function devRetake() { const R = HB.retake; if (!R || R.busy || document.hidden || !DEVHALT || window.__ps3d.halted !== 'in_use') return;
+  R.busy = true; R.n++;
+  try { if (!(await tabClaim(PSD.code))) return;   // the code is open in another tab of this browser now: stay stopped (that tab has it)
+    let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+    if (r.ok && HB.retake === R && DEVHALT && !document.hidden) devUnhalt(r); else tabRelease();
+  } finally { R.busy = false; } }
+function devUnhalt(r) { HB.retake = null;
+  DEVHALT = false; window.__ps3d.halted = ''; window.__ps3d.retaken = (window.__ps3d.retaken || 0) + 1;
+  const el = document.getElementById('devStop'); el.classList.remove('on'); el.hidden = true; window.__ps3d.stopMsg = ''; window.__ps3d.stopReload = false;
+  HB.stopped = false; HB.away = false; HB.back = false; HB.okAt = HB.at = Date.now(); HB.ttl = +r.ttl || 90; HB.failSince = 0; HB.confirm = 2;
+  clearTimeout(HB.t); HB.t = setTimeout(devBeat, HB_CONFIRM_MS);
+  try { if (MUS.ctx && S.set.music !== false && !document.hidden) MUS.ctx.resume(); } catch (e) {}
+  try { clock.getDelta(); } catch (e) {} requestAnimationFrame(frame); }
 const devAway = () => { if (!DEV_RELEASE_ON_HIDDEN || HB.stopped || DEVHALT) return; HB.away = true; HB.stopped = true; clearTimeout(HB.t);
   try { window.PS_DEV.lock.release(); } catch (e) {} };
-const devBack = () => { if (!HB.away || document.hidden || DEVHALT) return false; HB.away = false; HB.stopped = false; HB.okAt = 0; HB.at = 0;   // okAt 0 -> devBeat acquires directly
+const devBack = () => { if (!HB.away || document.hidden || DEVHALT) return false; HB.away = false; HB.stopped = false; HB.okAt = 0; HB.at = 0; HB.back = true;   // okAt 0 -> devBeat acquires directly
   if (HB.busy) HB.t = setTimeout(devBeat, 1000); else devBeat(); return true; };   // a beat still in flight from before: check again right after it
-const devBeatNow = () => { if (devBack() || document.hidden || HB.stopped || DEVHALT || HB.busy || Date.now() - (HB.at || 0) < 3000) return; devBeat(); };
+const devBeatNow = () => { if (DEVHALT) { devRetake(); return; } if (devBack() || document.hidden || HB.stopped || HB.busy || Date.now() - (HB.at || 0) < 3000) return; devBeat(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) devAway(); else devBeatNow(); });
 document.addEventListener('resume', devBeatNow); addEventListener('pageshow', (e) => { if (!e.persisted) devBeatNow(); });
+addEventListener('focus', () => { if (DEVHALT) devRetake(); }); document.getElementById('devStop').addEventListener('pointerdown', () => { if (DEVHALT) devRetake(); });   // stop screen: a tap tries the code again
 addEventListener('pagehide', () => { HB.away = false; HB.stopped = true; clearTimeout(HB.t); try { window.PS_DEV.lock.release(); } catch (e) {} });   // pagehide owns the bfcache return (pageshow below)
-addEventListener('pageshow', async (e) => { if (!e.persisted || !HB.stopped || DEVHALT) return; HB.stopped = false;   // back from the bfcache: take the tab lock, then the Worker lock again
+addEventListener('pageshow', async (e) => { if (!e.persisted) return; if (DEVHALT) { devRetake(); return; }   // stopped by another device: try to take the code back
+  if (!HB.stopped) return; HB.stopped = false;   // back from the bfcache: take the tab lock, then the Worker lock again
   if (!(await tabClaim(PSD.code))) return tabLost();
-  let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use'); if (r.ok) { HB.okAt = Date.now(); HB.ttl = +r.ttl || 90; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
+  const r = await devAcquireBack(); if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use');
+  if (r.ok) { HB.okAt = Date.now(); HB.ttl = +r.ttl || 90; HB.confirm = 2; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_CONFIRM_MS : 2000); });
 if (MOCK) PSD.__mockHeal = () => { MOCKW.healed = true; };   // smoke only: the mock Worker answers beats again
 renderSettings();
