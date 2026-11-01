@@ -22,8 +22,10 @@ const CFG = {
     // P2-FUEL (Director LOCKED 10/31 8:29-8:31 AM PT; STATUS/engineering.md 246, QA/phase2_sim/summary_v4.md fuel table): LOX + LCH4 output per minute
     // = makePerMin + makePerLvl·(FuelLv−1) → 4/5/6/7/8 at Lv1-5; stock cap = stockCap·out/makePerMin (200·out/4) → 200/250/300/350/400. See fuelMake / fuelCap.
     // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
-    p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 1500000,
-                v2PerShip: 2000000, v3PerShip: 3000000, mars: 5500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $19.3M
+    // 10/31 retune for Dock-first loading (3 s/box, dock cap 40): ship2 1.5M→3M, v2PerShip 2M→5M, v3PerShip 3M→8M, mars 5.5M→12.5M (Pad…Shipyard unchanged).
+    // Game Coder econsim.mjs (sim_v4 player model): 3-week Mars D20, grinder D12. Director-approved via EM 10/31 17:22 PT (ships with Dock-first).
+    p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 3000000,
+                v2PerShip: 5000000, v3PerShip: 8000000, mars: 12500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $43.825M
     chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
     drill: { first: 8000, cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
