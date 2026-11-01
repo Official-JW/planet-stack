@@ -14,7 +14,7 @@ const CFG = {
   // other lanes read CFG.econ.* and never edit this block. Step 2 / lanes wire these in; until then the old balance below still runs the game.
   // "~" values and anything marked PLACEHOLDER are inside the plan's ranges or from Engineering Manager 10/29, pending Director's Phase 2 pacing sim.
   econ: {
-    startMoney: 10000,                  // Director 10/31 15:08: start money $10,000 (was $5,000)
+    startMoney: 25000,                  // Jacob 10/31 17:31 (via Director): start money $25,000 (was $10,000)
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
     dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
     purity: { base: 0.40, max: 1.00, step: 0.05, first: 8000, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
