@@ -2932,19 +2932,16 @@ let upCloseT = 0, upTapT = null;
 // back to the station's normal view when the card closes (faster on a swipe / station change, so the glide isn't held back).
 const UC = { want: 0, p: 0, w: 0, lx: 0, ly: 0, lz: 0, k: 1, t: null, dur: .35, fit: null };
 function ucBand() { const top = Math.max(hudEl.getBoundingClientRect().bottom, safeArea().t) + 6 + 6, bot = upEl.offsetTop - 10 - 6; return { top, bot, m: 14 }; }   // + 6 px each side for the highlight ring
-function ucSide() { const pl = upEl.offsetLeft; if (pl < 220) return null; const top = Math.max(hudEl.getBoundingClientRect().bottom, safeArea().t) + 12, bot = Math.min(nameEl.getBoundingClientRect().top, dotsEl.getBoundingClientRect().top) - 12; if (bot - top < 160) return null; return { top, bot, l: 14, r: pl - 16, m: 14 }; }
 function ucOpen(t) {
   if (!t || !camera.userData.dist) { UC.t = null; return; }
   const r0 = upRect(t); if (!r0) { UC.t = null; return; }
   const bb = ucBand(), b = new THREE.Box3();
   if (t.box) t.box(b); else { for (const o of t.objs()) { o.updateWorldMatrix(true, true); b.expandByObject(o); } }
   if (t.add) { const b2 = t.add(new THREE.Box3()); if (b2 && !b2.isEmpty()) b.union(b2); }
-  if (t.id === 'padFuel' && cg3.ship && upShown(cg3.ship)) { cg3.ship.updateWorldMatrix(true, true); b.expandByObject(cg3.ship); }   // gc-ui3 (EM 17:40 item 5): the Fuel card frames the rocket too, so its nose and the tank tops stay below the HUD
+  if (t.id === 'padFuel' && upEl.offsetLeft < 220 && cg3.ship && upShown(cg3.ship)) { cg3.ship.updateWorldMatrix(true, true); b.expandByObject(cg3.ship); }   // gc-ui3 (EM 17:40 item 5): the Fuel card frames the rocket too, so its nose and the tank tops stay below the HUD (phones only; gc-ui3b: wide screens frame as in 5c14647)
   if (b.isEmpty()) { UC.t = null; return; }
   const mc = camera.clone(); mc.clearViewOffset();
-  let tg = fitBox(mc, b, CAMLOOK.k, bb), side = false;   // never closer than the station view; backs off only as far as the object needs
-  if (!tg.fit || tg.k > CAMLOOK.k * 4) { const sb = ucSide(); if (sb) { const t2 = fitBox(mc, b, CAMLOOK.k, sb); if (t2.fit && (!tg.fit || t2.k < tg.k)) { tg = t2; side = true; } } }   // gc-ui3 (item 5): on a wide screen the strip above the card is too thin, so frame the object beside the card instead
-  window.__ps3d.ucBandUsed = side ? 'side' : 'top';
+  const tg = fitBox(mc, b, CAMLOOK.k, bb);   // never closer than the station view; backs off only as far as the object needs
   if (!tg.fit) { UC.t = null; window.__ps3d.ucFit = { id: t.id, fit: false }; return; }
   if (UC.w <= 0) Object.assign(UC, { lx: tg.lx, ly: tg.ly, lz: tg.lz, k: tg.k });
   Object.assign(UC, { want: 1, t, dur: .35, tg }); window.__ps3d.ucFit = { id: t.id, fit: true, k: +tg.k.toFixed(3), band: [bb.top, bb.bot] };
