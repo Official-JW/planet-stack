@@ -3458,7 +3458,8 @@ function eveGreet() {
   if (GREET.b && S.wel === 1 && EC.call === GREET.b) { S.wel = 0; save(); }   // welcome answered: story beats may ring after it
   if (GREET.done || !coverGone || !(PSD.playerName || S.wel === 1) || EC.ring || EC.call || ecIsOpen()) return; GREET.done = true;
   const who = PSD.playerName ? `Commander ${PSD.playerName}` : 'Commander';
-  const line = `Welcome aboard, ${who}.`, b = GREET.b = { id: 'name_greeting', tut: false, rep: true, stay: true, point: null, lines: S.wel === 1 && S.drill <= 1 ? [line, DRILL_LINE] : [line] }; ecRing(b);   // QA run 2 BUG-3: stays up until tapped (no 8 s timeout)
+  const MONEY_LINE = `Here's $${CFG.econ.startMoney.toLocaleString('en-US')} in starting money.`;   // EM + Director 22:21: a new save is told the $25k is starting money; the drill line stays right after it
+  const line = `Welcome aboard, ${who}.`, b = GREET.b = { id: 'name_greeting', tut: false, rep: true, stay: true, point: null, lines: S.wel === 1 ? (S.drill <= 1 ? [line, MONEY_LINE, DRILL_LINE] : [line, MONEY_LINE]) : [line] }; ecRing(b);   // QA run 2 BUG-3: stays up until tapped (no 8 s timeout)
   ecToastKick.textContent = 'WELCOME ABOARD'; const nb = document.createElement('b'); nb.textContent = who; ecToastWho.replaceChildren(nb); ecToastWho.classList.add('ps-greet');   // banner: kicker + name (wraps to 2 lines if long), fits 375 px
   window.__ps3d.greeting = line; window.__ps3d.greetAnswer = () => ecAnswer(b);   // QA hook: answer the greeting even after its toast timed out
 }
