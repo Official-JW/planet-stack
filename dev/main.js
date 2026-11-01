@@ -557,7 +557,7 @@ STATIONS.forEach((name, i) => {
 // ===== passed station GLBs (Art): swap in for the gray box once loaded; tiers hidden; idle loops play; doors stay shut
 const DOCK = { pipeLaunchPad: [37.70, 0.66, 7.30] };   // Dock-local glTF; read from the GLB on load (the Launch Pad pipe joins here)
 const STATION_GLB = [
-  { i: 0, url: 'models/life_support_adfaac9.glb?v=e8427ec4', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'], onLoad: lsHideTankFarm },   // Cam_Target (0, 2.5, -12.5), frame_w 34
+  { i: 0, url: '../dev/models/life_support_ls6113fa89.glb?v=6113fa89', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Art 10/31 (GD option 3, Jacob approved): repo LS b4edef9a + LS_Pipes O2/water/return run to the Habitat back wall, leg at z -17, NO tank-farm stub hiding; LS-local coords (LS_PipeExit local 13.5 = world 923.5 at x 910), 12 draws
   { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
@@ -586,6 +586,7 @@ const CAM_OVERRIDE = {
   'c16d8565': { glb: 'cargo_dock_overhead_v4 (Art 8ca56d1 handoff)', ct: { x: 4.6 } },   // Art 01:29: centre x 489.5 → 484.6 (Dock + 4.6 m); y / z / frame_w 48 stay the GLB's Cam_Target
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
+  '6113fa89': { glb: 'life_support_game_pipes_alt_z17 (repo LS b4edef9a + LS_Pipes, Art 10/31)', ct: { y: -3.58 }, frame_w: 47.6 },   // same LS framing as e8427ec4 (GLB Cam_Target is (0, -4.63, -12.5) W 38.5; override keeps the approved Director framing)
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
@@ -669,10 +670,6 @@ function fitSite(i) {
   }
   console.warn('fitSite: no fit for', STATIONS[i]); SITECAM[i] = { k: 24, dx: cx - SX[i], dz: cz, ly: cy, ct: false };
 }
-// Life Support at 910 has no Tank Farm next to it: hide the CO2 'TO TANK FARM' stub by node name. In adfaac9 only the empty marker Pipe_TankFarm
-// is its own node (the pipe, sleeper and sign are merged into LS_Metal / LS_Paint), so until Art splits them out this hides the marker only.
-function lsHideTankFarm(o) { const hid = []; o.traverse(n => { if (/tank.?farm|^co2_(tf|transfer|sleeper)/i.test(n.name || '')) { n.visible = false; hid.push(n.name); } });
-  window.__ps3d.lsTankFarm = { hidden: hid, meshes: hid.filter(nm => { const n = o.getObjectByName(nm); let m = 0; n.traverse(q => { if (q.isMesh) m++; }); return m > 0; }).length }; }
 for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
   const o = gltf.scene; o.position.set(SX[G.i], 0, G.z || 0);
   o.traverse(n => {
