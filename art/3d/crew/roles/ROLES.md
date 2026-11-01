@@ -23,13 +23,17 @@ Cyan stays the suit's shared glow / UI colour on every role; accents were picked
 | 3 | **Mechanic** | `#F0443A` red | Heavy wrench: open C-jaw top, closed ring end, accent inlay | tool belt (two hip pouches) | **Gear**: eight-tooth gear with a round hole | Upgrades and builds. |
 | 4 | **Cargo Manager** | `#A066FF` violet | Cargo tablet: cyan manifest screen, accent header bar | shoulder radio w/ whip antenna (left shoulder) | **Crate**: front-on square cargo crate: frame, diagonal brace, two plank panels (no isometric / rhombus top) | Runs cargo and radios the crew. |
 | 5 | Engineer *(tier 2, defined, tool not built)* | `#FF7A1F` orange | multimeter | - | Bolt (angular power bolt) | Keeps the base powered and running. |
-| 6 | Botanist *(tier 2)* | `#B6E62E` lime | plant sampler | - | Leaf (pointed, with stem) | Grows food in the greenhouse. |
+| 6 | Botanist *(tier 2, standard male suit)* | `#B6E62E` lime | plant sampler | - | Leaf (pointed, with stem) | Grows food in the greenhouse. |
 | 7 | Welder *(tier 2)* | `#FF4FB0` magenta | weld torch | - | Torch spray: short angled torch nozzle with five short spark lines spraying from its tip (no star shape) | Welds and repairs hull plates. |
 | 8 | Machinist *(tier 2)* | `#4D6BFF` blue | caliper | - | Nut (hex nut) | Machines parts in the workshop. |
 | 9 | Captain *(flight crew, in progress: Art Assistant)* | `#1F3A8A` navy + `#E8B53A` gold trim (warmer and flatter than the visor gold) | slate command tablet | slim gold shoulder boards | 3-bar chevron (no stars, no diamonds) | Flies the ship. After the Habitat is built, only a Captain and Co-Captain fly out. |
 | 10 | Co-Captain *(flight crew, in progress: Art Assistant)* | `#1F3A8A` navy, lighter `#4A6BD0` arms, `#F2F3F1` white chest band, `#DFE3E8` silver-white trim (gold is Captain only) | slate command tablet | slim silver-white shoulder boards | 2-bar chevron | Second pilot on every flight after the Habitat. |
 
-Engineer, Botanist, Welder and Machinist are Moon specialists that Eve offers on later trips. Captain and Co-Captain are flight crew (Director, 2026-10-24). The Botanist is the first female crew member: same armature, slightly shorter, contoured hard-shell chest plate, wider hips and seat (Jacob, 4:54 PM).
+Engineer, Botanist, Welder and Machinist are Moon specialists that Eve offers on later trips. Captain and Co-Captain are flight crew (Director, 2026-10-24).
+
+**All crew are male only** (Jacob, 2026-10-25 1:00 AM PT: female crew hard-stopped). The Botanist is built on the standard male suit,
+same skeleton and proportions as the Engineer (Jacob approved 1:03 AM PT), with the same kit: `#B6E62E` lime accent/trim, plant sampler
+and Leaf badge (Director). The earlier female Botanist variant is shelved (scratch `crew_t2/_shelved_female/`, not used by any build).
 
 Badges are plain geometric primitives drawn by us (`roles_table.BADGES`) - no agency, brand or game marks, no text.
 **No crystal / diamond / gem shapes anywhere in the crew kit** (crystals are the game's paid currency). No rhombus / diamond faces and no 4-point stars either.

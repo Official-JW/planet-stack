@@ -1,4 +1,35 @@
 # Art Assistant 2 - restart note
+
+## 10/29/2026 10:48 PM PT: Eve voice clips (hibernating again)
+- Voice samples are in AUDIO/eve_voice_samples/; Jacob picked A (Kokoro af_heart, speed 0.95). The tool runs from /workspace/tts (venv plus model).
+- All 8 game clips are made in AUDIO/eve_clips/ as mp3 files; md5s, Whisper results and flags are in eve_clips/notes.md.
+- Open item: cargo_full_0 ("boxes" heard as "box is") and cargo_delivered_0 ("has" heard as "is") need a human listen. Each has one try left. Nothing is running and nothing is committed.
+Written 10/29/2026 9:55 PM PT. Hibernating on Jacob's order (low usage), relayed by Art Manager. Nothing is running: no Blender jobs and no workers. Not committed.
+
+## Habitat v2 (latest work, delivered)
+- Jacob rejected v1 and wants a "super futuristic" tall oval tower. The ref /workspace/habitat_concept/v2/jacob_ref.jpg (ffed3529) was lost in the 3:28 PM box restart.
+- Locked size (Art Manager and A&A agreed): a 30x26 m oval tower, 40 m tall, on a 34x30x6 m podium at slot x 960. Cam_Target (960, 21.25, 0), frame width 48, 38 deg FOV, 18 deg pitch. Max safe height 45.5 m, with 375 as the limit.
+- A&A's final massing: /workspace/habitat_concept/v2/exterior/_src/habitat_v2_massing.glb, md5 7ba33b955865d5afa8e3337a01acb05d (locked).
+- Delivered to Art Manager at 3:50 PM, in /workspace/habitat_concept/v2/placement/:
+  - habitat_v2_placement_393x852.png 1bb10f992eeeef3e347d065f50d2bdd1
+  - habitat_v2_placement_393x852_guides.png af4c193edb0aaf11bbe6441a0946c377
+  - habitat_v2_placement.blend 91054ba805ff9d3c9dbe3a39fc2470a3
+  - Top at 267 px at 393 (102 px under the 165 px safe band); base at 676 px.
+  - The stand-in is kept as *_standin.*. Scripts: hab2_swap.py, comp2_swap.py. Fit diagrams: hab_v2_fit_test_393x852.png f2ffbc3b, hab_v2_fit_test_375x667.png 302b83a0.
+- Known gaps: the glass and atrium emission render white in my Eevee pass, so the look comes from A&A's render. 375 isn't rendered (math says top about 171-185 px).
+- Next step: none. Wait for Art Manager or Director feedback. All tries are used (plus the one approved swap).
+
+## Habitat v1 (accepted then superseded)
+- /workspace/habitat_concept/placement/habitat_placement_393x852.png 5afc3403a8ab08d070c651a16d1a3126.
+- Open flag for Director: in code the Pad (640) sits between the Dock (480) and the Shipyard (800), so the Shipyard isn't directly right of the Dock.
+
+## Lv1 launch VFX
+- art/vfx/lv1_launch/lv1_launch_vfx.glb b6d5beb7256d8a48b1c183967cab7761; NOTES_for_Coder.md 4659c1d6.
+- Local commits a422b9c and f87f42f. Pushing them needs Jacob's direct OK. Check whether origin already has them before pushing.
+
+---
+## Older note (10/25 01:25 PT) below
+# Art Assistant 2 - restart note
 Written 10/25/2026 01:25 PT. The team is pausing because Jacob's weekly usage is nearly used up.
 
 ## Live (committed on main)

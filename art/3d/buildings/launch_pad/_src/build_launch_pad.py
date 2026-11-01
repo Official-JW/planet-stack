@@ -900,6 +900,10 @@ _ship_names, SSM = lp_stainless_ship.build(globals())
 LADDER_FOOT = Vector((LU.x * 5.2, LU.y * 5.2, TOP))
 for o in [bpy.data.objects[n] for n in set(bpy.data.objects.keys()) - _gs]:
     o['grp'] = 'Ship'
+COCKPIT_V = A.get('cockpit', '0') == '1'   # 1 = cockpit window band CW-1 + Cockpit_Window / Engine_Ring_Mount nodes (lp_cockpit_window.py, Director 10/24 13:54)
+if COCKPIT_V:
+    import lp_cockpit_window
+    for o in lp_cockpit_window.build(globals()): o['grp'] = 'Ship'
 # ---- cargo door (own node, origin on the hinge at the sill; opens outward + down into a shelf about local X)
 _gd = grp_begin(); _cd_ship = []
 if DOOR_V:
@@ -993,6 +997,15 @@ MK.append(mark(GAME_NAMES['markers']['Fuel_Hookup'], FUEL_HOOKUP, {'LOX': gl(POR
 MK.append(mark('Ladder_Foot', LADDER_FOOT, {'kind': 'crew_spot', 'note': 'crew climb the caged ladder to the hatch at y %.1f (no ramp)' % LAD_TOP}))
 MK.append(mark('Crate_Drop', (CX, CY, 0.33), {'tier': 3, 'note': 'Tier_03 cargo pallet (shown when Tier_03 is on)'}))
 MK.append(mark(GAME_NAMES['markers']['Pipe_End'], PIPE_END, {'from': 'Dock Pipe_LaunchPad (buried, +X)', 'line': 'Pipe_LaunchPad'}))
+if COCKPIT_V:
+    _ci = COCKPIT_INFO; _sb = SHIP_BASE
+    MK.append(mark('Cockpit_Window', tuple(_ci['centre_pad']), {'kind': 'cockpit_window_toggle', 'parent': 'Ship_Placeholder', 'panes': _ci['panes'],
+                   'on_hex': _ci['on_hex'], 'off_hex': _ci['off_hex'], 'default': 'on' if _ci['glow_on'] else 'off',
+                   'glass_boxes_ship_local_gltf': json.dumps(_ci['glass_boxes_ship_local_gltf']),
+                   'toggle': 'Ship_Placeholder mesh COLOR_0 (+0 draws): vertices inside glass_boxes_ship_local_gltf (Ship-node-local, after the mesh child dequant matrix) whose colour is the current pane colour -> on_hex (lit) / off_hex (dark glass); the graphite frame shares the box edges, so match colour too'}))
+    MK.append(mark('Engine_Ring_Mount', (0, 0, _sb['skirt_bottom_z']), {'kind': 'engine_ring_mount', 'parent': 'Ship_Placeholder',
+                   'skirt_r_m': _sb['skirt_r'], 'dome_bottom_z_pad': _sb['dome_bottom_z'],
+                   'note': 'base centre of the ship (aft skirt bottom on the ship axis), +Y up; A&A aft skirt / engine ring swaps in here'}))
 _crew = [HOME, RECV, Vector((-2.4, -15.2, 0.1)), Vector((3.2, -9.6, TOP)), LADDER_FOOT]
 for i, p in enumerate(_crew):
     MK.append(mark(GAME_NAMES['crew_path'] % (i + 1), p, {'kind': 'crew_path'}))
@@ -1092,7 +1105,8 @@ for k in range(50):
     sphere('ejecta_pebble', s, (dd * math.cos(a), dd * math.sin(a), gz(dd * math.cos(a), dd * math.sin(a))), REGO, scale=(1.2, 1, 0.6), sub=1, jitter=0.4, smooth=False, seed=k, c='Stage')
 world_and_sun((-0.55, -0.6, 0.58), 5.5)
 astronaut((LADDER_FOOT.x + 0.9 * math.cos(LAD_A + 0.5), LADDER_FOOT.y + 0.9 * math.sin(LAD_A + 0.5), TOP), rot_z=0.4)   # at the ladder foot
-astronaut((PORT['LOX'].x + 1.8, PORT['LOX'].y - 2.2, TOP), rot_z=-0.9)          # checking the LOX hose QD
+QD_CREW = globals().get('QD_CREW', ((PORT['LOX'].x + 1.8, PORT['LOX'].y - 2.2, TOP), -0.9))   # Lv1 (lp_lv1.py) moves the QDs to the left
+astronaut(QD_CREW[0], rot_z=QD_CREW[1])          # checking the LOX hose QD
 astronaut((VV.x - 1.2, VV.y - 2.0, 0.1), rot_z=0.2)                             # at the valve vault
 if A.get('dress') != '1': astronaut((RECV.x, RECV.y, BAY_Z), rot_z=RECV_YAW)                              # receiver in the bay walkway, facing the FB-05 bed
 cam = setup_render(64 if not QUICK else 16)
@@ -1198,7 +1212,8 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
           'LP_SteelBand': ('SHM_Stainless', A.get('ss_band', '#b2b7bd')), 'LP_StainlessHeat': ('SHM_Stainless', '#77736f'),
           'LP_ShipDark': ('SHM_Stainless', A.get('ss_dark', '#6a7079')), 'LP_ShipBay': ('SHM_Stainless', '#2a2e33'), 'LP_ShipGlow': ('SHM_Stainless', '#2fe3ff'),
           'LP_ShipSolar': ('SHM_Stainless', A.get('ss_solar', '#687cc4')),
-          'LP_DoorPanel': ('SHM_Stainless', '#8a9097'), 'LP_ShipGraphite': ('SHM_Stainless', '#2b2f35')}   # cargo door CD-1 (--door 1)
+          'LP_DoorPanel': ('SHM_Stainless', '#8a9097'), 'LP_ShipGraphite': ('SHM_Stainless', '#2b2f35'),
+          'LP_CockpitGlow': ('SHM_Stainless', '#ffb46a'), 'LP_CockpitGlass': ('SHM_Stainless', '#141b22')}   # cockpit window CW-1 (--cockpit 1)   # cargo door CD-1 (--door 1)
     # ship solar band LP_ShipSolar: navy #152a4a -> mid blue #687cc4 (Director 10/24, ship tone fix). #687cc4 also keeps the band's anti-aliased edge
     # against the cyan SolarGlowLo trim outside qa3d-next's ring-albedo tolerance (|rgb - #2fe3ff| <= 48), so the 4 cyan rings stay the only ring bands.
     # SHIP_SWATCH: ship-only overrides (pad solar masts keep the navy LP_SolarCell).
@@ -1292,6 +1307,10 @@ if 'game' in ONLY:   # game GLB: merged SHM_* materials (vertex colours), merged
         if g == 'Road': G['road'] = 'U-turn at the east end of the flatbed road (not pad surface): joins the road tiles at world x 481, centre world (481, 17.5), r 4.5'
         if g == 'Ship': G['ship'] = 'stainless starter ship, game weight (lp_stainless_ship.py from the 46a9346 starter_ship_master.glb); node keeps the Ship_Placeholder name for qa3d'; G['size_m'] = [8.0, 40.25, 8.0]
     if 'grp' in CRANE: del CRANE['grp']
+    if COCKPIT_V:   # Cockpit_Window / Engine_Ring_Mount ride with the ship node
+        bpy.context.view_layer.update()
+        for _n in ('Cockpit_Window', 'Engine_Ring_Mount'):
+            _e = bpy.data.objects[_n]; _mw = _e.matrix_world.copy(); _e.parent = nodes['Ship']; _e.matrix_world = _mw
     PC = GAME_NAMES['phone_cam']; T = Vector(PC['target'])
     cam_e = mark(GAME_NAMES['markers']['Cam_Target'], T, {'frame_w': PC['frame_w'], 'fov_y_deg': PC['fov_y'], 'pitch_down_deg': PC['pitch'],
                  'distance_m': {'%dx%d' % k: round(phone_cam(*k)[2], 3) for k in SAFE}, 'camera_side': '+Z (glTF)',
