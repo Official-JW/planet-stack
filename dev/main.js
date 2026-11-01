@@ -3324,53 +3324,53 @@ function hlStart(t, r) {
   upHlEl.classList.remove('on'); void upHlEl.offsetWidth; upHlEl.classList.add('on');
 }
 upHlEl.addEventListener('animationend', () => upHlEl.classList.remove('on'));
-// UI-2 item 7 (EM 15:52/15:53, Director): until the player's first successful tap at a station, that station's tappable objects (UPT targets with a
-// station and hl() meshes: drill, chute, refinery kiln, pad hoses, ship) softly pulse their OWN emissive (no ring / icon / arrow: 'tap here' symbols
-// were removed 10/23). Per-mesh material clones are made ONCE at setup (only meshes of those objects, so other objects sharing the original material
-// never glow); each frame a clone = its original's live emissive (so applyRigLevel's drill glow still shows) lerped toward cyan, ~1.5 s cycle on the game
-// clock (time / SPD), no allocations. Stop = the mesh gets its original material object back (originals are never written, so colour + intensity are
-// exactly as before) and the clones are disposed. Saved per station in S.tg ({ site: 1 }); old saves (made before this build) count every station as
-// tapped, so only new games glow. Reduced motion: a steady faint glow, no pulse. tap() calls glowTap() after a pick succeeds (the 800 ms / 12 px rule
-// lives in endDrag; a drag or long press never reaches tap()).
-const GLOW = { list: [], done: {}, nextTry: 0, C: new THREE.Color(0x3ad0ff), per: 1.5, amt: .25, rm: .4 };
-const GLOW_SITES = [...new Set(UPT.filter(t => t.site >= 0).map(t => t.site))];
-if (!S.tg || typeof S.tg !== 'object' || Array.isArray(S.tg)) S.tg = hadRt ? Object.fromEntries(GLOW_SITES.map(k => [k, 1])) : {};
+// gc-afford (Jacob 8:37 AM PT via GD/EM 08:39, option A; replaces UI-2 item 7's first-tap rule S.tg): a tappable object (UPT target with a station and
+// hl() meshes) softly pulses its OWN emissive toward cyan while the player can afford what its card would buy: the next upgrade (not maxed, not locked),
+// or the build price of its station's unbuilt Phase 2 building (Dock, Shipyard once the Dock is built, Habitat). It stops the frame they can't (a buy,
+// a spend, max level, built-but-info). Same look as before (0x3ad0ff, ~1.5 s cycle on the game clock, reduced motion = steady faint glow); no new art.
+// Clones are made per target when it starts pulsing (only meshes of that object, so other objects sharing a material never glow) and disposed when it
+// stops (the mesh gets its original material object back; originals are never written). A dimmed unbuilt building's materials are transparent, so they
+// are cloned too (u.bld0 marks them). buildSt() stops the station's pulse before bldApply() restores the model. Taps no longer end the pulse; S.tg is unused.
+const GLOW = { list: [], on: {}, C: new THREE.Color(0x3ad0ff), per: 1.5, amt: .25, rm: .4 };
+const GLOW_T = UPT.filter(t => t.site >= 0);
 const glowRM = () => matchMedia('(prefers-reduced-motion: reduce)').matches || Q.get('rm') === '1';
-function glowSetup() {                 // clones once per target as its meshes load (tried every 0.5 s until all are set up)
-  for (const t of UPT) {
-    if (t.site < 0 || GLOW.done[t.id] || S.tg[t.site]) continue;
-    if (UP[t.p].lock && UP[t.p].lock()) continue;   // gc-tapfix: a locked object (Chute before the drill) doesn't invite a tap; tried again once it unlocks
-    const roots = t.hl(); if (!roots.length) continue; GLOW.done[t.id] = true;
-    for (const root of roots) root.traverse((m) => {
-      if (!m.isMesh || !m.material) return;
-      const orig = m.material, arr = Array.isArray(orig) ? orig : [orig];
-      if (!arr.some(c => c.emissive && !c.transparent)) return;
-      const cl = arr.map(c => c.emissive && !c.transparent ? c.clone() : c);
-      const e = { site: t.site, id: t.id, m, orig, cl: Array.isArray(orig) ? cl : cl[0], cla: cl, src: arr,
-        e0: arr.map(c => c.emissive ? c.emissive.getHex() : null), i0: arr.map(c => c.emissiveIntensity) };   // QA: originals' emissive at setup
-      m.material = e.cl; GLOW.list.push(e);
-    });
-  }
+function glowWant(t) {                 // can the player pay for what this object's card buys right now? No allocations.
+  const P = UP[t.p]; if (!P) return false;
+  if (P.bld) { const k = bldOf(t.site); if (!k || isBuilt(k)) return false; const B = BLD[k]; return !(B.req && !isBuilt(B.req)) && canPay(B.price()); }
+  if (P.info || P.launch || !P.cost) return false;
+  return !P.max() && !(P.lock && P.lock()) && canPay(P.cost());
 }
-function glowStop(site) {
-  for (let i = GLOW.list.length - 1; i >= 0; i--) { const e = GLOW.list[i]; if (e.site !== site) continue;
-    if (e.m.material === e.cl) e.m.material = e.orig;
+function glowStart(t) {                // clone this target's meshes; false while its model isn't loaded yet (tried again next frame)
+  const roots = t.hl(); if (!roots.length) return false; let n = 0;
+  for (const root of roots) root.traverse((m) => {
+    if (!m.isMesh || !m.material) return;
+    const orig = m.material, arr = Array.isArray(orig) ? orig : [orig], ok = (c) => c.emissive && (!c.transparent || c.userData.bld0);
+    if (!arr.some(ok)) return;
+    const cl = arr.map(c => ok(c) ? c.clone() : c);
+    const e = { site: t.site, id: t.id, m, orig, cl: Array.isArray(orig) ? cl : cl[0], cla: cl, src: arr };
+    m.material = e.cl; GLOW.list.push(e); n++;
+  });
+  return n > 0;
+}
+function glowStopT(id) {
+  for (let i = GLOW.list.length - 1; i >= 0; i--) { const e = GLOW.list[i]; if (e.id !== id) continue;
+    if (e.m.material === e.cl) e.m.material = e.orig; else for (const h of HL.list) if (h.m === e.m && h.orig === e.cl) h.orig = e.orig;   // tap highlight active: it restores the original
     e.cla.forEach((c, j) => { if (c !== e.src[j]) c.dispose(); }); GLOW.list.splice(i, 1); }
+  GLOW.on[id] = false;
 }
-function glowTap(t) {                  // the one call from tap(): the station the camera is at (the target's own for station objects)
-  const site = t && t.site >= 0 ? t.site : upSiteNow(); if (S.tg[site]) return;
-  S.tg[site] = 1; save(); glowStop(site); window.__ps3d.glowStopped = (window.__ps3d.glowStopped || []).concat(site);
-}
+function glowStop(site) { for (const t of GLOW_T) if (t.site === site && GLOW.on[t.id]) glowStopT(t.id); }
+function glowTap() {}                  // taps no longer end the pulse (gc-afford); kept so tap() is unchanged
 function updGlow() {
-  if (GLOW_SITES.some(k => !S.tg[k]) && time >= GLOW.nextTry) { GLOW.nextTry = time + .5 * SPD; glowSetup(); }
+  for (const t of GLOW_T) { const w = glowWant(t);
+    if (w && !GLOW.on[t.id]) GLOW.on[t.id] = glowStart(t); else if (!w && GLOW.on[t.id]) glowStopT(t.id); }
   if (!GLOW.list.length) return;
   const k = glowRM() ? GLOW.rm : .5 - .5 * Math.cos((time / SPD) / GLOW.per * Math.PI * 2), a = GLOW.amt * k;
   for (const e of GLOW.list) { if (e.m.material !== e.cl) continue;   // something else (tap highlight) has the mesh right now
     for (let j = 0; j < e.cla.length; j++) { const c = e.cla[j], o = e.src[j]; if (c === o) continue;
       c.emissive.copy(o.emissive).lerp(GLOW.C, a); const i0 = o.emissiveIntensity; c.emissiveIntensity = i0 + (Math.max(i0, 1) - i0) * k; } }
 }
-Object.defineProperty(window.__ps3d, 'glow', { configurable: true, get: () => ({ sites: GLOW_SITES.slice(), tg: Object.assign({}, S.tg), n: GLOW.list.length,
-  on: [...new Set(GLOW.list.map(e => e.id))], list: GLOW.list }) });   // QA (UI-2 item 7)
+Object.defineProperty(window.__ps3d, 'glow', { configurable: true, get: () => ({ on: [...new Set(GLOW.list.map(e => e.id))], want: GLOW_T.filter(glowWant).map(t => t.id),
+  n: GLOW.list.length, list: GLOW.list }) });   // QA (gc-afford)
 function updHL() {                     // wall clock (not the clamped frame dt), so the pulse stays ~200 ms even when frames are slow
   if (HL.t < 0) return; const u = (performance.now() - HL.t0) / 1000 / (window.__ps3d.qaHlSec || HL_SEC);   // qaHlSec: QA-only slow pulse for screenshots if (u >= 1) return hlEnd();
   const k = Math.sin(u * Math.PI);
@@ -3521,7 +3521,7 @@ function upBuildUI(P, k) {             // not-built card: no level / meter / cos
 }
 function buildSt(k) {
   const B = BLD[k]; if (!B || isBuilt(k) || (B.req && !isBuilt(B.req))) return; const c = B.price(); if (!canPay(c)) return;
-  pay(c); S.bt[k] = 1; bldApply(B.i); nbUI(); upgradeFx(); save(); UPK.k = ''; upUI(); hud();
+  pay(c); glowStop(B.i); S.bt[k] = 1; bldApply(B.i); nbUI(); upgradeFx(); save(); UPK.k = ''; upUI(); hud();
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
