@@ -81,6 +81,28 @@ dev Worker (`https://planet-stack-dev.official-jw.workers.dev`, `GET /codes`, th
 - `#upPanel` without the hook: `new-nohook`, so E1 is n/a.
 - Neither: n/a.
 
+## Moving targets, pad tanks and x order (EM 17:08)
+- **Truck / ship:** before each tap the script waits up to 4 s for the target's screen rect to hold still (centre moves < 1.5 px over 300 ms).
+  If the finger still lands on another object and that object's card opens, the row is **info** ("the card under the finger opened instead"), not FAIL.
+  Missed taps are info when `--ts` is above 1 or the target never held still; otherwise WARN as before.
+- **Pad tanks:** after closing the previous card the script waits (up to 4 s) for `__ps3d.uc.w === 0` (gc-ui2 card camera eased back) before it
+  measures the tanks and taps. If it never gets there, the CARD row says so.
+- **Station x / order:** when the build has `__ps3d.SX` and `__ps3d.ORD` (Life Support move: LS at x 910 between Shipyard and Habitat), settle uses
+  `SX[site]` for the resting camera x and the NAV walk follows ORD (an info row lists it). Builds without them keep index order and `site × gap`.
+
+## Dim-area swipe and settle retry (EM 18:13 / 18:31)
+- **E1 swipe card open:** the swipe goes on the dim area outside the open card. Builds with gc-ui3 (they set `__ps3d.scrimSwipe` when that
+  swipe lands) must close the card and **stay on the same station**. Older builds (no hook) must close the card and move to the next
+  station, as before. Either way the walk then swipes on to the next station if it is still on this one.
+- **Settle retry:** under load the camera may still be moving when a tap goes in, which used to give NO CARD rows. When a CARD / E1 object
+  tap (also the pad tanks and the empty-station tap) opens no card, the script waits up to 10 s for the camera to rest, waits for the card
+  camera (`uc.w === 0`), closes any stray card and tries **once** more. The same happens when the target was off screen at the first look.
+  If the retry opens the card, the CARD / E1 row is PASS with "opened on the settle retry (...)" and a separate **WARN** row
+  `TAP <station>: <id> retry` says what the first try hit, like the existing "needed N taps" WARN. No card after the retry: NO CARD
+  (FAIL on builds with `[data-card-title]`), with both tries in the detail.
+- **E1 swipe rows:** when the row would fail and the 4 s settle after the swipe timed out, the script waits up to 10 s more and checks again.
+  If that passes, the row is PASS (detail says it was checked again) plus a WARN row `E1 swipe i→n ... settle`.
+
 ## Load gate
 Before it starts the browser the script reads `/proc/loadavg`. It starts only when the 1-minute load is under `--max-load` (default 10;
 `--max-load 0` turns the gate off). While waiting it prints the current load every 20 s. After `--load-wait` minutes (default 20) it
@@ -96,7 +118,7 @@ gives up, prints why and exits 3 without starting a browser.
 
 ## Hooks relied on
 - `window.__ps3d`: `S`, `STATIONS`, `coverGone`, `camX`, `frames`, `PX`, `PADI`, `sheetOpen`, `ec`, `goSite`, `gateMsg`.
-- New panel: `UP`, `UPT`, `upRects`, `pickUp`, `openUp`, `closeUp`, `upCur`, `upClosed`.
+- New panel: `UP`, `UPT`, `upRects`, `pickUp`, `openUp`, `closeUp`, `upCur`, `upClosed`, `uc` (card camera), `scrimSwipe` (gc-ui3).
 - Dev voice: `PS_DEV.voice`.
 - QA fast-forward (dev/ with `?qa=1`, after a valid tester code only): `PS_QA.scale`, `PS_QA.skipToTouchdown()`, `#qaBadge`.
 Hooks are used only to find targets and read state. All input is real touch.
