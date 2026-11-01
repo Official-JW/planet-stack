@@ -23,7 +23,7 @@ const CFG = {
     // = makePerMin + makePerLvl·(FuelLv−1) → 4/5/6/7/8 at Lv1-5; stock cap = stockCap·out/makePerMin (200·out/4) → 200/250/300/350/400. See fuelMake / fuelCap.
     // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
     // 10/31 retune for Dock-first loading (3 s/box, dock cap 40): ship2 1.5M→3M, v2PerShip 2M→5M, v3PerShip 3M→8M, mars 5.5M→12.5M (Pad…Shipyard unchanged).
-    // Game Coder econsim.mjs (sim_v4 player model): 3-week Mars D20, grinder D12. Pending Director approval.
+    // Game Coder econsim.mjs (sim_v4 player model): 3-week Mars D20, grinder D12. Director approved retune 10/31 17:22 PT
     p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 3000000,
                 v2PerShip: 5000000, v3PerShip: 8000000, mars: 12500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $43.825M
     chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
@@ -62,7 +62,7 @@ const CFG = {
   // Eve stays text-only (no TTS). Optional recorded line audio: { beatId: ['file_for_line_0.mp3', null, …] } under audio/eve/; plays only if listed here.
   eveVoice: { dir: 'audio/eve/', lines: {} },
 };
-CFG.startMoney = CFG.econ.startMoney;   // Step 2: new games start with CFG.econ.startMoney ($10,000 since 10/31) (saves keep their own money: the load overwrites S.money)
+CFG.startMoney = CFG.econ.startMoney;   // Jacob 10/31 17:31: $25,000
 CFG.offlineRate = CFG.econ.offline.rate; CFG.offlineCapSec = CFG.econ.offline.capSec;   // same 0.5 / 4 h as before, now read from the econ block
 // Earth drop-off value for a ship's cargo at purity p (0–1): linear from $50k at base purity (40%) to $150k at max purity (100%), clamped, whole dollars
 function dropoffValue(purity) {
