@@ -102,6 +102,7 @@ def build(G):
             if z0 + 0.03 - 1e-4 <= z <= z1 - 0.03 + 1e-4: return r
         return R
     _, sk1, skr = zr('AftSkirt'); dz0, dz1, dr = zr('AftDome'); sk0 = zr('AftSkirt')[0]
+    G['SHIP_BASE'] = {'skirt_bottom_z': round(sk0 + ZS, 3), 'dome_bottom_z': round(dz0 + ZS, 3), 'skirt_r': round(skr, 3)}   # Engine_Ring_Mount (--cockpit 1)
     prof = [(0.0, dz0), (dr * 0.6, dz0 + 0.12), (dr, dz1 - 0.05), (skr - 0.06, sk0 + 0.05), (skr, sk0 + 0.05), (skr, sk1 - 0.03), (R, sk1)]
     prof += [(rad(z), z) for z in ev if z > sk1 + 1e-3] + NOSE + [(0.0, TOP + 40.25 - ZS)]       # apex on the placeholder tip (starter cap 39.95 -> 40.0)
     prof = [(r, z + ZS) for r, z in prof]
@@ -208,6 +209,10 @@ def build(G):
         for i in range(len(poly)): j = (i + 1) % len(poly); bm.faces.new((lo[i], lo[j], hi[j], hi[i]))
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
         return _obj(bm, name, mat, smooth=False)
+    # hatch floor plate (A&A 10/24 14:58/14:59, crew tag): fills the open doorway behind the sill, top flush with the sill (LAD_TOP - 0.10 =
+    # glTF 21.748), 3 cm thick, u 3.02..4.05 (inner sill edge -> ladder-well lip), t +-0.62 (inside the jambs, clear of the rungs at u 4.45
+    # and below the lid swing). LP_ShipDark like the sill. Same plate is in the hand-patched GLBs (pad_hatchfloor/_src/plate.mjs).
+    out.append(prism('ship_ph_hatch_floor', [(3.02, -0.62), (4.05, -0.62), (4.05, 0.62), (3.02, 0.62)], LAD_TOP - 0.13, LAD_TOP - 0.10, M['dark']))
     for sg in (-1, 1):   # deck wings (stainless), inner edge follows the hull
         ts = [W_T + (D_T - W_T) * k / 3 for k in range(4)]
         poly = [(hull_u(t), sg * t) for t in ts] + [(D_U1, sg * D_T), (D_U1, sg * W_T)]
