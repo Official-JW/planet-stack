@@ -93,7 +93,7 @@ body.up-open #name{visibility:hidden}
 #upLvl .ar::after{content:'';position:absolute;right:-1px;top:-3px;border:3.5px solid transparent;border-left:6px solid #3ad0ff;border-right:0}
 #upBig{margin-top:10px;font:800 22px/1 system-ui;font-variant-numeric:tabular-nums;color:#9dffb0;text-shadow:0 0 10px #3fdc7a66;white-space:nowrap}
 #upBig small{font:700 13px/1 system-ui;color:#e6ecf7;margin-left:4px;text-shadow:none}
-#upSub,#upStk{margin-top:7px;font:600 11px/1.25 system-ui;font-variant-numeric:tabular-nums;color:#c9d3e6;opacity:.8}
+#upSub,#upStk{margin-top:7px;white-space:pre-line;font:600 11px/1.25 system-ui;font-variant-numeric:tabular-nums;color:#c9d3e6;opacity:.8}
 #upStk{color:#ffcf80;opacity:1}
 #upSub:empty,#upStk:empty{display:none}
 #upMeter{display:flex;gap:3px;height:8px;margin-top:12px}
@@ -153,7 +153,7 @@ body.up-open #name{visibility:hidden}
 #launchBtn i{position:absolute;left:14px;top:50%;width:22px;height:22px;margin-top:-11px;background:#ffc861;-webkit-mask:var(--ri) center/contain no-repeat;mask:var(--ri) center/contain no-repeat;filter:drop-shadow(0 0 4px #ffb340);
   --ri:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2c3 2.5 4.5 6 4.5 10l2.5 3v3l-3-1.5-1 1.5h-6l-1-1.5-3 1.5v-3l2.5-3C7.5 8 9 4.5 12 2zm0 6a1.6 1.6 0 1 0 0 3.2A1.6 1.6 0 0 0 12 8zm-2 12h4l-2 2.5z'/%3E%3C/svg%3E")}
 #launchBtn b{font:800 15px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#ffe2a8;text-shadow:0 0 8px #ffb34099}
-#launchBtn small{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.14em;color:#c9d3e6;opacity:.85;white-space:nowrap}
+#launchBtn small{font:700 9px/1.2 system-ui;font-stretch:condensed;letter-spacing:.14em;color:#c9d3e6;opacity:.85;white-space:pre}
 @keyframes lbIn{from{opacity:0}to{opacity:1}}
 #storeChip{position:fixed;left:0;top:0;z-index:5;display:none;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;pointer-events:none;isolation:isolate;font:800 10px/1 system-ui;font-stretch:condensed;letter-spacing:.2em;color:#ffd0a0;white-space:nowrap}
 #storeChip.on{display:flex}
@@ -247,7 +247,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="LIVE · 20:58">
+<body data-tag="LIVE · 22:21">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <div id="hud" class="ec-hud">
@@ -355,6 +355,6 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 <div id="devStop" role="alertdialog" aria-label="Game stopped" hidden><div class="gbox"><div class="k">PLANET STACK <span class="devtag">DEV</span></div><h2>Can't play here</h2><p id="devStopMsg"></p><p class="sub" id="devStopSub"></p><button id="devStopBtn" hidden>RELOAD</button></div></div>
 <div id="devToast" role="status"></div>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../live/main.js?v=live2058"></script>
-<script src="../live/bugreport.js?v=live2058"></script>
+<script type="module" src="../live/main.js?v=live2221"></script>
+<script src="../live/bugreport.js?v=live2221"></script>
 </body></html>
