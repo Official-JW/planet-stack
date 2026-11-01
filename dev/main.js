@@ -2171,7 +2171,7 @@ function cgMake(tDump) {           // called at the dump time, after the cargo s
 }
 function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a full, fuelled ship launches on its own while away too (was Director 23:00: waited for a Launch tap, sh.man), inside the 4 h cap
   for (let g = 0; g < 50; g++) {
-    let ch = false; const f = c.fb, s = c.sh;
+    crSync(c, t); let ch = false; const f = c.fb, s = c.sh;   // gc-crane2: the attendant's walk follows the cargo state (before any lift decision)
     if (!c.rc && f.st === 'load' && f.bed < tripN(c) && c.ref.length && c.ref[0] <= t && (!BRC.on || brWhen(c, t) <= t)) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : brPad(c, t) ? 2 : 0; } c.rcT = t; c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
     // Cargo Dock (Director 01:32, restored EM 17:48): ship can't take boxes (shipTakes: refuelling, away, hold full, Launch tap pending) → a loaded flatbed stores at
     // the Dock if stored ≤ cap − 2 (Dock full: drives through and waits at the pad); ship takes boxes → a loaded flatbed drives through to the bay
@@ -2179,7 +2179,7 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
       if (st || c.bay + f.bed <= CG.bayCap) {   // gc-dockbld: bay can't take the bed → wait here (was: drove on to the pad while the ship was away and sat there), so a Dock bought / freed later gets it at once
  c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; c.ft = 1; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
-    if (!c.pc.k) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back
+    if (!c.pc.k && crAt(c, t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
       else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < CG.holdCap && !dockBusy(c, t)) { c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
       else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
@@ -2209,6 +2209,7 @@ function cgNext(c) {
   if (s.st === 'board') T(s.t0 + BOARD_SEC * 1000); else if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + CG.awaySec * 500 : s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
   else { if (s.hold >= CG.holdCap && !pcHold(c.pc.k) && fuelFinishAt(c) > c.t) T(fuelFinishAt(c)); if (s.req > c.t) T(s.req); }
   if (c.rd) T(c.rd.t0 + CG.rideSec * 1000);   // ca-cargoride: the crate's ride from the door shelf into Hold_NN ends
+  crNext(c, T);   // gc-crane2: he reaches his post / walks back in / reaches the chair
   return n;
 }
 function cgComplete(c, t, acc) {
@@ -2278,7 +2279,7 @@ function cgSettle(T, acc) {
     c.t = Math.max(c.t, nx); cgComplete(c, c.t, acc);
   }
 }
-function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; if (c.rd) c.rd.t0 += d; if (c.dOpen) c.dOpen += d; if (c.rcT) c.rcT += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.fu) c.fu.t += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } }
+function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; if (c.rd) c.rd.t0 += d; if (c.dOpen) c.dOpen += d; if (c.rcT) c.rcT += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.fu) c.fu.t += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } if (c.cr) { c.cr.t0 += d; if (c.cr.o) c.cr.o += d; } }
 // Save-stamp guard (10/24): a save written on a clock ahead of this one (?speed=N / warpTo QA runs, a device clock set back) holds its stamps in the
 // future, and the loops would freeze until the clock caught up. gap = newest already-happened stamp − now (S.rt, S.tk c0/lr/dep, S.cg t/rc/fb/pc/as/sh
 // t0, f0, req, S.log / S.calls at). Over 1 s, every stamp moves back by gap (shiftTk: S.tk + S.pend + S.cg; S.rt; log / calls), so the state and every
@@ -2744,6 +2745,7 @@ function brStep(t, dt) {   // pose the whole room at loop time t (dt only drives
   if (BRK.lamp) { let c = BRK.cIdle; for (const [a, b] of BRK.amber) if (t >= a && t < b) c = BRK.cIdle.clone().lerp(BRK.cAmber, 0.5 + 0.5 * Math.cos((t - a) * Math.PI * 2 / 0.75)); for (const g of BRK.green) if (t >= g && t < g + 1.4) c = BRK.cGreen; BRK.lamp.emissive.copy(c); BRK.lamp.color.copy(c); }
   const i = brLegAt(t), L = BR_PATH.legs[i], tau = t - L.t0; let P = brPose(i, t);
   if (BRK.fix == null && BRK.mode === 'post' && H.acts.Handler_Door_Wait) { const dw = H.acts.Handler_Door_Wait.getClip().duration; P = { r: P.r, c: 'Handler_Door_Wait', ct: BRK.post % dw, step: true }; }   // gc-crew: standing at his post through the lifts
+  if (BRK.fix == null && BRK.mode === 'room' && H.acts.Handler_Seated_Idle) { const sd = H.acts.Handler_Seated_Idle.getClip().duration; P = { r: P.r, c: 'Handler_Seated_Idle', ct: BRK.seatT % sd, park: true, step: true }; }   // gc-crane2: seated idle loops (was frozen on frame 0)
   let prev = null; if (i > 0 && tau < 0.2 && !P.step && !P.park) { const Q = BR_PATH.legs[i - 1]; if (!/sit|seated|stand/.test(Q.k)) prev = brPose(i - 1, Q.t1 - 1e-4); }   // 0.2 s crossfade (not across the parked root frame)
   if (P.park && i > 0 && tau < 0.2 && /sit|seated|stand/.test(BR_PATH.legs[i - 1].k)) prev = brPose(i - 1, BR_PATH.legs[i - 1].t1 - 1e-4);
   const w = prev ? tau / 0.2 : 1;
@@ -2775,33 +2777,80 @@ function brFootLock(y0, dt) {   // corner foot lock (try 2): the most recently p
 // 33.285) and loops Seated_Idle. Duty flipping mid-walk outside: he turns back at the same spot (the two outdoor walk legs are the same path,
 // reversed: τ 0.4–19.806 ↔ 50.163–69.569); inside the room he finishes that leg first. Same GLB / clips / path; reload or a long gap snaps to the end state.
 const BRD = { off: 3, wA: [0.4, 19.806], wB: [50.163, 69.569], sit: 29.885, seat: [33.285, 36.285], stand: 36.285, walkOut: 39.685 };
-BRK.mode = ''; BRK.tau = 0; BRK.post = 0; BRK.offT = 0; BRK.last = 0;
-function brDuty(c = S.cg, t = nowMs()) {
-  const f = c.fb.st; BRK.pk = c.pc.k || f;
-  if (f === 'out' || f === 'dock' || f === 'out2' || f === 'unload') return true;
-  if (f === 'load' && (c.rc || c.fb.bed > 0)) return true;   // head out while the bed is being loaded: the ~34 s walk lands him at the post before the first lift
-  if (c.pc.k) return true;
-  return c.sh.st === 'pad' && !c.sh.req && (c.bay > 0 || c.dk > 0) && holdN(c) < CG.holdCap;
+// gc-crane2 (Jacob 11/01 12:00, EM 12:02, GD rulings): the attendant's walk is now part of the cargo sim (S.cg.cr, saved), so live play, a reload and
+// the away catch-up agree, and the pad crane waits for him. cr = { m: 'room' | 'out' | 'back', t0: game ms the walk started, u0: loop time τ at t0, o:
+// game ms duty went off (0 = on) }. Duty (crDuty) starts when the loaded flatbed leaves the Refinery for the pad (not a Dock store run), or with anything
+// already at the pad: the unload, a pad-crane lift, the ship on the pad with bay / Dock crates and hold room. Off for BRD.off s → he walks back in.
+// He is at his post at crPostAt (out leg reaches τ T); the pad crane's lifts (unload / dock / hold) start only then (crAt in cgDecide; crNext wakes the
+// sim at that time). Any lift the sim wants is a duty case, so he always comes out for it: no deadlock. Old saves / new games: on duty → already at the
+// post (no wait), else seated. The outdoor walk legs (τ wA / wB) play BRS× (Walk_Loop phase follows the distance walked, so the feet keep up).
+const BRS = 1.2, BRX = [BRD.wA[0], BRD.wA[1], BRD.wB[0], BRD.wB[1]];
+const brRate = (u) => (u >= BRD.wA[0] && u < BRD.wA[1]) || (u >= BRD.wB[0] && u < BRD.wB[1]) ? BRS : 1;
+const brNextB = (u) => { for (const b of BRX) if (b > u + 1e-9) return b; return Infinity; };
+function brDur(u0, u1) { let s = 0, u = u0; while (u < u1 - 1e-9) { const e = Math.min(u1, brNextB(u)); s += (e - u) / brRate(u); u = e; } return s; }   // game s from τ u0 to u1
+function brAdvU(u0, sec, uMax) { let u = u0, r = Math.max(0, sec); while (r > 1e-9 && u < uMax - 1e-9) { const e = Math.min(uMax, brNextB(u)), k = brRate(u), need = (e - u) / k; if (r >= need) { r -= need; u = e; } else { u += r * k; r = 0; } } return Math.min(u, uMax); }
+function crDuty(c) { const f = c.fb, s = c.sh;
+  if (f.st === 'unload' || c.pc.k) return true;
+  if (((f.st === 'out' && !f.dk) || f.st === 'out2') && f.bed > 0) return true;   // loaded flatbed on its way to the pad (a Dock store run alone does not call him out)
+  return s.st === 'pad' && !s.req && (c.bay > 0 || c.dk > 0) && holdN(c) < CG.holdCap; }
+function crGet(c) { let r = c.cr;
+  if (!r || typeof r !== 'object' || !/^(room|out|back)$/.test(r.m) || !isFinite(r.t0) || !isFinite(r.u0)) r = c.cr = crDuty(c) ? { m: 'out', t0: c.t, u0: BR_PATH.T, o: 0 } : { m: 'room', t0: c.t, u0: BRD.seat[0], o: 0 };
+  if (!(r.o >= 0)) r.o = 0; return r; }
+const crTau = (r, t) => r.m === 'room' ? BRD.seat[0] : brAdvU(r.u0, (t - r.t0) / 1000, r.m === 'out' ? BR_PATH.T : BRD.seat[0]);
+const crPostAt = (r) => r.t0 + brDur(r.u0, BR_PATH.T) * 1000;
+const crAt = (c, t) => { const r = crGet(c); return r.m === 'out' && t >= crPostAt(r) - 1; };   // at his post (1 ms float slack)
+function crSync(c, t) { const r = crGet(c), d = crDuty(c), T = BR_PATH.T;
+  if (r.m === 'back' && !d) { const tS = r.t0 + brDur(r.u0, BRD.seat[0]) * 1000; if (t >= tS - 1) { r.m = 'room'; r.t0 = tS; r.u0 = BRD.seat[0]; } }
+  if (d) { r.o = 0;
+    if (r.m === 'room') { r.m = 'out'; r.t0 = t; r.u0 = BRD.stand; cgEv('crew_out', t); }
+    else if (r.m === 'back') { const u = crTau(r, t), m0 = r.m;
+      if (u < BRD.wA[0]) { r.m = 'out'; r.t0 = t; r.u0 = T; }   // still turning at the post
+      else if (u < BRD.wA[1]) { r.m = 'out'; r.t0 = t; r.u0 = BRD.wB[0] + (BRD.wA[1] - u); }   // outdoors: turns back on the same path
+      else if (u >= BRD.sit - 1e-6) { r.m = 'out'; r.t0 = t; r.u0 = BRD.stand; }   // at the chair: stands straight back up
+      if (r.m !== m0) cgEv('crew_out', t, { turn: 1 }); } }   // (in the airlock / walking in: he reaches the chair first; crNext wakes the sim there)
+  else { if (!r.o) r.o = t;
+    if (r.m === 'out' && t >= r.o + BRD.off * 1000 - 1) { const u = crTau(r, t);
+      if (u >= T - 1e-6) { r.m = 'back'; r.t0 = t; r.u0 = 0; cgEv('crew_back', t); }
+      else if (u >= BRD.wB[0] - 1e-6) { r.m = 'back'; r.t0 = t; r.u0 = BRD.wA[1] - (u - BRD.wB[0]); cgEv('crew_back', t, { turn: 1 }); } } } }   // (inside: walks on to the outer door first)
+function crNext(c, T) { const r = c.cr, t = c.t; if (!r) return;
+  if (r.m === 'out') { const a = crPostAt(r); if (a > t) T(a);
+    if (r.o) { const h = r.o + BRD.off * 1000; if (h > t) T(h); else { const w = r.t0 + brDur(r.u0, BRD.wB[0]) * 1000; if (w > t) T(w); } } }
+  else if (r.m === 'back') { const a = r.t0 + brDur(r.u0, BRD.sit) * 1000, b = r.t0 + brDur(r.u0, BRD.seat[0]) * 1000; if (a > t) T(a); else if (b > t) T(b); } }
+BRK.mode = ''; BRK.tau = 0; BRK.post = 0; BRK.seatT = 0; BRK.atPost = 0;
+function brDuty(c = S.cg) { BRK.pk = c.pc.k || c.fb.st; return crDuty(c); }
+function brTick() {                    // the visual follows the sim's cr at the game clock: returns the loop time to pose
+  const c = S.cg, r = crGet(c), now = nowMs(), T = BR_PATH.T, u = crTau(r, now); BRK.duty = brDuty(c);
+  BRK.mode = r.m === 'out' ? (u >= T - 1e-6 ? 'post' : 'out') : r.m; BRK.tau = u; BRK.atPost = r.m === 'out' ? crPostAt(r) : 0;
+  if (r.m === 'room') BRK.seatT = Math.max(0, now - r.t0) / 1000;
+  if (BRK.mode === 'post') BRK.post = Math.max(0, now - BRK.atPost) / 1000;
+  return BRK.mode === 'post' ? T - 1e-4 : r.m === 'room' ? BRD.seat[0] + 1 : u;
 }
-function brTick(dt) {                  // advance BRK.tau / BRK.mode by dt game seconds; returns the loop time to pose
-  const T = BR_PATH.T, d = BRK.duty = brDuty(); BRK.offT = d ? 0 : BRK.offT + dt; const want = d || BRK.offT < BRD.off;
-  if (!BRK.mode || dt > 10) { BRK.mode = want ? 'post' : 'room'; BRK.tau = want ? T : BRD.seat[0]; }   // first frame / long gap: snap to the end state
-  else if (want) {
-    if (BRK.mode === 'room') { BRK.mode = 'out'; BRK.tau = BRD.stand; }
-    else if (BRK.mode === 'back') { if (BRK.tau < BRD.wA[0]) { BRK.mode = 'post'; BRK.tau = T; } else if (BRK.tau < BRD.wA[1]) { BRK.mode = 'out'; BRK.tau = BRD.wB[0] + (BRD.wA[1] - BRK.tau); }
-      else if (BRK.tau >= BRD.sit) { BRK.mode = 'out'; BRK.tau = BRD.walkOut; } }   // at the chair spot: no sit, straight back out
-  } else {
-    if (BRK.mode === 'post') { BRK.mode = 'back'; BRK.tau = 0; }
-    else if (BRK.mode === 'out' && BRK.tau >= BRD.wB[0] && BRK.tau < BRD.wB[1]) { BRK.mode = 'back'; BRK.tau = BRD.wA[1] - (BRK.tau - BRD.wB[0]); }
-  }
-  if (BRK.mode === 'out') { BRK.tau += dt; if (BRK.tau >= T) { BRK.mode = 'post'; BRK.tau = T; BRK.post = 0; } }
-  else if (BRK.mode === 'back') { BRK.tau += dt; if (BRK.tau >= BRD.seat[0]) { BRK.mode = 'room'; BRK.tau = BRD.seat[0] + (BRK.tau - BRD.seat[0]); } }
-  if (BRK.mode === 'room') { const L = BRD.seat[1] - BRD.seat[0]; BRK.tau = BRD.seat[0] + (((BRK.tau - BRD.seat[0]) % L) + L) % L; }
-  if (BRK.mode === 'post') BRK.post += dt;
-  return BRK.mode === 'post' ? T - 1e-4 : BRK.tau;
-}
-function updBreakroom(dt) { if (!BRK.ok) return; const now = nowMs() / 1000, g = BRK.last ? Math.max(0, now - BRK.last) : 0; BRK.last = now;
-  const t = BRK.fix != null ? BRK.fix : brTick(g); brStep(t, dt); }
+function updBreakroom(dt) { if (!BRK.ok) return;
+  const t = BRK.fix != null ? BRK.fix : brTick(); brStep(t, dt); brHelmet(); brPuff(t); }
+// gc-crane2 helmet (no new art): the helmet GLB on the table is the helmet. Seated (room) it rests on the table; from the stand-start marker (τ 36.285)
+// until the seated marker (τ 33.285) on the way back it rides on C2_Head (fit once at bind from the rest pose, visor forward).
+function brHelmet() { const M = BRK.helm; if (!M) return; const on = BRK.fix != null ? !(BRK.t >= BRD.seat[0] && BRK.t < BRD.stand) : BRK.mode !== 'room';
+  if (on === M.on) return; M.on = on;
+  if (on) { M.head.add(M.node); M.node.position.copy(M.hp); M.node.quaternion.copy(M.hq); M.node.scale.copy(M.hs); }
+  else { M.par.add(M.node); M.node.position.copy(M.p0); M.node.quaternion.copy(M.q0); M.node.scale.copy(M.s0); } }
+// gc-crane2 air puff (code only): a ~1.2 s burst of soft grey sprites venting sideways out of both side walls of the airlock annex (pad-local x 9.9 / 12.8, at
+// the airlock's z 8.8-10.8) at the start of each airlock cycle (amber: τ 23.506 in, 45.263 out). One THREE.Points of 2×BRP.n sprites, buffers allocated once.
+const BRP = { n: 18, dur: 1.2, y: 1.55, z: 9.75, x: [9.82, 12.88], obj: null, act: false };
+function brPuffMake(grp) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.4, 'rgba(255,255,255,0.55)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+  const N = BRP.n * 2, pos = new Float32Array(N * 3), geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({ map: new THREE.CanvasTexture(cv), color: 0xe6ecf2, size: 0.6, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false });
+  const o = new THREE.Points(geo, mat); o.name = 'BR_AirPuff'; o.frustumCulled = false; o.visible = false; o.renderOrder = 5; grp.add(o);
+  const v = new Float32Array(N * 4); let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;   // seeded: same burst every cycle
+  for (let i = 0; i < N; i++) { const s = i < BRP.n ? -1 : 1; v[i * 4] = s * (1.3 + 1.3 * rnd()); v[i * 4 + 1] = 0.2 + 0.7 * rnd() - 0.25; v[i * 4 + 2] = (rnd() - 0.5) * 1.1; v[i * 4 + 3] = 0.25 * rnd(); }
+  BRP.obj = o; BRP.pos = pos; BRP.v = v; BRP.mat = mat; }
+function brPuff(t) { if (!BRP.obj) return; let a = -1; for (const [s] of BRK.amber) if (t >= s && t < s + BRP.dur) a = t - s;
+  const on = a >= 0; BRK.puff = on ? +a.toFixed(2) : 0; if (!on) { if (BRP.act) { BRP.obj.visible = false; BRP.act = false; } return; }
+  BRP.act = true; BRP.obj.visible = true; const N = BRP.n * 2, P = BRP.pos, V = BRP.v, u = a / BRP.dur;
+  for (let i = 0; i < N; i++) { const e = Math.max(0, a - V[i * 4 + 3]), d = e * (1 - 0.35 * e);   // decelerating burst
+    P[i * 3] = BRP.x[i < BRP.n ? 0 : 1] + V[i * 4] * d; P[i * 3 + 1] = BRP.y + V[i * 4 + 1] * d; P[i * 3 + 2] = BRP.z + V[i * 4 + 2] * d; }
+  BRP.obj.geometry.attributes.position.needsUpdate = true; BRP.mat.opacity = 0.9 * Math.pow(1 - u, 1.3) * Math.min(1, a / 0.08); BRP.mat.size = 0.7 + 1.8 * u; }
 function brkLoad() {
   const grp = new THREE.Group(); grp.name = 'Breakroom_Pad'; grp.position.set(PX, 0, 0); BRK.grp = grp; const got = {};
   const done = () => { if (!got.room || !got.handler || !got.helmet || !got.step) return;
@@ -2824,6 +2873,17 @@ function brkBind(G) {
   for (const L of BR_PATH.legs) { if (!acts[L.c]) throw new Error('clip ' + L.c + ' missing'); if (L.sw && !acts[L.sw.c]) throw new Error('clip ' + L.sw.c + ' missing'); }
   const feet = ['C2_Foot_L', 'C2_Foot_R'].map(n => { const b = hs.getObjectByName(n); if (!b) throw new Error(n + ' missing'); return b; });
   BRK.h = { scene: hs, root, mx, acts, feet };
+  // gc-crane2 helmet fit (rest pose, before any mixer update): helmet centred over the head mesh, its bottom 1 cm above the head mesh's bottom, visor to the handler's +Z
+  { const head = hs.getObjectByName('C2_Head'), hm = hs.getObjectByName('Cargo_Head'), hn = G.helmet.scene.getObjectByName('Breakroom_Helmet_Table');
+    if (head && hm && hm.geometry && hn && hn.isMesh) { hs.updateMatrixWorld(true);
+      const Bh = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(head.matrixWorld);
+      hm.geometry.computeBoundingBox(); hn.geometry.computeBoundingBox(); const hb = hm.geometry.boundingBox, nb = hn.geometry.boundingBox;
+      const tg = new THREE.Matrix4().makeTranslation((hb.min.x + hb.max.x) / 2, hb.min.y + 0.01, (hb.min.z + hb.max.z) / 2).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2))   // visor (helmet −X) → the handler's face (+Z)
+        .multiply(new THREE.Matrix4().makeTranslation(-(nb.min.x + nb.max.x) / 2, -nb.min.y, -(nb.min.z + nb.max.z) / 2));
+      const L = Bh.invert().multiply(tg), hp = new THREE.Vector3(), hq = new THREE.Quaternion(), hsc = new THREE.Vector3(); L.decompose(hp, hq, hsc); hn.frustumCulled = false;
+      BRK.helm = { node: hn, head, par: hn.parent, p0: hn.position.clone(), q0: hn.quaternion.clone(), s0: hn.scale.clone(), hp, hq, hs: hsc, on: false };
+    } else BRK.err.push('helmet: no separate helmet node, skipped'); }
+  brPuffMake(grp);
   const W = acts.Handler_Walk_Loop; for (const a of Object.values(acts)) a.setEffectiveWeight(0); W.setEffectiveWeight(1); root.position.set(0, 0, 0); root.rotation.set(0, 0, 0);
   BRK.hMin = [9, 9]; for (let f = 0; f < 30; f++) { W.time = f / 30; mx.update(0); root.updateMatrixWorld(true); for (let j = 0; j < 2; j++) BRK.hMin[j] = Math.min(BRK.hMin[j], feet[j].getWorldPosition(_brV).y); }
   BRK.step = brStep; window.__ps3d.br = BRK;
