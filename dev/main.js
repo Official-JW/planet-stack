@@ -2816,11 +2816,13 @@ const AW = { on: false, s: -1, x: -1, y: -1 };
 const shipEtaSec = (t = nowMs(), s = S.cg.sh) => s.st === 'away' || s.st === 'land' ? Math.max(0, Math.ceil(((s.st === 'away' ? s.t0 + (CG.awaySec + CG.landSec) * 1000 : s.t0 + CG.landSec * 1000) - t) / 1000)) : -1;   // s to touchdown from the saved trip stamps
 const mss = (n) => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
 function awayChip(bd, t) {            // from cargoUI, every station
-  const cd = shipEtaSec(t), on = cd >= 0 && !document.hidden && !sheetOpen && coverGone;
+  const padG = S.site === PADI && Math.abs(camX - PX) < 3;   // at the Pad the fuel gauge already reads SHIP AWAY m:ss (kept as is): no second chip there
+  const cd = shipEtaSec(t), on = cd >= 0 && !padG && !document.hidden && !sheetOpen && coverGone;
   if (on !== AW.on) { AW.on = on; awEl.classList.toggle('on', on); AW.x = -1; }
   if (!on) return;
   if (cd !== AW.s) { AW.s = cd; awTxt.textContent = mss(cd); }
-  const w = awEl.offsetWidth || 128, x = Math.round(W - 16 - w), y = Math.round(bd.top + 6);
+  const tb = ecToast.classList.contains('is-in') ? ecToast.getBoundingClientRect().bottom : 0;   // an Earth Coms call banner is up: sit 8 px under it, not on it
+  const w = awEl.offsetWidth || 128, x = Math.round(W - 16 - w), y = Math.round(Math.max(bd.top + 6, tb + 8));
   if (x !== AW.x || y !== AW.y) { AW.x = x; AW.y = y; awEl.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
 }
 
