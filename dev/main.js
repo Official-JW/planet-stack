@@ -336,6 +336,8 @@ for (const k of ['eve', 'calls', 'log', 'pend', 'trips']) if (!Array.isArray(S[k
 if (!(S.chute >= 1)) S.chute = 1; if (!(S.loads >= 0)) S.loads = 0; if (!(S.missed >= 0)) S.missed = 0;
 if (!(S.rt > 0)) S.rt = nowMs();
 if (!S.set || typeof S.set !== 'object') S.set = { music: true };
+// gc-batch8 Phase 2 buildings (Director 22:43 Habitat spec): S.bt[key] = 1 once bought (saved with S). Missing / bad = not built (every save starts unbuilt).
+if (!S.bt || typeof S.bt !== 'object' || Array.isArray(S.bt)) S.bt = {}; for (const k of Object.keys(S.bt)) if (S.bt[k] !== 1) delete S.bt[k];
 // legacy saves: ore left in the old bin and unpaid deposit trips settle exactly once, then the new truck loop starts
 if (S.bin > 0) S.money += Math.floor(S.bin) * CFG.oreValue; delete S.bin;
 for (const tr of S.trips) if (tr && !tr.paid && tr.bonus > 0 && CFG.econ.deposits !== false) { S.money += tr.bonus; S.dep++; }   // deposits off: legacy deposit-trip bonuses are dropped, not paid
@@ -738,6 +740,7 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
   const mx = new THREE.AnimationMixer(o); stationMixers.push(mx);
   for (const c of gltf.animations) if (G.loops.includes(c.name)) { const a = mx.clipAction(c); if ((G.pingPong || []).includes(c.name)) a.setLoop(THREE.LoopPingPong, Infinity); a.play(); }
   if (G.onLoad) G.onLoad(o, mx, gltf);
+  if (window.__ps3d.bldApply) window.__ps3d.bldApply(G.i);   // gc-batch8: a not-built station loads dimmed (models loaded earlier: dimmed when that code runs)
   fitSite(G.i);
   (window.__ps3d.stationsLoaded = window.__ps3d.stationsLoaded || []).push(STATIONS[G.i]);
 }, undefined, (e) => { console.warn('station GLB failed, keeping gray box', G.url, e); if (G.i === 2) routeReady('ref'); });
@@ -1409,7 +1412,7 @@ const mPerPx = () => (2 * camera.userData.dist * SITECAM[S.site].k * Math.tan(TH
 $('tag').textContent = document.body.dataset.tag + (DEV ? ' · DEV' : '');
 const nameEl = $('name'), dotsEl = $('dots');
 ORD.forEach((i) => { const b = document.createElement('button'); b.setAttribute('aria-label', STATIONS[i]); dotsEl.appendChild(b); });   // dots in x order
-function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === RANK[S.site])); }
+function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === RANK[S.site])); if (window.__ps3d.nbUI) window.__ps3d.nbUI(); }   // gc-batch8: set once the building code below has run
 function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); closeUp('site'); } target = SX[k]; ui(); }
 dotsEl.addEventListener('pointerdown', (e) => {   // 44 px tap band: nearest dot wins
   e.stopPropagation(); cancelFocus('dot'); crewCancel('dot'); const r = dotsEl.getBoundingClientRect(); goSite(ORD[clamp(Math.round((e.clientX - r.left) / r.width * N - .5), 0, N - 1)]);
@@ -3134,7 +3137,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
   soonDock: { name: 'Cargo Space Dock', ico: 'dock', info: true, big: () => ['', ''], sub: () => 'Dock upgrades coming soon' },
   soonShipyard: { name: 'Shipyard', ico: 'shipyard', info: true, big: () => ['', ''], sub: () => 'Shipyard upgrades coming soon' },
-  soonHabitat: { name: 'Habitat', ico: 'habitat', info: true, big: () => ['', ''], sub: () => 'Habitat upgrades coming soon' },
+  soonHabitat: { name: 'Habitat', ico: 'habitat', info: true, bld: 'hab', big: () => ['', ''], sub: () => 'Habitat upgrades coming soon' },   // gc-batch8: bld = a Phase 2 building: 'Not built yet' card + Build button until bought (BLD), then this Coming soon card
   soonEng: { name: 'Engineering', ico: 'eng', info: true, big: () => ['', ''], sub: () => 'Engineering upgrades coming soon' },
 };
 // tap targets (p = card). objs: nodes whose world boxes make the rect; box: a world box made here (no own mesh); hl: what glows on tap
@@ -3389,7 +3392,7 @@ function openUp(id) {                  // id: a card (drill / chute / purity / f
   if (!UP[id]) { const t = UPT.find(q => q.id === id); if (!t) return; id = t.p; } clearTimeout(upCloseT); const was = !!upCur;
   upCur = id; sheetOpen = true; UPK.k = ''; UPK.s = -1; UPK.site = S.site;
   document.body.classList.add('up-open');   // gc-ui3 (item 3): the station name under the card hides while it is open ('Tap outside to close' sat on it at 375×667)
-  upEl.hidden = upScrim.hidden = false; upEl.dataset.card = id; upUI(); ucOpen(upTapT || UPT.find(q => q.p === id && q.site === S.site) || null);
+  upEl.hidden = upScrim.hidden = false; upEl.dataset.card = id; upUI(); if (bldCardKey(UP[id])) { UC.t = null; window.__ps3d.ucFit = { id: upTapT ? upTapT.id : id, fit: false, stay: true }; } else ucOpen(upTapT || UPT.find(q => q.p === id && q.site === S.site) || null);   // gc-batch8 (Director 22:43): building cards keep the camera on the station
   if (!was) { for (const el of [upEl, upScrim]) { el.classList.remove('out'); el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); } }
   if (pointBeat === 'upgrade') pointerDone = true;
   window.__ps3d.upOpens = (window.__ps3d.upOpens || 0) + 1;
@@ -3413,6 +3416,7 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
 function upUI() {                      // refreshes the open card (0.1 s tick + after buys); DOM only rebuilt when something shown changes
   if (!upCur) return; const P = UP[upCur];
   if (P.launch) return upLaunchUI(P);   // gc-ui3 item 7: the rocket's launch card
+  const bk = bldCardKey(P); if (bk) return upBuildUI(P, bk);   // gc-batch8: a Phase 2 building not built yet
   const lk = !!(P.lock && P.lock());   // gc-tapfix: a locked card (Chute before the drill) shows like a Coming soon card: no level / meter / cost, a disabled 'Locked' button
   const info = !!P.info || lk, max = !info && P.max(), lv = info ? 0 : P.lv(), c = info || max ? 0 : P.cost(), ok = !info && !max && canPay(c);
   const big = lk ? ['', ''] : P.big(max), sub = lk ? P.lockSub : P.sub ? P.sub(max) : '', mt = !info && P.meter ? P.meter() : null;
@@ -3460,7 +3464,41 @@ function bindBuy(el, fn) {
   el.addEventListener('pointercancel', () => { press = null; swallow = true; });   // a cancelled press never buys, even if a stray click follows
   el.addEventListener('click', (e) => { if (swallow) { swallow = false; return; } if (!press) fn(); });
 }
-bindBuy(upBuy, () => { const P = upCur && UP[upCur]; if (P && P.buy && !upBuy.disabled) P.buy(); });
+bindBuy(upBuy, () => { const P = upCur && UP[upCur]; if (!P || upBuy.disabled) return; const bk = bldCardKey(P); if (bk) return buildSt(bk); if (P.buy) P.buy(); });   // gc-batch8: a building card's button builds it
+// ===== gc-batch8 Phase 2 buildings (Director 22:43, Habitat): until bought the station's model is dimmed (in place: colour ×BLD_DIM.c, emissive ×BLD_DIM.e,
+// opacity ×BLD_DIM.a; the materials are never swapped, so the tap highlight / glow clones still restore them), a 'Not built' plate sits over the station
+// name, and its card reads '<Station> · Not built yet' with the price on the Build button (camera stays). Prices: CFG.econ.p2Prices (Director LOCKED 10/31).
+// Buying pays, shows the model at full brightness, logs, saves (S.bt). Nothing else in the economy reads S.bt.
+const BLD = { hab: { i: HABI, name: 'Habitat', price: () => CFG.econ.p2Prices.habitat } };
+const BLD_DIM = { c: 0.35, e: 0.15, a: 0.55 };
+const bldOf = (i) => Object.keys(BLD).find(k => BLD[k].i === i) || null;
+const isBuilt = (k) => !BLD[k] || S.bt[k] === 1;
+function bldCardKey(P) { return P && P.bld && !isBuilt(P.bld) ? P.bld : null; }
+function bldApply(i) {                 // dim (not built) or restore (built) station i's model; idempotent
+  const k = bldOf(i), o = stationObjs[i]; if (!k || !o) return; const dim = !isBuilt(k); if (o.userData.bldDim === dim) return; o.userData.bldDim = dim;
+  const seen = new Set(); o.traverse(m => { if (!m.isMesh) return; for (const mt of [].concat(m.material)) { if (!mt || seen.has(mt)) continue; seen.add(mt);
+    const u = mt.userData; if (!u.bld0) u.bld0 = { c: mt.color ? mt.color.clone() : null, ei: mt.emissiveIntensity, op: mt.opacity, tr: mt.transparent };
+    const b = u.bld0; if (b.c) mt.color.copy(b.c).multiplyScalar(dim ? BLD_DIM.c : 1); if (b.ei != null) mt.emissiveIntensity = b.ei * (dim ? BLD_DIM.e : 1);
+    mt.opacity = b.op * (dim ? BLD_DIM.a : 1); const tr = dim ? true : b.tr; if (mt.transparent !== tr) { mt.transparent = tr; mt.needsUpdate = true; } } });
+  (window.__ps3d.bld = window.__ps3d.bld || {})[k] = { dim, mats: seen.size };
+}
+const nbEl = $('nbPlate');
+function nbUI() { const k = bldOf(S.site); const on = !!k && !isBuilt(k); nbEl.classList.toggle('on', on); }   // the 'Not built' plate over the station name
+function upBuildUI(P, k) {             // not-built card: no level / meter / cost row; the button carries the price
+  const c = BLD[k].price(), ok = canPay(c), key = ['bld', upCur, k, UPK.site, c, ok].join('|'); if (key === UPK.k) return; UPK.k = key;
+  upEl.dataset.ico = P.ico; upEl.dataset.locked = ''; $('upKick').textContent = `${STATIONS[UPK.site]} · Not built yet`; $('upName').textContent = BLD[k].name; $('upLv').textContent = ''; fitTitle();
+  $('upEffK').textContent = 'Status'; $('upLvl').hidden = true; $('upMeter').hidden = true; $('upCostRow').hidden = true; $('upBig').hidden = true;
+  $('upSub').textContent = `Not built yet. Build the ${BLD[k].name} for ${fmt(c)}.`; if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
+  upBuy.disabled = !ok; upBuy.className = ok ? '' : 'need'; upBuy.textContent = ok ? `Build · ${fmt(c)}` : `Need ${fmt(c)}`;
+}
+function buildSt(k) {
+  const B = BLD[k]; if (!B || isBuilt(k)) return; const c = B.price(); if (!canPay(c)) return;
+  pay(c); S.bt[k] = 1; bldApply(B.i); nbUI(); upgradeFx(); save(); UPK.k = ''; upUI(); hud();
+  popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
+  window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
+}
+Object.assign(window.__ps3d, { BLD, isBuilt, buildSt, bldApply, nbUI });   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 function buyDrill() {
   const c = drillCost(); if (!canPay(c)) return;

@@ -81,6 +81,9 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #upH2{margin:6px 0 0;font:800 24px/1 system-ui;font-stretch:condensed;letter-spacing:.06em;color:#eafcff;text-shadow:0 0 8px #3ad0ff99;text-transform:uppercase;white-space:nowrap;overflow:hidden}
 body.up-open #name{visibility:hidden}
 body.ec-shift #name{opacity:0}
+#nbPlate{position:fixed;left:50%;bottom:calc(var(--sab) + 118px);transform:translateX(-50%);display:none;padding:3px 9px;font:700 9px/12px system-ui;font-stretch:condensed;letter-spacing:.24em;text-indent:.24em;text-transform:uppercase;color:#ffcf80;background:#090f1dcc;box-shadow:inset 0 0 0 1px #ffcf8066;pointer-events:none;z-index:5}
+#nbPlate.on{display:block}
+body.up-open #nbPlate,body.ec-shift #nbPlate{display:none}
 #upH2.wrap{white-space:normal;line-height:1.05}
 #upBig[hidden]{display:none}
 #upLv{display:inline-block;margin-left:8px;font:700 12px/1 system-ui;font-variant-numeric:tabular-nums;letter-spacing:.06em;color:#7ff3ff;vertical-align:4px}
@@ -271,6 +274,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
  <div class="cell" hidden><div class="top"><span class="lbl">Crystals</span></div><b id="cry">0</b></div>
 </div>
 <div id="name"></div>
+<div id="nbPlate">Not built</div>
 <div id="dots"></div>
 <div id="upScrim" hidden></div>
 <div id="upPanel" role="dialog" aria-modal="true" aria-labelledby="upName" data-ico="drill" hidden><div id="upIn">
