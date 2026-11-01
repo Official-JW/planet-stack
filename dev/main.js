@@ -582,15 +582,15 @@ const STATION_GLB = [
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; dockLoaded(o, g); dockRoadCheck(o); } },
-  { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A); CAM_OVERRIDE 75901d07 adds only a desktop frame_h floor. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
+  { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g, 1.21) },   // (1.21 s: HB-1 only, so the subclip keeps its 1.2 s key and the door reaches weight 1; EM 21:37) Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A); CAM_OVERRIDE 75901d07 adds only a desktop frame_h floor. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
 ];
 // Shipyard hall door (Director 20:58): plays hall_door_open once and holds it open (LoopOnce + clampWhenFinished). 2d57b95's clip is 1.2 s;
 // 8c9cee7's is a 3.6 s loop — only its first CFG.hallDoor.openSec (the open move) is used, so it works unchanged with either GLB.
 // HB-1 75901d07: hall_door_open is a 3.6 s shape-blend clip on Hall_Door_Leaves (targets [open, highbay_door_open]; open 0→1 over 0–1.2 s, highbay
 // held 0), so the same 0–openSec subclip opens it and holds it. The clip writes both weights, so the highbay_door_* clips must never play with it.
-function hallDoor(mx, g) {
+function hallDoor(mx, g, openSec) {   // openSec: optional per-GLB open time (HB-1 1.21), else CFG.hallDoor.openSec
   let c = g.animations.find(a => a.name === CFG.hallDoor.clip); if (!c) return;
-  const end = CFG.hallDoor.openSec; if (c.duration > end + 1e-3) c = THREE.AnimationUtils.subclip(c, c.name + '_open', 0, Math.round(end * 1000), 1000);
+  const end = openSec > 0 ? openSec : CFG.hallDoor.openSec; if (c.duration > end + 1e-3) c = THREE.AnimationUtils.subclip(c, c.name + '_open', 0, Math.round(end * 1000), 1000);
   const a = mx.clipAction(c); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); window.__ps3d.hallDoor = { clip: c.name, dur: +c.duration.toFixed(3), action: a, morph: !!c.tracks.find(t => /morphTargetInfluences/.test(t.name)) };
 }
 const SITECAM = STATIONS.map(() => ({ k: 1, dx: 0, dz: 0, ly: CAM.lookY }));   // per-station framing; the Mine keeps k=1, dx=dz=0 until its GLB (with Cam_Target) is in
