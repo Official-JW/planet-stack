@@ -635,6 +635,7 @@ const CAM_OVERRIDE = {
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
   // repeat the GLB's Cam_Target as the fallback. load = hand fallback from padfit.mjs (used only if padLoadFit fails). /workspace/padcam_work/final_drop.sh writes it.
+  '119efbb7': { glb: 'V1 mid cargo door pad (door2 noladder 9f9ef5f9 + sliding mid-hull CARGO door at sill 16.82, Hold_Deck_Mid, Crate_Drop_Hold_Mid; same markers and Cam_Target; md5 119efbb75a64e6c6643e2c701c8d2fb5)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // ca-v1-middoor: re-keyed copy of c404636f (fallbacks only)
   'c404636f': { glb: 'V1 cargo door v2 pad (5fcd4d67 + slat panel / tray / lift lugs; same markers and Cam_Target; md5 c404636fad25064e99c78d7991618460)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // gc-art2: re-keyed copy of 5fcd4d67 (fallbacks only)
   '5fcd4d67': { glb: 'AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat; md5 5fcd4d67c1bb3094d136dd8003bf9e7d)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25, load: { ct: { x: -2.8, y: 4.7, z: 0.1 }, frame_w: 36 } },   // rest: FALLBACK only (runtime ship fit); load: hand fallback = padfit load fit (final_drop.sh)
   'db78a6f7': { glb: 'launch_pad hatchfloor plate pad (same Cam_Target/frame_w as 82131aba)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25 },
@@ -2311,7 +2312,12 @@ const CART = { ok: { fb05: false, box: false, crane: false, receiver: false, pad
 // ===== Art 4017f16 Launch Pad (Director-cleared 21:50, md5 a82251e2…): pad origin = station origin (PX = 640, 0, 0). Everything comes from its empties:
 // Truck_Stop / Turn_Start (+ Road_UTurn mesh), Ship_Center, Pick_Point(_02) / Drop_Point / Pick_Point_Bay / Bay_Slot_01..12, Hold_Door + Hold_01..10 (2 decks of 5),
 // Receiver_Spot / Receiver_Home, PC-1 'Crane' (Slew/Trolley/Hoist/Hook, 360° slew, joint extras), cargo_door_open/close (2.0 s). The crane_* clips are proof-only.
-const PAD_GLB = '../qa3d-next/models/launch_pad_door2_c404636f.glb?v=c404636f';   // gc-art2 (EM 11:27, Jacob-approved): V1 cargo door v2 (ship_parts/cargo_door launch_pad_game_lv1ship_v5_nosol1_door2, md5 c404636f…): 5fcd4d67 + slide-up slat panel
+// ca-v1-middoor (EM 22:50): V1 mid cargo door pad (ship_parts/middoor_v1v2/v1 launch_pad_game_lv1ship_v5_nosol1_door2_noladder_middoor, md5 119efbb7…, EM_SHEET_V1_middoor 01f79c25):
+//   a sliding mid-hull CARGO door (Cargo_Door static at sill 16.82; Cargo_Door_Panel out 0.19 + up 2.30; Cargo_Tray out 3.70 + down 1.612 to the sill; cargo_door_open/close 2.0 s),
+//   Hold_Door now 17.0905 (the crane's hold lift sets the crate there), no ladder. Same node names as c404636f, so the door / crane / load-camera code below is unchanged.
+//   This is a CARGO door only, NOT the crew door removed 10/25: the top (nose) Crew_Hatch stays the only crew door. Known (not fixed): crane vs Pad_Base (as live), panel vs hull 0.0141.
+const PAD_GLB = '../qa3d-next/models/launch_pad_middoor_119efbb7.glb?v=119efbb7';
+// const PAD_GLB = '../qa3d-next/models/launch_pad_door2_c404636f.glb?v=c404636f';   // gc-art2 (EM 11:27, Jacob-approved): V1 cargo door v2 (ship_parts/cargo_door launch_pad_game_lv1ship_v5_nosol1_door2, md5 c404636f…): 5fcd4d67 + slide-up slat panel
 //   (Cargo_Door_Panel) + slide-out tray (Cargo_Tray) + 4 lift lugs at y 33; same markers / Cam_Target; 16 → 17 draws. Cargo_Door itself is static now (sill y 12.65).
 // const PAD_GLB = '../qa3d-next/models/launch_pad_5fcd4d67.glb?v=5fcd4d67';   // AA3 final v4 pad (crane 3.5, 0, 8.32; Aft_Skirt_Seat -> thick skirt, identity). Was:
 // const PAD_GLB = '../qa3d-next/models/launch_pad_1042e767.glb?v=1042e767';   // AA2 b8dc5b1 lv1ship (cockpit window CW-1 + Engine_Ring_Mount, Lv1 door changes); was plate pad db78a6f7 (hatch floor plate, from pad_hatchfloor); was 82131aba = Art 6b5c76e (Director 06:02): flush hatch 833a339b + ship tone fix (stainless shadow #3a3e44, mid-blue stripe); was 0a5806f4
