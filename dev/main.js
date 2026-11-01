@@ -1947,12 +1947,15 @@ function arrive(t, acc, k = S.tk) {   // back under the chute: the next fill sta
   for (const d of deposits) if (d.tkq) { d.tkq = false; d.at = t; }
   if (q && !acc) { richTw = { at: t, amt: k.add }; playRich(k); }
 }
-// ca-truckrot item 4 (Jacob 10/24): when the Refinery pallet is full (CG.palletCap) and, if the Dock is built, the Dock stock too (CFG.dock.cap),
-// mining stops: the truck under the chute fills up and stays there, the truck at the bin waits on it without tipping (the other waits at its holding
-// spot), and both go on once there is room. Checked on the cargo sim settled to that instant, at the event and then on a fixed 3 s game-clock grid
-// (k.gw = next check), so live play and the away catch-up stop and resume at the same instants. (Was: a full-pallet dump just made no box, cgMake.)
+// ca-truckrot item 4 (Jacob 10/24; GD 08:49): no load is ever lost. The only thing that adds to the Dock stock (c.dk) is the flatbed storing pallet
+// crates there (cargo sim, f.st 'dock'); a load has no path into the Dock except through the pallet. So whenever the pallet is full (CG.palletCap)
+// the truck at the bin waits without tipping and the truck under the chute fills up and stays (the other waits at its holding spot). With a built Dock
+// that has room (or a ship taking boxes) the flatbed keeps clearing the pallet into the Dock through that existing path, so the wait is short and the
+// load then tips into a box; mining stays stopped only while the pallet cannot clear (Dock full, or no Dock and no ship taking). Checked on the cargo
+// sim settled to that instant, at the event and then on a fixed 3 s game-clock grid (k.gw = next check), so live play and the away catch-up stop and
+// resume at the same instants. (Was: a full-pallet dump just made no box, cgMake; that branch now only guards against a bad save.)
 const GATE_MS = 3000;
-const gateOn = () => { const c = S.cg; return !!c && c.ref.length >= CG.palletCap && (!(S.bt && S.bt.dock === 1) || c.dk >= CFG.dock.cap); };
+const gateOn = () => { const c = S.cg; return !!c && c.ref.length >= CG.palletCap; };
 const gateNext = (t) => (Math.floor(t / GATE_MS) + 1) * GATE_MS;
 const TN = { t: 0, e: 0 };
 function tkNext(i, k) {               // truck i's next event → TN { t, e }
