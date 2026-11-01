@@ -2605,7 +2605,8 @@ function brStep(t, dt) {   // pose the whole room at loop time t (dt only drives
   if (!BRK.ok) return; const H = BRK.h; BRK.t = t;
   for (const n of ['outer', 'inner']) { const k = BRK.k[n] = brDoorK(BRK.doorEv[n], t), d = BRK.door[n]; d.o.position.x = d.x0 + 1.25 * k; }
   if (BRK.lamp) { let c = BRK.cIdle; for (const [a, b] of BRK.amber) if (t >= a && t < b) c = BRK.cIdle.clone().lerp(BRK.cAmber, 0.5 + 0.5 * Math.cos((t - a) * Math.PI * 2 / 0.75)); for (const g of BRK.green) if (t >= g && t < g + 1.4) c = BRK.cGreen; BRK.lamp.emissive.copy(c); BRK.lamp.color.copy(c); }
-  const i = brLegAt(t), L = BR_PATH.legs[i], P = brPose(i, t), tau = t - L.t0;
+  const i = brLegAt(t), L = BR_PATH.legs[i], tau = t - L.t0; let P = brPose(i, t);
+  if (BRK.fix == null && BRK.mode === 'post' && H.acts.Handler_Door_Wait) { const dw = H.acts.Handler_Door_Wait.getClip().duration; P = { r: P.r, c: 'Handler_Door_Wait', ct: BRK.post % dw, step: true }; }   // gc-crew: standing at his post through the lifts
   let prev = null; if (i > 0 && tau < 0.2 && !P.step && !P.park) { const Q = BR_PATH.legs[i - 1]; if (!/sit|seated|stand/.test(Q.k)) prev = brPose(i - 1, Q.t1 - 1e-4); }   // 0.2 s crossfade (not across the parked root frame)
   if (P.park && i > 0 && tau < 0.2 && /sit|seated|stand/.test(BR_PATH.legs[i - 1].k)) prev = brPose(i - 1, BR_PATH.legs[i - 1].t1 - 1e-4);
   const w = prev ? tau / 0.2 : 1;
@@ -2630,7 +2631,40 @@ function brFootLock(y0, dt) {   // corner foot lock (try 2): the most recently p
   BRK.O.multiplyScalar(Math.exp(-1.5 * Math.max(dt, 0))); const m = BRK.O.length(); if (m > 0.35) BRK.O.multiplyScalar(0.35 / m);
   const cx = BRK.O.x - ox, cz = BRK.O.y - oz; if (cx || cz) { R.position.x += cx; R.position.z += cz; R.updateMatrixWorld(true); }
 }
-function updBreakroom(dt) { if (!BRK.ok) return; const T = BR_PATH.T, t = BRK.fix != null ? BRK.fix : ((nowMs() / 1000 - BRK.t0) % T + T) % T; brStep(t, dt); }
+// gc-crew (Jacob 10/31 3:40 PM rule, EM 08:42): the handler waits in the break room only while no loading is happening. The loop is no longer a
+// free-running 70.6 s clock: its two halves are played on demand from cargo state. On duty (flatbed out / at the Dock / on the way or at the pad, a
+// crane lift running, or the ship on the pad with crates in the bay to load) he plays the return half (stand → airlock → walk to his post, τ 36.285 →
+// T) and holds at the post on Handler_Door_Wait through every lift. Off duty for BRD.off s he plays the outbound half (post → airlock → sit, τ 0 →
+// 33.285) and loops Seated_Idle. Duty flipping mid-walk outside: he turns back at the same spot (the two outdoor walk legs are the same path,
+// reversed: τ 0.4–19.806 ↔ 50.163–69.569); inside the room he finishes that leg first. Same GLB / clips / path; reload or a long gap snaps to the end state.
+const BRD = { off: 3, wA: [0.4, 19.806], wB: [50.163, 69.569], sit: 29.885, seat: [33.285, 36.285], stand: 36.285, walkOut: 39.685 };
+BRK.mode = ''; BRK.tau = 0; BRK.post = 0; BRK.offT = 0; BRK.last = 0;
+function brDuty(c = S.cg, t = nowMs()) {
+  const f = c.fb.st; BRK.pk = c.pc.k || f;
+  if (f === 'out' || f === 'dock' || f === 'out2' || f === 'unload') return true;
+  if (f === 'load' && (c.rc || c.fb.bed > 0)) return true;   // head out while the bed is being loaded: the ~34 s walk lands him at the post before the first lift
+  if (c.pc.k) return true;
+  return c.sh.st === 'pad' && !c.sh.req && (c.bay > 0 || c.dk > 0) && holdN(c) < CG.holdCap;
+}
+function brTick(dt) {                  // advance BRK.tau / BRK.mode by dt game seconds; returns the loop time to pose
+  const T = BR_PATH.T, d = BRK.duty = brDuty(); BRK.offT = d ? 0 : BRK.offT + dt; const want = d || BRK.offT < BRD.off;
+  if (!BRK.mode || dt > 10) { BRK.mode = want ? 'post' : 'room'; BRK.tau = want ? T : BRD.seat[0]; }   // first frame / long gap: snap to the end state
+  else if (want) {
+    if (BRK.mode === 'room') { BRK.mode = 'out'; BRK.tau = BRD.stand; }
+    else if (BRK.mode === 'back') { if (BRK.tau < BRD.wA[0]) { BRK.mode = 'post'; BRK.tau = T; } else if (BRK.tau < BRD.wA[1]) { BRK.mode = 'out'; BRK.tau = BRD.wB[0] + (BRD.wA[1] - BRK.tau); }
+      else if (BRK.tau >= BRD.sit) { BRK.mode = 'out'; BRK.tau = BRD.walkOut; } }   // at the chair spot: no sit, straight back out
+  } else {
+    if (BRK.mode === 'post') { BRK.mode = 'back'; BRK.tau = 0; }
+    else if (BRK.mode === 'out' && BRK.tau >= BRD.wB[0] && BRK.tau < BRD.wB[1]) { BRK.mode = 'back'; BRK.tau = BRD.wA[1] - (BRK.tau - BRD.wB[0]); }
+  }
+  if (BRK.mode === 'out') { BRK.tau += dt; if (BRK.tau >= T) { BRK.mode = 'post'; BRK.tau = T; BRK.post = 0; } }
+  else if (BRK.mode === 'back') { BRK.tau += dt; if (BRK.tau >= BRD.seat[0]) { BRK.mode = 'room'; BRK.tau = BRD.seat[0] + (BRK.tau - BRD.seat[0]); } }
+  if (BRK.mode === 'room') { const L = BRD.seat[1] - BRD.seat[0]; BRK.tau = BRD.seat[0] + (((BRK.tau - BRD.seat[0]) % L) + L) % L; }
+  if (BRK.mode === 'post') BRK.post += dt;
+  return BRK.mode === 'post' ? T - 1e-4 : BRK.tau;
+}
+function updBreakroom(dt) { if (!BRK.ok) return; const now = nowMs() / 1000, g = BRK.last ? Math.max(0, now - BRK.last) : 0; BRK.last = now;
+  const t = BRK.fix != null ? BRK.fix : brTick(g); brStep(t, dt); }
 function brkLoad() {
   const grp = new THREE.Group(); grp.name = 'Breakroom_Pad'; grp.position.set(PX, 0, 0); BRK.grp = grp; const got = {};
   const done = () => { if (!got.room || !got.handler || !got.helmet || !got.step) return;
