@@ -2327,7 +2327,8 @@ const PAD_GLB = '../qa3d-next/models/launch_pad_middoor_119efbb7.glb?v=119efbb7'
 // The lv1ship hull still carries its merged 4 bells + 6 fixed legs, so (as in AA3's preview, SPEC §9.3) those triangles are collapsed into the
 // hull and the module sits 0.9 m below the old bell exit plane (feet on the deck). Gear runs on the cargo clock: Gear_Retract from LO + 1.0 s,
 // Gear_Deploy from TD − 7.0 s (art/vfx/engine_flame/aft_skirt/gear.js, inlined below; numbers read from the GLB's extras.gear).
-const HOLD_GLB = '../qa3d-next/models/part_hold_lv1_18b5cc6c.glb?v=18b5cc6c';   // gc-art2: AA1 V1 hold Lv1 (ship_parts/hold/part_hold_lv1, md5 18b5cc6c…, 564 tris, 1 prim SHM_Stainless): door-trim jambs + lintel round the cargo door
+const HOLD_GLB = '../qa3d-next/models/part_hold_lv1_middoor_trimstrip_0fe2092a.glb?v=0fe2092a';   // ca-v1-trim: AA1 hold Lv1 trimstrip (md5 0fe2092a), old low-door trims stripped for the mid cargo door (EM 23:27, dev only)
+// const HOLD_GLB = '../qa3d-next/models/part_hold_lv1_18b5cc6c.glb?v=18b5cc6c';   // gc-art2: AA1 V1 hold Lv1 (ship_parts/hold/part_hold_lv1, md5 18b5cc6c…, 564 tris, 1 prim SHM_Stainless): door-trim jambs + lintel round the cargo door
 const HOLD_ATTACH = [0, 12.3, 0];   // SPEC_attach_palette Attach_Hold: Ship_Placeholder-local (0, 12.3, 0), identity rotation; rides the Ship_Rig
 const SKIRT_GLB = '../qa3d-next/models/aft_skirt_N06_344311ab.glb?v=344311ab';   // old path (1042e767: squash + frame under Engine_Ring_Mount)
 const SKIRT_GLB_SEAT = '../qa3d-next/models/aft_skirt_N06_thick_63d0289d.glb?v=63d0289d';   // AA3 thick N06 (md5 63d0289d…): any pad with Aft_Skirt_Seat (AA3 v4 clean ship) gets this one, identity under the seat
