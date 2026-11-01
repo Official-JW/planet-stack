@@ -1881,9 +1881,9 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
   for (let g = 0; g < 50; g++) {
     let ch = false; const f = c.fb, s = c.sh;
     if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : 0; } c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
-    // Cargo Dock (Director 01:32): ship away / refuelling → a loaded flatbed stores at the Dock if stored ≤ 18 (Dock full: drives through and waits at the pad);
-    // ship on the pad and fuelled → a loaded flatbed drives through; an empty one leaves for the Dock when stored ≥ 2 and loads 2 (LIFO) for the pad
-    if (!c.rc && f.st === 'load' && f.bed >= CG.perTrip) { const st = s.st !== 'pad' && c.dk <= CFG.dock.cap - CG.perTrip ? 'store' : '';   // ca-dock: the Dock fills only while the ship is away (on the pad it is loading Dock-first); full Dock: drives through to the bay
+    // Cargo Dock (Director 01:32, restored EM 17:48): ship can't take boxes (shipTakes: refuelling, away, hold full, Launch tap pending) → a loaded flatbed stores at
+    // the Dock if stored ≤ cap − 2 (Dock full: drives through and waits at the pad); ship takes boxes → a loaded flatbed drives through to the bay
+    if (!c.rc && f.st === 'load' && f.bed >= CG.perTrip) { const st = !shipTakes(c, t) && c.dk <= CFG.dock.cap - CG.perTrip ? 'store' : '';   // ca-dock (Director 01:32, restored EM 17:48): the Dock fills whenever the ship can't take boxes (refuelling on the pad included); full Dock: drives through to the bay
       if (st || c.bay + f.bed <= CG.bayCap || !shipReady(c, t)) { c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
     if (!c.pc.k) {
@@ -1899,6 +1899,10 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
   }
 }
 const shipReady = (c, t) => c.sh.st === 'pad' && t >= fuelFinishAt(c);   // on the pad and fuelled (else away / refuelling)
+// ca-dock (EM 17:48): the ship 'takes boxes' only when it is on the pad, fuelled, no Launch tap pending and its hold has room. It can't take boxes while
+// refuelling, away (board / launch / away / land), with a full hold, or with a Launch tap pending: then a loaded flatbed stores at the Dock (cap CFG.dock.cap).
+// Each box is counted once: +1 Dock when its store clip ends, −1 Dock when PC-1 lifts it (Dock-first, also during the refuel); one Dock crane (dockBusy), no loop.
+const shipTakes = (c, t) => shipReady(c, t) && !c.sh.req && c.sh.hold < CG.holdCap;
 const dockSec = (f) => f.dk === 'load' ? CPH.dock.loadSec : CPH.dock.storeSec;
 function cgNext(c) {
   let n = Infinity; const T = (x) => { if (x < n) n = x; }, s = c.sh;
