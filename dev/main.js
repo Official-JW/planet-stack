@@ -3135,8 +3135,8 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     buy: () => { if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
   // gc-ui2 (item 3): station buildings with no upgrades yet
   soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
-  soonDock: { name: 'Cargo Space Dock', ico: 'dock', info: true, big: () => ['', ''], sub: () => 'Dock upgrades coming soon' },
-  soonShipyard: { name: 'Shipyard', ico: 'shipyard', info: true, big: () => ['', ''], sub: () => 'Shipyard upgrades coming soon' },
+  soonDock: { name: 'Cargo Space Dock', ico: 'dock', info: true, bld: ['dock', 'yard'], big: () => ['', ''], sub: () => 'Dock upgrades coming soon' },   // gc-batch8: builds the Dock, then the Shipyard (Jacob 06:48 'from the Dock card')
+  soonShipyard: { name: 'Shipyard', ico: 'shipyard', info: true, bld: 'yard', big: () => ['', ''], sub: () => 'Shipyard upgrades coming soon' },
   soonHabitat: { name: 'Habitat', ico: 'habitat', info: true, bld: 'hab', big: () => ['', ''], sub: () => 'Habitat upgrades coming soon' },   // gc-batch8: bld = a Phase 2 building: 'Not built yet' card + Build button until bought (BLD), then this Coming soon card
   soonEng: { name: 'Engineering', ico: 'eng', info: true, big: () => ['', ''], sub: () => 'Engineering upgrades coming soon' },
 };
@@ -3469,11 +3469,16 @@ bindBuy(upBuy, () => { const P = upCur && UP[upCur]; if (!P || upBuy.disabled) r
 // opacity ×BLD_DIM.a; the materials are never swapped, so the tap highlight / glow clones still restore them), a 'Not built' plate sits over the station
 // name, and its card reads '<Station> · Not built yet' with the price on the Build button (camera stays). Prices: CFG.econ.p2Prices (Director LOCKED 10/31).
 // Buying pays, shows the model at full brightness, logs, saves (S.bt). Nothing else in the economy reads S.bt.
-const BLD = { hab: { i: HABI, name: 'Habitat', price: () => CFG.econ.p2Prices.habitat } };
+// Dock + Shipyard (gc-batch8 commit 2): same pattern; the Dock card builds the Dock, then the Shipyard (req: the Dock first, sim order Dock → Shipyard).
+// A not-built Dock is visual + card only: the cargo loop (dock storage S.cg.dk, dock lift, flatbed) runs exactly as before (the pacing sim treats the
+// Dock unlock as a gate with no loop effect), so no save or loop timing changes.
+const BLD = { hab: { i: HABI, name: 'Habitat', price: () => CFG.econ.p2Prices.habitat },
+  dock: { i: DOCKI, name: 'Dock', price: () => CFG.econ.p2Prices.dock },
+  yard: { i: SHIPI, name: 'Shipyard', price: () => CFG.econ.p2Prices.shipyard, req: 'dock' } };
 const BLD_DIM = { c: 0.35, e: 0.15, a: 0.55 };
 const bldOf = (i) => Object.keys(BLD).find(k => BLD[k].i === i) || null;
 const isBuilt = (k) => !BLD[k] || S.bt[k] === 1;
-function bldCardKey(P) { return P && P.bld && !isBuilt(P.bld) ? P.bld : null; }
+function bldCardKey(P) { return P && P.bld ? [].concat(P.bld).find(k => !isBuilt(k)) || null : null; }
 function bldApply(i) {                 // dim (not built) or restore (built) station i's model; idempotent
   const k = bldOf(i), o = stationObjs[i]; if (!k || !o) return; const dim = !isBuilt(k); if (o.userData.bldDim === dim) return; o.userData.bldDim = dim;
   const seen = new Set(); o.traverse(m => { if (!m.isMesh) return; for (const mt of [].concat(m.material)) { if (!mt || seen.has(mt)) continue; seen.add(mt);
@@ -3485,14 +3490,14 @@ function bldApply(i) {                 // dim (not built) or restore (built) sta
 const nbEl = $('nbPlate');
 function nbUI() { const k = bldOf(S.site); const on = !!k && !isBuilt(k); nbEl.classList.toggle('on', on); }   // the 'Not built' plate over the station name
 function upBuildUI(P, k) {             // not-built card: no level / meter / cost row; the button carries the price
-  const c = BLD[k].price(), ok = canPay(c), key = ['bld', upCur, k, UPK.site, c, ok].join('|'); if (key === UPK.k) return; UPK.k = key;
-  upEl.dataset.ico = P.ico; upEl.dataset.locked = ''; $('upKick').textContent = `${STATIONS[UPK.site]} · Not built yet`; $('upName').textContent = BLD[k].name; $('upLv').textContent = ''; fitTitle();
+  const c = BLD[k].price(), rq = BLD[k].req && !isBuilt(BLD[k].req) ? BLD[BLD[k].req] : null, ok = !rq && canPay(c), key = ['bld', upCur, k, UPK.site, c, ok, !!rq].join('|'); if (key === UPK.k) return; UPK.k = key;
+  upEl.dataset.ico = P.ico; upEl.dataset.locked = ''; $('upKick').textContent = `${STATIONS[UPK.site]} · ${BLD[k].i === UPK.site ? 'Not built yet' : BLD[k].name + ' not built yet'}`; $('upName').textContent = STATIONS[BLD[k].i]; $('upLv').textContent = ''; fitTitle();
   $('upEffK').textContent = 'Status'; $('upLvl').hidden = true; $('upMeter').hidden = true; $('upCostRow').hidden = true; $('upBig').hidden = true;
-  $('upSub').textContent = `Not built yet. Build the ${BLD[k].name} for ${fmt(c)}.`; if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
-  upBuy.disabled = !ok; upBuy.className = ok ? '' : 'need'; upBuy.textContent = ok ? `Build · ${fmt(c)}` : `Need ${fmt(c)}`;
+  $('upSub').textContent = rq ? `Build the ${rq.name} first, then the ${BLD[k].name} (${fmt(c)}).` : `Not built yet. Build the ${BLD[k].name} for ${fmt(c)}.`; if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
+  upBuy.disabled = !ok; upBuy.className = rq ? 'max' : ok ? '' : 'need'; upBuy.textContent = rq ? `${rq.name} first` : ok ? `Build · ${fmt(c)}` : `Need ${fmt(c)}`;
 }
 function buildSt(k) {
-  const B = BLD[k]; if (!B || isBuilt(k)) return; const c = B.price(); if (!canPay(c)) return;
+  const B = BLD[k]; if (!B || isBuilt(k) || (B.req && !isBuilt(B.req))) return; const c = B.price(); if (!canPay(c)) return;
   pay(c); S.bt[k] = 1; bldApply(B.i); nbUI(); upgradeFx(); save(); UPK.k = ''; upUI(); hud();
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
