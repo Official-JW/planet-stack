@@ -3086,6 +3086,10 @@ const UPT = [
   { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base']), hl: () => soonObjs(SHIPI, ['shipyard_base']) },
   { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']), hl: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']) },
   { id: 'engineering', p: 'soonEng', site: 7, objs: () => soonObjs(7, []), hl: () => soonObjs(7, []) },
+  // gc-brkfade ticket 1 (Director 01:54, option a): the break room is part of the Pad, so a tap on it opens the Cargo Ship card. Meshes only (room,
+  // helmet table, step; not the handler), no own / pose replay, no glow (hl empty). LAST in UPT: ties go to earlier targets in pickRay, and the
+  // ship card's ucOpen lookup (first p === 'ship' at the site) still finds the ship entry.
+  { id: 'breakroom', p: 'ship', site: PADI, objs: () => BRK.ok ? ['BR_room', 'BR_helmet', 'BR_step'].map(n => BRK.grp.getObjectByName(n)).filter(Boolean) : [], hl: () => [] },
 ];
 function soonObjs(i, names) {          // the station GLB's main building nodes, else its gray placeholder box (if it is still shown)
   const n = nodesOf(stationObjs[i], names); if (n.length) return n;
