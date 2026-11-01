@@ -134,12 +134,13 @@ const CARD_TITLE = () => { const el = document.getElementById('upPanel'), open =
 // gc-ui2 gives the 5 empty stations their own 'Coming soon' targets (title = station name, kicker '<Station> · Coming soon'), so those ids are listed too.
 // 'Coming soon' passes when the title OR the kicker contains it. NO CARD rows are settled at the end of each viewport: FAIL when the build has
 // [data-card-title] (gc-ui2 and later), info on older builds (CV.attr).
-const CARD_EMPTY = 'Coming soon', CARD_WANT = { drill: 'Drill', padFuel: 'Fuel', fuelPlant: 'Fuel', lifeSupport: CARD_EMPTY, dock: CARD_EMPTY, shipyard: CARD_EMPTY, habitat: CARD_EMPTY, engineering: CARD_EMPTY };
+// 75cde37+: Dock, Shipyard and Habitat start unbuilt, so a fresh save shows 'Not built yet' (GD 22:43 spec); matched like 'Coming soon'.
+const CARD_EMPTY = 'Coming soon', CARD_NB = 'Not built yet', CARD_WANT = { drill: 'Drill', padFuel: 'Fuel', fuelPlant: 'Fuel', lifeSupport: CARD_EMPTY, dock: CARD_NB, shipyard: CARD_NB, habitat: CARD_NB, engineering: CARD_EMPTY };
 let CV = { attr: false, nocard: [] };
 const cardRow = (vp, label, c, want) => { if (c && c.src === 'attr') CV.attr = true;
   if (!c || !c.open) { add(vp, label, 'NO CARD', `no card opened (want "${want}")${c && c.why ? '; ' + c.why : ''}`); CV.nocard.push(rows[rows.length - 1]); return; }
-  const lw = want.toLowerCase(), ok = lw === 'coming soon' ? (c.title + ' ' + c.kick).toLowerCase().includes(lw) : c.title.toLowerCase().startsWith(lw);
-  add(vp, label, ok ? 'PASS' : 'FAIL', `title "${c.title}"${lw === 'coming soon' ? `, kicker "${c.kick}"` : ''} (${c.src})${ok ? '' : `, want "${want}"`}${c.retry ? `; opened on the settle retry (${c.retry})` : ''}`); };
+  const lw = want.toLowerCase(), cw = lw === 'coming soon' || lw === 'not built yet', ok = cw ? (c.title + ' ' + c.kick).toLowerCase().includes(lw) : c.title.toLowerCase().startsWith(lw);
+  add(vp, label, ok ? 'PASS' : 'FAIL', `title "${c.title}"${cw ? `, kicker "${c.kick}"` : ''} (${c.src})${ok ? '' : `, want "${want}"`}${c.retry ? `; opened on the settle retry (${c.retry})` : ''}`); };
 // Launch Pad tanks (gc-ui2): padFuel's extra tank box (UPT padFuel.add), else a mesh named /tank/i in the pad model. Taps a point inside it where
 // the canvas is on top and pickUp gives padFuel. Returns null when the build has neither (-> info row 'no pad tank meshes').
 async function waitUc(page, ms = 4000) {   // gc-ui2 card camera: __ps3d.uc.w eases 1 → 0 after a card closes; measure only once it is 0 (no hook: no wait)
