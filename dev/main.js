@@ -20,6 +20,8 @@ const CFG = {
     dropoffMin: 20000,                  // Director 10/31 19:52: a drop-off pays at least $20k (max(dropoffMin, crates x per-crate)); a full hold stays $50k-150k by purity
     launchPay: 20000,                   // Director 10/31 19:52: flat $20k credited once at lift-off, only with >= 1 crate aboard (empty launch $0); 50% while away, like drop-offs
     launchMinFrac: 0.5,                 // gc-retune (Director 20:09): launch pay only with >= ceil(launchMinFrac x current hold capacity) crates aboard (5 of 10), else $0
+    launchBelowMin: 'allow0',           // gc-dockfix (EM 10/31 21:11): under the minimum: 'allow0' = dimmed chip '+$0 · NEEDS 5', still tappable, launch pays $0; 'block' = grey, no launch from any entry point
+    firstLaunchFree: true,              // gc-dockfix item 7: the FIRST launch on a save pays launchPay with any crate count (save flag S.cg.fl; saves that already launched never get it)
     costBumpFromTier: 3, costBump: 1.20,   // gc-retune (Director 20:09; sim try 2 of 2: +15% gave 3-week Mars D18, +20% D19): every upgrade track costs x costBump from tier (level) costBumpFromTier up (Lv3→4 on); tiers 1-2 unchanged
     purity: { base: 0.40, max: 1.00, step: 0.05, first: 8000, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
     fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, first: 8000, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
@@ -55,9 +57,10 @@ const CFG = {
   hallDoor: { clip: 'hall_door_open', openSec: 1.2 },   // Director 20:58: open once and stay open; longer clips (8c9cee7 3.6 s loop) use 0–openSec
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
   // Director 20:34: boxValue 36 (full hold $360), fuel → refuelSec() (CFG.econ.fuel, Refinery lane), away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
-  dock: { cap: 40, loadS: 3.0 },   // ca-dock (Director via EM 10/31): cap = Cargo Dock stock cap (boxes, saved as S.cg.dk; the only copy); loadS = s per box, Dock -> hold (Dock-first loading while the ship is on the pad)
+  dock: { cap: 40, loadS: 3.0, storeS: 3.0 },   // ca-dock (Director via EM 10/31): cap = Cargo Dock stock cap (boxes, saved as S.cg.dk; the only copy); loadS = s per box, Dock -> hold (Dock-first loading while the ship is on the pad); gc-dockfix: storeS = s per crate of the flatbed's Dock store stop (was a fixed 31.4 s per 2-crate trip)
   cargo: { sealSec: 4, perTrip: 2, refLoadSec: 6, padUnloadSec: 6, checkSec: 2, walkOutSec: 4.0, walkBackSec: 4.4, holdLoadSec: 5, bayCap: 12, holdCap: 10, palletCap: 8,
-           launchSec: 8, awaySec: 600, landSec: 8, boxValue: 36 },
+           launchSec: 8, awaySec: 600, landSec: 8, boxValue: 36,
+           firstTrip: 1, starterCrate: 1 },   // gc-dockfix item 6 (first run only): a new save's first flatbed trip leaves with firstTrip crate(s); a new save starts with starterCrate sealed crate(s) on the Refinery pallet
   // music (Director 20:35): Every Day Stuff sources CC0 tracks, Jacob picks; list file names found in qa3d/audio/music/ here. Empty = silent.
   music: { dir: 'audio/music/', tracks: ['outer_space_loop.mp3', 'space_flight.mp3', 'devonair.mp3', 'freame.mp3'],   // rotates; outer_space_loop = main track (Jacob 20:56)
            vol: 0.28, duckTo: 0.35, dwellSec: 150, xfadeSec: 4 },
@@ -1864,7 +1867,9 @@ const CPH = {
 const DOCK_LOAD_S = CFG.dock.loadS;   // ca-dock: named alias of CFG.dock.loadS (retune in CFG)
 const pcSec = (k) => k === 'unload' ? CG.padUnloadSec : k === 'dock' ? DOCK_LOAD_S : CG.holdLoadSec;   // PC-1 lift time by kind
 const pcHold = (k) => k === 'hold' || k === 'dock';                    // a lift into the ship's hold (door open, load camera)
-const dockBusyEnd = (c) => c.dka ? c.dka.t0 + (CPH.dock.settle + 2 * CPH.dock.clipSec) * 1000 : 0;   // the Dock crane's store / load clips end here
+const dockClipEnd = () => CPH.dock.settle + 2 * CPH.dock.clipSec;   // Art's store / load clip pair at 1x (44.4 s)
+const dockAnimSec = (a) => a && a.s > 0 ? a.s : dockClipEnd();      // gc-dockfix: a store plays the clip pair inside the stop (dka.s, saved); old saves' dka (no s) keep 1x
+const dockBusyEnd = (c) => c.dka ? c.dka.t0 + dockAnimSec(c.dka) * 1000 : 0;   // the Dock crane's store / load clips end here
 const dockBusy = (c, t) => c.fb.st === 'dock' || t < dockBusyEnd(c);   // one Dock crane: no Dock-first lift while it is storing (stock count + slot clips stay exact)
 const PX = PADI * GAP;   // 640 (PADI is declared with GAP / DOCKI / SHIPI / HABI)
 const roadN = () => Math.max(1, Math.floor((PX + CPH.pad.uturn[0] - CPH.road.x0) / CPH.road.tile));   // strip tiles up to the pad's Turn_Start (PX 480: 23 / 21, as before)
@@ -1886,13 +1891,15 @@ const CG_LOG = [];
 function cgEv(e, t, x) { CG_LOG.push(Object.assign({ e, at: t }, x || {})); if (CG_LOG.length > 200) CG_LOG.shift(); }
 // ref = boxes on the Refinery pallet (sealing or sealed: their ready times), full = dumps that made no box because the pallet was full,
 // sh.req = Launch button tap time (partial launch; 0 = none)
-function cgInit(t) { return { v: 1, t, ref: [], made: 0, full: 0, sold: 0, launches: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
+function cgInit(t) { const n0 = Math.max(0, CG.starterCrate | 0); return { v: 1, t, ref: Array.from({ length: n0 }, () => t + CG.sealSec * 1000), made: n0, full: 0, sold: 0, launches: 0, fl: 0, ft: 0, earned: 0, rc: 0, fb: { st: 'load', t0: t, bed: 0 }, pc: { k: '', t0: 0 }, as: { st: 'home', t0: t }, bay: 0, dk: 0,
   sh: { st: 'pad', t0: t, hold: 0, f0: t - refuelMs(), req: 0 }, fu: { t, v: CFG.econ.fuel.stockStart, g: CFG.econ.fuel.tank } }; }   // Director 10:46: a new game starts with the ship fully fuelled
 for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);
 S.fuelLv = fuelLvOk();                 // P2-FUEL: a missing / bad FuelLv is Lv1, never above the max level   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an old save's stock is clamped to this level's cap (200/250/300/350/400). fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
+if (!(S.cg.fl >= 0)) S.cg.fl = S.cg.launches > 0 ? 1 : 0;   // gc-dockfix item 7: first-launch pass used (1) / open (0); a save that already launched has used it
+if (!(S.cg.ft >= 0)) S.cg.ft = 1;   // gc-dockfix item 6: saves from before this keep 2-crate trips (only a new save's first trip is short)
 if (S.cg.sh.man) S.cg.sh.man = 0;   // 10/29: a full ship left waiting for a tap by an older away replay launches on its own again
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
 if (S.cg.asum && !(typeof S.cg.asum === 'object' && S.cg.asum.n > 0 && S.cg.asum.amt >= 0)) S.cg.asum = null;   // econ 10/29: Eve's away summary {at, n, amt, shown}; bad value → none
@@ -1926,11 +1933,11 @@ function cgMake(tDump) {           // called at the dump time, after the cargo s
 function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a full, fuelled ship launches on its own while away too (was Director 23:00: waited for a Launch tap, sh.man), inside the 4 h cap
   for (let g = 0; g < 50; g++) {
     let ch = false; const f = c.fb, s = c.sh;
-    if (!c.rc && f.st === 'load' && f.bed < CG.perTrip && c.ref.length && c.ref[0] <= t) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : 0; } c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
+    if (!c.rc && f.st === 'load' && f.bed < tripN(c) && c.ref.length && c.ref[0] <= t) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : 0; } c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
     // Cargo Dock (Director 01:32, restored EM 17:48): ship can't take boxes (shipTakes: refuelling, away, hold full, Launch tap pending) → a loaded flatbed stores at
     // the Dock if stored ≤ cap − 2 (Dock full: drives through and waits at the pad); ship takes boxes → a loaded flatbed drives through to the bay
-    if (!c.rc && f.st === 'load' && f.bed >= CG.perTrip) { const st = !shipTakes(c, t) && c.dk <= CFG.dock.cap - CG.perTrip ? 'store' : '';   // ca-dock (Director 01:32, restored EM 17:48): the Dock fills whenever the ship can't take boxes (refuelling on the pad included); full Dock: drives through to the bay
-      if (st || c.bay + f.bed <= CG.bayCap || !shipReady(c, t)) { c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
+    if (!c.rc && f.st === 'load' && f.bed >= tripN(c)) { const st = !shipTakes(c, t) && c.dk <= CFG.dock.cap - f.bed ? 'store' : '';   // ca-dock (Director 01:32, restored EM 17:48): the Dock fills whenever the ship can't take boxes (refuelling on the pad included); full Dock: drives through to the bay
+      if (st || c.bay + f.bed <= CG.bayCap || !shipReady(c, t)) { c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; c.ft = 1; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
     if (!c.pc.k) {
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
@@ -1939,8 +1946,8 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (s.st === 'pad' && !pcHold(c.pc.k) && t >= fuelFinishAt(c) && ((s.hold >= CG.holdCap && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live or away, 10/29), or the Launch button (partial)
-      c.sh = Object.assign({}, s, { st: BOARD_SEC ? 'board' : 'launch', t0: t, req: 0, man: 0 }); ch = true; cgEv(BOARD_SEC ? 'board' : 'launch', t, { hold: s.hold, partial: s.hold < CG.holdCap }); }   // the crew boards first (BOARD_SEC), then the launch
-    else if (s.st === 'pad' && s.req && t >= s.req && s.hold < 1) { s.req = 0; ch = true; }
+      c.sh = Object.assign({}, s, { st: BOARD_SEC ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0 }); ch = true; cgEv(BOARD_SEC ? 'board' : 'launch', t, { hold: s.hold, partial: s.hold < CG.holdCap, locked: s.req ? (s.rh || s.hold) : 0 }); }   // the crew boards first (BOARD_SEC), then the launch
+    else if (s.st === 'pad' && s.req && t >= s.req && s.hold < 1) { s.req = 0; s.rh = 0; ch = true; }
     if (!ch) break;
   }
 }
@@ -1949,10 +1956,11 @@ const shipReady = (c, t) => c.sh.st === 'pad' && t >= fuelFinishAt(c);   // on t
 // refuelling, away (board / launch / away / land), with a full hold, or with a Launch tap pending: then a loaded flatbed stores at the Dock (cap CFG.dock.cap).
 // Each box is counted once: +1 Dock when its store clip ends, −1 Dock when PC-1 lifts it (Dock-first, also during the refuel); one Dock crane (dockBusy), no loop.
 const shipTakes = (c, t) => shipReady(c, t) && !c.sh.req && c.sh.hold < CG.holdCap;
-const dockSec = (f) => f.dk === 'load' ? CPH.dock.loadSec : CPH.dock.storeSec;
+const dockSec = (f) => f.dk === 'load' ? CPH.dock.loadSec : Math.max(1, f.bed || CG.perTrip) * CFG.dock.storeS;   // gc-dockfix item 1: store stop = CFG.dock.storeS per crate (3 s; was a fixed CPH.dock.storeSec 31.4 s)
+const tripN = (c) => c.ft ? CG.perTrip : (CG.firstTrip || CG.perTrip);   // gc-dockfix item 6: a new save's first flatbed trip leaves with CG.firstTrip crate(s); every later trip CG.perTrip
 function cgNext(c) {
   let n = Infinity; const T = (x) => { if (x < n) n = x; }, s = c.sh;
-  if (c.rc) T(c.rc + CG.refLoadSec * 1000); else if (c.fb.st === 'load' && c.fb.bed < CG.perTrip && c.ref.length && c.ref[0] > c.t) T(c.ref[0]);
+  if (c.rc) T(c.rc + CG.refLoadSec * 1000); else if (c.fb.st === 'load' && c.fb.bed < tripN(c) && c.ref.length && c.ref[0] > c.t) T(c.ref[0]);
   if (c.fb.st === 'out') T(c.fb.t0 + (c.fb.dk ? FB.kD1.T : FB.kOut.T) * 1000); else if (c.fb.st === 'back') T(c.fb.t0 + FB.kBack.T * 1000);
   else if (c.fb.st === 'dock') T(c.fb.t0 + dockSec(c.fb) * 1000); else if (c.fb.st === 'out2') T(c.fb.t0 + FB.kD2.T * 1000);
   if (!c.pc.k && c.dk > 0 && s.st === 'pad' && dockBusyEnd(c) > c.t) T(dockBusyEnd(c));   // ca-dock: Dock crane free again → the next Dock-first lift
@@ -1965,8 +1973,8 @@ function cgNext(c) {
 function cgComplete(c, t, acc) {
   if (c.rc && c.rc + CG.refLoadSec * 1000 <= t) { c.rc = 0; c.fb.bed++; cgEv('bed_loaded', t, { bed: c.fb.bed }); }
   const f = c.fb;
-  if (f.st === 'out' && f.dk && f.t0 + FB.kD1.T * 1000 <= t) { c.fb = { st: 'dock', t0: t, bed: f.bed, dk: f.dk, n: c.dk }; c.dka = { k: f.dk, t0: t, n: c.dk }; cgEv('fb_at_dock', t, { dock: f.dk, stored: c.dk }); }
-  else if (f.st === 'dock' && f.t0 + dockSec(f) * 1000 <= t) { const ld = f.dk === 'load', k = ld ? Math.min(CG.perTrip, c.dk) : CG.perTrip; c.dk += ld ? -k : k; c.fb = { st: 'out2', t0: t, bed: ld ? k : 0 }; cgEv('fb_dock_done', t, { dock: f.dk, stored: c.dk }); }   // ca-dock: an old save's 'load' trip takes what is left (min 2, Dock)
+  if (f.st === 'out' && f.dk && f.t0 + FB.kD1.T * 1000 <= t) { c.fb = { st: 'dock', t0: t, bed: f.bed, dk: f.dk, n: c.dk }; c.dka = { k: f.dk, t0: t, n: c.dk, s: f.dk === 'store' ? dockSec(f) : 0 }; cgEv('fb_at_dock', t, { dock: f.dk, stored: c.dk }); }
+  else if (f.st === 'dock' && f.t0 + dockSec(f) * 1000 <= t) { const ld = f.dk === 'load', k = ld ? Math.min(CG.perTrip, c.dk) : f.bed; c.dk += ld ? -k : k; c.fb = { st: 'out2', t0: t, bed: ld ? k : 0 }; cgEv('fb_dock_done', t, { dock: f.dk, stored: c.dk }); }   // ca-dock: an old save's 'load' trip takes what is left (min 2, Dock)
   else if ((f.st === 'out' && !f.dk && f.t0 + FB.kOut.T * 1000 <= t) || (f.st === 'out2' && f.t0 + FB.kD2.T * 1000 <= t)) {
     if (!f.bed) { c.fb = { st: 'back', t0: t, bed: 0 }; cgEv('fb_at_pad_empty', t); }   // stored its boxes at the Dock: straight back
     else { c.fb = { st: 'unload', t0: t, bed: f.bed }; c.as = { st: 'walk_out', t0: t }; cgEv('fb_at_pad', t, { bed: f.bed }); } }
@@ -1978,7 +1986,7 @@ function cgComplete(c, t, acc) {
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
-  if (s.st === 'board' && s.t0 + BOARD_SEC * 1000 <= t) { const tl = s.t0 + BOARD_SEC * 1000; c.sh = Object.assign({}, s, { st: 'launch', t0: tl }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < CG.holdCap, board: BOARD_SEC }); cgLaunchPay(c, s.hold, tl, acc); }   // crew inside: lift-off; launch pay in this same state change (once)
+  if (s.st === 'board' && s.t0 + BOARD_SEC * 1000 <= t) { const tl = s.t0 + BOARD_SEC * 1000; c.sh = Object.assign({}, s, { st: 'launch', t0: tl }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < CG.holdCap, board: BOARD_SEC }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once)
   else if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
     c.launches++; cgEv('departed', t, { boxes: s.hold });
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, pur: cargoPurity() };
@@ -2049,11 +2057,13 @@ function stampGuard(now = nowMs()) {
 }
 const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelNow(t).g / CFG.econ.fuel.tank : s.st === 'launch' ? 1 : 0; };   // tank 0–1: fills from touchdown at the pump rate (refuelSec(S.fuelLv)), from the Refinery stock (fuelSolve)
 const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
-const canLaunch = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };
+const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };   // ship state only (the chip shows on this)
+const launchBlocked = (h = S.cg.sh.hold) => CFG.econ.launchBelowMin === 'block' && !(launchPayFor(h) > 0);   // gc-dockfix item 2: 'block' = no launch under the minimum (first-launch pass excepted)
+const canLaunch = (t = nowMs()) => launchReady(t) && !launchBlocked();   // every launch entry point (HUD chip, ship card, cgLaunch) goes through this
 function cgLaunch() {                 // Launch button: stored as a timestamp in S.cg (sh.req); the sim launches at it (after a lift into the hold finishes)
   const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; }
   if (!canLaunch(t)) return false;
-  S.cg.sh.req = Math.max(t, S.cg.t); cgEv('launch_tap', t, { hold: S.cg.sh.hold }); settleTo(t, null); save();
+  S.cg.sh.req = Math.max(t, S.cg.t); S.cg.sh.rh = S.cg.sh.hold; cgEv('launch_tap', t, { hold: S.cg.sh.hold });   // gc-dockfix item 3: hold count locked at the tap (threshold + launch pay) settleTo(t, null); save();
   if (pointBeat === 'launch') pointerDone = true; return true;
 }
 function astroPhase(c, t) {
@@ -2068,7 +2078,8 @@ function cargoValue(boxes, pur = cargoPurity()) { return Math.max(0, boxes || 0)
 function dropoffPay(boxes, pur = cargoPurity()) { return boxes > 0 ? Math.max(CFG.econ.dropoffMin || 0, cargoValue(boxes, pur)) : 0; }   // Director 10/31 19:52: drop-off pays max($20k, crates x per-crate)
 const holdCapNow = () => CG.holdCap;   // the ship's current hold capacity (hold upgrades read here when they land)
 const launchMinBoxes = () => Math.max(1, Math.ceil((CFG.econ.launchMinFrac || 0) * holdCapNow() - 1e-9));   // gc-retune: 5 at capacity 10
-const launchPayFor = (boxes) => boxes >= launchMinBoxes() ? (CFG.econ.launchPay || 0) : 0;   // flat launch pay; $0 under half the hold (and for an empty hold)
+const firstLaunchPass = (c = S.cg) => !!CFG.econ.firstLaunchFree && !c.fl && !(c.launches > 0);   // gc-dockfix item 7: the save's first launch pays with any crate count
+const launchPayFor = (boxes, c = S.cg) => boxes >= 1 && (boxes >= launchMinBoxes() || firstLaunchPass(c)) ? (CFG.econ.launchPay || 0) : 0;   // flat launch pay; $0 under half the hold (and for an empty hold), except the first launch
 function cargoPop(amt) {
   if (S.site === PADI && Math.abs(camX - PX) < 3 && !document.hidden && cg3.ship) { const sp = toScreen(cg3.ship.position.x, cg3.ship.position.y + 6, cg3.ship.position.z); pop('+' + fmt(amt), sp.x, sp.y, 'bonus big'); bumpMoney(); }
   else smallPop(amt);
@@ -2585,10 +2596,10 @@ const _dh = new THREE.Vector3();
 // hid every box behind the next (4 stored read as 1). Back slot of each row/layer first (1, 6, 11, 16), then one step nearer: every new box lands in view
 const dkSlot = (k) => { if (k > CPH.dock.slots) k = CPH.dock.slots - 1 + ((k - 1) % 2); return [0, 5, 10, 15][(k - 1) % 4] + Math.floor((k - 1) / 4) + 1; };   // ca-dock: boxes 21..40 have no Art slot: they set onto / lift off the top pair (19/20), so none vanishes mid-clip
 function dockFrame(c, t) {
-  const D = CPH.dock, a = c.dka, e = a ? (t - a.t0) / 1000 : 1e9, end = D.settle + 2 * D.clipSec, act = e >= 0 && e < end, want = {};
+  const D = CPH.dock, a = c.dka, e = a ? (t - a.t0) / 1000 * dockClipEnd() / dockAnimSec(a) : 1e9, end = dockClipEnd(), act = e >= 0 && e < end, want = {};   // gc-dockfix: the clip pair is time-scaled into the store stop (dka.s)
   if (act && e >= D.settle) { const j = e < D.settle + D.clipSec ? 0 : 1, sl = a.k === 'store' ? a.n + 1 + j : a.n - j;
     want[(a.k === 'store' ? 'Store_' : 'Load_') + (j ? 'B' : 'A') + '_Slot_' + String(dkSlot(sl)).padStart(2, '0')] = e - D.settle - j * D.clipSec; }
-  if (c.fb.st === 'dock') { const el = (t - c.fb.t0) / 1000; want.dock_door_open = clamp(Math.min(el, dockSec(c.fb) - el), 0, 2.5); }
+  if (c.fb.st === 'dock') { const el = (t - c.fb.t0) / 1000; want.dock_door_open = clamp(Math.min(el, dockSec(c.fb) - el) * (c.fb.dk === 'store' ? D.storeSec / dockSec(c.fb) : 1), 0, 2.5); }   // gc-dockfix: door scaled like the store clips
   if (DK.mx) {
     for (const n in DK.on) if (!(n in want)) { DK.on[n].stop(); delete DK.on[n]; }
     for (const n in want) { const cl = DK.clips[n]; if (!cl) continue; const x = DK.on[n] || (DK.on[n] = DK.mx.clipAction(cl)); if (!x.isRunning()) { x.play(); x.paused = true; } x.time = clamp(want[n], 0, cl.duration - 1e-4); }
@@ -2639,8 +2650,9 @@ const _sp = {};
 function cargoUI() {                  // Launch button (bottom-right of the safe band, Launch Pad only) and the Storage full chip (over the Refinery pallet)
   const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen, bd = band();
   dockCounter(bd);   // ca-dock
-  const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && canLaunch(t);
-  if (onPad) { const sm = launchEl.querySelector('small'), tx = `LAUNCH PAY +${fmt(launchPayFor(c.sh.hold))}${launchPayFor(c.sh.hold) > 0 ? '' : ` · NEEDS ${launchMinBoxes()}`}\nDROP-OFF +${fmt(dropoffPay(c.sh.hold))} · ${c.sh.hold}/${CG.holdCap}`; if (sm.textContent !== tx) sm.textContent = tx; }   // payout ticket: two values (launch pay, drop-off)
+  const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && launchReady(t), lp = launchPayFor(c.sh.hold);
+  if (onPad) { const dim = !(lp > 0), lock = dim && launchBlocked(); if (launchEl.classList.contains('dim') !== dim) launchEl.classList.toggle('dim', dim); if (launchEl.classList.contains('lock') !== lock) { launchEl.classList.toggle('lock', lock); launchEl.disabled = lock; } }   // gc-dockfix item 2: gold only when the launch pays; 'dim' allow0 (tappable), 'lock' block (grey, untappable)
+  if (onPad) { const sm = launchEl.querySelector('small'), tx = `LAUNCH PAY +${fmt(lp)}${lp > 0 ? '' : ` · NEEDS ${launchMinBoxes()}`}\nDROP-OFF +${fmt(dropoffPay(c.sh.hold))} · ${c.sh.hold}/${CG.holdCap}`; if (sm.textContent !== tx) sm.textContent = tx; }   // payout ticket: two values (launch pay, drop-off)
   { const y = Math.round(bd.bot - LAUNCH_H) + 'px'; if (launchEl.style.top !== y) launchEl.style.top = y; }   // gc-ui2 (item 9): placed every frame, shown or not (it was display:none → offsetHeight 0 on its first frame → a 54 px jump)
   launchEl.classList.toggle('on', onPad);
   const full = live && S.site === REF && Math.abs(camX - RX) < 3 && c.ref.length >= CG.palletCap;
@@ -2657,7 +2669,8 @@ function cargoUI() {                  // Launch button (bottom-right of the safe
   const k = st === 'pad' ? (f >= 1 ? (c.sh.hold >= 1 ? 'full' : 'wait') : fuelNow(t).stall ? 'nofuel' : 'fuel') : st;   // fuel / nofuel (stock 0: fills at the make rate) / full / wait (full, 0 boxes: same S.cg.sh.hold as canLaunch) / launch / away / land
   if (q !== FG.q) { FG.q = q; fgFill.style.transform = 'scaleX(' + (q / 400) + ')'; }
   if (k !== FG.k) { FG.k = k; fgEl.classList.toggle('full', k === 'full' || k === 'wait'); fgEl.classList.toggle('wait', k === 'wait'); fgEl.classList.toggle('nofuel', k === 'nofuel'); fgLbl.textContent = k === 'full' ? 'FUEL FULL' : k === 'wait' ? 'AWAITING CARGO' : k === 'nofuel' ? 'WAITING FOR FUEL' : k === 'board' ? 'BOARDING' : k === 'launch' ? 'BURN' : k === 'away' ? 'SHIP AWAY' : k === 'land' ? 'LANDING' : 'FUEL'; FG.p = -1; }
-  if (pc !== FG.p) { FG.p = pc; fgPct.textContent = k === 'away' || k === 'land' ? '—' : pc + '%'; }
+  const cd = k === 'away' || k === 'land' ? Math.max(0, Math.ceil(((c.sh.st === 'away' ? c.sh.t0 + (CG.awaySec + CG.landSec) * 1000 : c.sh.t0 + CG.landSec * 1000) - t) / 1000)) : -1;   // gc-dockfix item 5: m:ss to touchdown from the saved trip stamps
+  const pk = cd >= 0 ? -2 - cd : pc; if (pk !== FG.p) { FG.p = pk; fgPct.textContent = cd >= 0 ? Math.floor(cd / 60) + ':' + String(cd % 60).padStart(2, '0') : pc + '%'; }
 }
 
 // ===== Cargo Bay label (Director 10/25): floating 'CARGO BAY' / '<stored>/<max> crates' over the Cargo Space Dock, in the FUEL panel's HUD style.
@@ -2856,9 +2869,9 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   truck: { name: 'Haul Truck', ico: 'truck', info: true, big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: () => 'More trucks coming soon' },
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
   ship: { name: 'Cargo Ship', ico: 'ship', launch: true, kick: 'Launch',
-    big: () => [`${S.cg.sh.hold}/${CG.holdCap}`, 'boxes aboard'],
+    big: () => [`${S.cg.sh.hold}/${CG.holdCap}`, 'crates aboard'],
     sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? 'On the way to Earth' : 'Landing'; },
-    btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (s.st !== 'pad') return ['In flight', false]; if (s.req) return ['Launching…', false];
+    btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (s.st !== 'pad') return ['In flight', false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fuelling' : 'Awaiting cargo', false]; },
     buy: () => { if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
   // gc-ui2 (item 3): station buildings with no upgrades yet
@@ -3167,14 +3180,18 @@ const EVE_BEATS = [
   { id: 'upgrade_ready', tut: true, silent: true, point: null, lines: ["You've got the cash for an upgrade. Bigger mine, bigger loads. Tap the drill to upgrade it."] },
   // 10/29 (was cargo_early, Director 20:34: rang at 2 boxes and asked for a partial launch): Eve calls for a launch ONLY at a full hold (10/10), first launch only.
   // A full, fuelled ship lifts off on its own (cgDecide), so there is no Launch pointer; an early launch by hand still works and still pays per crate.
-  { id: 'cargo_full', tut: true, point: null, lines: ["Moonbase, Eve here. The ship's hold is full: ten He-3 boxes aboard. Time to launch.",
-    "With her tanks full she lifts off for Earth on her own. Earth pays for every box. Over."] },
+  { id: 'cargo_full', tut: true, point: null, lines: ["Moonbase, Eve here. The ship's hold is full: ten He-3 crates aboard. Time to launch.",
+    "With her tanks full she lifts off for Earth on her own. Earth pays for every crate. Over."] },
+  // gc-dockfix item 8: a new save's one first-action hint (rings once: S.eve), when the first crate is aboard and the first launch has not happened
+  { id: 'first_launch', tut: true, point: 'launch', lines: ["Moonbase, Eve here. Your first He-3 crate is aboard the ship on the Launch Pad.",
+    "Send her up now. Earth pays $20,000 for her first flight, however many crates she carries. Over."] },
 ];
 const EVE_TRIG = {
   mine_first_view: () => S.site === MINE && coverGone && Math.abs(camX - MX) < 1,
   first_deposit: () => depsOn() && S.dep >= 1,                   // deposits off: never rings (no rich loads)
   upgrade_ready: () => S.drill <= 1 && (S.dep >= 1 || !depsOn()) && canPay(drillCost()) && !sheetOpen,   // gc-ui3 (item 2): only while the drill has never been bought
-  cargo_full: () => S.cg.launches === 0 && S.cg.sh.hold >= CG.holdCap,   // full hold only (pad, boarding or lift-off: hold stays 10 until departure); never at 1..9
+  cargo_full: () => S.cg.launches === 0 && S.cg.sh.hold >= CG.holdCap,
+  first_launch: () => S.cg.launches === 0 && firstLaunchPass() && S.cg.sh.st === 'pad' && !S.cg.sh.req && S.cg.sh.hold >= 1 && S.cg.sh.hold < CG.holdCap,   // never on a save that already launched   // full hold only (pad, boarding or lift-off: hold stays 10 until departure); never at 1..9
 };
 const ECM = { toastIn: 420, tapOut: 160, typeStart: 420, charMs: 30, commaMs: 120, stopMs: 240, closeCrt: 120, closeSlide: 260, toastTimeout: 8000, rmFade: 150 };
 const ecRoot = $('ec'), ecToast = $('ecToast'), ecPanel = $('ecPanel'), ecTxt = $('ecTxt'), ecTx = $('ecTx'), ecBubble = $('ecBubble'), ecBadge = $('ecBadge');
@@ -3522,7 +3539,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); updMet(); },
-  get cargo() { return cargoState(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, get cargoLog() { return CG_LOG.slice(); },
+  get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },

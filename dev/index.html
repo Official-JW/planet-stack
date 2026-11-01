@@ -154,6 +154,15 @@ body.up-open #name{visibility:hidden}
   --ri:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2c3 2.5 4.5 6 4.5 10l2.5 3v3l-3-1.5-1 1.5h-6l-1-1.5-3 1.5v-3l2.5-3C7.5 8 9 4.5 12 2zm0 6a1.6 1.6 0 1 0 0 3.2A1.6 1.6 0 0 0 12 8zm-2 12h4l-2 2.5z'/%3E%3C/svg%3E")}
 #launchBtn b{font:800 15px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#ffe2a8;text-shadow:0 0 8px #ffb34099}
 #launchBtn small{font:700 9px/1.2 system-ui;font-stretch:condensed;letter-spacing:.14em;color:#c9d3e6;opacity:.85;white-space:pre}
+/* gc-dockfix item 2: under the launch-pay minimum. dim = CFG.econ.launchBelowMin 'allow0' (not gold, still tappable); lock = 'block' (grey, untappable) */
+#launchBtn.dim::before{background:linear-gradient(110deg,#7d8698,#b4bccb 45%,#3ad0ff66);filter:none}
+#launchBtn.dim i{background:#b4bccb;filter:none}
+#launchBtn.dim b{color:#d4dae6;text-shadow:none}
+#launchBtn.on.lock{pointer-events:none;cursor:default;opacity:.6;filter:grayscale(1)}
+#launchBtn.lock::before{background:#4a5160}
+#launchBtn.lock i{background:#7a8191}
+#launchBtn.lock b{color:#8e95a4}
+#launchBtn.lock small{opacity:.7}
 @keyframes lbIn{from{opacity:0}to{opacity:1}}
 #storeChip{position:fixed;left:0;top:0;z-index:5;display:none;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;pointer-events:none;isolation:isolate;font:800 10px/1 system-ui;font-stretch:condensed;letter-spacing:.2em;color:#ffd0a0;white-space:nowrap}
 #storeChip.on{display:flex}
@@ -247,7 +256,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="DEV · 20:26">
+<body data-tag="DEV · 22:02">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <div id="hud" class="ec-hud">
@@ -355,6 +364,6 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 <div id="devStop" role="alertdialog" aria-label="Game stopped" hidden><div class="gbox"><div class="k">PLANET STACK <span class="devtag">DEV</span></div><h2>Can't play here</h2><p id="devStopMsg"></p><p class="sub" id="devStopSub"></p><button id="devStopBtn" hidden>RELOAD</button></div></div>
 <div id="devToast" role="status"></div>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../dev/main.js?v=dev2026"></script>
+<script type="module" src="../dev/main.js?v=dev2202"></script>
 <script src="../dev/bugreport.js?v=dev1006"></script>
 </body></html>
