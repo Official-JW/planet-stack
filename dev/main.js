@@ -860,6 +860,64 @@ function applyRigLevel() {
   if (!mine) return;
   glowMats.forEach(m => m.emissiveIntensity = m.userData.ei0 * (1 + 0.12 * Math.min(S.drill - 1, 8)));
 }
+// ===== ca-minerevamp (EM 12:17 PST, GD OK): hooks for A&A's revamped Mine GLB (art_next/mine_revamp; NOT swapped in, MINE_GLB unchanged). Every node is
+// optional: a GLB without it (the live a60eae4b Mine today) keeps today's behaviour exactly.
+//  1 Chute_Glow (child of Chute): the Chute's upgrade glow. Hidden at load, shown from Chute Lv 2 (S.chute > 1) and while the Chute's tap / afford pulse runs;
+//    it is the Chute's glow target (UPT 'chute' hl). Missing: hl stays Conveyor + Silo, nothing shown or hidden.
+//  2 OrePath_Bin_00..NN (drill -> bin) and OrePath_Silo_00..NN then Chute_Exit (silo -> chute exit), empties in flow order: ore chunks (1 instanced mesh) ride them.
+//    With either path the rig digs from a storage buffer MR.st (0..1, visual only, never touches the economy): it digs while the truck fills OR the bin
+//    has room, so the drill + belt keep running between trucks until the bin is full (a Mine hold fills it, then the drill stops). Bin path runs while
+//    digging, silo path while a truck fills. No path: setDigging(truck filling) exactly as today.
+//  3 Silo_BinFill (origin on the bin floor): scale Y = MR.st. Gauges: any node named *Gauge* with Needle (rotation Z, extras.sweep rad, default -1.5 pi)
+//    or Fill / Bar / Level (scale Y) in its name follows MR.st. None in a60eae4b.
+//  4 Dust empty at the bit tip (first of MR_DUST_N): 16 pooled instanced puffs (1 draw, no per-frame allocations) while the rig digs.
+const MR = { on: false, glow: null, fill: null, fy: 1, gauges: [], gnames: [], dustAt: null, segs: [null, null], st: .5, ph: [0, 0], ore: null, dust: null, dp: [], dk: 0, di: 0, fillNow: false };
+const MR_GAP = .9, MR_V = 1.4, MR_ORE = 48, MR_DUST = 16, MR_DIG = 1, MR_DRAIN = 1.5, MR_DUST_N = ['Drill_Dust', 'Dust', 'Bit_Dust', 'Bit_Tip', 'Drill_Tip', 'Dust_Emit'];
+const _mrv = new THREE.Vector3(), _mrm = new THREE.Matrix4(), _mrq = new THREE.Quaternion(), _mrs = new THREE.Vector3(), _mre = new THREE.Euler();
+function mrSeq(pre) { const a = []; mine.traverse(o => { if (o.name.startsWith(pre) && /^\d+$/.test(o.name.slice(pre.length))) a.push(o.name); });
+  return a.sort((x, y) => +x.slice(pre.length) - +y.slice(pre.length)); }
+function mrPath(names) {               // world points + cumulative lengths; null under 2 points
+  const P = []; for (const n of names) { const o = mine.getObjectByName(n); if (o) P.push(o.getWorldPosition(new THREE.Vector3())); }
+  if (P.length < 2) return null; const L = [0]; for (let i = 1; i < P.length; i++) L.push(L[i - 1] + P[i].distanceTo(P[i - 1]));
+  const len = L[L.length - 1]; return len > .05 ? { P, L, len, gap: Math.max(MR_GAP, len / MR_ORE) } : null;
+}
+function mrAt(T, d, out) { let i = 0; while (i < T.L.length - 2 && T.L[i + 1] < d) i++; const a = T.L[i], b = T.L[i + 1]; return out.lerpVectors(T.P[i], T.P[i + 1], b > a ? (d - a) / (b - a) : 0); }
+function buildMineRev() {
+  MR.glow = mine.getObjectByName('Chute_Glow') || null; if (MR.glow) MR.glow.visible = S.chute > 1;
+  MR.fill = mine.getObjectByName('Silo_BinFill') || null; if (MR.fill) MR.fy = MR.fill.scale.y;
+  MR.gauges.length = 0; MR.gnames.length = 0;
+  mine.traverse(o => { if (!/gauge/i.test(o.name)) return; MR.gnames.push(o.name); const nd = /needle/i.test(o.name) ? 1 : /fill|bar|level/i.test(o.name) ? 2 : 0;
+    if (nd) MR.gauges.push({ o, nd, r0: o.rotation.z, y0: o.scale.y, sw: Number.isFinite(+(o.userData && o.userData.sweep)) && o.userData.sweep !== undefined ? +o.userData.sweep : -Math.PI * 1.5 }); });
+  MR.dustAt = null; for (const n of MR_DUST_N) { const o = mine.getObjectByName(n); if (o) { MR.dustAt = o; break; } }
+  MR.segs[0] = mrPath(mrSeq('OrePath_Bin_')); MR.segs[1] = mrPath(mrSeq('OrePath_Silo_').concat(['Chute_Exit']));
+  MR.on = !!(MR.segs[0] || MR.segs[1]);
+  if (MR.on && !MR.ore) { MR.ore = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.13, 0), new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: .85, emissive: 0x0a3a48 }), MR_ORE);
+    MR.ore.frustumCulled = false; MR.ore.count = 0; MR.ore.name = 'MR_Ore'; scene.add(MR.ore); }
+  if (MR.dustAt && !MR.dust) { MR.dust = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.22, 0), new THREE.MeshLambertMaterial({ color: 0xa89a86, transparent: true, opacity: .45, depthWrite: false }), MR_DUST);
+    MR.dust.frustumCulled = false; MR.dust.name = 'MR_Dust'; for (let i = 0; i < MR_DUST; i++) { MR.dust.setMatrixAt(i, ZERO); MR.dp.push({ t: -1, x: 0, y: 0, z: 0, vx: 0, vz: 0 }); } scene.add(MR.dust); }
+  Object.defineProperty(window.__ps3d, 'mineRev', { configurable: true, get: () => ({ on: MR.on, glow: !!MR.glow, glowOn: !!(MR.glow && MR.glow.visible), fill: !!MR.fill, gauges: MR.gnames.slice(),
+    dust: MR.dustAt ? MR.dustAt.name : null, bin: MR.segs[0] && +MR.segs[0].len.toFixed(2), silo: MR.segs[1] && +MR.segs[1].len.toFixed(2), st: +MR.st.toFixed(3), ore: MR.ore ? MR.ore.count : 0 }) });
+}
+function mrChuteHL() { if (!MR.glow) return null; MR.glow.visible = true; return [MR.glow]; }   // shown before hlStart / glowStart read it; updMineRev settles it next frame
+function updMineRev(dt) {
+  if (!mine) return; dt = Math.min(Math.max(dt, 0), .1);
+  const fillNow = MR.fillNow, digB = fillNow || MR.st < 1;
+  MR.st = clamp(MR.st + ((digB ? MR_DIG : 0) - (fillNow ? MR_DRAIN : 0)) * dt / fillSec(), 0, 1);
+  if (MR.glow) { const v = S.chute > 1 || !!GLOW.on.chute || (HL.t >= 0 && HL.id === 'chute'); if (MR.glow.visible !== v) MR.glow.visible = v; }
+  if (MR.fill) { MR.fill.visible = MR.st > .005; MR.fill.scale.y = MR.fy * Math.max(MR.st, .005); }
+  for (const g of MR.gauges) { if (g.nd === 1) g.o.rotation.z = g.r0 + g.sw * MR.st; else g.o.scale.y = g.y0 * Math.max(MR.st, .005); }
+  if (MR.ore) { let k = 0;
+    for (let s = 0; s < 2; s++) { const T = MR.segs[s]; if (!T || !(s === 0 ? digB : fillNow)) continue; MR.ph[s] = (MR.ph[s] + MR_V * dt) % T.gap;
+      for (let d = MR.ph[s]; d < T.len && k < MR_ORE; d += T.gap) { mrAt(T, d, _mrv); _mrq.setFromEuler(_mre.set(d * 3.1, d * 1.7, 0)); _mrs.setScalar(1); MR.ore.setMatrixAt(k++, _mrm.compose(_mrv, _mrq, _mrs)); } }
+    if (k || MR.ore.count) { MR.ore.count = k; MR.ore.instanceMatrix.needsUpdate = true; } }
+  if (MR.dust) { MR.dk -= dt; let any = false;
+    if (digOn === true && MR.dk <= 0) { MR.dk = .12; const p = MR.dp[MR.di = (MR.di + 1) % MR_DUST]; MR.dustAt.getWorldPosition(_mrv);
+      p.t = 0; p.x = _mrv.x; p.y = _mrv.y; p.z = _mrv.z; p.vx = (Math.random() - .5) * .8; p.vz = (Math.random() - .5) * .8; }
+    for (let i = 0; i < MR_DUST; i++) { const p = MR.dp[i]; if (p.t < 0) continue; p.t += dt; const u = p.t / 1.1; any = true;
+      if (u >= 1) { p.t = -1; MR.dust.setMatrixAt(i, ZERO); continue; }
+      _mrv.set(p.x + p.vx * u, p.y + .7 * u, p.z + p.vz * u); _mrs.setScalar((.4 + 1.4 * u) * (1 - u * u)); MR.dust.setMatrixAt(i, _mrm.compose(_mrv, _mrq.identity(), _mrs)); }
+    if (any) MR.dust.instanceMatrix.needsUpdate = true; }
+}
 // the cover never fades onto empty ground: it stays until the Mine (and the truck, or its failure) is in the scene
 let coverTimer = 0;
 function armCoverTimer() { clearTimeout(coverTimer); coverTimer = setTimeout(() => { coverTimer = 0; if (!rigLoaded) { console.warn('Mine GLB still loading after 15 s'); $('coverTx').textContent = 'Still loading…'; } }, 15000); }
@@ -913,7 +971,7 @@ function loadRig() { loader.load(MINE_GLB, (gltf) => {
   scene.add(mine); mine.updateMatrixWorld(true);
   rig = mine.getObjectByName('Rig');
   stationObjs[MINE] = mine; mine.userData.camTarget = camTargetOf(mine); mine.userData.camOv = camOvFor(MINE_GLB);
-  buildTiers(); applyTiers(0);
+  buildTiers(); applyTiers(0); buildMineRev();   // ca-minerevamp: optional revamp nodes (none in a60eae4b)
   mixer = new THREE.AnimationMixer(mine);
   for (const c of gltf.animations) acts[c.name] = mixer.clipAction(c);
   for (const n of ['dig', 'conveyor_run']) if (acts[n]) acts[n].play();
@@ -2021,7 +2079,7 @@ function updTruck() {
   for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (o.ph === 'fill') TC = G;
     let shown = o.fill; if (o.ph === 'fill' && richTw && tkOf(i) === chuteTk()) { const u = (t - richTw.at) / 1000; if (u >= 1 || u < 0) richTw = null; else shown -= richTw.amt * (1 - fss(u)); }
     o.shown = clamp(shown, 0, 1); }
-  setDigging(TC.ts.ph === 'fill' && TC.ts.fill < 1);
+  MR.fillNow = TC.ts.ph === 'fill' && TC.ts.fill < 1; setDigging(MR.on ? MR.fillNow || MR.st < 1 : MR.fillNow);   // ca-minerevamp: storage buffer only with OrePath_* nodes
   if (TS.ph !== TS.last) { (window.__ps3d.phases = window.__ps3d.phases || []).push({ ph: TS.ph, at: t }); if (window.__ps3d.phases.length > 40) window.__ps3d.phases.shift(); TS.last = TS.ph; }
   if (n > 1 && TS2.ph !== TS2.last) { (window.__ps3d.phases2 = window.__ps3d.phases2 || []).push({ ph: TS2.ph, at: t }); if (window.__ps3d.phases2.length > 40) window.__ps3d.phases2.shift(); TS2.last = TS2.ph; }
   const v2 = n > 1 && TS2.ph !== 'off'; if (truck2Root && truck2Root.visible !== v2) truck2Root.visible = v2;
@@ -3338,7 +3396,7 @@ function upBox(nodes, hx, y1, hz, b) {   // world box around marker nodes: ±hx 
 }
 const UPT = [
   { id: 'drill', p: 'drill', site: MINE, objs: () => nodesOf(mine, ['Rig', 'Tier_20']), hl: () => nodesOf(mine, ['Rig']) },
-  { id: 'chute', p: 'chute', site: MINE, objs: () => nodesOf(mine, ['Conveyor', 'Silo']), hl: () => nodesOf(mine, ['Conveyor', 'Silo']) },
+  { id: 'chute', p: 'chute', site: MINE, objs: () => nodesOf(mine, ['Conveyor', 'Silo']), hl: () => mrChuteHL() || nodesOf(mine, ['Conveyor', 'Silo']) },   // ca-minerevamp: Chute_Glow when the GLB has it
   { id: 'refinery', p: 'purity', site: REF, objs: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Tier_05', 'Tier_08', 'Base_GlowRed']), hl: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Base_GlowRed']) },
   { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBox(n, 4, 9, 4, b) : null; }, hl: () => [] },
   { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBox(n, 3, 8, 3, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
@@ -3480,7 +3538,7 @@ function hlEnd() {
   clearTimeout(HL.to); HL.list.length = 0; HL.t = -1; window.__ps3d.hlOn = false;
 }
 function hlStart(t, r) {
-  hlEnd();
+  hlEnd(); HL.id = t.id;
   for (const root of t.hl()) root.traverse((m) => {
     if (!m.isMesh || !m.visible || !m.material) return;
     const orig = m.material, arr = Array.isArray(orig) ? orig : [orig];
@@ -4103,7 +4161,7 @@ function frame() {
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
   updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
   updCargo();
-  updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
+  updTruck(); updMineRev(gdt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). updTruck poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
   if (t2Mixer && fleetN() > 1) t2Mixer.update(gdt);   // ca-truckrot: Truck 2's clips
   updMet();
