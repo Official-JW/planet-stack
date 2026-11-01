@@ -1078,7 +1078,11 @@ function fadeObj(o, a) {              // whole-object opacity (own material copi
 // hidden through launch / away / landing, fades back in at his usual spot from touchdown.
 function rxAlpha(c = S.cg, t = nowMs()) { const s = c.sh; if (!BOARD_SEC) return 1;
   return s.st === 'pad' ? (c.launches ? fss((t - s.t0) / (BCAM.rxFade * 1000)) : 1) : s.st === 'board' ? 1 - fss((t - s.t0 - BCAM.in * 1000) / (BCAM.rxFade * 1000)) : 0; }
-function crewOnPad() { if (cg3 && cg3.astro) fadeObj(cg3.astro, rxAlpha()); }
+// Old pad Receiver hidden (EM/Director 11/01 00:34): CA 6a80's break room Cargo Handler (cargo_handler_breakroom_v3d, 2010584) replaces him.
+// Backed up behind this flag, not deleted: ?oldrecv=1 shows him again for comparison. Only his draw is gated: the Receiver GLB still loads and
+// rxPose / astroPhase / the cargo sim (S.cg.as, crate hand-off timing) run unchanged, so no gameplay change; he has no tap target or card.
+const OLD_RECV = QD.get('oldrecv') === '1';
+function crewOnPad() { if (cg3 && cg3.astro) fadeObj(cg3.astro, OLD_RECV ? rxAlpha() : 0); }
 function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = Mine operator, Cargo Manager = Receiver + his climber (CREW_BOARD: Crew_2), Mechanic = his climber (Crew_1)
   // (Cargo Manager is 2 only inside the boarding crossfade: cmA = his summed opacity, cmFull = his fully opaque figures)
   const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
@@ -2723,7 +2727,7 @@ function updCargo() {
   const py0 = c.pc.k === 'unload' ? FBS.yaw : 0, py1 = c.pc.k === 'unload' ? 0 : cg3.holdDoor ? cg3.holdDoorYaw : cg3.holdYaw[s.hold] || 0;
   if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp, carryYaw(v, py0, py1));
   for (const b of cg3.boxParts) { b.im.count = nBox; b.im.instanceMatrix.needsUpdate = true; if (nBox) b.im.computeBoundingSphere(); }   // culled with the camera off-site
-  window.__ps3d.cargoFrame = { boxes: nBox, astro: ap, rxClip: cg3.rx ? cg3.rx.cur : null, fb: FBS.ph, v: +FBS.v.toFixed(2), art: Object.keys(CART.ok).filter(k => CART.ok[k]) };
+  window.__ps3d.cargoFrame = { boxes: nBox, astro: ap, oldRecv: OLD_RECV, rxClip: cg3.rx ? cg3.rx.cur : null, fb: FBS.ph, v: +FBS.v.toFixed(2), art: Object.keys(CART.ok).filter(k => CART.ok[k]) };
 }
 // ===== Cargo Dock v4 (Art 8ca56d1): GC-1 Store_/Load_{A|B}_Slot_NN clips on their own mixer, time-driven from S.cg.dka (pure function of the save + now,
 // so a reload mid-dwell resumes at the same pose); dock_door_open opens over the first 2.5 s of the dwell and closes over the last; boxes at Slot_NN / Hook_Attach
