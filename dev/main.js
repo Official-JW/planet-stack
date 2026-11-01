@@ -214,6 +214,7 @@ function devHalt(text, why) { if (DEVHALT) return; DEVHALT = true; window.__ps3d
   try { MUS.ctx && MUS.ctx.suspend(); } catch (e) {}
   const rc = document.getElementById('recon'); if (rc) { rc.classList.remove('on'); rc.hidden = true; }
   devStopShow(text, true, why === 'tab' ? 'This tab has stopped. Your game carries on in the other tab.' : 'This tab has stopped. Reload to try again.');
+  if (why === 'in_use') { try { devRetakeStart(); } catch (e) {} }   // lock return fix 10/31: another device has the code; take it back here once it lets go (see devRetake)
 }
 addEventListener('pagehide', () => { try { window.PS_DEV.lock.release(); } catch (e) {} tabRelease(); });   // Worker lock first, while we still own the tab lock
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tabBeat(); });
@@ -293,16 +294,19 @@ let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
 const nowMs = () => (HOLD !== null ? HOLD : rawMs());
-const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, fuelLv: 1, purLv: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 2, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29)
+const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, fuelLv: 1, purLv: 1, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 3, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29)
 let hadRt = false;
 try { let sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; hadRt = sv.rt > 0;
   migrateSave(sv, hadRt); Object.assign(S, sv); } catch (e) {}
 // S.site is a station index, so a save keeps its named station across station-order changes (each step runs once):
 //   11:12 and older saves (no 'chute'): the Refinery slot (index 2) shifts the later stations by one;
 //   ord < 2 (18:44 and older order LS, Mine, Refinery, Pad, Dock, Habitat, Shipyard, Eng): Pad 3→4, Dock 4→3, Habitat 5→6, Shipyard 6→5 (Director 10/24 order)
+//   ord < 3 (before the Life Support move 10/31): no index changes (Life Support stays index 0, only its x moves 0 → 910, see SX); a bad or
+//   out-of-range site goes back to the Mine (the new-game default). The camera starts at SX[site], so an old save on Life Support opens at 910.
 function migrateSave(sv, hadRt) {
   if (hadRt && !('chute' in sv) && sv.site >= 2) sv.site++;
   if (!(sv.ord >= 2)) { const m = { 3: 4, 4: 3, 5: 6, 6: 5 }; if (hadRt && sv.site in m) sv.site = m[sv.site]; sv.ord = 2; }
+  if (!(sv.ord >= 3)) { if ('site' in sv && !(Number.isInteger(sv.site) && sv.site >= 0 && sv.site < 8)) sv.site = 1; sv.ord = 3; }
   // ev < 1 (6df2e40 and older, pre Phase 1 econ): money, levels and every loop stamp are kept as saved (no wipe, no re-pay); a key holding a
   // non-number or non-finite value is dropped so the new-game default fills it instead of NaN spreading. A truck mid-trip just tips for $0 now.
   if (!(sv.ev >= 1)) {
@@ -339,6 +343,18 @@ function qaShift(d) { shiftTk(d); S.rt += d; for (const a of [S.log, S.calls]) i
 const STATIONS = ['Life Support', 'Mine', 'Refinery', 'Cargo Space Dock', 'Takeoff & Landing', 'Shipyard', 'Habitat', 'Engineering'];   // Director 10/24 order (x = i·160: 0, 160, 320, 480, 640, 800, 960, 1120)
 const GAP = 160, N = STATIONS.length, MINE = 1, MX = MINE * GAP, REF = 2, RX = REF * GAP;   // stations 160 m apart, origin = i·160 on X
 const DOCKI = 3, PADI = 4, SHIPI = 5, HABI = 6;   // Cargo Space Dock x 480, Launch Pad x 640, Shipyard x 800, Habitat x 960
+// Life Support move (Director 10/31): per-station x. Indices stay as they are (saves, UPT targets, cards, STATION_GLB); only the x moves.
+// Life Support 910 sits between Shipyard 800 and Habitat 960; the others stay at i·160. Swipe / snap / dots / keys follow x order (ORD), not index:
+// Mine, Refinery, Dock, Pad, Shipyard, Life Support, Habitat, Engineering. RANK[i] = place of station i in that order.
+const SX = STATIONS.map((n, i) => i === 0 ? 910 : i * GAP);
+const ORD = SX.map((x, i) => i).sort((a, b) => SX[a] - SX[b]), RANK = []; ORD.forEach((s, r) => { RANK[s] = r; });
+const stepSite = (i, dir) => ORD[Math.max(0, Math.min(N - 1, RANK[i] + dir))];   // neighbour in x order (clamped at the ends)
+function nearSite(x) { let b = 0; for (let i = 1; i < N; i++) if (Math.abs(x - SX[i]) < Math.abs(x - SX[b])) b = i; return b; }   // station whose x is closest
+const _seg = { i0: 0, i1: 0, u: 0 };
+function camSeg(x) {               // the two x-order neighbours around x and the 0..1 blend between them (was f = x / GAP); no allocation
+  let r = 0; while (r < N - 2 && x > SX[ORD[r + 1]]) r++;
+  const a = SX[ORD[r]], b = SX[ORD[r + 1]]; _seg.i0 = ORD[r]; _seg.i1 = ORD[r + 1]; _seg.u = Math.max(0, Math.min(1, (x - a) / (b - a))); return _seg;
+}
 // ===== pad REST camera (Director 10/25): the ship nodes the rest view is fitted to. A new pad / ship file only needs these names checked
 // (node /workspace/padcam_work/padfit.mjs <pad.glb> prints the fit). Every visible mesh under a matched node counts (skinned legs at their pose).
 // hull: whole-ship nodes; legs: landing-leg nodes (exact names or the regex). Both must match, else the CAM_OVERRIDE / Cam_Target rest frame is used.
@@ -549,12 +565,12 @@ const phBox = [];
 STATIONS.forEach((name, i) => {
   if (!SIZES[i]) return; const [w, h, d] = SIZES[i];
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), ph);
-  m.position.set(i * GAP, h / 2, 0); m.castShadow = m.receiveShadow = true; scene.add(m); phBox[i] = m;
+  m.position.set(SX[i], h / 2, 0); m.castShadow = m.receiveShadow = true; scene.add(m); phBox[i] = m;
 });
 // ===== passed station GLBs (Art): swap in for the gray box once loaded; tiers hidden; idle loops play; doors stay shut
 const DOCK = { pipeLaunchPad: [37.70, 0.66, 7.30] };   // Dock-local glTF; read from the GLB on load (the Launch Pad pipe joins here)
 const STATION_GLB = [
-  { i: 0, url: 'models/life_support_adfaac9.glb?v=e8427ec4', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Cam_Target (0, 2.5, -12.5), frame_w 34
+  { i: 0, url: '../dev/models/life_support_ls6113fa89.glb?v=6113fa89', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Art 10/31 (GD option 3, Jacob approved): repo LS b4edef9a + LS_Pipes O2/water/return run to the Habitat back wall, leg at z -17, NO tank-farm stub hiding; LS-local coords (LS_PipeExit local 13.5 = world 923.5 at x 910), 12 draws
   { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
@@ -583,6 +599,7 @@ const CAM_OVERRIDE = {
   'c16d8565': { glb: 'cargo_dock_overhead_v4 (Art 8ca56d1 handoff)', ct: { x: 4.6 } },   // Art 01:29: centre x 489.5 → 484.6 (Dock + 4.6 m); y / z / frame_w 48 stay the GLB's Cam_Target
   '7959ae74': { glb: 'dock_tankfarm fd286b9', ct: { y: 1.5 }, frame_w: 66 },   // 03:4x (Director): Cam_Target y 2.5 → 1.5 and frame_w 64 → 66 so the footing clears 5 px at 375 with footings counted
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
+  '6113fa89': { glb: 'life_support_game_pipes_alt_z17 (repo LS b4edef9a + LS_Pipes, Art 10/31)', ct: { y: -3.58 }, frame_w: 47.6 },   // same LS framing as e8427ec4 (GLB Cam_Target is (0, -4.63, -12.5) W 38.5; override keeps the approved Director framing)
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
@@ -649,7 +666,7 @@ function fitSite(i) {
     o.updateMatrixWorld(true); if (ct) ct.getWorldPosition(_ct); else _ct.copy(o.position); const ov = ov0, fw = ov && ov.frame_w || ct.userData.frame_w;
     if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
     const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-    SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - i * GAP, dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
+    SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - SX[i], dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
     if (i === PADI) padRestApply();   // pad: the ship fit replaces this (kept as the fallback)
     return;
   }
@@ -662,12 +679,12 @@ function fitSite(i) {
   for (let k = 1; k < 24; k += .02) for (const ly of [CAM.lookY, (CAM.lookY + cy) / 2, cy]) {
     const d = camera.userData.dist * k; mc.position.set(cx, ly + d * Math.sin(e), cz + d * Math.cos(e)); mc.lookAt(cx, ly, cz); mc.updateMatrixWorld();
     const ps = c.map(p => toScreen(p[0], p[1], p[2], mc));
-    if (ps.every(p => p.x >= 12 && p.x <= W - 12 && p.y >= top && p.y <= bot)) { SITECAM[i] = { k, dx: cx - i * GAP, dz: cz, ly, ct: false }; return; }
+    if (ps.every(p => p.x >= 12 && p.x <= W - 12 && p.y >= top && p.y <= bot)) { SITECAM[i] = { k, dx: cx - SX[i], dz: cz, ly, ct: false }; return; }
   }
-  console.warn('fitSite: no fit for', STATIONS[i]); SITECAM[i] = { k: 24, dx: cx - i * GAP, dz: cz, ly: cy, ct: false };
+  console.warn('fitSite: no fit for', STATIONS[i]); SITECAM[i] = { k: 24, dx: cx - SX[i], dz: cz, ly: cy, ct: false };
 }
 for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
-  const o = gltf.scene; o.position.set(G.i * GAP, 0, G.z || 0);
+  const o = gltf.scene; o.position.set(SX[G.i], 0, G.z || 0);
   o.traverse(n => {
     if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; if (n.isSkinnedMesh) n.frustumCulled = false; }   // Refinery 93c44166: Base_Paint is skinned
     if (/^Tier_\d+/.test(n.name) || (n.userData && n.userData.hidden_by_default)) n.visible = false;
@@ -1099,7 +1116,7 @@ function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
 }, undefined, (e) => console.warn('crew boarding GLB failed (ship launches without crew)', e)); }
 
 // ===== camera framing (fixed camera, ~14 m wide in portrait)
-let camX = S.site * GAP, target = camX, W = 1, H = 1;
+let camX = SX[S.site], target = camX, W = 1, H = 1;
 function camDist(aspect) {
   const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   // short screens (iPhone SE): back off just enough that the full-size rig (Lv6+ incl. tier parts) tops out ≥104 px,
@@ -1113,7 +1130,7 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 function poseCam(cam, x) {
-  const f = clamp(x / GAP, 0, N - 1), i0 = Math.floor(f), i1 = Math.min(N - 1, i0 + 1), u = f - i0, sm = u * u * (3 - 2 * u);
+  const g = camSeg(x), i0 = g.i0, i1 = g.i1, u = g.u, sm = u * u * (3 - 2 * u);   // x-order neighbours (Life Support 910 sits between Shipyard and Habitat)
   const A = padCamAt(i0), B = padCamAt(i1), k = A.k + (B.k - A.k) * sm, dx = A.dx + (B.dx - A.dx) * sm, dz = A.dz + (B.dz - A.dz) * sm, ly = A.ly + (B.ly - A.ly) * sm;   // pad: rest ↔ load blend (padCamAt)
   let lx = x + dx, lyy = ly, lz = dz, kk = k;
   if (cam === camera && FOC.w > 0) { const w = FOC.w; lx += (FOC.lx - lx) * w; lyy += (FOC.ly - lyy) * w; lz += (FOC.lz - lz) * w; kk += (FOC.k - kk) * w; }   // tier focus blend
@@ -1163,7 +1180,7 @@ function fitBox(mc, b, k0, bb) {     // bb (optional): { top, bot, m } screen ba
   }
   t.fit = false; return t;
 }
-function focusHome(i) { const C = SITECAM[i]; return { lx: i * GAP + C.dx, ly: C.ly, lz: C.dz, k: C.k }; }
+function focusHome(i) { const C = SITECAM[i]; return { lx: SX[i] + C.dx, ly: C.ly, lz: C.dz, k: C.k }; }
 function focusTier(i, node) {
   if (!node || !camera.userData.dist || S.site !== i || drag) return 0;
   const vis = node.visible, sc = node.scale.x; node.visible = true; node.scale.setScalar(1); node.updateMatrixWorld(true);
@@ -1311,7 +1328,7 @@ function updPadCam(dt) {               // dt = wall-clock frame dt (not game spe
 }
 let shK = 1;
 function placeCamera() { poseCam(camera, camX);
-  const f = clamp(camX / GAP, 0, N - 1), i0 = Math.floor(f), A = SITECAM[i0], B = SITECAM[Math.min(N - 1, i0 + 1)], u = f - i0, k = A.k + (B.k - A.k) * u, dx = A.dx + (B.dx - A.dx) * u, dz = A.dz + (B.dz - A.dz) * u;
+  const g = camSeg(camX), A = SITECAM[g.i0], B = SITECAM[g.i1], u = g.u, k = A.k + (B.k - A.k) * u, dx = A.dx + (B.dx - A.dx) * u, dz = A.dz + (B.dz - A.dz) * u;
   if (Math.abs(k - shK) > .01) { shK = k; Object.assign(sun.shadow.camera, { left: -22 * k, right: 22 * k, top: 22 * k, bottom: -22 * k, far: 120 * k }); sun.shadow.camera.updateProjectionMatrix(); }
   sun.position.set(camX + dx - 30 * k, 22 * k, dz + 18 * k); sun.target.position.set(camX + dx, 0, dz); }
 const _v = new THREE.Vector3();
@@ -1322,11 +1339,11 @@ const mPerPx = () => (2 * camera.userData.dist * SITECAM[S.site].k * Math.tan(TH
 // ===== UI: tag, name, dots
 $('tag').textContent = document.body.dataset.tag + (DEV ? ' · DEV' : '');
 const nameEl = $('name'), dotsEl = $('dots');
-STATIONS.forEach((n, i) => { const b = document.createElement('button'); b.setAttribute('aria-label', n); dotsEl.appendChild(b); });
-function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === S.site)); }
-function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); closeUp('site'); } target = k * GAP; ui(); }
+ORD.forEach((i) => { const b = document.createElement('button'); b.setAttribute('aria-label', STATIONS[i]); dotsEl.appendChild(b); });   // dots in x order
+function ui() { nameEl.textContent = STATIONS[S.site]; [...dotsEl.children].forEach((b, i) => b.classList.toggle('on', i === RANK[S.site])); }
+function goSite(k) { k = clamp(k, 0, N - 1); if (k !== S.site) { S.site = k; save(); closeUp('site'); } target = SX[k]; ui(); }
 dotsEl.addEventListener('pointerdown', (e) => {   // 44 px tap band: nearest dot wins
-  e.stopPropagation(); cancelFocus('dot'); crewCancel('dot'); const r = dotsEl.getBoundingClientRect(); goSite(Math.round((e.clientX - r.left) / r.width * N - .5));
+  e.stopPropagation(); cancelFocus('dot'); crewCancel('dot'); const r = dotsEl.getBoundingClientRect(); goSite(ORD[clamp(Math.round((e.clientX - r.left) / r.width * N - .5), 0, N - 1)]);
 });
 ui();
 
@@ -1348,7 +1365,7 @@ canvas.addEventListener('pointermove', (e) => {
   const dx = e.clientX - drag.x0; drag.moved = Math.max(drag.moved, Math.hypot(dx, e.clientY - drag.y0));
   if (drag.moved > TAP_PX && FOC.i >= 0) cancelFocus('swipe');              // a swipe cancels a tier focus and takes over
   if (drag.moved > TAP_PX) closeUp('swipe');                                // UI-1: a swipe closes the open upgrade card (and, being a swipe, never opens one)
-  const lo = Math.max((drag.base - 1) * GAP, -GAP * .3), hi = Math.min((drag.base + 1) * GAP, GAP * (N - 1 + .3));
+  const rb = RANK[drag.base], lo = rb > 0 ? SX[ORD[rb - 1]] : SX[ORD[0]] - GAP * .3, hi = rb < N - 1 ? SX[ORD[rb + 1]] : SX[ORD[N - 1]] + GAP * .3;   // x-order neighbours; 0.3·GAP overscroll at the ends
   camX = clamp(drag.cx - dx * mPerPx(), lo, hi);
   drag.s.push([t, e.clientX]); while (drag.s.length > 2 && t - drag.s[1][0] > 250) drag.s.shift();
 });
@@ -1369,7 +1386,7 @@ function endDrag(e) {
   else if (Math.abs(v) > 0.35 && Math.abs(dx) >= 30) dir = v < 0 ? 1 : -1;   // a flick needs speed AND ≥30 px travel
   window.__ps3d.lastSwipe = { dx, v: +v.toFixed(3), dir, from: d.base };
   if (!dir && d.moved <= TAP_PX && t - d.t0 <= TAP_MS && !cancel) { camX = d.cx; tap(d.x0, d.y0, d.pk); }   // camX: undo the ≤ 12 px drag pan, so the pick sees the scene the finger went down on   // gc-ui2 (EM 15:52 item 1): lifted within 800 ms AND moved ≤ 12 px; picks at the touch-START point
-  goSite(d.base + dir);
+  goSite(stepSite(d.base, dir));   // one step in x order
 }
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('lostpointercapture', endDrag);
 
@@ -2729,7 +2746,7 @@ const UP_SETTLE = 0.3, UP_LATE = 0.3, UP_WAIT = 700, upPend = { x: 0, y: 0, t: 0
 let upTapAt = -1e9;   // gc-ui2: the touch's own trailing click lands on the card that just opened under the finger (it could hit Upgrade and buy): swallowed
 let upDownAt = 0; addEventListener('pointerdown', () => { upDownAt = performance.now(); }, true);   // a new press after the card opened is a real one: its click goes through
 addEventListener('click', (e) => { if (upDownAt < upTapAt && performance.now() - upTapAt < 700 && e.target instanceof Node && upEl.contains(e.target)) { upTapAt = -1e9; e.stopPropagation(); e.preventDefault(); } }, true);
-const upSettled = () => !drag && Math.abs(camX - S.site * GAP) <= UP_SETTLE;
+const upSettled = () => !drag && Math.abs(camX - SX[S.site]) <= UP_SETTLE;
 function tap(x, y, pk) {               // pk: the touchstart pick from the canvas pointerdown (undefined = no press record: pick now)
   upPend.site = -1;
   if (tapDeposit3d(x, y)) return;
@@ -2741,7 +2758,7 @@ function tap(x, y, pk) {               // pk: the touchstart pick from the canva
     window.__ps3d.lastPick = pk.t.id; return;
   }
   if (!upSettled()) {                                                   // mid-glide between stations: no card from this frame
-    if (Math.abs(camX - S.site * GAP) <= UP_LATE) Object.assign(upPend, { x, y, t: performance.now(), site: S.site });
+    if (Math.abs(camX - SX[S.site]) <= UP_LATE) Object.assign(upPend, { x, y, t: performance.now(), site: S.site });
     window.__ps3d.lastPick = upPend.site >= 0 ? 'deferred' : 'sliding'; return;
   }
   const h = pickUp(x, y);
@@ -2826,7 +2843,7 @@ const PAD_TANKS = { min: [-19.9, 0, -10.7], max: [-11.6, 10.9, -0.5] };   // pad
 function padTankBox(b) { const o = stationObjs[PADI]; if (!o || !o.getObjectByName('Hose_LOX')) return null; o.updateWorldMatrix(true, false);
   b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0], i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
 const upShown = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };   // own: the object itself must show (truck / ship); else only its parents (hidden Tier_NN boxes still widen the tap rect)
-const upSiteNow = () => clamp(Math.round(camX / GAP), 0, N - 1);   // the station the camera is at (not S.site, which flips at the start of a glide)
+const upSiteNow = () => nearSite(camX);   // the station the camera is at (not S.site, which flips at the start of a glide)
 let upWhy = '';                        // why the last upRect() gave null (QA: upRects() reports it per target)
 function upRect(t) {                   // projected CSS-px rect of a target now, or null (other station, not loaded, hidden, behind the camera, off screen)
   upWhy = '';
@@ -3077,7 +3094,7 @@ Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, 
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
     if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
-Object.assign(window.__ps3d, { UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => { const a = UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, title: UP[t.p].name, site: t.site, r, why: r ? '' : upWhy }; });   // gc-ui2: + station, settled and a reason when nothing here is tappable
+Object.assign(window.__ps3d, { SX, ORD, stepSite, nearSite, UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => { const a = UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, title: UP[t.p].name, site: t.site, r, why: r ? '' : upWhy }; });   // gc-ui2: + station, settled and a reason when nothing here is tappable
     const n = a.filter(e => e.r).length; return Object.assign(a, { station: S.site, name: STATIONS[S.site], settled: upSettled(), n, why: n ? '' : !upSettled() ? 'camera sliding' : 'no tappable objects here' }); } });
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ get uc() { return { w: +UC.w.toFixed(3), want: UC.want, id: UC.t && UC.t.id, look: [CAMLOOK.lx, CAMLOOK.ly, CAMLOOK.lz, CAMLOOK.k].map(v => +v.toFixed(2)) }; }, get upSettled() { return upSettled(); } }));   // QA hooks (upgrade cards)
 Object.defineProperty(window.__ps3d, 'upCur', { get: () => upCur, configurable: true });
@@ -3215,8 +3232,13 @@ function eveVoice(id, li) {
   }).catch(() => {});
 }
 function setVoice(on) { VOX.on = !!on; try { localStorage.setItem('planetstack-dev-voice', on ? '1' : '0'); } catch (e) {} if (on) voxUnlock(); else eveVoiceStop(); renderSettings(); }
+// Eve dedupe (QA ui2_PT1, 10/31): on a new game the welcome's second line 'Tap the drill to upgrade it.' and the upgrade_ready beat say it twice in a row.
+// Director 17:52: a beat whose lines carry that sentence is DROPPED for good (marked shown, never rings) if it triggers less than 30 s after the sentence was said
+// (real time, like the rest of Eve's queue: setTimeout typing / toasts); a trigger after the 30 s window rings as normal.
+const EVE_DUP = { re: /Tap the drill to upgrade it\./, ms: 30000, at: -Infinity };
+const eveDupSoon = (b) => performance.now() - EVE_DUP.at < EVE_DUP.ms && (((!depsOn() && b.linesNoDep) || b.lines) || []).some(l => EVE_DUP.re.test(l));
 function sayLine(s) {
-  if (!EC.call || s == null) return; EC.full = s; eveVoice(EC.call.id, EC.li); ecTxt.textContent = ''; ecPanel.classList.remove('is-waiting');
+  if (!EC.call || s == null) return; EC.full = s; if (EVE_DUP.re.test(s)) { EVE_DUP.at = performance.now(); window.__ps3d.eveDupAt = EVE_DUP.at; } eveVoice(EC.call.id, EC.li); ecTxt.textContent = ''; ecPanel.classList.remove('is-waiting');
   if (ecReduced()) return lineDone();
   ecPanel.classList.add('is-talking'); ecTx.textContent = 'TRANSMITTING'; let i = 0;
   const step = () => { ecTxt.textContent = s.slice(0, ++i); if (i >= s.length) return lineDone(); const c = s[i - 1];
@@ -3289,7 +3311,7 @@ function eveGreet() {
 }
 function updEve() {
   eveDrillDone(); eveGreet(); eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
-  if (S.wel !== 1 && !EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { ecRing(b); break; }   // story beats wait while the away summary is due
+  if (S.wel !== 1 && !EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { if (eveDupSoon(b)) { S.eve.push(b.id); save(); window.__ps3d.eveSkipped = (window.__ps3d.eveSkipped || []).concat(b.id); continue; } ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
   if (pointBeat && !pointerDone) {
     if (pointBeat === 'launch') { if (S.cg.launches > 0) pointerDone = true; else if (launchEl.classList.contains('on')) { const r = launchEl.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 2; p.l = 'LAUNCH'; p.up = false; } }
@@ -3510,13 +3532,15 @@ function devPause(on) {
 }
 async function devBeat() {
   if (HB.busy || HB.stopped) return; HB.busy = true; clearTimeout(HB.t); reconBtn.disabled = true;
+  const back = HB.back; HB.back = false;   // first beat after coming back on screen (devBack)
   let r; try { const L = window.PS_DEV.lock; const gone = Date.now() - HB.okAt >= HB.ttl * 1000 - 2000;   // past the TTL (thawed / long sleep): acquire directly, no 404 beat
-    r = gone ? await L.acquire(PSD.code) : await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+    r = gone ? (back ? await devAcquireBack() : await L.acquire(PSD.code)) : await L.heartbeat(); if (!r.ok && r.reason === 'not_held') r = back ? await devAcquireBack() : await L.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+  if (back && r.ok) HB.confirm = 2;
   HB.busy = false; reconBtn.disabled = false; HB.last = r.ok ? 'ok' : r.reason; HB.at = Date.now(); if (r.ok) { HB.okAt = HB.at; HB.ttl = +r.ttl || 90; } if (HB.stopped) return;
   if (!r.ok && r.reason === 'in_use') { HB.inUse = (HB.inUse || 0) + 1; devHalt(DEVMSG.in_use, 'in_use'); return; }   // QA run 1 BUG-1: another device holds the code now (beat 409, or not_held → acquire 409): stop at once; only a network failure counts as unreachable
   if (r.ok) { HB.ok++; HB.failSince = 0; devPause(false); }
   else { HB.fail++; if (!HB.failSince) HB.failSince = Date.now(); if (Date.now() - HB.failSince >= HB_FAIL_MS) devPause(true); }
-  HB.t = setTimeout(devBeat, PSD.paused ? Math.min(HB_MS, 10000) : HB_MS);
+  HB.t = setTimeout(devBeat, PSD.paused ? Math.min(HB_MS, 10000) : r.ok && HB.confirm > 0 ? (HB.confirm--, HB_CONFIRM_MS) : HB_MS);
 }
 reconBtn.addEventListener('click', (e) => { e.stopPropagation(); devBeat(); });
 for (const ev of ['pointerdown', 'click', 'touchstart']) reconEl.addEventListener(ev, (e) => e.stopPropagation());
@@ -3526,17 +3550,47 @@ HB.t = setTimeout(devBeat, HB_MS);
 // swiped away / killed while in the background, but it does fire visibilitychange 'hidden' first, so the code is freed at once instead of after the
 // 90 s TTL. The tab lock (this browser only) is kept. While away the heartbeat is stopped (a background timer would re-acquire); back on screen the
 // lock is taken again at once (acquire, no 3 s throttle); in_use there means another device took the code meanwhile -> the normal stop screen.
-const DEV_RELEASE_ON_HIDDEN = true;
+// lock return fix 10/31 (QA ui2_PT1 bug 3): coming back re-acquires our own released code at once, and a stop caused by another device is no longer final.
+// - Return acquire (devAcquireBack): an in_use answer is retried twice (0.6 s apart) before it counts, so only a device that still holds the code stops us.
+// - Our hidden/pagehide release goes out as a sendBeacon that may reach the Worker AFTER the return acquire (iOS sends queued beacons on resume) and
+//   free our fresh lock. So after a return acquire two confirm beats run 2.5 s apart (HB.confirm): not_held -> acquire again at once.
+// - in_use stop (devHalt) is no longer final: when the player comes back to this page (visibilitychange visible, resume, bfcache pageshow, window
+//   focus, or a tap on the stop screen) it tries the code once more; if the other device has let go it takes the tab lock and the code back, closes
+//   the stop screen and restarts the loop (devUnhalt). No timer poll: a forgotten tab left on the stop screen must not grab the code while the real
+//   player only switched apps for a moment (the hidden release frees it). Saves were blocked while stopped, so the game carries on from where it
+//   stopped, like a return from the background. RELOAD still works as before.
+const DEV_RELEASE_ON_HIDDEN = true, HB_CONFIRM_MS = 2500;
+async function devAcquireBack(tries = 3) { let r;
+  for (let k = 0; k < tries; k++) { if (k) await new Promise(res => setTimeout(res, 600));
+    try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; } if (r.ok || r.reason !== 'in_use') return r; }
+  return r; }
+function devRetakeStart() { if (!HB.retake) HB.retake = { since: Date.now(), n: 0, busy: false }; }
+async function devRetake() { const R = HB.retake; if (!R || R.busy || document.hidden || !DEVHALT || window.__ps3d.halted !== 'in_use') return;
+  R.busy = true; R.n++;
+  try { if (!(await tabClaim(PSD.code))) return;   // the code is open in another tab of this browser now: stay stopped (that tab has it)
+    let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e) { r = { ok: false, reason: 'unreachable' }; }
+    if (r.ok && HB.retake === R && DEVHALT && !document.hidden) devUnhalt(r); else tabRelease();
+  } finally { R.busy = false; } }
+function devUnhalt(r) { HB.retake = null;
+  DEVHALT = false; window.__ps3d.halted = ''; window.__ps3d.retaken = (window.__ps3d.retaken || 0) + 1;
+  const el = document.getElementById('devStop'); el.classList.remove('on'); el.hidden = true; window.__ps3d.stopMsg = ''; window.__ps3d.stopReload = false;
+  HB.stopped = false; HB.away = false; HB.back = false; HB.okAt = HB.at = Date.now(); HB.ttl = +r.ttl || 90; HB.failSince = 0; HB.confirm = 2;
+  clearTimeout(HB.t); HB.t = setTimeout(devBeat, HB_CONFIRM_MS);
+  try { if (MUS.ctx && S.set.music !== false && !document.hidden) MUS.ctx.resume(); } catch (e) {}
+  try { clock.getDelta(); } catch (e) {} requestAnimationFrame(frame); }
 const devAway = () => { if (!DEV_RELEASE_ON_HIDDEN || HB.stopped || DEVHALT) return; HB.away = true; HB.stopped = true; clearTimeout(HB.t);
   try { window.PS_DEV.lock.release(); } catch (e) {} };
-const devBack = () => { if (!HB.away || document.hidden || DEVHALT) return false; HB.away = false; HB.stopped = false; HB.okAt = 0; HB.at = 0;   // okAt 0 -> devBeat acquires directly
+const devBack = () => { if (!HB.away || document.hidden || DEVHALT) return false; HB.away = false; HB.stopped = false; HB.okAt = 0; HB.at = 0; HB.back = true;   // okAt 0 -> devBeat acquires directly
   if (HB.busy) HB.t = setTimeout(devBeat, 1000); else devBeat(); return true; };   // a beat still in flight from before: check again right after it
-const devBeatNow = () => { if (devBack() || document.hidden || HB.stopped || DEVHALT || HB.busy || Date.now() - (HB.at || 0) < 3000) return; devBeat(); };
+const devBeatNow = () => { if (DEVHALT) { devRetake(); return; } if (devBack() || document.hidden || HB.stopped || HB.busy || Date.now() - (HB.at || 0) < 3000) return; devBeat(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) devAway(); else devBeatNow(); });
 document.addEventListener('resume', devBeatNow); addEventListener('pageshow', (e) => { if (!e.persisted) devBeatNow(); });
+addEventListener('focus', () => { if (DEVHALT) devRetake(); }); document.getElementById('devStop').addEventListener('pointerdown', () => { if (DEVHALT) devRetake(); });   // stop screen: a tap tries the code again
 addEventListener('pagehide', () => { HB.away = false; HB.stopped = true; clearTimeout(HB.t); try { window.PS_DEV.lock.release(); } catch (e) {} });   // pagehide owns the bfcache return (pageshow below)
-addEventListener('pageshow', async (e) => { if (!e.persisted || !HB.stopped || DEVHALT) return; HB.stopped = false;   // back from the bfcache: take the tab lock, then the Worker lock again
+addEventListener('pageshow', async (e) => { if (!e.persisted) return; if (DEVHALT) { devRetake(); return; }   // stopped by another device: try to take the code back
+  if (!HB.stopped) return; HB.stopped = false;   // back from the bfcache: take the tab lock, then the Worker lock again
   if (!(await tabClaim(PSD.code))) return tabLost();
-  let r; try { r = await window.PS_DEV.lock.acquire(PSD.code); } catch (e2) { r = { ok: false }; } if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use'); if (r.ok) { HB.okAt = Date.now(); HB.ttl = +r.ttl || 90; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_MS : 2000); });
+  const r = await devAcquireBack(); if (!r.ok && r.reason === 'in_use') return devHalt(DEVMSG.in_use, 'in_use');
+  if (r.ok) { HB.okAt = Date.now(); HB.ttl = +r.ttl || 90; HB.confirm = 2; } if (!r.ok && !HB.failSince) HB.failSince = Date.now(); HB.t = setTimeout(devBeat, r.ok ? HB_CONFIRM_MS : 2000); });
 if (MOCK) PSD.__mockHeal = () => { MOCKW.healed = true; };   // smoke only: the mock Worker answers beats again
 renderSettings();
