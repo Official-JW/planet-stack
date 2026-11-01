@@ -81,6 +81,15 @@ dev Worker (`https://planet-stack-dev.official-jw.workers.dev`, `GET /codes`, th
 - `#upPanel` without the hook: `new-nohook`, so E1 is n/a.
 - Neither: n/a.
 
+## Moving targets, pad tanks and x order (EM 17:08)
+- **Truck / ship:** before each tap the script waits up to 4 s for the target's screen rect to hold still (centre moves < 1.5 px over 300 ms).
+  If the finger still lands on another object and that object's card opens, the row is **info** ("the card under the finger opened instead"), not FAIL.
+  Missed taps are info when `--ts` is above 1 or the target never held still; otherwise WARN as before.
+- **Pad tanks:** after closing the previous card the script waits (up to 4 s) for `__ps3d.uc.w === 0` (gc-ui2 card camera eased back) before it
+  measures the tanks and taps. If it never gets there, the CARD row says so.
+- **Station x / order:** when the build has `__ps3d.SX` and `__ps3d.ORD` (Life Support move: LS at x 910 between Shipyard and Habitat), settle uses
+  `SX[site]` for the resting camera x and the NAV walk follows ORD (an info row lists it). Builds without them keep index order and `site × gap`.
+
 ## Load gate
 Before it starts the browser the script reads `/proc/loadavg`. It starts only when the 1-minute load is under `--max-load` (default 10;
 `--max-load 0` turns the gate off). While waiting it prints the current load every 20 s. After `--load-wait` minutes (default 20) it

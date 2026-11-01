@@ -70,7 +70,8 @@ const PAGE_STATE = () => {
     devStopMsg: ((document.getElementById('devStopMsg') || {}).textContent || ''),
     ui: typeof P.upRects === 'function' && document.getElementById('upPanel') ? 'new' : document.getElementById('grab') && document.getElementById('sheet') ? 'old' : document.getElementById('upPanel') ? 'new-nohook' : 'none',
     camX: typeof P.camX === 'number' ? P.camX : null, frames: typeof P.frames === 'number' ? P.frames : null,
-    gap: typeof P.PX === 'number' && P.PADI > 0 ? P.PX / P.PADI : null };   // station spacing (m) = pad x / pad index; the camera rests at site * gap
+    gap: typeof P.PX === 'number' && P.PADI > 0 ? P.PX / P.PADI : null,
+    sx: Array.isArray(P.SX) ? P.SX.slice() : null, ord: Array.isArray(P.ORD) ? P.ORD.slice() : null };   // per-station x and the swipe (x) order, when the build has them (Life Support move)   // station spacing (m) = pad x / pad index; the camera rests at site * gap
 };
 
 async function touchSwipe(cdp, x0, y, dx, steps = 4, ms = 160) {   // real CDP touch events; moves are queued without waiting for each ack (a loaded box acks slowly)
@@ -87,7 +88,7 @@ async function settle(page, want, vp = null, ms = 4000) {
   const t0 = Date.now(); let last = null, f0 = null, s = null;
   while (Date.now() - t0 < ms) {
     s = await page.evaluate(PAGE_STATE);
-    const atRest = s.camX !== null && (s.gap ? Math.abs(s.camX - want * s.gap) < 0.5 : last !== null && Math.abs(s.camX - last) < 0.05);
+    const atRest = s.camX !== null && (s.sx ? Math.abs(s.camX - s.sx[want]) < 0.5 : s.gap ? Math.abs(s.camX - want * s.gap) < 0.5 : last !== null && Math.abs(s.camX - last) < 0.05);
     if (s.site === want && atRest) { if (s.frames === null) return s; if (f0 === null) f0 = s.frames; else if (s.frames > f0) return s; }
     else f0 = null;
     last = s.camX; await sleep(100);
@@ -141,7 +142,11 @@ const cardRow = (vp, label, c, want) => { if (c && c.src === 'attr') CV.attr = t
   add(vp, label, ok ? 'PASS' : 'FAIL', `title "${c.title}"${lw === 'coming soon' ? `, kicker "${c.kick}"` : ''} (${c.src})${ok ? '' : `, want "${want}"`}`); };
 // Launch Pad tanks (gc-ui2): padFuel's extra tank box (UPT padFuel.add), else a mesh named /tank/i in the pad model. Taps a point inside it where
 // the canvas is on top and pickUp gives padFuel. Returns null when the build has neither (-> info row 'no pad tank meshes').
+async function waitUc(page, ms = 4000) {   // gc-ui2 card camera: __ps3d.uc.w eases 1 → 0 after a card closes; measure only once it is 0 (no hook: no wait)
+  const t0 = Date.now(); let w = null; while (Date.now() - t0 < ms) { w = await page.evaluate(() => { const u = window.__ps3d && window.__ps3d.uc; return u && typeof u.w === 'number' ? u.w : null; }); if (w === null || w === 0) return { ok: true, w, ms: Date.now() - t0 }; await sleep(100); }
+  return { ok: false, w, ms: Date.now() - t0 }; }
 async function padTankCard(page, W, H) {
+  await closeCard(page); const uw = await waitUc(page);
   const pt = await page.evaluate(([W, H]) => { const P = window.__ps3d, T = P.THREE, o = P.stationObjs && P.stationObjs[P.PADI], u = (P.UPT || []).find(t => t.id === 'padFuel');
     let b = null, src = '';
     if (u && typeof u.add === 'function' && T) { b = u.add(new T.Box3()); src = 'padFuel tank box (UPT.add)'; }
@@ -153,12 +158,18 @@ async function padTankCard(page, W, H) {
     for (const fy of [.5, .35, .65, .2, .8]) for (const fx of [.5, .3, .7, .15, .85]) { const x = l + (r - l) * fx, y = t + (bt - t) * fy, e = document.elementFromPoint(x, y), h = P.pickUp(x, y);
       if (e && e.tagName === 'CANVAS' && h && h.t.id === 'padFuel') return { x, y, src }; }
     return { src, why: 'no point on the tanks where the canvas is on top and pickUp gives padFuel' }; }, [W, H]);
+  const ucNote = uw.ok ? '' : `; card camera not back after ${uw.ms} ms (uc.w ${uw.w})`;
   if (!pt) return null;
-  if (pt.x == null) return { open: false, why: `${pt.src}: ${pt.why}` };
-  await closeCard(page); await page.touchscreen.tap(pt.x, pt.y); let c = null;
+  if (pt.x == null) return { open: false, why: `${pt.src}: ${pt.why}${ucNote}` };
+  await page.touchscreen.tap(pt.x, pt.y); let c = null;
   for (let k = 0; k < 8; k++) { await sleep(250); c = await page.evaluate(CARD_TITLE); if (c.open) break; }
-  c.why = `tapped ${pt.src} at ${Math.round(pt.x)},${Math.round(pt.y)}`; if (c.open) await closeCard(page); return c;
+  c.why = `tapped ${pt.src} at ${Math.round(pt.x)},${Math.round(pt.y)}${ucNote}`; if (c.open) await closeCard(page); return c;
 }
+async function holdStill(page, id, ms = 4000) {   // wait until the target's screen rect stops moving (centre moved < 1.5 px over 300 ms)
+  const c = () => page.evaluate((id) => { const t = window.__ps3d.upRects().find(x => x.id === id); return t && t.r ? [(t.r.l + t.r.r) / 2, (t.r.t + t.r.b) / 2] : null; }, id);
+  const t0 = Date.now(); let a = await c();
+  while (Date.now() - t0 < ms) { await sleep(300); const b = await c(); if (a && b && Math.hypot(b[0] - a[0], b[1] - a[1]) < 1.5) return { ok: true, ms: Date.now() - t0 }; a = b; }
+  return { ok: false, ms: Date.now() - t0 }; }
 const load1 = () => { try { return +fs.readFileSync('/proc/loadavg', 'utf8').split(' ')[0]; } catch (e) { return null; } };
 async function closeCard(page) { const x = await page.locator('#upX').boundingBox().catch(() => null); if (x && (await page.evaluate(NEW_PANEL)).cur) { await page.touchscreen.tap(x.x + x.width / 2, x.y + x.height / 2); await sleep(300); }
   if ((await page.evaluate(NEW_PANEL)).cur) await page.evaluate(() => window.__ps3d.closeUp('qa')); }
@@ -300,9 +311,12 @@ async function runViewport(browser, A, vp, served, devId) {
       const x0 = dir > 0 ? W * 0.8 : W * 0.2, hit = await hitId(page, x0, yS);
       if (/@ec/.test(hit)) { const c = await page.locator('#ecClose').boundingBox().catch(() => null); if (c) await page.touchscreen.tap(c.x + c.width / 2, c.y + c.height / 2); await sleep(400); }
       await touchSwipe(cdp, x0, yS, -dir * W * 0.6); };
-    // walk back to station 0
-    for (let k = 0; k < N && (await page.evaluate(PAGE_STATE)).site > 0; k++) { const cur = (await page.evaluate(PAGE_STATE)).site; await swipe(-1); await settle(page, cur - 1, VP); }
-    for (let i = 0; i < N; i++) {
+    // swipe order: the build's x order (__ps3d.ORD, Life Support move) when it has one, else index order. Walk back to the first station in it.
+    const ORDV = s.ord && s.ord.length === N ? s.ord : ST.map((_, k) => k), RK = []; ORDV.forEach((st, r) => { RK[st] = r; });
+    if (s.ord) add(VP, 'NAV order', 'info', 'x order from __ps3d.ORD: ' + ORDV.map(k => ST[k]).join(' > '));
+    for (let k = 0; k < N && (await page.evaluate(PAGE_STATE)).site !== ORDV[0]; k++) { const cur = (await page.evaluate(PAGE_STATE)).site; await swipe(-1); await settle(page, ORDV[Math.max(0, RK[cur] - 1)], VP); }
+    for (let r = 0; r < N; r++) {
+      const i = ORDV[r], nx = ORDV[Math.min(N - 1, r + 1)];
       s = await settle(page, i, VP);
       const navOk = s.site === i && s.name.trim().toLowerCase() === String(ST[i]).toLowerCase();
       add(VP, `NAV ${i} ${ST[i]}`, navOk ? 'PASS' : 'FAIL', navOk ? `swipe landed; label "${s.name}"` : `site=${s.site} label="${s.name}"`);
@@ -342,12 +356,14 @@ async function runViewport(browser, A, vp, served, devId) {
               if (e && e.tagName === 'CANVAS' && h && h.t.id === id) return { x: q.x, y: q.y, underHud: q.y < hb };
               const k = !e ? 'nothing' : e.tagName === 'CANVAS' ? 'canvas, pickUp=' + (h ? h.t.id : 'none') : '#' + (e.id || (e.closest('[id]') || {}).id || e.tagName.toLowerCase()); seen[k] = (seen[k] || 0) + 1; }
             return { x: null, why: Object.entries(seen).map(([k, n]) => `${k}×${n}`).join(', '), hb: Math.round(hb) }; }, [t.id, W, H]);
+          const MOVER = t.id === 'truck' || t.id === 'ship';   // targets that drive around (EM 17:08 b)
+          let held = null; if (MOVER) held = await holdStill(page, t.id);
           let pt = null, taps = 0, up = false, still = true, why = '', under = false;
           for (let k0 = 0; k0 < 3 && !up; k0++) { pt = await findPt(); if (!pt || pt.x === null) { why = pt ? pt.why + (pt.hb ? `; #hud bottom ${pt.hb}px` : '') : 'target gone'; break; }
             under = pt.underHud; await page.touchscreen.tap(pt.x, pt.y); taps++;
             for (let k = 0; k < 8 && !up; k++) { await sleep(250); up = !!(await page.evaluate(NEW_PANEL)).cur; }   // poll 2 s before re-tapping so a slow open isn't closed by a second tap on the scrim
             if (!up) still = await page.evaluate(([x, y, id]) => { const h = window.__ps3d.pickUp(x, y); return !!(h && h.t.id === id); }, [pt.x, pt.y, t.id]); }
-          const mover = (t.id === 'truck' || t.id === 'ship') && Number(A.ts) > 1;   // at ts > 1 the truck and ship move N× faster, so a missed tap on them is expected: info, not WARN
+          const mover = MOVER && (Number(A.ts) > 1 || (held && !held.ok));   // at ts > 1 the truck and ship move N× faster, so a missed tap on them is expected: info, not WARN
           if (!taps) { add(VP, `TAP ${ST[i]}: ${t.id}`, mover && why === 'target gone' ? 'info' : 'WARN', `on screen but no clear tap point (what the 25 grid points hit: ${why})`); continue; }
           if (!up && !still) { add(VP, `TAP ${ST[i]}: ${t.id}`, mover ? 'info' : 'WARN', `moving target: ${taps} tap(s) missed because it had moved off the tap point; could not confirm${mover ? ` (${t.id} at ts=${A.ts})` : ''}`); continue; }
           if (up && taps > 1) add(VP, `TAP ${ST[i]}: ${t.id}`, mover ? 'info' : 'WARN', `needed ${taps} taps (target moving or first tap missed)${mover ? ` (${t.id} at ts=${A.ts})` : ''}`);
@@ -356,6 +372,9 @@ async function runViewport(browser, A, vp, served, devId) {
           const p = await page.evaluate(NEW_PANEL), want = await page.evaluate((k) => (window.__ps3d.UP[k] || {}).name, t.p);
           if (up) card[t.id] = await page.evaluate(CARD_TITLE);
           const ok = p.shown && p.cur === t.p && p.name === want && p.kick.toLowerCase().startsWith(String(ST[i]).toLowerCase());
+          if (!ok && MOVER && p.shown && p.cur && p.cur !== t.p) {   // the mover drove off and the finger landed on another object: that card opening is correct behaviour
+            add(VP, `E1 ${ST[i]}: ${t.id}`, 'info', `moving target: the card under the finger opened instead (${p.cur}, "${p.name}")${held ? `; ${held.ok ? `held still ${held.ms} ms before the tap` : `never held still in ${held.ms} ms`}` : ''}`);
+            await closeCard(page); continue; }
           add(VP, `E1 ${ST[i]}: ${t.id}`, ok ? 'PASS' : 'FAIL', ok ? `title "${p.name}", kicker "${p.kick}"` : `opened=${p.cur} (last close reason: ${await page.evaluate(() => window.__ps3d.upClosed)}; lastPick ${await page.evaluate(() => window.__ps3d.lastPick)}) title="${p.name}" kicker="${p.kick}", expected "${want}" at ${ST[i]}`);
           if (!ok) await shot(page, `panel${i}-${t.id}`);
           const x = await page.locator('#upX').boundingBox().catch(() => null); if (x && p.shown) { await page.touchscreen.tap(x.x + x.width / 2, x.y + x.height / 2); await sleep(300); }
@@ -367,23 +386,23 @@ async function runViewport(browser, A, vp, served, devId) {
           cardRow(VP, `CARD ${ST[i]}: ${id}`, R.some(t => t.id === id) ? card[id] : { open: false, why: `not on screen (${ut.why || 'no rect'}), not tapped` }, CARD_WANT[id]);
           if (id === 'padFuel') { await settle(page, i, VP); const c = await padTankCard(page, W, H); if (c) cardRow(VP, `CARD ${ST[i]}: pad tank`, c, 'Fuel'); else add(VP, `CARD ${ST[i]}: pad tank`, 'info', 'no pad tank meshes (no padFuel tank box and no /tank/i mesh in the pad model)'); } }
         if (!home.includes(i)) { await settle(page, i, VP); await closeCard(page); cardRow(VP, `CARD ${ST[i]}: empty station`, await emptyStationCard(page, i, W, H), CARD_EMPTY); }
-        if (R.length && i < N - 1) { const pt = R[0]; await page.evaluate((id) => window.__ps3d.openUp(id), pt.p); await sleep(300); opened = (await page.evaluate(NEW_PANEL)).cur ? 'new' : null; }   // hook only sets up the swipe test
+        if (R.length && r < N - 1) { const pt = R[0]; await page.evaluate((id) => window.__ps3d.openUp(id), pt.p); await sleep(300); opened = (await page.evaluate(NEW_PANEL)).cur ? 'new' : null; }   // hook only sets up the swipe test
       } else add(VP, `E1 ${ST[i]}`, 'n/a', s.ui === 'new-nohook' ? 'new panel present but no __ps3d.upRects hook to find targets' : 'no upgrade sheet or panel in this build');
-      if (i === N - 1) { if (opened === 'old') await setOldSheet(page, false); break; }
+      if (r === N - 1) { if (opened === 'old') await setOldSheet(page, false); break; }
       // E1 part 2: swipe with the panel open → it must close or update to the new station
       if (opened === 'old') {   // swipe on the 3D view above the open sheet
         const top = (await page.locator('#sheetWrap').boundingBox() || { y: H }).y; const y = Math.min(yS, top - 40);
-        await touchSwipe(cdp, W * 0.8, y, -W * 0.6); s = await settle(page, i + 1, VP);
-        const o = await page.evaluate(OLD_SHEET), ex = oldExpect(ST, s.site, o.drill), ok = s.site === i + 1 && (!o.open || sameRows(o.rows, ex.rows));
-        add(VP, `E1 swipe ${i}→${i + 1} sheet open`, ok ? 'PASS' : 'FAIL', `site=${s.site}; sheet ${o.open ? `still open, rows [${o.rows}]` : 'closed'}`);
+        await touchSwipe(cdp, W * 0.8, y, -W * 0.6); s = await settle(page, nx, VP);
+        const o = await page.evaluate(OLD_SHEET), ex = oldExpect(ST, s.site, o.drill), ok = s.site === nx && (!o.open || sameRows(o.rows, ex.rows));
+        add(VP, `E1 swipe ${i}→${nx} sheet open`, ok ? 'PASS' : 'FAIL', `site=${s.site}; sheet ${o.open ? `still open, rows [${o.rows}]` : 'closed'}`);
         if (!ok) await shot(page, 'swipeopen' + i);
-        if (o.open && (await setOldSheet(page, false)) < 0) add(VP, `E1 ${ST[i + 1]} sheet close`, 'FAIL', '3 taps on the Upgrade handle did not close the sheet');
+        if (o.open && (await setOldSheet(page, false)) < 0) add(VP, `E1 ${ST[nx]} sheet close`, 'FAIL', '3 taps on the Upgrade handle did not close the sheet');
       } else if (opened === 'new') {   // swipe on the scrim, outside the card
         const pb = await page.locator('#upPanel').boundingBox().catch(() => null); const yN = pb ? (pb.y + pb.height + 40 < H - 120 ? Math.round(pb.y + pb.height + 40) : Math.round(Math.max(60, pb.y - 40))) : yS;
-        await touchSwipe(cdp, W * 0.8, yN, -W * 0.6); s = await settle(page, i + 1, VP);
-        const p = await page.evaluate(NEW_PANEL), ok = !p.cur && s.site === i + 1;
-        add(VP, `E1 swipe ${i}→${i + 1} card open`, ok ? 'PASS' : 'FAIL', `site=${s.site}; card ${p.cur ? `still open (${p.cur}, "${p.kick}")` : 'closed (' + (await page.evaluate(() => window.__ps3d.upClosed)) + ')'}`);
-        if (!ok) { await shot(page, 'swipeopen' + i); if (p.cur) await page.evaluate(() => window.__ps3d.closeUp('qa')); if (s.site !== i + 1) await swipe(1); }
+        await touchSwipe(cdp, W * 0.8, yN, -W * 0.6); s = await settle(page, nx, VP);
+        const p = await page.evaluate(NEW_PANEL), ok = !p.cur && s.site === nx;
+        add(VP, `E1 swipe ${i}→${nx} card open`, ok ? 'PASS' : 'FAIL', `site=${s.site}; card ${p.cur ? `still open (${p.cur}, "${p.kick}")` : 'closed (' + (await page.evaluate(() => window.__ps3d.upClosed)) + ')'}`);
+        if (!ok) { await shot(page, 'swipeopen' + i); if (p.cur) await page.evaluate(() => window.__ps3d.closeUp('qa')); if (s.site !== nx) await swipe(1); }
       } else await swipe(1);
     }
     if (!A.qaIgnored && (A.ts != null || A.skip)) await qaCheck(page, A, VP, shot);
