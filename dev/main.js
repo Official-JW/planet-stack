@@ -629,7 +629,7 @@ const _ct = new THREE.Vector3();
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
-  'a6381a77': { glb: 'habitat_v2_airlock_framed (Art FRAMED_DOOR_SPEC; Cam_Target + frame_w 48 unchanged)', frame_h: 66 },   // desktop fix 10/31 (EM): the 40 m tower overflowed the height at 1280x800 with the width-only fit; frame_h = height floor (fitSite), phones unchanged
+  'a6381a77': { glb: 'habitat_v2_airlock_framed (Art FRAMED_DOOR_SPEC; Cam_Target + frame_w 48 unchanged)', frame_h: 66, frame_band: true },   // desktop fix 10/31 (EM): the 40 m tower overflowed the height at 1280x800 with the width-only fit; frame_h = height floor (fitSite), phones unchanged
   'a60eae4b': { glb: 'mine cap fix v2 (864fab15 + recessed chute-box status light; re-keyed from 864fab15, nodes/Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   '864fab15': { glb: 'mine 5933388 (ef45f6f1 minus painted tracks; re-keyed from ef45f6f1, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
@@ -707,7 +707,9 @@ function fitSite(i) {
     if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
     let d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
     const fh = ov && ov.frame_h > 0 ? ov.frame_h : 0;   // optional height floor (only entries that set frame_h, e.g. the Habitat a6381a77): frame_h metres also fit the screen height at the target depth; wide screens back off, phones keep the width fit
-    if (fh) d = Math.max(d, (fh / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    if (fh) { let hk = 1;   // gc-batch7 HABITAT label (Director 22:43): frame_band entries fit frame_h between the HUD and 12 px above the station label on landscape (was the full height: the airlock base sat under the HABITAT label at 1280/1440); phones unchanged
+      if (ov.frame_band && camera.aspect >= 1) { const half = Math.min(H / 2 - Math.max(hudEl.getBoundingClientRect().bottom, 0) - 12, nameEl.getBoundingClientRect().top - 12 - H / 2); if (half > 60) hk = (H / 2) / half; }
+      d = Math.max(d, hk * (fh / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))); }
     SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - SX[i], dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
     if (i === PADI) padRestApply();   // pad: the ship fit replaces this (kept as the fallback)
     return;
