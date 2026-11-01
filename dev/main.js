@@ -587,7 +587,19 @@ const STATION_GLB = [
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; dockLoaded(o, g); dockRoadCheck(o); } },
   { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g, 1.21) },   // (1.21 s: HB-1 only, so the subclip keeps its 1.2 s key and the door reaches weight 1; EM 21:37) Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A); CAM_OVERRIDE 75901d07 adds only a desktop frame_h floor. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
+  { i: HABI, url: 'models/habitat_v2_airlock_framed_a6381a77.glb?v=a6381a77', loops: [], onLoad: (o) => habAirlock(o) },   // Habitat v2 framed airlock (Art FRAMED_DOOR_SPEC, md5 a6381a77…): 13 draws, 16,288 tris, Cam_Target frame_w 48; doors idle + closed, light at its GLB default (EM 19:28)
 ];
+// Habitat airlock (EM 19:28): load-and-place only. Doors stay at their closed pivots (extras slide_axis x / slide_m 1.95 are unused, no door code) and
+// hab_airlock_light keeps its GLB material. Art spec: no shadows from hab_airlock_inner (both primitives) or hab_airlock_light; HB_GlassDoor depthWrite
+// is already false (GLTFLoader default for BLEND). __ps3d.habAirlock = QA read-out.
+function habAirlock(o) {
+  const info = { shadowOff: [], doors: {}, light: null, glassDoor: null };
+  for (const nm of ['hab_airlock_inner', 'hab_airlock_light']) { const n = o.getObjectByName(nm); if (n) n.traverse(m => { if (m.isMesh) { m.castShadow = false; info.shadowOff.push(nm + ':' + (m.material && m.material.name)); } }); }
+  for (const nm of ['hab_airlock_outer', 'hab_airlock_inner']) { const n = o.getObjectByName(nm); if (n) info.doors[nm] = n.position.toArray().map(v => +v.toFixed(3)); }
+  const L = o.getObjectByName('hab_airlock_light'); if (L) L.traverse(m => { if (m.isMesh && !info.light) info.light = { mat: m.material.name, color: '#' + m.material.color.getHexString(), emissive: '#' + m.material.emissive.getHexString(), ei: m.material.emissiveIntensity }; });
+  o.traverse(m => { if (m.isMesh && m.material && m.material.name === 'HB_GlassDoor' && !info.glassDoor) info.glassDoor = { depthWrite: m.material.depthWrite, transparent: m.material.transparent, opacity: +m.material.opacity.toFixed(3) }; });
+  window.__ps3d.habAirlock = info;
+}
 // Shipyard hall door (Director 20:58): plays hall_door_open once and holds it open (LoopOnce + clampWhenFinished). 2d57b95's clip is 1.2 s;
 // 8c9cee7's is a 3.6 s loop — only its first CFG.hallDoor.openSec (the open move) is used, so it works unchanged with either GLB.
 // HB-1 75901d07: hall_door_open is a 3.6 s shape-blend clip on Hall_Door_Leaves (targets [open, highbay_door_open]; open 0→1 over 0–1.2 s, highbay
@@ -605,6 +617,7 @@ const _ct = new THREE.Vector3();
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
+  'a6381a77': { glb: 'habitat_v2_airlock_framed (Art FRAMED_DOOR_SPEC; Cam_Target + frame_w 48 unchanged)', frame_h: 66 },   // desktop fix 10/31 (EM): the 40 m tower overflowed the height at 1280x800 with the width-only fit; frame_h = height floor (fitSite), phones unchanged
   'a60eae4b': { glb: 'mine cap fix v2 (864fab15 + recessed chute-box status light; re-keyed from 864fab15, nodes/Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   '864fab15': { glb: 'mine 5933388 (ef45f6f1 minus painted tracks; re-keyed from ef45f6f1, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
@@ -2910,7 +2923,7 @@ const UPT = [
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
   { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
   { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base']), hl: () => soonObjs(SHIPI, ['shipyard_base']) },
-  { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => soonObjs(HABI, []), hl: () => soonObjs(HABI, []) },
+  { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']), hl: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']) },
   { id: 'engineering', p: 'soonEng', site: 7, objs: () => soonObjs(7, []), hl: () => soonObjs(7, []) },
 ];
 function soonObjs(i, names) {          // the station GLB's main building nodes, else its gray placeholder box (if it is still shown)
