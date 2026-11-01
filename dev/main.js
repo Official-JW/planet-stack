@@ -60,7 +60,7 @@ const CFG = {
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
   // Director 20:34: boxValue 36 (full hold $360), fuel → refuelSec() (CFG.econ.fuel, Refinery lane), away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
   dock: { cap: 40, loadS: 3.0, storeS: 3.0 },   // ca-dock (Director via EM 10/31): cap = Cargo Dock stock cap (boxes, saved as S.cg.dk; the only copy); loadS = s per box, Dock -> hold (Dock-first loading while the ship is on the pad); gc-dockfix: storeS = s per crate of the flatbed's Dock store stop (was a fixed 31.4 s per 2-crate trip)
-  cargo: { sealSec: 4, perTrip: 2, refLoadSec: 6, padUnloadSec: 6, checkSec: 2, walkOutSec: 4.0, walkBackSec: 4.4, holdLoadSec: 5, rideSec: 2.3, rideDoorSec: 1.5, bayCap: 12, holdCap: 10, palletCap: 8,
+  cargo: { sealSec: 4, perTrip: 2, refLoadSec: 6, padUnloadSec: 6, checkSec: 2, walkOutSec: 4.0, walkBackSec: 4.4, holdLoadSec: 5, rideSec: 2.3, rideDoorSec: 1.5, reopenSec: 1, bayCap: 12, holdCap: 10, palletCap: 8,
            launchSec: 8, awaySec: 600, landSec: 8, boxValue: 36,
            firstTrip: 1, starterCrate: 1 },   // gc-dockfix item 6 (first run only): a new save's first flatbed trip leaves with firstTrip crate(s); a new save starts with starterCrate sealed crate(s) on the Refinery pallet
   // music (Director 20:35): Every Day Stuff sources CC0 tracks, Jacob picks; list file names found in qa3d/audio/music/ here. Empty = silent.
@@ -1901,6 +1901,9 @@ const CPH = {
 // Placeholder path: this base has no Dock→pad conveyor / V1 lift, so the Dock box is picked at the next free bay slot and carried through the cargo door tray.
 const DOCK_LOAD_S = CFG.dock.loadS;   // ca-dock: named alias of CFG.dock.loadS (retune in CFG)
 const pcSec = (k) => k === 'unload' ? CG.padUnloadSec : k === 'dock' ? DOCK_LOAD_S : CG.holdLoadSec;   // PC-1 lift time by kind
+const pcEnd = (pc) => pc.t0 + pcSec(pc.k) * 1000 + (pc.w || 0);   // GD 01:33: + the wait (pc.w ms) hovering over the tray until the door has fully reopened
+const pcWait = (c, k, t) => Math.max(0, (c.dOpen || 0) - (t + .7 * pcSec(k) * 1000));   // the hook starts down onto the tray at u .7: not before the door is open (c.dOpen)
+const pcU = (pc, now) => { const T = pcSec(pc.k) * 1000, e = now - pc.t0, w = pc.w || 0; return e < .7 * T ? e / T : e < .7 * T + w ? .7 : (e - w) / T; };   // crane job progress, holding at .7 (over the tray) while it waits
 const pcHold = (k) => k === 'hold' || k === 'dock';                    // a lift into the ship's hold (door open, load camera)
 // ca-cargoride (EM 00:10): a crate the crane sets on the Hold_Door shelf rides in through the open cargo door (CG.rideSec: slide in, then a code-only lift to Hold_NN);
 // c.rd {t0, n, src} is saved with the cargo state, so a reload mid-ride resumes it and the sim counts it once, at the ride's end (s.hold++ here only)
@@ -1980,8 +1983,8 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
     if (!c.pc.k) {
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
-      else if (s.st === 'pad' && !s.req && c.dk > 0 && holdN(c) < CG.holdCap && !dockBusy(c, t)) { c.dk--; c.pc = { k: 'dock', t0: t }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
-      else if (s.st === 'pad' && !s.req && c.dk === 0 && c.bay > 0 && holdN(c) < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
+      else if (s.st === 'pad' && !s.req && c.dk > 0 && holdN(c) < CG.holdCap && !dockBusy(c, t)) { c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
+      else if (s.st === 'pad' && !s.req && c.dk === 0 && c.bay > 0 && holdN(c) < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && ((s.hold >= CG.holdCap && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live or away, 10/29), or the Launch button (partial)
@@ -2004,7 +2007,7 @@ function cgNext(c) {
   else if (c.fb.st === 'dock') T(c.fb.t0 + dockSec(c.fb) * 1000); else if (c.fb.st === 'out2') T(c.fb.t0 + FB.kD2.T * 1000);
   if (!c.pc.k && c.dk > 0 && s.st === 'pad' && dockBusyEnd(c) > c.t) T(dockBusyEnd(c));   // ca-dock: Dock crane free again → the next Dock-first lift
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
-  if (c.pc.k) T(c.pc.t0 + pcSec(c.pc.k) * 1000);
+  if (c.pc.k) T(pcEnd(c.pc));
   if (s.st === 'board') T(s.t0 + BOARD_SEC * 1000); else if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + CG.awaySec * 500 : s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
   else { if (s.hold >= CG.holdCap && !pcHold(c.pc.k) && fuelFinishAt(c) > c.t) T(fuelFinishAt(c)); if (s.req > c.t) T(s.req); }
   if (c.rd) T(c.rd.t0 + CG.rideSec * 1000);   // ca-cargoride: the crate's ride from the door shelf into Hold_NN ends
@@ -2022,8 +2025,8 @@ function cgComplete(c, t, acc) {
   if (c.as.st === 'walk_out' && c.as.t0 + CG.walkOutSec * 1000 <= t) { c.as = { st: 'ready', t0: t }; cgEv('astro_ready', t); }
   else if (c.as.st === 'walk_back' && c.as.t0 + CG.walkBackSec * 1000 <= t) { c.as = { st: 'home', t0: t }; cgEv('astro_home', t); }
   if (c.rd && c.rd.t0 + CG.rideSec * 1000 <= t) rideEnd(c, c.rd.t0 + CG.rideSec * 1000);
-  if (c.pc.k && c.pc.t0 + pcSec(c.pc.k) * 1000 <= t) {
-    if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { if (c.rd) rideEnd(c, c.rd.t0 + CG.rideSec * 1000); c.rd = { t0: t, n: c.sh.hold, src: c.pc.k === 'dock' ? 'dock' : 'bay' }; cgEv('hold_ride', t, { slot: c.sh.hold + 1, src: c.rd.src }); }   // ca-cargoride: set on the Hold_Door shelf → rides in (c.rd, saved) → counted at the end
+  if (c.pc.k && pcEnd(c.pc) <= t) {
+    if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { if (c.rd) rideEnd(c, c.rd.t0 + CG.rideSec * 1000); c.rd = { t0: t, n: c.sh.hold, src: c.pc.k === 'dock' ? 'dock' : 'bay' }; c.dOpen = t + (CG.rideDoorSec + CG.reopenSec) * 1000; cgEv('hold_ride', t, { slot: c.sh.hold + 1, src: c.rd.src }); }   // ca-cargoride: set on the Hold_Door shelf → rides in (c.rd, saved) → counted at the end
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
@@ -2077,7 +2080,7 @@ function cgSettle(T, acc) {
     c.t = Math.max(c.t, nx); cgComplete(c, c.t, acc);
   }
 }
-function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; if (c.rd) c.rd.t0 += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.fu) c.fu.t += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } }
+function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; if (c.rd) c.rd.t0 += d; if (c.dOpen) c.dOpen += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.fu) c.fu.t += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } }
 // Save-stamp guard (10/24): a save written on a clock ahead of this one (?speed=N / warpTo QA runs, a device clock set back) holds its stamps in the
 // future, and the loops would freeze until the clock caught up. gap = newest already-happened stamp − now (S.rt, S.tk c0/lr/dep, S.cg t/rc/fb/pc/as/sh
 // t0, f0, req, S.log / S.calls at). Over 1 s, every stamp moves back by gap (shiftTk: S.tk + S.pend + S.cg; S.rt; log / calls), so the state and every
@@ -2727,10 +2730,10 @@ function updCargo() {
   for (let i = 0; i < c.bay; i++) boxAt(bayPos(i, _cp));
   if (vis) for (let i = 0; i < s.hold; i++) boxAt(_cp.copy(cg3.holds[i]).applyMatrix4(sh.matrixWorld), cg3.holdYaw[i]);
   let v = -1, P = null;
-  if (c.pc.k) { v = (now - c.pc.t0) / (pcSec(c.pc.k) * 1000);   // ca-dock 'dock': picked at the next free bay slot (placeholder for the Dock feed)
+  if (c.pc.k) { v = pcU(c.pc, now);   // ca-dock 'dock': picked at the next free bay slot (placeholder for the Dock feed)
     if (c.pc.k === 'unload') { slotW(c.fb.bed, _pk); bayPos(c.bay, _dp); } else { bayPos(c.bay, _pk); _dp.copy(RDT.tray ? RDT.seat : cg3.holdDoor || cg3.holds[Math.min(holdN(c), CG.holdCap - 1)]).applyMatrix4(sh.matrixWorld); } P = _pk; }   // Art pad: onto the open door shelf (Hold_Door), lands in Hold_NN at the end
   const carryP = PC.hiUnload ? cranePose(PC, v, P, _dp, restP, pcHold(c.pc.k) ? PC.hiHold : PC.hiUnload, PC.hiUnload) : cranePose(PC, v, P, _dp, restP);
-  if (cg3.door) { const dk = rideDoorK(c, now); if (c.rd) cg3.door.shut = c.rd.t0 + CG.rideDoorSec * 1000; if (dk < 1 && s.st === 'pad') padDoorAt(1 - dk, 'cargo_door_close'); else if (pcHold(c.pc.k) && s.st === 'pad') padDoorAt(clamp((now - Math.max(c.pc.t0, cg3.door.shut || 0)) / 1000, 0, 1), 'cargo_door_open'); else padDoor(false); }   // ca-cargoride: closes carrying the crate, then reopens (1 s) for the next lift
+  if (cg3.door) { const dk = rideDoorK(c, now); if (dk < 1 && s.st === 'pad') padDoorAt(1 - dk, 'cargo_door_close'); else if (pcHold(c.pc.k) && s.st === 'pad') padDoorAt(clamp((now - Math.max(c.pc.t0, (c.dOpen || 0) - CG.reopenSec * 1000)) / (CG.reopenSec * 1000), 0, 1), 'cargo_door_open'); else padDoor(false); }   // ca-cargoride: closes carrying the crate, then reopens (1 s) for the next lift
   if (c.rd && vis) rideDraw(c, now, sh);
   const py0 = c.pc.k === 'unload' ? FBS.yaw : 0, py1 = c.pc.k === 'unload' ? 0 : cg3.holdDoor ? cg3.holdDoorYaw : cg3.holdYaw[holdN(c)] || 0;
   if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp, carryYaw(v, py0, py1));
