@@ -1087,7 +1087,10 @@ function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = 
   // (Cargo Manager is 2 only inside the boarding crossfade: cmA = his summed opacity, cmFull = his fully opaque figures)
   const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
   const cl = (n) => { const x = BD.root && BD.root.getObjectByName(n); return x && vis(x) && BD.root.userData._fa > .003 ? 1 : 0; };
-  return { Miner: vis(op) ? 1 : 0, 'Mine Driver': 0, 'Cargo Manager': (vis(cg3.astro) ? 1 : 0) + cl(CREW_BOARD['Cargo Manager']), Mechanic: cl(CREW_BOARD.Mechanic),
+  // EM 00:49: the break room handler (Crew_2, 2010584) IS the Cargo Manager while the old Receiver is hidden (OLD_RECV off): he counts 1 whenever drawn.
+  // ?oldrecv=1 counts exactly as before (Receiver + climber), no handler term. cmA / cmFull stay the Receiver → climber crossfade metric.
+  const brH = !OLD_RECV && BRK.ok && BRK.h && vis(BRK.h.root) ? 1 : 0;
+  return { Miner: vis(op) ? 1 : 0, 'Mine Driver': 0, 'Cargo Manager': (vis(cg3.astro) ? 1 : 0) + brH + cl(CREW_BOARD['Cargo Manager']), brH, Mechanic: cl(CREW_BOARD.Mechanic),
     extraClimbers: BD.root ? ['Crew_3', 'Crew_4'].filter(n => BD.root.getObjectByName(n)).length : 0, rxA: +rxAlpha().toFixed(3), ship: S.cg.sh.st,
     ...(() => { const a = [vis(cg3.astro) ? (cg3.astro.userData._fa ?? 1) : 0, cl(CREW_BOARD['Cargo Manager']) ? BD.root.userData._fa : 0]; return { cmA: +(a[0] + a[1]).toFixed(4), cmFull: a.filter(x => x >= .999).length }; })() }; }
 const BC = { w: 0, tb: -1, lx: 0, ly: 0, lz: 0, k: 1, ph: 'off' };
