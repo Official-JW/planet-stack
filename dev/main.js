@@ -17,6 +17,8 @@ const CFG = {
     startMoney: 25000,                  // Jacob 10/31 17:31 (via Director): start money $25,000 (was $10,000)
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
     dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
+    dropoffMin: 20000,                  // Director 10/31 19:52: a drop-off pays at least $20k (max(dropoffMin, crates x per-crate)); a full hold stays $50k-150k by purity
+    launchPay: 20000,                   // Director 10/31 19:52: flat $20k credited once at lift-off, only with >= 1 crate aboard (empty launch $0); 50% while away, like drop-offs
     purity: { base: 0.40, max: 1.00, step: 0.05, first: 8000, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
     fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, first: 8000, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
     // P2-FUEL (Director LOCKED 10/31 8:29-8:31 AM PT; STATUS/engineering.md 246, QA/phase2_sim/summary_v4.md fuel table): LOX + LCH4 output per minute
@@ -1960,7 +1962,7 @@ function cgComplete(c, t, acc) {
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
-  if (s.st === 'board' && s.t0 + BOARD_SEC * 1000 <= t) { c.sh = Object.assign({}, s, { st: 'launch', t0: s.t0 + BOARD_SEC * 1000 }); cgEv('launch', s.t0 + BOARD_SEC * 1000, { hold: s.hold, partial: s.hold < CG.holdCap, board: BOARD_SEC }); }   // crew inside: lift-off
+  if (s.st === 'board' && s.t0 + BOARD_SEC * 1000 <= t) { const tl = s.t0 + BOARD_SEC * 1000; c.sh = Object.assign({}, s, { st: 'launch', t0: tl }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < CG.holdCap, board: BOARD_SEC }); cgLaunchPay(c, s.hold, tl, acc); }   // crew inside: lift-off; launch pay in this same state change (once)
   else if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
     c.launches++; cgEv('departed', t, { boxes: s.hold });
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, pur: cargoPurity() };
@@ -1976,13 +1978,23 @@ const payEarth = () => CFG.econ.payAt === 'earth';
 // one drop-off credit (either payAt): 50% while away (offlineDropoff on, Director 10/29: counted for Eve's one return summary), held for the next live settle (off), full live.
 // Live payouts are recorded in c.pay {at, amt, shown} and saved at once, so a reload can never replay a drop-off that already paid and showed.
 function cgDeliver(c, boxes, pur, t, acc) {
-  const v = cargoValue(boxes, pur), away = acc && !acc.full;
+  const v = dropoffPay(boxes, pur), away = acc && !acc.full;
   if (away && !CFG.econ.offlineDropoff) { c.pendPay = (c.pendPay || 0) + v; c.sold += boxes; cgEv('landed_held', t, { boxes, v, pur }); return; }   // held: paid in full on the next live settle
   const amt = away ? v * CFG.offlineRate : v; S.money += amt; c.sold += boxes; c.earned += amt;
   cgEv('sold', t, { boxes, amt, pur }); logU('truck', `Cargo delivered! +${fmt(amt)}`);
   if (away) { acc.cargo = (acc.cargo || 0) + amt; acc.dn = (acc.dn || 0) + 1; }   // away (≥ offlineAfterSec): no pop / Eve per drop-off, counted for the one return summary
   else if (acc) { acc.cargo = (acc.cargo || 0) + amt; acc.ln = (acc.ln || 0) + 1; cgQueuePay(c, t, amt); }   // Director 10/29: a reload / absence under offlineAfterSec is live: full pay (above) + the live pop + Eve call, shown once the cover is gone
   else cgShowPay(c, t, amt);
+}
+// launch pay (Director 10/31 19:52): flat CFG.econ.launchPay at the board -> launch state change, only with >= 1 crate aboard. Same away / held /
+// offlineDropoff rules as cgDeliver; it is credited inside the one state change, so a reload or a catch-up replay can never pay it twice.
+function cgLaunchPay(c, boxes, t, acc) {
+  const v = launchPayFor(boxes), away = acc && !acc.full; if (!(v > 0)) return;
+  if (away && !CFG.econ.offlineDropoff) { c.pendPay = (c.pendPay || 0) + v; cgEv('launch_pay_held', t, { boxes, v }); return; }   // held: paid in full on the next live settle (with any held drop-off)
+  const amt = away ? v * CFG.offlineRate : v; S.money += amt; c.earned += amt;
+  cgEv('launch_pay', t, { boxes, amt }); logU('truck', `Launch +${fmt(amt)}`);
+  if (acc) { acc.launch = (acc.launch || 0) + amt; acc.lpn = (acc.lpn || 0) + 1; if (!away) save(); }   // away: counted in the return card / Eve summary; short gap: full pay, no pop (the cover is up)
+  else { cargoPop(amt); save(); }
 }
 function cgQueuePay(c, t, amt) {     // short-gap drop-off: already credited; c.pay {shown: false} is saved with it, so the live pop + Eve show exactly once (eveLivePay), even across another reload
   const a = c.pay && c.pay.shown === false ? c.pay.amt : 0; c.pay = { at: t, amt: a + amt, shown: false }; save();
@@ -2036,7 +2048,9 @@ function astroPhase(c, t) {
 // Earth drop-off (Phase 1 Step 2): dropoffValue(purity) is a full hold's pay; a partial launch pays its share (boxes / holdCap)
 function cargoPurity() { return refineryPurity(); }   // the one purity source (Refinery lane: S.purLv → purityAt); frozen into the cargo at launch
 function perCrateValue(pur = cargoPurity()) { return dropoffValue(pur) / 10; }   // Director 10/29 16:39: each crate is worth its purity value ($5k at Lv1); 10 = today's hold, fixed so a bigger hold later pays more
-function cargoValue(boxes, pur = cargoPurity()) { return Math.max(0, boxes || 0) * perCrateValue(pur); }   // pay = crates on board x per-crate value, no cap at the hold size
+function cargoValue(boxes, pur = cargoPurity()) { return Math.max(0, boxes || 0) * perCrateValue(pur); }   // crates on board x per-crate value, no cap at the hold size
+function dropoffPay(boxes, pur = cargoPurity()) { return boxes > 0 ? Math.max(CFG.econ.dropoffMin || 0, cargoValue(boxes, pur)) : 0; }   // Director 10/31 19:52: drop-off pays max($20k, crates x per-crate)
+const launchPayFor = (boxes) => boxes > 0 ? (CFG.econ.launchPay || 0) : 0;   // flat launch pay, $0 for an empty hold
 function cargoPop(amt) {
   if (S.site === PADI && Math.abs(camX - PX) < 3 && !document.hidden && cg3.ship) { const sp = toScreen(cg3.ship.position.x, cg3.ship.position.y + 6, cg3.ship.position.z); pop('+' + fmt(amt), sp.x, sp.y, 'bonus big'); bumpMoney(); }
   else smallPop(amt);
@@ -2607,7 +2621,7 @@ const _sp = {};
 function cargoUI() {                  // Launch button (bottom-right of the safe band, Launch Pad only) and the Storage full chip (over the Refinery pallet)
   const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen, bd = band();
   const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && canLaunch(t);
-  if (onPad) { const v = cargoValue(c.sh.hold); launchEl.querySelector('small').textContent = `${c.sh.hold}/${CG.holdCap} BOXES · +${fmt(v)}`; }
+  if (onPad) { const sm = launchEl.querySelector('small'), tx = `LAUNCH PAY +${fmt(launchPayFor(c.sh.hold))}\nDROP-OFF +${fmt(dropoffPay(c.sh.hold))} · ${c.sh.hold}/${CG.holdCap}`; if (sm.textContent !== tx) sm.textContent = tx; }   // payout ticket: two values (launch pay, drop-off)
   { const y = Math.round(bd.bot - LAUNCH_H) + 'px'; if (launchEl.style.top !== y) launchEl.style.top = y; }   // gc-ui2 (item 9): placed every frame, shown or not (it was display:none → offsetHeight 0 on its first frame → a 54 px jump)
   launchEl.classList.toggle('on', onPad);
   const full = live && S.site === REF && Math.abs(camX - RX) < 3 && c.ref.length >= CG.palletCap;
@@ -2802,7 +2816,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
   ship: { name: 'Cargo Ship', ico: 'ship', launch: true, kick: 'Launch',
     big: () => [`${S.cg.sh.hold}/${CG.holdCap}`, 'boxes aboard'],
-    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · +${fmt(cargoValue(s.hold))} on launch` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? 'On the way to Earth' : 'Landing'; },
+    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? 'On the way to Earth' : 'Landing'; },
     btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (s.st !== 'pad') return ['In flight', false]; if (s.req) return ['Launching…', false];
       return [fuelAt(t) < 1 ? 'Fuelling' : 'Awaiting cargo', false]; },
     buy: () => { if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
@@ -3408,12 +3422,12 @@ function catchUp(card) {
   const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
   acc.drop = acc.full || !CFG.econ.offlineFormula ? 0 : offlineEarn(el); S.money += acc.drop;   // off by default: the replay above already credits (or holds) every landing; under offlineAfterSec it paid at the live rate
-  if (acc.dn > 0) { const a = S.cg.asum && !S.cg.asum.shown ? S.cg.asum : { n: 0, amt: 0 }; S.cg.asum = { at: now, n: a.n + acc.dn, amt: a.amt + (acc.cargo || 0), shown: false }; }   // one Eve summary per return (adds to one not yet shown)
+  if (acc.dn > 0) { const a = S.cg.asum && !S.cg.asum.shown ? S.cg.asum : { n: 0, amt: 0 }; S.cg.asum = { at: now, n: a.n + acc.dn, amt: a.amt + (acc.cargo || 0) + (acc.launch || 0), shown: false }; }   // launch pay while away is in the summary's +$X   // one Eve summary per return (adds to one not yet shown)
   S.rt = now; save();
-  const X = acc.base + acc.rich + (acc.cargo || 0) + acc.drop;
+  const X = acc.base + acc.rich + (acc.cargo || 0) + (acc.launch || 0) + acc.drop;
   if (card && !acc.full && !(acc.dn > 0) && Math.floor(X) >= 1) { $('awayAmt').textContent = '+' + fmt(X); awayEl.classList.add('on'); clearTimeout(catchUp.t);
     const arm = () => { if (!coverGone) { catchUp.t = setTimeout(arm, 100); return; } catchUp.t = setTimeout(() => awayEl.classList.remove('on'), 9000); }; arm(); }   // B9: 9 s counted from when the card can be seen
-  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, deliveries: acc.dn || 0, liveDeliveries: acc.ln || 0, cargo: +(acc.cargo || 0).toFixed(2), drop: acc.drop, full: acc.full };
+  window.__ps3d.lastAway = { sec: Math.round(el), X: +X.toFixed(2), loads: acc.n, deliveries: acc.dn || 0, liveDeliveries: acc.ln || 0, cargo: +(acc.cargo || 0).toFixed(2), launch: +(acc.launch || 0).toFixed(2), launches: acc.lpn || 0, drop: acc.drop, full: acc.full };
   return X;
 }
 function resync() {                   // bring the loop up to now before anything reads or draws it (frozen page, slow resume, QA reads)
