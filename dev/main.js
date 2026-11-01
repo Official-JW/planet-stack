@@ -1702,9 +1702,9 @@ if (TRAIL_ON) loader.load(TRAIL_GLB, (g) => { try { const o = g.scene; o.name = 
       m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true; });   // receives shadows like the road strips it replaces
     scene.add(o); window.__ps3d.trail = { url: TRAIL_GLB, meshes: n }; } catch (e) { console.warn('truck trails bind failed', e); } },
   undefined, (e) => console.warn('truck trails failed to load', e));
-// Art trail extension to HB-1 (Director 21:17; Art Assistant v3, md5 c4195f84…; 1 mesh / 1 material / 1 draw, 1408 tris): node Trail_Ext_HB1, world space, branches off
-// the pad turn of all_truck_trails (untouched) at (641, 13) and runs to the HB-1 apron (end x 720.2), prints at the crawler gauge. Same placement + material handling as the trail.
-const TRAIL_HB1_GLB = 'models/trail_ext_hb1_v3_c4195f84.glb?v=c4195f84';
+// Art crawler trail to HB-1 (EM 21:59; Art Assistant v4 = GD option A try 2, md5 4d9ef3db…; 1 mesh / 1 primitive / 1 draw, 1040 tris): node Trail_Ext_HB1, world space at scene root,
+// straight z -13 from x 662 (fade-in 662-666) to the HB-1 apron (end x 720.2, fade 717.2-720.2), riser at x 714, gauge 23 m. No branch off the truck trail: v3 c4195f84 (fork (641, 13) -> x 692) dropped, backup /workspace/trail_drop_backup_1031. Same material handling as the trail.
+const TRAIL_HB1_GLB = 'models/trail_ext_hb1_v4_4d9ef3db.glb?v=4d9ef3db';
 if (TRAIL_ON) loader.load(TRAIL_HB1_GLB, (g) => { try { const o = g.scene; o.name = 'Trail_Ext_HB1_Art'; let n = 0;
     o.traverse(m => { if (!m.isMesh) return; n++; for (const mt of [].concat(m.material)) { mt.polygonOffset = true; mt.polygonOffsetFactor = -2; mt.polygonOffsetUnits = -2; }
       m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true; });
