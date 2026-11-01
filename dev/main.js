@@ -2890,6 +2890,7 @@ const upSettled = () => !drag && Math.abs(camX - SX[S.site]) <= UP_SETTLE;
 function tap(x, y, pk, t0) {   // t0: touch time for a deferred tap (gc-tapfix mover grace)               // pk: the touchstart pick from the canvas pointerdown (undefined = no press record: pick now)
   upPend.site = -1;
   if (tapDeposit3d(x, y)) return;
+  if (pk === null) { window.__ps3d.lastPick = 'sliding'; return; }     // ca-tapfix2 (EM 23:00): camera not settled at touchstart → no card; never re-picked at touch end with a later camera pose
   if (pk || pk === false) {                                             // gc-ui3: settled at touchstart → open exactly that object's card (no touchend re-pick; a moving truck keeps its own card)
     if (!pk) { window.__ps3d.lastPick = null; return closeUp('empty'); }
     if (pk.t.site >= 0 && pk.t.site !== S.site) { window.__ps3d.lastPick = 'other-site'; return; }
@@ -3009,16 +3010,36 @@ const UP_R = 44;                       // tap radius floor (CSS px)
 // The projected rects (and their 44 px floor) are only the fallback when the ray hits no target, so a parked truck's rect no longer covers the
 // Chute's own dome / belt, and the Chute's rect no longer covers the truck. Movers (truck, ship): a touch also counts a pose the mover had up to
 // UP_GRACE ms before the touch (the frame the finger aimed at), so a truck that drives off under the finger still opens its own card.
+// ca-tapfix2 (Director, EM 21:54): the TRUCK wins over the chute wherever they overlap on screen. Nearest own mesh still picks first; then, if the
+// pick is the chute and the finger is on the truck's own 3D box (now, or a pose within UP_GRACE: a truck driving under the finger), the truck opens.
+// That covers the Mine spots where the ray goes through the parked truck's box (above the bed, by the cab) and hits the chute behind it, and a
+// moving truck whose mesh is behind a nearer chute mesh. UP_WINS[id] = the targets id beats; every other pair stays nearest-hit.
+const UP_WINS = { truck: ['chute'] };
 const UP_GRACE = 300, _urc = new THREE.Raycaster(), _urn = new THREE.Vector2(), _urr = new THREE.Ray(), _urm = new THREE.Matrix4(), _urp = new THREE.Vector3();
 const UPPOSE = UPT.filter(t => t.own).map(t => ({ t, n: 0, i: 0, buf: Array.from({ length: 32 }, () => ({ at: 0, m: new THREE.Matrix4() })) }));
-function upPoseRec() {                 // frame(), after render: each mover's root world matrix (ring buffer, ~0.5 s at 60 fps)
+// ca-tapfix2 (chute 2-tap): the camera's own poses too. After a card closes, the card camera eases back (UC, frame-dt based: under load it takes
+// seconds); a finger aimed at the frame on screen landed after the view moved, the pick at touchstart found nothing and the tap only closed (QA: 'needed 2 taps').
+const UP_CAMG = 700;   // camera poses: as long as UP_WAIT (a slow frame can hold the zoomed view on screen that long); only used when the camera now shows nothing there
+const UPCAM = { n: 0, i: 0, buf: Array.from({ length: 64 }, () => ({ at: 0, mw: new THREE.Matrix4(), pm: new THREE.Matrix4(), pi: new THREE.Matrix4() })) };
+const _ucP = new THREE.Vector3(), _ucQ = new THREE.Quaternion(), _ucS = new THREE.Vector3(), _ucM = new THREE.Matrix4(), _ucMi = new THREE.Matrix4();
+function upAtCam(e, f) {               // run f() with the camera put back at a recorded pose (rects + rays see that frame), then restore it
+  const c = camera; _ucP.copy(c.position); _ucQ.copy(c.quaternion); _ucS.copy(c.scale); _ucM.copy(c.projectionMatrix); _ucMi.copy(c.projectionMatrixInverse);
+  e.mw.decompose(c.position, c.quaternion, c.scale); c.projectionMatrix.copy(e.pm); c.projectionMatrixInverse.copy(e.pi); c.updateMatrixWorld(true);
+  try { return f(); } finally { c.position.copy(_ucP); c.quaternion.copy(_ucQ); c.scale.copy(_ucS); c.projectionMatrix.copy(_ucM); c.projectionMatrixInverse.copy(_ucMi); c.updateMatrixWorld(true); }
+}
+function upPoseRec() {                 // frame(), after render: each mover's root world matrix (ring buffer, ~0.5 s at 60 fps) + the camera pose drawn
   const at = performance.now();
-  for (const h of UPPOSE) { const o = h.t.objs()[0]; if (!o) { h.n = 0; continue; } const e = h.buf[h.i]; e.at = at; e.m.copy(o.matrixWorld); h.i = (h.i + 1) % h.buf.length; h.n = Math.min(h.n + 1, h.buf.length); }
+  { const e = UPCAM.buf[UPCAM.i]; e.at = at; e.mw.copy(camera.matrixWorld); e.pm.copy(camera.projectionMatrix); e.pi.copy(camera.projectionMatrixInverse); UPCAM.i = (UPCAM.i + 1) % UPCAM.buf.length; UPCAM.n = Math.min(UPCAM.n + 1, UPCAM.buf.length); }
+  for (const h of UPPOSE) { const o = h.t.objs()[0]; if (!o) { h.n = 0; continue; } const e = h.buf[h.i]; e.at = at; e.m.copy(o.matrixWorld); e.r = upRect(h.t); h.i = (h.i + 1) % h.buf.length; h.n = Math.min(h.n + 1, h.buf.length); }
 }
 function upMeshes(t) { const ms = []; for (const o of t.objs()) { if (!upShown(t.own ? o : o.parent)) continue; o.traverse(m => { if (m.isMesh && upShown(m)) ms.push(m); }); } return ms; }
-function upPoseIn(h, t0) {             // the mover poses a touch at t0 may have aimed at: every frame since t0 − UP_GRACE, plus the frame on screen at t0 − UP_GRACE (slow frames)
+function upRectG(t, t0) {              // ca-tapfix2 (EM 23:12): a mover's rect now, or (touch time given) its rect in a frame within the grace: a truck that left the screen in one slow frame is still the truck the finger aimed at
+  const r = upRect(t); if (r || t0 == null) return r; const h = UPPOSE.find(q => q.t === t); if (!h) return null;
+  let best = null; for (const e of upPoseIn(h, t0)) if (e.r && (!best || e.at > best.at)) best = e; return best ? best.r : null;
+}
+function upPoseIn(h, t0, g = UP_GRACE) {             // the mover poses a touch at t0 may have aimed at: every frame since t0 − UP_GRACE, plus the frame on screen at t0 − UP_GRACE (slow frames)
   let old = null; const out = [];
-  for (let k = 0; k < h.n; k++) { const e = h.buf[k]; if (e.at >= t0 - UP_GRACE) out.push(e); else if (!old || e.at > old.at) old = e; }
+  for (let k = 0; k < h.n; k++) { const e = h.buf[k]; if (e.at >= t0 - g) out.push(e); else if (!old || e.at > old.at) old = e; }
   if (old) out.push(old); return out;
 }
 function upRayDist(t, ray) {           // nearest hit of this target's own visible meshes (box-only targets: their world box) along ray, or Infinity
@@ -3026,28 +3047,39 @@ function upRayDist(t, ray) {           // nearest hit of this target's own visib
     const b2 = t.add && t.add(_ub2); if (b2 && !b2.isEmpty() && ray.intersectBox(b2, _urp)) d = Math.min(d, _urp.distanceTo(ray.origin)); return d; }
   _urc.ray.copy(ray); const h = _urc.intersectObjects(upMeshes(t), false); return h.length ? h[0].distance : Infinity;
 }
+function upBoxDist(h, ray, t0) {      // a mover's own 3D box along ray: now, and (t0 given) every pose within the grace; { d: nearest entry or Infinity, past }
+  const o = h.t.objs()[0]; o.updateWorldMatrix(true, true); _ub.makeEmpty().expandByObject(o);
+  let d = ray.intersectBox(_ub, _urp) ? _urp.distanceTo(ray.origin) : Infinity, past = false;
+  if (t0 != null) for (const e of upPoseIn(h, t0)) {
+    _urm.copy(e.m).invert().premultiply(o.matrixWorld); _urr.copy(ray).applyMatrix4(_urm); if (_urr.intersectBox(_ub, _urp)) { const dk = _urp.distanceTo(_urr.origin); if (dk < d) { d = dk; past = true; } } }
+  return { d, past };
+}
 function pickRay(x, y, t0) {           // t0: touch time (performance.now) → movers also try their poses since t0 − UP_GRACE; undefined = this frame only
   camera.updateMatrixWorld(); _urn.set(x / W * 2 - 1, -(y / H) * 2 + 1); _urc.setFromCamera(_urn, camera); const ray = _urc.ray.clone();
   let best = null, bD = Infinity;
   for (const t of UPT) {
-    const r = upRect(t); if (!r) continue;
+    const r = t.own ? upRectG(t, t0) : upRect(t); if (!r) continue;
     let d = upRayDist(t, ray), past = false;
     const h = t0 != null && UPPOSE.find(q => q.t === t);
     if (h && h.n) { const o = t.objs()[0]; for (const e of upPoseIn(h, t0)) {
       _urm.copy(e.m).invert().premultiply(o.matrixWorld); _urr.copy(ray).applyMatrix4(_urm); const dk = upRayDist(t, _urr); if (dk < d) { d = dk; past = true; } } }   // the ray in the mover's frame then, moved to its pose now
     if (d < bD) { bD = d; best = { t, r, ray: true, past, d: +d.toFixed(2) }; }
   }
+  if (best) for (const h of UPPOSE) {    // ca-tapfix2: a mover that beats the picked target (UP_WINS) wins wherever its 3D box (now, or a pose within the grace) is under the finger
+    const t = h.t; if (t === best.t || !(UP_WINS[t.id] || []).includes(best.t.id)) continue; const r = upRectG(t, t0); if (!r) continue;
+    const b = upBoxDist(h, ray, t0); if (b.d < Infinity) { best = { t, r, ray: true, box: true, past: b.past, d: +b.d.toFixed(2), over: best.t.id }; break; }
+  }
   if (!best) for (const h of UPPOSE) {   // no mesh under the finger: a mover's own 3D box (now, or a pose within the grace) before the screen rects (the gap between cab and bed)
-    const t = h.t, r = upRect(t); if (!r) continue; const o = t.objs()[0]; o.updateWorldMatrix(true, true); _ub.makeEmpty().expandByObject(o);
-    let d = ray.intersectBox(_ub, _urp) ? _urp.distanceTo(ray.origin) : Infinity, past = false;
-    if (t0 != null) for (const e of upPoseIn(h, t0)) {
-      _urm.copy(e.m).invert().premultiply(o.matrixWorld); _urr.copy(ray).applyMatrix4(_urm); if (_urr.intersectBox(_ub, _urp)) { const dk = _urp.distanceTo(_urr.origin); if (dk < d) { d = dk; past = true; } } }
+    const t = h.t, r = upRectG(t, t0); if (!r) continue; const { d, past } = upBoxDist(h, ray, t0);
     if (d < bD) { bD = d; best = { t, r, ray: true, box: true, past, d: +d.toFixed(2) }; }
   }
-  window.__ps3d.lastRay = best ? { id: best.t.id, d: best.d, past: best.past, box: !!best.box } : null;
+  window.__ps3d.lastRay = best ? { id: best.t.id, d: best.d, past: best.past, box: !!best.box, over: best.over || null } : null;
   return best;
 }
-function pickUp(x, y, t0) { return pickRay(x, y, t0) || pickRect(x, y); }
+function pickUp(x, y, t0) {            // ca-tapfix2: nothing under the finger now (touch time given) → the camera poses drawn within UP_CAMG, newest first
+  const h = pickRay(x, y, t0) || pickRect(x, y); if (h || t0 == null) return h;
+  for (const e of upPoseIn(UPCAM, t0, UP_CAMG).sort((a, b) => b.at - a.at)) { const p = upAtCam(e, () => pickRay(x, y, t0) || pickRect(x, y)); if (p) { p.cam = 'past'; window.__ps3d.lastRay = Object.assign({}, window.__ps3d.lastRay, { cam: 'past' }); return p; } }
+  return null; }
 function pickRect(x, y) {              // the old screen-rect pick (smallest rect the finger is inside, else the nearest ≥ 44 px grown rect): fallback only
   let best = null, bA = Infinity, near = null, nD = Infinity;
   for (const t of UPT) {
@@ -3280,7 +3312,7 @@ Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, 
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
     if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
-Object.assign(window.__ps3d, { SX, ORD, stepSite, nearSite, UP, UPT, openUp, closeUp, pickUp, pickRay, pickRect, chuteLocked, upUI, upRects: () => { const a = UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, title: UP[t.p].name, site: t.site, r, why: r ? '' : upWhy }; });   // gc-ui2: + station, settled and a reason when nothing here is tappable
+Object.assign(window.__ps3d, { SX, ORD, stepSite, nearSite, UP, UPT, openUp, closeUp, pickUp, pickRay, pickRect, UPCAM, chuteLocked, upUI, upRects: () => { const a = UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, title: UP[t.p].name, site: t.site, r, why: r ? '' : upWhy }; });   // gc-ui2: + station, settled and a reason when nothing here is tappable
     const n = a.filter(e => e.r).length; return Object.assign(a, { station: S.site, name: STATIONS[S.site], settled: upSettled(), n, why: n ? '' : !upSettled() ? 'camera sliding' : 'no tappable objects here' }); } });
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ get uc() { return { w: +UC.w.toFixed(3), want: UC.want, id: UC.t && UC.t.id, look: [CAMLOOK.lx, CAMLOOK.ly, CAMLOOK.lz, CAMLOOK.k].map(v => +v.toFixed(2)) }; }, get upSettled() { return upSettled(); } }));   // QA hooks (upgrade cards)
 Object.defineProperty(window.__ps3d, 'upCur', { get: () => upCur, configurable: true });
