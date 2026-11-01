@@ -49,7 +49,7 @@ const CFG = {
   fill0: 120, chuteMul: 0.80, fillFloor: 15, chuteMax: 11,   // fill s at Lv1; Chute Feed Rate ×0.80/level (Director 20:58 B8); 15 s floor (reached at Lv11 = max)
   load0: 12, loadPerLvl: 6,             // ore per load (12 at drill Lv1, +6 per drill level; × oreValue for the ore/min readout). Phase 1: loads pay $0 (CFG.econ.truckLoadPay)
   richFill: 0.25, richBonus: 8, richPayDelay: 1.0,            // deposit tap: +25% bed (tweened over the 1 s truck_load_rich), bonus pays ~1 s later
-  roverBonus: 8, roverMax: 2, roverCost: 60,
+  roverMax: 2,                          // ca-truck2: HT-04 fleet cap (S.rovers 1..roverMax); Truck 2 costs CFG.econ.p2Prices.truck2 (dead roverBonus / roverCost removed, no readers)
   crew0: 4,                             // starting crew; the Mine operator (Operator_Deck) is one of them
   depositMax: 2, depositEvery: 8,
   awayCardMin: 5, offlineAfterSec: 300,   // (offlineRate / offlineCapSec: set from CFG.econ.offline just below) Director 10/23: the 50% cut + away card only after 5 min away; shorter locks catch up at full rate
@@ -308,6 +308,7 @@ const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 
 let hadRt = false;
 try { let sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; hadRt = sv.rt > 0;
   migrateSave(sv, hadRt); Object.assign(S, sv); } catch (e) {}
+S.rovers = Math.max(1, Math.min(CFG.roverMax, Math.floor(+S.rovers) || 1));   // ca-truck2: saved HT-04 count, default 1, clamped 1..roverMax
 // S.site is a station index, so a save keeps its named station across station-order changes (each step runs once):
 //   11:12 and older saves (no 'chute'): the Refinery slot (index 2) shifts the later stations by one;
 //   ord < 2 (18:44 and older order LS, Mine, Refinery, Pad, Dock, Habitat, Shipyard, Eng): Pad 3→4, Dock 4→3, Habitat 5→6, Shipyard 6→5 (Director 10/24 order)
@@ -434,8 +435,15 @@ const purityAt = (lv) => { const P = CFG.econ.purity; return Math.min(P.max, P.b
 const refineryPurity = () => purityAt(clamp(S.purLv, 1, purityMaxLv()));   // drop-off lane: dropoffValue(refineryPurity())
 const purityCost = () => econCost(CFG.econ.purity, S.purLv);
 // ORE/MIN (Director 20:58): real throughput over the full cycle = ore per load / (fill + trip incl. reverse/dump/settle) — ≈4 at Lv1; drill and chute upgrades move it
-const oreMin = (dl = S.drill, cl = S.chute) => (loadValue(dl) / CFG.oreValue) * 60 / (fillSec(cl) + (R.tl ? R.tl.trip : 60));
+const oreMin = (dl = S.drill, cl = S.chute) => (loadValue(dl) * fleetN() / CFG.oreValue) * 60 / (fillSec(cl) + (R.tl ? R.tl.trip : 60));
 const loadValue = (lv = S.drill) => CFG.load0 + CFG.loadPerLvl * (lv - 1);   // Director 10/23: fixed per load, scales with drill level only
+// ca-truck2 (GD 06:58): Truck 2 is a one-time $150k buy (CFG.econ.p2Prices.truck2), any time. Owning 2 HT-04s doubles the ore of every load: each
+// dump counts fleetN() loads (crates made, load value, S.loads), in settleTo, which runs live AND for the away catch-up, so both match. Truck 2 is
+// drawn PARKED at the Mine (T2P, a clone of the HT-04 sharing its geometry and materials; no driving, no chute turns).
+// Hooks for later: unlock rule → truck2Unlocked(); real second-truck motion / chute queueing → replace the fleetN() multiplier in settleTo with a
+// second S.tk-style loop and drive truck2Root from it in updTruck (today it is static, matrixAutoUpdate off).
+const truck2Unlocked = () => true;   // GD 06:58: buyable any time
+const fleetN = () => clamp(S.rovers | 0, 1, CFG.roverMax);
 const canPay = (c) => DEV || S.money >= c;
 const pay = (c) => { if (!DEV) S.money -= c; };
 const SUF = [[1e15, 'Qa'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M']];
@@ -928,7 +936,10 @@ $('coverRetry').addEventListener('click', () => {
 });
 
 // ===== HT-04 haul truck prop (Art c0452bd, md5 16eccb4d…): root 'Truck' at the ground centre, +X forward at yaw 0; world-space object
-let truck = null, truckRoot = null, truckDone = false, tMixer = null, fillArcNode = null;
+let truck = null, truckRoot = null, truckDone = false, tMixer = null, fillArcNode = null, truck2Root = null;
+// ca-truck2: Truck 2 parked at the Mine, world (x, y, z, yaw): flat ground (Terrain_Ground y -0.005 over the footprint), +X like the working truck,
+// 7 m south of the out lane (truck z 7.05-10.95 vs 18.05-21.95), clear of the Mine buildings (z ≤ 9.8), rocks and trails; in the 393 Mine frame
+const T2P = [MX + 6, 0, 20, 0];
 const tActs = {}, wheels = [], fillMeshes = [];
 function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe624e', (gltf) => {
   truckRoot = gltf.scene; truck = truckRoot.getObjectByName('Truck') || truckRoot;
@@ -942,7 +953,14 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe
   for (const c of gltf.animations) tActs[c.name] = tMixer.clipAction(c);
   if (tActs.truck_load_rich) { tActs.truck_load_rich.setLoop(THREE.LoopOnce, 1); tActs.truck_load_rich.clampWhenFinished = false; }
   if (tActs.truck_dump) { tActs.truck_dump.setLoop(THREE.LoopOnce, 1); tActs.truck_dump.clampWhenFinished = true; }
+  truck2Root = truckRoot.clone(true);   // ca-truck2: parked Truck 2 = the same HT-04 (Object3D.clone shares geometry + materials), bind pose, empty bed
+  truck2Root.traverse(o => { if (o.isMesh && o.morphTargetInfluences) o.morphTargetInfluences.fill(0); if (o.name === 'Fill_Arc') o.visible = false; });
+  { const src = [], dst = []; truckRoot.traverse(o => src.push(o)); truck2Root.traverse(o => dst.push(o)); const mp = new Map(src.map((o, i) => [o, dst[i]]));
+    for (const d of dst) if (d.isSkinnedMesh) { const sk = d.skeleton; d.bind(new THREE.Skeleton(sk.bones.map(b => mp.get(b) || b), sk.boneInverses), d.bindMatrix); } }   // the HT-04 is skinned: own bones (clone(true) would ride the driving truck's)
+  truck2Root.position.set(T2P[0], T2P[1], T2P[2]); truck2Root.rotation.set(0, T2P[3], 0); truck2Root.updateMatrixWorld(true);
+  truck2Root.traverse(o => { o.matrixAutoUpdate = false; }); truck2Root.name = 'Truck2_Parked'; truck2Root.visible = S.rovers >= 2; scene.add(truck2Root);
   truckDone = true; maybeReady();
+  Object.assign(window.__ps3d, { truck2Root, T2P, truck2Unlocked, fleetN, buyTruck2: () => buyTruck2() });
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
   metBind();                         // META-RACE fix (EM 10/31): bind here too: when the meteorite GLB lands first, its own metBind() finds no truck yet
 }, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); }
@@ -1812,8 +1830,8 @@ const truckOnRoad = () => (TS.ph === 'out' || TS.ph === 'back') && TS.x > MX + 1
 function payPend(T, acc) {
   for (let i = S.pend.length - 1; i >= 0; i--) { const p = S.pend[i]; if (p.at > T) continue; S.pend.splice(i, 1); if (!depsOn()) continue; S.money += p.v; if (acc) acc.rich += p.v; else richPop(p.v); window.__ps3d.richPaid = (window.__ps3d.richPaid || []).concat({ at: p.at, paidAt: nowMs(), v: p.v }).slice(-10); }
 }
-function payBase(v, acc) {            // Phase 1 econ (10/29): a truck load pays CFG.econ.truckLoadPay (Locked $0), not v; the ore feeds the Refinery
-  const p = Math.max(0, +CFG.econ.truckLoadPay || 0), amt = acc && !acc.full ? p * CFG.offlineRate : p; if (amt > 0) S.money += amt; S.loads++;
+function payBase(v, acc, n = 1) {            // Phase 1 econ (10/29): a truck load pays CFG.econ.truckLoadPay (Locked $0), not v; the ore feeds the Refinery
+  const p = Math.max(0, +CFG.econ.truckLoadPay || 0) * n, amt = acc && !acc.full ? p * CFG.offlineRate : p; if (amt > 0) S.money += amt; S.loads += n;   // ca-truck2: n = loads this dump counts for
   logU('truck', amt > 0 ? `Truck dropped a load at the Refinery, +${fmt(amt)}` : 'Truck dropped a load at the Refinery');
   window.__ps3d.dumps = (window.__ps3d.dumps || []).concat({ at: nowMs(), amt, off: !!acc }).slice(-20);
   if (acc) { acc.base += amt; acc.n++; return; }
@@ -1841,8 +1859,8 @@ function settleTo(T, acc) {
   const k = S.tk, tl = R.tl; if (!tl || !RT.ready) return;          // B1: nothing settles on the temporary route
   payPend(T, acc);
   for (let g = 0; g < 20000; g++) {
-    if (!k.dep) { const tf = tFull(); if (tf > T) break; k.dep = tf; k.paid = false; k.val = loadValue(); continue; }   // full: depart (value frozen now)
-    if (!k.paid) { if (k.dep + tl.tDump * 1000 > T) break; k.paid = true; payBase(k.val, acc); cgSettle(k.dep + tl.tDump * 1000, acc); cgMake(k.dep + tl.tDump * 1000); }
+    if (!k.dep) { const tf = tFull(); if (tf > T) break; k.dep = tf; k.paid = false; k.n = fleetN(); k.val = loadValue() * k.n; continue; }   // full: depart (value + fleet frozen now; ca-truck2: k.n trucks' worth)
+    if (!k.paid) { if (k.dep + tl.tDump * 1000 > T) break; k.paid = true; const n = k.n || 1; payBase(k.val, acc, n); cgSettle(k.dep + tl.tDump * 1000, acc); for (let i = 0; i < n; i++) cgMake(k.dep + tl.tDump * 1000); }   // ca-truck2: n loads' crates
     const end = k.dep + tl.trip * 1000; if (end > T) break;
     arrive(end, acc); payPend(T, acc);
   }
@@ -3125,7 +3143,8 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     big: (m) => [m ? fmtMin(refuelSec()).slice(0, -4) : `${fmtMin(refuelSec()).slice(0, -4)} → ${fmtMin(refuelSec(S.fuelLv + 1)).slice(0, -4)}`, 'min refuel'],
     sub: (m) => (m ? `+${fuelMake()}/min, stock ${fuelCap()}` : `+${fuelMake()} → +${fuelMake(S.fuelLv + 1)}/min, stock ${fuelCap()} → ${fuelCap(S.fuelLv + 1)}`) + (fuelPrice() > 0 ? ` · ${fmt(fuelPrice())}/refuel` : ''),
     meter: () => [fuelMaxLv(), Math.min(S.fuelLv, fuelMaxLv())] },
-  truck: { name: 'Haul Truck', ico: 'truck', info: true, big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: () => 'More trucks coming soon' },
+  truck: { name: 'Haul Truck', ico: 'truck', once: true, lock: () => !truck2Unlocked(), lockSub: 'Truck 2 unlocks later', lv: () => S.rovers, max: () => S.rovers >= CFG.roverMax, cost: () => CFG.econ.p2Prices.truck2, buy: () => buyTruck2(),   // ca-truck2: one-time Truck 2 buy
+    big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: (m) => m ? 'Truck 2 parked at the Mine · 2× ore per load' : 'Truck 2 doubles the ore of every load' },
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
   ship: { name: 'Cargo Ship', ico: 'ship', launch: true, kick: 'Launch',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${CG.holdCap}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
@@ -3154,6 +3173,7 @@ const UPT = [
   { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBox(n, 3, 8, 3, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
     add: (b) => padTankBox(b) },   // gc-ui2 (item 4): + the LOX / LCH4 tanks (part of the Pad_Base mesh, no own node)
   { id: 'truck', p: 'truck', site: -1, own: true, objs: () => truckRoot ? [truckRoot] : [], hl: () => truckRoot ? [truckRoot] : [] },
+  { id: 'truck2', p: 'truck', site: -1, own: true, objs: () => truck2Root && truck2Root.visible ? [truck2Root] : [], hl: () => truck2Root && truck2Root.visible ? [truck2Root] : [] },   // ca-truck2: the parked Truck 2 opens the same card (site -1 like Truck 1: no tap-invite glow clones)
   { id: 'ship', p: 'ship', site: PADI, own: true, objs: () => cg3.ship ? [cg3.ship] : [], hl: () => cg3.ship ? [cg3.ship] : [] },
   // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
@@ -3406,6 +3426,7 @@ function fitTitle() { let f = 24; upH2.style.fontSize = ''; upH2.classList.remov
   if (upH2.scrollWidth > upH2.clientWidth + 0.5) upH2.classList.add('wrap'); }   // gc-ui3 (item 3): still too wide at 15 px → wraps (never cut off)   // long names shrink to fit beside the X
 function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost row; the button is LAUNCH (enabled exactly when canLaunch)
   const big = P.big(), sub = P.sub(), [bt, ok] = P.btn(), k = [upCur, UPK.site, big[0], sub, bt, ok].join('|');
+  upBuy.style.display = '';   // ca-truck2: a maxed one-time card hides the shared button (#upBuy is display:block, so not [hidden])
   if (k === UPK.k) return; UPK.k = k;
   upEl.dataset.ico = P.ico; $('upKick').textContent = `${STATIONS[UPK.site]} · ${P.kick}`; $('upName').textContent = P.name; $('upLv').textContent = ''; fitTitle();
   $('upEffK').textContent = 'Status'; $('upLvl').hidden = true; $('upMeter').hidden = true; $('upCostRow').hidden = true;
@@ -3423,16 +3444,17 @@ function upUI() {                      // refreshes the open card (0.1 s tick + 
   const k = [upCur, UPK.site, lk, lv, c, ok, max, big[0], big[1], sub, mt && mt.join()].join('|');
   if (k !== UPK.k) { UPK.k = k;
     upEl.dataset.ico = P.ico; upEl.dataset.locked = lk ? '1' : ''; $('upKick').textContent = `${STATIONS[UPK.site]} · ${lk ? 'Locked' : info ? 'Coming soon' : 'Upgrade'}`;
-    $('upName').textContent = P.name; $('upLv').textContent = info ? '' : `Level ${lv}`; fitTitle();
-    $('upEffK').textContent = info || P.launch ? 'Status' : max ? 'Max level' : 'Next level';
-    const ll = $('upLvl'); ll.hidden = info; if (!info) ll.innerHTML = max ? `LV ${lv} <span class="ar"></span> <b>MAX</b>` : `LV ${lv} <span class="ar"></span> <b>LV ${lv + 1}</b>`;
+    $('upName').textContent = P.name; $('upLv').textContent = info || P.once ? '' : `Level ${lv}`; fitTitle();
+    $('upEffK').textContent = info || P.launch || (P.once && max) ? 'Status' : max ? 'Max level' : 'Next level';
+    const ll = $('upLvl'); ll.hidden = info || !!P.once; if (!info && !P.once) ll.innerHTML = max ? `LV ${lv} <span class="ar"></span> <b>MAX</b>` : `LV ${lv} <span class="ar"></span> <b>LV ${lv + 1}</b>`;
        // gc-ui3 (item 4): Coming soon cards have no level line (empty big → hidden)
     const bg = $('upBig'); bg.textContent = big[0]; bg.hidden = !big[0]; if (big[1]) { const sm = document.createElement('small'); sm.textContent = big[1]; bg.append(sm); }
     $('upSub').textContent = sub;
     const me = $('upMeter'); me.hidden = !mt; if (mt) { const [n, on] = mt; if (me.children.length !== n) me.innerHTML = '<i></i>'.repeat(n); [...me.children].forEach((x, i) => { x.className = i < on ? 'on' : (!max && i === on ? 'nx' : ''); }); }
     $('upCostRow').hidden = info; $('upCost').textContent = max ? '—' : fmt(c);
     upBuy.disabled = !ok; upBuy.className = info || max ? 'max' : ok ? '' : 'need';
-    upBuy.textContent = lk ? 'Locked' : info ? 'Coming soon' : max ? 'Max' : ok ? 'Upgrade' : 'Need ' + fmt(c);
+    upBuy.textContent = lk ? 'Locked' : info ? 'Coming soon' : max ? 'Max' : ok ? (P.once ? 'Buy' : 'Upgrade') : 'Need ' + fmt(c);
+    upBuy.style.display = P.once && max ? 'none' : ''; $('upCostRow').hidden = info || (!!P.once && max);   // ca-truck2: a one-time buy has no button / cost once owned
   }
   if (P.fuel) { const sv = Math.floor(fuelStock() + 1e-9); if (sv !== UPK.s) { UPK.s = sv; upStk.textContent = `LOX+LCH4 ${sv}/${fuelCap()} +${fuelMake()}/min`; } }   // P2-FUEL: cap + rate follow the Fuel level
   else if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
@@ -3529,6 +3551,12 @@ function buyFuel() {
   save(); upUI(); hud();
   popAtBuy('Fuel Lv ' + S.fuelLv);
   logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())} · LOX+LCH4 +${fuelMake()}/min, stock ${fuelCap()}`);
+  window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
+}
+function buyTruck2() {               // ca-truck2: one-time; same check / deduct / save as the other buys; loads departing from now count 2
+  const c = CFG.econ.p2Prices.truck2; if (!truck2Unlocked() || S.rovers >= CFG.roverMax || !canPay(c)) return;
+  settleTo(nowMs(), null); pay(c); S.rovers = Math.min(CFG.roverMax, S.rovers + 1); if (truck2Root) truck2Root.visible = true;
+  save(); upUI(); hud(); popAtBuy('Truck 2'); logU('upgrade', 'Truck 2 bought: 2 HT-04 trucks, 2× ore per load');
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
 function buyPurity() {
