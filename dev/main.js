@@ -2658,6 +2658,7 @@ const _sp = {};
 function cargoUI() {                  // Launch button (bottom-right of the safe band, Launch Pad only) and the Storage full chip (over the Refinery pallet)
   const t = nowMs(), c = S.cg, live = !document.hidden && !sheetOpen, bd = band();
   dockCounter(bd);   // ca-dock
+  awayChip(bd, t);   // gc-dockfix item 5b
   const onPad = live && S.site === PADI && Math.abs(camX - PX) < 3 && launchReady(t), lp = launchPayFor(c.sh.hold);
   if (onPad) { const dim = !(lp > 0), lock = dim && launchBlocked(); if (launchEl.classList.contains('dim') !== dim) launchEl.classList.toggle('dim', dim); if (launchEl.classList.contains('lock') !== lock) { launchEl.classList.toggle('lock', lock); launchEl.disabled = lock; } }   // gc-dockfix item 2: gold only when the launch pays; 'dim' allow0 (tappable), 'lock' block (grey, untappable)
   if (onPad) { const sm = launchEl.querySelector('small'), tx = `LAUNCH PAY +${fmt(lp)}${lp > 0 ? '' : ` · NEEDS ${launchMinBoxes()}`}\nDROP-OFF +${fmt(dropoffPay(c.sh.hold))} · ${c.sh.hold}/${CG.holdCap}`; if (sm.textContent !== tx) sm.textContent = tx; }   // payout ticket: two values (launch pay, drop-off)
@@ -2677,8 +2678,8 @@ function cargoUI() {                  // Launch button (bottom-right of the safe
   const k = st === 'pad' ? (f >= 1 ? (c.sh.hold >= 1 ? 'full' : 'wait') : fuelNow(t).stall ? 'nofuel' : 'fuel') : st;   // fuel / nofuel (stock 0: fills at the make rate) / full / wait (full, 0 boxes: same S.cg.sh.hold as canLaunch) / launch / away / land
   if (q !== FG.q) { FG.q = q; fgFill.style.transform = 'scaleX(' + (q / 400) + ')'; }
   if (k !== FG.k) { FG.k = k; fgEl.classList.toggle('full', k === 'full' || k === 'wait'); fgEl.classList.toggle('wait', k === 'wait'); fgEl.classList.toggle('nofuel', k === 'nofuel'); fgLbl.textContent = k === 'full' ? 'FUEL FULL' : k === 'wait' ? 'AWAITING CARGO' : k === 'nofuel' ? 'WAITING FOR FUEL' : k === 'board' ? 'BOARDING' : k === 'launch' ? 'BURN' : k === 'away' ? 'SHIP AWAY' : k === 'land' ? 'LANDING' : 'FUEL'; FG.p = -1; }
-  const cd = k === 'away' || k === 'land' ? Math.max(0, Math.ceil(((c.sh.st === 'away' ? c.sh.t0 + (CG.awaySec + CG.landSec) * 1000 : c.sh.t0 + CG.landSec * 1000) - t) / 1000)) : -1;   // gc-dockfix item 5: m:ss to touchdown from the saved trip stamps
-  const pk = cd >= 0 ? -2 - cd : pc; if (pk !== FG.p) { FG.p = pk; fgPct.textContent = cd >= 0 ? Math.floor(cd / 60) + ':' + String(cd % 60).padStart(2, '0') : pc + '%'; }
+  const cd = k === 'away' || k === 'land' ? shipEtaSec(t) : -1;   // gc-dockfix item 5: m:ss to touchdown from the saved trip stamps
+  const pk = cd >= 0 ? -2 - cd : pc; if (pk !== FG.p) { FG.p = pk; fgPct.textContent = cd >= 0 ? mss(cd) : pc + '%'; }
 }
 
 // ===== Cargo Bay label (Director 10/25): floating 'CARGO BAY' / '<stored>/<max> crates' over the Cargo Space Dock, in the FUEL panel's HUD style.
@@ -2767,6 +2768,32 @@ function dockCounter(bd) {            // from cargoUI (every 0.1 s), with the ba
   const x = Math.round(bd.l + 6), y = Math.round(bd.top + 6 + 34 + 6);   // under the 34 px fuel gauge (bd.top + 6), same left edge
   if (x !== DC.x || y !== DC.y) { DC.x = x; DC.y = y; dcEl.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
   const n = S.cg.dk; if (n !== DC.n) { DC.n = n; dcTxt.nodeValue = n + '/' + CFG.dock.cap; const f = n >= CFG.dock.cap; if (f !== DC.full) { DC.full = f; dcEl.classList.toggle('full', f); } }
+}
+
+// gc-dockfix item 5b (EM 22:11): 'SHIP AWAY m:ss' HUD chip at every station while the ship is away (away / landing), hidden on the pad; top-right of the band
+// (under the HUD row and the settings button, clear of the Pad fuel gauge + Dock counter on the left); hidden while a sheet is open, like the Dock counter
+const AW_CSS = '#awayCt{position:fixed;left:0;top:0;z-index:5;height:24px;display:none;align-items:center;gap:8px;pointer-events:none;isolation:isolate;padding:0 10px 0 12px;box-sizing:border-box;will-change:transform;white-space:nowrap}' +
+  '#awayCt.on{display:flex}' +
+  "#awayCt::before,#awayCt::after{content:'';position:absolute;z-index:-1;clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px)}" +
+  '#awayCt::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}#awayCt::after{inset:1px;background:linear-gradient(180deg,#1a1f2ef2,#0b101cf2)}' +
+  '#awayCt i{width:12px;height:12px;background:#9fdff5;-webkit-mask:var(--ri) center/contain no-repeat;mask:var(--ri) center/contain no-repeat;filter:drop-shadow(0 0 3px #3ad0ff)}' +
+  '#awayCt b{font:800 9px/12px system-ui;font-stretch:condensed;letter-spacing:.2em;color:#9fdff5}' +
+  '#awayCt em{font:800 11px/12px system-ui;font-style:normal;font-variant-numeric:tabular-nums;color:#eafcff;text-shadow:0 0 6px #3ad0ff99;min-width:30px;text-align:right}';
+const awEl = document.createElement('div'); awEl.id = 'awayCt'; awEl.setAttribute('role', 'status'); awEl.setAttribute('aria-label', 'Cargo ship away: time to touchdown');
+awEl.innerHTML = '<i></i><b>SHIP AWAY</b><em>0:00</em>';
+{ const st = document.createElement('style'); st.textContent = AW_CSS; document.head.appendChild(st); document.body.appendChild(awEl); }
+const awTxt = awEl.querySelector('em');
+{ const li = document.querySelector('#launchBtn i'), v = li ? getComputedStyle(li).getPropertyValue('--ri') : ''; if (v) awEl.style.setProperty('--ri', v); else awEl.querySelector('i').remove(); }   // the LAUNCH rocket glyph (no new art)
+const AW = { on: false, s: -1, x: -1, y: -1 };
+const shipEtaSec = (t = nowMs(), s = S.cg.sh) => s.st === 'away' || s.st === 'land' ? Math.max(0, Math.ceil(((s.st === 'away' ? s.t0 + (CG.awaySec + CG.landSec) * 1000 : s.t0 + CG.landSec * 1000) - t) / 1000)) : -1;   // s to touchdown from the saved trip stamps
+const mss = (n) => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+function awayChip(bd, t) {            // from cargoUI, every station
+  const cd = shipEtaSec(t), on = cd >= 0 && !document.hidden && !sheetOpen && coverGone;
+  if (on !== AW.on) { AW.on = on; awEl.classList.toggle('on', on); AW.x = -1; }
+  if (!on) return;
+  if (cd !== AW.s) { AW.s = cd; awTxt.textContent = mss(cd); }
+  const w = awEl.offsetWidth || 128, x = Math.round(W - 16 - w), y = Math.round(bd.top + 6);
+  if (x !== AW.x || y !== AW.y) { AW.x = x; AW.y = y; awEl.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
 }
 
 // ===== upgrade juice: spark burst (1 Points draw, ~0.5 s) + squash-and-bounce (~0.35 s)
