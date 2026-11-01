@@ -1082,17 +1082,21 @@ function rxAlpha(c = S.cg, t = nowMs()) { const s = c.sh; if (!BOARD_SEC) return
 // Backed up behind this flag, not deleted: ?oldrecv=1 shows him again for comparison. Only his draw is gated: the Receiver GLB still loads and
 // rxPose / astroPhase / the cargo sim (S.cg.as, crate hand-off timing) run unchanged, so no gameplay change; he has no tap target or card.
 const OLD_RECV = QD.get('oldrecv') === '1';
-function crewOnPad() { if (cg3 && cg3.astro) fadeObj(cg3.astro, OLD_RECV ? rxAlpha() : 0); }
+// gc-brkfade (Director 01:28): with the Receiver hidden, the break room handler (BRK.h, the Cargo Manager) takes his crossfade: the same rxAlpha()
+// through fadeObj (fades out as his climber fades in at boarding, hidden while away, fades back in from touchdown), wherever he is on his loop
+// (no new clip or walk). ?oldrecv=1: the handler is not faded (as before).
+function crewOnPad() { if (cg3 && cg3.astro) fadeObj(cg3.astro, OLD_RECV ? rxAlpha() : 0); if (!OLD_RECV && BRK.ok && BRK.h) fadeObj(BRK.h.scene, rxAlpha()); }
 function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = Mine operator, Cargo Manager = Receiver + his climber (CREW_BOARD: Crew_2), Mechanic = his climber (Crew_1)
   // (Cargo Manager is 2 only inside the boarding crossfade: cmA = his summed opacity, cmFull = his fully opaque figures)
   const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
   const cl = (n) => { const x = BD.root && BD.root.getObjectByName(n); return x && vis(x) && BD.root.userData._fa > .003 ? 1 : 0; };
   // EM 00:49: the break room handler (Crew_2, 2010584) IS the Cargo Manager while the old Receiver is hidden (OLD_RECV off): he counts 1 whenever drawn.
-  // ?oldrecv=1 counts exactly as before (Receiver + climber), no handler term. cmA / cmFull stay the Receiver → climber crossfade metric.
+  // ?oldrecv=1 counts exactly as before (Receiver + climber), no handler term. gc-brkfade: handler and climber are ONE person, so inside the boarding
+  // crossfade he counts 1 (not 2); cmA / cmFull take the handler's opacity in place of the Receiver's (cmA = 1, cmFull ≤ 1 through the fade).
   const brH = !OLD_RECV && BRK.ok && BRK.h && vis(BRK.h.root) ? 1 : 0;
-  return { Miner: vis(op) ? 1 : 0, 'Mine Driver': 0, 'Cargo Manager': (vis(cg3.astro) ? 1 : 0) + brH + cl(CREW_BOARD['Cargo Manager']), brH, Mechanic: cl(CREW_BOARD.Mechanic),
+  return { Miner: vis(op) ? 1 : 0, 'Mine Driver': 0, 'Cargo Manager': OLD_RECV ? (vis(cg3.astro) ? 1 : 0) + cl(CREW_BOARD['Cargo Manager']) : (vis(cg3.astro) || brH || cl(CREW_BOARD['Cargo Manager']) ? 1 : 0), brH, Mechanic: cl(CREW_BOARD.Mechanic),
     extraClimbers: BD.root ? ['Crew_3', 'Crew_4'].filter(n => BD.root.getObjectByName(n)).length : 0, rxA: +rxAlpha().toFixed(3), ship: S.cg.sh.st,
-    ...(() => { const a = [vis(cg3.astro) ? (cg3.astro.userData._fa ?? 1) : 0, cl(CREW_BOARD['Cargo Manager']) ? BD.root.userData._fa : 0]; return { cmA: +(a[0] + a[1]).toFixed(4), cmFull: a.filter(x => x >= .999).length }; })() }; }
+    ...(() => { const a = [vis(cg3.astro) ? (cg3.astro.userData._fa ?? 1) : brH ? (BRK.h.scene.userData._fa ?? 1) : 0, cl(CREW_BOARD['Cargo Manager']) ? BD.root.userData._fa : 0]; return { cmA: +(a[0] + a[1]).toFixed(4), cmFull: a.filter(x => x >= .999).length }; })() }; }
 const BC = { w: 0, tb: -1, lx: 0, ly: 0, lz: 0, k: 1, ph: 'off' };
 const CAMLOOK = { lx: 0, ly: 0, lz: 0, k: 1 };
 // Sim boarding phase (Director 10:55): Launch tap / auto-launch → sh.st 'board' (sh.t0 = its start, shifted by cgShift like every sh timestamp); at
