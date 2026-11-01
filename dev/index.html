@@ -64,8 +64,9 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #upIn{position:relative;border-radius:15px;background:linear-gradient(180deg,#0f1a2ef5,#090f1df5);padding:18px 20px 20px;overflow:hidden}
 #upIn::before{content:'';position:absolute;left:24px;right:24px;top:0;height:1px;background:linear-gradient(90deg,transparent,#3ad0ff,transparent);box-shadow:0 0 10px 1px #3ad0ff77}
 #upPanel .k{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#3ad0ff;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#upPanel #upKick{white-space:normal;line-height:11px;letter-spacing:.16em;text-overflow:clip}
 #upPanel .hl{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;text-transform:uppercase;color:#c9d3e6;opacity:.75}
-#upHead{display:flex;align-items:center;gap:12px;height:48px;padding-right:40px}
+#upHead{display:flex;align-items:center;gap:12px;min-height:48px;padding-right:40px}
 #upHead .ti{flex:1;min-width:0}
 .upChip{width:48px;height:48px;flex:none;display:grid;place-items:center;background:radial-gradient(circle,#3ad0ff33,#0a1424 70%);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);box-shadow:inset 0 0 0 1px #3ad0ff66}
 .upChip i{width:30px;height:30px;background:#7ff3ff;-webkit-mask:var(--ui) center/30px 30px no-repeat;mask:var(--ui) center/30px 30px no-repeat;filter:drop-shadow(0 0 4px #3ad0ff)}
@@ -73,6 +74,9 @@ button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 #upPanel[data-ico=fuel]{--ui:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='4' y='6' width='6.5' height='15' rx='3.2'/%3E%3Crect x='13.5' y='6' width='6.5' height='15' rx='3.2'/%3E%3Cpath d='M7.2 6V3M16.8 6V3M7.2 3h9.6'/%3E%3C/g%3E%3C/svg%3E")}
 #upPanel[data-ico=ship]{--ui:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M12 2c3 2.5 4 6 4 10v6H8v-6c0-4 1-7.5 4-10z'/%3E%3Cpath d='M8 14l-3 3v3h3M16 14l3 3v3h-3M10 18v3h4v-3'/%3E%3Ccircle cx='12' cy='9' r='1.6'/%3E%3C/g%3E%3C/svg%3E")}
 #upH2{margin:6px 0 0;font:800 24px/1 system-ui;font-stretch:condensed;letter-spacing:.06em;color:#eafcff;text-shadow:0 0 8px #3ad0ff99;text-transform:uppercase;white-space:nowrap;overflow:hidden}
+body.up-open #name{visibility:hidden}
+#upH2.wrap{white-space:normal;line-height:1.05}
+#upBig[hidden]{display:none}
 #upLv{display:inline-block;margin-left:8px;font:700 12px/1 system-ui;font-variant-numeric:tabular-nums;letter-spacing:.06em;color:#7ff3ff;vertical-align:4px}
 #upX{position:absolute;right:6px;top:6px;width:44px;height:44px;display:grid;place-items:center;border:0;padding:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #upX span{width:32px;height:32px;display:grid;place-items:center;background:linear-gradient(180deg,#0f1a2ee0,#090f1de0);box-shadow:inset 0 0 0 1px #3ad0ff66;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
@@ -243,7 +247,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="DEV · 17:55">
+<body data-tag="DEV · 18:25">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <div id="hud" class="ec-hud">
@@ -351,6 +355,6 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 <div id="devStop" role="alertdialog" aria-label="Game stopped" hidden><div class="gbox"><div class="k">PLANET STACK <span class="devtag">DEV</span></div><h2>Can't play here</h2><p id="devStopMsg"></p><p class="sub" id="devStopSub"></p><button id="devStopBtn" hidden>RELOAD</button></div></div>
 <div id="devToast" role="status"></div>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../dev/main.js?v=dev1755"></script>
+<script type="module" src="../dev/main.js?v=dev1825"></script>
 <script src="../dev/bugreport.js?v=dev1006"></script>
 </body></html>
