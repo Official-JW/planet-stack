@@ -3678,6 +3678,7 @@ function updViewShift() {
   const dur = ecReduced() ? 1 : 300, u = clamp((now - VS.t0) / dur, 0, 1), k = VS.to > VS.from ? 1 - Math.pow(2, -10 * u) : u * u * u;
   VS.cur = u >= 1 ? VS.to : VS.from + (VS.to - VS.from) * k;
   if (VS.cur > .5) camera.setViewOffset(W, H, 0, -VS.cur, W, H); else if (camera.view && camera.view.enabled) camera.clearViewOffset();
+  document.body.classList.toggle('ec-shift', VS.to > .5);   // gc-batch7 TAKEOFF & LANDING label (QA 00:48): the view slides down under Eve's panel, so the station label (and its lines) would sit on the building (break room at 375); hidden while shifted, like body.up-open
   window.__ps3d.viewShift = Math.round(VS.cur);
 }
 // DEV greeting (Director 10/31 07:31): once per page load, first thing after the cover (coverGone: rings only once the loading cover has been removed), Eve rings 'Welcome aboard, Commander <name>.' The typed name is
