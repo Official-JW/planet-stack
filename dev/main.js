@@ -635,9 +635,14 @@ const _ct = new THREE.Vector3();
 // ===== per-station camera overrides (Director 21:25): ONE table, keyed by the exact GLB's md5 (first 8 hex, = the ?v= in its URL), so Art can bake
 // the numbers into Cam_Target later and the entry then simply stops matching. ct = Cam_Target replacement in station-local glTF metres (only the
 // given axes; the rest stay Art's), frame_w = replacement width. Any other GLB (or a new export of these) is untouched.
+const MRCAM = { x: 2, y: 6, w: 23, h: 20 };   // ca-minerevamp: the c9a9394e Mine framing below (station-local m; w 23 keeps the truck at Path_Load in frame on phones)
 const FW_REF = 37.5;   // Refinery W: Art 3c5e6f8 final (Director 21:42 asked for ≥ 5 px; Art: ≥ 10 px spare at both sizes with Cam_Target z 13.55)
 const CAM_OVERRIDE = {
   'a6381a77': { glb: 'habitat_v2_airlock_framed (Art FRAMED_DOOR_SPEC; Cam_Target + frame_w 48 unchanged)', frame_h: 66, frame_band: true },   // desktop fix 10/31 (EM): the 40 m tower overflowed the height at 1280x800 with the width-only fit; frame_h = height floor (fitSite), phones unchanged
+  // ca-minerevamp (GD/EM 12:50): Mine revamp try 2 c9a9394e (art_next/mine_revamp/mine_revamp_c9a9394e.glb, md5 c9a9394e3635f99f59423a4630ae6ae7; NOT swapped in) framed ~1.7x closer
+  // than a60eae4b (W 39.9 -> 23) so the belt ore + dust read; frame_h = desktop height floor only (phones keep the width fit). Swipe snap / easing untouched (SITECAM per site).
+  // a60eae4b and every other key are unchanged: this entry only matches a MINE_GLB url carrying ?v=c9a9394e.
+  'c9a9394e': { glb: 'mine revamp try 2 c9a9394e (Silo window az 128 y 0.8-4.6; A&A: Chute/Chute_Glow, OrePath_Bin_00..10 + Chute_Exit, OrePath_Silo_00..06, Silo_BinFill, Dust; Cam_Target (0.62, 6, 17.72) W 37.6)', ct: { x: MRCAM.x, y: MRCAM.y }, frame_w: MRCAM.w, frame_h: MRCAM.h },
   'a60eae4b': { glb: 'mine cap fix v2 (864fab15 + recessed chute-box status light; re-keyed from 864fab15, nodes/Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   '864fab15': { glb: 'mine 5933388 (ef45f6f1 minus painted tracks; re-keyed from ef45f6f1, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
   'ef45f6f1': { glb: 'mine 449757b (re-keyed from cc084a9b, Cam_Target unchanged)', ct: { y: 5.6 }, frame_w: 39.9 },
@@ -860,63 +865,92 @@ function applyRigLevel() {
   if (!mine) return;
   glowMats.forEach(m => m.emissiveIntensity = m.userData.ei0 * (1 + 0.12 * Math.min(S.drill - 1, 8)));
 }
-// ===== ca-minerevamp (EM 12:17 PST, GD OK): hooks for A&A's revamped Mine GLB (art_next/mine_revamp; NOT swapped in, MINE_GLB unchanged). Every node is
-// optional: a GLB without it (the live a60eae4b Mine today) keeps today's behaviour exactly.
+// ===== ca-minerevamp (EM 12:17 PST, GD OK; A&A flow EM 12:27): hooks for A&A's revamped Mine GLB (art_next/mine_revamp; NOT swapped in, MINE_GLB unchanged).
+// Every node is optional: a GLB without it (the live a60eae4b Mine today) keeps today's behaviour exactly.
 //  1 Chute_Glow (child of Chute): the Chute's upgrade glow. Hidden at load, shown from Chute Lv 2 (S.chute > 1) and while the Chute's tap / afford pulse runs;
-//    it is the Chute's glow target (UPT 'chute' hl). Missing: hl stays Conveyor + Silo, nothing shown or hidden.
-//  2 OrePath_Bin_00..NN (drill -> bin) and OrePath_Silo_00..NN then Chute_Exit (silo -> chute exit), empties in flow order: ore chunks (1 instanced mesh) ride them.
-//    With either path the rig digs from a storage buffer MR.st (0..1, visual only, never touches the economy): it digs while the truck fills OR the bin
-//    has room, so the drill + belt keep running between trucks until the bin is full (a Mine hold fills it, then the drill stops). Bin path runs while
-//    digging, silo path while a truck fills. No path: setDigging(truck filling) exactly as today.
-//  3 Silo_BinFill (origin on the bin floor): scale Y = MR.st. Gauges: any node named *Gauge* with Needle (rotation Z, extras.sweep rad, default -1.5 pi)
-//    or Fill / Bar / Level (scale Y) in its name follows MR.st. None in a60eae4b.
-//  4 Dust empty at the bit tip (first of MR_DUST_N): 16 pooled instanced puffs (1 draw, no per-frame allocations) while the rig digs.
-const MR = { on: false, glow: null, fill: null, fy: 1, gauges: [], gnames: [], dustAt: null, segs: [null, null], st: .5, ph: [0, 0], ore: null, dust: null, dp: [], dk: 0, di: 0, fillNow: false };
-const MR_GAP = .9, MR_V = 1.4, MR_ORE = 48, MR_DUST = 16, MR_DIG = 1, MR_DRAIN = 1.5, MR_DUST_N = ['Drill_Dust', 'Dust', 'Bit_Dust', 'Bit_Tip', 'Drill_Tip', 'Dust_Emit'];
-const _mrv = new THREE.Vector3(), _mrm = new THREE.Matrix4(), _mrq = new THREE.Quaternion(), _mrs = new THREE.Vector3(), _mre = new THREE.Euler();
+//    it is the Chute's glow target (UPT 'chute' hl). A material with extras glow_color_linear (8cff8d8f SHM_ChuteGlow) is lit via emissive instead (node stays visible).
+//    Never brightened (out of applyRigLevel's glowMats; shared materials cloned, mrOwnGlow). Missing: hl stays Conveyor + Silo, nothing shown or hidden.
+//  2 Main line: drill -> OrePath_Bin_00..NN (main belt, ends at the bin on top of the chute) -> Chute_Exit (last point; the truck's chute_pour takes over).
+//    Silo branch: OrePath_Silo_00..NN into the Silo, starting at the Bin node nearest Silo_00 (the junction). Ore chunks (1 instanced mesh, pooled) ride
+//    low index -> high. Truck under the chute: chunks ride the main line to Chute_Exit and the buffer MR.st (0..1, visual only, never the economy) drains.
+//    No truck: chunks before the junction leave the main line into the Silo (chunks past it freeze on the main belt) and the buffer fills; the drill digs while a truck fills OR the buffer has room
+//    (a Mine hold fills it, then the drill stops). Stopped belt: chunks freeze in place (EM 12:22). Main line without a Silo branch: chunks ride it, the
+//    drill keeps today's timing. No main line: setDigging(truck filling) exactly as today, no chunks.
+//  3 Silo_BinFill (origin on the bin floor): scale Y = MR.st. No gauges (A&A 12:27). EM 7:03: own bright ore material + a little emissive, no shadow on it,
+//    so the level reads through the try 2 Silo window; out of applyRigLevel's glowMats (mrFillMat). Missing node: nothing changes.
+//  4 'Dust' empty at the bit tip (inside Drill_Pocket): 16 pooled instanced puffs (1 draw, no per-frame allocations) while the rig digs.
+const MR_GAP = .9, MR_V = 1.4, MR_ORE = 48, MR_DUST = 16, MR_DIG = 1, MR_DRAIN = 1.5;
+const MR = { on: false, buf: false, glow: null, fill: null, fy: 1, dustAt: null, main: null, br: null, jI: -1, dJ: 0, gap: MR_GAP, st: .5, sp: 0,
+  cd: new Float32Array(MR_ORE), cb: new Int8Array(MR_ORE).fill(-1), ore: null, dust: null, dp: [], dk: 0, di: 0, fillNow: false, oreLaid: false, gm: [], gOn: null };   // cb: -1 free, 0 main line, 1 Silo branch
+const _mrv = new THREE.Vector3(), _mrm = new THREE.Matrix4(), _mrq = new THREE.Quaternion(), _mrs = new THREE.Vector3(1, 1, 1), _mre = new THREE.Euler();
 function mrSeq(pre) { const a = []; mine.traverse(o => { if (o.name.startsWith(pre) && /^\d+$/.test(o.name.slice(pre.length))) a.push(o.name); });
   return a.sort((x, y) => +x.slice(pre.length) - +y.slice(pre.length)); }
 function mrPath(names) {               // world points + cumulative lengths; null under 2 points
   const P = []; for (const n of names) { const o = mine.getObjectByName(n); if (o) P.push(o.getWorldPosition(new THREE.Vector3())); }
   if (P.length < 2) return null; const L = [0]; for (let i = 1; i < P.length; i++) L.push(L[i - 1] + P[i].distanceTo(P[i - 1]));
-  const len = L[L.length - 1]; return len > .05 ? { P, L, len, gap: Math.max(MR_GAP, len / MR_ORE) } : null;
+  const len = L[L.length - 1]; return len > .05 ? { P, L, len } : null;
 }
 function mrAt(T, d, out) { let i = 0; while (i < T.L.length - 2 && T.L[i + 1] < d) i++; const a = T.L[i], b = T.L[i + 1]; return out.lerpVectors(T.P[i], T.P[i + 1], b > a ? (d - a) / (b - a) : 0); }
 function buildMineRev() {
-  MR.glow = mine.getObjectByName('Chute_Glow') || null; if (MR.glow) MR.glow.visible = S.chute > 1;
+  MR.glow = mine.getObjectByName('Chute_Glow') || null; MR.gm.length = 0; MR.gOn = null;
+  if (MR.glow) MR.glow.traverse(o => { if (!o.isMesh || !o.material) return; for (const m of [].concat(o.material)) { const c = m.userData && m.userData.glow_color_linear;
+    if (m.emissive && Array.isArray(c) && c.length >= 3) MR.gm.push({ m, c: new THREE.Color().setRGB(+c[0], +c[1], +c[2]) }); } });   // A&A 8cff8d8f: emissive 0 by default, code lights it
+  if (MR.glow && !MR.gm.length) MR.glow.visible = S.chute > 1;   // no glow colour in the material: show / hide the node (the 12:17 rule)
   MR.fill = mine.getObjectByName('Silo_BinFill') || null; if (MR.fill) MR.fy = MR.fill.scale.y;
-  MR.gauges.length = 0; MR.gnames.length = 0;
-  mine.traverse(o => { if (!/gauge/i.test(o.name)) return; MR.gnames.push(o.name); const nd = /needle/i.test(o.name) ? 1 : /fill|bar|level/i.test(o.name) ? 2 : 0;
-    if (nd) MR.gauges.push({ o, nd, r0: o.rotation.z, y0: o.scale.y, sw: Number.isFinite(+(o.userData && o.userData.sweep)) && o.userData.sweep !== undefined ? +o.userData.sweep : -Math.PI * 1.5 }); });
-  MR.dustAt = null; for (const n of MR_DUST_N) { const o = mine.getObjectByName(n); if (o) { MR.dustAt = o; break; } }
-  MR.segs[0] = mrPath(mrSeq('OrePath_Bin_')); MR.segs[1] = mrPath(mrSeq('OrePath_Silo_').concat(['Chute_Exit']));
-  MR.on = !!(MR.segs[0] || MR.segs[1]);
+  MR.dustAt = mine.getObjectByName('Dust') || null;
+  const bin = mrSeq('OrePath_Bin_'); MR.main = bin.length ? mrPath(bin.concat(['Chute_Exit'])) : null;
+  MR.br = MR.main ? mrPath(mrSeq('OrePath_Silo_')) : null; MR.jI = -1; MR.dJ = 0;
+  if (MR.br) { let bd = Infinity; const nb = Math.min(bin.length, MR.main.P.length - (mine.getObjectByName('Chute_Exit') ? 1 : 0));   // junction: the Bin node nearest Silo_00
+    for (let i = 0; i < nb; i++) { const d = MR.main.P[i].distanceTo(MR.br.P[0]); if (d < bd) { bd = d; MR.jI = i; } } MR.dJ = MR.main.L[MR.jI]; }
+  MR.on = !!MR.main; MR.buf = !!MR.br; MR.oreLaid = false; MR.sp = 0; MR.cb.fill(-1);
+  if (MR.on) { const route = MR.buf ? Math.max(MR.main.len, MR.dJ + MR.br.len) : MR.main.len; MR.gap = Math.max(MR_GAP, route / (MR_ORE - 2));
+    for (let k = 0, d = 0; k < MR_ORE && d < (MR.buf ? MR.dJ + MR.br.len : MR.main.len); k++, d += MR.gap) {   // belt starts loaded, as with no truck (ore heading for the Silo)
+      if (MR.buf && d >= MR.dJ) { MR.cb[k] = 1; MR.cd[k] = d - MR.dJ; } else { MR.cb[k] = 0; MR.cd[k] = d; } } }
   if (MR.on && !MR.ore) { MR.ore = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.13, 0), new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: .85, emissive: 0x0a3a48 }), MR_ORE);
-    MR.ore.frustumCulled = false; MR.ore.count = 0; MR.ore.name = 'MR_Ore'; scene.add(MR.ore); }
-  if (MR.dustAt && !MR.dust) { MR.dust = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.22, 0), new THREE.MeshLambertMaterial({ color: 0xa89a86, transparent: true, opacity: .45, depthWrite: false }), MR_DUST);
+    MR.ore.frustumCulled = false; MR.ore.name = 'MR_Ore'; for (let i = 0; i < MR_ORE; i++) MR.ore.setMatrixAt(i, ZERO); scene.add(MR.ore); }
+  if (MR.dustAt && !MR.dust) { MR.dust = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.33, 0), new THREE.MeshLambertMaterial({ color: 0xd4d0c8, transparent: true, opacity: .5, depthWrite: false }), MR_DUST);
     MR.dust.frustumCulled = false; MR.dust.name = 'MR_Dust'; for (let i = 0; i < MR_DUST; i++) { MR.dust.setMatrixAt(i, ZERO); MR.dp.push({ t: -1, x: 0, y: 0, z: 0, vx: 0, vz: 0 }); } scene.add(MR.dust); }
-  Object.defineProperty(window.__ps3d, 'mineRev', { configurable: true, get: () => ({ on: MR.on, glow: !!MR.glow, glowOn: !!(MR.glow && MR.glow.visible), fill: !!MR.fill, gauges: MR.gnames.slice(),
-    dust: MR.dustAt ? MR.dustAt.name : null, bin: MR.segs[0] && +MR.segs[0].len.toFixed(2), silo: MR.segs[1] && +MR.segs[1].len.toFixed(2), st: +MR.st.toFixed(3), ore: MR.ore ? MR.ore.count : 0 }) });
+  Object.defineProperty(window.__ps3d, 'mineRev', { configurable: true, get: () => ({ on: MR.on, buf: MR.buf, glow: !!MR.glow, glowOn: !!(MR.glow && MR.glow.visible), fill: !!MR.fill,
+    dust: !!MR.dustAt, main: MR.main && +MR.main.len.toFixed(2), junction: MR.jI, silo: MR.br && +MR.br.len.toFixed(2), st: +MR.st.toFixed(3),
+    ore: [0, 1].map(b => MR.cb.reduce((n, c) => n + (c === b), 0)) }) });
 }
-function mrChuteHL() { if (!MR.glow) return null; MR.glow.visible = true; return [MR.glow]; }   // shown before hlStart / glowStart read it; updMineRev settles it next frame
+const MR_FILLC = 0xd8cbb2, MR_FILLE = 0x4a3e2a;   // EM 7:03 try 2: Silo_BinFill ore colour (lighter than the 100,97,92 deposits) + small warm emissive
+function mrFillMat(root, cin) {       // Silo_BinFill subtree gets ONE new material of its own (never shared, never in glowMats: its meshes join cin); returns its meshes
+  const f = root.getObjectByName('Silo_BinFill'), ms = []; if (!f) return ms; const m = new THREE.MeshStandardMaterial({ color: MR_FILLC, roughness: .8, emissive: MR_FILLE, emissiveIntensity: 1 });
+  f.traverse(o => { cin.add(o); if (o.isMesh) { o.material = m; ms.push(o); } }); return ms;
+}
+function mrOwnGlow(root) {            // Chute_Glow + descendants (Set; empty without the node). A material they share with any mesh outside is cloned (one clone
+  const cg = root.getObjectByName('Chute_Glow'), cin = new Set(); if (!cg) return cin;   // per material), so the glow never shares / mutates other emissive parts
+  cg.traverse(o => cin.add(o)); const out = new Set(), cl = new Map();
+  root.traverse(o => { if (o.isMesh && o.material && !cin.has(o)) for (const m of [].concat(o.material)) out.add(m); });
+  const own = (m) => { if (!out.has(m)) return m; if (!cl.has(m)) cl.set(m, m.clone()); return cl.get(m); };
+  cg.traverse(o => { if (o.isMesh && o.material) o.material = Array.isArray(o.material) ? o.material.map(own) : own(o.material); });
+  return cin;
+}
+function mrChuteHL() { if (!MR.glow) return null; if (!MR.gm.length) MR.glow.visible = true; return [MR.glow]; }   // emissive mode: the pulse lerps its own (dark or lit) emissive   // shown before hlStart / glowStart read it; updMineRev settles it next frame
 function updMineRev(dt) {
   if (!mine) return; dt = Math.min(Math.max(dt, 0), .1);
-  const fillNow = MR.fillNow, digB = fillNow || MR.st < 1;
-  MR.st = clamp(MR.st + ((digB ? MR_DIG : 0) - (fillNow ? MR_DRAIN : 0)) * dt / fillSec(), 0, 1);
-  if (MR.glow) { const v = S.chute > 1 || !!GLOW.on.chute || (HL.t >= 0 && HL.id === 'chute'); if (MR.glow.visible !== v) MR.glow.visible = v; }
+  const fillNow = MR.fillNow, run = MR.buf ? fillNow || MR.st < 1 : fillNow;   // run = the drill + belt (same rule as setDigging in updTruck)
+  if (MR.buf) MR.st = clamp(MR.st + ((run ? MR_DIG : 0) - (fillNow ? MR_DRAIN : 0)) * dt / fillSec(), 0, 1);
+  if (MR.glow) { const v = S.chute > 1 || !!GLOW.on.chute || (HL.t >= 0 && HL.id === 'chute');
+    if (!MR.gm.length) { if (MR.glow.visible !== v) MR.glow.visible = v; }
+    else if (MR.gOn !== v) { MR.gOn = v; for (const g of MR.gm) { if (v) g.m.emissive.copy(g.c); else g.m.emissive.setRGB(0, 0, 0); g.m.emissiveIntensity = 1; } } }   // the node stays visible (graphite band when off)
   if (MR.fill) { MR.fill.visible = MR.st > .005; MR.fill.scale.y = MR.fy * Math.max(MR.st, .005); }
-  for (const g of MR.gauges) { if (g.nd === 1) g.o.rotation.z = g.r0 + g.sw * MR.st; else g.o.scale.y = g.y0 * Math.max(MR.st, .005); }
-  if (MR.ore) { let k = 0;
-    for (let s = 0; s < 2; s++) { const T = MR.segs[s]; if (!T || !(s === 0 ? digB : fillNow)) continue; MR.ph[s] = (MR.ph[s] + MR_V * dt) % T.gap;
-      for (let d = MR.ph[s]; d < T.len && k < MR_ORE; d += T.gap) { mrAt(T, d, _mrv); _mrq.setFromEuler(_mre.set(d * 3.1, d * 1.7, 0)); _mrs.setScalar(1); MR.ore.setMatrixAt(k++, _mrm.compose(_mrv, _mrq, _mrs)); } }
-    if (k || MR.ore.count) { MR.ore.count = k; MR.ore.instanceMatrix.needsUpdate = true; } }
+  if (MR.ore && (run || !MR.oreLaid)) { MR.oreLaid = true; const ds = run ? MR_V * dt : 0, M = MR.main, B = MR.br;   // stopped belt: nothing moves or is rewritten (frozen)
+    if (run) { MR.sp += dt; if (MR.sp >= MR.gap / MR_V) { MR.sp -= MR.gap / MR_V; const k = MR.cb.indexOf(-1); if (k >= 0) { MR.cb[k] = 0; MR.cd[k] = MR.sp * MR_V; } } }   // new chunk at OrePath_Bin_00
+    for (let k = 0; k < MR_ORE; k++) { let b = MR.cb[k]; if (b < 0) { MR.ore.setMatrixAt(k, ZERO); continue; }
+      const d0 = MR.cd[k]; let d = d0 + ds;
+      if (b === 0 && B && !fillNow) { if (d0 >= MR.dJ) d = d0; else if (d >= MR.dJ) { b = MR.cb[k] = 1; d -= MR.dJ; } }   // no truck (EM 12:31): past the junction = frozen on the main belt till a truck is under the chute; before it = off into the Silo branch
+      if (d >= (b ? B.len : M.len)) { MR.cb[k] = -1; MR.ore.setMatrixAt(k, ZERO); continue; }       // reached Chute_Exit / the Silo
+      MR.cd[k] = d; mrAt(b ? B : M, d, _mrv); _mrq.setFromEuler(_mre.set(d * 3.1, d * 1.7, 0)); MR.ore.setMatrixAt(k, _mrm.compose(_mrv, _mrq, _mrs)); }
+    MR.ore.instanceMatrix.needsUpdate = true; }
   if (MR.dust) { MR.dk -= dt; let any = false;
     if (digOn === true && MR.dk <= 0) { MR.dk = .12; const p = MR.dp[MR.di = (MR.di + 1) % MR_DUST]; MR.dustAt.getWorldPosition(_mrv);
       p.t = 0; p.x = _mrv.x; p.y = _mrv.y; p.z = _mrv.z; p.vx = (Math.random() - .5) * .8; p.vz = (Math.random() - .5) * .8; }
     for (let i = 0; i < MR_DUST; i++) { const p = MR.dp[i]; if (p.t < 0) continue; p.t += dt; const u = p.t / 1.1; any = true;
       if (u >= 1) { p.t = -1; MR.dust.setMatrixAt(i, ZERO); continue; }
       _mrv.set(p.x + p.vx * u, p.y + .7 * u, p.z + p.vz * u); _mrs.setScalar((.4 + 1.4 * u) * (1 - u * u)); MR.dust.setMatrixAt(i, _mrm.compose(_mrv, _mrq.identity(), _mrs)); }
-    if (any) MR.dust.instanceMatrix.needsUpdate = true; }
+    _mrs.setScalar(1); if (any) MR.dust.instanceMatrix.needsUpdate = true; }
 }
 // the cover never fades onto empty ground: it stays until the Mine (and the truck, or its failure) is in the scene
 let coverTimer = 0;
@@ -962,9 +996,11 @@ function loadRig() { loader.load(MINE_GLB, (gltf) => {
   clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
   mine = gltf.scene; mine.position.set(MX, 0, 0);
   const moved = [];
+  const cgIn = mrOwnGlow(mine);       // ca-minerevamp (EM 12:31): Chute_Glow's subtree, own materials; never brightened by applyRigLevel
+  const mrFill = mrFillMat(mine, cgIn);   // ca-minerevamp (EM 7:03): Silo_BinFill's own ore material (kept out of glowMats) and no shadow on it
   mine.traverse(o => {
-    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.isSkinnedMesh) o.frustumCulled = false;
-      const m = o.material; if (m && m.emissive && m.emissive.getHex() && !glowMats.includes(m)) { m.userData.ei0 = m.emissiveIntensity; glowMats.push(m); } }
+    if (o.isMesh) { o.castShadow = true; o.receiveShadow = !mrFill.includes(o); if (o.isSkinnedMesh) o.frustumCulled = false;
+      const m = o.material; if (m && m.emissive && m.emissive.getHex() && !glowMats.includes(m) && !cgIn.has(o)) { m.userData.ei0 = m.emissiveIntensity; glowMats.push(m); } }
     if ((o.userData && o.userData.kind) || /^Path_(Out|Ret)_/.test(o.name)) { const old = MK[o.name], p = { x: o.position.x, y: o.position.y, z: o.position.z, e: o.userData };
       if (old && /^Path_|^Road_/.test(o.name) && Math.hypot(old.x - p.x, old.z - p.z) > .01) moved.push(o.name); MK[o.name] = p; }
   });
@@ -2079,7 +2115,7 @@ function updTruck() {
   for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (o.ph === 'fill') TC = G;
     let shown = o.fill; if (o.ph === 'fill' && richTw && tkOf(i) === chuteTk()) { const u = (t - richTw.at) / 1000; if (u >= 1 || u < 0) richTw = null; else shown -= richTw.amt * (1 - fss(u)); }
     o.shown = clamp(shown, 0, 1); }
-  MR.fillNow = TC.ts.ph === 'fill' && TC.ts.fill < 1; setDigging(MR.on ? MR.fillNow || MR.st < 1 : MR.fillNow);   // ca-minerevamp: storage buffer only with OrePath_* nodes
+  MR.fillNow = TC.ts.ph === 'fill' && TC.ts.fill < 1; setDigging(MR.buf ? MR.fillNow || MR.st < 1 : MR.fillNow);   // ca-minerevamp: Silo buffer only with OrePath_Bin_* + OrePath_Silo_* nodes
   if (TS.ph !== TS.last) { (window.__ps3d.phases = window.__ps3d.phases || []).push({ ph: TS.ph, at: t }); if (window.__ps3d.phases.length > 40) window.__ps3d.phases.shift(); TS.last = TS.ph; }
   if (n > 1 && TS2.ph !== TS2.last) { (window.__ps3d.phases2 = window.__ps3d.phases2 || []).push({ ph: TS2.ph, at: t }); if (window.__ps3d.phases2.length > 40) window.__ps3d.phases2.shift(); TS2.last = TS2.ph; }
   const v2 = n > 1 && TS2.ph !== 'off'; if (truck2Root && truck2Root.visible !== v2) truck2Root.visible = v2;
@@ -4193,7 +4229,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
   get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
-  hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
+  hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, MR, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
   get stationLoops() { return stationMixers.flatMap(m => m._actions.map(a => a.getClip().name + ':' + (a.loop === THREE.LoopPingPong ? 'pingpong' : a.loop === THREE.LoopRepeat ? 'repeat' : a.loop))); },
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; } }));
