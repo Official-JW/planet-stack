@@ -1828,8 +1828,8 @@ function kSub(k, i0, i1, stop) {      // samples i0..i1 of profile k ending at r
 function kIdx(k, s) { let lo = 0, hi = k.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (k.C[m] <= s) lo = m; else hi = m; } return lo; }
 function tqBuild() {
   // holding spots (world, centre of the truck): Refinery = out lane z 9 at x RX − 22 (298), 8 m before the U-turn starts, facing the bin; Mine = return
-  // lane z 0 at x MX + 26 (186), 14 m before the U-turn up to the chute, facing it. Both on the road the trucks already drive, off the other lane.
-  const iR = kIdx(R.kOut, sOf(R.pOut, [RX - 22, ROAD.zIn])), iM = kIdx(R.kBack, sOf(R.pBack, [MX + 26, ROAD.zOut]));
+  // lane z 0 at x MX + 20 (180), 8 m before the U-turn up to the chute, facing it (in the 393 Mine frame; footprint clear of the chute truck). Both on the road the trucks already drive, off the other lane.
+  const iR = kIdx(R.kOut, sOf(R.pOut, [RX - 22, ROAD.zIn])), iM = kIdx(R.kBack, sOf(R.pBack, [MX + 20, ROAD.zOut]));
   TQ.sHR = R.kOut.C[iR]; TQ.sHM = R.kBack.C[iM];
   TQ.kStopR = kSub(R.kOut, 0, iR, true); TQ.kResR = kSub(R.kOut, iR, R.kOut.n - 1, false);
   TQ.kStopM = kSub(R.kBack, 0, iM, true); TQ.kResM = kSub(R.kBack, iM, R.kBack.n - 1, false);
