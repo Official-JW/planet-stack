@@ -14,7 +14,7 @@ const CFG = {
   // other lanes read CFG.econ.* and never edit this block. Step 2 / lanes wire these in; until then the old balance below still runs the game.
   // "~" values and anything marked PLACEHOLDER are inside the plan's ranges or from Engineering Manager 10/29, pending Director's Phase 2 pacing sim.
   econ: {
-    startMoney: 10000,                  // Director 10/31 15:08: start money $10,000 (was $5,000)
+    startMoney: 25000,                  // Jacob 10/31 17:31: $25,000
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
     dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
     purity: { base: 0.40, max: 1.00, step: 0.05, first: 8000, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
@@ -23,7 +23,7 @@ const CFG = {
     // = makePerMin + makePerLvl·(FuelLv−1) → 4/5/6/7/8 at Lv1-5; stock cap = stockCap·out/makePerMin (200·out/4) → 200/250/300/350/400. See fuelMake / fuelCap.
     // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
     // 10/31 retune for Dock-first loading (3 s/box, dock cap 40): ship2 1.5M→3M, v2PerShip 2M→5M, v3PerShip 3M→8M, mars 5.5M→12.5M (Pad…Shipyard unchanged).
-    // Game Coder econsim.mjs (sim_v4 player model): 3-week Mars D20, grinder D12. Director-approved via EM 10/31 17:22 PT (ships with Dock-first).
+    // Game Coder econsim.mjs (sim_v4 player model): 3-week Mars D20, grinder D12. Pending Director approval.
     p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 3000000,
                 v2PerShip: 5000000, v3PerShip: 8000000, mars: 12500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $43.825M
     chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
