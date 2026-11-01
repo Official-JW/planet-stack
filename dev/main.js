@@ -2175,13 +2175,14 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     if (!c.rc && f.st === 'load' && f.bed < tripN(c) && c.ref.length && c.ref[0] <= t && (!BRC.on || brWhen(c, t) <= t)) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : brPad(c, t) ? 2 : 0; } c.rcT = t; c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
     // Cargo Dock (Director 01:32, restored EM 17:48): ship can't take boxes (shipTakes: refuelling, away, hold full, Launch tap pending) → a loaded flatbed stores at
     // the Dock if stored ≤ cap − 2 (Dock full: drives through and waits at the pad); ship takes boxes → a loaded flatbed drives through to the bay
-    if (!c.rc && f.st === 'load' && f.bed >= tripN(c)) { const st = !shipTakes(c, t) && c.dk <= CFG.dock.cap - f.bed ? 'store' : '';   // ca-dock (Director 01:32, restored EM 17:48): the Dock fills whenever the ship can't take boxes (refuelling on the pad included); full Dock: drives through to the bay
-      if (st || c.bay + f.bed <= CG.bayCap || !shipReady(c, t)) { c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; c.ft = 1; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
+    if (!c.rc && f.st === 'load' && f.bed >= tripN(c)) { const dB = !!S.bt && S.bt.dock === 1, st = dB && !shipTakes(c, t) && c.dk <= CFG.dock.cap - f.bed ? 'store' : '';   // gc-dockbld (Jacob 11/01): stores only at a built Dock (was: an unbuilt Dock filled invisibly, so a bought Dock could already be full)   // ca-dock (Director 01:32, restored EM 17:48): the Dock fills whenever the ship can't take boxes (refuelling on the pad included); full Dock: drives through to the bay
+      if (st || c.bay + f.bed <= CG.bayCap) {   // gc-dockbld: bay can't take the bed → wait here (was: drove on to the pad while the ship was away and sat there), so a Dock bought / freed later gets it at once
+ c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; c.ft = 1; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
-    if (!c.pc.k) {
+    if (!c.pc.k) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
-      else if (s.st === 'pad' && !s.req && c.dk > 0 && holdN(c) < CG.holdCap && !dockBusy(c, t)) { c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
-      else if (s.st === 'pad' && !s.req && c.dk === 0 && c.bay > 0 && holdN(c) < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
+      else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < CG.holdCap && !dockBusy(c, t)) { c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
+      else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && ((s.hold >= CG.holdCap && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live or away, 10/29), or the Launch button (partial)
@@ -3662,8 +3663,7 @@ bindBuy(upBuy, () => { const P = upCur && UP[upCur]; if (!P || upBuy.disabled) r
 // name, and its card reads '<Station> · Not built yet' with the price on the Build button (camera stays). Prices: CFG.econ.p2Prices (Director LOCKED 10/31).
 // Buying pays, shows the model at full brightness, logs, saves (S.bt). Nothing else in the economy reads S.bt.
 // Dock + Shipyard (gc-batch8 commit 2): same pattern; the Dock card builds the Dock, then the Shipyard (req: the Dock first, sim order Dock → Shipyard).
-// A not-built Dock is visual + card only: the cargo loop (dock storage S.cg.dk, dock lift, flatbed) runs exactly as before (the pacing sim treats the
-// Dock unlock as a gate with no loop effect), so no save or loop timing changes.
+// gc-dockbld (Jacob 11/01): the flatbed stores at the Dock only once it is built (cgDecide); stock an older save already holds still drains Dock-first.
 const BLD = { hab: { i: HABI, name: 'Habitat', price: () => CFG.econ.p2Prices.habitat },
   dock: { i: DOCKI, name: 'Dock', price: () => CFG.econ.p2Prices.dock },
   yard: { i: SHIPI, name: 'Shipyard', price: () => CFG.econ.p2Prices.shipyard, req: 'dock' } };
@@ -3691,7 +3691,8 @@ function upBuildUI(P, k) {             // not-built card: no level / meter / cos
 }
 function buildSt(k) {
   const B = BLD[k]; if (!B || isBuilt(k) || (B.req && !isBuilt(B.req))) return; const c = B.price(); if (!canPay(c)) return;
-  pay(c); glowStop(B.i); S.bt[k] = 1; bldApply(B.i); nbUI(); upgradeFx(); save(); UPK.k = ''; upUI(); hud();
+  const t = nowMs(); if (k === 'dock') settleTo(t, null);   // gc-dockbld: settle the cargo sim to now, then decide again at now, so a waiting loaded flatbed leaves for the Dock at once (no reload)
+  pay(c); glowStop(B.i); S.bt[k] = 1; if (k === 'dock' && RT.ready && R.tl) { if (S.cg.t < t) S.cg.t = t; cgSettle(t, null); } bldApply(B.i); nbUI(); upgradeFx(); save(); UPK.k = ''; upUI(); hud();
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
