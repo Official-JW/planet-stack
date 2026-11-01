@@ -2759,7 +2759,7 @@ function rideBind(rig, tray, D) {      // called once at pad load, rig at rest: 
 }
 function rideDoorK(c, now) { return c.rd ? clamp((now - c.rd.t0) / (CG.rideDoorSec * 1000), 0, 1) : 1; }   // < 1: the door is carrying the crate in
 function rideDraw(c, now, sh) {
-  const n = Math.min(c.rd.n, CG.holdCap - 1), H = cg3.holds[n]; if (!H) return;
+  const n = Math.min(c.rd.n, CG.holdCap - 1), H = cg3.holds[n]; if (!H || !(RDT.tray || cg3.holdDoor)) return;   // pad rig not bound yet (a reload mid-ride, still loading)
   const u = clamp((now - c.rd.t0) / (CG.rideSec * 1000), 0, 1), d = rideDoorK(c, now);
   if (d < 1 && RDT.tray) { RDT.tray.updateWorldMatrix(true, false); _rdM.multiplyMatrices(RDT.tray.matrixWorld, RDT.off); RDQ.ph = 'door'; }
   else { const w = fss((u * CG.rideSec - CG.rideDoorSec) / (CG.rideSec - CG.rideDoorSec)), p0 = RDT.tray ? RDT.p1 : cg3.holdDoor;
