@@ -3162,7 +3162,8 @@ function eveVoice(id, li) {
 }
 function setVoice(on) { VOX.on = !!on; try { localStorage.setItem('planetstack-dev-voice', on ? '1' : '0'); } catch (e) {} if (on) voxUnlock(); else eveVoiceStop(); renderSettings(); }
 // Eve dedupe (QA ui2_PT1, 10/31): on a new game the welcome's second line 'Tap the drill to upgrade it.' and the upgrade_ready beat say it twice in a row.
-// A beat whose lines carry that sentence waits while it was said less than 30 s ago (real time, like the rest of Eve's queue: setTimeout typing / toasts).
+// Director 17:52: a beat whose lines carry that sentence is DROPPED for good (marked shown, never rings) if it triggers less than 30 s after the sentence was said
+// (real time, like the rest of Eve's queue: setTimeout typing / toasts); a trigger after the 30 s window rings as normal.
 const EVE_DUP = { re: /Tap the drill to upgrade it\./, ms: 30000, at: -Infinity };
 const eveDupSoon = (b) => performance.now() - EVE_DUP.at < EVE_DUP.ms && (((!depsOn() && b.linesNoDep) || b.lines) || []).some(l => EVE_DUP.re.test(l));
 function sayLine(s) {
@@ -3229,7 +3230,7 @@ function eveGreet() {
 }
 function updEve() {
   eveGreet(); eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
-  if (S.wel !== 1 && !EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]() && !eveDupSoon(b)) { ecRing(b); break; }   // story beats wait while the away summary is due
+  if (S.wel !== 1 && !EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { if (eveDupSoon(b)) { S.eve.push(b.id); save(); window.__ps3d.eveSkipped = (window.__ps3d.eveSkipped || []).concat(b.id); continue; } ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
   if (pointBeat && !pointerDone) {
     if (pointBeat === 'launch') { if (S.cg.launches > 0) pointerDone = true; else if (launchEl.classList.contains('on')) { const r = launchEl.getBoundingClientRect(); p = _pt; p.x = r.left + r.width / 2; p.y = r.top + 2; p.l = 'LAUNCH'; p.up = false; } }
