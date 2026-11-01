@@ -435,13 +435,11 @@ const purityAt = (lv) => { const P = CFG.econ.purity; return Math.min(P.max, P.b
 const refineryPurity = () => purityAt(clamp(S.purLv, 1, purityMaxLv()));   // drop-off lane: dropoffValue(refineryPurity())
 const purityCost = () => econCost(CFG.econ.purity, S.purLv);
 // ORE/MIN (Director 20:58): real throughput over the full cycle = ore per load / (fill + trip incl. reverse/dump/settle) — ≈4 at Lv1; drill and chute upgrades move it
-const oreMin = (dl = S.drill, cl = S.chute) => (loadValue(dl) * fleetN() / CFG.oreValue) * 60 / (fillSec(cl) + (R.tl ? R.tl.trip : 60));
+const oreMin = (dl = S.drill, cl = S.chute) => (loadValue(dl) / CFG.oreValue) * 60 / tkPeriod(fillSec(cl));   // ca-truckrot: per-load period of the whole fleet (tkPeriod)
 const loadValue = (lv = S.drill) => CFG.load0 + CFG.loadPerLvl * (lv - 1);   // Director 10/23: fixed per load, scales with drill level only
-// ca-truck2 (GD 06:58): Truck 2 is a one-time $150k buy (CFG.econ.p2Prices.truck2), any time. Owning 2 HT-04s doubles the ore of every load: each
-// dump counts fleetN() loads (crates made, load value, S.loads), in settleTo, which runs live AND for the away catch-up, so both match. Truck 2 is
-// drawn PARKED at the Mine (T2P, a clone of the HT-04 sharing its geometry and materials; no driving, no chute turns).
-// Hooks for later: unlock rule → truck2Unlocked(); real second-truck motion / chute queueing → replace the fleetN() multiplier in settleTo with a
-// second S.tk-style loop and drive truck2Root from it in updTruck (today it is static, matrixAutoUpdate off).
+// ca-truck2 (GD 06:58): Truck 2 is a one-time $150k buy (CFG.econ.p2Prices.truck2), any time; unlock rule hook → truck2Unlocked().
+// ca-truckrot (Jacob via GD 07:55, replaces the parked Truck 2 + load doubling): every owned HT-04 (S.tk, S.tk2) runs the Mine → Refinery loop with its
+// own loads; one truck at the chute and one at the dump bin at a time, the other waits at a holding spot (TQ) — see the HT-04 haul loop section.
 const truck2Unlocked = () => true;   // GD 06:58: buyable any time
 const fleetN = () => clamp(S.rovers | 0, 1, CFG.roverMax);
 const canPay = (c) => DEV || S.money >= c;
@@ -936,11 +934,8 @@ $('coverRetry').addEventListener('click', () => {
 });
 
 // ===== HT-04 haul truck prop (Art c0452bd, md5 16eccb4d…): root 'Truck' at the ground centre, +X forward at yaw 0; world-space object
-let truck = null, truckRoot = null, truckDone = false, tMixer = null, fillArcNode = null, truck2Root = null;
-// ca-truck2: Truck 2 parked at the Mine, world (x, y, z, yaw): flat ground (Terrain_Ground y -0.005 over the footprint), +X like the working truck,
-// 7 m south of the out lane (truck z 7.05-10.95 vs 18.05-21.95), clear of the Mine buildings (z ≤ 9.8), rocks and trails; in the 393 Mine frame
-const T2P = [MX + 6, 0, 20, 0];
-const tActs = {}, wheels = [], fillMeshes = [];
+let truck = null, truckRoot = null, truckDone = false, tMixer = null, fillArcNode = null, truck2Root = null, t2Mixer = null;
+const tActs = {}, wheels = [], fillMeshes = [], tActs2 = {}, wheels2 = [], fillMeshes2 = [];   // ca-truckrot: Truck 2's own clip actions / wheel bones / fill morphs
 function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe624e', (gltf) => {
   truckRoot = gltf.scene; truck = truckRoot.getObjectByName('Truck') || truckRoot;
   truckRoot.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
@@ -953,14 +948,20 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe
   for (const c of gltf.animations) tActs[c.name] = tMixer.clipAction(c);
   if (tActs.truck_load_rich) { tActs.truck_load_rich.setLoop(THREE.LoopOnce, 1); tActs.truck_load_rich.clampWhenFinished = false; }
   if (tActs.truck_dump) { tActs.truck_dump.setLoop(THREE.LoopOnce, 1); tActs.truck_dump.clampWhenFinished = true; }
-  truck2Root = truckRoot.clone(true);   // ca-truck2: parked Truck 2 = the same HT-04 (Object3D.clone shares geometry + materials), bind pose, empty bed
-  truck2Root.traverse(o => { if (o.isMesh && o.morphTargetInfluences) o.morphTargetInfluences.fill(0); if (o.name === 'Fill_Arc') o.visible = false; });
+  truck2Root = truckRoot.clone(true);   // ca-truckrot: Truck 2 = the same HT-04 (Object3D.clone shares geometry + materials), its own bones, mixer and fill morph
+  truck2Root.traverse(o => { if (o.isMesh && o.morphTargetInfluences) o.morphTargetInfluences.fill(0); });
   { const src = [], dst = []; truckRoot.traverse(o => src.push(o)); truck2Root.traverse(o => dst.push(o)); const mp = new Map(src.map((o, i) => [o, dst[i]]));
     for (const d of dst) if (d.isSkinnedMesh) { const sk = d.skeleton; d.bind(new THREE.Skeleton(sk.bones.map(b => mp.get(b) || b), sk.boneInverses), d.bindMatrix); } }   // the HT-04 is skinned: own bones (clone(true) would ride the driving truck's)
-  truck2Root.position.set(T2P[0], T2P[1], T2P[2]); truck2Root.rotation.set(0, T2P[3], 0); truck2Root.updateMatrixWorld(true);
-  truck2Root.traverse(o => { o.matrixAutoUpdate = false; }); truck2Root.name = 'Truck2_Parked'; truck2Root.visible = S.rovers >= 2; scene.add(truck2Root);
+  truck2Root.name = 'Truck2'; truck2Root.visible = S.rovers >= 2; scene.add(truck2Root); RIG[1].truck = truck2Root.getObjectByName('Truck') || truck2Root;
+  truck2Root.traverse(o => { if (o.isMesh && o.morphTargetDictionary && 'fill' in o.morphTargetDictionary) fillMeshes2.push([o, o.morphTargetDictionary.fill]); });
+  for (const n of ['FL', 'FR', 'ML', 'MR', 'RL', 'RR']) { const b = truck2Root.getObjectByName('HT04_Wheel_' + n); if (b) wheels2.push({ b, q0: b.quaternion.clone() }); }
+  RIG[1].arc = truck2Root.getObjectByName('Fill_Arc'); RIG[0].truck = truck; RIG[0].arc = fillArcNode;
+  t2Mixer = new THREE.AnimationMixer(truck2Root);   // the same clips at the same speeds as Truck 1 (shared AnimationClip objects)
+  for (const c of gltf.animations) tActs2[c.name] = t2Mixer.clipAction(c);
+  if (tActs2.truck_load_rich) { tActs2.truck_load_rich.setLoop(THREE.LoopOnce, 1); tActs2.truck_load_rich.clampWhenFinished = false; }
+  if (tActs2.truck_dump) { tActs2.truck_dump.setLoop(THREE.LoopOnce, 1); tActs2.truck_dump.clampWhenFinished = true; }
   truckDone = true; maybeReady();
-  Object.assign(window.__ps3d, { truck2Root, T2P, truck2Unlocked, fleetN, buyTruck2: () => buyTruck2() });
+  Object.assign(window.__ps3d, { truck2Root, truck2Unlocked, fleetN, buyTruck2: () => buyTruck2() });
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
   metBind();                         // META-RACE fix (EM 10/31): bind here too: when the meteorite GLB lands first, its own metBind() finds no truck yet
 }, undefined, (e) => { console.error('HT-04 truck GLB load failed', e); truckDone = true; maybeReady(); }); }
@@ -1491,8 +1492,8 @@ function hud() {
   lastMoneyV = S.money;
   const om = oreMin(); rateEl.textContent = om < 10 ? om.toFixed(1) : Math.round(om);
   if (CFG.showCrystals) cryEl.textContent = S.crystals;   // paid currency (real money only); hidden until the shop lands
-  const bf = TS.shown; if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = `scaleX(${bf.toFixed(3)})`; }   // bar = the truck bed
-  binEl.classList.toggle('full', TS.ph !== 'fill' && TS.shown >= 1);
+  const bf = TC.ts.shown; if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = `scaleX(${bf.toFixed(3)})`; }   // bar = the truck bed
+  binEl.classList.toggle('full', TC.ts.ph !== 'fill' && TC.ts.shown >= 1);
 }
 // money pops: chunks and '+$X' fly to the HUD money counter (the HUD dims while an Earth Coms toast rings; the counter stays the target)
 const hudEl = $('hud');
@@ -1692,14 +1693,14 @@ function kin(P, da, dd, v) {
   return { L, n, C, V, T: T[n - 1], Ts: T, v, da, dd, vmin, amax, dmax, bends };
 }
 function kinAt(k, t, o) {
-  if (t <= 0) { o[0] = 0; o[1] = 0; return o; }
+  if (t <= 0) { o[0] = k.C[0]; o[1] = 0; return o; }   // ca-truckrot: C[0] (0 on a whole-path profile)
   if (t >= k.T) { o[0] = k.L; o[1] = 0; return o; }
   let lo = 0, hi = k.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (k.Ts[m] <= t) lo = m; else hi = m; }
   const dt = k.Ts[hi] - k.Ts[lo], v0 = k.V[lo], v1 = k.V[hi], a = dt > 1e-12 ? (v1 - v0) / dt : 0, u = t - k.Ts[lo];
   o[0] = Math.min(k.C[hi], k.C[lo] + v0 * u + .5 * a * u * u); o[1] = v0 + a * u; return o;
 }
 function kinT(k, s) {               // time at which the profile reaches arc length s
-  if (s <= 0) return 0; if (s >= k.L) return k.T;
+  if (s <= k.C[0]) return 0; if (s >= k.L) return k.T;
   let lo = 0, hi = k.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (k.C[m] <= s) lo = m; else hi = m; }
   const v0 = k.V[lo], v1 = k.V[hi], ds = k.C[hi] - k.C[lo], d = s - k.C[lo]; if (ds < 1e-12) return k.Ts[lo];
   const vs = Math.sqrt(Math.max(0, v0 * v0 + (v1 * v1 - v0 * v0) * d / ds)); return k.Ts[lo] + (v0 + vs > 1e-9 ? 2 * d / (v0 + vs) : 0);
@@ -1753,6 +1754,7 @@ function buildRoute() {
   R.legBack = sD - sC; R.kBack = kin(R.pBack, TV.ease, TV.brake, v);  // eased away from the dump, 8.33 m/s straights / TURN_SPEED curves, eased stop at Path_Load_Approach
   const t1 = R.kOut.T, t2 = t1 + TV.revRef, t3 = t2 + TV.dump, t4 = t3 + TV.settle, t5 = t4 + R.kBack.T, t6 = t5 + TV.revMine;
   R.tl = { t1, t2, tDump: t2, t3, t4, t5, t6, trip: t6 };
+  tqBuild();
   const f = (x) => +x.toFixed(2), tC = kinT(R.kBack, sC), tD = kinT(R.kBack, sD);
   window.__ps3d.route = { mode: R.mode, legOut: f(R.legOut), legBack: f(R.legBack), v: f(v), vTurn: TURN_SPEED, vMinOut: f(R.kOut.vmin), vMinBack: f(R.kBack.vmin), amax: f(Math.max(R.kOut.amax, R.kBack.amax)), dmax: f(Math.max(R.kOut.dmax, R.kBack.dmax)), revRef: TV.revRef, revMine: TV.revMine, Lout: f(R.pOut.L), Lback: f(R.pBack.L), tl: Object.fromEntries(Object.entries(R.tl).map(([k, x]) => [k, f(x)])),
     phases: { mineOut: f(kinT(R.kOut, sA)), legOut: f(kinT(R.kOut, sB) - kinT(R.kOut, sA)), refIn: f(t1 - kinT(R.kOut, sB)), revRef: TV.revRef, dump: TV.dump, settle: TV.settle,
@@ -1808,22 +1810,112 @@ function buildTempRoad() {            // haul road across the gap: Art's strip w
   const im = new THREE.InstancedMesh(tile, mat, lanes.length); lanes.forEach((l, i) => im.setMatrixAt(i, roadTileM(l[0], l[1]))); im.receiveShadow = true; roadMesh.add(im);
   scene.add(roadMesh); if (typeof buildCargoRoad === 'function') buildCargoRoad();
 }
-const fillAt = (t) => { const k = S.tk; if (k.dep) return 1; return clamp((t - k.c0) / (fillSec() * 1000) + k.add, 0, 1); };
-const tFull = () => { const k = S.tk; return Math.max(k.c0 + (1 - Math.min(1, k.add)) * fillSec() * 1000, k.lr ? k.lr + CFG.richPayDelay * 1000 : 0); };   // never drive while truck_load_rich runs
-const TS = { ph: 'fill', x: MX + 4.7, z: 4.5, yaw: 0, v: 0, fill: 0, shown: 0, el: 0 };
+// ===== ca-truckrot (Jacob via GD 07:55): every owned HT-04 runs this loop with its own load; Truck 1 = S.tk, Truck 2 = S.tk2 (same fields).
+// One truck at the chute and one at the dump bin at a time (zones S.tz.c / S.tz.b: {by: truck index or -1, rel: release time, 0 = not known yet}).
+// A truck that finds its zone taken stops at a holding spot on its own lane (TQ.sHR on the out lane before the Refinery U-turn, TQ.sHM on the return
+// lane before the Mine U-turn, both behind the zone and facing it) and pulls in once the zone is released (chute: the leaver is TQ.relC m out; bin:
+// TQ.relB m back). The stop / pull-away pieces are cut out of the same speed profiles (kSub), so speeds, eases and clips are the approved ones.
+// Per truck: dep (left the chute), sr / sm (Refinery / Mine hold: 0 not decided yet, 1 drove through, 2 waiting at the hold, 3 resumed at hr / hm),
+// tp (tip start at the bin; paid = tipped). Decisions happen at the point where the stop would start braking (TQ.tDecR / tDecM), where the
+// through and stop profiles part, so the motion never snaps. Every event is settled in time order in settleTo, live and for the away catch-up.
+const TQ = { ok: false, relC: 16, relB: 16, sHR: 0, sHM: 0, kStopR: null, kResR: null, kStopM: null, kResM: null, tDecR: 0, tDecM: 0, tEntR: 0, tEntM: 0, tRelC: 0, tRelB: 0, holdR: null, holdM: null };
+function kSub(k, i0, i1, stop) {      // samples i0..i1 of profile k ending at rest (stop) or starting from rest (pull-away), at the profile's own brake / ease rate
+  const n = i1 - i0 + 1, C = k.C.subarray(i0, i1 + 1), V = new Float64Array(n), Ts = new Float64Array(n), a = Math.min(TURN_ACC, k.v * k.v / (2 * (stop ? k.dd : k.da)));
+  for (let j = 0; j < n; j++) V[j] = Math.min(k.V[i0 + j], Math.sqrt(2 * a * Math.max(0, stop ? C[n - 1] - C[j] : C[j] - C[0])));
+  for (let j = 1; j < n; j++) { const vs = V[j - 1] + V[j]; Ts[j] = Ts[j - 1] + (vs > 1e-9 ? 2 * (C[j] - C[j - 1]) / vs : 0); }
+  return { L: C[n - 1], n, C, V, T: Ts[n - 1], Ts, v: k.v, da: k.da, dd: k.dd };
+}
+function kIdx(k, s) { let lo = 0, hi = k.n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (k.C[m] <= s) lo = m; else hi = m; } return lo; }
+function tqBuild() {
+  // holding spots (world, centre of the truck): Refinery = out lane z 9 at x RX − 22 (298), 8 m before the U-turn starts, facing the bin; Mine = return
+  // lane z 0 at x MX + 20 (180), 8 m before the U-turn up to the chute, facing it (in the 393 Mine frame; footprint clear of the chute truck). Both on the road the trucks already drive, off the other lane.
+  const iR = kIdx(R.kOut, sOf(R.pOut, [RX - 22, ROAD.zIn])), iM = kIdx(R.kBack, sOf(R.pBack, [MX + 20, ROAD.zOut]));
+  TQ.sHR = R.kOut.C[iR]; TQ.sHM = R.kBack.C[iM];
+  TQ.kStopR = kSub(R.kOut, 0, iR, true); TQ.kResR = kSub(R.kOut, iR, R.kOut.n - 1, false);
+  TQ.kStopM = kSub(R.kBack, 0, iM, true); TQ.kResM = kSub(R.kBack, iM, R.kBack.n - 1, false);
+  const dec = (k, ks) => { for (let j = 0; j < ks.n; j++) if (ks.V[j] < k.V[j] - 1e-9) return k.Ts[Math.max(0, j - 1)]; return k.Ts[ks.n - 1]; };
+  TQ.tDecR = dec(R.kOut, TQ.kStopR); TQ.tDecM = dec(R.kBack, TQ.kStopM); TQ.tEntR = R.kOut.Ts[iR]; TQ.tEntM = R.kBack.Ts[iM];
+  TQ.tRelC = kinT(R.kOut, TQ.relC); TQ.tRelB = kinT(R.kBack, TQ.relB);
+  const o = {}; pathAt(R.pOut, TQ.sHR, o); TQ.holdR = [+o.x.toFixed(2), +o.z.toFixed(2), +(o.yaw * 180 / Math.PI).toFixed(1)]; pathAt(R.pBack, TQ.sHM, o); TQ.holdM = [+o.x.toFixed(2), +o.z.toFixed(2), +(o.yaw * 180 / Math.PI).toFixed(1)];
+  TQ.ok = true; Object.assign(window.__ps3d, { TQ, rigTs: [TS, TS2], tkOf });   // QA reads
+  window.__ps3d.tq = { holdR: TQ.holdR, holdM: TQ.holdM, tDecR: +TQ.tDecR.toFixed(2), tDecM: +TQ.tDecM.toFixed(2), tEntR: +TQ.tEntR.toFixed(2), tEntM: +TQ.tEntM.toFixed(2),
+    tRelC: +TQ.tRelC.toFixed(2), tRelB: +TQ.tRelB.toFixed(2), stopR: +TQ.kStopR.T.toFixed(2), resR: +TQ.kResR.T.toFixed(2), stopM: +TQ.kStopM.T.toFixed(2), resM: +TQ.kResM.T.toFixed(2), period: +tkPeriod(fillSec()).toFixed(2) };
+}
+const tkPeriod = (f) => { const trip = R.tl ? R.tl.trip : 60; if (fleetN() < 2 || !TQ.ok) return f + trip;   // seconds per load: one truck = fill + trip; two = half the
+  return Math.max((f + trip) / fleetN(), f + TQ.tRelC + TQ.kResM.T + TV.revMine, TV.dump + TV.settle + TQ.tRelB + TQ.kResR.T + TV.revRef); };   // loop, or the chute / bin turnover if that is longer
+const tkOf = (i) => i ? S.tk2 : S.tk;
+const tkNew = () => ({ c0: 0, add: 0, lr: 0, dep: 0, paid: false, val: 0, sr: 0, hr: 0, tp: 0, sm: 0, hm: 0 });
+const tkB0 = (k) => k.tp + (TV.dump + TV.settle) * 1000;                     // back leg starts (tip + dump + settle)
+const tkBin = (k) => (k.sr === 3 ? k.hr + TQ.kResR.T * 1000 : k.dep + R.kOut.T * 1000) + TV.revRef * 1000;   // reversed onto the bin
+const tkArr = (k) => (k.sm === 3 ? k.hm + TQ.kResM.T * 1000 : tkB0(k) + R.kBack.T * 1000) + TV.revMine * 1000;   // back under the chute
+const zRel = (z, i) => z.by < 0 || z.by === i ? 0 : z.rel > 0 ? z.rel : Infinity;   // when zone z is free for truck i (0 = now)
+function tkFix(k) {                   // a save from before ca-truckrot: its one truck drove the fixed loop (always through), so the stages follow from dep / paid
+  if (!k || typeof k !== 'object') return null;
+  if (k.sp > 0) return k;                 // Truck 2 not on the road yet (tk2Spawn)
+  for (const f of ['c0', 'add', 'lr', 'dep', 'val', 'hr', 'tp', 'hm', 'gw', 'gs']) if (!(+k[f] >= 0) || !isFinite(+k[f])) k[f] = 0;
+  if (k.n > 1) k.val /= k.n; delete k.n;   // ca-truck2 builds froze 2 trucks' worth into one load
+  k.paid = !!k.paid && k.dep > 0;
+  if (!(k.sr >= 0 && k.sr <= 3) || (k.sr === 3 && !k.hr)) k.sr = k.dep ? 1 : 0;
+  if (k.paid && !k.tp) k.tp = k.dep + R.tl.tDump * 1000;
+  if (!(k.sm >= 0 && k.sm <= 3) || (k.sm === 3 && !k.hm)) k.sm = k.paid ? 1 : 0;
+  if (!k.dep) { k.sr = 0; k.sm = 0; k.paid = false; k.tp = 0; k.hr = 0; k.hm = 0; } if (!k.paid) { k.sm = 0; k.tp = 0; k.hm = 0; }
+  return k;
+}
+function tk2Spawn(t, now) {           // a new Truck 2 rolls in on the return lane and stops at the Mine holding spot at t (empty), then joins the turns.
+  // If Truck 1 still has to drive past that spot (at the bin or on the way back), Truck 2 shows up only once Truck 1 is 12 m past it (k.sp = pending).
+  const k1 = S.tk;
+  if (!now && k1.dep && k1.sm !== 2 && k1.sm !== 3) { const B0 = k1.paid ? tkB0(k1) : tkBin(k1) + (TV.dump + TV.settle) * 1000, ts = B0 + kinT(R.kBack, TQ.sHM + 12) * 1000;
+    if (ts > t) { S.tk2 = Object.assign(tkNew(), { sp: ts }); return; } }
+  const B0 = t - TQ.kStopM.T * 1000, tp = B0 - (TV.dump + TV.settle) * 1000, dep = tp - (R.kOut.T + TV.revRef) * 1000;
+  S.tk2 = Object.assign(tkNew(), { c0: dep, dep, paid: true, sr: 1, tp, sm: 2 });
+}
+function tqInit() {                   // once the route is final: migrate old saves, add Truck 2 if owned, rebuild bad zones
+  if (TQ.init) return; TQ.init = true;
+  tkFix(S.tk); if (S.tk2) S.tk2 = tkFix(S.tk2);
+  if (fleetN() >= 2 && !S.tk2) tk2Spawn(S.rt > 0 ? S.rt : nowMs());
+  const zOk = (z) => z && typeof z === 'object' && (z.by === -1 || z.by === 0 || z.by === 1) && z.rel >= 0;
+  if (!S.tz || typeof S.tz !== 'object' || !zOk(S.tz.c) || !zOk(S.tz.b) || (fleetN() < 2 && (S.tz.c.by === 1 || S.tz.b.by === 1))) {
+    const k = S.tk;
+    S.tz = { c: k.dep && !(k.sm === 1 || k.sm === 3) ? { by: 0, rel: k.dep + TQ.tRelC * 1000 } : { by: 0, rel: 0 },
+             b: k.dep && (k.sr === 1 || k.sr === 3) ? (k.paid ? { by: 0, rel: tkB0(k) + TQ.tRelB * 1000 } : { by: 0, rel: 0 }) : { by: -1, rel: 0 } };
+  }
+}
+const fillAt = (t, k = chuteTk()) => { if (!k || k.dep) return 1; return clamp((t - k.c0) / (fillSec() * 1000) + k.add, 0, 1); };
+const tFull = (k = S.tk) => Math.max(k.c0 + (1 - Math.min(1, k.add)) * fillSec() * 1000, k.lr ? k.lr + CFG.richPayDelay * 1000 : 0);   // never drive while truck_load_rich runs
+function chuteTk() { const n = fleetN(); for (let i = 0; i < n; i++) { const k = tkOf(i); if (k && !k.dep) return k; } return null; }   // the truck under the chute (or none)
+const TS = { ph: 'fill', x: MX + 4.7, z: 4.5, yaw: 0, v: 0, fill: 0, shown: 0, el: 0, dt: 0 }, TS2 = Object.assign({}, TS);
 const _ka = [0, 0], YAW_BLEND = 3;
-function poseAt(t, o = TS) {
-  const k = S.tk, tl = R.tl;
-  if (!k.dep || t < k.dep) { const p = mw('Path_Load'); o.ph = 'fill'; o.x = p[0]; o.z = p[1]; o.yaw = R.yMine != null ? R.yMine : 0; o.v = 0; o.fill = fillAt(t); o.el = 0; return o; }
-  const el = o.el = (t - k.dep) / 1000; o.fill = 1;
+function drv(o, P, k, e, ph, y0) { kinAt(k, e, _ka); pathAt(P, _ka[0], o); o.v = _ka[1]; o.ph = ph; if (y0 != null && _ka[0] < YAW_BLEND) o.yaw = lerpA(y0, o.yaw, fss(_ka[0] / YAW_BLEND)); return o; }
+function poseAt(t, o = TS, k = S.tk) {
+  const ms = 1000; o.dt = 0;
+  if (k.sp) { o.ph = 'off'; o.x = TQ.holdM[0]; o.z = TQ.holdM[1]; o.v = 0; o.fill = 0; o.shown = 0; return o; }   // not on the road yet
+  if (!k.dep || t < k.dep) { const p = mw('Path_Load'); o.ph = 'fill'; o.x = p[0]; o.z = p[1]; o.yaw = R.yMine != null ? R.yMine : 0; o.v = 0; o.fill = fillAt(t, k); o.el = 0; return o; }
+  o.el = (t - k.dep) / ms; o.fill = 1;
   // B5 (20:58): heading is continuous through every phase change — the reverse moves blend from the path's end tangent into the reverse
   // heading, and pull-aways blend from the parked heading into the path tangent over the first YAW_BLEND m (no snaps)
-  if (el < tl.t1) { kinAt(R.kOut, el, _ka); pathAt(R.pOut, _ka[0], o); o.v = _ka[1]; o.ph = 'out'; if (_ka[0] < YAW_BLEND) o.yaw = lerpA(R.yMine, o.yaw, fss(_ka[0] / YAW_BLEND)); }
-  else if (el < tl.t2) { const u = fss((el - tl.t1) / TV.revRef), a = rw('Truck_Path_07'), b = rw('Truck_Dump'); o.x = a[0] + (b[0] - a[0]) * u; o.z = a[1] + (b[1] - a[1]) * u; o.yaw = lerpA(R.yOutEnd, R.yRev, u); o.v = -1; o.ph = 'rev'; }
-  else if (el < tl.t4) { const b = rw('Truck_Dump'); o.x = b[0]; o.z = b[1]; o.yaw = R.yRev; o.v = 0; o.ph = el < tl.t3 ? 'dump' : 'settle'; if (el >= tl.t3) o.fill = 0; }
-  else if (el < tl.t5) { kinAt(R.kBack, el - tl.t4, _ka); pathAt(R.pBack, _ka[0], o); o.v = _ka[1]; o.ph = 'back'; o.fill = 0; if (_ka[0] < YAW_BLEND) o.yaw = lerpA(R.yRev, o.yaw, fss(_ka[0] / YAW_BLEND)); }
-  else { const u = fss((el - tl.t5) / TV.revMine), a = mw('Path_Load_Approach'), b = mw('Path_Load'); o.x = a[0] + (b[0] - a[0]) * u; o.z = a[1] + (b[1] - a[1]) * u; o.yaw = lerpA(R.yBackEnd, R.yMine, u); o.v = -1; o.ph = 'revMine'; o.fill = 0; }
-  return o;
+  let t0;
+  if (k.sr === 2 || k.sr === 3) {
+    const e = (t - k.dep) / ms; if (e < TQ.kStopR.T) return drv(o, R.pOut, TQ.kStopR, e, 'out', R.yMine);
+    if (k.sr === 2 || t < k.hr) { drv(o, R.pOut, TQ.kStopR, TQ.kStopR.T, 'hold'); o.v = 0; return o; }   // waiting for the dump bin
+    const e2 = (t - k.hr) / ms; if (e2 < TQ.kResR.T) return drv(o, R.pOut, TQ.kResR, e2, 'out');
+    t0 = k.hr + TQ.kResR.T * ms;
+  } else { const e = (t - k.dep) / ms; if (e < R.kOut.T) return drv(o, R.pOut, R.kOut, e, 'out', R.yMine); t0 = k.dep + R.kOut.T * ms; }
+  let e = (t - t0) / ms;
+  if (e < TV.revRef) { const u = fss(e / TV.revRef), a = rw('Truck_Path_07'), b = rw('Truck_Dump'); o.x = a[0] + (b[0] - a[0]) * u; o.z = a[1] + (b[1] - a[1]) * u; o.yaw = lerpA(R.yOutEnd, R.yRev, u); o.v = -1; o.ph = 'rev'; return o; }
+  const b = rw('Truck_Dump');
+  if (!k.paid || t < k.tp) { o.x = b[0]; o.z = b[1]; o.yaw = R.yRev; o.v = 0; o.ph = 'wait'; return o; }   // on the bin, not tipped yet (settles this frame)
+  e = (t - k.tp) / ms;
+  if (e < TV.dump + TV.settle) { o.x = b[0]; o.z = b[1]; o.yaw = R.yRev; o.v = 0; o.dt = e; o.ph = e < TV.dump ? 'dump' : 'settle'; if (e >= TV.dump) o.fill = 0; return o; }
+  o.fill = 0; const B0 = tkB0(k);
+  if (k.sm === 2 || k.sm === 3) {
+    const e1 = (t - B0) / ms; if (e1 < TQ.kStopM.T) return drv(o, R.pBack, TQ.kStopM, e1, 'back', R.yRev);
+    if (k.sm === 2 || t < k.hm) { drv(o, R.pBack, TQ.kStopM, TQ.kStopM.T, 'hold'); o.v = 0; return o; }   // waiting for the chute
+    const e2 = (t - k.hm) / ms; if (e2 < TQ.kResM.T) return drv(o, R.pBack, TQ.kResM, e2, 'back');
+    t0 = k.hm + TQ.kResM.T * ms;
+  } else { const e1 = (t - B0) / ms; if (e1 < R.kBack.T) return drv(o, R.pBack, R.kBack, e1, 'back', R.yRev); t0 = B0 + R.kBack.T * ms; }
+  e = (t - t0) / ms; const a = mw('Path_Load_Approach'), c = mw('Path_Load');
+  if (e < TV.revMine) { const u = fss(e / TV.revMine); o.x = a[0] + (c[0] - a[0]) * u; o.z = a[1] + (c[1] - a[1]) * u; o.yaw = lerpA(R.yBackEnd, R.yMine, u); o.v = -1; o.ph = 'revMine'; return o; }
+  o.x = c[0]; o.z = c[1]; o.yaw = R.yMine; o.v = 0; o.ph = 'fill'; return o;   // under the chute (arrive settles this frame)
 }
 const truckOnRoad = () => (TS.ph === 'out' || TS.ph === 'back') && TS.x > MX + 13.5 && TS.x < RX - 46;
 // ---- settling: everything due up to time T happens exactly once (acc = away accumulator → offline 50%, no pops)
@@ -1847,68 +1939,109 @@ function richPop(v) {
   else smallPop(v);
 }
 let richTw = null;
-function playRich() { const a = tActs.truck_load_rich; if (a) { a.reset(); a.play(); } }
-function arrive(t, acc) {             // back under the chute: the next fill starts; rich loads queued while away drop in now
-  const k = S.tk, q = depsOn() ? Math.min(k.q || 0, 4) : 0;   // deposits off: no queued rich loads drop in
-  k.c0 = t; k.add = Math.min(1, q * CFG.richFill); k.lr = q ? t : 0; k.dep = 0; k.paid = false; k.val = 0; k.q = 0; k.qd = [];
+function playRich(k = chuteTk()) { const a = (k === S.tk2 ? tActs2 : tActs).truck_load_rich; if (a) { a.reset(); a.play(); } }
+function arrive(t, acc, k = S.tk) {   // back under the chute: the next fill starts; rich loads queued while away drop in now (the queue lives on S.tk for every truck)
+  const Q0 = S.tk, q = depsOn() ? Math.min(Q0.q || 0, 4) : 0;   // deposits off: no queued rich loads drop in
+  Object.assign(k, { c0: t, add: Math.min(1, q * CFG.richFill), lr: q ? t : 0, dep: 0, paid: false, val: 0, sr: 0, hr: 0, tp: 0, sm: 0, hm: 0 }); Q0.q = 0; Q0.qd = [];
   for (let i = 0; i < q; i++) S.pend.push({ at: t + CFG.richPayDelay * 1000, v: CFG.richBonus });
   for (const d of deposits) if (d.tkq) { d.tkq = false; d.at = t; }
-  if (q && !acc) { richTw = { at: t, amt: k.add }; playRich(); }
+  if (q && !acc) { richTw = { at: t, amt: k.add }; playRich(k); }
+}
+// ca-truckrot item 4 (Jacob 10/24): when the Refinery pallet is full (CG.palletCap) and, if the Dock is built, the Dock stock too (CFG.dock.cap),
+// mining stops: the truck under the chute fills up and stays there, the truck at the bin waits on it without tipping (the other waits at its holding
+// spot), and both go on once there is room. Checked on the cargo sim settled to that instant, at the event and then on a fixed 3 s game-clock grid
+// (k.gw = next check), so live play and the away catch-up stop and resume at the same instants. (Was: a full-pallet dump just made no box, cgMake.)
+const GATE_MS = 3000;
+const gateOn = () => { const c = S.cg; return !!c && c.ref.length >= CG.palletCap && (!(S.bt && S.bt.dock === 1) || c.dk >= CFG.dock.cap); };
+const gateNext = (t) => (Math.floor(t / GATE_MS) + 1) * GATE_MS;
+const TN = { t: 0, e: 0 };
+function tkNext(i, k) {               // truck i's next event → TN { t, e }
+  const ms = 1000; TN.t = Infinity; TN.e = 0;
+  if (k.sp) { TN.t = k.sp; TN.e = 8; return; }                                                 // Truck 2 rolls in (tk2Spawn)
+  if (!k.dep) { TN.t = Math.max(tFull(k), k.gw || 0); TN.e = 1; return; }                                            // full → leave the chute
+  if (k.sr === 0) { TN.t = k.dep + TQ.tDecR * ms; TN.e = 2; return; }                         // Refinery hold: drive through or stop
+  if (k.sr === 2) { const r = zRel(S.tz.b, i); TN.t = r === Infinity ? r : Math.max(r, k.dep + TQ.kStopR.T * ms); TN.e = 3; return; }   // pull away from the hold
+  if (!k.paid) { TN.t = Math.max(tkBin(k), k.gw || 0); TN.e = 4; return; }                                           // tip
+  const B0 = tkB0(k);
+  if (k.sm === 0) { TN.t = B0 + TQ.tDecM * ms; TN.e = 5; return; }                             // Mine hold: drive through or stop
+  if (k.sm === 2) { const r = zRel(S.tz.c, i); TN.t = r === Infinity ? r : Math.max(r, B0 + TQ.kStopM.T * ms); TN.e = 6; return; }
+  TN.t = tkArr(k); TN.e = 7;                                                                    // back under the chute
+}
+function tkStep(i, k, t, e, T, acc) {
+  const Z = S.tz, ms = 1000;
+  if ((e === 1 || e === 4) && (cgSettle(t, acc), gateOn())) { k.gw = gateNext(t); if (!k.gs) { k.gs = t; cgEv('truck_gate_wait', t, { at: e === 1 ? 'chute' : 'bin', truck: i + 1 }); } return; }   // item 4: wait for room
+  if (k.gs) { cgEv('truck_gate_go', t, { truck: i + 1, waited: Math.round((t - k.gs) / 1000) }); k.gs = 0; } k.gw = 0;
+  if (e === 1) { k.dep = t; k.paid = false; k.val = loadValue(); k.sr = 0; k.sm = 0; k.hr = 0; k.tp = 0; k.hm = 0; if (Z.c.by === i || Z.c.by < 0) Z.c = { by: i, rel: t + TQ.tRelC * ms }; return; }
+  if (e === 2) { if (zRel(Z.b, i) <= k.dep + TQ.tEntR * ms) { k.sr = 1; Z.b = { by: i, rel: 0 }; } else k.sr = 2; return; }
+  if (e === 3) { k.sr = 3; k.hr = t; Z.b = { by: i, rel: 0 }; return; }
+  if (e === 4) { k.paid = true; k.tp = t; payBase(k.val, acc); cgSettle(t, acc); cgMake(t); if (Z.b.by === i) Z.b.rel = tkB0(k) + TQ.tRelB * ms; return; }
+  if (e === 5) { if (zRel(Z.c, i) <= tkB0(k) + TQ.tEntM * ms) { k.sm = 1; Z.c = { by: i, rel: 0 }; } else k.sm = 2; return; }
+  if (e === 6) { k.sm = 3; k.hm = t; Z.c = { by: i, rel: 0 }; return; }
+  if (e === 8) { tk2Spawn(t, true); return; }
+  arrive(t, acc, k); payPend(T, acc);
 }
 function settleTo(T, acc) {
-  const k = S.tk, tl = R.tl; if (!tl || !RT.ready) return;          // B1: nothing settles on the temporary route
-  payPend(T, acc);
-  for (let g = 0; g < 20000; g++) {
-    if (!k.dep) { const tf = tFull(); if (tf > T) break; k.dep = tf; k.paid = false; k.n = fleetN(); k.val = loadValue() * k.n; continue; }   // full: depart (value + fleet frozen now; ca-truck2: k.n trucks' worth)
-    if (!k.paid) { if (k.dep + tl.tDump * 1000 > T) break; k.paid = true; const n = k.n || 1; payBase(k.val, acc, n); cgSettle(k.dep + tl.tDump * 1000, acc); for (let i = 0; i < n; i++) cgMake(k.dep + tl.tDump * 1000); }   // ca-truck2: n loads' crates
-    const end = k.dep + tl.trip * 1000; if (end > T) break;
-    arrive(end, acc); payPend(T, acc);
+  const tl = R.tl; if (!tl || !RT.ready) return;          // B1: nothing settles on the temporary route
+  tqInit(); payPend(T, acc);
+  const n = fleetN();
+  for (let g = 0; g < 60000; g++) {   // every truck event up to T, earliest first (ties: Truck 1 first), exactly once
+    let bi = -1, bt = Infinity, be = 0;
+    for (let i = 0; i < n; i++) { tkNext(i, tkOf(i)); if (TN.t < bt) { bt = TN.t; bi = i; be = TN.e; } }
+    if (bi < 0 || bt > T) break;
+    tkStep(bi, tkOf(bi), bt, be, T, acc);
   }
   cgMakeDue(T); cgSettle(T, acc);     // cargo loop: same clock, same exactly-once rule
 }
-function shiftTk(d) { const k = S.tk; k.c0 += d; if (k.lr) k.lr += d; if (k.dep) k.dep += d; for (const p of S.pend) p.at += d; cgShift(d); }
+function shiftTk(d) { for (const k of [S.tk, S.tk2]) if (k) { k.c0 += d; for (const f of ['lr', 'dep', 'hr', 'tp', 'hm', 'sp', 'gw', 'gs']) if (k[f]) k[f] += d; }
+  if (S.tz) for (const z of [S.tz.c, S.tz.b]) if (z && z.rel) z.rel += d; for (const p of S.pend) p.at += d; cgShift(d); }
 function tapDeposit(d) {
   if (!depsOn() || !d) return null;
-  const t = nowMs(), k = S.tk; settleTo(t, null);
+  const t = nowMs(); settleTo(t, null); const k = chuteTk() || S.tk;   // ca-truckrot: the truck under the chute takes the rich load; the queue stays on S.tk
   let res;
-  if (!k.dep && fillAt(t) < 1) {         // parked and filling: the drill sends a rich load down the chute now (+25%, capped at 100%; overflow is lost)
-    const amt = Math.min(CFG.richFill, 1 - fillAt(t)); k.add += amt; k.lr = t;
+  if (!k.dep && fillAt(t, k) < 1) {         // parked and filling: the drill sends a rich load down the chute now (+25%, capped at 100%; overflow is lost)
+    const amt = Math.min(CFG.richFill, 1 - fillAt(t, k)); k.add += amt; k.lr = t;
     S.pend.push({ at: t + CFG.richPayDelay * 1000, v: CFG.richBonus });
-    richTw = { at: t, amt }; playRich(); d.claimed = true; d.at = t; res = 'rich';
-  } else { k.q = Math.min(4, (k.q || 0) + 1); k.qd.push(d.mk); d.claimed = true; d.tkq = true; res = 'queued'; }   // truck away: queued into the next fill
+    richTw = { at: t, amt }; playRich(k); d.claimed = true; d.at = t; res = 'rich';
+  } else { const Q0 = S.tk; Q0.q = Math.min(4, (Q0.q || 0) + 1); Q0.qd.push(d.mk); d.claimed = true; d.tkq = true; res = 'queued'; }   // truck away: queued into the next fill
   S.dep++; save(); window.__ps3d.lastTap = { at: t, res, mk: d.mk };
   return res;
 }
 // ---- per-frame pose, wheels, clips, fill morph, arc gauge
 const _X = new THREE.Vector3(1, 0, 0), _wq = new THREE.Quaternion(), _fa = new THREE.Vector3();
-const WH = { a: 0, d: 0, x: null, z: 0 };
+const WH = { a: 0, d: 0, x: null, z: 0 }, WH2 = { a: 0, d: 0, x: null, z: 0 };
+const RIG = [{ ts: TS, wh: WH, acts: tActs, wheels, fills: fillMeshes, truck: null, arc: null }, { ts: TS2, wh: WH2, acts: tActs2, wheels: wheels2, fills: fillMeshes2, truck: null, arc: null }];
+let TC = RIG[0];                       // the rig under the chute (else Truck 1): drives the drill, the fill arc and the HUD bed bar
 const farc = $('farc'), farcV = $('farcV'), farcT = $('farcT'); let farcK = '';
 function setAct(a, on) { if (!a) return; if (on) { if (!a.isRunning()) { a.reset(); a.play(); } } else if (a.isRunning() || a.enabled && a.getEffectiveWeight() > 0 && a.time > 0) a.stop(); }
 function updTruck() {
-  if (!R.tl) return; const t = nowMs(); poseAt(t, TS);
-  let shown = TS.fill; if (TS.ph === 'fill' && richTw) { const u = (t - richTw.at) / 1000; if (u >= 1 || u < 0) richTw = null; else shown -= richTw.amt * (1 - fss(u)); }
-  TS.shown = clamp(shown, 0, 1);
-  setDigging(TS.ph === 'fill' && TS.fill < 1);
+  if (!R.tl || !TQ.ok) return; const t = nowMs(), n = fleetN(); TC = RIG[0];
+  for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (o.ph === 'fill') TC = G;
+    let shown = o.fill; if (o.ph === 'fill' && richTw && tkOf(i) === chuteTk()) { const u = (t - richTw.at) / 1000; if (u >= 1 || u < 0) richTw = null; else shown -= richTw.amt * (1 - fss(u)); }
+    o.shown = clamp(shown, 0, 1); }
+  setDigging(TC.ts.ph === 'fill' && TC.ts.fill < 1);
   if (TS.ph !== TS.last) { (window.__ps3d.phases = window.__ps3d.phases || []).push({ ph: TS.ph, at: t }); if (window.__ps3d.phases.length > 40) window.__ps3d.phases.shift(); TS.last = TS.ph; }
-  if (!truck) return;
-  truck.position.set(TS.x, 0, TS.z); truck.rotation.set(0, TS.yaw, 0);
-  if (WH.x !== null) { const dx = TS.x - WH.x, dz = TS.z - WH.z; if (Math.hypot(dx, dz) < 20) { const ds = dx * Math.cos(TS.yaw) - dz * Math.sin(TS.yaw); WH.a += ds / TV.wheelR; WH.d += ds; } }   // roll by the real distance (no skating)
-  WH.x = TS.x; WH.z = TS.z;
-  for (const w of wheels) w.b.quaternion.copy(w.q0).multiply(_wq.setFromAxisAngle(_X, WH.a));   // rest × rotX(angle), + = forward
-  const moving = TS.ph === 'out' || TS.ph === 'back' || TS.ph === 'rev' || TS.ph === 'revMine';
-  setAct(tActs.truck_drive, moving);                         // bed rattle only while moving (never with truck_dump)
-  setAct(tActs.chute_pour, TS.ph === 'fill' && TS.fill < 1);  // only parked at Path_Load
-  const dA = tActs.truck_dump;
-  if (dA) { if (TS.ph === 'dump') { dA.enabled = true; if (!dA.isScheduled()) dA.play(); dA.paused = true; dA.setEffectiveWeight(1); dA.time = Math.min(TS.el - R.tl.t2, dA.getClip().duration - 1e-3); } else if (dA.isScheduled()) dA.stop(); }
-  const pct = TS.ph === 'fill' ? TS.shown : TS.fill, inf = pct > 0 ? .5 + .5 * pct ** .8 : 0;
-  for (const [m, i] of fillMeshes) m.morphTargetInfluences[i] = inf;
-  MET.inf = inf;
+  if (n > 1 && TS2.ph !== TS2.last) { (window.__ps3d.phases2 = window.__ps3d.phases2 || []).push({ ph: TS2.ph, at: t }); if (window.__ps3d.phases2.length > 40) window.__ps3d.phases2.shift(); TS2.last = TS2.ph; }
+  const v2 = n > 1 && TS2.ph !== 'off'; if (truck2Root && truck2Root.visible !== v2) truck2Root.visible = v2;
+  for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts, W = G.wh, A = G.acts; if (!G.truck || o.ph === 'off') continue;
+    G.truck.position.set(o.x, 0, o.z); G.truck.rotation.set(0, o.yaw, 0);
+    if (W.x !== null) { const dx = o.x - W.x, dz = o.z - W.z; if (Math.hypot(dx, dz) < 20) { const ds = dx * Math.cos(o.yaw) - dz * Math.sin(o.yaw); W.a += ds / TV.wheelR; W.d += ds; } }   // roll by the real distance (no skating)
+    W.x = o.x; W.z = o.z;
+    for (const w of G.wheels) w.b.quaternion.copy(w.q0).multiply(_wq.setFromAxisAngle(_X, W.a));   // rest × rotX(angle), + = forward
+    const moving = o.ph === 'out' || o.ph === 'back' || o.ph === 'rev' || o.ph === 'revMine';
+    setAct(A.truck_drive, moving);                         // bed rattle only while moving (never with truck_dump)
+    setAct(A.chute_pour, o.ph === 'fill' && o.fill < 1);  // only parked at Path_Load
+    const dA = A.truck_dump;
+    if (dA) { if (o.ph === 'dump') { dA.enabled = true; if (!dA.isScheduled()) dA.play(); dA.paused = true; dA.setEffectiveWeight(1); dA.time = Math.min(o.dt, dA.getClip().duration - 1e-3); } else if (dA.isScheduled()) dA.stop(); }
+    const pct = o.ph === 'fill' ? o.shown : o.fill, inf = pct > 0 ? .5 + .5 * pct ** .8 : 0;
+    for (const [m, j] of G.fills) m.morphTargetInfluences[j] = inf;
+    if (!i) MET.inf = inf; }
 }
-function updFillArc() {                // slim cyan fill-% arc at Fill_Arc while the truck is under the chute (hidden once it leaves)
-  let on = !!(fillArcNode && TS.ph === 'fill' && S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden);
-  if (on) { truckRoot.updateMatrixWorld(); fillArcNode.getWorldPosition(_fa); const p = toScreen(_fa.x, _fa.y, _fa.z, camera, _scr); on = p.z < 1;
-    if (on) { farc.style.left = p.x.toFixed(1) + 'px'; farc.style.top = p.y.toFixed(1) + 'px'; const pc = Math.floor(TS.shown * 100), k = pc + '';
-      if (k !== farcK) { farcK = k; farcV.setAttribute('stroke-dasharray', (62.83 * TS.shown).toFixed(2) + ' 999'); farcT.textContent = pc + '%'; } } }
+function updFillArc() {                // slim cyan fill-% arc at Fill_Arc while a truck is under the chute (hidden once it leaves)
+  const G = TC, o = G.ts, root = G === RIG[0] ? truckRoot : truck2Root;
+  let on = !!(G.arc && root && o.ph === 'fill' && S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden);
+  if (on) { root.updateMatrixWorld(); G.arc.getWorldPosition(_fa); const p = toScreen(_fa.x, _fa.y, _fa.z, camera, _scr); on = p.z < 1;
+    if (on) { farc.style.left = p.x.toFixed(1) + 'px'; farc.style.top = p.y.toFixed(1) + 'px'; const pc = Math.floor(o.shown * 100), k = pc + '';
+      if (k !== farcK) { farcK = k; farcV.setAttribute('stroke-dasharray', (62.83 * o.shown).toFixed(2) + ' 999'); farcT.textContent = pc + '%'; } } }
   if (farc._on !== on) { farc._on = on; farc.style.display = on ? 'block' : 'none'; }
 }
 setInterval(() => { if (document.hidden || !RT.ready) return; const t = nowMs(); if (t - S.rt < AWAY_MS && t >= S.rt - 1000) { settleTo(t, null); S.rt = t; } }, 200);   // payouts keep wall-clock time even when frames stall
@@ -2149,7 +2282,7 @@ function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); i
 // design (sealSec, richPayDelay), so they move with the rest but do not set the gap.
 function stampGap(now) {
   const k = S.tk || {}, c = S.cg; let m = S.rt > 0 ? S.rt : 0;
-  const v = [k.c0, k.lr, k.dep]; if (c) v.push(c.t, c.rc, c.fb && c.fb.t0, c.dka && c.dka.t0, c.pc && c.pc.k ? c.pc.t0 : 0, c.rd ? c.rd.t0 : 0, c.as && c.as.t0, c.sh && c.sh.t0, c.sh && c.sh.f0, c.sh && c.sh.req, c.fu && c.fu.t);
+  const v = [k.c0, k.lr, k.dep, k.hr, k.tp, k.hm]; if (S.tk2) v.push(S.tk2.c0, S.tk2.lr, S.tk2.dep, S.tk2.hr, S.tk2.tp, S.tk2.hm); if (c) v.push(c.t, c.rc, c.fb && c.fb.t0, c.dka && c.dka.t0, c.pc && c.pc.k ? c.pc.t0 : 0, c.rd ? c.rd.t0 : 0, c.as && c.as.t0, c.sh && c.sh.t0, c.sh && c.sh.f0, c.sh && c.sh.req, c.fu && c.fu.t);
   for (const a of [S.log, S.calls]) if (Array.isArray(a)) for (const e of a) if (e) v.push(e.at);
   for (const x of v) if (x > m) m = x;
   return m - now;
@@ -3144,7 +3277,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     sub: (m) => (m ? `+${fuelMake()}/min, stock ${fuelCap()}` : `+${fuelMake()} → +${fuelMake(S.fuelLv + 1)}/min, stock ${fuelCap()} → ${fuelCap(S.fuelLv + 1)}`) + (fuelPrice() > 0 ? ` · ${fmt(fuelPrice())}/refuel` : ''),
     meter: () => [fuelMaxLv(), Math.min(S.fuelLv, fuelMaxLv())] },
   truck: { name: 'Haul Truck', ico: 'truck', once: true, lock: () => !truck2Unlocked(), lockSub: 'Truck 2 unlocks later', lv: () => S.rovers, max: () => S.rovers >= CFG.roverMax, cost: () => CFG.econ.p2Prices.truck2, buy: () => buyTruck2(),   // ca-truck2: one-time Truck 2 buy
-    big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: (m) => m ? 'Truck 2 parked at the Mine · 2× ore per load' : 'Truck 2 doubles the ore of every load' },
+    big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: (m) => m ? 'Truck 2 on the haul loop · they take turns at the chute' : 'A second HT-04 on the haul loop · takes turns at the chute' },
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
   ship: { name: 'Cargo Ship', ico: 'ship', launch: true, kick: 'Launch',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${CG.holdCap}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
@@ -3537,8 +3670,8 @@ function buyDrill() {
 }
 function buyChute() {
   const c = chuteCost(); if (chuteLocked() || S.chute >= CFG.chuteMax || !canPay(c)) return;   // gc-tapfix: no buy while locked
-  const t = nowMs(); settleTo(t, null); const k = S.tk;
-  if (!k.dep) { k.add = fillAt(t); k.c0 = t; }          // rebase so the bed level never jumps; the new rate applies from now
+  const t = nowMs(); settleTo(t, null);
+  for (const k of [S.tk, S.tk2]) if (k && !k.dep) { k.add = fillAt(t, k); k.c0 = t; }   // rebase so the bed level never jumps; the new rate applies from now
   pay(c); S.chute++; save(); upUI(); hud();
   popAtBuy('Chute Lv ' + S.chute);
   logU('upgrade', `Chute Feed Rate Lv ${S.chute}: fills in ${Math.round(fillSec())} s`);
@@ -3556,8 +3689,8 @@ function buyFuel() {
 }
 function buyTruck2() {               // ca-truck2: one-time; same check / deduct / save as the other buys; loads departing from now count 2
   const c = CFG.econ.p2Prices.truck2; if (!truck2Unlocked() || S.rovers >= CFG.roverMax || !canPay(c)) return;
-  settleTo(nowMs(), null); pay(c); S.rovers = Math.min(CFG.roverMax, S.rovers + 1); if (truck2Root) truck2Root.visible = true;
-  save(); upUI(); hud(); popAtBuy('Truck 2'); logU('upgrade', 'Truck 2 bought: 2 HT-04 trucks, 2× ore per load');
+  const t = nowMs(); settleTo(t, null); pay(c); S.rovers = Math.min(CFG.roverMax, S.rovers + 1); if (TQ.init && !S.tk2) tk2Spawn(t);   // ca-truckrot: rolls in at the Mine holding spot
+  save(); upUI(); hud(); popAtBuy('Truck 2'); logU('upgrade', 'Truck 2 bought: 2 HT-04 trucks take turns at the chute');
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
 function buyPurity() {
@@ -3934,6 +4067,7 @@ function frame() {
   updCargo();
   updTruck();                         // poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
+  if (t2Mixer && fleetN() > 1) t2Mixer.update(gdt);   // ca-truckrot: Truck 2's clips
   updMet();
   if (mixer) mixer.update(gdt);
   updOperator(gdt);
@@ -3960,7 +4094,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get boxIM() { return cg3.boxParts && cg3.boxParts[0] ? cg3.boxParts[0].im : null; }, cargoDoorK: () => (cg3.door ? +cg3.door.k.toFixed(3) : null),   // ca-cargoride QA read-outs
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
-  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); updMet(); },
+  buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
   get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
