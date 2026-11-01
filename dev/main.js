@@ -439,13 +439,20 @@ const GROUND_MESHES = [];
 // ends at z 93.985, measured, not the +95 in the notes). The ground grid lines nearest these 4 edges are snapped onto them (UVs follow), so the hole is
 // whole cells: no overlap strip (z-fight) and no gap. The apron under the ground gets the same hole. Both holes switch on only once the terrain is in.
 const MINE_HOLE = { x0: GAP - 80, x1: GAP + 79.99, z0: -460, z1: 93.98 };   // the terrain's own edge verts (x −80.005 / +79.991, z −460.003 / +93.985) so ground and terrain meet with no gap
-const GROUND_HOLE = { on: false, set: null, M: null, macro: null, tm: null };
+// gc-refterr3 Refinery terrain try 3 hole: Refinery-local x ±80 (its ground grid ends at x ±80 / z 93, measured from the GLB edge verts), z −460..+93. Its x0 is the
+// Mine hole's x1 (the two patches touch at x 240), so the shared column is snapped once; the shared near row is snapped per vertex (93.98 left of x 240, 93.0 right).
+const REF_HOLE = { x0: MINE_HOLE.x1, x1: RX + 80, z0: -460, z1: 93.0 };
+const HOLES = { mine: MINE_HOLE, ref: REF_HOLE };
+const GROUND_HOLE = { on: false, set: null, M: null, macro: null, tm: null, rm: null, onSet: {} };
 // tone match (seam fix): the v3b atlas is not the global M_ground (no 10 m albedo tile, no 76 m macro), so its edge reads as a lighter, smoother rectangle.
 // In the last TERRAIN_EDGE_M metres inside the hole the terrain's base colour blends to exactly what M_ground draws at that world spot (same KTX2 albedo at
 // world phase x/10, −z/10 = M_ground's uv·repeat, × macro(xz/76)·2), so both meshes have the same colour on the seam line. Ground fragments only, 2 extra taps.
 const TERRAIN_EDGE_M = 15;
-function terrainEdgeBlend() {
-  const H = GROUND_HOLE, m = H.tm; if (!m || !H.M || m.userData.edgeBlend) return; m.userData.edgeBlend = true;
+function terrainEdgeBlend() { edgeBlendOne(GROUND_HOLE.tm, MINE_HOLE, 'M_TerrainGround_edge'); edgeBlendOne(GROUND_HOLE.rm, REF_HOLE, 'M_TerrainGround_edge_ref');
+  if (window.__ps3d.mineTerrain && GROUND_HOLE.tm && GROUND_HOLE.tm.userData.edgeBlend) window.__ps3d.mineTerrain.edgeBlend = TERRAIN_EDGE_M;
+  if (window.__ps3d.refTerrain && GROUND_HOLE.rm && GROUND_HOLE.rm.userData.edgeBlend) window.__ps3d.refTerrain.edgeBlend = TERRAIN_EDGE_M; }
+function edgeBlendOne(m, MINE_HOLE, key) {
+  const H = GROUND_HOLE; if (!m || !H.M || m.userData.edgeBlend) return; m.userData.edgeBlend = true;
   const f = (v) => v.toFixed(3);
   m.onBeforeCompile = (sh) => {
     sh.uniforms.gAlb = { value: H.M.map }; sh.uniforms.gMac = { value: H.macro };
@@ -455,23 +462,25 @@ function terrainEdgeBlend() {
         '  float w = d < 0.0 ? 1.0 : smoothstep(0.0, ' + f(TERRAIN_EDGE_M) + ', d);\n' +
         '  if (w < 1.0) { vec3 gc = texture2D(gAlb, vec2(vTW.x, -vTW.z) / 10.0).rgb * texture2D(gMac, vTW.xz / 76.0).r * 2.0; diffuseColor.rgb = mix(gc, diffuseColor.rgb, w); } }');
   };
-  m.customProgramCacheKey = () => 'M_TerrainGround_edge'; m.needsUpdate = true;
-  if (window.__ps3d.mineTerrain) window.__ps3d.mineTerrain.edgeBlend = TERRAIN_EDGE_M;
+  m.customProgramCacheKey = () => key; m.needsUpdate = true;
 }
 {
   const W = GAP * (N - 1) + 600, D = 1400;   // deep enough in +z for the farthest bounds-fit camera (Shipyard, k≈9)
   const g = new THREE.PlaneGeometry(W, D, 260, 110); g.rotateX(-Math.PI / 2);
   const GX0 = GAP * (N - 1) / 2, GZ0 = -100;   // = GX / GZ below (ground centre)
   { const ps = g.attributes.position, uv = g.attributes.uv, dx = W / 260, dz = D / 110, snapX = {}, snapZ = {};
-    for (const x of [MINE_HOLE.x0, MINE_HOLE.x1]) snapX[Math.round((x - (GX0 - W / 2)) / dx)] = x;
+    for (const x of [MINE_HOLE.x0, MINE_HOLE.x1, REF_HOLE.x1]) snapX[Math.round((x - (GX0 - W / 2)) / dx)] = x;
     for (const z of [MINE_HOLE.z0, MINE_HOLE.z1]) snapZ[Math.round((z - (GZ0 - D / 2)) / dz)] = z;
+    const refZ1Row = Math.round((REF_HOLE.z1 - (GZ0 - D / 2)) / dz);   // same row as the Mine's z1: right of x 240 it sits on the Refinery edge (93.0)
     for (let i = 0; i < ps.count; i++) { const ix = i % 261, iy = Math.floor(i / 261);
       if (snapX[ix] !== undefined) ps.setX(i, snapX[ix] - GX0); if (snapZ[iy] !== undefined) ps.setZ(i, snapZ[iy] - GZ0);
+      if (iy === refZ1Row && ps.getX(i) + GX0 > REF_HOLE.x0 + 0.005) ps.setZ(i, REF_HOLE.z1 - GZ0);
       uv.setXY(i, (ps.getX(i) + W / 2) / W, 1 - (ps.getZ(i) + D / 2) / D); }
-    const full = g.index.array.slice(), keep = [];
-    for (let t = 0; t < full.length; t += 6) { let cx = 0, cz = 0; for (let k = 0; k < 6; k++) { cx += ps.getX(full[t + k]); cz += ps.getZ(full[t + k]); } cx = cx / 6 + GX0; cz = cz / 6 + GZ0;
-      if (!(cx > MINE_HOLE.x0 && cx < MINE_HOLE.x1 && cz > MINE_HOLE.z0 && cz < MINE_HOLE.z1)) for (let k = 0; k < 6; k++) keep.push(full[t + k]); }
-    GROUND_HOLE.full = full; GROUND_HOLE.holed = new full.constructor(keep); GROUND_HOLE.cut = (full.length - keep.length) / 3; }
+    const full = g.index.array.slice(), keepFor = (rs) => { const keep = [];   // index with the given holes cut (whole cells, centre inside)
+      for (let t = 0; t < full.length; t += 6) { let cx = 0, cz = 0; for (let k = 0; k < 6; k++) { cx += ps.getX(full[t + k]); cz += ps.getZ(full[t + k]); } cx = cx / 6 + GX0; cz = cz / 6 + GZ0;
+        if (!rs.some(R => cx > R.x0 && cx < R.x1 && cz > R.z0 && cz < R.z1)) for (let k = 0; k < 6; k++) keep.push(full[t + k]); }
+      return new full.constructor(keep); };
+    GROUND_HOLE.full = full; GROUND_HOLE.keepFor = keepFor; }
   const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
   const rnd = (a) => { const s = Math.sin(a * 127.1) * 43758.5453; return s - Math.floor(s); };
   const craters = []; for (let i = 0; i < 260; i++) craters.push([(rnd(i + .3) - .5) * W, (rnd(i + 7.7) - .5) * D - 20, 1.5 + rnd(i + 3.1) * 6]);
@@ -491,14 +500,17 @@ function terrainEdgeBlend() {
     for (let i = 0; i < uv.count; i++) { const wx = FX + ps.getX(i), wz = FZ + ps.getZ(i); uv.setXY(i, (wx - (GX - W / 2)) / W, 1 - (wz - (GZ - D / 2)) / D); } }
   const far = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ color: new THREE.Color().setRGB(.42, .42, .433) }));   // flat apron to the horizon so wide station frames never show the ground's edge (1 draw)
   far.position.set(FX, -0.06, FZ); scene.add(far);
-  { const H = MINE_HOLE, X0 = FX - FW / 2, X1 = FX + FW / 2, Z0 = FZ - FD / 2, Z1 = FZ + FD / 2, P = [], U = [];   // apron with the Mine hole: 4 quads round it, same UV formula (still 1 draw)
+  const apronFor = (rs) => { const both = rs.length > 1, H = both ? { x0: MINE_HOLE.x0, x1: REF_HOLE.x1, z0: MINE_HOLE.z0, z1: MINE_HOLE.z1 } : rs[0], X0 = FX - FW / 2, X1 = FX + FW / 2, Z0 = FZ - FD / 2, Z1 = FZ + FD / 2, P = [], U = [];   // apron with the terrain hole(s): 4 quads round it (+1 sliver quad when both), same UV formula (still 1 draw)
     const quad = (a, b, c, d) => { for (const [x, z] of [[a, c], [a, d], [b, d], [a, c], [b, d], [b, c]]) { P.push(x - FX, 0, z - FZ); U.push((x - (GX - W / 2)) / W, 1 - (z - (GZ - D / 2)) / D); } };
     quad(X0, H.x0, Z0, Z1); quad(H.x1, X1, Z0, Z1); quad(H.x0, H.x1, Z0, H.z0); quad(H.x0, H.x1, H.z1, Z1);
-    const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); hg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); hg.computeVertexNormals();
-    const fullG = far.geometry;
-    GROUND_HOLE.set = (on) => { on = !!on; if (on === GROUND_HOLE.on) return; GROUND_HOLE.on = on;
-      ground.geometry.setIndex(new THREE.BufferAttribute(on ? GROUND_HOLE.holed : GROUND_HOLE.full, 1)); far.geometry = on ? hg : fullG;
-      window.__ps3d.groundHole = { on, rect: MINE_HOLE, groundTrisCut: GROUND_HOLE.cut, apronTris: far.geometry.attributes.position.count / 3 }; }; }
+    if (both) quad(REF_HOLE.x0, REF_HOLE.x1, REF_HOLE.z1, MINE_HOLE.z1);   // the ≤1 m strip between the Refinery edge (93.0) and the shared row's Mine-side snap
+    const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); hg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); hg.computeVertexNormals(); return hg; };
+  { const fullG = far.geometry, cache = {};
+    GROUND_HOLE.set = (key, on = true) => { if (typeof key !== 'string') { on = key; key = 'mine'; }   // GROUND_HOLE.set(true) = the Mine hole (old call)
+      GROUND_HOLE.onSet[key] = !!on; const keys = Object.keys(HOLES).filter(k => GROUND_HOLE.onSet[k]), id = keys.join('+'); GROUND_HOLE.on = keys.length > 0;
+      if (!cache[id]) cache[id] = keys.length ? { idx: GROUND_HOLE.keepFor(keys.map(k => HOLES[k])), apron: apronFor(keys.map(k => HOLES[k])) } : { idx: GROUND_HOLE.full, apron: fullG };
+      ground.geometry.setIndex(new THREE.BufferAttribute(cache[id].idx, 1)); far.geometry = cache[id].apron;
+      window.__ps3d.groundHole = { on: GROUND_HOLE.on, holes: keys, rect: MINE_HOLE, rects: keys.map(k => HOLES[k]), groundTrisCut: (GROUND_HOLE.full.length - cache[id].idx.length) / 3, apronTris: far.geometry.attributes.position.count / 3 }; }; }
   // ===== shared M_ground (Art b422778): KTX2 detail albedo + normal (10 m repeat, standard UVs), macro multiplier in world XZ (76 m), one material for every station
   const TILE_M = 10, MACRO_M = 76, GB = 'models/ground/', GV = '?v=b422778';
   const ktx2 = new KTX2Loader().setTranscoderPath('vendor/addons/libs/basis/').detectSupport(renderer);
@@ -790,6 +802,19 @@ function loadMineTerrain() { if (Q.get('terrain') === 'off') return;
     o.traverse(m => { if (m.isMesh && m.name === 'Terrain_Ground') GROUND_HOLE.tm = m.material; });
     scene.add(o); GROUND_HOLE.set(true); window.__ps3d.mineTerrain = { url: MINE_TERRAIN_GLB, tris, draws, obj: o }; terrainEdgeBlend(); },
     undefined, (e) => { console.warn('Mine terrain failed to load (flat ground stays, no hole)', e); window.__ps3d.mineTerrain = { err: String(e) }; });
+}
+// ===== gc-refterr3 Refinery terrain try 3 (art_next/terrain/refinery_terrain_v3.glb, md5 6e24037a…; approved, still refinery_terrain_game_393x852_v3.png 41b44001…):
+// the approved Mine v3b rim mesh recoloured for the Refinery (AA2 16:30): ground + hills + black far skirt (1 mesh) + Rock_S / Rock_M (EXT_mesh_gpu_instancing) = 17,588 tris,
+// 3 draws. Refinery-local (Art config refinery_v3.json x_world 320 = STATIONS index 2), so it sits at (RX, 0, 0). Keep-clear checked by Art (clearance.json d848085f:
+// 19/19 + Fuel_Pipe_Route). Same shadow rules as the Mine terrain. On load the global ground + apron get the Refinery hole (REF_HOLE) and the 15 m edge blend.
+const REF_TERRAIN_GLB = '../qa3d-next/models/refinery_terrain_v3_6e24037a.glb?v=6e24037a';
+function loadRefTerrain() { if (Q.get('terrain') === 'off' || Q.get('refterrain') === 'off') return;
+  loader.load(REF_TERRAIN_GLB, (g) => { const o = g.scene; o.name = 'Refinery_Terrain'; o.position.set(RX, 0, 0); let tris = 0, draws = 0;
+    o.traverse(m => { if (!m.isMesh) return; const ground = m.name === 'Terrain_Ground' || (m.parent && m.parent.name === 'Terrain_Ground'); m.receiveShadow = true; m.castShadow = !ground; draws++;
+      const n = (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; tris += n * (m.isInstancedMesh ? m.count : 1); });
+    o.traverse(m => { if (m.isMesh && m.name === 'Terrain_Ground') GROUND_HOLE.rm = m.material; });
+    scene.add(o); GROUND_HOLE.set('ref', true); window.__ps3d.refTerrain = { url: REF_TERRAIN_GLB, tris, draws, obj: o }; terrainEdgeBlend(); },
+    undefined, (e) => { console.warn('Refinery terrain failed to load (flat ground stays, no hole)', e); window.__ps3d.refTerrain = { err: String(e) }; });
 }
 function loadRig() { loader.load(MINE_GLB, (gltf) => {
   clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
@@ -3392,7 +3417,7 @@ setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading af
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, BOARD_SEC, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); upUI();
-loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain();
+loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain(); loadRefTerrain();
 frame();
 
 // ===== QA fast-forward hook + badge (dev/ with ?qa=1 only; see QA_ON). Nothing below exists on a normal load.
