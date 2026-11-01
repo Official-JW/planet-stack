@@ -30,7 +30,7 @@ const CFG = {
     // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
     p2Prices: { pad: 25000, truck2: 150000, dock: 400000, habitat: 750000, shipyard: 1000000, ship2: 1500000,
                 v2PerShip: 2000000, v3PerShip: 3000000, mars: 5500000 },   // V2 / V3 hull: per ship (ship 1 and ship 2 each pay it); all 11 buys total $19.3M
-    chute: { cost0: 25000, costGrowth: 1.8 },        // Locked: chute upgrades ~$25k start, ×1.8 per level
+    chute: { cost0: 15000, costGrowth: 1.8 },        // Director 10/31 22:23 (via EM): chute starts at $15k (was $25k), ×1.8 per level
     drill: { first: 8000, cost0: 10000, costGrowth: 1.6 },        // Locked: early upgrades $10k–15k, ×1.6 per level (drill takes the low end, PLACEHOLDER)
     offline: { rate: 0.5, capSec: 4 * 3600 },        // Locked: offline earnings 50%, 4 h cap, same rules as live (dropoffValue)
     specialistTripCost: 0,              // Locked: specialist trip costs OFF for now
