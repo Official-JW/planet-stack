@@ -3512,6 +3512,7 @@ function bldApply(i) {                 // dim (not built) or restore (built) sta
 const nbEl = $('nbPlate');
 function nbUI() { const k = bldOf(S.site); const on = !!k && !isBuilt(k); nbEl.classList.toggle('on', on); }   // the 'Not built' plate over the station name
 function upBuildUI(P, k) {             // not-built card: no level / meter / cost row; the button carries the price
+  upBuy.style.display = '';   // the Truck 2 card hides the shared button once owned (ca-truck2); a building card always shows it
   const c = BLD[k].price(), rq = BLD[k].req && !isBuilt(BLD[k].req) ? BLD[BLD[k].req] : null, ok = !rq && canPay(c), key = ['bld', upCur, k, UPK.site, c, ok, !!rq].join('|'); if (key === UPK.k) return; UPK.k = key;
   upEl.dataset.ico = P.ico; upEl.dataset.locked = ''; $('upKick').textContent = `${STATIONS[UPK.site]} · ${BLD[k].i === UPK.site ? 'Not built yet' : BLD[k].name + ' not built yet'}`; $('upName').textContent = STATIONS[BLD[k].i]; $('upLv').textContent = ''; fitTitle();
   $('upEffK').textContent = 'Status'; $('upLvl').hidden = true; $('upMeter').hidden = true; $('upCostRow').hidden = true; $('upBig').hidden = true;
