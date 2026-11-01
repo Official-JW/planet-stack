@@ -53,6 +53,8 @@ const CFG = {
   awayCardMin: 5, offlineAfterSec: 300,   // (offlineRate / offlineCapSec: set from CFG.econ.offline just below) Director 10/23: the 50% cut + away card only after 5 min away; shorter locks catch up at full rate
   saveEvery: 3,
   hallDoor: { clip: 'hall_door_open', openSec: 1.2 },   // Director 20:58: open once and stay open; longer clips (8c9cee7 3.6 s loop) use 0–openSec
+  shipyardCrawlerStopX: 700,   // Director 21:17 (via EM): the crawler PARKS OUTSIDE HB-1 at world x ≈ 700 (Art v3: x 699.9 puts its front contacts at 714). Never drive in to
+                               // HB1_Door_Front (world 708): the ~17 m opening is narrower than the 26.6 m tracks. Nothing drives a crawler to the Shipyard yet; any later crawler / ship-move code must stop here
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
   // Director 20:34: boxValue 36 (full hold $360), fuel → refuelSec() (CFG.econ.fuel, Refinery lane), away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
   dock: { cap: 40, loadS: 3.0 },   // ca-dock (Director via EM 10/31): cap = Cargo Dock stock cap (boxes, saved as S.cg.dk; the only copy); loadS = s per box, Dock -> hold (Dock-first loading while the ship is on the pad)
@@ -580,7 +582,7 @@ const STATION_GLB = [
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; dockLoaded(o, g); dockRoadCheck(o); } },
-  { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A), no CAM_OVERRIDE. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
+  { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g) },   // Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A); CAM_OVERRIDE 75901d07 adds only a desktop frame_h floor. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
 ];
 // Shipyard hall door (Director 20:58): plays hall_door_open once and holds it open (LoopOnce + clampWhenFinished). 2d57b95's clip is 1.2 s;
 // 8c9cee7's is a 3.6 s loop — only its first CFG.hallDoor.openSec (the open move) is used, so it works unchanged with either GLB.
@@ -608,6 +610,7 @@ const CAM_OVERRIDE = {
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '6113fa89': { glb: 'life_support_game_pipes_alt_z17 (repo LS b4edef9a + LS_Pipes, Art 10/31)', ct: { y: -3.58 }, frame_w: 47.6 },   // same LS framing as e8427ec4 (GLB Cam_Target is (0, -4.63, -12.5) W 38.5; override keeps the approved Director framing)
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
+  '75901d07': { glb: 'shipyard_game_v3_hb1 (Jacob approved 10/31 20:59; Cam_Target (-7, 23.5, 84.55) + frame_w 134 unchanged)', frame_h: 150 },   // desktop only: with the width-only fit the 50 m crane tower ran under the HUD at 1280x800 / 1440x900; frame_h = height floor (fitSite), phones keep the GLB fit
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
@@ -672,7 +675,9 @@ function fitSite(i) {
   if (ct || ovFull) {   // (a full CAM_OVERRIDE entry also frames a GLB that has no usable Cam_Target, e.g. Shipyard 2d57b95)   // Art's station camera: aim at Cam_Target (incl. its y), frame_w metres span the screen width at its depth; 38° vFOV, 18° down; edges may crop
     o.updateMatrixWorld(true); if (ct) ct.getWorldPosition(_ct); else _ct.copy(o.position); const ov = ov0, fw = ov && ov.frame_w || ct.userData.frame_w;
     if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
-    const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+    let d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+    const fh = ov && ov.frame_h > 0 ? ov.frame_h : 0;   // optional height floor (only entries that set frame_h, e.g. the Habitat a6381a77): frame_h metres also fit the screen height at the target depth; wide screens back off, phones keep the width fit
+    if (fh) d = Math.max(d, (fh / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     SITECAM[i] = { k: d / camera.userData.dist, dx: _ct.x - SX[i], dz: _ct.z, ly: _ct.y, ct: true, d, fw, ov: ov ? ov.md5 : null };
     if (i === PADI) padRestApply();   // pad: the ship fit replaces this (kept as the fallback)
     return;
@@ -1691,6 +1696,14 @@ if (TRAIL_ON) loader.load(TRAIL_GLB, (g) => { try { const o = g.scene; o.name = 
       m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true; });   // receives shadows like the road strips it replaces
     scene.add(o); window.__ps3d.trail = { url: TRAIL_GLB, meshes: n }; } catch (e) { console.warn('truck trails bind failed', e); } },
   undefined, (e) => console.warn('truck trails failed to load', e));
+// Art trail extension to HB-1 (Director 21:17; Art Assistant v3, md5 c4195f84…; 1 mesh / 1 material / 1 draw, 1408 tris): node Trail_Ext_HB1, world space, branches off
+// the pad turn of all_truck_trails (untouched) at (641, 13) and runs to the HB-1 apron (end x 720.2), prints at the crawler gauge. Same placement + material handling as the trail.
+const TRAIL_HB1_GLB = 'models/trail_ext_hb1_v3_c4195f84.glb?v=c4195f84';
+if (TRAIL_ON) loader.load(TRAIL_HB1_GLB, (g) => { try { const o = g.scene; o.name = 'Trail_Ext_HB1_Art'; let n = 0;
+    o.traverse(m => { if (!m.isMesh) return; n++; for (const mt of [].concat(m.material)) { mt.polygonOffset = true; mt.polygonOffsetFactor = -2; mt.polygonOffsetUnits = -2; }
+      m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true; });
+    scene.add(o); window.__ps3d.trailExt = { url: TRAIL_HB1_GLB, meshes: n }; } catch (e) { console.warn('trail extension bind failed', e); } },
+  undefined, (e) => console.warn('trail extension failed to load', e));
 let roadSeg = null;
 if (ROAD_GLB && !TRAIL_ON) loader.load(ROAD_GLB, (g) => { g.scene.updateMatrixWorld(true); g.scene.traverse(o => { if (!roadSeg && o.isMesh) roadSeg = { geo: o.geometry, mat: o.material, m: o.matrixWorld.clone() }; }); buildTempRoad(); },
   undefined, (e) => console.warn('haul road strip failed, keeping the temp road', e));
