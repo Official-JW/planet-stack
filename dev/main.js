@@ -3101,11 +3101,11 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
       return [fuelAt(t) < 1 ? 'Fuelling' : 'Awaiting cargo', false]; },
     buy: () => { if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
   // gc-ui2 (item 3): station buildings with no upgrades yet
-  soonLS: { name: 'Life Support', ico: 'soon', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
-  soonDock: { name: 'Cargo Space Dock', ico: 'soon', info: true, big: () => ['', ''], sub: () => 'Dock upgrades coming soon' },
-  soonShipyard: { name: 'Shipyard', ico: 'soon', info: true, big: () => ['', ''], sub: () => 'Shipyard upgrades coming soon' },
-  soonHabitat: { name: 'Habitat', ico: 'soon', info: true, big: () => ['', ''], sub: () => 'Habitat upgrades coming soon' },
-  soonEng: { name: 'Engineering', ico: 'soon', info: true, big: () => ['', ''], sub: () => 'Engineering upgrades coming soon' },
+  soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
+  soonDock: { name: 'Cargo Space Dock', ico: 'dock', info: true, big: () => ['', ''], sub: () => 'Dock upgrades coming soon' },
+  soonShipyard: { name: 'Shipyard', ico: 'shipyard', info: true, big: () => ['', ''], sub: () => 'Shipyard upgrades coming soon' },
+  soonHabitat: { name: 'Habitat', ico: 'habitat', info: true, big: () => ['', ''], sub: () => 'Habitat upgrades coming soon' },
+  soonEng: { name: 'Engineering', ico: 'eng', info: true, big: () => ['', ''], sub: () => 'Engineering upgrades coming soon' },
 };
 // tap targets (p = card). objs: nodes whose world boxes make the rect; box: a world box made here (no own mesh); hl: what glows on tap
 const nodesOf = (root, names) => root ? names.map(n => root.getObjectByName(n)).filter(Boolean) : [];
