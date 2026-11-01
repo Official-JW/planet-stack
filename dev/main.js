@@ -305,6 +305,7 @@ try { let sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); if (!sv || typ
 //   ord < 2 (18:44 and older order LS, Mine, Refinery, Pad, Dock, Habitat, Shipyard, Eng): Pad 3→4, Dock 4→3, Habitat 5→6, Shipyard 6→5 (Director 10/24 order)
 //   ord < 3 (before the Life Support move 10/31): no index changes (Life Support stays index 0, only its x moves 0 → 910, see SX); a bad or
 //   out-of-range site goes back to the Mine (the new-game default). The camera starts at SX[site], so an old save on Life Support opens at 910.
+function saveNoBuys(sv) { return ['drill', 'chute', 'fuelLv', 'purLv', 'rovers'].every(k => !(sv[k] > 1)); }   // gc-tapfix: no upgrade ever bought (missing key = base level 1); a declaration: migrateSave runs above this line
 function migrateSave(sv, hadRt) {
   if (hadRt && !('chute' in sv) && sv.site >= 2) sv.site++;
   if (!(sv.ord >= 2)) { const m = { 3: 4, 4: 3, 5: 6, 6: 5 }; if (hadRt && sv.site in m) sv.site = m[sv.site]; sv.ord = 2; }
@@ -317,8 +318,10 @@ function migrateSave(sv, hadRt) {
     if (hadRt) sv.tu = 0;               // tu = old-save top-up: 0 = due (old save), 1 = done; new games never get the key
     sv.ev = 1;
   }
-  // CFG.econ.oldSaveTopUp (Director open call): true = an old save below CFG.econ.startMoney is raised to it, once (tu 0 → 1, saved); false = money kept, tu stays 0
-  if (sv.tu === 0 && CFG.econ.oldSaveTopUp) { if (!(sv.money >= CFG.econ.startMoney)) sv.money = CFG.econ.startMoney; sv.tu = 1; }
+  // CFG.econ.oldSaveTopUp (Director open call; gc-tapfix, Director 20:23): a save with NO upgrade bought (every track at its base level) is raised to
+  // CFG.econ.startMoney ONCE, whatever its money version (tu); a save with any purchase keeps its money. One-shot flag tu25 (1 = checked, saved), so
+  // saves already at tu 1 get the check too; money is never lowered. New games get tu25 = 1 at once (they start at startMoney). false = money kept.
+  if (!sv.tu25 && CFG.econ.oldSaveTopUp) { if (hadRt && saveNoBuys(sv) && !(sv.money >= CFG.econ.startMoney)) sv.money = CFG.econ.startMoney; sv.tu25 = 1; if (sv.tu === 0) sv.tu = 1; }
   return sv;
 }
 for (const k of ['eve', 'calls', 'log', 'pend', 'trips']) if (!Array.isArray(S[k])) S[k] = [];
@@ -374,7 +377,8 @@ const ease = (t) => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 const rate = () => CFG.drillRate0 + CFG.drillRatePerLvl * (S.drill - 1);           // ore/min
 const drillCost = () => econCost(CFG.econ.drill, S.drill);   // Phase 1: CFG.econ.drill cost0 / costGrowth (was CFG.drillCost0 / drillCostGrowth)
 const fillSec = (lv = S.chute) => Math.max(CFG.fillFloor, CFG.fill0 * CFG.chuteMul ** (lv - 1));   // Lv2 96 s, Lv5 49 s, Lv10 16.1 s, Lv11 15 s (floor)
-const chuteCost = () => econCost(CFG.econ.chute, S.chute);   // Phase 1: CFG.econ.chute cost0 / costGrowth (was CFG.chuteCost0 / chuteCostGrowth)
+const chuteCost = () => econCost(CFG.econ.chute, S.chute);
+const chuteLocked = () => S.drill <= 1 && S.chute <= 1;   // gc-tapfix (Director 20:23): the Chute stays locked until the drill is bought (Eve's 'Tap the drill' comes first); prices unchanged. A save that already upgraded the chute stays unlocked   // Phase 1: CFG.econ.chute cost0 / costGrowth (was CFG.chuteCost0 / chuteCostGrowth)
 // ===== Refinery upgrades (Phase 1 steps 4-5): one building, two outputs (He-3 crates + ship fuel). Every number comes from CFG.econ (Coder's block).
 // cost(lv) = round(cost0 · costGrowth^(lv−1)) is the price of the next level when you are at lv (same rule as drill / chute)
 function econCost(tr, lv) { if (lv <= 1 && tr.first != null) return tr.first; return Math.round(tr.cost0 * tr.costGrowth ** (lv - 1)); }   // gc-ui2 (EM 15:52 item 11): 'first' = the Lv1→2 price only (every station's first upgrade ≤ $8,000); later levels unchanged
@@ -1357,7 +1361,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (ecIsOpen()) { ecHangUp(); return; }                       // a tap on the scene first closes the Earth Coms panel
   if (drag) return; const t = e.timeStamp || performance.now();     // event time, so a busy frame can't distort the flick speed
   if (e.isPrimary === false) return;
-  const pk = upSettled() ? (pickUp(e.clientX, e.clientY) || false) : null;   // gc-ui3 (EM 17:40 item 1): the card comes from what is under the finger at touchSTART (false = settled, nothing there; null = camera sliding)
+  const pk = upSettled() ? (pickUp(e.clientX, e.clientY, performance.now()) || false) : null;   // gc-tapfix: + touch time (mover grace)   // gc-ui3 (EM 17:40 item 1): the card comes from what is under the finger at touchSTART (false = settled, nothing there; null = camera sliding)
   window.__ps3d.downPick = pk ? pk.t.id : pk;
   drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: t, cx: camX, base: S.site, s: [[t, e.clientX]], moved: 0, pk };
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
@@ -2761,7 +2765,7 @@ let upTapAt = -1e9;   // gc-ui2: the touch's own trailing click lands on the car
 let upDownAt = 0; addEventListener('pointerdown', () => { upDownAt = performance.now(); }, true);   // a new press after the card opened is a real one: its click goes through
 addEventListener('click', (e) => { if (upDownAt < upTapAt && performance.now() - upTapAt < 700 && e.target instanceof Node && upEl.contains(e.target)) { upTapAt = -1e9; e.stopPropagation(); e.preventDefault(); } }, true);
 const upSettled = () => !drag && Math.abs(camX - SX[S.site]) <= UP_SETTLE;
-function tap(x, y, pk) {               // pk: the touchstart pick from the canvas pointerdown (undefined = no press record: pick now)
+function tap(x, y, pk, t0) {   // t0: touch time for a deferred tap (gc-tapfix mover grace)               // pk: the touchstart pick from the canvas pointerdown (undefined = no press record: pick now)
   upPend.site = -1;
   if (tapDeposit3d(x, y)) return;
   if (pk || pk === false) {                                             // gc-ui3: settled at touchstart → open exactly that object's card (no touchend re-pick; a moving truck keeps its own card)
@@ -2775,7 +2779,7 @@ function tap(x, y, pk) {               // pk: the touchstart pick from the canva
     if (Math.abs(camX - SX[S.site]) <= UP_LATE) Object.assign(upPend, { x, y, t: performance.now(), site: S.site });
     window.__ps3d.lastPick = upPend.site >= 0 ? 'deferred' : 'sliding'; return;
   }
-  const h = pickUp(x, y);
+  const h = pickUp(x, y, t0);
   if (!h) { window.__ps3d.lastPick = null; return closeUp('empty'); }  // empty scene: closes the open card
   glowTap(h.t);                                                         // UI-2 item 7 (CA): first real tap at this station ends its glow (saved)
   upTapT = h.t; hlStart(h.t, h.r); openUp(h.t.p); upTapT = null; upTapAt = performance.now();   // an object: its card (switches if another was open)
@@ -2784,7 +2788,7 @@ function tap(x, y, pk) {               // pk: the touchstart pick from the canva
 function updUpPend() {                 // frame(): run a deferred tap once the camera has settled (dropped on a station change or after UP_WAIT ms)
   if (upPend.site < 0) return;
   if (upPend.site !== S.site || drag || performance.now() - upPend.t > UP_WAIT) { upPend.site = -1; window.__ps3d.lastPick = 'deferred-dropped'; return; }
-  if (upSettled()) { const { x, y } = upPend; upPend.site = -1; tap(x, y); }
+  if (upSettled()) { const { x, y, t } = upPend; upPend.site = -1; tap(x, y, undefined, t); }
 }
 
 // ===== upgrade panels (UI-2 + UI-3 look, Jacob-approved 10/31): tap a 3D object → that object's own centered card (UI3_SPEC: kicker, name + level,
@@ -2802,7 +2806,7 @@ const oreOf = (lv) => Math.round(loadValue(lv) / CFG.oreValue);
 const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) / sub line / meter [segments, on] / buy; info cards (no buy) show a disabled 'Coming soon'
   drill: { name: 'Drill', ico: 'drill', lv: () => S.drill, max: () => false, cost: () => drillCost(), buy: () => buyDrill(),
     big: (m) => [`${oreOf(S.drill)} → ${oreOf(S.drill + 1)}`, 'ore per load'], meter: () => [10, S.drill >= 50 ? 10 : (S.drill - 1) % 10 + 1] },   // segments = progress through the current 10-level tier (as the sheet had)
-  chute: { name: 'Chute', ico: 'chute', lv: () => S.chute, max: () => S.chute >= CFG.chuteMax, cost: () => chuteCost(), buy: () => buyChute(),
+  chute: { name: 'Chute', ico: 'chute', lock: () => chuteLocked(), lockSub: 'Upgrade the drill first to unlock the Chute', lv: () => S.chute, max: () => S.chute >= CFG.chuteMax, cost: () => chuteCost(), buy: () => buyChute(),   // gc-tapfix: locked until the drill is bought
     big: (m) => [m ? `${Math.round(fillSec())} s` : `${Math.round(fillSec())} s → ${Math.round(fillSec(S.chute + 1))} s`, 'fill time'], meter: () => [10, S.chute >= CFG.chuteMax ? 10 : (S.chute - 1) % 10 + 1] },
   purity: { name: 'He-3 Purity', ico: 'purity', lv: () => S.purLv, max: () => S.purLv >= purityMaxLv(), cost: () => purityCost(), buy: () => buyPurity(),
     big: (m) => [m ? pct(refineryPurity()) : `${pct(refineryPurity())} → ${pct(purityAt(S.purLv + 1))}`, 'He-3 purity'],
@@ -2878,7 +2882,51 @@ function upRect(t) {                   // projected CSS-px rect of a target now,
   return { l, r, t: tp, b: bt };
 }
 const UP_R = 44;                       // tap radius floor (CSS px)
-function pickUp(x, y) {
+// gc-tapfix (EM 20:18, QA B1 + the truck→Chute auto-check row): the object whose OWN visible mesh is under the finger, nearest the camera, wins
+// (a ray from the touch point; box-only targets such as the Refinery fuel plant and the pad hoses/tanks take part with their world box).
+// The projected rects (and their 44 px floor) are only the fallback when the ray hits no target, so a parked truck's rect no longer covers the
+// Chute's own dome / belt, and the Chute's rect no longer covers the truck. Movers (truck, ship): a touch also counts a pose the mover had up to
+// UP_GRACE ms before the touch (the frame the finger aimed at), so a truck that drives off under the finger still opens its own card.
+const UP_GRACE = 300, _urc = new THREE.Raycaster(), _urn = new THREE.Vector2(), _urr = new THREE.Ray(), _urm = new THREE.Matrix4(), _urp = new THREE.Vector3();
+const UPPOSE = UPT.filter(t => t.own).map(t => ({ t, n: 0, i: 0, buf: Array.from({ length: 32 }, () => ({ at: 0, m: new THREE.Matrix4() })) }));
+function upPoseRec() {                 // frame(), after render: each mover's root world matrix (ring buffer, ~0.5 s at 60 fps)
+  const at = performance.now();
+  for (const h of UPPOSE) { const o = h.t.objs()[0]; if (!o) { h.n = 0; continue; } const e = h.buf[h.i]; e.at = at; e.m.copy(o.matrixWorld); h.i = (h.i + 1) % h.buf.length; h.n = Math.min(h.n + 1, h.buf.length); }
+}
+function upMeshes(t) { const ms = []; for (const o of t.objs()) { if (!upShown(t.own ? o : o.parent)) continue; o.traverse(m => { if (m.isMesh && upShown(m)) ms.push(m); }); } return ms; }
+function upPoseIn(h, t0) {             // the mover poses a touch at t0 may have aimed at: every frame since t0 − UP_GRACE, plus the frame on screen at t0 − UP_GRACE (slow frames)
+  let old = null; const out = [];
+  for (let k = 0; k < h.n; k++) { const e = h.buf[k]; if (e.at >= t0 - UP_GRACE) out.push(e); else if (!old || e.at > old.at) old = e; }
+  if (old) out.push(old); return out;
+}
+function upRayDist(t, ray) {           // nearest hit of this target's own visible meshes (box-only targets: their world box) along ray, or Infinity
+  if (t.box) { let d = Infinity; const b = t.box(_ub); if (b && !b.isEmpty() && ray.intersectBox(b, _urp)) d = _urp.distanceTo(ray.origin);
+    const b2 = t.add && t.add(_ub2); if (b2 && !b2.isEmpty() && ray.intersectBox(b2, _urp)) d = Math.min(d, _urp.distanceTo(ray.origin)); return d; }
+  _urc.ray.copy(ray); const h = _urc.intersectObjects(upMeshes(t), false); return h.length ? h[0].distance : Infinity;
+}
+function pickRay(x, y, t0) {           // t0: touch time (performance.now) → movers also try their poses since t0 − UP_GRACE; undefined = this frame only
+  camera.updateMatrixWorld(); _urn.set(x / W * 2 - 1, -(y / H) * 2 + 1); _urc.setFromCamera(_urn, camera); const ray = _urc.ray.clone();
+  let best = null, bD = Infinity;
+  for (const t of UPT) {
+    const r = upRect(t); if (!r) continue;
+    let d = upRayDist(t, ray), past = false;
+    const h = t0 != null && UPPOSE.find(q => q.t === t);
+    if (h && h.n) { const o = t.objs()[0]; for (const e of upPoseIn(h, t0)) {
+      _urm.copy(e.m).invert().premultiply(o.matrixWorld); _urr.copy(ray).applyMatrix4(_urm); const dk = upRayDist(t, _urr); if (dk < d) { d = dk; past = true; } } }   // the ray in the mover's frame then, moved to its pose now
+    if (d < bD) { bD = d; best = { t, r, ray: true, past, d: +d.toFixed(2) }; }
+  }
+  if (!best) for (const h of UPPOSE) {   // no mesh under the finger: a mover's own 3D box (now, or a pose within the grace) before the screen rects (the gap between cab and bed)
+    const t = h.t, r = upRect(t); if (!r) continue; const o = t.objs()[0]; o.updateWorldMatrix(true, true); _ub.makeEmpty().expandByObject(o);
+    let d = ray.intersectBox(_ub, _urp) ? _urp.distanceTo(ray.origin) : Infinity, past = false;
+    if (t0 != null) for (const e of upPoseIn(h, t0)) {
+      _urm.copy(e.m).invert().premultiply(o.matrixWorld); _urr.copy(ray).applyMatrix4(_urm); if (_urr.intersectBox(_ub, _urp)) { const dk = _urp.distanceTo(_urr.origin); if (dk < d) { d = dk; past = true; } } }
+    if (d < bD) { bD = d; best = { t, r, ray: true, box: true, past, d: +d.toFixed(2) }; }
+  }
+  window.__ps3d.lastRay = best ? { id: best.t.id, d: best.d, past: best.past, box: !!best.box } : null;
+  return best;
+}
+function pickUp(x, y, t0) { return pickRay(x, y, t0) || pickRect(x, y); }
+function pickRect(x, y) {              // the old screen-rect pick (smallest rect the finger is inside, else the nearest ≥ 44 px grown rect): fallback only
   let best = null, bA = Infinity, near = null, nD = Infinity;
   for (const t of UPT) {
     const r = upRect(t); if (!r) continue;
@@ -2927,6 +2975,7 @@ const glowRM = () => matchMedia('(prefers-reduced-motion: reduce)').matches || Q
 function glowSetup() {                 // clones once per target as its meshes load (tried every 0.5 s until all are set up)
   for (const t of UPT) {
     if (t.site < 0 || GLOW.done[t.id] || S.tg[t.site]) continue;
+    if (UP[t.p].lock && UP[t.p].lock()) continue;   // gc-tapfix: a locked object (Chute before the drill) doesn't invite a tap; tried again once it unlocks
     const roots = t.hl(); if (!roots.length) continue; GLOW.done[t.id] = true;
     for (const root of roots) root.traverse((m) => {
       if (!m.isMesh || !m.material) return;
@@ -3023,11 +3072,12 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
 function upUI() {                      // refreshes the open card (0.1 s tick + after buys); DOM only rebuilt when something shown changes
   if (!upCur) return; const P = UP[upCur];
   if (P.launch) return upLaunchUI(P);   // gc-ui3 item 7: the rocket's launch card
-  const info = !!P.info, max = !info && P.max(), lv = info ? 0 : P.lv(), c = info || max ? 0 : P.cost(), ok = !info && !max && canPay(c);
-  const big = P.big(max), sub = P.sub ? P.sub(max) : '', mt = !info && P.meter ? P.meter() : null;
-  const k = [upCur, UPK.site, lv, c, ok, max, big[0], big[1], sub, mt && mt.join()].join('|');
+  const lk = !!(P.lock && P.lock());   // gc-tapfix: a locked card (Chute before the drill) shows like a Coming soon card: no level / meter / cost, a disabled 'Locked' button
+  const info = !!P.info || lk, max = !info && P.max(), lv = info ? 0 : P.lv(), c = info || max ? 0 : P.cost(), ok = !info && !max && canPay(c);
+  const big = lk ? ['', ''] : P.big(max), sub = lk ? P.lockSub : P.sub ? P.sub(max) : '', mt = !info && P.meter ? P.meter() : null;
+  const k = [upCur, UPK.site, lk, lv, c, ok, max, big[0], big[1], sub, mt && mt.join()].join('|');
   if (k !== UPK.k) { UPK.k = k;
-    upEl.dataset.ico = P.ico; $('upKick').textContent = `${STATIONS[UPK.site]} · ${info ? 'Coming soon' : 'Upgrade'}`;
+    upEl.dataset.ico = P.ico; upEl.dataset.locked = lk ? '1' : ''; $('upKick').textContent = `${STATIONS[UPK.site]} · ${lk ? 'Locked' : info ? 'Coming soon' : 'Upgrade'}`;
     $('upName').textContent = P.name; $('upLv').textContent = info ? '' : `Level ${lv}`; fitTitle();
     $('upEffK').textContent = info || P.launch ? 'Status' : max ? 'Max level' : 'Next level';
     const ll = $('upLvl'); ll.hidden = info; if (!info) ll.innerHTML = max ? `LV ${lv} <span class="ar"></span> <b>MAX</b>` : `LV ${lv} <span class="ar"></span> <b>LV ${lv + 1}</b>`;
@@ -3037,7 +3087,7 @@ function upUI() {                      // refreshes the open card (0.1 s tick + 
     const me = $('upMeter'); me.hidden = !mt; if (mt) { const [n, on] = mt; if (me.children.length !== n) me.innerHTML = '<i></i>'.repeat(n); [...me.children].forEach((x, i) => { x.className = i < on ? 'on' : (!max && i === on ? 'nx' : ''); }); }
     $('upCostRow').hidden = info; $('upCost').textContent = max ? '—' : fmt(c);
     upBuy.disabled = !ok; upBuy.className = info || max ? 'max' : ok ? '' : 'need';
-    upBuy.textContent = info ? 'Coming soon' : max ? 'Max' : ok ? 'Upgrade' : 'Need ' + fmt(c);
+    upBuy.textContent = lk ? 'Locked' : info ? 'Coming soon' : max ? 'Max' : ok ? 'Upgrade' : 'Need ' + fmt(c);
   }
   if (P.fuel) { const sv = Math.floor(fuelStock() + 1e-9); if (sv !== UPK.s) { UPK.s = sv; upStk.textContent = `LOX+LCH4 ${sv}/${fuelCap()} +${fuelMake()}/min`; } }   // P2-FUEL: cap + rate follow the Fuel level
   else if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
@@ -3079,7 +3129,7 @@ function buyDrill() {
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
 function buyChute() {
-  const c = chuteCost(); if (S.chute >= CFG.chuteMax || !canPay(c)) return;
+  const c = chuteCost(); if (chuteLocked() || S.chute >= CFG.chuteMax || !canPay(c)) return;   // gc-tapfix: no buy while locked
   const t = nowMs(); settleTo(t, null); const k = S.tk;
   if (!k.dep) { k.add = fillAt(t); k.c0 = t; }          // rebase so the bed level never jumps; the new rate applies from now
   pay(c); S.chute++; save(); upUI(); hud();
@@ -3108,7 +3158,7 @@ Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, 
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
     if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
-Object.assign(window.__ps3d, { SX, ORD, stepSite, nearSite, UP, UPT, openUp, closeUp, pickUp, upUI, upRects: () => { const a = UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, title: UP[t.p].name, site: t.site, r, why: r ? '' : upWhy }; });   // gc-ui2: + station, settled and a reason when nothing here is tappable
+Object.assign(window.__ps3d, { SX, ORD, stepSite, nearSite, UP, UPT, openUp, closeUp, pickUp, pickRay, pickRect, chuteLocked, upUI, upRects: () => { const a = UPT.map(t => { const r = upRect(t); return { id: t.id, p: t.p, title: UP[t.p].name, site: t.site, r, why: r ? '' : upWhy }; });   // gc-ui2: + station, settled and a reason when nothing here is tappable
     const n = a.filter(e => e.r).length; return Object.assign(a, { station: S.site, name: STATIONS[S.site], settled: upSettled(), n, why: n ? '' : !upSettled() ? 'camera sliding' : 'no tappable objects here' }); } });
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ get uc() { return { w: +UC.w.toFixed(3), want: UC.want, id: UC.t && UC.t.id, look: [CAMLOOK.lx, CAMLOOK.ly, CAMLOOK.lz, CAMLOOK.k].map(v => +v.toFixed(2)) }; }, get upSettled() { return upSettled(); } }));   // QA hooks (upgrade cards)
 Object.defineProperty(window.__ps3d, 'upCur', { get: () => upCur, configurable: true });
@@ -3465,7 +3515,7 @@ function frame() {
   updEve(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); upUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); upPoseRec();
   if (DEV) {
     frames++; acc += dt;
     if (acc >= 0.5) { fps = frames / acc; hist.push([performance.now(), fps]); frames = 0; acc = 0;
