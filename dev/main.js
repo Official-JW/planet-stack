@@ -465,6 +465,7 @@ scene.add(sun); scene.add(sun.target);
 
 // ground (1 draw)
 const GROUND_MESHES = [];
+const HB1_RAMP = { x0: 712, x1: 714, h: 0.18, z0: -31.95, z1: -0.05, mesh: null };   // gc-batch7: x 714 step ramp (world; HB-1 at x 800, slab edge 714.0, top 0.18)
 // gc-art2 Mine terrain v3b hole (world XZ): the terrain GLB replaces the global ground inside the Mine patch (Mine-local x ±80, z −460..+94; its ground mesh
 // ends at z 93.985, measured, not the +95 in the notes). The ground grid lines nearest these 4 edges are snapped onto them (UVs follow), so the hole is
 // whole cells: no overlap strip (z-fight) and no gap. The apron under the ground gets the same hole. Both holes switch on only once the terrain is in.
@@ -530,6 +531,14 @@ function edgeBlendOne(m, MINE_HOLE, key) {
     for (let i = 0; i < uv.count; i++) { const wx = FX + ps.getX(i), wz = FZ + ps.getZ(i); uv.setXY(i, (wx - (GX - W / 2)) / W, 1 - (wz - (GZ - D / 2)) / D); } }
   const far = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ color: new THREE.Color().setRGB(.42, .42, .433) }));   // flat apron to the horizon so wide station frames never show the ground's edge (1 draw)
   far.position.set(FX, -0.06, FZ); scene.add(far);
+  // gc-batch7 x 714 step (EM 06:31): HB-1 75901d07's slab starts at world x 714.0 (top y 0.18, z -31.95..-0.05, measured in the decoded GLB) on the y 0 ground,
+  // so its front edge stood as a step on the apron. A 2 m ground-material ramp (x 712 -> 714, y 0 -> 0.18) blends the ground into the slab edge: flush at both ends.
+  // UVs in the ground's own UV space (same 10 m tiles); the crawler trail v4 is lifted onto it in its own onLoad (HB1_RAMP).
+  { const R = HB1_RAMP, P = [], U = [], C = [], tri = (...v) => { for (const [x, y, z] of v) { P.push(x, y, z); U.push((x - (GX - W / 2)) / W, 1 - (z - (GZ - D / 2)) / D); C.push(.42, .42, .433); } };
+    const a0 = [R.x0, 0, R.z0], a1 = [R.x0, 0, R.z1], b0 = [R.x1, R.h, R.z0], b1 = [R.x1, R.h, R.z1], c0 = [R.x1, 0, R.z0], c1 = [R.x1, 0, R.z1];
+    tri(a0, a1, b1); tri(a0, b1, b0); tri(a0, b0, c0); tri(a1, c1, b1);   // slope + the two 0.18 m side wedges
+    const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); rg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); rg.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); rg.computeVertexNormals();
+    HB1_RAMP.mesh = new THREE.Mesh(rg, ground.material); HB1_RAMP.mesh.name = 'HB1_Slab_Ramp'; HB1_RAMP.mesh.receiveShadow = true; scene.add(HB1_RAMP.mesh); }
   const apronFor = (rs) => { const both = rs.length > 1, H = both ? { x0: MINE_HOLE.x0, x1: REF_HOLE.x1, z0: MINE_HOLE.z0, z1: MINE_HOLE.z1 } : rs[0], X0 = FX - FW / 2, X1 = FX + FW / 2, Z0 = FZ - FD / 2, Z1 = FZ + FD / 2, P = [], U = [];   // apron with the terrain hole(s): 4 quads round it (+1 sliver quad when both), same UV formula (still 1 draw)
     const quad = (a, b, c, d) => { for (const [x, z] of [[a, c], [a, d], [b, d], [a, c], [b, d], [b, c]]) { P.push(x - FX, 0, z - FZ); U.push((x - (GX - W / 2)) / W, 1 - (z - (GZ - D / 2)) / D); } };
     quad(X0, H.x0, Z0, Z1); quad(H.x1, X1, Z0, Z1); quad(H.x0, H.x1, Z0, H.z0); quad(H.x0, H.x1, H.z1, Z1);
@@ -558,7 +567,7 @@ function edgeBlendOne(m, MINE_HOLE, key) {
         .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= texture2D(macroMap, vGroundXZ / ' + MACRO_M.toFixed(1) + ').r * 2.0;');
     };
     M.customProgramCacheKey = () => 'M_ground_macro';
-    const old = [ground.material, far.material]; ground.material = M; far.material = M; old.forEach(m => m.dispose());
+    const old = [ground.material, far.material]; ground.material = M; far.material = M; if (HB1_RAMP.mesh) HB1_RAMP.mesh.material = M; old.forEach(m => m.dispose());
     GROUND_HOLE.M = M; GROUND_HOLE.macro = macro; terrainEdgeBlend();
     window.__ps3d.ground = { ktx2: true, aniso, mat: M.name, shared: ground.material === far.material, repeat: albedo.repeat.toArray() };
   }).catch((e) => { console.warn('KTX2 ground failed, keeping the vertex-colour ground', e); window.__ps3d.ground = { ktx2: false, err: String(e) }; });
@@ -1736,6 +1745,12 @@ const TRAIL_HB1_GLB = 'models/trail_ext_hb1_v4_4d9ef3db.glb?v=4d9ef3db';
 if (TRAIL_ON) loader.load(TRAIL_HB1_GLB, (g) => { try { const o = g.scene; o.name = 'Trail_Ext_HB1_Art'; let n = 0;
     o.traverse(m => { if (!m.isMesh) return; n++; for (const mt of [].concat(m.material)) { mt.polygonOffset = true; mt.polygonOffsetFactor = -2; mt.polygonOffsetUnits = -2; }
       m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true; });
+    { o.updateMatrixWorld(true); const R = HB1_RAMP, v = new THREE.Vector3(); let lifted = 0;   // gc-batch7: rows in x 712..714 ride the HB1_RAMP slope (+0.02, as on the ground); the riser row at 714 is unchanged
+      o.traverse(m => { if (!m.isMesh) return; const ps = m.geometry.attributes.position, inv = m.matrixWorld.clone().invert();
+        for (let i = 0; i < ps.count; i++) { v.fromBufferAttribute(ps, i).applyMatrix4(m.matrixWorld); if (v.x < R.x0 || v.x >= R.x1 - 1e-3) continue;
+          const y = 0.02 + R.h * (v.x - R.x0) / (R.x1 - R.x0); if (y <= v.y) continue; v.y = y; v.applyMatrix4(inv); ps.setXYZ(i, v.x, v.y, v.z); lifted++; }
+        ps.needsUpdate = true; m.geometry.computeBoundingSphere(); });
+      window.__ps3d.hb1Ramp = { x0: R.x0, x1: R.x1, h: R.h, trailLifted: lifted }; }
     scene.add(o); window.__ps3d.trailExt = { url: TRAIL_HB1_GLB, meshes: n }; } catch (e) { console.warn('trail extension bind failed', e); } },
   undefined, (e) => console.warn('trail extension failed to load', e));
 let roadSeg = null;
