@@ -1852,7 +1852,7 @@ const zRel = (z, i) => z.by < 0 || z.by === i ? 0 : z.rel > 0 ? z.rel : Infinity
 function tkFix(k) {                   // a save from before ca-truckrot: its one truck drove the fixed loop (always through), so the stages follow from dep / paid
   if (!k || typeof k !== 'object') return null;
   if (k.sp > 0) return k;                 // Truck 2 not on the road yet (tk2Spawn)
-  for (const f of ['c0', 'add', 'lr', 'dep', 'val', 'hr', 'tp', 'hm']) if (!(+k[f] >= 0) || !isFinite(+k[f])) k[f] = 0;
+  for (const f of ['c0', 'add', 'lr', 'dep', 'val', 'hr', 'tp', 'hm', 'gw', 'gs']) if (!(+k[f] >= 0) || !isFinite(+k[f])) k[f] = 0;
   if (k.n > 1) k.val /= k.n; delete k.n;   // ca-truck2 builds froze 2 trucks' worth into one load
   k.paid = !!k.paid && k.dep > 0;
   if (!(k.sr >= 0 && k.sr <= 3) || (k.sr === 3 && !k.hr)) k.sr = k.dep ? 1 : 0;
@@ -1947,14 +1947,21 @@ function arrive(t, acc, k = S.tk) {   // back under the chute: the next fill sta
   for (const d of deposits) if (d.tkq) { d.tkq = false; d.at = t; }
   if (q && !acc) { richTw = { at: t, amt: k.add }; playRich(k); }
 }
+// ca-truckrot item 4 (Jacob 10/24): when the Refinery pallet is full (CG.palletCap) and, if the Dock is built, the Dock stock too (CFG.dock.cap),
+// mining stops: the truck under the chute fills up and stays there, the truck at the bin waits on it without tipping (the other waits at its holding
+// spot), and both go on once there is room. Checked on the cargo sim settled to that instant, at the event and then on a fixed 3 s game-clock grid
+// (k.gw = next check), so live play and the away catch-up stop and resume at the same instants. (Was: a full-pallet dump just made no box, cgMake.)
+const GATE_MS = 3000;
+const gateOn = () => { const c = S.cg; return !!c && c.ref.length >= CG.palletCap && (!(S.bt && S.bt.dock === 1) || c.dk >= CFG.dock.cap); };
+const gateNext = (t) => (Math.floor(t / GATE_MS) + 1) * GATE_MS;
 const TN = { t: 0, e: 0 };
 function tkNext(i, k) {               // truck i's next event → TN { t, e }
   const ms = 1000; TN.t = Infinity; TN.e = 0;
   if (k.sp) { TN.t = k.sp; TN.e = 8; return; }                                                 // Truck 2 rolls in (tk2Spawn)
-  if (!k.dep) { TN.t = tFull(k); TN.e = 1; return; }                                            // full → leave the chute
+  if (!k.dep) { TN.t = Math.max(tFull(k), k.gw || 0); TN.e = 1; return; }                                            // full → leave the chute
   if (k.sr === 0) { TN.t = k.dep + TQ.tDecR * ms; TN.e = 2; return; }                         // Refinery hold: drive through or stop
   if (k.sr === 2) { const r = zRel(S.tz.b, i); TN.t = r === Infinity ? r : Math.max(r, k.dep + TQ.kStopR.T * ms); TN.e = 3; return; }   // pull away from the hold
-  if (!k.paid) { TN.t = tkBin(k); TN.e = 4; return; }                                           // tip
+  if (!k.paid) { TN.t = Math.max(tkBin(k), k.gw || 0); TN.e = 4; return; }                                           // tip
   const B0 = tkB0(k);
   if (k.sm === 0) { TN.t = B0 + TQ.tDecM * ms; TN.e = 5; return; }                             // Mine hold: drive through or stop
   if (k.sm === 2) { const r = zRel(S.tz.c, i); TN.t = r === Infinity ? r : Math.max(r, B0 + TQ.kStopM.T * ms); TN.e = 6; return; }
@@ -1962,6 +1969,8 @@ function tkNext(i, k) {               // truck i's next event → TN { t, e }
 }
 function tkStep(i, k, t, e, T, acc) {
   const Z = S.tz, ms = 1000;
+  if ((e === 1 || e === 4) && (cgSettle(t, acc), gateOn())) { k.gw = gateNext(t); if (!k.gs) { k.gs = t; cgEv('truck_gate_wait', t, { at: e === 1 ? 'chute' : 'bin', truck: i + 1 }); } return; }   // item 4: wait for room
+  if (k.gs) { cgEv('truck_gate_go', t, { truck: i + 1, waited: Math.round((t - k.gs) / 1000) }); k.gs = 0; } k.gw = 0;
   if (e === 1) { k.dep = t; k.paid = false; k.val = loadValue(); k.sr = 0; k.sm = 0; k.hr = 0; k.tp = 0; k.hm = 0; if (Z.c.by === i || Z.c.by < 0) Z.c = { by: i, rel: t + TQ.tRelC * ms }; return; }
   if (e === 2) { if (zRel(Z.b, i) <= k.dep + TQ.tEntR * ms) { k.sr = 1; Z.b = { by: i, rel: 0 }; } else k.sr = 2; return; }
   if (e === 3) { k.sr = 3; k.hr = t; Z.b = { by: i, rel: 0 }; return; }
@@ -1983,7 +1992,7 @@ function settleTo(T, acc) {
   }
   cgMakeDue(T); cgSettle(T, acc);     // cargo loop: same clock, same exactly-once rule
 }
-function shiftTk(d) { for (const k of [S.tk, S.tk2]) if (k) { k.c0 += d; for (const f of ['lr', 'dep', 'hr', 'tp', 'hm', 'sp']) if (k[f]) k[f] += d; }
+function shiftTk(d) { for (const k of [S.tk, S.tk2]) if (k) { k.c0 += d; for (const f of ['lr', 'dep', 'hr', 'tp', 'hm', 'sp', 'gw', 'gs']) if (k[f]) k[f] += d; }
   if (S.tz) for (const z of [S.tz.c, S.tz.b]) if (z && z.rel) z.rel += d; for (const p of S.pend) p.at += d; cgShift(d); }
 function tapDeposit(d) {
   if (!depsOn() || !d) return null;
