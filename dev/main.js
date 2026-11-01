@@ -714,7 +714,8 @@ for (const G of STATION_GLB) loader0().load(G.url, (gltf) => {
 // the old timing; one that lifts a crate whose box is still on the bridge (flatbed waiting) picks it from the turntable. Speed factor BRC.k (1.0).
 // The 3 Box_1..3 bones are the pool (trip n → bone n % 3); no box on the belt → rollers stop, bones hidden. ?bridgecargo=off = the old scenery loop.
 const BRC = { on: Q.get('bridge') !== 'off' && Q.get('bridgecargo') !== 'off', k: 1.0, gap: 14.64, ride: 36.937, belt: [9.059, 32.8], lift: [18.313, 30.667] };
-const BR = { bones: null, ip: null, car: null, cip: null, roll: null, pick: null, u: [-1, -1, -1], info: { on: BRC.on, n: 0, bound: false, speed: BRC.k } };
+const _brP = new THREE.Vector3(), _brQ = new THREE.Quaternion(), _brS = new THREE.Vector3();
+const BR = { m: [new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4()], vis: [false, false, false], bones: null, ip: null, car: null, cip: null, roll: null, pick: null, u: [-1, -1, -1], info: { on: BRC.on, n: 0, bound: false, speed: BRC.k } };
 function brInit(c) { if (c.brS) return; c.brS = []; c.brQ = []; c.brD = null; c.brK = c.made; c.brAr = c.made; c.brN = 0; delete c.brE; delete c.rcR; }   // older saves: their pallet is all shown
 function brAdv(c, t) {               // departures up to t (all crates sealed ≤ t are made by then; allocates only when a trip departs)
   brInit(c); const G = BRC.gap * 1000 / BRC.k;
@@ -731,8 +732,9 @@ function brSlots(c, t, u) {          // box_path time per pool bone (-1 = none),
 function brFrame(c, t) {             // per frame, no allocation: pose the pooled bridge boxes + lift carriage from the trips; rollers run only with a box on them
   if (!BR.bones) return; let belt = false, cu = 0; brAdv(c, t); BR.info.n = brSlots(c, t, BR.u);
   for (let k = 0; k < 3; k++) { const b = BR.bones[k], a = BR.u[k];
-    if (a < 0) { if (b.scale.x !== 0) b.scale.setScalar(0); continue; }
-    b.position.fromArray(BR.ip[0].evaluate(a)); b.quaternion.fromArray(BR.ip[1].evaluate(a)); if (BR.ip[2]) b.scale.fromArray(BR.ip[2].evaluate(a)); else b.scale.setScalar(1);
+    BR.vis[k] = false; if (b.scale.x !== 0) b.scale.setScalar(0); if (a < 0) continue;   // ca-cratefix (Jacob 10/31): the bridge GLB's own baked box (the OLD unlabelled crate) stays hidden; the labelled crate is drawn at the bone
+    _brP.fromArray(BR.ip[0].evaluate(a)); _brQ.fromArray(BR.ip[1].evaluate(a)); if (BR.ip[2]) _brS.fromArray(BR.ip[2].evaluate(a)); else _brS.setScalar(1);
+    if (_brS.x > .01) { BR.m[k].compose(_brP, _brQ, _brS).premultiply(b.parent.matrixWorld); BR.vis[k] = true; }   // cargo instanced crate (cg3.boxParts, the same He-3 mesh as turntable/flatbed/crane/ship) at the bone pose; drawn in updCargo
     if (a >= BRC.belt[0] && a < BRC.belt[1]) belt = true; if (a >= BRC.lift[0] && a < BRC.lift[1]) cu = a; }
   if (BR.cip) BR.car.position.fromArray(BR.cip.evaluate(cu)); if (BR.roll) BR.roll.paused = !belt;
 }
@@ -2247,6 +2249,7 @@ function cranePose(C, u, P, D, rest, hi = CPH.hookHi, hi0 = hi) {   // hi = carr
 }
 let nBox = 0;
 const _cm2 = new THREE.Matrix4();
+function boxAtM(M) { if (nBox >= 64) return; for (const b of cg3.boxParts) b.im.setMatrixAt(nBox, b.L ? _cm2.multiplyMatrices(M, b.L) : M); nBox++; }   // ca-cratefix: a crate at a full world matrix (bridge bones)
 function boxAt(p, yaw = 0) { if (nBox >= 64) return; _cq.setFromAxisAngle(_Y, yaw); _cm.compose(p, _cq, _cs);   // every part of the box (Art: SHM_Paint + SHM_GlowCyan) shares the instance index
   for (const b of cg3.boxParts) b.im.setMatrixAt(nBox, b.L ? _cm2.multiplyMatrices(_cm, b.L) : _cm); nBox++; }
 const carryYaw = (u, y0, y1) => u < .45 ? y0 : u < .7 ? lerpA(y0, y1, fss((u - .45) / .25)) : y1;
@@ -2550,6 +2553,7 @@ function updCargo() {
   as.position.set(ax, ay, az); as.rotation.y = ayaw; }
   // cranes + boxes
   nBox = 0; const RC = cg3.RC, PC = cg3.PC, now = t;
+  if (BR.bones) for (let k = 0; k < 3; k++) if (BR.vis[k]) boxAtM(BR.m[k]);   // ca-cratefix: bridge boxes = the labelled cargo crate (was the bridge GLB's baked old box)
   const restR = { a: polar(RC, RC.pick).a + CPH.ref.rest[0], r: 3 }, restP = { a: polar(PC, PC.drop).a, r: PC.glb ? 6 : 5 };
   let ready = c.ref.length;             // the pallet shows every box on it (sealing ones included): up to palletCap, 2 layers of 4
   if (BRC.on && c.brQ) ready = brShown(c, t);   // bridge cargo: only crates whose box has reached the turntable (the rest are on the bridge)
