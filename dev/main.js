@@ -2730,7 +2730,7 @@ function updCargo() {
   if (c.pc.k) { v = (now - c.pc.t0) / (pcSec(c.pc.k) * 1000);   // ca-dock 'dock': picked at the next free bay slot (placeholder for the Dock feed)
     if (c.pc.k === 'unload') { slotW(c.fb.bed, _pk); bayPos(c.bay, _dp); } else { bayPos(c.bay, _pk); _dp.copy(RDT.tray ? RDT.seat : cg3.holdDoor || cg3.holds[Math.min(holdN(c), CG.holdCap - 1)]).applyMatrix4(sh.matrixWorld); } P = _pk; }   // Art pad: onto the open door shelf (Hold_Door), lands in Hold_NN at the end
   const carryP = PC.hiUnload ? cranePose(PC, v, P, _dp, restP, pcHold(c.pc.k) ? PC.hiHold : PC.hiUnload, PC.hiUnload) : cranePose(PC, v, P, _dp, restP);
-  if (cg3.door) { const dk = rideDoorK(c, now); if (dk < 1 && s.st === 'pad') padDoorAt(1 - dk, 'cargo_door_close'); else if (pcHold(c.pc.k) && s.st === 'pad') padDoorAt(Math.max(cg3.door.k, clamp((now - c.pc.t0) / 1000, 0, 1)), 'cargo_door_open'); else padDoor(false); }   // ca-cargoride: closes carrying the crate, then reopens (1 s) for the next lift
+  if (cg3.door) { const dk = rideDoorK(c, now); if (c.rd) cg3.door.shut = c.rd.t0 + CG.rideDoorSec * 1000; if (dk < 1 && s.st === 'pad') padDoorAt(1 - dk, 'cargo_door_close'); else if (pcHold(c.pc.k) && s.st === 'pad') padDoorAt(clamp((now - Math.max(c.pc.t0, cg3.door.shut || 0)) / 1000, 0, 1), 'cargo_door_open'); else padDoor(false); }   // ca-cargoride: closes carrying the crate, then reopens (1 s) for the next lift
   if (c.rd && vis) rideDraw(c, now, sh);
   const py0 = c.pc.k === 'unload' ? FBS.yaw : 0, py1 = c.pc.k === 'unload' ? 0 : cg3.holdDoor ? cg3.holdDoorYaw : cg3.holdYaw[holdN(c)] || 0;
   if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp, carryYaw(v, py0, py1));
