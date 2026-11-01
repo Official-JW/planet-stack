@@ -1457,7 +1457,7 @@ function endDrag(e) {
   if (Math.abs(dx) > 0.15 * W) dir = dx < 0 ? 1 : -1;
   else if (Math.abs(v) > 0.35 && Math.abs(dx) >= 30) dir = v < 0 ? 1 : -1;   // a flick needs speed AND ≥30 px travel
   window.__ps3d.lastSwipe = { dx, v: +v.toFixed(3), dir, from: d.base };
-  if (!dir && d.moved <= TAP_PX && t - d.t0 <= TAP_MS && !cancel) { camX = d.cx; tap(d.x0, d.y0, d.pk); }   // camX: undo the ≤ 12 px drag pan, so the pick sees the scene the finger went down on   // gc-ui2 (EM 15:52 item 1): lifted within 800 ms AND moved ≤ 12 px; picks at the touch-START point
+  if (!dir && d.moved <= TAP_PX && t - d.t0 <= TAP_MS && !cancel) { camX = d.cx; greetDismiss('world'); tap(d.x0, d.y0, d.pk); }   // ca-greetpass: a world tap takes the Welcome greeting down AND goes on to what was tapped   // camX: undo the ≤ 12 px drag pan, so the pick sees the scene the finger went down on   // gc-ui2 (EM 15:52 item 1): lifted within 800 ms AND moved ≤ 12 px; picks at the touch-START point
   goSite(stepSite(d.base, dir));   // one step in x order
 }
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('lostpointercapture', endDrag);
@@ -3748,6 +3748,15 @@ function eveDrillDone() {
   if (GREET.b && GREET.b.lines.length > 1) { GREET.b.lines = GREET.b.lines.filter(l => l !== DRILL_LINE); if (EC.call === GREET.b) EC.lines = GREET.b.lines; }
   if (EC.call && (EC.call.id === 'upgrade_ready' || EC.full === DRILL_LINE)) ecHangUp();
   window.__ps3d.eveDrillDone = true;
+}
+// ca-greetpass (Director 23:01, EM 06:50): a world tap while the Welcome greeting rings dismisses it (toast slides out, HUD back, bubble stops) and the tap
+// still goes through (tap() runs right after). Counts as answered for the new-game rule (S.wel → 0, so story beats may ring). A tap on the toast itself
+// is unchanged: stopPropagation, so it never reaches the world, and it answers the call (lines in the Earth Coms panel).
+function greetDismiss(why) {
+  const b = GREET.b; if (!b || EC.ring !== b) return false;
+  clearTimeout(EC.toastT); EC.ring = null; ecBubble.classList.remove('is-ringing');
+  if (ecToast.classList.contains('is-in')) { ecToast.classList.replace('is-in', 'is-out'); setTimeout(() => { hudDim(false); if (!EC.ring && !EC.call) ecResetUI(); }, ECM.closeSlide); } else hudDim(false);
+  if (S.wel === 1) { S.wel = 0; save(); } window.__ps3d.greetDismissed = why; return true;
 }
 function eveGreet() {
   if (GREET.b && S.wel === 1 && EC.call === GREET.b) { S.wel = 0; save(); }   // welcome answered: story beats may ring after it
