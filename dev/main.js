@@ -2230,6 +2230,7 @@ function cgInit(t) { const n0 = Math.max(0, CG.starterCrate | 0); return { v: 1,
 for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);
 S.fuelLv = fuelLvOk();                 // P2-FUEL: a missing / bad FuelLv is Lv1, never above the max level   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
+if (S.cg.autoLoad === undefined) S.cg.autoLoad = true; if (S.cg.autoLaunch === undefined) S.cg.autoLaunch = false;   // Jacob 11/1: ship switches (Qwen)
 fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an old save's stock is clamped to this level's cap (200/250/300/350/400). fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (!(S.cg.fl >= 0)) S.cg.fl = S.cg.launches > 0 ? 1 : 0;   // gc-dockfix item 7: first-launch pass used (1) / open (0); a save that already launched has used it
@@ -2276,13 +2277,13 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
     if (!c.pc.k && crAt(c, t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
-      else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < CG.holdCap && !dockBusy(c, t)) { c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
-      else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < CG.holdCap) { c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
+      else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < CG.holdCap && !dockBusy(c, t) && c.autoLoad) { c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
+      else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < CG.holdCap && c.autoLoad) { c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
-    if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && ((s.hold >= CG.holdCap && !s.man) || (s.req && t >= s.req && s.hold >= 1))) {   // full hold (live or away, 10/29), or the Launch button (partial)
-      c.sh = Object.assign({}, s, { st: BOARD_SEC ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0 }); ch = true; cgEv(BOARD_SEC ? 'board' : 'launch', t, { hold: s.hold, partial: s.hold < CG.holdCap, locked: s.req ? (s.rh || s.hold) : 0 }); }   // the crew boards first (BOARD_SEC), then the launch
-    else if (s.st === 'pad' && s.req && t >= s.req && s.hold < 1 && !c.rd) { s.req = 0; s.rh = 0; ch = true; }
+    if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && s.hold >= CG.holdCap && ((c.autoLaunch && !s.man) || (s.req && t >= s.req))) {   // Jacob 11/1: full hold only; Auto Launch or the Launch tap
+      c.sh = Object.assign({}, s, { st: BOARD_SEC ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0 }); ch = true; cgEv(BOARD_SEC ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0 }); }   // the crew boards first (BOARD_SEC), then the launch
+    else if (s.st === 'pad' && s.req && t >= s.req && s.hold < CG.holdCap && !c.rd) { s.req = 0; s.rh = 0; ch = true; }
     if (!ch) break;
   }
 }
@@ -2290,7 +2291,7 @@ const shipReady = (c, t) => c.sh.st === 'pad' && t >= fuelFinishAt(c);   // on t
 // ca-dock (EM 17:48): the ship 'takes boxes' only when it is on the pad, fuelled, no Launch tap pending and its hold has room. It can't take boxes while
 // refuelling, away (board / launch / away / land), with a full hold, or with a Launch tap pending: then a loaded flatbed stores at the Dock (cap CFG.dock.cap).
 // Each box is counted once: +1 Dock when its store clip ends, −1 Dock when PC-1 lifts it (Dock-first, also during the refuel); one Dock crane (dockBusy), no loop.
-const shipTakes = (c, t) => shipReady(c, t) && !c.sh.req && holdN(c) < CG.holdCap;   // ca-cargoride: the crate riding in counts
+const shipTakes = (c, t) => shipReady(c, t) && !c.sh.req && holdN(c) < CG.holdCap && c.autoLoad;   // ca-cargoride: the crate riding in counts
 const dockSec = (f) => f.dk === 'load' ? CPH.dock.loadSec : Math.max(1, f.bed || CG.perTrip) * CFG.dock.storeS;   // gc-dockfix item 1: store stop = CFG.dock.storeS per crate (3 s; was a fixed CPH.dock.storeSec 31.4 s)
 const tripN = (c) => c.ft ? CG.perTrip : (CG.firstTrip || CG.perTrip);   // gc-dockfix item 6: a new save's first flatbed trip leaves with CG.firstTrip crate(s); every later trip CG.perTrip
 function cgNext(c) {
@@ -2395,7 +2396,7 @@ function stampGuard(now = nowMs()) {
 }
 const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelNow(t).g / CFG.econ.fuel.tank : s.st === 'launch' ? 1 : 0; };   // tank 0–1: fills from touchdown at the pump rate (refuelSec(S.fuelLv)), from the Refinery stock (fuelSolve)
 const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
-const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= 1 && fuelAt(t) >= 1; };   // ship state only (the chip shows on this)
+const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= CG.holdCap && fuelAt(t) >= 1; };   // ship state only (the chip shows on this)
 const launchBlocked = (h = S.cg.sh.hold) => CFG.econ.launchBelowMin === 'block' && !(launchPayFor(h) > 0);   // gc-dockfix item 2: 'block' = no launch under the minimum (first-launch pass excepted)
 const canLaunch = (t = nowMs()) => launchReady(t) && !launchBlocked();   // every launch entry point (HUD chip, ship card, cgLaunch) goes through this
 function cgLaunch() {                 // Launch button: stored as a timestamp in S.cg (sh.req); the sim launches at it (after a lift into the hold finishes)
@@ -2404,6 +2405,7 @@ function cgLaunch() {                 // Launch button: stored as a timestamp in
   S.cg.sh.req = Math.max(t, S.cg.t); S.cg.sh.rh = holdN(S.cg) + (pcHold(S.cg.pc.k) ? 1 : 0); cgEv('launch_tap', t, { hold: S.cg.sh.hold, ride: S.cg.rd ? 1 : 0, lift: pcHold(S.cg.pc.k) ? 1 : 0 }); settleTo(t, null); save();   // ca-cargoride: a crate mid-ride is locked in with the rest   // gc-batch7: so is the crate on the crane (pcHold); new lifts wait on !sh.req   // gc-dockfix item 3: hold count locked at the tap (threshold + launch pay)
   if (pointBeat === 'launch') pointerDone = true; return true;
 }
+function setShipTgl(k) { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } S.cg[k] = !S.cg[k]; save(); UPK.k = ''; upUI(); }   // settle first, so a switch applies from now
 function astroPhase(c, t) {
   const a = c.as; if (a.st !== 'ready') return a.st;
   if (c.pc.k === 'unload') { const u = (t - c.pc.t0) / (CG.padUnloadSec * 1000); return u >= 1 - CG.checkSec / CG.padUnloadSec ? 'check_in' : 'guide'; }
@@ -2887,7 +2889,7 @@ function brAdvU(u0, sec, uMax) { let u = u0, r = Math.max(0, sec); while (r > 1e
 function crDuty(c) { const f = c.fb, s = c.sh;
   if (f.st === 'unload' || c.pc.k) return true;
   if (((f.st === 'out' && !f.dk) || f.st === 'out2') && f.bed > 0) return true;   // loaded flatbed on its way to the pad (a Dock store run alone does not call him out)
-  return s.st === 'pad' && !s.req && (c.bay > 0 || c.dk > 0) && holdN(c) < CG.holdCap; }
+  return s.st === 'pad' && !s.req && (c.bay > 0 || c.dk > 0) && holdN(c) < CG.holdCap && c.autoLoad; }
 function crGet(c) { let r = c.cr;
   if (!r || typeof r !== 'object' || !/^(room|out|back)$/.test(r.m) || !isFinite(r.t0) || !isFinite(r.u0)) r = c.cr = crDuty(c) ? { m: 'out', t0: c.t, u0: BR_PATH.T, o: 0 } : { m: 'room', t0: c.t, u0: BRD.seat[0], o: 0 };
   if (!(r.o >= 0)) r.o = 0; return r; }
@@ -3475,7 +3477,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   ship: { name: 'Cargo Ship', ico: 'ship', launch: true, kick: 'Launch',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${CG.holdCap}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
     sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? 'On the way to Earth' : 'Landing'; },
-    btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (s.st !== 'pad') return ['In flight', false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
+    btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < CG.holdCap) return [`Hold ${s.hold}/${CG.holdCap}`, false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fuelling' : 'Awaiting cargo', false]; },
     buy: () => { if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
   // gc-ui2 (item 3): station buildings with no upgrades yet
@@ -3751,7 +3753,7 @@ function closeUp(why) {
 function fitTitle() { let f = 24; upH2.style.fontSize = ''; upH2.classList.remove('wrap'); while (upH2.scrollWidth > upH2.clientWidth + 0.5 && f > 15) upH2.style.fontSize = (--f) + 'px';
   if (upH2.scrollWidth > upH2.clientWidth + 0.5) upH2.classList.add('wrap'); }   // gc-ui3 (item 3): still too wide at 15 px → wraps (never cut off)   // long names shrink to fit beside the X
 function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost row; the button is LAUNCH (enabled exactly when canLaunch)
-  const big = P.big(), sub = P.sub(), [bt, ok] = P.btn(), k = [upCur, UPK.site, big[0], sub, bt, ok].join('|');
+  const big = P.big(), sub = P.sub(), [bt, ok] = P.btn(), k = [upCur, UPK.site, big[0], sub, bt, ok, S.cg.autoLoad, S.cg.autoLaunch].join('|');
   upBuy.style.display = '';   // ca-truck2: a maxed one-time card hides the shared button (#upBuy is display:block, so not [hidden])
   if (k === UPK.k) return; UPK.k = k;
   upEl.dataset.ico = P.ico; $('upKick').textContent = `${STATIONS[UPK.site]} · ${P.kick}`; $('upName').textContent = P.name; $('upLv').textContent = ''; fitTitle();
@@ -3759,9 +3761,16 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
   const bg = $('upBig'); bg.hidden = false; bg.textContent = big[0]; const sm = document.createElement('small'); sm.textContent = big[1]; bg.append(sm);
   $('upSub').textContent = sub; upStk.textContent = ''; UPK.s = -2;
   upBuy.disabled = !ok; upBuy.className = ok ? '' : 'max'; upBuy.textContent = bt;
+  let tg = $('shipTgls'); if (!tg) { tg = document.createElement('div'); tg.id = 'shipTgls';   // auto load / launch switches
+    for (const [key, label] of [['autoLoad', 'AUTO LOAD'], ['autoLaunch', 'AUTO LAUNCH']]) { const b = document.createElement('button'); b.className = 'tgl'; b.setAttribute('role', 'switch'); b.dataset.k = key;
+      b.append(document.createElement('b'), ' ' + label); b.addEventListener('click', (e) => { e.stopPropagation(); setShipTgl(key); }); tg.append(b); }
+    $('upSub').insertAdjacentElement('afterend', tg); }
+  for (const b of tg.children) { const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
+  tg.hidden = false;
 }
 function upUI() {                      // refreshes the open card (0.1 s tick + after buys); DOM only rebuilt when something shown changes
   if (!upCur) return; const P = UP[upCur];
+  { const tg = $('shipTgls'); if (tg && !P.launch) tg.hidden = true; }
   if (P.launch) return upLaunchUI(P);   // gc-ui3 item 7: the rocket's launch card
   const bk = bldCardKey(P); if (bk) return upBuildUI(P, bk);   // gc-batch8: a Phase 2 building not built yet
   const lk = !!(P.lock && P.lock());   // gc-tapfix: a locked card (Chute before the drill) shows like a Coming soon card: no level / meter / cost, a disabled 'Locked' button

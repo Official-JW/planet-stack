@@ -214,8 +214,9 @@ body.up-open #nbPlate,body.ec-shift #nbPlate{display:none}
 #setPop::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}
 #setPop::after{inset:1px;background:linear-gradient(180deg,#0f1a2ef5,#090f1df5)}
 #setPop .k{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#3ad0ff}
-#musTgl,#voiceTgl{display:flex;align-items:center;justify-content:space-between;gap:14px;height:44px;margin:-4px 0;border:0;background:none;padding:0;color:#eafcff;font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer}
-#musTgl b,#voiceTgl b{min-width:44px;padding:5px 0;text-align:center;font:800 11px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#3ad0ff;box-shadow:0 0 8px #3ad0ff88;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
+#musTgl,#voiceTgl,#shipTgls .tgl{display:flex;align-items:center;justify-content:space-between;gap:14px;height:44px;margin:-4px 0;border:0;background:none;padding:0;color:#eafcff;font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer}
+#shipTgls{display:flex;flex-direction:column;gap:10px;margin-top:10px} #shipTgls[hidden]{display:none} #shipTgls .tgl{flex:1} #shipTgls .tgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
+#musTgl b,#voiceTgl b,#shipTgls .tgl b{min-width:44px;padding:5px 0;text-align:center;font:800 11px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#3ad0ff;box-shadow:0 0 8px #3ad0ff88;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
 #musTgl[aria-checked=false] b,#voiceTgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
 #musNote{font:600 9px/1 system-ui;letter-spacing:.1em;color:#c9d3e6;opacity:.6}
 #musNote:empty{display:none}
@@ -265,7 +266,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="DEV · 08:25">
+<body data-tag="DEV · 08:53">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <div id="hud" class="ec-hud">
@@ -374,6 +375,6 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 <div id="devStop" role="alertdialog" aria-label="Game stopped" hidden><div class="gbox"><div class="k">PLANET STACK <span class="devtag">DEV</span></div><h2>Can't play here</h2><p id="devStopMsg"></p><p class="sub" id="devStopSub"></p><button id="devStopBtn" hidden>RELOAD</button></div></div>
 <div id="devToast" role="status"></div>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../dev/main.js?v=dev0825"></script>
+<script type="module" src="../dev/main.js?v=dev0853"></script>
 <script src="../dev/bugreport.js?v=dev1006"></script>
 </body></html>
