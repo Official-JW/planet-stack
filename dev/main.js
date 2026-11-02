@@ -60,7 +60,7 @@ const CFG = {
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
   // Director 20:34: boxValue 36 (full hold $360), fuel → refuelSec() (CFG.econ.fuel, Refinery lane), away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
   dock: { cap: 40, loadS: 3.0, storeS: 3.0 },   // ca-dock (Director via EM 10/31): cap = Cargo Dock stock cap (boxes, saved as S.cg.dk; the only copy); loadS = s per box, Dock -> hold (Dock-first loading while the ship is on the pad); gc-dockfix: storeS = s per crate of the flatbed's Dock store stop (was a fixed 31.4 s per 2-crate trip)
-  cargo: { sealSec: 4, perTrip: 2, refLoadSec: 6, padUnloadSec: 6, checkSec: 2, walkOutSec: 4.0, walkBackSec: 4.4, holdLoadSec: 5, rideSec: 2.8, rideDoorSec: 2.0, reopenSec: 1, bayCap: 12, holdCap: 10, palletCap: 8,
+  cargo: { sealSec: 4, perTrip: 2, refLoadSec: 12, padUnloadSec: 12, checkSec: 2, walkOutSec: 4.0, walkBackSec: 4.4, holdLoadSec: 10, rideSec: 2.8, rideDoorSec: 2.0, reopenSec: 1, bayCap: 12, holdCap: 10, palletCap: 8,
            launchSec: 8, awaySec: 600, landSec: 8, boxValue: 36,
            firstTrip: 1, starterCrate: 1 },   // gc-dockfix item 6 (first run only): a new save's first flatbed trip leaves with firstTrip crate(s); a new save starts with starterCrate sealed crate(s) on the Refinery pallet
   // music (Director 20:35): Every Day Stuff sources CC0 tracks, Jacob picks; list file names found in qa3d/audio/music/ here. Empty = silent.
@@ -3151,8 +3151,8 @@ function rideDoorK(c, now) { return 1; }   // Jacob 11/2: the door no longer car
 function rideDraw(c, now, sh) {
   const n = Math.min(c.rd.n, CG.holdCap - 1), H = cg3.holds[n]; if (!H || !(RDT.tray || cg3.holdDoor)) return;   // pad rig not bound yet (a reload mid-ride, still loading)
   const u = clamp((now - c.rd.t0) / (CG.rideSec * 1000), 0, 1), ds = CG.rideDoorSec / CG.rideSec;
-  if (RDT.tray && u < ds) { const w = fss(clamp(u / ds, 0, 1)); _rdP.lerpVectors(RDT.seat, RDT.p1, w); _rdQ.copy(RDT.q1); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'slide'; }   // level slide from the open tray in through the door
-  else { const w = fss((u * CG.rideSec - CG.rideDoorSec) / (CG.rideSec - CG.rideDoorSec)), p0 = RDT.tray ? RDT.p1 : cg3.holdDoor;
+  if (RDT.tray && u < ds) { const w = fss(clamp(u / ds, 0, 1)); _rdP.set(H.x, RDT.seat.y, H.z); _rdP.lerpVectors(RDT.seat, _rdP, w); _rdQ.copy(RDT.q1); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'slide'; }   // level slide from the open tray in through the door
+  else { const w = fss((u * CG.rideSec - CG.rideDoorSec) / (CG.rideSec - CG.rideDoorSec)), p0 = RDT.tray ? _rdP.set(H.x, RDT.seat.y, H.z) : cg3.holdDoor;
     _rdH.setFromAxisAngle(_Y, cg3.holdYaw[n] || 0); if (RDT.tray) _rdQ.copy(RDT.q1); else _rdQ.setFromAxisAngle(_Y, cg3.holdDoorYaw || 0);
     _rdP.lerpVectors(p0, H, w); _rdQ.slerp(_rdH, w); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'lift'; }
   boxAtM(_rdM); RDQ.n = n; RDQ.u = u; RDQ.x = _rdM.elements[12]; RDQ.y = _rdM.elements[13]; RDQ.z = _rdM.elements[14]; window.__ps3d.ride = RDQ;   // QA read-out (one shared object)
