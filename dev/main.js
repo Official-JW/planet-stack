@@ -2320,7 +2320,7 @@ function cgComplete(c, t, acc) {
   else if (c.as.st === 'walk_back' && c.as.t0 + CG.walkBackSec * 1000 <= t) { c.as = { st: 'home', t0: t }; cgEv('astro_home', t); }
   if (c.rd && c.rd.t0 + CG.rideSec * 1000 <= t) rideEnd(c, c.rd.t0 + CG.rideSec * 1000);
   if (c.pc.k && pcEnd(c.pc) <= t) {
-    if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { if (c.rd) rideEnd(c, c.rd.t0 + CG.rideSec * 1000); c.rd = { t0: t, n: c.sh.hold, src: c.pc.k === 'dock' ? 'dock' : 'bay' }; c.dOpen = t + (CG.rideDoorSec + CG.reopenSec) * 1000; cgEv('hold_ride', t, { slot: c.sh.hold + 1, src: c.rd.src }); }   // ca-cargoride: set on the Hold_Door shelf → rides in (c.rd, saved) → counted at the end
+    if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { if (c.rd) rideEnd(c, c.rd.t0 + CG.rideSec * 1000); c.rd = { t0: t, n: c.sh.hold, src: c.pc.k === 'dock' ? 'dock' : 'bay' }; c.dOpen = t + CG.rideDoorSec * 1000; cgEv('hold_ride', t, { slot: c.sh.hold + 1, src: c.rd.src }); }   // ca-cargoride: set on the Hold_Door shelf → rides in (c.rd, saved) → counted at the end
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
@@ -3121,7 +3121,7 @@ function updCargo() {
   if (c.pc.k) { v = pcU(c.pc, now);   // ca-dock 'dock': picked at the next free bay slot (placeholder for the Dock feed)
     if (c.pc.k === 'unload') { slotW(c.fb.bed, _pk); bayPos(c.bay, _dp); } else { bayPos(c.bay, _pk); _dp.copy(RDT.tray ? RDT.seat : cg3.holdDoor || cg3.holds[Math.min(holdN(c), CG.holdCap - 1)]).applyMatrix4(sh.matrixWorld); } P = _pk; }   // Art pad: onto the open door shelf (Hold_Door), lands in Hold_NN at the end
   const carryP = PC.hiUnload ? cranePose(PC, v, P, _dp, restP, pcHold(c.pc.k) ? PC.hiHold : PC.hiUnload, PC.hiUnload) : cranePose(PC, v, P, _dp, restP);
-  if (cg3.door) { const dk = rideDoorK(c, now); if (dk < 1 && s.st === 'pad') padDoorAt(1 - dk, 'cargo_door_close'); else if (pcHold(c.pc.k) && s.st === 'pad') padDoorAt(clamp((now - Math.max(c.pc.t0, (c.dOpen || 0) - CG.reopenSec * 1000)) / (CG.reopenSec * 1000), 0, 1), 'cargo_door_open'); else padDoor(false); }   // ca-cargoride: closes carrying the crate, then reopens (1 s) for the next lift
+  if (cg3.door) { if (c.rd && !cg3.door.cur) cg3.door.k = 1; padDoor(s.st === 'pad' && (holdN(c) < CG.holdCap || !!c.rd)); }   // Jacob 11/2 8:07: the door stays open on the pad until the hold is full, then closes once (Qwen fix, GD-reviewed)
   if (c.rd && vis) rideDraw(c, now, sh);
   const py0 = c.pc.k === 'unload' ? FBS.yaw : 0, py1 = c.pc.k === 'unload' ? 0 : cg3.holdDoor ? cg3.holdDoorYaw : cg3.holdYaw[holdN(c)] || 0;
   if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp, carryYaw(v, py0, py1));
@@ -3145,11 +3145,11 @@ function rideBind(rig, tray, D) {      // called once at pad load, rig at rest: 
   (c || a).stop(); a.play(); a.time = a.getClip().duration; D.mx.update(0); rig.updateMatrixWorld(true); RDT.box = new THREE.Box3().setFromObject(tray); RDT.drop = RDT.seat.clone().applyMatrix4(rig.matrixWorld); RDT.trayW = tray.getWorldPosition(new THREE.Vector3());
   a.time = 0; D.mx.update(0); a.stop(); rig.updateMatrixWorld(true); D.cur = ''; RDT.tray = tray; window.__ps3d.RDT = RDT;
 }
-function rideDoorK(c, now) { return c.rd ? clamp((now - c.rd.t0) / (CG.rideDoorSec * 1000), 0, 1) : 1; }   // < 1: the door is carrying the crate in
+function rideDoorK(c, now) { return 1; }   // Jacob 11/2: the door no longer carries the crate (it stays open while loading)
 function rideDraw(c, now, sh) {
   const n = Math.min(c.rd.n, CG.holdCap - 1), H = cg3.holds[n]; if (!H || !(RDT.tray || cg3.holdDoor)) return;   // pad rig not bound yet (a reload mid-ride, still loading)
-  const u = clamp((now - c.rd.t0) / (CG.rideSec * 1000), 0, 1), d = rideDoorK(c, now);
-  if (d < 1 && RDT.tray) { RDT.tray.updateWorldMatrix(true, false); _rdM.multiplyMatrices(RDT.tray.matrixWorld, RDT.off); RDQ.ph = 'door'; }
+  const u = clamp((now - c.rd.t0) / (CG.rideSec * 1000), 0, 1), ds = CG.rideDoorSec / CG.rideSec;
+  if (RDT.tray && u < ds) { const w = fss(clamp(u / ds, 0, 1)); _rdP.lerpVectors(RDT.seat, RDT.p1, w); _rdQ.copy(RDT.q1); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'slide'; }   // level slide from the open tray in through the door
   else { const w = fss((u * CG.rideSec - CG.rideDoorSec) / (CG.rideSec - CG.rideDoorSec)), p0 = RDT.tray ? RDT.p1 : cg3.holdDoor;
     _rdH.setFromAxisAngle(_Y, cg3.holdYaw[n] || 0); if (RDT.tray) _rdQ.copy(RDT.q1); else _rdQ.setFromAxisAngle(_Y, cg3.holdDoorYaw || 0);
     _rdP.lerpVectors(p0, H, w); _rdQ.slerp(_rdH, w); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'lift'; }
