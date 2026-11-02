@@ -1147,7 +1147,7 @@ function updOperator(dt) {
 // board = the crew_boarding GLB climber they play. Director 11:36 role swap: the Cargo Manager = Crew_2 (climbs second, starts beside the Receiver's
 // spot, so the Receiver → climber crossfade has no spot jump), the Mechanic = Crew_1 (climbs first; the camera still follows the first climber, C1_Hips).
 // Roles follow CREW[].board only (crewCount, crossfade pairing); nothing role → mesh is saved (S.bc / S.cg hold no crew index), so old saves need no migration.
-const CREW = [{ role: 'Miner', station: MINE, prop: 'mine_operator' }, { role: 'Mine Driver', station: MINE, prop: 'ht04' },
+const CREW = [{ role: 'Miner', station: MINE, prop: 'mine_operator', flies: 1, board: 'Crew_3' }, { role: 'Mine Driver', station: MINE, prop: 'ht04', flies: 1, board: 'Crew_4' },
   { role: 'Cargo Manager', station: 'pad', prop: 'receiver', flies: 1, board: 'Crew_2' }, { role: 'Mechanic', station: 'pad', flies: 1, board: 'Crew_1' }].slice(0, CFG.crew0);
 const CREW_BOARD = Object.fromEntries(CREW.filter(c => c.board).map(c => [c.role, c.board]));   // role → GLB climber ('Cargo Manager' → 'Crew_2')
 // ===== FollowCam: a generic eased, damped follow camera (Director 10:25: one module; today the ladder, a later Lv1 elevator car points the same camera
@@ -1225,7 +1225,7 @@ const OLD_RECV = QD.get('oldrecv') === '1';
 // gc-brkfade (Director 01:28): with the Receiver hidden, the break room handler (BRK.h, the Cargo Manager) takes his crossfade: the same rxAlpha()
 // through fadeObj (fades out as his climber fades in at boarding, hidden while away, fades back in from touchdown), wherever he is on his loop
 // (no new clip or walk). ?oldrecv=1: the handler is not faded (as before).
-function crewOnPad() { if (cg3 && cg3.astro) fadeObj(cg3.astro, OLD_RECV ? rxAlpha() : 0); if (!OLD_RECV && BRK.ok && BRK.h) fadeObj(BRK.h.scene, rxAlpha()); }
+function crewOnPad() { if (op) fadeObj(op, rxAlpha()); if (cg3 && cg3.astro) fadeObj(cg3.astro, OLD_RECV ? rxAlpha() : 0); if (!OLD_RECV && BRK.ok && BRK.h) fadeObj(BRK.h.scene, rxAlpha()); }
 function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = Mine operator, Cargo Manager = Receiver + his climber (CREW_BOARD: Crew_2), Mechanic = his climber (Crew_1)
   // (Cargo Manager is 2 only inside the boarding crossfade: cmA = his summed opacity, cmFull = his fully opaque figures)
   const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
