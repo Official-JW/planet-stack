@@ -4119,7 +4119,7 @@ ecRoot.addEventListener('pointerdown', (e) => e.stopPropagation());
 ecPanel.addEventListener('click', (e) => {
   e.stopPropagation();
   const tb = e.target.closest('.ec-tab'); if (tb) { showTab(tb.dataset.tab); if (tb.dataset.tab === 'calls') { setMissed(0); save(); } return; }
-  const rp = e.target.closest('.ec-replay'); if (rp) { const b = EVE_BEATS.find(x => x.id === rp.dataset.beat); if (b) ecAnswer(b); return; }
+  const rp = e.target.closest('.ec-replay'); if (rp) { const b = EVE_BEATS.find(x => x.id === rp.dataset.beat); if (b) ecAnswer(Object.assign({}, b, { replay: true })); return; }
   if (e.target.closest('.ec-close')) return ecHangUp();
   if (!ecPanel.querySelector('.ec-view[data-view="call"]').classList.contains('is-on')) return;
   if (ecPanel.classList.contains('is-talking')) return lineDone();
@@ -4157,7 +4157,7 @@ function eveDrillDone() {
   if (!S.eve.includes('upgrade_ready')) { S.eve.push('upgrade_ready'); save(); }
   if (EC.ring && EC.ring.id === 'upgrade_ready') { clearTimeout(EC.toastT); EC.ring = null; ecToast.className = 'ec-toast'; hudDim(false); ecBubble.classList.remove('is-ringing'); ecResetUI(); }
   if (GREET.b && GREET.b.lines.length > 1) { GREET.b.lines = GREET.b.lines.filter(l => l !== DRILL_LINE); if (EC.call === GREET.b) EC.lines = GREET.b.lines; }
-  if (EC.call && (EC.call.id === 'upgrade_ready' || EC.full === DRILL_LINE)) ecHangUp();
+  if (EC.call && !EC.call.replay && (EC.call.id === 'upgrade_ready' || EC.full === DRILL_LINE)) ecHangUp();
   window.__ps3d.eveDrillDone = true;
 }
 // ca-greetpass (Director 23:01, EM 06:50): a world tap while the Welcome greeting rings dismisses it (toast slides out, HUD back, bubble stops) and the tap
