@@ -16,8 +16,8 @@ const CFG = {
   econ: {
     startMoney: 25000,                  // Jacob 10/31 17:31 (via Director): start money $25,000 (was $10,000)
     truckLoadPay: 0,                    // Locked: truck loads pay nothing directly (ore feeds the Refinery)
-    dropoff: { base: 50000, max: 150000 },   // Locked: Earth drop-off $50k at base purity, ~$150k at max purity; paid on Earth landing (see dropoffValue)
-    dropoffMin: 20000,                  // Director 10/31 19:52: a drop-off pays at least $20k (max(dropoffMin, crates x per-crate)); a full hold stays $50k-150k by purity
+    dropoff: { base: 20000, max: 60000 },    // Jacob 11/01 (via GD/EM): Earth drop-off $20k full hold at base purity (Lv1, $2k/crate), $60k at max purity ($6k/crate); was $50k-150k; paid on Earth landing (see dropoffValue)
+    dropoffMin: 20000,                  // Director 10/31 19:52: a drop-off pays at least $20k (max(dropoffMin, crates x per-crate)); a full hold pays $20k-60k by purity (CFG.econ.dropoff)
     launchPay: 20000,                   // Director 10/31 19:52: flat $20k credited once at lift-off, only with >= 1 crate aboard (empty launch $0); 50% while away, like drop-offs
     launchMinFrac: 0.5,                 // gc-retune (Director 20:09): launch pay only with >= ceil(launchMinFrac x current hold capacity) crates aboard (5 of 10), else $0
     launchBelowMin: 'allow0',           // gc-dockfix (EM 10/31 21:11): under the minimum: 'allow0' = dimmed chip '+$0 · NEEDS 5', still tappable, launch pays $0; 'block' = grey, no launch from any entry point
@@ -71,7 +71,7 @@ const CFG = {
 };
 CFG.startMoney = CFG.econ.startMoney;   // Jacob 10/31 17:31: $25,000
 CFG.offlineRate = CFG.econ.offline.rate; CFG.offlineCapSec = CFG.econ.offline.capSec;   // same 0.5 / 4 h as before, now read from the econ block
-// Earth drop-off value for a ship's cargo at purity p (0–1): linear from $50k at base purity (40%) to $150k at max purity (100%), clamped, whole dollars
+// Earth drop-off value for a ship's cargo at purity p (0–1): linear from $20k at base purity (40%) to $60k at max purity (100%), clamped, whole dollars
 function dropoffValue(purity) {
   const E = CFG.econ, P = E.purity, D = E.dropoff;
   const k = Math.min(1, Math.max(0, ((+purity || 0) - P.base) / (P.max - P.base)));
@@ -2411,7 +2411,7 @@ function astroPhase(c, t) {
 }
 // Earth drop-off (Phase 1 Step 2): dropoffValue(purity) is a full hold's pay; a partial launch pays its share (boxes / holdCap)
 function cargoPurity() { return refineryPurity(); }   // the one purity source (Refinery lane: S.purLv → purityAt); frozen into the cargo at launch
-function perCrateValue(pur = cargoPurity()) { return dropoffValue(pur) / 10; }   // Director 10/29 16:39: each crate is worth its purity value ($5k at Lv1); 10 = today's hold, fixed so a bigger hold later pays more
+function perCrateValue(pur = cargoPurity()) { return dropoffValue(pur) / 10; }   // Director 10/29 16:39: each crate is worth its purity value ($2k at Lv1, $6k at max); 10 = today's hold, fixed so a bigger hold later pays more
 function cargoValue(boxes, pur = cargoPurity()) { return Math.max(0, boxes || 0) * perCrateValue(pur); }   // crates on board x per-crate value, no cap at the hold size
 function dropoffPay(boxes, pur = cargoPurity()) { return boxes > 0 ? Math.max(CFG.econ.dropoffMin || 0, cargoValue(boxes, pur)) : 0; }   // Director 10/31 19:52: drop-off pays max($20k, crates x per-crate)
 const holdCapNow = () => CG.holdCap;   // the ship's current hold capacity (hold upgrades read here when they land)
