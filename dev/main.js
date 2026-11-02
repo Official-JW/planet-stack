@@ -2277,8 +2277,8 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
     if (!c.pc.k && crAt(c, t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
-      else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < CG.holdCap && !dockBusy(c, t) && c.autoLoad) { c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
-      else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < CG.holdCap && c.autoLoad) { c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
+      else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < CG.holdCap && !dockBusy(c, t) && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
+      else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < CG.holdCap && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && s.hold >= CG.holdCap && ((c.autoLaunch && !s.man) || (s.req && t >= s.req))) {   // Jacob 11/1: full hold only; Auto Launch or the Launch tap
@@ -2405,6 +2405,7 @@ function cgLaunch() {                 // Launch button: stored as a timestamp in
   S.cg.sh.req = Math.max(t, S.cg.t); S.cg.sh.rh = holdN(S.cg) + (pcHold(S.cg.pc.k) ? 1 : 0); cgEv('launch_tap', t, { hold: S.cg.sh.hold, ride: S.cg.rd ? 1 : 0, lift: pcHold(S.cg.pc.k) ? 1 : 0 }); settleTo(t, null); save();   // ca-cargoride: a crate mid-ride is locked in with the rest   // gc-batch7: so is the crate on the crane (pcHold); new lifts wait on !sh.req   // gc-dockfix item 3: hold count locked at the tap (threshold + launch pay)
   if (pointBeat === 'launch') pointerDone = true; return true;
 }
+function loadOne() { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } S.cg.ml = Math.min((S.cg.ml || 0) + 1, CG.holdCap); save(); }
 function setShipTgl(k) { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } S.cg[k] = !S.cg[k]; save(); UPK.k = ''; upUI(); }   // settle first, so a switch applies from now
 function astroPhase(c, t) {
   const a = c.as; if (a.st !== 'ready') return a.st;
@@ -2889,7 +2890,7 @@ function brAdvU(u0, sec, uMax) { let u = u0, r = Math.max(0, sec); while (r > 1e
 function crDuty(c) { const f = c.fb, s = c.sh;
   if (f.st === 'unload' || c.pc.k) return true;
   if (((f.st === 'out' && !f.dk) || f.st === 'out2') && f.bed > 0) return true;   // loaded flatbed on its way to the pad (a Dock store run alone does not call him out)
-  return s.st === 'pad' && !s.req && (c.bay > 0 || c.dk > 0) && holdN(c) < CG.holdCap && c.autoLoad; }
+  return s.st === 'pad' && !s.req && (c.bay > 0 || c.dk > 0) && holdN(c) < CG.holdCap && (c.autoLoad || c.ml > 0); }
 function crGet(c) { let r = c.cr;
   if (!r || typeof r !== 'object' || !/^(room|out|back)$/.test(r.m) || !isFinite(r.t0) || !isFinite(r.u0)) r = c.cr = crDuty(c) ? { m: 'out', t0: c.t, u0: BR_PATH.T, o: 0 } : { m: 'room', t0: c.t, u0: BRD.seat[0], o: 0 };
   if (!(r.o >= 0)) r.o = 0; return r; }
@@ -3764,8 +3765,8 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
   let tg = $('shipTgls'); if (!tg) { tg = document.createElement('div'); tg.id = 'shipTgls';   // auto load / launch switches
     for (const [key, label] of [['autoLoad', 'AUTO LOAD'], ['autoLaunch', 'AUTO LAUNCH']]) { const b = document.createElement('button'); b.className = 'tgl'; b.setAttribute('role', 'switch'); b.dataset.k = key;
       b.append(document.createElement('b'), ' ' + label); b.addEventListener('click', (e) => { e.stopPropagation(); setShipTgl(key); }); tg.append(b); }
-    $('upSub').insertAdjacentElement('afterend', tg); }
-  for (const b of tg.children) { const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
+    const lb = document.createElement('button'); lb.className = 'tgl'; lb.textContent = 'LOAD 1 CRATE'; lb.addEventListener('click', (e) => { e.stopPropagation(); loadOne(); }); tg.append(lb); $('upSub').insertAdjacentElement('afterend', tg); }
+  for (const b of tg.children) { if (!b.dataset.k) { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
   tg.hidden = false;
 }
 function upUI() {                      // refreshes the open card (0.1 s tick + after buys); DOM only rebuilt when something shown changes
