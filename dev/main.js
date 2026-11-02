@@ -3910,7 +3910,7 @@ function ecAnswer(b = EC.ring) {
 // = silent. Web Audio: the context is created/resumed inside the first tap (iOS Safari) with a 1-sample silent buffer. A clip that fails to load or
 // decode is cached as missing (one console.debug line, never warn/error). Settings ▸ Voice on/off is saved in localStorage 'planetstack-dev-voice' (default on).
 CFG.eveVoice.dir = new URL('audio/eve/', import.meta.url).href.replace(/\?.*$/, ''); CFG.eveVoice.lines = {};
-const VOX = PSD.voice = { manifest: null, manP: null, bufs: {}, loading: {}, miss: {}, ctx: null, src: null, tok: 0, unlocked: false, played: [], on: true, get dir() { return CFG.eveVoice.dir; } };
+const VOX = PSD.voice = { manifest: null, manP: null, bufs: {}, loading: {}, miss: {}, ctx: null, src: null, src2: null, tok: 0, unlocked: false, played: [], on: true, get dir() { return CFG.eveVoice.dir; } };
 try { VOX.on = localStorage.getItem('planetstack-dev-voice') !== '0'; } catch (e) {}
 function voxManifest() {
   if (VOX.manP) return VOX.manP;
@@ -3935,9 +3935,50 @@ function voxClip(f) {                 // f = file name from CFG.eveVoice.lines, 
     .then(b => (VOX.bufs[f] = b)).catch(e => { VOX.miss[f] = true; console.debug('eve voice: no clip', f, e && e.message); return null; })
     .finally(() => { VOX.loading[f] = null; });
 }
-function eveVoiceStop() { VOX.tok++; const s = VOX.src; if (s) { VOX.src = null; s.onended = null; try { s.stop(); } catch (e) {} musicDuck(false); } }
+// gc-evename (Jacob 10/31 rule, EM 11/01 19:58): Eve says the typed name in her own voice. The Worker's POST /tts {code, name} returns audio/mpeg of
+// "Commander <name>." (Kokoro af_heart 0.95, generated on the fly, cached per name). The welcome line plays the head of the fixed clip name_greeting_0
+// ("Welcome aboard,", first VOXN.cut s) and then the generated clip. The request starts as soon as a name is known (this point, and any later
+// Settings ▸ Name change via eveVoice), fetch only (no audio context needed), with a 4 s timeout; on any failure (HTTP error, timeout, decode) the whole
+// fixed clip name_greeting_0 plays as before (the fallback). Banner/call text unchanged. ?mock (local test server only): no Worker call (fallback)
+// unless ?tts=1 (local probe flag, read from QD like mock; the probe stubs the route).
+const VOXN = VOX.name = { key: '', abP: null, bufP: null, st: '', ms: 0, cut: 0.965, gap: 0.08, timeout: 4000, url: DEV_WORKER_URL ? DEV_WORKER_URL + '/tts' : '', played: '' };
+function voxNameFetch(n) {          // -> Promise<ArrayBuffer|null>, one request per name per page load
+  const key = String(n || '').trim().toLowerCase(); if (!key) return Promise.resolve(null); if (VOXN.key === key && VOXN.abP) return VOXN.abP;
+  VOXN.key = key; VOXN.bufP = null; VOXN.st = 'loading';
+  if (!VOXN.url || (MOCK && QD.get('tts') !== '1')) { VOXN.st = 'skip'; return VOXN.abP = Promise.resolve(null); }
+  const t0 = performance.now(), ac = window.AbortController ? new AbortController() : null, to = setTimeout(() => { if (ac) ac.abort(); }, VOXN.timeout);
+  const late = new Promise(res => setTimeout(() => res(null), VOXN.timeout + 50));   // hard cap even where abort is unsupported
+  const req = fetch(VOXN.url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ code: PSD.code || '', name: String(n) }), signal: ac ? ac.signal : undefined, cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then(ab => { if (!ab || ab.byteLength < 256) throw new Error('empty'); VOXN.st = 'ok'; return ab; })
+    .catch(e => { VOXN.st = 'fail ' + (e && e.name === 'AbortError' ? 'timeout' : (e && e.message)); console.debug('eve voice: name clip unavailable, fixed clip instead', VOXN.st); return null; })
+    .finally(() => { clearTimeout(to); VOXN.ms = Math.round(performance.now() - t0); });
+  return VOXN.abP = Promise.race([req, late]).then(ab => { if (!ab && VOXN.st === 'loading') VOXN.st = 'fail timeout'; return ab; });
+}
+function voxNameClip(n) {           // -> Promise<AudioBuffer|null>; needs VOX.ctx (decoded on the first call after the context exists)
+  const abP = voxNameFetch(n); if (VOXN.bufP) return VOXN.bufP;
+  return VOXN.bufP = abP.then(ab => ab && VOX.ctx ? new Promise((res, rej) => { const pr = VOX.ctx.decodeAudioData(ab.slice(0), res, rej); if (pr && pr.catch) pr.catch(rej); }) : null)
+    .catch(e => { VOXN.st = 'fail decode'; console.debug('eve voice: name clip decode failed', e && e.message); return null; })
+    .then(b => { if (!b) VOXN.bufP = null; return b; });   // not decoded (no context yet / failed): a later call may decode the cached bytes again
+}
+if (PSD.playerName) voxNameFetch(PSD.playerName);
+function eveVoiceName(tok) {        // welcome line 0 with a name: 'Welcome aboard,' (head of name_greeting_0) + generated 'Commander <name>.'; fallback = whole fixed clip
+  const play = (buf, off, dur, at, main) => { const s = VOX.ctx.createBufferSource(), g = VOX.ctx.createGain(); g.gain.value = .9; s.buffer = buf; s.connect(g); g.connect(VOX.ctx.destination);
+    if (main) { s.onended = () => { if (VOX.src === s) { VOX.src = null; musicDuck(false); } }; VOX.src = s; } else VOX.src2 = s; s.start(at, off, dur); return s; };
+  Promise.all([voxManifest().then(L => { const f = (L.name_greeting || [])[0]; return f && !VOX.miss[f] ? voxClip(f).then(b => [f, b]) : [f, null]; }), voxNameClip(PSD.playerName)]).then(([[f, head], nb]) => {
+    if (tok !== VOX.tok || !EC.call || !VOX.on || !VOX.ctx) return;
+    const t = VOX.ctx.currentTime + .02; musicDuck(true);
+    if (nb) { let at = t; if (head) { play(head, 0, Math.min(VOXN.cut, head.duration), t, false); at = t + Math.min(VOXN.cut, head.duration) + VOXN.gap; }
+      play(nb, 0, nb.duration, at, true); VOXN.played = 'name'; VOX.played.push('tts:' + VOXN.key); }
+    else if (head) { play(head, 0, head.duration, t, true); VOXN.played = 'fallback'; VOX.played.push(f); }
+    else { musicDuck(false); return; }
+    if (VOX.played.length > 20) VOX.played.shift(); window.__ps3d.eveNameVoice = { played: VOXN.played, st: VOXN.st, ms: VOXN.ms };
+  }).catch(() => {});
+}
+function eveVoiceStop() { VOX.tok++; const s2 = VOX.src2; if (s2) { VOX.src2 = null; try { s2.stop(); } catch (e) {} } const s = VOX.src; if (s) { VOX.src = null; s.onended = null; try { s.stop(); } catch (e) {} musicDuck(false); } }
 function eveVoice(id, li) {
   eveVoiceStop(); if (!VOX.on || !VOX.ctx || (EC.call && EC.call.silent)) return; const tok = VOX.tok; let f = null;
+  if (id === 'name_greeting' && li === 0 && PSD.playerName) return eveVoiceName(tok);   // gc-evename
   voxManifest().then(L => { f = (L[id] || [])[li]; return f && !VOX.miss[f] ? voxClip(f) : null; }).then(buf => {
     if (!buf || tok !== VOX.tok || !EC.call || !VOX.on || !VOX.ctx) return;
     const s = VOX.ctx.createBufferSource(), g = VOX.ctx.createGain(); g.gain.value = .9; s.buffer = buf; s.connect(g); g.connect(VOX.ctx.destination);
@@ -3999,7 +4040,8 @@ function updViewShift() {
   window.__ps3d.viewShift = Math.round(VS.cur);
 }
 // DEV greeting (Director 10/31 07:31): once per page load, first thing after the cover (coverGone: rings only once the loading cover has been removed), Eve rings 'Welcome aboard, Commander <name>.' The typed name is
-// text only (toast banner + call line, set with textContent); the voice is the fixed clip name_greeting_0 ("Welcome aboard, Commander"), if listed.
+// text only (toast banner + call line, set with textContent); the voice is 'Welcome aboard,' + the Worker's generated 'Commander <name>.' (gc-evename, eveVoiceName),
+// or the fixed clip name_greeting_0 ("Welcome aboard, Commander") when that fails.
 // UI-2 item 8 (Director, EM 15:52): a NEW game (no save with a clock stamp: S.wel = 1, saved) rings the welcome first, name or not ('Commander <name>' /
 // 'Commander', the ui4 rule), with a second line 'Tap the drill to upgrade it.'; every story beat (upgrade_ready included) waits until it is answered (S.wel → 0).
 // Saves made before this build have no S.wel: unchanged (named greeting once per page load, one line, story beats as before).
