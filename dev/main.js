@@ -3479,7 +3479,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${CG.holdCap}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
     sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? 'On the way to Earth' : 'Landing'; },
     btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < CG.holdCap) return [`Hold ${s.hold}/${CG.holdCap}`, false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
-      return [fuelAt(t) < 1 ? 'Fuelling' : 'Awaiting cargo', false]; },
+      return [fuelAt(t) < 1 ? 'Fueling' : 'Awaiting cargo', false]; },
     buy: () => { if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
   // gc-ui2 (item 3): station buildings with no upgrades yet
   soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
