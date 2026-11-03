@@ -4052,9 +4052,10 @@ function voxNameFetch(n) {          // -> Promise<ArrayBuffer|null>, one request
   if (!VOXN.url || (MOCK && QD.get('tts') !== '1')) { VOXN.st = 'skip'; return VOXN.abP = Promise.resolve(null); }
   const t0 = performance.now(), ac = window.AbortController ? new AbortController() : null, to = setTimeout(() => { if (ac) ac.abort(); }, VOXN.timeout);
   const late = new Promise(res => setTimeout(() => res(null), VOXN.timeout + 50));   // hard cap even where abort is unsupported
-  const req = fetch(VOXN.url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ code: PSD.code || '', name: String(n) }), signal: ac ? ac.signal : undefined, cache: 'no-store' })
+  const ck = location.origin + '/ps-evename/' + encodeURIComponent(key), cP = window.caches ? caches.open('ps-evename').then(cc => cc.match(ck)).catch(() => null) : Promise.resolve(null);
+  const req = cP.then(hit => hit || fetch(VOXN.url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ code: PSD.code || '', name: String(n) }), signal: ac ? ac.signal : undefined, cache: 'no-store' }))
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-    .then(ab => { if (!ab || ab.byteLength < 256) throw new Error('empty'); VOXN.st = 'ok'; return ab; })
+    .then(ab => { if (!ab || ab.byteLength < 256) throw new Error('empty'); VOXN.st = 'ok'; if (window.caches) caches.open('ps-evename').then(cc => cc.put(ck, new Response(ab.slice(0)))).catch(() => {}); return ab; })
     .catch(e => { VOXN.st = 'fail ' + (e && e.name === 'AbortError' ? 'timeout' : (e && e.message)); console.debug('eve voice: name clip unavailable, fixed clip instead', VOXN.st); return null; })
     .finally(() => { clearTimeout(to); VOXN.ms = Math.round(performance.now() - t0); });
   return VOXN.abP = Promise.race([req, late]).then(ab => { if (!ab && VOXN.st === 'loading') VOXN.st = 'fail timeout'; return ab; });
