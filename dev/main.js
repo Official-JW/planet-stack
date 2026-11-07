@@ -1903,6 +1903,14 @@ function updChunks(dt) {
 }
 
 
+const SA = { el: null };   // safe-area insets as the CSS sees them (env(safe-area-inset-*)), read off a hidden probe
+function safeArea() { if (!SA.el) { SA.el = document.createElement('div'); SA.el.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px) 0'; document.body.appendChild(SA.el); }
+  const cs = getComputedStyle(SA.el); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; }
+function band() {                     // Playtester 20:58: the safe-area insets are part of the band (59/34 px on a 393×852 iPhone → y 165–534)
+  const sa = safeArea(), top = Math.max(hudEl.getBoundingClientRect().bottom, 120, sa.t) + 24;   // station title moved to the bottom (above the dots); top of the band = under the HUD/Eve band (unchanged 144 px)
+  const sheetTop = innerHeight - 250 - sa.b;   // UI-2: the drag-up sheet is gone; its fixed 250 px + safe-area bottom strip still bounds the band so every station framing stays as it was
+  return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top, innerHeight - sa.b) - 34, l: 34, r: W - 34, sat: sa.t, sab: sa.b };
+}
 // ===== HT-04 haul loop (no scoop). The truck's state is purely its position along the whole loop, computed from saved timestamps (S.tk),
 // so it is right on any station, after a reload and after time away; every load pays exactly once.
 //   fill under the chute (Path_Load) → auto-depart when full → Path_Out_01..04 (exact next_leg arcs) → temp haul road (z 9)
