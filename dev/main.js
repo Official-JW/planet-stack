@@ -1357,10 +1357,11 @@ function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
   window.__ps3d.crewBoarding = { n: BD.n, end: BD.end, trig: +BD.trig.toFixed(3), trigSrc: BD.trigSrc, topFw: BD.fc.cfg.finalFw, followFw: +BD.fc.fw().toFixed(2), lift: +BD.lift.toFixed(2), pre: BD.pre, end: BD.pre + BD.end, inside: BD.inside.map(x => +(x + BD.pre).toFixed(3)), names: BD.crew.map(c => c.name), roles: BD.crew.map(c => (CREW.find(r => r.board === c.name) || {}).role) };
 }, undefined, (e) => console.warn('crew boarding GLB failed (ship launches without crew)', e)); }
 
-// ===== Crew walk Phase 1 (Director 11/07): pre-Habitat only, C-rig bodies, full-hold pickup, moon-pace 2.8 m/s.
+// ===== Crew walk Phase 1 (Director 11/07, truck-ride 11/07): pre-Habitat only, C-rig bodies, full-hold pickup.
 // Persistent Miner (Crew_3), Driver (Crew_4), Mechanic (Crew_1) replace workplace-only / missing meshes from game start.
-// Cargo Manager stays the C2 handler. Same object workplace → walk → board → return. No Crew_N swap.
-// Pickup when the hold is full (Director). Launch waits if walkers are still out. Descent = crew_climb reversed.
+// Cargo Manager stays the C2 handler. Same object workplace → ride/walk → board → return. No Crew_N swap.
+// Mine pair ride the emptied HT-04 along the existing road at TV.v; mechanic + Cargo Manager keep their short walks.
+// Pickup when the hold is full (Director). Launch waits if the last rider/walker is still out. Descent = crew_climb reversed.
 const WK = { ready: false, boardReady: false, brReady: false, attached: false, stride: 1.4, v: 2.8, step: 1.9, ladder: null,
   people: {}, stash: null, src: null, roadZ: 9 };
 function wkPreHab(sh) { if (S.wk && S.wk.go > 0) return true; sh = sh || (S.cg && S.cg.sh); return residentFlyers() >= CFG.crew0 || !!(sh && sh.fly >= CFG.crew0); }
@@ -1381,9 +1382,40 @@ function wkClip(clip, pfx) { const n = clip.clone(); n.name = clip.name + '_' + 
 function wkDescSec() { const a = BD.acts && BD.acts.crew_climb; return a ? a.getClip().duration : 36.2; }
 function wkPersonSec(key) { const h = wkHomes(), L = wkLadder(), w = S.wk, start = key === 'cm' && w && (w.cx || w.cz) ? [w.cx, w.cz] : h[key], poly = wkRoad(start, L);
   return poly.L / WK.v + (key === 'driver' ? WK.step : 0); }
-function wkGatherSec() { if (!wkPreHab()) return 0; return Math.max(wkPersonSec('miner'), wkPersonSec('driver'), wkPersonSec('mech'), wkPersonSec('cm')); }
+function wkUpDur() { const c = WK.src && WK.src.up; return c && c.duration > 0.2 ? c.duration : 1.2; }
+function wkPickPt() { const h = wkHomes(), z = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ; return [h.miner[0], z]; }
+function wkPadStop() { const L = wkLadder(), z = (typeof CPH !== 'undefined' && CPH.lanes && CPH.lanes.out != null) ? CPH.lanes.out : 13; return [L[0], z]; }
+function wkLoadPt() { if (typeof mw === 'function' && MK && (MK.Path_Load || MK.Path_Load_Approach)) { try { return mw('Path_Load'); } catch (e) {} } return [MX + 4.7, 4.5]; }
+function wkTruckOrigin() { if (S.wk && S.wk.go > 0 && typeof poseAt === 'function' && S.tk) { const o = { x: 0, z: 0, yaw: 0, v: 0, fill: 0, shown: 0, ph: '' }; try { poseAt(S.wk.go, o, S.tk); if (isFinite(o.x) && isFinite(o.z)) return [o.x, o.z]; } catch (e) {} } return wkLoadPt(); }
+function wkDrivePts(from, to) { const zIn = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ, zOut = (typeof CPH !== 'undefined' && CPH.lanes) ? CPH.lanes.out : 13, rx = RX;
+  if (Math.hypot(to[0] - from[0], to[1] - from[1]) < 0.2) return [from, to];
+  if (Math.abs(to[0] - from[0]) < 80) return [from, [from[0], zIn], [to[0], zIn], to];
+  if (to[0] > from[0]) return [from, [from[0], zIn], [rx, zIn], [rx, zOut], [to[0], zOut], to];
+  return [from, [from[0], zOut], [rx, zOut], [rx, zIn], [to[0], zIn], to]; }
+function wkDrive(from, to) { const pts = wkDrivePts(from, to), poly = wkPoly(pts), v = (typeof TV !== 'undefined' && TV.v) ? TV.v : 8.33;
+  return { poly, T: poly.L / v, v }; }
+function wkDriveAt(drv, t) { if (!drv || !drv.poly) return { x: 0, z: 0, yaw: 0, v: 0 };
+  const a = drv.poly.pts[0], b = drv.poly.pts[drv.poly.pts.length - 1];
+  if (drv.T <= 0 || t <= 0) return { x: a[0], z: a[1], yaw: Math.atan2(-(b[1] - a[1]), b[0] - a[0]), v: 0 };
+  if (t >= drv.T) return { x: b[0], z: b[1], yaw: Math.atan2(-(b[1] - a[1]), b[0] - a[0]), v: 0 };
+  const s = Math.min(drv.poly.L, t * drv.v), q = wkAt(drv.poly, s);
+  const p0 = wkAt(drv.poly, Math.max(0, s - 0.4)), p1 = wkAt(drv.poly, Math.min(drv.poly.L, s + 0.4));
+  return { x: q[0], z: q[1], yaw: Math.atan2(-(p1[1] - p0[1]), p1[0] - p0[0]), v: drv.v }; }
+function wkTaxiSchedule(dir) { dir = dir === 'back' ? 'back' : 'out';
+  const pick = wkPickPt(), pad = wkPadStop(), ladder = wkLadder(), load = wkLoadPt(), step = WK.step, up = wkUpDur(), h = wkHomes();
+  if (dir === 'out') {
+    const app = wkDrive(wkTruckOrigin(), pick), ride = wkDrive(pick, pad), walkL = wkRoad(pad, ladder).L / WK.v;
+    const tApp = app.T, tDown = step, tUp = up, tRide = ride.T, tOff = step, tWalk = walkL;
+    return { dir, app, ride, pick, pad, ladder, load, tApp, tDown, tUp, tRide, tOff, tWalk, tHome: 0, minerW: 0, drvW: 0, home: null,
+      total: tApp + tDown + tUp + tRide + tOff + tWalk }; }
+  const walkL = wkRoad(ladder, pad).L / WK.v, ride = wkDrive(pad, pick), home = wkDrive(pick, load);
+  const minerW = wkRoad(pick, h.miner).L / WK.v, drvW = wkRoad(pick, h.driver).L / WK.v, tUp = up, tRide = ride.T, tOff = step;
+  return { dir, app: null, ride, home, pick, pad, ladder, load, tApp: 0, tDown: 0, tUp, tRide, tOff, tWalk: walkL, tHome: home.T, minerW, drvW,
+    total: walkL + tUp + tRide + tOff + Math.max(minerW, drvW, home.T) }; }
+function wkGatherSec() { if (!wkPreHab()) return 0; return Math.max(wkTaxiSchedule('out').total, wkPersonSec('mech'), wkPersonSec('cm')); }
+function wkReturnSec() { if (!wkPreHab()) return 0; return Math.max(wkTaxiSchedule('back').total, wkPersonSec('mech'), wkPersonSec('cm')); }
 function wkArrived(t) { if (!wkPreHab() || !S.wk || !(S.wk.go > 0)) return true; return t >= S.wk.go + wkGatherSec() * 1000; }
-function wkHomeAt() { if (!S.wk || !(S.wk.down > 0)) return 0; return S.wk.down + (wkDescSec() + wkGatherSec()) * 1000; }
+function wkHomeAt() { if (!S.wk || !(S.wk.down > 0)) return 0; return S.wk.down + (wkDescSec() + wkReturnSec()) * 1000; }
 function minerOffAt(t) { if (S.wk && S.wk.go > 0) { if (S.wk.down > 0) return t >= S.wk.go && t < wkHomeAt(); return t >= S.wk.go; }
   const s = S.cg && S.cg.sh; return !!(s && s.st !== 'pad' && tripFly(s) >= CFG.crew0); }
 function wkCmBusy(t) { if (!S.wk || !(S.wk.go > 0)) return false; return S.wk.down > 0 ? t < wkHomeAt() : true; }
@@ -1434,7 +1466,60 @@ function wkPoseOne(key, t, dir) { const p = WK.people[key]; if (!p) return; cons
   else { if (obj.parent !== scene) scene.add(obj); obj.visible = true; wkPlace(obj, x, z, yaw); }
   wkPlay(p, clip, ct, clip === 'walk' || clip === 'idle');
   walkApplyObj('wk-' + key, obj, false); }
-function wkPoseWalk(t, dir) { for (const key of ['miner', 'driver', 'mech', 'cm']) wkPoseOne(key, t, dir); }
+function wkPoseWalk(t, dir) { wkPoseOne('mech', t, dir); wkPoseOne('cm', t, dir); wkPoseMine(t, dir); }
+function wkSide(x, z, yaw, sign) { const r = 1.85; return [x + Math.sin(yaw) * r * sign, z + Math.cos(yaw) * r * sign]; }
+function wkTaxiTruckAt(t) { if (!S.wk || !(S.wk.go > 0)) return null;
+  const sh = S.cg && S.cg.sh, pad = wkPadStop(), stay = { x: pad[0], z: pad[1], yaw: Math.PI / 2, v: 0, ph: 'hold' };
+  if (S.wk.down > 0) { const u = (t - S.wk.down) / 1000; if (u < wkDescSec()) return stay; return wkTruckFromSch(wkTaxiSchedule('back'), u - wkDescSec()); }
+  if (sh && sh.st !== 'pad' && wkArrived(t)) return stay;
+  return wkTruckFromSch(wkTaxiSchedule('out'), (t - S.wk.go) / 1000); }
+function wkTruckFromSch(sch, tau) { if (tau < 0) tau = 0;
+  if (sch.dir === 'out') {
+    if (tau < sch.tApp) { const p = wkDriveAt(sch.app, tau); p.ph = p.v > 0.15 ? 'out' : 'hold'; return p; }
+    const board = sch.tApp + sch.tDown + sch.tUp;
+    if (tau < board) { const p = wkDriveAt(sch.app, sch.app.T); p.v = 0; p.ph = 'hold'; return p; }
+    if (tau < board + sch.tRide) { const p = wkDriveAt(sch.ride, tau - board); p.ph = p.v > 0.15 ? 'out' : 'hold'; return p; }
+    const p = wkDriveAt(sch.ride, sch.ride.T); p.v = 0; p.ph = 'hold'; return p; }
+  if (tau < sch.tWalk + sch.tUp) { const p = wkDriveAt(sch.ride, 0); p.v = 0; p.ph = 'hold'; return p; }
+  if (tau < sch.tWalk + sch.tUp + sch.tRide) { const p = wkDriveAt(sch.ride, tau - sch.tWalk - sch.tUp); p.ph = p.v > 0.15 ? 'back' : 'hold'; return p; }
+  const after = sch.tWalk + sch.tUp + sch.tRide + sch.tOff;
+  if (tau < after) { const p = wkDriveAt(sch.ride, sch.ride.T); p.v = 0; p.ph = 'hold'; return p; }
+  const p = wkDriveAt(sch.home, tau - after); p.ph = p.v > 0.15 ? 'back' : 'hold'; return p; }
+function wkTaxiOverride(t, o) { const p = wkTaxiTruckAt(t); if (!p) return false;
+  o.x = p.x; o.z = p.z; o.yaw = p.yaw; o.v = p.v; o.ph = p.ph; o.fill = 0; o.shown = 0; o.el = 0; return true; }
+function wkBed() { return (typeof truckRoot !== 'undefined' && truckRoot) ? truckRoot.getObjectByName('Truck_Bed') : null; }
+function wkSeatOnBed(p, slot) { const bed = wkBed(); if (!p || !p.obj) return;
+  const seats = { miner: [-1.7, 1.05, 0.55], driver: [-1.7, 1.05, -0.55] }, s = seats[slot] || seats.miner;
+  if (bed) { bed.add(p.obj); p.obj.visible = true; p.obj.position.set(s[0], s[1], s[2]); p.obj.rotation.set(0, Math.PI / 2, 0); p.obj.scale.set(1, 1, 1); }
+  wkPlay(p, 'idle', 0, true); }
+function wkWalkTo(key, from, to, tau, extra) { const p = WK.people[key]; if (!p) return; extra = extra || {};
+  const poly = wkRoad(from, to), s = Math.min(Math.max(0, tau) * WK.v, poly.L), q = wkAt(poly, s);
+  let clip = 'walk', ct = s / WK.stride; if (s >= poly.L - 1e-6) { clip = extra.endClip || 'idle'; ct = extra.endCt || 0; }
+  else if (extra.startClip && tau < (extra.startDur || 0)) { clip = extra.startClip; ct = tau; }
+  const obj = p.handler ? p.root : p.obj; if (!obj) return;
+  if (p.handler) { obj.position.set(q[0] - PX, 0, q[1]); obj.rotation.set(0, q[2], 0); if (p.obj) p.obj.visible = true; }
+  else { if (obj.parent !== scene) scene.add(obj); obj.visible = true; wkPlace(obj, q[0], q[1], q[2]); }
+  wkPlay(p, clip, ct, clip === 'walk' || clip === 'idle'); walkApplyObj('wk-' + key, obj, false); }
+function wkStand(key, x, z, yaw, clip, ct) { const p = WK.people[key]; if (!p || !p.obj) return;
+  if (p.obj.parent !== scene) scene.add(p.obj); p.obj.visible = true; wkPlace(p.obj, x, z, yaw); wkPlay(p, clip || 'idle', ct || 0, (clip || 'idle') === 'idle' || clip === 'walk'); }
+function wkPoseMine(t, dir) { const sch = wkTaxiSchedule(dir), t0 = dir === 'back' ? S.wk.down + wkDescSec() * 1000 : S.wk.go;
+  let tau = (t - t0) / 1000; if (tau < 0) tau = 0; const truck = wkTruckFromSch(sch, tau), side = wkSide(truck.x, truck.z, truck.yaw, 1);
+  const h = wkHomes(), miner = WK.people.miner, driver = WK.people.driver;
+  if (dir === 'out') {
+    const a0 = 0, a1 = sch.tApp, d1 = a1 + sch.tDown, u1 = d1 + sch.tUp, r1 = u1 + sch.tRide, o1 = r1 + sch.tOff;
+    if (tau < a1) { wkStand('miner', h.miner[0], h.miner[1], 0, 'idle', 0); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'idle', 0); return; }
+    if (tau < d1) { wkWalkTo('miner', h.miner, side, tau - a1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - a1); return; }
+    if (tau < u1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - d1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - d1); return; }
+    if (tau < r1) { wkSeatOnBed(miner, 'miner'); wkSeatOnBed(driver, 'driver'); return; }
+    if (tau < o1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); return; }
+    wkWalkTo('miner', sch.pad, sch.ladder, tau - o1); wkWalkTo('driver', sch.pad, sch.ladder, tau - o1); return; }
+  const w1 = sch.tWalk, u1 = w1 + sch.tUp, r1 = u1 + sch.tRide, o1 = r1 + sch.tOff;
+  if (tau < w1) { wkWalkTo('miner', sch.ladder, sch.pad, tau); wkWalkTo('driver', sch.ladder, sch.pad, tau); return; }
+  if (tau < u1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - w1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - w1); return; }
+  if (tau < r1) { wkSeatOnBed(miner, 'miner'); wkSeatOnBed(driver, 'driver'); return; }
+  if (tau < o1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); return; }
+  wkWalkTo('miner', sch.pick, h.miner, tau - o1); wkWalkTo('driver', sch.pick, h.driver, tau - o1); }
+
 function wkPoseDescent(t) { if (!BD.acts || !BD.acts.crew_climb) return false; const u = (t - S.wk.down) / 1000, dur = wkDescSec(); if (u < 0 || u >= dur) return false;
   wkAttachBoard(); const a = BD.acts.crew_climb; if (BD.cur !== 'crew_climb_rev') { BD.mx.stopAllAction(); a.play(); a.setEffectiveWeight(1); BD.cur = 'crew_climb_rev'; }
   a.paused = true; a.timeScale = 1; a.time = clamp(dur - u, 0, dur - 1e-4); BD.mx.update(0);
@@ -1457,7 +1542,7 @@ function wkTryBind() { if (WK.ready || !WK.boardReady || !WK.brReady || !BD.root
   mk(c3, 'C3', 'miner'); mk(c4, 'C4', 'driver'); mk(c1, 'C1', 'mech');
   WK.people.cm = { obj: BRK.h.scene, root: BRK.h.root, mx: BRK.h.mx, acts: BRK.h.acts, key: 'cm', handler: true };
   WK.ready = true; wkParkIdle();
-  Object.assign(window.__ps3d, { wk: WK, wkGatherSec, wkHomes, wkArrived, minerOffAt, wkUpd, wkShouldPickup, wkPersonSec, wkDescSec, wkRoad, wkAt, wkPreHab, wkShortLaunchAllowed }); }
+  Object.assign(window.__ps3d, { wk: WK, wkGatherSec, wkReturnSec, wkHomes, wkArrived, minerOffAt, wkUpd, wkShouldPickup, wkPersonSec, wkDescSec, wkRoad, wkAt, wkPreHab, wkShortLaunchAllowed, wkTaxiSchedule, wkTaxiTruckAt, wkPickPt, wkPadStop }); }
 
 
 // ===== camera framing (fixed camera, ~14 m wide in portrait)
@@ -2311,9 +2396,9 @@ const farc = $('farc'), farcV = $('farcV'), farcT = $('farcT'); let farcK = '';
 function setAct(a, on) { if (!a) return; if (on) { if (!a.isRunning()) { a.reset(); a.play(); } } else if (a.isRunning() || a.enabled && a.getEffectiveWeight() > 0 && a.time > 0) a.stop(); }
 function updTruck() {
   if (!R.tl || !TQ.ok) return; const t = nowMs(), n = fleetN(); TC = RIG[0];
-  for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (o.ph === 'fill') TC = G;
+  for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (!i) wkTaxiOverride(t, o); if (o.ph === 'fill') TC = G;
     let shown = o.fill; if (o.ph === 'fill' && richTw && tkOf(i) === chuteTk()) { const u = (t - richTw.at) / 1000; if (u >= 1 || u < 0) richTw = null; else shown -= richTw.amt * (1 - fss(u)); }
-    o.shown = clamp(shown, 0, 1); }
+    o.shown = clamp(shown, 0, 1); if (!i && S.wk && S.wk.go > 0) { o.fill = 0; o.shown = 0; } }
   const crewOff = minerAway(); MR.fillNow = !crewOff && TC.ts.ph === 'fill' && TC.ts.fill < 1; setDigging(!crewOff && (MR.buf ? MR.fillNow || MR.st < 1 : MR.fillNow));   // pre-Habitat: the drill stops while the Miner is aboard. ca-minerevamp: Silo buffer only with OrePath_Bin_* + OrePath_Silo_* nodes
   if (TS.ph !== TS.last) { (window.__ps3d.phases = window.__ps3d.phases || []).push({ ph: TS.ph, at: t }); if (window.__ps3d.phases.length > 40) window.__ps3d.phases.shift(); TS.last = TS.ph; }
   if (n > 1 && TS2.ph !== TS2.last) { (window.__ps3d.phases2 = window.__ps3d.phases2 || []).push({ ph: TS2.ph, at: t }); if (window.__ps3d.phases2.length > 40) window.__ps3d.phases2.shift(); TS2.last = TS2.ph; }
