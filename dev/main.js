@@ -2321,7 +2321,7 @@ function cgComplete(c, t, acc) {
   else if (c.as.st === 'walk_back' && c.as.t0 + CG.walkBackSec * 1000 <= t) { c.as = { st: 'home', t0: t }; cgEv('astro_home', t); }
   if (c.rd && c.rd.t0 + CG.rideSec * 1000 <= t) rideEnd(c, c.rd.t0 + CG.rideSec * 1000);
   if (c.pc.k && pcEnd(c.pc) <= t) {
-    if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { if (c.rd) rideEnd(c, c.rd.t0 + CG.rideSec * 1000); c.rd = { t0: t, n: c.sh.hold, src: c.pc.k === 'dock' ? 'dock' : 'bay' }; c.dOpen = t + CG.rideDoorSec * 1000; cgEv('hold_ride', t, { slot: c.sh.hold + 1, src: c.rd.src }); }   // ca-cargoride: set on the Hold_Door shelf → rides in (c.rd, saved) → counted at the end
+    if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { if (c.rd) rideEnd(c, c.rd.t0 + CG.rideSec * 1000); c.rd = { t0: t, n: c.sh.hold, src: c.pc.k === 'dock' ? 'dock' : 'bay' }; cgEv('hold_ride', t, { slot: c.sh.hold + 1, src: c.rd.src }); }   // ca-cargoride: set on the open tray → level ride in through the door (c.rd, saved) → counted at the end
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
@@ -2561,7 +2561,8 @@ function cgBind() {
     return { root, sl, tr, ho, hk, cable: tr && tr.userData.cable, base, top: wp(sl).y, jib: glb ? glb.rmax : jib, rmin: glb ? glb.rmin : (root === cg3.rc ? CPH.ref.rmin : 1.2), glb, slots: slots.length === 8 ? slots : null, pick: wp(pk), drop: wp(dp) }; };
   cg3.RC = crane(cg3.rc, CPH.ref.mast, CPH.ref.jib); cg3.PC = crane(cg3.pc, CPH.pad.mast, CPH.pad.jib);
   if (cg3.padArt) { const w = (n) => { const o = cg3.pg.getObjectByName(n); return o ? o.getWorldPosition(new THREE.Vector3()) : null; };   // PC-1's targets are pad markers
-    cg3.PC.pick = w('Pick_Point'); cg3.PC.drop = w('Drop_Point'); cg3.PC.hiUnload = CPH.pad.hiUnload; cg3.PC.hiHold = CPH.pad.hiHold; }
+    cg3.PC.pick = w('Pick_Point'); cg3.PC.drop = w('Drop_Point'); cg3.PC.hiUnload = CPH.pad.hiUnload; cg3.PC.hiHold = CPH.pad.hiHold;
+    if (RDT.tray && RDT.seat) { const hy = RDT.seat.clone().applyMatrix4(cg3.ship.matrixWorld).y + BOXP.hookY; if (cg3.PC.hiHold > hy) cg3.PC.hiHold = hy; } }   // mid-door: GLB hold_high (hook 19.83) clips the parked panel (y 19.14); swing in at tray height instead
   const fb = cg3.fb, s1 = findA(fb, A.bedSlot1), s2 = findA(fb, A.bedSlot2);
   fb.position.set(0, 0, 0); fb.rotation.set(0, 0, 0); fb.updateMatrixWorld(true); const loc = (o) => o.getWorldPosition(new THREE.Vector3());   // slots in the flatbed root's space
   cg3.slots = [s1 ? loc(s1) : new THREE.Vector3(0, 1.2, 0), s2 ? loc(s2) : (s1 ? loc(s1).add(new THREE.Vector3(...A.bedSlot2Offset)) : new THREE.Vector3(-1.7, 1.2, 0))];
@@ -2569,6 +2570,7 @@ function cgBind() {
   fb.traverse(o => { if (o.isInstancedMesh && A.wheel.test(o.name)) cg3.wheels = o; });
   const wn = A.wheelNames.map(n => fb.getObjectByName(n)).filter(Boolean); if (wn.length) cg3.wheelNodes = wn.map(b => ({ b, q0: b.quaternion.clone() }));   // FB-05: spin about local +X
   cg3.holds = []; cg3.holdYaw = []; for (let i = 1; i <= CG.holdCap; i++) { const h = findA(cg3.ship, A.hold(i)); cg3.holds.push(h ? h.position.clone() : new THREE.Vector3(-3.5, .45, 0)); cg3.holdYaw.push(h ? h.rotation.y : 0); }
+  if (RDT.tray && RDT.seat && cg3.holds.length) { let lo = Infinity; for (const h of cg3.holds) if (h.y < lo) lo = h.y; const dy = RDT.seat.y - lo; if (dy > 1) for (const h of cg3.holds) h.y += dy; }   // mid-door pad: Hold_01..10 still sit on the old low decks (12.75 / 14.7); raise them onto the tray plane so the ride does not drop 4 m
   cg3.pg.updateMatrixWorld(true); const rv = findA(cg3.pg, A.receive), hm = findA(cg3.pg, PAD_ALIAS.home);
   cg3.receive = rv.getWorldPosition(new THREE.Vector3()); cg3.home = hm.getWorldPosition(new THREE.Vector3());
 }
@@ -2996,6 +2998,7 @@ function padLoaded(g) {
   // the ship rig: hull + cargo door + door shelf + hold slots move together on launch / landing
   const hull = o.getObjectByName('Ship_Placeholder'), rig = new THREE.Group(); rig.name = 'Ship_Rig'; rig.position.copy(hull.position); o.add(rig); rig.updateMatrixWorld(true);
   for (const n of ['Ship_Placeholder', 'Cargo_Door', 'Hold_Door', ...Array.from({ length: CG.holdCap }, (_, i) => 'Hold_' + String(i + 1).padStart(2, '0'))]) rig.attach(o.getObjectByName(n));
+  { const mid = o.getObjectByName('Crate_Drop_Hold_Mid'); if (mid) rig.attach(mid); }   // mid-door entrance (just inside the open sill); rides with the hull
   rig.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
   try { const prep = shipSkirtPrep(o, rig); cg3.cockpit = prep.cw; window.__ps3d.cockpit = prep.cw;
     loader.load(prep.url, (gs) => { try { shipSkirtLoaded(gs, prep); vfxLoad(prep); } catch (e) { console.warn('aft skirt bind failed', e); } }, undefined, (e) => console.warn('aft skirt failed to load', e));
@@ -3135,7 +3138,7 @@ function updCargo() {
 // pose is a pure function of game time (cargo_door_close, 1 → 0, so a reload mid-ride resumes the same pose) and the crate is drawn tray-attached
 // (tray world × RDT.off, the Hold_Door drop pose taken relative to the tray at the clip's open end). Then a code-only lift from the clip-end pose
 // (RDT.p1/q1, tray shut) to Hold_NN. No Hold_Deck_Mid, no slide; the crate mesh is reused (instanced boxAtM), nothing is allocated per frame
-const RDT = { tray: null, seat: new THREE.Vector3(), off: new THREE.Matrix4(), p1: new THREE.Vector3(), q1: new THREE.Quaternion(), s1: new THREE.Vector3() }, RDQ = { n: -1, u: 0, ph: '', x: 0, y: 0, z: 0 };
+const RDT = { tray: null, seat: new THREE.Vector3(), off: new THREE.Matrix4(), p1: new THREE.Vector3(), q1: new THREE.Quaternion(), s1: new THREE.Vector3(), pIn: new THREE.Vector3() }, RDQ = { n: -1, u: 0, ph: '', x: 0, y: 0, z: 0 };
 const _rdP = new THREE.Vector3(), _rdQ = new THREE.Quaternion(), _rdH = new THREE.Quaternion(), _rdM = new THREE.Matrix4(), _rdI = new THREE.Matrix4();
 function rideBind(rig, tray, D) {      // called once at pad load, rig at rest: tray-relative offset of the Hold_Door drop pose + the pose it ends at when the clip shuts
   const a = D.ca.cargo_door_open, c = D.ca.cargo_door_close;
@@ -3145,6 +3148,10 @@ function rideBind(rig, tray, D) {      // called once at pad load, rig at rest: 
   _rdQ.setFromAxisAngle(_Y, cg3.holdDoorYaw); _rdM.compose(RDT.seat, _rdQ, _cs); RDT.off.multiplyMatrices(_rdI, _rdM);   // crate in tray space
   a.stop(); if (c) { c.play(); c.time = c.getClip().duration; } else { a.play(); a.time = 0; } D.mx.update(0); rig.updateMatrixWorld(true);
   _rdM.copy(rig.matrixWorld).invert().multiply(tray.matrixWorld).multiply(RDT.off); _rdM.decompose(RDT.p1, RDT.q1, RDT.s1);   // rig space, tray shut
+  { const mid = rig.getObjectByName('Crate_Drop_Hold_Mid');   // just inside the open mid-door sill (level conveyor waypoint); fall back to shut-tray xz kept at seat height
+    if (mid) { mid.updateWorldMatrix(true, false); RDT.pIn.copy(mid.getWorldPosition(_rdP)).applyMatrix4(_rdM.copy(rig.matrixWorld).invert()); }
+    else RDT.pIn.set(RDT.p1.x, RDT.seat.y, RDT.p1.z);
+    RDT.pIn.y = RDT.seat.y; }
   (c || a).stop(); a.play(); a.time = a.getClip().duration; D.mx.update(0); rig.updateMatrixWorld(true); RDT.box = new THREE.Box3().setFromObject(tray); RDT.drop = RDT.seat.clone().applyMatrix4(rig.matrixWorld); RDT.trayW = tray.getWorldPosition(new THREE.Vector3());
   a.time = 0; D.mx.update(0); a.stop(); rig.updateMatrixWorld(true); D.cur = ''; RDT.tray = tray; window.__ps3d.RDT = RDT;
 }
@@ -3152,9 +3159,9 @@ function rideDoorK(c, now) { return 1; }   // Jacob 11/2: the door no longer car
 function rideDraw(c, now, sh) {
   const n = Math.min(c.rd.n, CG.holdCap - 1), H = cg3.holds[n]; if (!H || !(RDT.tray || cg3.holdDoor)) return;   // pad rig not bound yet (a reload mid-ride, still loading)
   const u = clamp((now - c.rd.t0) / (CG.rideSec * 1000), 0, 1), ds = CG.rideDoorSec / CG.rideSec;
-  if (RDT.tray && u < ds) { const w = fss(clamp(u / ds, 0, 1)); _rdP.set(H.x, RDT.seat.y, H.z); _rdP.lerpVectors(RDT.seat, _rdP, w); _rdQ.copy(RDT.q1); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'slide'; }   // level slide from the open tray in through the door
-  else { const w = fss((u * CG.rideSec - CG.rideDoorSec) / (CG.rideSec - CG.rideDoorSec)), p0 = RDT.tray ? _rdP.set(H.x, RDT.seat.y, H.z) : cg3.holdDoor;
-    _rdH.setFromAxisAngle(_Y, cg3.holdYaw[n] || 0); if (RDT.tray) _rdQ.copy(RDT.q1); else _rdQ.setFromAxisAngle(_Y, cg3.holdDoorYaw || 0);
+  if (RDT.tray && u < ds) { const w = fss(clamp(u / ds, 0, 1)); _rdP.lerpVectors(RDT.seat, RDT.pIn, w); _rdQ.setFromAxisAngle(_Y, cg3.holdDoorYaw || 0); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'slide'; }   // level slide through the open doorway (not toward each Hold_NN, which clips the jamb)
+  else { const w = fss((u * CG.rideSec - CG.rideDoorSec) / (CG.rideSec - CG.rideDoorSec)), p0 = RDT.tray ? RDT.pIn : cg3.holdDoor;
+    _rdH.setFromAxisAngle(_Y, cg3.holdYaw[n] || 0); _rdQ.setFromAxisAngle(_Y, cg3.holdDoorYaw || 0);
     _rdP.lerpVectors(p0, H, w); _rdQ.slerp(_rdH, w); _rdM.compose(_rdP, _rdQ, _cs).premultiply(sh.matrixWorld); RDQ.ph = 'lift'; }
   boxAtM(_rdM); RDQ.n = n; RDQ.u = u; RDQ.x = _rdM.elements[12]; RDQ.y = _rdM.elements[13]; RDQ.z = _rdM.elements[14]; window.__ps3d.ride = RDQ;   // QA read-out (one shared object)
 }
