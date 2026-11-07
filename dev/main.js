@@ -2292,7 +2292,8 @@ const CPH = {
 // every DOCK_LOAD_S game seconds (shared clock nowMs, so QA fast-forward scales it); bay (mining) boxes go into the hold only once the Dock is empty.
 // Placeholder path: this base has no Dock→pad conveyor / V1 lift, so the Dock box is picked at the next free bay slot and carried through the cargo door tray.
 const DOCK_LOAD_S = CFG.dock.loadS;   // ca-dock: named alias of CFG.dock.loadS (retune in CFG)
-const pcSec = (k) => k === 'unload' ? CG.padUnloadSec : k === 'dock' ? DOCK_LOAD_S : CG.holdLoadSec;   // PC-1 lift time by kind
+const CRANE_TIME_MULT = 1.5;   // gc-crane15: Dock GC-1 and pad PC-1 step times (slew, hoist, lower, hook, tray). Matching dock-stop / pad-lift waits use the scaled helpers below. The Refinery crane (CG.refLoadSec) does not.
+const pcSec = (k) => (k === 'unload' ? CG.padUnloadSec : k === 'dock' ? DOCK_LOAD_S : CG.holdLoadSec) * CRANE_TIME_MULT;   // PC-1 lift time by kind
 const pcEnd = (pc) => pc.t0 + pcSec(pc.k) * 1000 + (pc.w || 0);   // GD 01:33: + the wait (pc.w ms) hovering over the tray until the door has fully reopened
 const pcWait = (c, k, t) => Math.max(0, (c.dOpen || 0) - (t + .7 * pcSec(k) * 1000));   // the hook starts down onto the tray at u .7: not before the door is open (c.dOpen)
 const pcU = (pc, now) => { const T = pcSec(pc.k) * 1000, e = now - pc.t0, w = pc.w || 0; return e < .7 * T ? e / T : e < .7 * T + w ? .7 : (e - w) / T; };   // crane job progress, holding at .7 (over the tray) while it waits
@@ -2302,7 +2303,7 @@ const pcHold = (k) => k === 'hold' || k === 'dock';                    // a lift
 const holdN = (c) => c.sh.hold + (c.rd ? 1 : 0);                        // boxes in the hold + the one riding in (slot / capacity)
 function rideEnd(c, t) { c.sh.hold++; cgEv('hold_loaded', t, { hold: c.sh.hold, src: c.rd.src }); c.rd = 0; }
 const dockClipEnd = () => CPH.dock.settle + 2 * CPH.dock.clipSec;   // Art's store / load clip pair at 1x (44.4 s)
-const dockAnimSec = (a) => a && a.s > 0 ? a.s : dockClipEnd();      // gc-dockfix: a store plays the clip pair inside the stop (dka.s, saved); old saves' dka (no s) keep 1x
+const dockAnimSec = (a) => a && a.s > 0 ? a.s : dockClipEnd() * CRANE_TIME_MULT;      // gc-dockfix: a store plays the clip pair inside the stop (dka.s, saved); old saves' dka (no s) keep 1x. Load clips (no s) run at CRANE_TIME_MULT.
 const dockBusyEnd = (c) => c.dka ? c.dka.t0 + dockAnimSec(c.dka) * 1000 : 0;   // the Dock crane's store / load clips end here
 const dockBusy = (c, t) => c.fb.st === 'dock' || t < dockBusyEnd(c);   // one Dock crane: no Dock-first lift while it is storing (stock count + slot clips stay exact)
 const PX = PADI * GAP;   // 640 (PADI is declared with GAP / DOCKI / SHIPI / HABI)
@@ -2396,7 +2397,7 @@ const shipReady = (c, t) => c.sh.st === 'pad' && t >= fuelFinishAt(c);   // on t
 // refuelling, away (board / launch / away / land), with a full hold, or with a Launch tap pending: then a loaded flatbed stores at the Dock (cap CFG.dock.cap).
 // Each box is counted once: +1 Dock when its store clip ends, −1 Dock when PC-1 lifts it (Dock-first, also during the refuel); one Dock crane (dockBusy), no loop.
 const shipTakes = (c, t) => shipReady(c, t) && !c.sh.req && holdN(c) < holdCap() && c.autoLoad;   // ca-cargoride: the crate riding in counts
-const dockSec = (f) => f.dk === 'load' ? CPH.dock.loadSec : Math.max(1, f.bed || CG.perTrip) * CFG.dock.storeS;   // gc-dockfix item 1: store stop = CFG.dock.storeS per crate (3 s; was a fixed CPH.dock.storeSec 31.4 s)
+const dockSec = (f) => (f.dk === 'load' ? CPH.dock.loadSec : Math.max(1, f.bed || CG.perTrip) * CFG.dock.storeS) * CRANE_TIME_MULT;   // gc-dockfix item 1: store stop = CFG.dock.storeS per crate (3 s; was a fixed CPH.dock.storeSec 31.4 s)
 const tripN = (c) => c.ft ? CG.perTrip : (CG.firstTrip || CG.perTrip);   // gc-dockfix item 6: a new save's first flatbed trip leaves with CG.firstTrip crate(s); every later trip CG.perTrip
 function cgNext(c) {
   let n = Infinity; const T = (x) => { if (x < n) n = x; }, s = c.sh;
@@ -2519,7 +2520,7 @@ function loadOne() { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - 
 function setShipTgl(k) { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } S.cg[k] = !S.cg[k]; save(); UPK.k = ''; upUI(); }   // settle first, so a switch applies from now
 function astroPhase(c, t) {
   const a = c.as; if (a.st !== 'ready') return a.st;
-  if (c.pc.k === 'unload') { const u = (t - c.pc.t0) / (CG.padUnloadSec * 1000); return u >= 1 - CG.checkSec / CG.padUnloadSec ? 'check_in' : 'guide'; }
+  if (c.pc.k === 'unload') { const T = pcSec('unload'); const u = (t - c.pc.t0) / (T * 1000); return u >= 1 - CG.checkSec / T ? 'check_in' : 'guide'; }
   return 'guide';
 }
 // Earth drop-off: perCrateValue × boxes. dropoffValue(purity) is one full hold at the current ship capacity.
@@ -3286,7 +3287,7 @@ function rxPose(c, t, ap) {           // Receiver clips are sampled from S.cg ti
   const X = cg3.rx, a = c.as, el = (t - a.t0) / 1000; let n, x;
   if (a.st === 'walk_out') { n = 'walk_out'; x = el; }
   else if (a.st === 'walk_back') { n = 'walk_back'; x = el; }
-  else if (a.st === 'ready') { if (ap === 'check_in') { n = 'check_in'; x = (t - c.pc.t0) / 1000 - (CG.padUnloadSec - CG.checkSec); } else { n = 'guide'; x = el % X.acts.guide.getClip().duration; } }
+  else if (a.st === 'ready') { if (ap === 'check_in') { n = 'check_in'; x = (t - c.pc.t0) / 1000 - (pcSec('unload') - CG.checkSec); } else { n = 'guide'; x = el % X.acts.guide.getClip().duration; } }
   else { n = 'walk_out'; x = 0; }         // home: walk_out frame 0 = walk_back's last frame (at the Home_Point)
   const act = X.acts[n], d = act.getClip().duration; x = clamp(x, 0, d - 1e-3);
   if (X.cur !== n) { X.mx.stopAllAction(); act.play(); act.setEffectiveWeight(1); X.cur = n; }
@@ -4620,7 +4621,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
-  get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, get cargoLog() { return CG_LOG.slice(); },
+  get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, CRANE_TIME_MULT, pcSec, dockSec, dockClipEnd, dockAnimSec, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, MR, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
