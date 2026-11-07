@@ -624,7 +624,7 @@ const STATION_GLB = [
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; dockLoaded(o, g); dockRoadCheck(o); } },
-  { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g, 1.21) },   // (1.21 s: HB-1 only, so the subclip keeps its 1.2 s key and the door reaches weight 1; EM 21:37) Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A); CAM_OVERRIDE 75901d07 adds only a desktop frame_h floor. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
+  { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g, 1.21) },   // (1.21 s: HB-1 only, so the subclip keeps its 1.2 s key and the door reaches weight 1; EM 21:37) Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A); CAM_OVERRIDE 75901d07 recentres the look-at on the yard and sets frame_w 80 (phones) plus the desktop frame_h floor. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
   { i: HABI, url: 'models/habitat_v2_airlock_framed_a6381a77.glb?v=a6381a77', loops: [], onLoad: (o) => habAirlock(o) },   // Habitat v2 framed airlock (Art FRAMED_DOOR_SPEC, md5 a6381a77…): 13 draws, 16,288 tris, Cam_Target frame_w 48; doors idle + closed, light at its GLB default (EM 19:28)
 ];
 // Habitat airlock (EM 19:28): load-and-place only. Doors stay at their closed pivots (extras slide_axis x / slide_m 1.95 are unused, no door code) and
@@ -670,7 +670,7 @@ const CAM_OVERRIDE = {
   'e8427ec4': { glb: 'life_support adfaac9', ct: { y: -3.58 }, frame_w: 47.6 },                  // Art 5d16bad (was y -3.1 / W 46, Director 21:25): ~9 px spare top+bottom at 375×667 incl. the paint apron
   '6113fa89': { glb: 'life_support_game_pipes_alt_z17 (repo LS b4edef9a + LS_Pipes, Art 10/31)', ct: { y: -3.58 }, frame_w: 47.6 },   // same LS framing as e8427ec4 (GLB Cam_Target is (0, -4.63, -12.5) W 38.5; override keeps the approved Director framing)
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
-  '75901d07': { glb: 'shipyard_game_v3_hb1 (Jacob approved 10/31 20:59; Cam_Target (-7, 23.5, 84.55) + frame_w 134 unchanged)', frame_h: 150 },   // desktop only: with the width-only fit the 50 m crane tower ran under the HUD at 1280x800 / 1440x900; frame_h = height floor (fitSite), phones keep the GLB fit
+  '75901d07': { glb: 'shipyard_game_v3_hb1 (gc-fix78: look-at was (-7, 23.5, 84.55) frame_w 134 — 84 m of empty apron in front of the hall, so the card-open view was a tiny yard on a huge moon)', ct: { x: -6, y: 18, z: 12 }, frame_w: 80, frame_h: 150 },   // phones: width fit like Dock/Habitat so the hall+highbay+crane fill the band above the sheet; desktop frame_h 150 still clears the 50 m crane at 1280x800 / 1440x900
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
@@ -1280,7 +1280,7 @@ function updCrew() {
   const b = boardOf(), tb = b ? (nowMs() - b.B) / 1000 : -1, act = !!b && tb >= 0 && tb < BD.lift;
   const cv = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site / lead-in: no draws
   fadeObj(BD.root, cv ? fss((tb - BD.pre) / BCAM.fadeIn) : 0);   // the climbers fade in at full follow framing (no pop)
-  if (cv) crewPose(tb - BD.pre);
+  if (cv) { crewPose(tb - BD.pre); for (let i = 0; i < BD.n; i++) if (BD.crew[i] && BD.crew[i].visible) walkApplyObj('crew' + i, BD.crew[i], false); }
   crewOnPad();
   if (act && (!S.bc || S.bc.id !== b.id)) { S.bc = { id: b.id, on: viewingPad() ? 1 : 0, x: 0 }; save(); }   // gate: decided once per boarding, saved
   let w = 0;
@@ -2632,6 +2632,84 @@ const carryYaw = (u, y0, y1) => u < .45 ? y0 : u < .7 ? lerpA(y0, y1, fss((u - .
 const stackPos = (i, o = new THREE.Vector3()) => cg3.RC.slots ? o.copy(cg3.RC.slots[Math.min(i, 7)]) : o.set(cg3.RC.base.x + RC_SLOTS[i & 7][0], RC_SLOTS[i & 7][1], cg3.RC.base.z + RC_SLOTS[i & 7][2]);   // fill 01→08, pick 08→01
 const bayPos = (i, o = new THREE.Vector3()) => { if (cg3.baySlots) return o.copy(cg3.baySlots[i % 12]).setY(cg3.baySlots[i % 12].y + Math.floor(i / 12) * 1.5); const b = cg3.PC.drop, w = i % 6; return o.set(b.x + (w % 2 ? 1.25 : -1.25), .25 + Math.floor(i / 6) * 1.5, b.z + (Math.floor(w / 2) - 1) * 1.45); };   // 2 × 3 × 2 = bayCap 12
 function slotW(i, o = new THREE.Vector3()) { return o.copy(cg3.slots[i]).applyMatrix4(cg3.fb.matrixWorld); }
+// gc-fix78 (#7): walkers go around crate footprints (bay racks, conveyor pallet, dock slots, hold, a crate on a hook
+// at walker height). Inflated AABBs + a small Dijkstra over box corners; the original path is kept when it's clear
+// so the walk stays natural (no per-frame nearest-edge pop). Cheap: only nearby crates, only when a segment hits.
+const WALK = { r: 0.42, n: 0, pool: [], st: {} };
+const _wC = Array.from({ length: 8 }, () => new THREE.Vector3()), _wP = new THREE.Vector3(), _wQ = new THREE.Vector3();
+function walkIm() {                // largest crate part (SHM_Paint over the glow piece)
+  const parts = cg3.boxParts; if (!parts || !parts.length) return null;
+  let best = null, vol = -1;
+  for (const p of parts) { if (!p.im || !p.im.geometry) continue; const g = p.im.geometry; if (!g.boundingBox) g.computeBoundingBox();
+    const b = g.boundingBox, v = (b.max.x - b.min.x) * (b.max.y - b.min.y) * (b.max.z - b.min.z); if (v > vol) { vol = v; best = p.im; } }
+  return best; }
+function walkCollect() {           // world AABBs from this frame's posed instances (after nBox is written)
+  WALK.n = 0; const im = walkIm(); if (!im || !im.count) return;
+  const g = im.geometry; if (!g.boundingBox) g.computeBoundingBox(); const lb = g.boundingBox, r = WALK.r;
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k2 = 0; k2 < 2; k2++) _wC[i * 4 + j * 2 + k2].set(i ? lb.max.x : lb.min.x, j ? lb.max.y : lb.min.y, k2 ? lb.max.z : lb.min.z);
+  for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, _cm);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (let c = 0; c < 8; c++) { _wP.copy(_wC[c]).applyMatrix4(_cm); x0 = Math.min(x0, _wP.x); x1 = Math.max(x1, _wP.x); y0 = Math.min(y0, _wP.y); y1 = Math.max(y1, _wP.y); z0 = Math.min(z0, _wP.z); z1 = Math.max(z1, _wP.z); }
+    const b = WALK.pool[WALK.n] || (WALK.pool[WALK.n] = {});
+    b.rx0 = x0; b.rx1 = x1; b.rz0 = z0; b.rz1 = z1; b.y0 = y0; b.y1 = y1;
+    b.x0 = x0 - r; b.x1 = x1 + r; b.z0 = z0 - r; b.z1 = z1 + r; WALK.n++; } }
+function walkNear(y, x, z, extra) { const out = [], y0 = y - 0.3, y1 = y + 1.9, e = extra == null ? 18 : extra;
+  for (let i = 0; i < WALK.n; i++) { const b = WALK.pool[i]; if (b.y1 < y0 || b.y0 > y1) continue;
+    if (x != null && (b.x1 < x - e || b.x0 > x + e || b.z1 < z - e || b.z0 > z + e)) continue; out.push(b); } return out; }
+function walkInside(x, z, b) { return x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1; }
+function walkSegHit(ax, az, bx, bz, b) { let t0 = 0, t1 = 1, dx = bx - ax, dz = bz - az;
+  const clip = (p, q) => { if (Math.abs(p) < 1e-12) return q >= 0; const r = q / p; if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; } return true; };
+  return clip(-dx, ax - b.x0) && clip(dx, b.x1 - ax) && clip(-dz, az - b.z0) && clip(dz, b.z1 - az); }
+function walkClear(ax, az, bx, bz, boxes) { if (Math.hypot(bx - ax, bz - az) < 1e-8) return !boxes.some(b => walkInside((ax + bx) / 2, (az + bz) / 2, b));
+  for (const b of boxes) if (walkSegHit(ax, az, bx, bz, b)) return false; return true; }
+function walkSnap(x, z, boxes) { let px = x, pz = z;
+  for (let k = 0; k < 10; k++) { let hit = null; for (const b of boxes) if (walkInside(px, pz, b)) { hit = b; break; } if (!hit) break;
+    const opts = [[hit.x0, pz], [hit.x1, pz], [px, hit.z0], [px, hit.z1]]; let best = opts[0], bd = 1e9;
+    for (const o of opts) { const d = (o[0] - px) * (o[0] - px) + (o[1] - pz) * (o[1] - pz); if (d < bd) { bd = d; best = o; } } px = best[0]; pz = best[1]; }
+  return [px, pz]; }
+function walkDetour(ax, az, bx, bz, boxes) { if (walkClear(ax, az, bx, bz, boxes)) return [[ax, az], [bx, bz]];
+  const nodes = [[ax, az], [bx, bz]];
+  for (const b of boxes) { const e = 0.04; nodes.push([b.x0 - e, b.z0 - e], [b.x0 - e, b.z1 + e], [b.x1 + e, b.z0 - e], [b.x1 + e, b.z1 + e]); }
+  const N = nodes.length, dist = new Float64Array(N), prev = new Int16Array(N), used = new Uint8Array(N);
+  dist.fill(1e15); prev.fill(-1); dist[0] = 0;
+  for (let it = 0; it < N; it++) { let u = -1, bd = 1e15; for (let i = 0; i < N; i++) if (!used[i] && dist[i] < bd) { bd = dist[i]; u = i; }
+    if (u < 0) break; if (u === 1) break; used[u] = 1;
+    for (let v = 0; v < N; v++) if (!used[v] && walkClear(nodes[u][0], nodes[u][1], nodes[v][0], nodes[v][1], boxes)) {
+      const d = dist[u] + Math.hypot(nodes[v][0] - nodes[u][0], nodes[v][1] - nodes[u][1]); if (d < dist[v]) { dist[v] = d; prev[v] = u; } } }
+  if (prev[1] < 0) return [[ax, az], [bx, bz]];
+  const path = []; for (let v = 1; v !== 0; v = prev[v]) path.push(nodes[v]); path.reverse(); path.unshift([ax, az]); return path; }
+function walkAdvance(from, path, dist) { let x = from[0], z = from[1], left = dist, yaw = null;
+  for (let i = 1; i < path.length; i++) { const dx = path[i][0] - x, dz = path[i][1] - z, L = Math.hypot(dx, dz); if (L < 1e-9) continue;
+    yaw = Math.atan2(-dz, dx); if (left <= L) return [x + dx / L * left, z + dz / L * left, yaw]; x = path[i][0]; z = path[i][1]; left -= L; }
+  return [x, z, yaw]; }
+function walkSteer(id, ix, iz, iy) { const boxes = walkNear(iy, ix, iz, 20);
+  const [gx, gz] = walkSnap(ix, iz, boxes);
+  let st = WALK.st[id]; if (!st) st = WALK.st[id] = { x: gx, z: gz, ix, iz, pix: ix, piz: iz };
+  const step = Math.hypot(ix - st.ix, iz - st.iz); st.ix = ix; st.iz = iz;
+  const [sx, sz] = walkSnap(st.x, st.z, boxes); st.x = sx; st.z = sz;
+  let tx = gx, tz = gz;
+  const dx = ix - st.pix, dz = iz - st.piz; st.pix = ix; st.piz = iz;
+  if (boxes.some(b => walkInside(ix, iz, b))) { const L = Math.hypot(dx, dz);
+    if (L > 1e-4) { const ux = dx / L, uz = dz / L;
+      for (let s = 0.35; s <= 16; s += 0.35) { const qx = ix + ux * s, qz = iz + uz * s; if (!boxes.some(b => walkInside(qx, qz, b))) { tx = qx; tz = qz; break; } } } }
+  if (walkClear(st.x, st.z, tx, tz, boxes) && Math.hypot(tx - gx, tz - gz) < 0.08) { st.x = gx; st.z = gz; st.moved = false; return st; }
+  const path = walkDetour(st.x, st.z, tx, tz, boxes);
+  const [nx, nz, yaw] = walkAdvance([st.x, st.z], path, Math.max(step * 1.25, 0.05));
+  st.x = nx; st.z = nz; if (yaw != null) st.yaw = yaw; st.moved = Math.hypot(nx - gx, nz - gz) > 0.06; return st; }
+function walkApplyObj(id, obj, face) { if (!obj) return false; if (!WALK.n) { delete WALK.st[id]; return false; }
+  obj.updateWorldMatrix(true, false); const w = obj.getWorldPosition(_wP), st = walkSteer(id, w.x, w.z, w.y);
+  const par = obj.parent; if (par) { _wQ.set(st.x, w.y, st.z); par.worldToLocal(_wQ); obj.position.x = _wQ.x; obj.position.z = _wQ.z; }
+  else { obj.position.x = st.x; obj.position.z = st.z; }
+  if (face && st.moved && st.yaw != null) obj.rotation.y = st.yaw;
+  return !!st.moved; }
+function walkHits(x, z, y) { let n = 0; const y0 = y - 0.25, y1 = y + 1.85;
+  for (let i = 0; i < WALK.n; i++) { const b = WALK.pool[i]; if (b.y1 < y0 || b.y0 > y1) continue; if (x > b.rx0 && x < b.rx1 && z > b.rz0 && z < b.rz1) n++; } return n; }
+function walkList() { const out = [];
+  const add = (id, o) => { if (!o) return; let vis = true; for (let p = o; p; p = p.parent) if (p.visible === false) vis = false;
+    o.updateWorldMatrix(true, false); const w = o.getWorldPosition(_wP); out.push({ id, x: +w.x.toFixed(3), y: +w.y.toFixed(3), z: +w.z.toFixed(3), vis, hits: walkHits(w.x, w.z, w.y) }); };
+  if (BRK.ok && BRK.h) add('handler', BRK.h.root); if (cg3 && cg3.astro) add('astro', cg3.rx ? cg3.rx.root : cg3.astro);
+  if (BD.crew) for (let i = 0; i < BD.crew.length; i++) add('crew' + i, BD.crew[i]); return out; }
+Object.assign(window.__ps3d, { walkBoxes: () => WALK.pool.slice(0, WALK.n).map(b => ({ x0: +b.rx0.toFixed(3), x1: +b.rx1.toFixed(3), y0: +b.y0.toFixed(3), y1: +b.y1.toFixed(3), z0: +b.rz0.toFixed(3), z1: +b.rz1.toFixed(3) })), walkers: walkList, walkHits });
 const _pk = new THREE.Vector3(), _dp = new THREE.Vector3(), _hw = new THREE.Vector3();
 function fbPoseAt(c, t, o) {
   const f = c.fb; o.ph = f.st;
@@ -2878,9 +2956,12 @@ function brStep(t, dt) {   // pose the whole room at loop time t (dt only drives
   H.acts[P.c].time = clamp(P.ct, 0, H.acts[P.c].getClip().duration - 1e-4); if (prev && prev.c !== P.c) H.acts[prev.c].time = clamp(prev.ct, 0, H.acts[prev.c].getClip().duration - 1e-4);
   H.mx.update(0); BRK.leg = i; BRK.clip = P.c; BRK.ct = P.ct;
   const R = H.root; R.position.set(P.r[0], P.r[1], P.r[2]); R.rotation.set(0, P.r[3] * Math.PI / 180, 0);
-  if (L.k !== 'walk' || !BRK.lock) { BRK.O.set(0, 0); BRK.pl = [null, null]; }
-  R.position.x += BRK.O.x; R.position.z += BRK.O.y; R.updateMatrixWorld(true);
-  if (L.k === 'walk' && BRK.lock) brFootLock(P.r[1], dt);
+  const around = walkApplyObj('handler', R, L.k === 'walk' || L.k === 'ramp');   // gc-fix78: around bay / hold crates (after the path pose)
+  if (around) { BRK.O.set(0, 0); BRK.pl = [null, null]; R.updateMatrixWorld(true); }
+  else {
+    if (L.k !== 'walk' || !BRK.lock) { BRK.O.set(0, 0); BRK.pl = [null, null]; }
+    R.position.x += BRK.O.x; R.position.z += BRK.O.y; R.updateMatrixWorld(true);
+    if (L.k === 'walk' && BRK.lock) brFootLock(P.r[1], dt); }
 }
 const _brV = new THREE.Vector3();
 function brFootLock(y0, dt) {   // corner foot lock (try 2): the most recently planted foot (ankle ≤ its Walk_Loop low + 2 cm) is held where it landed; the root takes the correction
@@ -3156,6 +3237,8 @@ function updCargo() {
   const py0 = c.pc.k === 'unload' ? FBS.yaw : 0, py1 = c.pc.k === 'unload' ? 0 : cg3.holdDoor ? cg3.holdDoorYaw : cg3.holdYaw[holdN(c)] || 0;
   if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp, carryYaw(v, py0, py1));
   for (const b of cg3.boxParts) { b.im.count = nBox; b.im.instanceMatrix.needsUpdate = true; if (nBox) b.im.computeBoundingSphere(); }   // culled with the camera off-site
+  walkCollect();
+  if (cg3.astro) walkApplyObj('astro', cg3.rx ? cg3.rx.root : cg3.astro, true);
   window.__ps3d.cargoFrame = { boxes: nBox, astro: ap, oldRecv: OLD_RECV, rxClip: cg3.rx ? cg3.rx.cur : null, fb: FBS.ph, v: +FBS.v.toFixed(2), art: Object.keys(CART.ok).filter(k => CART.ok[k]) };
 }
 // ca-cargoride (Director 00:43): the crate the crane set on the open Cargo_Tray rides in ON the closing door: for the first CG.rideDoorSec of c.rd the door
@@ -3539,7 +3622,8 @@ const UPT = [
   // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
   { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
-  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base']), hl: () => soonObjs(SHIPI, ['shipyard_base']) },
+  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base']), hl: () => soonObjs(SHIPI, ['shipyard_base']),
+    box: (b) => { const o = stationObjs[SHIPI]; if (!o) return null; const x = o.position.x; b.min.set(x - 38, 0, -32); b.max.set(x + 38, 50, 18); return b; } },   // gc-fix78: visual hall+highbay+crane, not setFromObject(shipyard_base) (~150 m apron)
   { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']), hl: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']) },
   { id: 'engineering', p: 'soonEng', site: 7, objs: () => soonObjs(7, []), hl: () => soonObjs(7, []) },
   // gc-brkfade ticket 1 (Director 01:54, option a): the break room is part of the Pad, so a tap on it opens the Cargo Ship card. Meshes only (room,
