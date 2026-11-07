@@ -1309,6 +1309,7 @@ function crewPose(tb) {                // pure: tb seconds since the launch
 const crewCamAt = (tb, o = BC) => BD.fc.at(tb - BD.pre, o), crewCamW = (tb) => BD.fc.w(tb - BD.pre), crewPoseB = (tb) => crewPose(tb - BD.pre);
 const viewingPad = () => S.site === PADI && Math.abs(camX - PX) < 3 && !drag;
 function updCrew() {
+  if (typeof walkCollect === 'function') walkCollect();   // bay/dock racks + last frame's crates, before this frame's walks
   wkUpd(nowMs());
   if (!BD.root) { crewOnPad(); return; }
   const b = boardOf(), tb = b ? (nowMs() - b.B) / 1000 : -1, act = !!b && tb >= 0 && tb < BD.lift;
@@ -1316,7 +1317,7 @@ function updCrew() {
   const cv = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site / lead-in: no draws
   const descending = !!(S.wk && S.wk.down > 0 && (nowMs() - S.wk.down) / 1000 < wkDescSec());
   const persist = WK.ready && wkPreHab(); fadeObj(BD.root, descending ? 1 : cv ? (persist ? 1 : fss((tb - BD.pre) / BCAM.fadeIn)) : 0);   // pre-hab: same C-rig bodies, no climber fade-in; descent keeps the ladder group visible
-  if (cv) { crewPose(tb - BD.pre); for (let i = 0; i < BD.n; i++) if (BD.crew[i] && BD.crew[i].visible) walkApplyObj('crew' + i, BD.crew[i], false); }
+  if (cv) { crewPose(tb - BD.pre); for (let i = 0; i < BD.n; i++) if (BD.crew[i] && BD.crew[i].visible) crewNav('bd' + i, BD.crew[i]); }
   crewOnPad();
   if (act && (!S.bc || S.bc.id !== b.id)) { S.bc = { id: b.id, on: viewingPad() ? 1 : 0, x: 0 }; save(); }   // gate: decided once per boarding, saved
   let w = 0;
@@ -1375,7 +1376,8 @@ function wkAt(poly, s) { const p = poly.pts; if (s <= 0) { const a = p[0], b = p
   const a = p[lo], b = p[hi], u = (s - poly.seg[lo]) / (poly.seg[hi] - poly.seg[lo] || 1); return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, Math.atan2(b[0] - a[0], b[1] - a[1])]; }
 function wkLadder() { if (!WK.ladder) WK.ladder = [PX + 3.854, -10.775]; return WK.ladder; }
 function wkRoad(from, to) { const z = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ;
-  if (Math.abs(from[1] - z) < 0.08) return wkPoly([from, [to[0], z], to]); return wkPoly([from, [from[0], z], [to[0], z], to]); }
+  const pts = Math.abs(from[1] - z) < 0.08 ? [from, [to[0], z], to] : [from, [from[0], z], [to[0], z], to];
+  return wkPoly(wkRoute(pts)); }
 function wkHomes() { const d = (MK && MK.Operator_Deck) || { x: -4.5, z: 6.5 }, l = (MK && MK.Path_Load) || { x: 11, z: 9 };
   return { miner: [MX + d.x, d.z], driver: [MX + l.x - 3.5, l.z + 2.2], mech: [PX - 8, 8.2], cm: [PX + 13.08, 6.3] }; }
 function wkClip(clip, pfx) { const n = clip.clone(); n.name = clip.name + '_' + pfx; for (const tr of n.tracks) tr.name = tr.name.split('C2_').join(pfx + '_'); return n; }
@@ -1542,7 +1544,7 @@ function wkTryBind() { if (WK.ready || !WK.boardReady || !WK.brReady || !BD.root
   mk(c3, 'C3', 'miner'); mk(c4, 'C4', 'driver'); mk(c1, 'C1', 'mech');
   WK.people.cm = { obj: BRK.h.scene, root: BRK.h.root, mx: BRK.h.mx, acts: BRK.h.acts, key: 'cm', handler: true };
   WK.ready = true; wkParkIdle();
-  Object.assign(window.__ps3d, { wk: WK, wkGatherSec, wkReturnSec, wkHomes, wkArrived, minerOffAt, wkUpd, wkShouldPickup, wkPersonSec, wkDescSec, wkRoad, wkAt, wkPreHab, wkShortLaunchAllowed, wkTaxiSchedule, wkTaxiTruckAt, wkPickPt, wkPadStop }); }
+  Object.assign(window.__ps3d, { wk: WK, wkGatherSec, wkReturnSec, wkHomes, wkArrived, minerOffAt, wkUpd, wkShouldPickup, wkPersonSec, wkDescSec, wkRoad, wkAt, wkPreHab, wkShortLaunchAllowed, wkTaxiSchedule, wkTaxiTruckAt, wkPickPt, wkPadStop, brStep, walkReset: () => { WALK.st = {}; } }); }
 
 
 // ===== camera framing (fixed camera, ~14 m wide in portrait)
@@ -2940,22 +2942,76 @@ function walkIm() {                // largest crate part (SHM_Paint over the glo
     const b = g.boundingBox, v = (b.max.x - b.min.x) * (b.max.y - b.min.y) * (b.max.z - b.min.z); if (v > vol) { vol = v; best = p.im; } }
   return best; }
 function walkCollect() {           // world AABBs from this frame's posed instances (after nBox is written)
-  WALK.n = 0; const im = walkIm(); if (!im || !im.count) return;
-  const g = im.geometry; if (!g.boundingBox) g.computeBoundingBox(); const lb = g.boundingBox, r = WALK.r;
-  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k2 = 0; k2 < 2; k2++) _wC[i * 4 + j * 2 + k2].set(i ? lb.max.x : lb.min.x, j ? lb.max.y : lb.min.y, k2 ? lb.max.z : lb.min.z);
-  for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, _cm);
-    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
-    for (let c = 0; c < 8; c++) { _wP.copy(_wC[c]).applyMatrix4(_cm); x0 = Math.min(x0, _wP.x); x1 = Math.max(x1, _wP.x); y0 = Math.min(y0, _wP.y); y1 = Math.max(y1, _wP.y); z0 = Math.min(z0, _wP.z); z1 = Math.max(z1, _wP.z); }
-    const b = WALK.pool[WALK.n] || (WALK.pool[WALK.n] = {});
-    b.rx0 = x0; b.rx1 = x1; b.rz0 = z0; b.rz1 = z1; b.y0 = y0; b.y1 = y1;
-    b.x0 = x0 - r; b.x1 = x1 + r; b.z0 = z0 - r; b.z1 = z1 + r; WALK.n++; } }
+  WALK.n = 0; const racks = wkStaticBoxes(), r = WALK.r;
+  const covered = (x, z) => racks.some(b => x > b.rx0 && x < b.rx1 && z > b.rz0 && z < b.rz1);   // a crate already inside a rack footprint
+  const im = walkIm();
+  if (im && im.count) { const g = im.geometry; if (!g.boundingBox) g.computeBoundingBox(); const lb = g.boundingBox;
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k2 = 0; k2 < 2; k2++) _wC[i * 4 + j * 2 + k2].set(i ? lb.max.x : lb.min.x, j ? lb.max.y : lb.min.y, k2 ? lb.max.z : lb.min.z);
+    for (let i = 0; i < im.count; i++) { im.getMatrixAt(i, _cm);
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+      for (let c = 0; c < 8; c++) { _wP.copy(_wC[c]).applyMatrix4(_cm); x0 = Math.min(x0, _wP.x); x1 = Math.max(x1, _wP.x); y0 = Math.min(y0, _wP.y); y1 = Math.max(y1, _wP.y); z0 = Math.min(z0, _wP.z); z1 = Math.max(z1, _wP.z); }
+      if (covered((x0 + x1) / 2, (z0 + z1) / 2)) continue;
+      const b = WALK.pool[WALK.n] || (WALK.pool[WALK.n] = {});
+      b.rx0 = x0; b.rx1 = x1; b.rz0 = z0; b.rz1 = z1; b.y0 = y0; b.y1 = y1; b.k = 'crate';
+      b.x0 = x0 - r; b.x1 = x1 + r; b.z0 = z0 - r; b.z1 = z1 + r; WALK.n++; } }
+  for (const b of racks) { const o = WALK.pool[WALK.n] || (WALK.pool[WALK.n] = {}); Object.assign(o, b); WALK.n++; } }
+function wkFoot() {          // crate AABB in the crate's own space (origin = Base). Art HE-3 is about 2.4 × 1.5 × 1.32; measured from the mesh once it loads.
+  if (WK.foot) return WK.foot;
+  const parts = cg3.boxParts; let best = null, vol = -1;
+  if (parts) for (const p of parts) { if (!p.im || !p.im.geometry || !p.L) continue; const g = p.im.geometry; if (!g.boundingBox) g.computeBoundingBox();
+    const lb = g.boundingBox, v = (lb.max.x - lb.min.x) * (lb.max.y - lb.min.y) * (lb.max.z - lb.min.z); if (v > vol) { vol = v; best = p; } }
+  if (!best) return { x0: -1.2, x1: 1.2, y0: 0, y1: 1.5, z0: -0.66, z1: 0.66 };
+  const lb = best.im.geometry.boundingBox, L = best.L, c = new THREE.Vector3();
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+    c.set(i ? lb.max.x : lb.min.x, j ? lb.max.y : lb.min.y, k ? lb.max.z : lb.min.z).applyMatrix4(L);
+    x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y); z0 = Math.min(z0, c.z); z1 = Math.max(z1, c.z); }
+  return (WK.foot = { x0, x1, y0, y1, z0, z1 }); }
+function wkPushBox(out, x0, x1, y0, y1, z0, z1, k) { const r = WALK.r;
+  out.push({ rx0: x0, rx1: x1, rz0: z0, rz1: z1, y0, y1, x0: x0 - r, x1: x1 + r, z0: z0 - r, z1: z1 + r, k }); }
+function wkHull(slots, k) { const f = wkFoot(); let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9, n = 0;
+  for (const s of slots) { if (!s) continue; n++;
+    x0 = Math.min(x0, s.x + f.x0); x1 = Math.max(x1, s.x + f.x1); y0 = Math.min(y0, (s.y || 0) + f.y0); y1 = Math.max(y1, (s.y || 0) + f.y1);
+    z0 = Math.min(z0, s.z + f.z0); z1 = Math.max(z1, s.z + f.z1); }
+  const out = []; if (n) wkPushBox(out, x0, x1, y0, y1, z0, z1, k); return out; }
+function wkColumns(slots, k) { const cols = [];   // dock racks stand in two x columns; the aisle between them stays open
+  for (const s of slots) { if (!s) continue; let c = null; for (const o of cols) if (Math.abs(o.x - s.x) < 2) { c = o; break; }
+    if (!c) cols.push(c = { x: s.x, s: [] }); c.s.push(s); }
+  const out = []; for (const c of cols) out.push(...wkHull(c.s, k)); return out; }
+function wkStaticBoxes() {       // max-fill footprints: one CB-1 bay block, dock columns, refinery pallet. Live crates are added by walkCollect.
+  const out = [];
+  if (cg3.baySlots && cg3.baySlots.length) out.push(...wkHull(cg3.baySlots, 'bay'));
+  if (typeof DK !== 'undefined' && DK.slots && DK.slots.length) out.push(...wkColumns(DK.slots, 'dock'));
+  if (cg3.RC && cg3.RC.slots && cg3.RC.slots.length) out.push(...wkHull(cg3.RC.slots, 'pallet'));
+  return out; }
+function wkRoute(pts) {          // waypoint detour around the static racks. A clear polyline is returned unchanged.
+  if (!pts || pts.length < 2 || typeof walkDetour !== 'function') return pts;
+  let boxes; try { boxes = wkStaticBoxes(); } catch (e) { return pts; }
+  if (!boxes.length) return pts;
+  const path = [walkSnap(pts[0][0], pts[0][1], boxes)];
+  for (let i = 1; i < pts.length; i++) { const g = walkSnap(pts[i][0], pts[i][1], boxes), seg = walkDetour(path[path.length - 1][0], path[path.length - 1][1], g[0], g[1], boxes);
+    for (let k = 1; k < seg.length; k++) path.push(seg[k]); }
+  return path; }
+function crewBody(crew) { const k = crew && crew.name && crew.name.split('_')[1]; return (k && crew.getObjectByName('C' + k + '_Root')) || crew; }
+function crewNav(id, crew) {       // boarding clip drives C*_Root; shift Crew_N so that body goes around the racks instead of through them
+  if (!crew) return; const nav = crew.userData._nav;
+  if (nav) { crew.position.x -= nav[0]; crew.position.z -= nav[1]; crew.userData._nav = null; }
+  const body = crewBody(crew); if (!body || !WALK.n) return;
+  crew.updateWorldMatrix(true, true); body.getWorldPosition(_wP);
+  if (_wP.y > 2.8) return;   // on the ladder / in the ship: the racks are on the ground
+  const ax = _wP.x, ay = _wP.y, az = _wP.z, st = walkSteer(id, ax, az, ay), dx = st.x - ax, dz = st.z - az;
+  if (dx * dx + dz * dz < 1e-8) return;
+  const par = crew.parent; if (!par) { crew.position.x += dx; crew.position.z += dz; crew.userData._nav = [dx, dz]; return; }
+  const base = crew.getWorldPosition(_wQ); _wP.set(base.x + dx, base.y, base.z + dz); par.worldToLocal(_wP);
+  const ndx = _wP.x - crew.position.x, ndz = _wP.z - crew.position.z;
+  crew.position.x = _wP.x; crew.position.z = _wP.z; crew.userData._nav = [ndx, ndz]; }
 function walkNear(y, x, z, extra) { const out = [], y0 = y - 0.3, y1 = y + 1.9, e = extra == null ? 18 : extra;
   for (let i = 0; i < WALK.n; i++) { const b = WALK.pool[i]; if (b.y1 < y0 || b.y0 > y1) continue;
     if (x != null && (b.x1 < x - e || b.x0 > x + e || b.z1 < z - e || b.z0 > z + e)) continue; out.push(b); } return out; }
 function walkInside(x, z, b) { return x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1; }
 function walkSegHit(ax, az, bx, bz, b) { let t0 = 0, t1 = 1, dx = bx - ax, dz = bz - az;
   const clip = (p, q) => { if (Math.abs(p) < 1e-12) return q >= 0; const r = q / p; if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; } return true; };
-  return clip(-dx, ax - b.x0) && clip(dx, b.x1 - ax) && clip(-dz, az - b.z0) && clip(dz, b.z1 - az); }
+  return clip(-dx, ax - b.x0) && clip(dx, b.x1 - ax) && clip(-dz, az - b.z0) && clip(dz, b.z1 - az) && t0 <= t1 + 1e-9; }
 function walkClear(ax, az, bx, bz, boxes) { if (Math.hypot(bx - ax, bz - az) < 1e-8) return !boxes.some(b => walkInside((ax + bx) / 2, (az + bz) / 2, b));
   for (const b of boxes) if (walkSegHit(ax, az, bx, bz, b)) return false; return true; }
 function walkSnap(x, z, boxes) { let px = x, pz = z;
@@ -2972,7 +3028,8 @@ function walkDetour(ax, az, bx, bz, boxes) { if (walkClear(ax, az, bx, bz, boxes
     if (u < 0) break; if (u === 1) break; used[u] = 1;
     for (let v = 0; v < N; v++) if (!used[v] && walkClear(nodes[u][0], nodes[u][1], nodes[v][0], nodes[v][1], boxes)) {
       const d = dist[u] + Math.hypot(nodes[v][0] - nodes[u][0], nodes[v][1] - nodes[u][1]); if (d < dist[v]) { dist[v] = d; prev[v] = u; } } }
-  if (prev[1] < 0) return [[ax, az], [bx, bz]];
+  if (prev[1] < 0) { let best = null, bd = 1e15; for (let i = 2; i < N; i++) if (walkClear(ax, az, nodes[i][0], nodes[i][1], boxes)) { const d = Math.hypot(nodes[i][0] - bx, nodes[i][1] - bz); if (d < bd) { bd = d; best = nodes[i]; } }
+    return best ? [[ax, az], best] : [[ax, az]]; }   // never fall back to a segment that crosses a stack
   const path = []; for (let v = 1; v !== 0; v = prev[v]) path.push(nodes[v]); path.reverse(); path.unshift([ax, az]); return path; }
 function walkAdvance(from, path, dist) { let x = from[0], z = from[1], left = dist, yaw = null;
   for (let i = 1; i < path.length; i++) { const dx = path[i][0] - x, dz = path[i][1] - z, L = Math.hypot(dx, dz); if (L < 1e-9) continue;
@@ -2988,9 +3045,11 @@ function walkSteer(id, ix, iz, iy) { const boxes = walkNear(iy, ix, iz, 20);
   if (boxes.some(b => walkInside(ix, iz, b))) { const L = Math.hypot(dx, dz);
     if (L > 1e-4) { const ux = dx / L, uz = dz / L;
       for (let s = 0.35; s <= 16; s += 0.35) { const qx = ix + ux * s, qz = iz + uz * s; if (!boxes.some(b => walkInside(qx, qz, b))) { tx = qx; tz = qz; break; } } } }
-  if (walkClear(st.x, st.z, tx, tz, boxes) && Math.hypot(tx - gx, tz - gz) < 0.08) { st.x = gx; st.z = gz; st.moved = false; return st; }
+  if (walkClear(st.x, st.z, tx, tz, boxes) && Math.hypot(tx - gx, tz - gz) < 0.08) {
+    const d = Math.hypot(gx - st.x, gz - st.z), lim = Math.max(step * 1.6, 0.12);
+    if (d <= lim) { st.x = gx; st.z = gz; st.moved = d > 0.06; return st; } }
   const path = walkDetour(st.x, st.z, tx, tz, boxes);
-  const [nx, nz, yaw] = walkAdvance([st.x, st.z], path, Math.max(step * 1.25, 0.05));
+  const [nx, nz, yaw] = walkAdvance([st.x, st.z], path, Math.max(step * 1.6, 0.08));
   st.x = nx; st.z = nz; if (yaw != null) st.yaw = yaw; st.moved = Math.hypot(nx - gx, nz - gz) > 0.06; return st; }
 function walkApplyObj(id, obj, face) { if (!obj) return false; if (!WALK.n) { delete WALK.st[id]; return false; }
   obj.updateWorldMatrix(true, false); const w = obj.getWorldPosition(_wP), st = walkSteer(id, w.x, w.z, w.y);
@@ -3006,7 +3065,7 @@ function walkList() { const out = [];
   if (BRK.ok && BRK.h) add('handler', BRK.h.root); if (cg3 && cg3.astro) add('astro', cg3.rx ? cg3.rx.root : cg3.astro);
   if (BD.crew) for (let i = 0; i < BD.crew.length; i++) add('crew' + i, BD.crew[i]);
   if (WK.people.miner) add('miner', WK.people.miner.obj); if (WK.people.driver) add('driver', WK.people.driver.obj); if (WK.people.mech) add('mech', WK.people.mech.obj); return out; }
-Object.assign(window.__ps3d, { walkBoxes: () => WALK.pool.slice(0, WALK.n).map(b => ({ x0: +b.rx0.toFixed(3), x1: +b.rx1.toFixed(3), y0: +b.y0.toFixed(3), y1: +b.y1.toFixed(3), z0: +b.rz0.toFixed(3), z1: +b.rz1.toFixed(3) })), walkers: walkList, walkHits });
+Object.assign(window.__ps3d, { walkBoxes: () => WALK.pool.slice(0, WALK.n).map(b => ({ k: b.k || 'crate', x0: +b.rx0.toFixed(3), x1: +b.rx1.toFixed(3), y0: +b.y0.toFixed(3), y1: +b.y1.toFixed(3), z0: +b.rz0.toFixed(3), z1: +b.rz1.toFixed(3) })), walkers: walkList, walkHits });
 const _pk = new THREE.Vector3(), _dp = new THREE.Vector3(), _hw = new THREE.Vector3();
 function fbPoseAt(c, t, o) {
   const f = c.fb; o.ph = f.st;
