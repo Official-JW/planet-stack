@@ -1420,12 +1420,17 @@ function minerOffAt(t) { if (S.wk && S.wk.go > 0) { if (S.wk.down > 0) return t 
   const s = S.cg && S.cg.sh; return !!(s && s.st !== 'pad' && tripFly(s) >= CFG.crew0); }
 function wkCmBusy(t) { if (!S.wk || !(S.wk.go > 0)) return false; return S.wk.down > 0 ? t < wkHomeAt() : true; }
 function wkShouldPickup(c) { if (!wkPreHab(c && c.sh)) return false; if (holdN(c) >= holdCap()) return true; return !!(c.sh && c.sh.req && wkShortLaunchAllowed()); }
-function wkEnsurePickup(c, t, acc) { if (!S.wk) S.wk = { go: 0, down: 0, cx: 0, cz: 0 }; if (S.wk.go > 0) return;
-  S.wk.go = t; S.wk.down = 0; const h = wkHomes();
+function wkEnsurePickup(c, t, acc) { if (!S.wk) S.wk = { go: 0, down: 0, cx: 0, cz: 0, hs: 0 }; if (S.wk.go > 0) return;
+  S.wk.go = t; S.wk.down = 0; S.wk.hs = 0; const h = wkHomes();
   if (!acc && BRK.ok && BRK.h && BRK.h.root) { BRK.h.root.updateMatrixWorld(true); const v = new THREE.Vector3(); BRK.h.root.getWorldPosition(v); S.wk.cx = v.x; S.wk.cz = v.z; }
   else { S.wk.cx = h.cm[0]; S.wk.cz = h.cm[1]; } }
+function wkApplyHomeShift(t) {   // once, at home: slide Mine stamps across the frozen gap [go, home) before any truck event can credit it. S.wk.hs makes a second settleTo a no-op.
+  if (!S.wk || !(S.wk.go > 0) || S.wk.hs) return false;
+  if (!(S.wk.down > 0) || t < wkHomeAt()) return false;
+  const go = S.wk.go, home = wkHomeAt(), d = home - go; if (!(d > 0)) return false;
+  S.wk.hs = 1; shiftTrucks(d); return true; }
 function wkTryHome(t) { if (!S.wk || !(S.wk.down > 0) || t < wkHomeAt()) return;
-  const go = S.wk.go; S.wk.go = 0; S.wk.down = 0; S.wk.cx = 0; S.wk.cz = 0; if (go > 0) shiftTrucks(t - go); if (WK.ready) wkParkIdle(); }
+  wkApplyHomeShift(t); S.wk.go = 0; S.wk.down = 0; S.wk.cx = 0; S.wk.cz = 0; S.wk.hs = 0; if (WK.ready) wkParkIdle(); }
 function wkPlay(p, name, time, loop) { if (!p || !p.acts) return;
   const pick = p.handler ? (name === 'walk' ? 'Handler_Walk_Loop' : name === 'idle' ? 'Handler_Door_Wait' : name === 'step' ? 'Handler_Step_Down' : name === 'up' ? 'Handler_Step_Up' : name) : name;
   for (const n in p.acts) p.acts[n].setEffectiveWeight(0);
@@ -2219,7 +2224,8 @@ function tqInit() {                   // once the route is final: migrate old sa
              b: k.dep && (k.sr === 1 || k.sr === 3) ? (k.paid ? { by: 0, rel: tkB0(k) + TQ.tRelB * 1000 } : { by: 0, rel: 0 }) : { by: -1, rel: 0 } };
   }
 }
-function truckClock(t) {   // pre-Habitat: freeze at full-hold pickup (S.wk.go) until the Mine pair are home; old in-air saves without S.wk still use sh.left
+function truckClock(t) {   // pre-Habitat: freeze at full-hold pickup (S.wk.go) until the home shift runs. Stay frozen when t >= wkHomeAt() but S.wk.hs is still 0, so settleTo cannot credit (go, home] and then slide the stamps (that replay parked logicalFill at 0). Old in-air saves without S.wk still use sh.left.
+  if (S.wk && S.wk.go > 0 && !S.wk.hs) { const go = S.wk.go; return t < go ? t : go; }
   if (minerOffAt(t)) {
     const go = S.wk && S.wk.go > 0 ? S.wk.go : 0; if (go > 0) return t < go ? t : go;
     const s = S.cg && S.cg.sh; if (s && s.st !== 'pad' && tripFly(s) >= CFG.crew0) {
@@ -2340,6 +2346,7 @@ function tkAnchor() { return (S.tk ? S.tk.c0 : 0) + ':' + (S.tk2 ? S.tk2.c0 : 0)
 function settleTo(T, acc) {
   const tl = R.tl; if (!tl || !RT.ready) return;          // B1: nothing settles on the temporary route
   tqInit();
+  wkApplyHomeShift(T);   // before any Mine truck event: the frozen gap is [go, home), and a second call sees S.wk.hs
   const n = fleetN(), pause = () => residentFlyers() >= CFG.crew0 || (S.cg && S.cg.sh && S.cg.sh.left > 0);
   if (!pause()) {   // Habitat built and nobody is frozen: the original order (every truck event, then the cargo sim)
     payPend(T, acc);
@@ -2516,8 +2523,8 @@ for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);
 S.fuelLv = fuelLvOk();                 // P2-FUEL: a missing / bad FuelLv is Lv1, never above the max level   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (S.cg.autoLoad === undefined) S.cg.autoLoad = true; if (S.cg.autoLaunch === undefined) S.cg.autoLaunch = false;   // Jacob 11/1: ship switches (Qwen)
-if (!S.wk || typeof S.wk !== 'object') S.wk = { go: 0, down: 0, cx: 0, cz: 0 };
-else { S.wk.go = +S.wk.go || 0; S.wk.down = +S.wk.down || 0; S.wk.cx = +S.wk.cx || 0; S.wk.cz = +S.wk.cz || 0; }
+if (!S.wk || typeof S.wk !== 'object') S.wk = { go: 0, down: 0, cx: 0, cz: 0, hs: 0 };
+else { S.wk.go = +S.wk.go || 0; S.wk.down = +S.wk.down || 0; S.wk.cx = +S.wk.cx || 0; S.wk.cz = +S.wk.cz || 0; S.wk.hs = S.wk.hs ? 1 : 0; }
 fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an old save's stock is clamped to this level's cap (200/250/300/350/400). fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (!(S.cg.fl >= 0)) S.cg.fl = S.cg.launches > 0 ? 1 : 0;   // gc-dockfix item 7: first-launch pass used (1) / open (0); a save that already launched has used it
