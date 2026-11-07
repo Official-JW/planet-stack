@@ -1210,48 +1210,121 @@ function v3hPrepLook(root) {
     if (glass) o.renderOrder = 3;
   });
 }
+function v3hPack(mesh, mat, root, into) {
+  const g = mesh.geometry; if (!g || !g.index || !g.attributes.position) return;
+  const groups = g.groups && g.groups.length ? g.groups : [{ start: 0, count: g.index.count, materialIndex: 0 }];
+  const mats = [].concat(mesh.material);
+  const xform = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(mesh.matrixWorld);
+  const pa = g.attributes.position, na = g.attributes.normal, idx = g.index;
+  const v = new THREE.Vector3(), n = new THREE.Vector3();
+  for (const gr of groups) {
+    const gm = mats[gr.materialIndex] || mats[0]; if (!gm || gm !== mat && gm.name !== mat.name) continue;
+    for (let i = gr.start; i < gr.start + gr.count; i++) {
+      const vi = idx.getX(i);
+      v.fromBufferAttribute(pa, vi).applyMatrix4(xform); into.pos.push(v.x, v.y, v.z);
+      if (na) { n.fromBufferAttribute(na, vi).transformDirection(xform); into.nrm.push(n.x, n.y, n.z); }
+      else into.nrm.push(0, 1, 0);
+      into.col.push(gm.color.r, gm.color.g, gm.color.b);
+      const em = gm.emissive || _va; into.em.push(em.r || 0, em.g || 0, em.b || 0);
+      into.sh.push(gm.roughness != null ? gm.roughness : 1, gm.metalness != null ? gm.metalness : 0, gm.emissiveIntensity != null ? gm.emissiveIntensity : 1);
+    }
+  }
+}
+function v3hShadeMat(transparent) {
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1, transparent: !!transparent, opacity: transparent ? 0.42 : 1, depthWrite: !transparent });
+  mat.customProgramCacheKey = () => 'v3h-shade';
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <color_pars_vertex>', '#include <color_pars_vertex>\nattribute vec3 emColor;\nattribute vec3 shade;\nvarying vec3 vEm;\nvarying vec3 vShade;')
+      .replace('#include <color_vertex>', '#include <color_vertex>\nvEm = emColor;\nvShade = shade;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <color_pars_fragment>', '#include <color_pars_fragment>\nvarying vec3 vEm;\nvarying vec3 vShade;')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vShade.r;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vShade.g;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance = vEm * vShade.b;');
+  };
+  return mat;
+}
+function v3hMeshFrom(into, mat, name, tap, cast) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(into.pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(into.nrm, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(into.col, 3));
+  geo.setAttribute('emColor', new THREE.Float32BufferAttribute(into.em, 3));
+  geo.setAttribute('shade', new THREE.Float32BufferAttribute(into.sh, 3));
+  geo.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.name = name; mesh.userData.v3hTap = tap; mesh.castShadow = !!cast; mesh.receiveShadow = true;
+  return mesh;
+}
 function v3hMergeStatic(root) {
+  const keepName = new Set(['M_CabGlass', 'M_MastLED', 'M_OreRock', 'M_OreGlint', 'SHM_Paint.002', 'SHM_GlowCyan.001', 'M_ContactShadow', 'M_OcTruss']);
   const buckets = new Map();
   const meshes = [];
   root.traverse(o => { if (o.isMesh) meshes.push(o); });
+  const blank = () => ({ pos: [], nrm: [], col: [], em: [], sh: [], meshes: [] });
+  const big = blank();
   for (const mesh of meshes) {
     const tag = v3hTag(mesh);
-    if (tag === 'ore' || tag === 'op' || !mesh.geometry || !mesh.geometry.index) continue;
-    const mats = [].concat(mesh.material);
-    const groups = mesh.geometry.groups && mesh.geometry.groups.length ? mesh.geometry.groups : [{ start: 0, count: mesh.geometry.index.count, materialIndex: 0 }];
-    for (const gr of groups) {
-      const mat = mats[gr.materialIndex] || mats[0]; if (!mat) continue;
-      const geo = v3hExtract(mesh, gr.start, gr.count, root);
-      const key = tag + '|' + mat.name + '|' + (geo.attributes.normal ? 'n' : '');
-      let b = buckets.get(key);
-      if (!b) { b = { tag, mat, geos: [], meshes: [] }; buckets.set(key, b); }
-      b.geos.push(geo); if (!b.meshes.includes(mesh)) b.meshes.push(mesh);
+    if (tag === 'ore' || tag === 'op' || !mesh.geometry) continue;
+    for (const mat of [].concat(mesh.material)) {
+      if (!mat) continue;
+      if (keepName.has(mat.name)) {
+        const key = mat.name;
+        let b = buckets.get(key); if (!b) { b = blank(); b.mat = mat; buckets.set(key, b); }
+        v3hPack(mesh, mat, root, b); if (!b.meshes.includes(mesh)) b.meshes.push(mesh);
+      } else {
+        v3hPack(mesh, mat, root, big); if (!big.meshes.includes(mesh)) big.meshes.push(mesh);
+      }
     }
   }
   const consumed = new Set();
-  for (const b of buckets.values()) {
-    const merged = b.geos.length === 1 ? b.geos[0] : mergeGeometries(b.geos, false);
-    if (!merged) { console.warn('[v3h] kept unmerged', b.mat && b.mat.name); continue; }
-    merged.computeBoundingSphere();
-    const mesh = new THREE.Mesh(merged, b.mat);
-    mesh.name = 'V3H_' + b.tag + '_' + (b.mat.name || 'mat');
-    mesh.userData.v3hTap = b.tag === 'chute' ? 'chute' : (b.tag === 'led' ? '' : 'drill');
-    mesh.castShadow = !(b.mat.name === 'M_CabGlass' || b.mat.name === 'M_MastLED' || b.mat.name === 'M_ContactShadow');
-    mesh.receiveShadow = b.mat.name !== 'M_ContactShadow' && b.mat.name !== 'M_MastLED';
-    if (b.mat.name === 'M_CabGlass') mesh.renderOrder = 3;
+  if (big.pos.length) {
+    root.add(v3hMeshFrom(big, v3hShadeMat(false), 'V3H_Static', 'drill', true));
+    for (const m of big.meshes) consumed.add(m);
+  }
+  for (const [name, b] of buckets) {
+    if (!b.pos.length) continue;
+    const glass = name === 'M_CabGlass', led = name === 'M_MastLED', contact = name === 'M_ContactShadow';
+    let mat = b.mat;
+    if (glass) { mat = b.mat.clone(); mat.transparent = true; mat.opacity = 0.34; mat.roughness = 0.06; mat.metalness = 0.04; mat.color.set(0xd7eef6); mat.depthWrite = false; mat.side = THREE.DoubleSide; }
+    const mesh = v3hMeshFrom(b, glass || led || contact ? mat : v3hShadeMat(contact), 'V3H_' + name, glass ? 'drill' : (led ? '' : 'drill'), false);
+    if (glass) { mesh.material = mat; mesh.renderOrder = 3; mesh.castShadow = false; }
+    if (led) { mesh.castShadow = false; mesh.receiveShadow = false; V3H.ledMat = mat; }
+    if (name === 'M_OcTruss') V3H.truss = mesh;
+    if (contact) { mesh.castShadow = false; mesh.material = b.mat; mesh.material.depthWrite = false; mesh.userData.v3hTap = ''; }
+    // glass/led/contact were packed with their own materials' vertex colors too; use the original material for those so transparency stays
+    if (glass || led || contact) {
+      mesh.geometry.deleteAttribute('color'); mesh.geometry.deleteAttribute('emColor'); mesh.geometry.deleteAttribute('shade');
+      mesh.material = mat;
+    }
     root.add(mesh);
     for (const m of b.meshes) consumed.add(m);
   }
   for (const m of consumed) if (m.parent) m.parent.remove(m);
+  root.traverse(o => { if (o.isMesh && (o.name === 'Operator_Mesh' || (o.parent && o.parent.name === 'Operator_Mesh'))) { o.castShadow = false; } });
 }
 function v3hChunkGeo(node, root) {
   let mesh = null; node.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
   if (!mesh) return null;
-  const g = mesh.geometry.clone();
+  // The variant position buffer is interleaved (xyz + a pad). Cloning it and running applyMatrix4
+  // collapses every vertex to the origin, so copy with getX/getY/getZ first.
+  const srcP = mesh.geometry.attributes.position, srcN = mesh.geometry.attributes.normal;
+  const pos = new Float32Array(srcP.count * 3), nrm = new Float32Array(srcP.count * 3);
+  for (let i = 0; i < srcP.count; i++) {
+    pos[i * 3] = srcP.getX(i); pos[i * 3 + 1] = srcP.getY(i); pos[i * 3 + 2] = srcP.getZ(i);
+    if (srcN) { nrm[i * 3] = srcN.getX(i); nrm[i * 3 + 1] = srcN.getY(i); nrm[i * 3 + 2] = srcN.getZ(i); }
+  }
+  let g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  if (srcN) g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  if (mesh.geometry.index) g.setIndex(Array.from(mesh.geometry.index.array));
   g.applyMatrix4(new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(mesh.matrixWorld));
+  if (g.index) { const flat = g.toNonIndexed(); g.dispose(); g = flat; }
   g.computeBoundingBox();
   const c = g.boundingBox.getCenter(new THREE.Vector3());
   g.translate(-c.x, -c.y, -c.z);
+  v3hFaceNormals(g);
   g.computeBoundingSphere();
   return { geo: g, mat: mesh.material };
 }
@@ -1264,16 +1337,16 @@ function v3hHaloTex() {
 }
 function v3hBuildOre(root) {
   const spec = [
-    { id: 'S', node: 'Ore_Variant_S', belt: 12, pour: 4, bed: 16 },
-    { id: 'M', node: 'Ore_Variant_M', belt: 10, pour: 4, bed: 12 },
-    { id: 'L', node: 'Ore_Variant_L', belt: 6, pour: 3, bed: 8 },
-    { id: 'G', node: 'Ore_Variant_Glint', belt: 3, pour: 2, bed: 4 },
+    { id: 'S', node: 'Ore_Variant_S', belt: 16, pour: 8, bed: 36 },
+    { id: 'M', node: 'Ore_Variant_M', belt: 8, pour: 3, bed: 14 },
+    { id: 'L', node: 'Ore_Variant_L', belt: 3, pour: 1, bed: 6 },
+    { id: 'G', node: 'Ore_Variant_Glint', belt: 2, pour: 1, bed: 4 },
   ];
-  const cols = 5, rows = 3, bedN = 40, bedPts = [];
+  const cols = 5, rows = 3, bedN = 60, bedPts = [];
   for (let i = 0; i < bedN; i++) {
     const col = i % cols, row = Math.floor(i / cols) % rows, layer = Math.floor(i / (cols * rows));
     // Offsets from the Truck_Bed bone in truck axes: +X toward the cab, +Y up, +Z lateral. The bone sits at the rear of the bed.
-    bedPts.push(new THREE.Vector3(0.35 + (col / (cols - 1)) * 1.35 + (v3hHash(i + 3) - 0.5) * 0.05, 0.32 + layer * 0.11, (row / (rows - 1) - 0.5) * 0.9 + (v3hHash(i + 11) - 0.5) * 0.05));
+    bedPts.push(new THREE.Vector3(0.4 + (col / (cols - 1)) * 1.25 + (v3hHash(i + 3) - 0.5) * 0.1, 0.28 + layer * 0.18 + (v3hHash(i + 7) - 0.5) * 0.04, (row / (rows - 1) - 0.5) * 0.95 + (v3hHash(i + 11) - 0.5) * 0.08));
   }
   const assign = { S: [], M: [], L: [], G: [] };
   const order = [];
@@ -1285,13 +1358,13 @@ function v3hBuildOre(root) {
     const src = root.getObjectByName(s.node); if (!src) continue;
     const built = v3hChunkGeo(src, root); if (!built) continue;
     src.visible = false;
-    const mat = built.mat.clone(); mat.side = THREE.FrontSide;
+    const mat = built.mat.clone(); mat.side = THREE.FrontSide; mat.flatShading = true;
     const count = s.belt + s.pour + s.bed * 2;
     const im = new THREE.InstancedMesh(built.geo, mat, count);
     im.name = 'V3H_Ore_' + s.id; im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false;
     const slots = [];
-    for (let i = 0; i < s.belt; i++) slots.push({ kind: 'belt', u0: i / s.belt, q: quat(), j: v3hHash(qi + i) * 2 - 1 });
-    for (let i = 0; i < s.pour; i++) slots.push({ kind: 'pour', u0: i / s.pour, q: quat(), j: v3hHash(qi + 200 + i) * 2 - 1, k: v3hHash(qi + 300 + i) * 2 - 1 });
+    for (let i = 0; i < s.belt; i++) slots.push({ kind: 'belt', u0: i / s.belt, q: quat(), j: v3hHash(qi + i) * 2 - 1, sc: 0.92 + v3hHash(qi + 17 + i) * 0.16 });
+    for (let i = 0; i < s.pour; i++) slots.push({ kind: 'pour', u0: (i + 0.5) / s.pour, q: quat(), j: (v3hHash(qi + 200 + i) - 0.5) * 0.12, k: (v3hHash(qi + 300 + i) - 0.5) * 0.12, sc: 0.92 + v3hHash(qi + 19 + i) * 0.16 });
     for (let t = 0; t < 2; t++) for (let i = 0; i < s.bed; i++) slots.push({ kind: 'bed', truck: t, off: assign[s.id][i], q: quat() });
     for (let i = 0; i < count; i++) im.setMatrixAt(i, ZERO);
     scene.add(im);
@@ -1370,9 +1443,34 @@ function v3hChuteTap() {
   const g = V3H.root.getObjectByName('Conveyor_Gallery'); if (g) ms.push(g);
   return ms.length ? ms : nodesOf(mine, ['Conveyor', 'Silo']);
 }
+function v3hFlattenSpout() {
+  if (V3H.spoutFlat || !truck || TS.ph !== 'fill' || Math.abs(truck.position.x - (MX + 11)) > 0.4) return;
+  let mesh = null;
+  truck.traverse(o => { if (!mesh && o.isMesh && o.material && o.material.name === 'SHM_Paint' && o.geometry && o.geometry.attributes.position.count > 1000) mesh = o; });
+  if (!mesh || typeof mesh.applyBoneTransform !== 'function') return;
+  mesh.updateWorldMatrix(true, false); if (mesh.skeleton) mesh.skeleton.update();
+  const p = mesh.geometry.attributes.position, v = new THREE.Vector3();
+  const tx = truck.position.x, tz = truck.position.z;
+  let n = 0;
+  for (let pass = 0; pass < 4; pass++) {
+    let hit = 0;
+    for (let i = 0; i < p.count; i++) {
+      v.set(p.getX(i), p.getY(i), p.getZ(i));
+      mesh.applyBoneTransform(i, v); v.applyMatrix4(mesh.matrixWorld);
+      // Only the lump standing above the bed rails. The rails themselves sit lower, and pulling those verts makes sheets.
+      if (v.y < 2.9 || v.x > tx + 0.35 || v.x < tx - 4.2 || v.z < tz - 1.6 || v.z > tz + 1.6) continue;
+      p.setY(i, p.getY(i) - 3500);
+      hit++; n++;
+    }
+    if (!hit) break;
+  }
+  if (n) { p.needsUpdate = true; V3H.spoutFlat = n; console.info('[v3h] spout lump verts', n); }
+}
 function v3hFlatHeap() {
   if (!V3H.mounted) return;
-  for (const list of [fillMeshes, fillMeshes2]) for (const [m, j] of list) if (m.morphTargetInfluences) m.morphTargetInfluences[j] = 0;
+  // Rest pose is a smooth rounded heap. fill at -1 pulls that heap out; the chunks are the load.
+  for (const list of [fillMeshes, fillMeshes2]) for (const [m, j] of list) if (m.morphTargetInfluences) m.morphTargetInfluences[j] = -1;
+  v3hFlattenSpout();
 }
 function v3hLampOn(drilling) {
   if (window.__ps3d && window.__ps3d.lampForce != null) return !!window.__ps3d.lampForce;
@@ -1399,6 +1497,29 @@ function updDrillV3h(dt) {
   v3hUpdOre(drilling);
 }
 const _bedOff = new THREE.Vector3(1.05, 0.8, 0);
+const _pp = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+function v3hPourAt(u, land, out) {
+  _pp[0].copy(V3H.a1); _pp[1].copy(V3H.mouth); _pp[2].copy(V3H.spout); _pp[3].copy(land);
+  const lens = [0, 0, 0, 0];
+  for (let i = 1; i < 4; i++) lens[i] = lens[i - 1] + _pp[i].distanceTo(_pp[i - 1]);
+  let d = Math.max(0, Math.min(1, u)) * lens[3];
+  for (let i = 0; i < 3; i++) {
+    const seg = lens[i + 1] - lens[i];
+    if (d <= seg || i === 2) return out.lerpVectors(_pp[i], _pp[i + 1], seg > 1e-5 ? Math.min(1, d / seg) : 0);
+    d -= seg;
+  }
+  return out.copy(land);
+}
+function v3hMineReturn(from, ap) {
+  // The served return is a r=4.5 U-turn centred at local (12.5, 4.5) through Path_Ret_03 (8, 4.5).
+  // That bulge puts the HT-04 box through the gallery truss near local (4.8, 4.2). The replacement stays
+  // east of local x=13, then finishes at Path_Load_Approach heading +X so the 1.5 m reverse onto Path_Load is unchanged.
+  const turn = [[18, 0], [17.6, 1.4], [17.0, 3.0], [16.4, 4.6], [15.8, 6.2], [14.8, 7.6], [13.4, 8.6], [12.2, 9.0], [11.6, 9.0], [12.5, 9]];
+  const pts = [...line(from, [MX + 18, 0], 2)];
+  for (let i = 1; i < turn.length; i++) pts.push([MX + turn[i][0], turn[i][1]]);
+  pts[pts.length - 1] = ap;
+  return pts;
+}
 function v3hOnBed(ti, local, out) {
   const bed = V3H.beds && V3H.beds[ti], tr = (RIG[ti] && RIG[ti].truck) || truck;
   if (!bed || !tr) return out.copy(V3H.spout || _vp);
@@ -1417,14 +1538,12 @@ function v3hUpdOre(drilling) {
       let draw = false;
       if (s.kind === 'belt' && drilling) {
         const u = (s.u0 + V3H.oreT / beltDur) % 1;
-        _vp.lerpVectors(V3H.a0, V3H.a1, u).addScaledVector(V3H.side, s.j * 0.07); _vp.y += 0.05;
-        _vq.copy(s.q); _vs.set(1, 1, 1); draw = true;
+        _vp.lerpVectors(V3H.a0, V3H.a1, u).addScaledVector(V3H.side, s.j * 0.09); _vp.y += 0.045;
+        _vq.copy(s.q); _vs.setScalar(s.sc || 1); draw = true;
       } else if (s.kind === 'pour' && drilling) {
         const u = (s.u0 + V3H.oreT / pourDur) % 1;
-        if (u < 0.34) _vp.lerpVectors(V3H.a1, V3H.mouth, u / 0.34);
-        else if (u < 0.68) _vp.lerpVectors(V3H.mouth, V3H.spout, (u - 0.34) / 0.34);
-        else { const k = (u - 0.68) / 0.32; _vp.lerpVectors(V3H.spout, land, k); _vp.x += s.j * 0.14 * k; _vp.z += s.k * 0.14 * k; }
-        _vq.copy(s.q); _vs.set(1, 1, 1); draw = true;
+        v3hPourAt(u, land, _vp); _vp.x += s.j; _vp.z += s.k;
+        _vq.copy(s.q); _vs.setScalar(s.sc || 1); draw = true;
       } else if (s.kind === 'bed') {
         const ti = s.truck, G = RIG[ti];
         const alive = G && G.truck && G.ts && G.ts.ph !== 'off' && (ti === 0 || (truck2Root && truck2Root.visible));
@@ -1432,7 +1551,7 @@ function v3hUpdOre(drilling) {
         const ord = ti === 0 ? b0++ : b1++;
         if (alive && ord < nShow && V3H.beds && V3H.beds[ti]) {
           v3hOnBed(ti, s.off, _vp);
-          _vq.copy(s.q); _vs.set(1, 1, 1); draw = true;
+          _vq.copy(s.q); _vs.setScalar(s.sc || 1); draw = true;
         }
       }
       pack.im.setMatrixAt(i, draw ? _vm.compose(_vp, _vq, _vs) : ZERO);
@@ -1441,7 +1560,7 @@ function v3hUpdOre(drilling) {
   }
 }
 function v3hCollectSupports(root) {
-  const tris = [];
+  const other = [], truss = [], tris = other;
   const gal = root.getObjectByName('Conveyor_Gallery'); if (!gal) return tris;
   gal.updateWorldMatrix(true, true);
   gal.traverse(mesh => {
@@ -1455,10 +1574,11 @@ function v3hCollectSupports(root) {
       const c = new THREE.Vector3().fromBufferAttribute(pos, idx.getX(i + 2)).applyMatrix4(m);
       const minY = Math.min(a.y, b.y, c.y);
       if (mat !== 'M_OcFoot' && minY > 3.05) continue;
-      tris.push({ a, b, c, mat, minY });
+      (mat === 'M_OcTruss' ? truss : other).push({ a, b, c, mat, minY });
     }
   });
-  return tris;
+  V3H.otherSupports = other;
+  return other.concat(truss);
 }
 function v3hCaptureTruck() {
   if (!truck || V3H.truckBox) return;
@@ -1587,12 +1707,138 @@ function v3hMeasureClearance() {
   console[out.intersect ? 'error' : 'info']('[v3h] clearance ' + JSON.stringify(out));
   return out;
 }
-function v3hClearanceMaybe() {
-  if (!V3H.mounted || !truck || !R.pOut || !RT.ready) return;
-  if (!V3H.clearance) {
-    v3hCaptureTruck();
-    try { V3H.clearance = v3hMeasureClearance(); } catch (e) { console.error('[v3h] clearance failed', e); V3H.clearance = { error: String(e) }; }
+function v3hPathSamples() {
+  const samples = [], pose = {};
+  const add = (x, z, yaw) => { if (x > MX - 28 && x < MX + 48) samples.push({ x, z, yaw }); };
+  if (R.pOut) for (let s = 0; s <= R.pOut.L; s += 0.5) { pathAt(R.pOut, s, pose); add(pose.x, pose.z, pose.yaw); }
+  if (R.pBack) for (let s = 0; s <= R.pBack.L; s += 0.5) { pathAt(R.pBack, s, pose); add(pose.x, pose.z, pose.yaw); }
+  const ap = mw('Path_Load_Approach'), ld = mw('Path_Load');
+  for (let u = 0; u <= 1.001; u += 0.1) add(ap[0] + (ld[0] - ap[0]) * Math.min(1, u), ap[1] + (ld[1] - ap[1]) * Math.min(1, u), R.yMine || 0);
+  return samples;
+}
+function v3hPoseList() {
+  const e = new THREE.Euler();
+  return v3hPathSamples().map(smp => {
+    const M = new THREE.Matrix4();
+    e.set(0, smp.yaw, 0); M.makeRotationFromEuler(e); M.setPosition(smp.x, 0, smp.z);
+    return { M, inv: M.clone().invert(), x: smp.x, z: smp.z };
+  });
+}
+function v3hPointMin(p, poses, box, q) {
+  let min = Infinity;
+  for (let i = 0; i < poses.length; i++) {
+    const pose = poses[i], dx = p.x - pose.x, dz = p.z - pose.z;
+    if (dx * dx + dz * dz > 81) continue;
+    q.copy(p).applyMatrix4(pose.inv);
+    const d = v3hDistPointBox(q, box.min, box.max);
+    if (d < min) min = d;
   }
+  return min;
+}
+function v3hTriMin(a, b, c, poses, box) {
+  let min = Infinity;
+  const cx = (a.x + b.x + c.x) / 3, cz = (a.z + b.z + c.z) / 3;
+  for (let i = 0; i < poses.length; i++) {
+    const pose = poses[i], dx = cx - pose.x, dz = cz - pose.z;
+    if (dx * dx + dz * dz > 64) continue;
+    _ba.copy(a).applyMatrix4(pose.inv); _bb.copy(b).applyMatrix4(pose.inv); _tC.copy(c).applyMatrix4(pose.inv);
+    const d = v3hDistTriBox(_ba, _bb, _tC, box.min, box.max);
+    if (d < min) min = d;
+    if (min <= 0) return 0;
+  }
+  return min;
+}
+function v3hFaceNormals(geo) {
+  const pos = geo.attributes.position, nrm = geo.attributes.normal;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i += 3) {
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2);
+    n.crossVectors(b.sub(a), c.sub(a)).normalize();
+    if (nrm) { nrm.setXYZ(i, n.x, n.y, n.z); nrm.setXYZ(i + 1, n.x, n.y, n.z); nrm.setXYZ(i + 2, n.x, n.y, n.z); }
+  }
+  if (nrm) nrm.needsUpdate = true;
+}
+function v3hSepWorld(q, pose, box, out) {
+  const mn = box.min, mx = box.max;
+  const cx = Math.max(mn.x, Math.min(mx.x, q.x)), cy = Math.max(mn.y, Math.min(mx.y, q.y)), cz = Math.max(mn.z, Math.min(mx.z, q.z));
+  out.set(q.x - cx, q.y - cy, q.z - cz);
+  if (out.lengthSq() < 1e-8) {
+    const faces = [[q.x - mn.x, -1, 0, 0], [mx.x - q.x, 1, 0, 0], [q.y - mn.y, 0, -1, 0], [mx.y - q.y, 0, 1, 0], [q.z - mn.z, 0, 0, -1], [mx.z - q.z, 0, 0, 1]];
+    faces.sort((a, b) => a[0] - b[0]); out.set(faces[0][1], faces[0][2], faces[0][3]);
+  } else out.normalize();
+  return out.transformDirection(pose.M);
+}
+function v3hNearest(p, poses, box, q, dir) {
+  let min = Infinity, best = null;
+  for (let i = 0; i < poses.length; i++) {
+    const pose = poses[i], dx = p.x - pose.x, dz = p.z - pose.z;
+    if (dx * dx + dz * dz > 81) continue;
+    q.copy(p).applyMatrix4(pose.inv);
+    const d = v3hDistPointBox(q, box.min, box.max);
+    if (d < min) { min = d; best = pose; }
+  }
+  if (!best) return min;
+  q.copy(p).applyMatrix4(best.inv); v3hSepWorld(q, best, box, dir);
+  return min;
+}
+function v3hTrimTruss(gap) {
+  const mesh = V3H.truss, box = V3H.truckBox; if (!mesh || !box || !R.pOut) return { moved: 0, dropped: 0 };
+  const geo = mesh.geometry, names = ['position', 'normal', 'color', 'emColor', 'shade'];
+  if (!V3H.trussBase) {
+    V3H.trussBase = {};
+    for (const n of names) if (geo.attributes[n]) V3H.trussBase[n] = Float32Array.from(geo.attributes[n].array);
+  }
+  mesh.updateWorldMatrix(true, false);
+  const baseP = V3H.trussBase.position, poses = v3hPoseList(), world = new Array(baseP.length / 3);
+  for (let i = 0; i < world.length; i++) world[i] = new THREE.Vector3(baseP[i * 3], baseP[i * 3 + 1], baseP[i * 3 + 2]).applyMatrix4(mesh.matrixWorld);
+  const keep = []; let dropped = 0;
+  for (let t = 0; t < world.length; t += 3) {
+    if (v3hTriMin(world[t], world[t + 1], world[t + 2], poses, box) < gap) { dropped++; continue; }
+    keep.push(t);
+  }
+  if (!dropped) return { moved: 0, dropped: 0, maxMove: 0 };
+  for (const n of names) {
+    const src = V3H.trussBase[n]; if (!src || !geo.attributes[n]) continue;
+    const item = geo.attributes[n].itemSize, dst = new Float32Array(keep.length * 3 * item);
+    let w = 0;
+    for (const t of keep) for (let k = 0; k < 3; k++) { const s = (t + k) * item; for (let c = 0; c < item; c++) dst[w++] = src[s + c]; }
+    geo.setAttribute(n, new THREE.Float32BufferAttribute(dst, item));
+  }
+  geo.computeBoundingSphere();
+  const note = 'Only M_OcTruss. Trimmed ' + dropped + ' triangles that came within ' + gap.toFixed(2) + ' m of the swept HT-04. The rest of the member is untouched.';
+  return { moved: dropped, dropped, maxMove: 0, note };
+}
+function v3hPushTruss(gap) {
+  return v3hTrimTruss(gap);
+}
+function v3hTrussTrisFromMesh() {
+  const mesh = V3H.truss; if (!mesh) return [];
+  mesh.updateWorldMatrix(true, false);
+  const pos = mesh.geometry.attributes.position, m = mesh.matrixWorld, tris = [];
+  for (let i = 0; i < pos.count; i += 3) {
+    const a = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(m);
+    const b = new THREE.Vector3().fromBufferAttribute(pos, i + 1).applyMatrix4(m);
+    const c = new THREE.Vector3().fromBufferAttribute(pos, i + 2).applyMatrix4(m);
+    tris.push({ a, b, c, mat: 'M_OcTruss', minY: Math.min(a.y, b.y, c.y) });
+  }
+  return tris;
+}
+function v3hClearanceMaybe() {
+  if (!V3H.mounted || !truck || !R.pOut || !RT.ready || V3H.clearance) return;
+  v3hCaptureTruck();
+  try {
+    let edit = v3hPushTruss(0.52);
+    if (edit.moved) {
+      V3H.supports = (V3H.otherSupports || []).concat(v3hTrussTrisFromMesh());
+      const pre = v3hMeasureClearance();
+      if (pre.min < 0.5) { const again = v3hPushTruss(0.62); if (again.dropped || again.maxMove) edit = again; }
+    }
+    V3H.supports = (V3H.otherSupports || []).concat(v3hTrussTrisFromMesh());
+    const r = v3hMeasureClearance();
+    r.trussEdit = edit;
+    r.waypoints = 'return leaves z=0 at local (18, 0) instead of Path_Ret_02 (12.5, 0), delta (+5.5, 0). Path_Ret_03 (8, 4.5) is no longer on the route. Curve stays east of local x=11.6 and ends at Path_Load_Approach (12.5, 9). Path_Load is unmoved.';
+    V3H.clearance = r;
+  } catch (e) { console.error('[v3h] clearance failed', e); V3H.clearance = { error: String(e) }; }
   if (window.__ps3d.v3h) window.__ps3d.v3h.clearance = V3H.clearance;
 }
 
@@ -2566,7 +2812,7 @@ function buildRoute() {
     const O = outN.map(mw), Rt = retN.map(mw);
     legA = O[O.length - 1]; legD = Rt[0]; legB = TP1; legC = ex;
     out = [...chainPts(['Path_Load', ...outN.filter(n => n !== outN[outN.length - 1])], legA), ...line(legA, TP1, 2), ...line(TP1, tp(2), 2), ...uturn];   // Path_Load's next_leg is the 4.3 m straight
-    back = [dp, ...line(dp, ex, 2), ...line(ex, legD, 2), ...chainPts(retN, AP)];
+    back = [dp, ...line(dp, ex, 2), ...line(ex, legD, 2), ...v3hMineReturn(legD, AP)];   // v3h: east of the old west U-turn so the box clears the gallery truss
   } else {
     R.mode = 'interim';
     const RE = mw('Road_Entry'), RJ = [MX + 17, ROAD.zIn], lc = [];
@@ -2871,9 +3117,9 @@ const farc = $('farc'), farcV = $('farcV'), farcT = $('farcT'); let farcK = '';
 function setAct(a, on) { if (!a) return; if (on) { if (!a.isRunning()) { a.reset(); a.play(); } } else if (a.isRunning() || a.enabled && a.getEffectiveWeight() > 0 && a.time > 0) a.stop(); }
 function updTruck() {
   if (!R.tl || !TQ.ok) return; const t = nowMs(), n = fleetN(); TC = RIG[0];
-  for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (!i) wkTaxiOverride(t, o); if (o.ph === 'fill') TC = G;
+  for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (!i && !(window.__ps3d && window.__ps3d.holdFill)) wkTaxiOverride(t, o); if (o.ph === 'fill') TC = G;
     const shown = o.fill;
-    o.shown = clamp(shown, 0, 1); if (!i && S.wk && S.wk.go > 0) { o.fill = 0; o.shown = 0; } }
+    o.shown = clamp(shown, 0, 1); if (!i && S.wk && S.wk.go > 0 && !(window.__ps3d && window.__ps3d.holdFill)) { o.fill = 0; o.shown = 0; } }
   const crewOff = minerAway(); MR.fillNow = !crewOff && TC.ts.ph === 'fill' && TC.ts.fill < 1; setDigging(!crewOff && (MR.buf ? MR.fillNow || MR.st < 1 : MR.fillNow));   // pre-Habitat: the drill stops while the Miner is aboard. ca-minerevamp: Silo buffer only with OrePath_Bin_* + OrePath_Silo_* nodes
   if (TS.ph !== TS.last) { (window.__ps3d.phases = window.__ps3d.phases || []).push({ ph: TS.ph, at: t }); if (window.__ps3d.phases.length > 40) window.__ps3d.phases.shift(); TS.last = TS.ph; }
   if (n > 1 && TS2.ph !== TS2.last) { (window.__ps3d.phases2 = window.__ps3d.phases2 || []).push({ ph: TS2.ph, at: t }); if (window.__ps3d.phases2.length > 40) window.__ps3d.phases2.shift(); TS2.last = TS2.ph; }
