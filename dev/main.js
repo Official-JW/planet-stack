@@ -19,7 +19,17 @@ const CFG = {
     dropoff: { base: 20000, max: 60000 },    // superseded for live pay: full-hold value is perCrateValue × holdCap() (crate below). Kept so older notes still name the old $20k–$60k curve
     dropoffMin: 20000,                  // Director 10/31 19:52: a drop-off pays at least $20k (max(dropoffMin, crates × per-crate)). A full hold is above this at every purity
     crate: { base: 5000, step: 2500 },  // $5,000 + $2,500 for each Refinery purity level above the start (purLv 1 / 40%). Lv13 (100%) = $35,000/crate
-    ship: { hold0: 20, seat0: 4, step: 2, levels: 5, cost0: 200000, growth: 1.5, residents: 2 },   // S.shipLv 0..5: hold 20→30, seats 4→14; price $200k × 1.5^shipLv; 2 resident flyers keep seats
+    // S.shipLv 0..5 is Lv1..Lv6 (missing / old saves stay 0 = Lv1). cost is the price TO REACH that row.
+    // flight is the round-trip multiplier (launch + away + land) frozen onto the trip (sh.fm) at liftoff.
+    // $1.01M is 200000×1.5^4 = 1012500 (fmt shows $1.01M). residents: 2 flyers keep seats.
+    ship: { residents: 2, lv: [
+      { hold: 20, seats: 4, engines: 6, flight: 1, cost: 0 },
+      { hold: 22, seats: 6, engines: 7, flight: 0.9, cost: 200000 },
+      { hold: 24, seats: 8, engines: 8, flight: 0.8, cost: 300000 },
+      { hold: 26, seats: 10, engines: 9, flight: 0.7, cost: 450000 },
+      { hold: 28, seats: 12, engines: 10, flight: 0.6, cost: 675000 },
+      { hold: 30, seats: 14, engines: 11, flight: 0.5, cost: 1012500 },
+    ] },
     launchPay: 20000,                   // flat $20k once at lift-off, only for a full hold (holdCap()); empty or short pays $0. 50% while away, like drop-offs
     launchMinFrac: 1,                   // full hold: launch pay needs ceil(launchMinFrac × holdCap()) crates. Was 0.5 (half hold, 10 of 20)
     launchBelowMin: 'allow0',           // under a full hold: 'allow0' shows +$0 and the crates still needed; 'block' greys the launch. The sim still launches only when full
@@ -41,7 +51,7 @@ const CFG = {
     offlineFormula: false,              // false = the catch-up replay is the only source of offline drop-off money; true = also credit offlineEarn() (formula estimate; double-pays with the replay)
     payAt: 'earth',                     // Director 10/29 ruling: 'earth' = credited mid-trip (away phase half-way, ship at Earth); 'touchdown' = credited at the Moon touchdown
     eveDeliveredCall: true,             // Director open call: true = Eve rings 'Cargo delivered! +$X' (HUD dims); false = money pop-up + Updates line only
-    deposits: false,                    // Jacob 10/29: false = the old tap-a-deposit mechanic is off (Deposit_01/_02 hidden, no spawns/taps/rich loads, Eve skips the deposit beats); true = back on
+    deposits: false,                    // removed 11/07: the v1 click-rock is gone (meshes stripped, no spawns/taps/pay). Leftover save fields are ignored. This flag is not read.
   },
   startMoney: 500, startCrystals: 0, showCrystals: false,   // startMoney: replaced by CFG.econ.startMoney just below CFG (Step 2). Jacob 10/23: crystals are a paid currency (shop later); counter hidden, nothing grants them
   oreValue: 1,                          // $ per ore
@@ -358,30 +368,43 @@ const freeSeats = () => {
   if (typeof shipFreePassengerSeats === 'function') { const n = Math.floor(+shipFreePassengerSeats()); return n >= 0 ? n : 0; }
   return Math.max(0, 4 - 2);   // conservative: unpublished 4-seat cabin minus the 2 flying residents who take seats
 };
-// Ship hull (this lane). S.shipLv 0..levels. habFreeBeds is not defined here.
+// Ship hull (this lane). S.shipLv 0..5 = Lv1..Lv6 from CFG.econ.ship.lv. habFreeBeds is not defined here.
+function shipTop() { return CFG.econ.ship.lv.length - 1; }
 function shipLvNow() {
-  const H = CFG.econ.ship, n = Math.floor(+S.shipLv);
-  return Math.max(0, Math.min(H.levels, Number.isFinite(n) ? n : 0));
+  const n = Math.floor(+S.shipLv);
+  return Math.max(0, Math.min(shipTop(), Number.isFinite(n) ? n : 0));
 }
-function holdCap() { const H = CFG.econ.ship; return H.hold0 + H.step * shipLvNow(); }   // 20 + 2×shipLv → 20..30
-function shipSeats() { const H = CFG.econ.ship; return H.seat0 + H.step * shipLvNow(); }   // 4 + 2×shipLv → 4..14
+function shipRow(i = shipLvNow()) { const t = CFG.econ.ship.lv; return t[Math.max(0, Math.min(t.length - 1, i | 0))]; }
+function holdCap() { return shipRow().hold; }   // Lv1 20 → Lv6 30
+function shipSeats() { return shipRow().seats; }   // Lv1 4 → Lv6 14. shipFreePassengerSeats / tripFly read this.
+function shipEngines(i = shipLvNow()) { return shipRow(i).engines; }
+function shipFlightAt(i = shipLvNow()) { return shipRow(i).flight; }
 function seatCap() { return shipSeats(); }
 function shipFreePassengerSeats() { return Math.max(0, shipSeats() - tripFly(S.cg && S.cg.sh)); }   // seats minus who is already aboard this trip (saved sh.fly, else residentFlyers())
-function shipHoldMax() { const H = CFG.econ.ship; return H.hold0 + H.step * H.levels; }
+function shipHoldMax() { return CFG.econ.ship.lv[shipTop()].hold; }
 function shipUpgradeCost() {
-  const H = CFG.econ.ship, lv = shipLvNow(); if (lv >= H.levels) return 0;
-  return Math.round(H.cost0 * H.growth ** lv);   // $200k × 1.5^current shipLv
+  const lv = shipLvNow(); if (lv >= shipTop()) return 0;
+  return CFG.econ.ship.lv[lv + 1].cost;
 }
+// Round-trip clock. An in-flight trip keeps the multiplier it lifted off with (sh.fm, saved on sh).
+// Old in-flight saves have no fm: they were timed at 100%, so a reload must not shorten them.
+function tripFlightMul(sh) {
+  if (sh && sh.st && sh.st !== 'pad') return sh.fm > 0 ? sh.fm : 1;
+  return shipFlightAt();
+}
+function shipDur(base, sh) { return base * tripFlightMul(sh || (S.cg && S.cg.sh)); }
+function shipFlame(i = shipLvNow()) { return Math.pow(1.08, Math.max(0, i | 0)); }   // +8% flame length and brightness per level above Lv1
 const maxPicks = () => S.bt.hab === 1 ? Math.max(0, Math.min(freeSeats(), freeBeds())) : 0;
 // legacy saves: ore left in the old bin and unpaid deposit trips settle exactly once, then the new truck loop starts
 if (S.bin > 0) S.money += Math.floor(S.bin) * CFG.oreValue; delete S.bin;
-for (const tr of S.trips) if (tr && !tr.paid && tr.bonus > 0 && CFG.econ.deposits !== false) { S.money += tr.bonus; S.dep++; }   // deposits off: legacy deposit-trip bonuses are dropped, not paid
+// Click-rock leftovers (trip.bonus, S.dep) are ignored: never paid.
 S.trips = [];
 // truck loop state (all timestamps, ms): c0 fill start, add pre-filled fraction, lr last rich drop, dep departure (0 = parked under the chute),
 // paid base load paid for this trip, val base load value frozen at departure, q / qd rich loads queued while the truck is away
 if (!S.tk || typeof S.tk !== 'object') S.tk = { c0: nowMs(), add: 0, lr: 0, dep: 0, paid: false, val: 0, q: 0, qd: [] };
 if (!Array.isArray(S.tk.qd)) S.tk.qd = [];
-if (CFG.econ.deposits === false) { S.tk.q = 0; S.tk.qd = []; S.pend = []; }   // deposits off: queued rich loads and unpaid rich bonuses (S.pend, $8 each) are dropped on load; nothing pays
+if (S.tk) { S.tk.q = 0; S.tk.qd = []; }   // old click-rock queue ignored
+if (!Array.isArray(S.pend)) S.pend = []; else S.pend.length = 0;   // old click-rock bonuses dropped, not paid
 const save = () => { if (DEVHALT) return; const off = QA_ON ? qaOff() : 0; if (off) qaShift(-off);   // QA: stamps are written in wall-clock time (see qaOff)
   try { localStorage.setItem(SAVEKEY, JSON.stringify(S)); } catch (e) {} if (off) qaShift(off); };
 // QA fast-forward saves: at ts=N (or after skipToTouchdown) the game clock runs ahead of the wall clock by qaOff() ms. save() shifts every loop stamp
@@ -1027,6 +1050,16 @@ function loadRefTerrain() { if (Q.get('terrain') === 'off' || Q.get('refterrain'
     scene.add(o); GROUND_HOLE.set('ref', true); window.__ps3d.refTerrain = { url: REF_TERRAIN_GLB, tris, draws, obj: o }; terrainEdgeBlend(); },
     undefined, (e) => { console.warn('Refinery terrain failed to load (flat ground stays, no hole)', e); window.__ps3d.refTerrain = { err: String(e) }; });
 }
+// v1 click-for-money rock: Deposit_NN meshes (SHM_DepositRock + SHM_DepositGlow) are removed on load. Dep_01/_02 stay as empty pins.
+function stripClickRock(root) {
+  const drop = [];
+  root.traverse(o => {
+    if (/^Deposit_\d+$/.test(o.name)) { drop.push(o); return; }
+    if (!o.isMesh || !o.material) return;
+    if ([].concat(o.material).some(m => m && /DepositRock|DepositGlow/.test(m.name || ''))) drop.push(o);
+  });
+  for (const o of drop) if (o.parent) o.parent.remove(o);
+}
 function loadRig() { loader.load(MINE_GLB, (gltf) => {
   clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
   mine = gltf.scene; mine.position.set(MX, 0, 0);
@@ -1050,10 +1083,10 @@ function loadRig() { loader.load(MINE_GLB, (gltf) => {
   if (Object.keys(MK).some(n => /^Path_(Out|Ret)_/.test(n))) moved.push('Path_Out_*/Path_Ret_*');   // Art's out/return route markers: marker-driven route
   if (moved.length) { buildRoute(); window.__ps3d.routeMoved = moved; }   // marker-driven route, built before anything settles (B1)
   routeReady('mine');
-  applyRigLevel(); fitSite(MINE); bindDepNodes(); restoreDeposits();
+  applyRigLevel(); fitSite(MINE); stripClickRock(mine);
   if (op) { const d = MK.Operator_Deck; op.position.set(MX + d.x, 0, d.z); }
   rigLoaded = true; maybeReady();
-  Object.assign(window.__ps3d, { mine, rig, MK, bindDepNodes, depNodesRaw: depNodes, deposits, spawnDeposit, removeDeposit, clips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
+  Object.assign(window.__ps3d, { mine, rig, MK, clips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
 }, undefined, (e) => {
   console.error('Mine GLB load failed', e); clearTimeout(coverTimer); coverTimer = 0; routeReady('mine');   // fallback route stands
   $('coverTx').textContent = "Couldn't load the Mine"; $('coverSp').hidden = true; $('coverRetry').hidden = false;
@@ -2052,42 +2085,6 @@ function updChunks(dt) {
 }
 
 
-// ===== deposits (Director 21:17): the ore patches + faint cyan veins are Art's, baked in the Mine GLB (a4f93eb: dep_patch in Base_Paint, Base_DepVein).
-// The game draws NOTHING at Dep_01 / Dep_02 any more (no disc, decal, glow, pulse or fade): a deposit is just a tap target (max 2, respawn ~8 s).
-// Director 23:00 (B): the 1 s fade-in (and hidden while used up) runs on Art's real patch nodes, /^Deposit_\d+/ in the Mine GLB, one material clone per
-// deposit (never Base_GlowCyan or the building strips). No Deposit_ nodes (a4f93eb: patches merged into Base_Paint) → nothing to fade, the baked patch stays.
-// The old invisible stand-in fade is gone; d.disc is now a plain position/scale stub so old QA reads stay valid.
-const depStub = () => { const o = new THREE.Object3D(); o.visible = false; o.material = { opacity: 1, dispose() {} }; return o; };
-const DEP_RE = /^Deposit_(\d+)/, depNodes = {};   // depNodes[Dep_0N] = { node, mats: [cloned materials] }
-function bindDepNodes() {
-  for (const k in depNodes) delete depNodes[k];
-  if (!mine) return 0; const found = [];
-  mine.traverse(o => { if (DEP_RE.test(o.name) && !(o.parent && DEP_RE.test(o.parent.name))) found.push(o); });
-  for (const o of found) {
-    const ex = o.userData || {}; let mk = DEP_NAMES.includes(ex.marker) ? ex.marker : 'Dep_' + String(+o.name.match(DEP_RE)[1]).padStart(2, '0');   // Art 12bdb4a extras: {deposit, fade_in_s, marker}
-    if (!DEP_NAMES.includes(mk) || depNodes[mk]) {   // unnumbered match: nearest free Dep_ marker
-      const w = o.getWorldPosition(new THREE.Vector3()); let best = null, bd = Infinity;
-      for (const n of DEP_NAMES) { if (!MK[n] || depNodes[n]) continue; const dd = Math.hypot(MX + MK[n].x - w.x, MK[n].z - w.z); if (dd < bd) { bd = dd; best = n; } }
-      if (!best) continue; mk = best; }
-    const mats = [];
-    o.traverse(m => { if (!m.isMesh) return; m.material = Array.isArray(m.material) ? m.material.map(x => { const c = x.clone(); mats.push(c); return c; }) : (mats.push(m.material = m.material.clone()), m.material); });
-    depNodes[mk] = { node: o, mats, name: o.name, fade: ex.fade_in_s > 0 ? +ex.fade_in_s : 1 };
-  }
-  for (const mk in depNodes) depShow(mk, null);
-  window.__ps3d.depNodes = Object.fromEntries(Object.entries(depNodes).map(([k, v]) => [k, v.name]));
-  return found.length;
-}
-function depsOn() { return CFG.econ.deposits !== false; }   // CFG.econ.deposits switch (Jacob 10/29: off)
-function depShow(mk, a) {             // a = opacity 0..1, null = used up (hidden)
-  const n = depNodes[mk]; if (!n) return;
-  if (!depsOn()) { n.node.visible = false; return; }   // deposits off: Art's patch nodes stay hidden for good
-  n.node.visible = a != null && a > 0.001;
-  for (const m of n.mats) m.opacity = a == null ? 1 : a;   // SHM_DepositRock/Glow are alphaMode BLEND at alpha 1 already (transparent): only opacity moves
-}
-const DEP_MIN_PX = 44;               // patch ≥ 44 CSS px across at any camera distance (tap target)
-const _dw = new THREE.Vector3();
-const DEP_NAMES = ['Dep_01', 'Dep_02'], DISC_Y = 0.1;
-const deposits = []; let depTimer = 0, depSeq = 0;
 const SA = { el: null };   // safe-area insets as the CSS sees them (env(safe-area-inset-*)), read off a hidden probe
 function safeArea() { if (!SA.el) { SA.el = document.createElement('div'); SA.el.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px) 0'; document.body.appendChild(SA.el); }
   const cs = getComputedStyle(SA.el); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 }; }
@@ -2095,49 +2092,6 @@ function band() {                     // Playtester 20:58: the safe-area insets 
   const sa = safeArea(), top = Math.max(hudEl.getBoundingClientRect().bottom, 120, sa.t) + 24;   // station title moved to the bottom (above the dots); top of the band = under the HUD/Eve band (unchanged 144 px)
   const sheetTop = innerHeight - 250 - sa.b;   // UI-2: the drag-up sheet is gone; its fixed 250 px + safe-area bottom strip still bounds the band so every station framing stays as it was
   return { top, bot: Math.min(sheetTop, dotsEl.getBoundingClientRect().top, nameEl.getBoundingClientRect().top, innerHeight - sa.b) - 34, l: 34, r: W - 34, sat: sa.t, sab: sa.b };
-}
-function spawnDeposit(name) {
-  if (!depsOn() || !mine || deposits.length >= CFG.depositMax) return null;
-  const free = DEP_NAMES.filter(n => MK[n] && !deposits.some(d => d.mk === n)); if (!free.length) return null;
-  return makeDeposit(name && free.includes(name) ? name : free[Math.floor(Math.random() * free.length)]);
-}
-function makeDeposit(mk, claimed = false) {
-  const m = MK[mk], x = MX + m.x, z = m.z, r = Math.max(1.6, (m.e.radius_m || 1.4) * 1.15);
-  const disc = depStub(); disc.position.set(x, DISC_Y, z);   // invisible: the GLB patch is the deposit
-  const gem = new THREE.Object3D(); gem.visible = false;   // no gem (Jacob 10/23, Director 20:35); kept as an empty stub so old QA reads of d.gem stay valid
-  const d = { id: ++depSeq, mk, x, z, r, rs: r, disc, gem, age: claimed ? 1 : 0, claimed, dig: 0 }; deposits.push(d); return d;
-}
-function removeDeposit(d) { if (!d || !deposits.includes(d)) return; deposits.splice(deposits.indexOf(d), 1); depShow(d.mk, null); }   // used up: patch hidden
-function restoreDeposits() {          // rich loads queued while the truck was away (saved in S.tk.qd) re-show with their ring until the truck is back
-  if (!depsOn()) return;
-  for (const mk of S.tk.qd) if (MK[mk] && !MK[mk].fb && !deposits.some(d => d.mk === mk)) { const d = makeDeposit(mk, true); d.tkq = true; }
-}
-// queued deposits (tapped while the truck is away) get no ring any more (Director 10/24 00:00): the queue (S.tk.q / S.tk.qd) still drops into the next fill; QA reads stay
-function updQueued() {
-  for (const d of deposits) d.queued = !!d.tkq;
-  window.__ps3d.queued = deposits.filter(d => d.queued).map(d => d.mk);
-}
-function updDeposits(dt, time) {
-  if (!depsOn()) { depTimer = 0; return; }   // deposits off: the spawn timer does nothing
-  depTimer += dt;
-  if (deposits.length < CFG.depositMax && depTimer >= CFG.depositEvery) { depTimer = 0; spawnDeposit(); }
-  if (deposits.length >= CFG.depositMax) depTimer = 0;
-  const tn = nowMs();
-  for (const d of [...deposits]) {
-    if (d.claimed && d.at) { d.dig = clamp((tn - d.at) / 1000, 0, 1); if (d.dig >= 1) { removeDeposit(d); continue; } }   // drill taps it: shrinks over the 1 s rich drop
-    d.age += dt;                       // static (no pulse): a new patch fades in over 1 s (no pop); only the drill tap digs it out (shrinks over the 1 s rich drop)
-    depShow(d.mk, d.claimed && d.dig > 0 ? 1 - d.dig : clamp(d.age / ((depNodes[d.mk] && depNodes[d.mk].fade) || 1), 0, 1));   // real Deposit_ node (no-op without one)
-    const shrink = d.claimed ? 1 - .85 * d.dig : 1;
-    const pxm = (H / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(1, camera.position.distanceTo(_dw.set(d.x, 0, d.z))));
-    d.rs = Math.max(d.r, DEP_MIN_PX / 2 / pxm);
-    d.disc.scale.setScalar(Math.max(.01, shrink * d.rs));
-  }
-}
-// on-screen tap circle for a deposit: ≥ 44 CSS px radius whatever the camera distance, else 1.1× the projected glow
-function depTapR(d) {
-  const c = toScreen(d.x, 0.6, d.z), cx = c.x, cy = c.y; let rr = 0;
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, p = toScreen(d.x + (d.rs || d.r) * Math.cos(a), 0, d.z + (d.rs || d.r) * Math.sin(a)); rr = Math.max(rr, Math.hypot(p.x - cx, p.y - cy)); }
-  return { x: cx, y: cy, R: Math.max(44, rr * 1.1), glow: rr };
 }
 // ===== HT-04 haul loop (no scoop). The truck's state is purely its position along the whole loop, computed from saved timestamps (S.tk),
 // so it is right on any station, after a reload and after time away; every load pays exactly once.
@@ -2429,8 +2383,9 @@ function poseAt(t, o = TS, k = S.tk) {
 }
 const truckOnRoad = () => (TS.ph === 'out' || TS.ph === 'back') && TS.x > MX + 13.5 && TS.x < RX - 46;
 // ---- settling: everything due up to time T happens exactly once (acc = away accumulator → offline 50%, no pops)
-function payPend(T, acc) {
-  for (let i = S.pend.length - 1; i >= 0; i--) { const p = S.pend[i]; if (p.at > T) continue; S.pend.splice(i, 1); if (!depsOn()) continue; S.money += p.v; if (acc) acc.rich += p.v; else richPop(p.v); window.__ps3d.richPaid = (window.__ps3d.richPaid || []).concat({ at: p.at, paidAt: nowMs(), v: p.v }).slice(-10); }
+function payPend(T) {   // old click-rock bonuses in S.pend are ignored: drop any that are due, never pay
+  if (!Array.isArray(S.pend)) { S.pend = []; return; }
+  for (let i = S.pend.length - 1; i >= 0; i--) { const p = S.pend[i]; if (p && p.at > T) continue; S.pend.splice(i, 1); }
 }
 function payBase(v, acc, n = 1) {            // Phase 1 econ (10/29): a truck load pays CFG.econ.truckLoadPay (Locked $0), not v; the ore feeds the Refinery
   const p = Math.max(0, +CFG.econ.truckLoadPay || 0) * n, amt = acc && !acc.full ? p * CFG.offlineRate : p; if (amt > 0) S.money += amt; S.loads += n;   // ca-truck2: n = loads this dump counts for
@@ -2443,19 +2398,9 @@ function payBase(v, acc, n = 1) {            // Phase 1 econ (10/29): a truck lo
   if (refActs.intake_shake) refActs.intake_shake.reset().play();
   if (refActs.dump_dust) refActs.dump_dust.reset().play();   // Art f4d4a2c: once at the start of each tip
 }
-function richPop(v) {
-  if (S.site === MINE && Math.abs(camX - MX) < 3 && !document.hidden) { const r = MK.Rich_Pop, w = new THREE.Vector3(MX + r.x, r.y, r.z), sp = toScreen(w.x, w.y, w.z);
-    pop('+' + fmt(v), sp.x, sp.y - 10, 'bonus'); flyChunks(4, w, v, 'bonus', true); }
-  else smallPop(v);
-}
-let richTw = null;
-function playRich(k = chuteTk()) { const a = (k === S.tk2 ? tActs2 : tActs).truck_load_rich; if (a) { a.reset(); a.play(); } }
-function arrive(t, acc, k = S.tk) {   // back under the chute: the next fill starts; rich loads queued while away drop in now (the queue lives on S.tk for every truck)
-  const Q0 = S.tk, q = depsOn() ? Math.min(Q0.q || 0, 4) : 0;   // deposits off: no queued rich loads drop in
-  Object.assign(k, { c0: t, add: Math.min(1, q * CFG.richFill), lr: q ? t : 0, dep: 0, paid: false, val: 0, sr: 0, hr: 0, tp: 0, sm: 0, hm: 0 }); Q0.q = 0; Q0.qd = [];
-  for (let i = 0; i < q; i++) S.pend.push({ at: t + CFG.richPayDelay * 1000, v: CFG.richBonus });
-  for (const d of deposits) if (d.tkq) { d.tkq = false; d.at = t; }
-  if (q && !acc) { richTw = { at: t, amt: k.add }; playRich(k); }
+function arrive(t, acc, k = S.tk) {   // back under the chute: the next fill starts. Click-rock rich loads are not queued or paid.
+  if (S.tk) { S.tk.q = 0; S.tk.qd = []; }
+  Object.assign(k, { c0: t, add: 0, lr: 0, dep: 0, paid: false, val: 0, sr: 0, hr: 0, tp: 0, sm: 0, hm: 0 });
 }
 // ca-truckrot item 4 (Jacob 10/24; GD 08:49): no load is ever lost. The only thing that adds to the Dock stock (c.dk) is the flatbed storing pallet
 // crates there (cargo sim, f.st 'dock'); a load has no path into the Dock except through the pallet. So whenever the pallet is full (CG.palletCap)
@@ -2538,18 +2483,6 @@ function settleTo(T, acc) {
   payPend(truckClock(T), acc); cgMakeDue(T);
 }
 function shiftTk(d) { shiftTrucks(d); cgShift(d); }
-function tapDeposit(d) {
-  if (!depsOn() || !d) return null;
-  const t = nowMs(); settleTo(t, null); const k = chuteTk() || S.tk;   // ca-truckrot: the truck under the chute takes the rich load; the queue stays on S.tk
-  let res;
-  if (!k.dep && fillAt(t, k) < 1) {         // parked and filling: the drill sends a rich load down the chute now (+25%, capped at 100%; overflow is lost)
-    const amt = Math.min(CFG.richFill, 1 - fillAt(t, k)); k.add += amt; k.lr = t;
-    S.pend.push({ at: t + CFG.richPayDelay * 1000, v: CFG.richBonus });
-    richTw = { at: t, amt }; playRich(k); d.claimed = true; d.at = t; res = 'rich';
-  } else { const Q0 = S.tk; Q0.q = Math.min(4, (Q0.q || 0) + 1); Q0.qd.push(d.mk); d.claimed = true; d.tkq = true; res = 'queued'; }   // truck away: queued into the next fill
-  S.dep++; save(); window.__ps3d.lastTap = { at: t, res, mk: d.mk };
-  return res;
-}
 // ---- per-frame pose, wheels, clips, fill morph, arc gauge
 const _X = new THREE.Vector3(1, 0, 0), _wq = new THREE.Quaternion(), _fa = new THREE.Vector3();
 const WH = { a: 0, d: 0, x: null, z: 0 }, WH2 = { a: 0, d: 0, x: null, z: 0 };
@@ -2560,7 +2493,7 @@ function setAct(a, on) { if (!a) return; if (on) { if (!a.isRunning()) { a.reset
 function updTruck() {
   if (!R.tl || !TQ.ok) return; const t = nowMs(), n = fleetN(); TC = RIG[0];
   for (let i = 0; i < n; i++) { const G = RIG[i], o = G.ts; poseAt(t, o, tkOf(i)); if (!i) wkTaxiOverride(t, o); if (o.ph === 'fill') TC = G;
-    let shown = o.fill; if (o.ph === 'fill' && richTw && tkOf(i) === chuteTk()) { const u = (t - richTw.at) / 1000; if (u >= 1 || u < 0) richTw = null; else shown -= richTw.amt * (1 - fss(u)); }
+    const shown = o.fill;
     o.shown = clamp(shown, 0, 1); if (!i && S.wk && S.wk.go > 0) { o.fill = 0; o.shown = 0; } }
   const crewOff = minerAway(); MR.fillNow = !crewOff && TC.ts.ph === 'fill' && TC.ts.fill < 1; setDigging(!crewOff && (MR.buf ? MR.fillNow || MR.st < 1 : MR.fillNow));   // pre-Habitat: the drill stops while the Miner is aboard. ca-minerevamp: Silo buffer only with OrePath_Bin_* + OrePath_Silo_* nodes
   if (TS.ph !== TS.last) { (window.__ps3d.phases = window.__ps3d.phases || []).push({ ph: TS.ph, at: t }); if (window.__ps3d.phases.length > 40) window.__ps3d.phases.shift(); TS.last = TS.ph; }
@@ -2739,8 +2672,8 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && s.hold >= holdCap() && ((c.autoLaunch && !s.man) || (s.req && t >= s.req))) {   // Jacob 11/1: full hold only; Auto Launch or the Launch tap
       if (!wkArrived(t)) { wkEnsurePickup(c, t, acc); }
       else {
-      const flyN = (S.wk && S.wk.go > 0 && S.wk.n > 0 && !(S.wk.down > 0)) ? (S.wk.n >= CFG.crew0 ? CFG.crew0 : 2) : residentFlyers(), bsec = boardSec({ fly: flyN });   // snapshot who leaves; a Habitat bought later does not pull them back
-      c.sh = Object.assign({}, s, { st: bsec ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0 }); ch = true; cgEv(bsec ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0, fly: flyN }); } }   // the crew boards first (boardSec) after walkers arrive; boardSec itself is unchanged
+      const flyN = (S.wk && S.wk.go > 0 && S.wk.n > 0 && !(S.wk.down > 0)) ? (S.wk.n >= CFG.crew0 ? CFG.crew0 : 2) : residentFlyers(), bsec = boardSec({ fly: flyN });   // snapshot who leaves (S.wk.n, else residentFlyers). A Habitat bought later does not pull them back. fm freezes this trip's flight clock.
+      c.sh = Object.assign({}, s, { st: bsec ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0, fm: shipFlightAt() }); ch = true; cgEv(bsec ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0, fly: flyN, fm: shipFlightAt() }); } }   // the crew boards first (boardSec) after walkers arrive. shipFreePassengerSeats is shipSeats()-tripFly(sh).
     else if (s.st === 'pad' && s.req && t >= s.req && s.hold < holdCap() && !c.rd) { s.req = 0; s.rh = 0; ch = true; }
     if (!ch) break;
   }
@@ -2760,7 +2693,7 @@ function cgNext(c) {
   if (!c.pc.k && c.dk > 0 && s.st === 'pad' && dockBusyEnd(c) > c.t) T(dockBusyEnd(c));   // ca-dock: Dock crane free again → the next Dock-first lift
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
   if (c.pc.k) T(pcEnd(c.pc));
-  if (s.st === 'board') T(s.t0 + boardSec(s) * 1000); else if (s.st === 'launch') T(s.t0 + CG.launchSec * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + CG.awaySec * 500 : s.t0 + CG.awaySec * 1000); else if (s.st === 'land') T(s.t0 + CG.landSec * 1000);
+  if (s.st === 'board') T(s.t0 + boardSec(s) * 1000); else if (s.st === 'launch') T(s.t0 + shipDur(CG.launchSec, s) * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + shipDur(CG.awaySec, s) * 500 : s.t0 + shipDur(CG.awaySec, s) * 1000); else if (s.st === 'land') T(s.t0 + shipDur(CG.landSec, s) * 1000);
   else { if (s.hold >= holdCap() && !pcHold(c.pc.k) && fuelFinishAt(c) > c.t) T(fuelFinishAt(c)); if (s.req > c.t) T(s.req);
     if (S.wk && S.wk.go > 0 && !S.wk.down) { const arr = S.wk.go + wkGatherSec() * 1000; if (arr > c.t) T(arr); }
     if (S.wk && S.wk.down > 0) { const home = wkHomeAt(); if (home > c.t) T(home); } }
@@ -2786,13 +2719,13 @@ function cgComplete(c, t, acc) {
   }
   const s = c.sh;
   if (s.st === 'board' && s.t0 + boardSec(s) * 1000 <= t) { const tl = s.t0 + boardSec(s) * 1000; c.sh = Object.assign({}, s, { st: 'launch', t0: tl }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: boardSec(s) }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once). fly + left stay on sh.
-  else if (s.st === 'launch' && s.t0 + CG.launchSec * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
+  else if (s.st === 'launch' && s.t0 + shipDur(CG.launchSec, s) * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
     c.launches++; cgEv('departed', t, { boxes: s.hold });
-    c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, n: s.hold, pur: cargoPurity(), fly: s.fly || 0, left: s.left || 0 };   // gc-batch7: n = crates aboard at departure (display only; survives the Earth drop). fly / left: the resident crew already aboard
-  } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + CG.awaySec * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
+    c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, n: s.hold, pur: cargoPurity(), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 };   // gc-batch7: n = crates aboard at departure (display only; survives the Earth drop). fly / left / fm ride with the trip
+  } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + shipDur(CG.awaySec, s) * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
     c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
-  } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, n: s.n, pur: s.pur, crew: crewOk(s.crew), fly: s.fly || 0, left: s.left || 0 }; cgEv('landing', t); }   // gc-crewpick: the pick rides home
-  else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
+  } else if (s.st === 'away' && s.t0 + shipDur(CG.awaySec, s) * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, n: s.n, pur: s.pur, crew: crewOk(s.crew), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 }; cgEv('landing', t); }   // gc-crewpick: the pick rides home. fm keeps the landing clock
+  else if (s.st === 'land' && s.t0 + shipDur(CG.landSec, s) * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
     const left = s.left > 0 && (s.fly >= CFG.crew0) ? s.left : 0, origGo = S.wk && S.wk.go > 0 && s.fly >= CFG.crew0 ? S.wk.go : 0;
     c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; if (left > 0) payPend(left, acc); else if (origGo > 0) payPend(origGo, acc);
     if (origGo > 0) S.wk.down = t; else if (left > 0) shiftTrucks(t - left);
@@ -2863,7 +2796,7 @@ function stampGuard(now = nowMs()) {
   return g;
 }
 const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelNow(t).g / CFG.econ.fuel.tank : s.st === 'launch' ? 1 : 0; };   // tank 0–1: fills from touchdown at the pump rate (refuelSec(S.fuelLv)), from the Refinery stock (fuelSolve)
-const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (CG.launchSec * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the climb, empty while away/landing
+const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the (level-scaled) climb, empty while away/landing
 const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= holdCap() && fuelAt(t) >= 1; };   // full hold only (the chip shows on this)
 const launchBlocked = (h = S.cg.sh.hold) => CFG.econ.launchBelowMin === 'block' && !(launchPayFor(h) > 0);   // 'block' = no launch under a full hold. A short first flight is not an exception
 const canLaunch = (t = nowMs()) => launchReady(t) && !launchBlocked();   // every launch entry point (HUD chip, ship card, cgLaunch) goes through this
@@ -3297,10 +3230,10 @@ function shipSkirtLoaded(g, prep) {
   if (stationObjs[PADI] === cg3.padArt) fitSite(PADI);   // the pad rest fit needs the landing legs: re-fit now they are in
   window.__ps3d.shipSkirt = { url: prep.url, seat: prep.seat, baseY: +prep.baseY.toFixed(3), bellVerts: prep.bells, legVerts: prep.legs, bells: prep.eng, cockpitVerts: prep.cw.n, nozzles: (() => { let n = 0; sk.traverse(o => { if (/^Engine_Nozzle_\d+$/.test(o.name)) n++; }); return n; })() };
 }
-function updGear(s, t, alt) {          // cargo clock: launch rel LO (= launch t0), landing rel TD (= land t0 + landSec)
+function updGear(s, t, alt) {          // cargo clock: launch rel LO (= launch t0), landing rel TD (= land t0 + landSec). A shorter flight runs the same art timeline faster so the legs still finish on the ground.
   const G = cg3.gear; if (!G) return;
-  if (s.st === 'launch') G.update('launch', t - s.t0, alt);
-  else if (s.st === 'land') G.update('land', t - (s.t0 + CG.landSec * 1000), alt);
+  if (s.st === 'launch') G.update('launch', ((t - s.t0) / (shipDur(CG.launchSec, s) * 1000)) * CG.launchSec * 1000, alt);
+  else if (s.st === 'land') { const u = (t - s.t0) / (shipDur(CG.landSec, s) * 1000); G.update('land', (u - 1) * CG.landSec * 1000, alt); }
   else if (s.st === 'away') { if (G.ph !== 'away') { G.update('launch', 1e9, 1e3); G.ph = 'away'; } }
   else if (G.ph !== 'pad') { G.update('land', 0, 0); G.ph = 'pad'; }
 }
@@ -3331,15 +3264,37 @@ function vfxLoaded(g, prep) {
   if (!VFX.matP || !VFX.matD) throw new Error('launch vfx: meshes missing');
   if (VFX.matD.map && VFX.matD.map === VFX.matP.map) VFX.matD.map = VFX.matD.map.clone();   // the dust UV scroll must not move the plume
   VFX.mx = new THREE.AnimationMixer(pad); for (const n in clips) { const a = VFX.mx.clipAction(clips[n]); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; VFX.acts[n] = a; }
-  Object.assign(VFX, { plume: P, dust: D, pI, dI, cur: '' }); vfxOff();
-  window.__ps3d.launchVfx = { url: VFX_GLB, plumeParent: P.parent.name, dust: D.position.toArray().map(v => +v.toFixed(3)), clips: Object.keys(clips) };
+  const mesh = P.getObjectByName('Plume_Mesh');
+  let im = null;
+  if (mesh && mesh.geometry) {   // one InstancedMesh for every engine (Lv1 6 → Lv6 11). The source mesh stays hidden so the draw stays 1.
+    mesh.visible = false;
+    im = new THREE.InstancedMesh(mesh.geometry, VFX.matP, 11);
+    im.name = 'Plume_Instances'; im.frustumCulled = false; im.castShadow = im.receiveShadow = false; im.renderOrder = mesh.renderOrder || 11; im.count = 0;
+    P.add(im);
+  }
+  Object.assign(VFX, { plume: P, dust: D, pI, dI, im, cur: '', _m: new THREE.Matrix4(), _p: new THREE.Vector3(), _q: new THREE.Quaternion(), _s: new THREE.Vector3() }); vfxOff();
+  window.__ps3d.launchVfx = { url: VFX_GLB, plumeParent: P.parent.name, dust: D.position.toArray().map(v => +v.toFixed(3)), clips: Object.keys(clips), instanced: !!im };
+}
+function vfxPlumes(n, len) {   // nozzle ring in Plume_Root space (same clocking as the art N=6 markers). Parent scale is the clip; Y scale is the level length.
+  const im = VFX.im; if (!im) return;
+  im.visible = !!(VFX.plume && VFX.plume.visible);
+  if (!im.visible) { if (im.count) { im.count = 0; im.instanceMatrix.needsUpdate = true; } return; }
+  n = Math.max(1, Math.min(11, n | 0)); len = len > 0 ? len : 1;
+  const R = 3.05, ph = (90 + (n % 2 === 0 ? 90 / n : 0) - 60) * Math.PI / 180;
+  for (let k = 0; k < n; k++) {
+    const a = ph + Math.PI * 2 * k / n;
+    VFX._p.set(R * Math.cos(a), -10, -R * Math.sin(a));
+    VFX._s.set(4.2, 10 * len, 4.2);
+    im.setMatrixAt(k, VFX._m.compose(VFX._p, VFX._q, VFX._s));
+  }
+  im.count = n; im.instanceMatrix.needsUpdate = true;
 }
 function vfxPhase(c, t) {              // → { k: 'Takeoff' | 'Landing', x: clip seconds } or null (pure: S.cg.sh + now)
   const s = c && c.sh; if (!s) return null;
   if (s.st === 'board') { const bsec = boardSec(s), fly = flyCrew(s), x = (t - (s.t0 + (bsec - VFX.ign) * 1000)) / 1000, inside = fly.length ? s.t0 + (BCAM.in + Math.max(...fly.map(f => BOARD_INSIDE[f.board] || 0))) * 1000 : s.t0;
     return x >= 0 && t >= inside ? { k: 'Takeoff', x } : null; }   // NOTES: never ignite while anyone who is boarding is still outside
-  if (s.st === 'launch') { const x = (boardSec(s) ? VFX.ign : 0) + (t - s.t0) / 1000; return x < VFX.toff ? { k: 'Takeoff', x } : null; }   // ?board=off: no board phase, clip starts at ignition
-  if (s.st === 'land') return { k: 'Landing', x: (t - s.t0) / 1000 };
+  if (s.st === 'launch') { const u = (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), x = (boardSec(s) ? VFX.ign : 0) + u * CG.launchSec; return x < VFX.toff ? { k: 'Takeoff', x } : null; }   // shorter climb: the 8 s of plume after ignition plays out as the ship leaves
+  if (s.st === 'land') return { k: 'Landing', x: ((t - s.t0) / (shipDur(CG.landSec, s) * 1000)) * CG.landSec };
   if (s.st === 'pad' && c.launches > 0) { const x = CG.landSec + (t - s.t0) / 1000; return x >= CG.landSec && x < VFX.land ? { k: 'Landing', x } : null; }
   return null;
 }
@@ -3353,8 +3308,10 @@ function updVfx(c, t) {
   for (const n of [pn, dn]) { const a = VFX.acts[n]; a.time = clamp(ph.x, 0, a.getClip().duration - 1e-3); }
   VFX.mx.update(0);
   const flick = 1 + 0.06 * Math.sin(t * 0.113) * Math.sin(t * 0.037), pi = VFX.pI.scale.x, di = VFX.dI.scale.x;   // NOTES §3 per-frame code
-  VFX.matP.color.setScalar(pi * flick * VFX.gainP); VFX.matD.opacity = Math.min(1, di * VFX.gainD);
+  const nEng = shipEngines(), flare = shipFlame() * Math.sqrt(6 / Math.max(1, nEng));   // +8%/level, crowded back toward the Lv1 cluster
+  VFX.matP.color.setScalar(pi * flick * VFX.gainP * flare); VFX.matD.opacity = Math.min(1, di * VFX.gainD);
   VFX.plume.visible = pi > 0.002; VFX.dust.visible = di > 0.002;
+  vfxPlumes(nEng, shipFlame());
   if (VFX.matD.map) VFX.matD.map.offset.y = (-1.6 * t / 1000) % 1;
   VFX.ph = { k: ph.k, x: +ph.x.toFixed(3), pI: +pi.toFixed(3), dI: +di.toFixed(3) };
 }
@@ -3662,9 +3619,9 @@ function updCargo() {
   else if (cg3.wheels) { const W = cg3.wheels; fb.userData.wheelPos.forEach((p, i) => { _cq.setFromAxisAngle(_cv.set(0, 0, 1), -FBS.wa); W.setMatrixAt(i, _cm.compose(_cp.set(p[0], p[1], p[2]), _cq, _cs)); }); W.instanceMatrix.needsUpdate = true; }
   // ship
   const s = c.sh, sh = cg3.ship, pp = CPH.pad; let sy = cg3.shipY0 != null ? cg3.shipY0 : pp.padTop, vis = true;
-  if (s.st === 'launch') { const u = clamp((t - s.t0) / (CG.launchSec * 1000), 0, 1); sy += 160 * u * u * u; }
+  if (s.st === 'launch') { const u = clamp((t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1); sy += 160 * u * u * u; }
   else if (s.st === 'away') vis = false;
-  else if (s.st === 'land') { const u = clamp((t - s.t0) / (CG.landSec * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
+  else if (s.st === 'land') { const u = clamp((t - s.t0) / (shipDur(CG.landSec, s) * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
   sh.visible = vis; sh.position.y = sy; updGear(s, t, sy - (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop)); sh.updateMatrixWorld(true); updVfx(c, t);
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
@@ -3929,7 +3886,7 @@ awEl.innerHTML = '<i></i><b>SHIP AWAY</b><em>0:00</em>';
 const awTxt = awEl.querySelector('em');
 { const li = document.querySelector('#launchBtn i'), v = li ? getComputedStyle(li).getPropertyValue('--ri') : ''; if (v) awEl.style.setProperty('--ri', v); else awEl.querySelector('i').remove(); }   // the LAUNCH rocket glyph (no new art)
 const AW = { on: false, s: -1, x: -1, y: -1 };
-const shipEtaSec = (t = nowMs(), s = S.cg.sh) => s.st === 'away' || s.st === 'land' ? Math.max(0, Math.ceil(((s.st === 'away' ? s.t0 + (CG.awaySec + CG.landSec) * 1000 : s.t0 + CG.landSec * 1000) - t) / 1000)) : -1;   // s to touchdown from the saved trip stamps
+const shipEtaSec = (t = nowMs(), s = S.cg.sh) => s.st === 'away' || s.st === 'land' ? Math.max(0, Math.ceil(((s.st === 'away' ? s.t0 + (shipDur(CG.awaySec, s) + shipDur(CG.landSec, s)) * 1000 : s.t0 + shipDur(CG.landSec, s) * 1000) - t) / 1000)) : -1;   // s to touchdown from the saved trip stamps (sh.fm)
 const mss = (n) => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
 function awayChip(bd, t) {            // from cargoUI, every station
   const padG = S.site === PADI && Math.abs(camX - PX) < 3;   // at the Pad the fuel gauge already reads SHIP AWAY m:ss (kept as is): no second chip there
@@ -3972,22 +3929,6 @@ function updFx(dt) {
   window.__ps3d.sy = sy;
 }
 
-// ===== taps on the 3D scene: deposits first (screen-space hit test, radius ≥ 44 CSS px whatever the camera distance), then upgrade cards
-function tapDeposit3d(x, y) {
-  if (!depsOn()) return false;   // deposits off: no deposit taps
-  if (S.site !== MINE || Math.abs(camX - MX) > 3 || !mine) return false;
-  let best = null, bd = Infinity;
-  for (const d of deposits) {
-    if (d.claimed) continue;
-    const h = depTapR(d), dist = Math.hypot(x - h.x, y - h.y);
-    if (dist < h.R && dist < bd) { bd = dist; best = d; }
-  }
-  if (!best) return false;
-  const r = tapDeposit(best);
-  if (r === 'queued') pop('Queued for the next load', x, y - 20, 'info');
-  if (pointBeat === 'deposit') pointerDone = true;
-  return true;
-}
 // gc-ui2 slide guard (EM 15:52 item 2): a card only opens from a settled camera (upSettled: camX within UP_SETTLE m of the station it is going to), so a
 // stale station's object can never be picked. UP_SETTLE 0.3 m ≈ 8 px on screen (< TAP_PX); a tap while the scene still moves is dropped (UP_LATE = UP_SETTLE:
 // a deferred tap was re-picked at the same screen point after the scene had moved under it and opened the wrong object). A tap once settled works.
@@ -3998,7 +3939,6 @@ addEventListener('click', (e) => { if (upDownAt < upTapAt && performance.now() -
 const upSettled = () => !drag && Math.abs(camX - SX[S.site]) <= UP_SETTLE;
 function tap(x, y, pk, t0) {   // t0: touch time for a deferred tap (gc-tapfix mover grace)               // pk: the touchstart pick from the canvas pointerdown (undefined = no press record: pick now)
   upPend.site = -1;
-  if (tapDeposit3d(x, y)) return;
   if (pk === null) { window.__ps3d.lastPick = 'sliding'; return; }     // ca-tapfix2 (EM 23:00): camera not settled at touchstart → no card; never re-picked at touch end with a later camera pose
   if (pk || pk === false) {                                             // gc-ui3: settled at touchstart → open exactly that object's card (no touchend re-pick; a moving truck keeps its own card)
     if (!pk) { window.__ps3d.lastPick = null; return closeUp('empty'); }
@@ -4051,16 +3991,19 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   truck: { name: 'Haul Truck', ico: 'truck', once: true, lock: () => !truck2Unlocked(), lockSub: 'Truck 2 unlocks later', lv: () => S.rovers, max: () => S.rovers >= CFG.roverMax, cost: () => CFG.econ.p2Prices.truck2, buy: () => buyTruck2(),   // ca-truck2: one-time Truck 2 buy
     big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: (m) => m ? 'Truck 2 on the haul loop · they take turns at the chute' : 'A second HT-04 on the haul loop · takes turns at the chute' },
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
-  ship: { name: 'Cargo Ship', ico: 'ship', launch: true, kick: 'Launch',
+  ship: { name: 'Launch Pad', ico: 'ship', launch: true, kick: 'Pad',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${holdCap()}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
     sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? (crewWin(t) ? `On the way to Earth · crew ${crewOk(s.crew).length}/${maxPicks()}` : 'On the way to Earth') : 'Landing'; },
     btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < holdCap()) return [`Hold ${s.hold}/${holdCap()}`, false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fueling' : 'Awaiting cargo', false]; },
     buy: () => { if (crewWin()) return crewOpen(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
-  shipUp: { name: 'Ship Upgrade', ico: 'ship', lv: () => shipLvNow(), max: () => shipLvNow() >= CFG.econ.ship.levels, cost: () => shipUpgradeCost(), buy: () => buyShip(),
-    big: (m) => { const h0 = holdCap(), st = CFG.econ.ship.step; return [m ? `${h0}` : `${h0} → ${h0 + st}`, 'hold']; },
-    sub: (m) => { const s0 = shipSeats(), st = CFG.econ.ship.step; return m ? `${s0} seats` : `${s0} → ${s0 + st} seats`; },
-    meter: () => [CFG.econ.ship.levels, shipLvNow()] },
+  shipUp: { name: 'Ship Upgrade', ico: 'ship', lock: () => !(S.cg && S.cg.sh && S.cg.sh.st === 'pad'), lockSub: 'Dock the ship to upgrade it',
+    lv: () => shipLvNow() + 1, max: () => shipLvNow() >= shipTop(), cost: () => shipUpgradeCost(), buy: () => buyShip(),
+    big: (m) => { const a = shipRow(), b = m ? a : shipRow(shipLvNow() + 1); return [m ? `${a.hold}` : `${a.hold} → ${b.hold}`, 'hold']; },
+    sub: (m) => { const a = shipRow(), i = shipLvNow(), ft = (k) => ( (CG.launchSec + CG.awaySec + CG.landSec) * shipRow(k).flight / 60 ).toFixed(1);
+      if (m) return `${a.seats} seats\n${a.engines} engines\n${ft(i)} min flight`;
+      const b = shipRow(i + 1); return `${a.seats} → ${b.seats} seats\n${a.engines} → ${b.engines} engines\n${ft(i)} → ${ft(i + 1)} min flight`; },
+    meter: () => [CFG.econ.ship.lv.length, shipLvNow() + 1] },
   crew: { name: 'Return Crew', ico: 'habitat', crew: true },   // gc-crewpick: opened by crewPrompt / the ship card; no tap target of its own
   // gc-ui2 (item 3): station buildings with no upgrades yet
   soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
@@ -4084,7 +4027,16 @@ const UPT = [
     add: (b) => padTankBox(b) },   // gc-ui2 (item 4): + the LOX / LCH4 tanks (part of the Pad_Base mesh, no own node)
   { id: 'truck', p: 'truck', site: -1, own: true, objs: () => truckRoot ? [truckRoot] : [], hl: () => truckRoot ? [truckRoot] : [] },
   { id: 'truck2', p: 'truck', site: -1, own: true, objs: () => truck2Root && truck2Root.visible ? [truck2Root] : [], hl: () => truck2Root && truck2Root.visible ? [truck2Root] : [] },   // ca-truck2: the parked Truck 2 opens the same card (site -1 like Truck 1: no tap-invite glow clones)
-  { id: 'ship', p: 'ship', site: PADI, own: true, objs: () => cg3.ship ? [cg3.ship] : [], hl: () => cg3.ship ? [cg3.ship] : [] },
+  // Hull (docked only) opens the ship upgrade sheet. The hit is a meter-space box around the visual hull
+  // (setFromObject applies the quantized skirt/hold node scale). The old integer bounding box (0..16383) only
+  // overlapped the rocket at the skirt origin — the tower's bottom corner — whenever a test used it unscaled.
+  { id: 'ship', p: 'shipUp', site: PADI, own: true,
+    objs: () => shipDocked() && cg3.ship ? [cg3.ship] : [],
+    box: (b) => shipHitBox(b),
+    hl: () => { const h = shipDocked() && cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder'); if (!h) return [];
+      const ms = []; h.traverse(m => { if (m.isMesh && m.geometry && m.geometry.boundingSphere && m.geometry.boundingSphere.radius < 80) ms.push(m); }); return ms; } },
+  // Base platform deck → the Launch Pad sheet. Not the crane (tower) and not the ladder.
+  { id: 'padDeck', p: 'ship', site: PADI, box: (b) => padDeckBox(b), hl: () => [] },
   // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
   { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
@@ -4104,6 +4056,47 @@ function soonObjs(i, names) {          // the station GLB's main building nodes,
 const PAD_TANKS = { min: [-19.9, 0, -10.7], max: [-11.6, 10.9, -0.5] };   // pad-local box around both fuel tanks (measured from Pad_Base hits at 393×852)
 function padTankBox(b) { const o = stationObjs[PADI]; if (!o || !o.getObjectByName('Hose_LOX')) return null; o.updateWorldMatrix(true, false);
   b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0], i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
+const PAD_DECK = { min: [-12, 0, -22], max: [12, 1.7, -4] };   // pad-local slab: the base platform under the ship, not the crane tower (z +8) and not the fuel tanks (x < -12)
+function shipDocked() { return !!(cg3.ship && cg3.ship.visible && S.cg && S.cg.sh && S.cg.sh.st === 'pad'); }
+function shipHitBox(b) {   // meter-space hull only. Quantized skirt/hold bounds are 0..16383; setFromObject on those
+  // without a sane scale blows the hit volume up to the tower corner and the deck. Skip any mesh whose
+  // bounding sphere is still in that integer space, and add a fixed metre box around the skirt origin.
+  if (!shipDocked()) return null;
+  const hull = cg3.ship.getObjectByName('Ship_Placeholder'); if (!hull) return null;
+  hull.updateWorldMatrix(true, true); b.makeEmpty();
+  hull.traverse(m => {
+    if (!m.isMesh || !m.geometry) return;
+    const bs = m.geometry.boundingSphere; if (bs && bs.radius > 80) return;
+    if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+    b.expandByObject(m);
+  });
+  const sk = cg3.skirt;
+  if (sk) { sk.updateWorldMatrix(true, true); sk.getWorldPosition(_uv); const x = _uv.x, y = _uv.y, z = _uv.z;
+    b.expandByPoint(_uv.set(x - 6.5, y - 0.2, z - 6.5)); b.expandByPoint(_uv.set(x + 6.5, y + 7, z + 6.5)); }
+  if (b.isEmpty()) return null;
+  b.expandByScalar(0.7); return b;
+}
+function padDeckBox(b) { const o = cg3.padArt; if (!o) return null; o.updateWorldMatrix(true, false); b.makeEmpty();
+  for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_DECK.max[0] : PAD_DECK.min[0], i & 2 ? PAD_DECK.max[1] : PAD_DECK.min[1], i & 4 ? PAD_DECK.max[2] : PAD_DECK.min[2]).applyMatrix4(o.matrixWorld));
+  return b;
+}
+const _lwp = new THREE.Vector3(), _lhit = new THREE.Vector3();
+function blockedByTower(ray, d) {   // the crane (launch tower) sits in front of the pad. A ray that hits it first opens nothing.
+  if (!(d < 1e8) || !ray) return false;
+  const crane = cg3.padArt && cg3.padArt.getObjectByName('Crane'); if (!crane) return false;
+  _urc.ray.copy(ray); const h = _urc.intersectObject(crane, true);
+  return h.length > 0 && h[0].distance + 0.2 < d;
+}
+function hitNearLadder(ray) {   // a ray aimed at Ladder_Foot opens nothing (the marker is not a target, and it is not the hull)
+  if (!ray) return false;
+  const n = cg3.padArt && cg3.padArt.getObjectByName('Ladder_Foot'); if (!n) return false;
+  n.getWorldPosition(_lwp);
+  const ox = _lwp.x - ray.origin.x, oy = _lwp.y - ray.origin.y, oz = _lwp.z - ray.origin.z;
+  const t = ox * ray.direction.x + oy * ray.direction.y + oz * ray.direction.z;
+  if (t < 0) return false;
+  _lhit.copy(ray.origin).addScaledVector(ray.direction, t);
+  return _lhit.distanceTo(_lwp) < 1.7;
+}
 const upShown = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };   // own: the object itself must show (truck / ship); else only its parents (hidden Tier_NN boxes still widen the tap rect)
 const upSiteNow = () => nearSite(camX);   // the station the camera is at (not S.site, which flips at the start of a glide)
 let upWhy = '';                        // why the last upRect() gave null (QA: upRects() reports it per target)
@@ -4135,7 +4128,7 @@ const UP_R = 44;                       // tap radius floor (CSS px)
 // pick is the chute and the finger is on the truck's own 3D box (now, or a pose within UP_GRACE: a truck driving under the finger), the truck opens.
 // That covers the Mine spots where the ray goes through the parked truck's box (above the bed, by the cab) and hits the chute behind it, and a
 // moving truck whose mesh is behind a nearer chute mesh. UP_WINS[id] = the targets id beats; every other pair stays nearest-hit.
-const UP_WINS = { truck: ['chute'] };
+const UP_WINS = { truck: ['chute'], ship: ['padDeck'] };   // the hull wins where it overlaps the pad deck
 const UP_GRACE = 300, _urc = new THREE.Raycaster(), _urn = new THREE.Vector2(), _urr = new THREE.Ray(), _urm = new THREE.Matrix4(), _urp = new THREE.Vector3();
 const UPPOSE = UPT.filter(t => t.own).map(t => ({ t, n: 0, i: 0, buf: Array.from({ length: 32 }, () => ({ at: 0, m: new THREE.Matrix4() })) }));
 // ca-tapfix2 (chute 2-tap): the camera's own poses too. After a card closes, the card camera eases back (UC, frame-dt based: under load it takes
@@ -4164,9 +4157,12 @@ function upPoseIn(h, t0, g = UP_GRACE) {             // the mover poses a touch 
   if (old) out.push(old); return out;
 }
 function upRayDist(t, ray) {           // nearest hit of this target's own visible meshes (box-only targets: their world box) along ray, or Infinity
-  if (t.box) { let d = Infinity; const b = t.box(_ub); if (b && !b.isEmpty() && ray.intersectBox(b, _urp)) d = _urp.distanceTo(ray.origin);
-    const b2 = t.add && t.add(_ub2); if (b2 && !b2.isEmpty() && ray.intersectBox(b2, _urp)) d = Math.min(d, _urp.distanceTo(ray.origin)); return d; }
-  _urc.ray.copy(ray); const h = _urc.intersectObjects(upMeshes(t), false); return h.length ? h[0].distance : Infinity;
+  let d;
+  if (t.box) { d = Infinity; const b = t.box(_ub); if (b && !b.isEmpty() && ray.intersectBox(b, _urp)) d = _urp.distanceTo(ray.origin);
+    const b2 = t.add && t.add(_ub2); if (b2 && !b2.isEmpty() && ray.intersectBox(b2, _urp)) d = Math.min(d, _urp.distanceTo(ray.origin)); }
+  else { _urc.ray.copy(ray); const h = _urc.intersectObjects(upMeshes(t), false); d = h.length ? h[0].distance : Infinity; }
+  if ((t.id === 'ship' || t.id === 'padDeck') && (hitNearLadder(ray) || blockedByTower(ray, d))) return Infinity;   // no ladder, and the tower in front wins nothing
+  return d;
 }
 function upBoxDist(h, ray, t0) {      // a mover's own 3D box along ray: now, and (t0 given) every pose within the grace; { d: nearest entry or Infinity, past }
   const o = h.t.objs()[0]; o.updateWorldMatrix(true, true); _ub.makeEmpty().expandByObject(o);
@@ -4188,11 +4184,11 @@ function pickRay(x, y, t0) {           // t0: touch time (performance.now) → m
   }
   if (best) for (const h of UPPOSE) {    // ca-tapfix2: a mover that beats the picked target (UP_WINS) wins wherever its 3D box (now, or a pose within the grace) is under the finger
     const t = h.t; if (t === best.t || !(UP_WINS[t.id] || []).includes(best.t.id)) continue; const r = upRectG(t, t0); if (!r) continue;
-    const b = upBoxDist(h, ray, t0); if (b.d < Infinity) { best = { t, r, ray: true, box: true, past: b.past, d: +b.d.toFixed(2), over: best.t.id }; break; }
+    const b = upBoxDist(h, ray, t0); if (b.d < Infinity && !((t.id === 'ship' || t.id === 'padDeck') && (hitNearLadder(ray) || blockedByTower(ray, b.d)))) { best = { t, r, ray: true, box: true, past: b.past, d: +b.d.toFixed(2), over: best.t.id }; break; }
   }
   if (!best) for (const h of UPPOSE) {   // no mesh under the finger: a mover's own 3D box (now, or a pose within the grace) before the screen rects (the gap between cab and bed)
     const t = h.t, r = upRectG(t, t0); if (!r) continue; const { d, past } = upBoxDist(h, ray, t0);
-    if (d < bD) { bD = d; best = { t, r, ray: true, box: true, past, d: +d.toFixed(2) }; }
+    if (d < bD && !((t.id === 'ship' || t.id === 'padDeck') && (hitNearLadder(ray) || blockedByTower(ray, d)))) { bD = d; best = { t, r, ray: true, box: true, past, d: +d.toFixed(2) }; }
   }
   window.__ps3d.lastRay = best ? { id: best.t.id, d: best.d, past: best.past, box: !!best.box, over: best.over || null } : null;
   return best;
@@ -4352,15 +4348,15 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
     const ub = document.createElement('button'); ub.className = 'tgl shipup'; ub.dataset.k = 'shipUp';
     const ul = document.createElement('span'); ul.className = 'tg-lab'; ul.textContent = 'SHIP UPGRADE';
     const um = document.createElement('span'); um.className = 'su-meta'; const ug = document.createElement('span'); ug.className = 'su-go'; ug.textContent = 'UPGRADE';
-    ub.append(ul, um, ug); ub.addEventListener('click', (e) => { e.stopPropagation(); openUp('shipUp'); }); tg.append(ub);
+    ub.append(ul, um, ug); ub.addEventListener('click', (e) => { e.stopPropagation(); upTapT = UPT.find(q => q.id === 'ship') || upTapT; openUp('shipUp'); }); tg.append(ub);
     $('upSub').insertAdjacentElement('afterend', tg); }
-  for (const b of tg.children) { if (b.dataset.k === 'load1') { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } if (b.dataset.k === 'shipUp') { b.style.display = ''; const lv = shipLvNow(), maxed = lv >= CFG.econ.ship.levels, meta = b.querySelector('.su-meta'), go = b.querySelector('.su-go'); if (meta) meta.textContent = maxed ? `LV ${lv} · MAX` : `LV ${lv} · ${fmt(shipUpgradeCost())}`; if (go) go.textContent = maxed ? 'MAX' : 'UPGRADE'; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
+  for (const b of tg.children) { if (b.dataset.k === 'load1') { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } if (b.dataset.k === 'shipUp') { b.style.display = ''; const lv = shipLvNow(), maxed = lv >= shipTop(), meta = b.querySelector('.su-meta'), go = b.querySelector('.su-go'); if (meta) meta.textContent = maxed ? `LV ${lv + 1} · MAX` : `LV ${lv + 1} · ${fmt(shipUpgradeCost())}`; if (go) go.textContent = maxed ? 'MAX' : 'UPGRADE'; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
   tg.hidden = false;
 }
 // ===== gc-crewpick: pick card in the standard panel. One chip per role (tap = +1, the − corner = −1; repeats allowed).
 // Total ≤ min(free passenger seats, free beds). A tap saves the pick on the trip at once. The ship still flies on its timer;
 // when it leaves Earth (crewWin ends) the card closes with the pick locked in. The button only closes the card.
-const crewWin = (t = nowMs()) => { const s = S.cg && S.cg.sh; return !!(S.bt.hab === 1 && s && s.st === 'away' && tripFly(s) < CFG.crew0 && t < s.t0 + CG.awaySec * 500); };   // gc-hab54: a trip that left with all 4 (sh.fly) keeps those seats. shipFreePassengerSeats() is shipSeats()-tripFly(sh).
+const crewWin = (t = nowMs()) => { const s = S.cg && S.cg.sh; return !!(S.bt.hab === 1 && s && s.st === 'away' && tripFly(s) < CFG.crew0 && t < s.t0 + shipDur(CG.awaySec, s) * 500); };   // halfway to Earth follows the trip's flight multiplier. shipFreePassengerSeats() is shipSeats()-tripFly(sh).
 const CRW = { seats: 0 };
 const crewMax = (seats = CRW.seats) => Math.max(0, Math.min(seats, freeBeds()));
 const upCrewEl = $('upCrew'), crewBtns = {};
@@ -4379,7 +4375,7 @@ function crewLock(why) {
 }
 function upCrewUI() {
   const t = nowMs(); if (!crewWin(t)) { crewLock('crew-lock'); return; }
-  const s = S.cg.sh, a = crewOk(s.crew), mx = crewMax(), room = freeBeds(), left = Math.max(0, Math.ceil((s.t0 + CG.awaySec * 500 - t) / 1000));
+  const s = S.cg.sh, a = crewOk(s.crew), mx = crewMax(), room = freeBeds(), left = Math.max(0, Math.ceil((s.t0 + shipDur(CG.awaySec, s) * 500 - t) / 1000));
   const k = ['crew', a.join(), mx, CRW.seats, S.pop, left].join('|'); upBuy.style.display = ''; if (k === UPK.k) return; UPK.k = k;
   upEl.dataset.ico = 'habitat'; upEl.dataset.locked = ''; $('upKick').textContent = 'Earth → Moon · Crew pick'; $('upName').textContent = 'Return Crew'; $('upLv').textContent = ''; fitTitle();
   $('upEffK').textContent = mx === 0 ? 'Habitat full' : 'Passenger seats'; $('upLvl').hidden = true; $('upMeter').hidden = true; $('upCostRow').hidden = true;
@@ -4531,16 +4527,16 @@ function buyPurity() {
   logU('upgrade', `He-3 Purity Lv ${S.purLv}: ${pct(refineryPurity())}, ${fmt(perCrateValue())}/crate, full hold ${fmt(dropoffValue(refineryPurity()))}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-function buyShip() {   // Launch Pad ship card. Settle first so a full hold launches at the old capacity, then the new hold/seats apply
-  const H = CFG.econ.ship, lv = shipLvNow(); if (lv >= H.levels) return;
+function buyShip() {   // Docked only. Settle first so a full hold launches at the old capacity, then the new hold/seats/engines apply
+  const lv = shipLvNow(); if (lv >= shipTop() || !(S.cg && S.cg.sh && S.cg.sh.st === 'pad')) return;
   const c = shipUpgradeCost(); if (!canPay(c)) return;
   const t = nowMs(); settleTo(t, null);
   pay(c); S.shipLv = lv + 1; save(); UPK.k = ''; upUI(); hud();
   popAtBuy(`Hold ${holdCap()} · ${shipSeats()} seats`);
-  logU('upgrade', `Ship Lv ${S.shipLv}: hold ${holdCap()}, seats ${shipSeats()} (${fmt(c)})`);
+  logU('upgrade', `Ship Lv ${S.shipLv + 1}: hold ${holdCap()}, seats ${shipSeats()}, ${shipEngines()} engines (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow });   // QA hooks (Refinery lane + ship hull)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop });   // QA hooks (Refinery lane + ship hull)
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
     if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
@@ -4554,8 +4550,6 @@ Object.defineProperty(window.__ps3d, 'upCur', { get: () => upCur, configurable: 
 // Tutorial calls ring until opened; story calls time out after 8 s and leave a missed-call badge. Motion constants mirror MOTION.md.
 const EVE_BEATS = [
   { id: 'mine_first_view', tut: true, point: null, lines: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",
-    "Tap the dark ore patch and the drill drops a rich load into the bed. Over."],
-    linesNoDep: ["Moonbase, this is Eve at Earth Coms. Good to hear you made it. Your truck is filling under the chute.",   // CFG.econ.deposits off: no ore-patch line
     "Once it's full it hauls the ore to the Refinery on its own. Over."] },
   { id: 'first_deposit', tut: false, point: null, lines: ["Rich load, nice. Once that truck is full it hauls to the Refinery and pays as the bed tips. Over."] },
   // UI-2 item 8 (Director, EM 15:52): no wording that points at a button; the clip upgrade_ready_0 still says the old line, so this beat is silent until a new clip lands
@@ -4576,8 +4570,8 @@ function firstLaunchLines() {   // answered copy: full hold only. No short-load 
 }
 const EVE_TRIG = {
   mine_first_view: () => S.site === MINE && coverGone && Math.abs(camX - MX) < 1,
-  first_deposit: () => depsOn() && S.dep >= 1,                   // deposits off: never rings (no rich loads)
-  upgrade_ready: () => S.drill <= 1 && (S.dep >= 1 || !depsOn()) && canPay(drillCost()) && !sheetOpen,   // gc-ui3 (item 2): only while the drill has never been bought
+  first_deposit: () => false,   // click-rock removed: this beat never rings
+  upgrade_ready: () => S.drill <= 1 && canPay(drillCost()) && !sheetOpen,   // gc-ui3 (item 2): only while the drill has never been bought
   cargo_full: () => S.cg.launches === 0 && S.cg.sh.hold >= holdCap(),
   first_launch: () => S.cg.launches === 0 && firstLaunchPass() && S.cg.sh.st === 'pad' && !S.cg.sh.req && S.cg.sh.hold >= 1 && S.cg.sh.hold < holdCap(),   // explanation only, while the hold is still short
 };
@@ -4599,10 +4593,10 @@ function addCall(id, missed) { S.calls.unshift({ id, at: nowMs(), missed: !!miss
 function setMissed(n) { S.missed = n; ecBadge.dataset.count = n; ecBadge.textContent = n || '';
   const tb = ecPanel.querySelector('.ec-tab[data-tab="calls"] .ec-badge'); tb.dataset.count = n; tb.textContent = n || ''; }
 function renderTask() {
-  const g = !S.dep && depsOn() ? ['Send a rich load', 'Tap the dark ore patch', S.dep, 1] : S.loads < 3 ? ['Haul 3 loads to the Refinery', 'Loads delivered', S.loads, 3]
+  const g = S.loads < 3 ? ['Haul 3 loads to the Refinery', 'Loads delivered', S.loads, 3]
     : S.chute < 3 ? ['Upgrade the Chute Feed Rate to Lv 3', 'Chute level', S.chute, 3] : ["Fill the ship's tanks", 'Oxygen + methane loads', 0, 3];
   $('ecTask').innerHTML = `<div class="ec-kicker">CURRENT GOAL</div><div class="ec-goal">${esc(g[0])}</div><div class="ec-prog"><span>${esc(g[1])}</span><b>${Math.min(g[2], g[3])}/${g[3]}</b></div>`
-    + `<div class="ec-bar"><i style="width:${Math.round(100 * Math.min(1, g[2] / g[3]))}%"></i></div><div class="ec-tip">${depsOn() ? "A full truck leaves on its own. Rich loads tapped while it's away drop in when it's back." : 'A full truck leaves on its own.'}</div>`;
+    + `<div class="ec-bar"><i style="width:${Math.round(100 * Math.min(1, g[2] / g[3]))}%"></i></div><div class="ec-tip">A full truck leaves on its own.</div>`;
 }
 function renderUpd() { $('ecUpd').innerHTML = S.log.length ? S.log.map(u => `<li><span class="ec-ico"${u.type === 'upgrade' ? ' data-type="unlock"' : ''}>${ICO[u.type] || ICO.truck}</span><span>${esc(u.text)}</span><time>${ago(u.at)}</time></li>`).join('') : '<li><span>No updates yet.</span></li>'; }
 function renderCalls() { $('ecCalls').innerHTML = S.calls.map(c => { const b = EVE_BEATS.find(x => x.id === c.id); if (!b) return '';
@@ -4643,7 +4637,7 @@ function eveAwaySum() {
 }
 function ecAnswer(b = EC.ring) {
   if (!b) return; if (b.id === 'first_launch') { const lines = firstLaunchLines(); b.lines = lines; const src = EVE_BEATS.find(x => x.id === 'first_launch'); if (src) src.lines = lines; }
-  clearTimeout(EC.toastT); EC.ring = null; EC.call = b; EC.lines = (!depsOn() && b.linesNoDep) || b.lines; EC.li = 0;
+  clearTimeout(EC.toastT); EC.ring = null; EC.call = b; EC.lines = b.lines; EC.li = 0;
   ecBubble.classList.remove('is-ringing'); showTab('call');
   if (ecToast.classList.contains('is-in')) { ecToast.classList.replace('is-in', 'is-tapped'); setTimeout(() => hudDim(false), ECM.tapOut); } else hudDim(false);
   ecPanel.classList.remove('is-closing', 'is-out'); ecPanel.classList.add('is-open');
@@ -4739,7 +4733,7 @@ function setVoice(on) { VOX.on = !!on; try { localStorage.setItem('planetstack-d
 // Director 17:52: a beat whose lines carry that sentence is DROPPED for good (marked shown, never rings) if it triggers less than 30 s after the sentence was said
 // (real time, like the rest of Eve's queue: setTimeout typing / toasts); a trigger after the 30 s window rings as normal.
 const EVE_DUP = { re: /Tap the drill to upgrade it\./, ms: 30000, at: -Infinity };
-const eveDupSoon = (b) => performance.now() - EVE_DUP.at < EVE_DUP.ms && (((!depsOn() && b.linesNoDep) || b.lines) || []).some(l => EVE_DUP.re.test(l));
+const eveDupSoon = (b) => performance.now() - EVE_DUP.at < EVE_DUP.ms && (b.lines || []).some(l => EVE_DUP.re.test(l));
 function sayLine(s) {
   if (!EC.call || s == null) return; EC.full = s; if (EVE_DUP.re.test(s)) { EVE_DUP.at = performance.now(); window.__ps3d.eveDupAt = EVE_DUP.at; } eveVoice(EC.call.id, EC.li); ecTxt.textContent = ''; ecPanel.classList.remove('is-waiting');
   if (ecReduced()) return lineDone();
@@ -4754,7 +4748,7 @@ function ecHangUp() {
   ecPanel.classList.remove('is-talking', 'is-waiting'); ecPanel.classList.add('is-closing');
   setTimeout(() => { ecPanel.classList.remove('is-open'); ecPanel.classList.add('is-out'); }, 0);
   setTimeout(() => { if (!EC.call && !EC.ring) ecResetUI(); }, (ecReduced() ? ECM.rmFade : ECM.closeCrt + ECM.closeSlide) + 30);
-  if (b && b.point) { pointBeat = b.point; pointerDone = false; if (b.point === 'deposit' && !depsOn()) pointerDone = true; if (b.point === 'deposit' && !deposits.some(d => !d.claimed)) spawnDeposit('Dep_02'); }   // deposits off: a 'deposit' pointer is done at once
+  if (b && b.point) { pointBeat = b.point; pointerDone = b.point === 'deposit'; }
 }
 function ecOpen(tab) { clearTimeout(EC.toastT); EC.ring = null; ecToast.className = 'ec-toast'; hudDim(false); ecBubble.classList.remove('is-ringing');
   showTab(tab || 'task'); ecPanel.className = 'ec-panel is-open'; }
@@ -4879,20 +4873,76 @@ function musUnlock() {                // first tap anywhere: create/resume the c
     if (!MUS.started) { MUS.started = true; musPlay(0); } musSetGain(1.2); } catch (e) { console.warn('music unavailable', e.message); }
 }
 for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, musUnlock, { capture: true, passive: true });
+// Rocket sounds. Synthesized offline with ffmpeg (sine + brown noise, no third-party recording; original, free to ship).
+// boom.ogg/m4a ~1 s low crack, roar.ogg/m4a ~4 s burn (looped under a fade). OGG for Chromium, M4A/AAC for iPhone Safari.
+// First tap unlocks the AudioContext (iOS). Full volume on the Launch Pad camera, about 30% at any other station.
+// Hidden tab, and a timestamp catch-up (reload or a gap over 1.5 s), never play.
+const SFX = { ctx: null, master: null, boom: null, roar: null, phase: undefined, hold: false, plays: 0, last: '', err: '', voice: null };
+const sfxOn = () => S.set.sfx !== false;
+function sfxDist() { const u = Math.min(1, Math.abs(camX - PX) / GAP); return 1 - 0.7 * u; }
+function sfxExt() { try { const a = document.createElement('audio'); if (a.canPlayType('audio/ogg; codecs=vorbis')) return 'ogg'; } catch (e) {} return 'm4a'; }
+function sfxUnlock() {
+  if (!sfxOn() || document.hidden) return;
+  try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    if (!SFX.ctx) { SFX.ctx = new AC(); SFX.master = SFX.ctx.createGain(); SFX.master.gain.value = 1; SFX.master.connect(SFX.ctx.destination); sfxLoad(); }
+    if (SFX.ctx.state !== 'running') SFX.ctx.resume();
+  } catch (e) { SFX.err = e.message; }
+}
+for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, sfxUnlock, { capture: true, passive: true });
+function sfxLoad() {
+  if (!SFX.ctx || SFX.boom || SFX.loading) return;
+  const ext = sfxExt();
+  SFX.loading = Promise.all(['boom', 'roar'].map(async (n) => {
+    const r = await fetch(new URL('./audio/' + n + '.' + ext, import.meta.url)); if (!r.ok) throw new Error(n + ' HTTP ' + r.status);
+    SFX[n] = await SFX.ctx.decodeAudioData(await r.arrayBuffer());
+  })).then(() => { SFX.loading = null; }).catch((e) => { SFX.loading = null; SFX.err = e.message; console.warn('ship sfx', e.message); });
+}
+function sfxStop() { const v = SFX.voice; SFX.voice = null; if (v) { try { v.src.stop(); } catch (e) {} } }
+function thrustPh() {
+  const c = S.cg, s = c && c.sh; if (!s || document.hidden) return null;
+  if (s.st === 'board' || s.st === 'launch') { const ph = vfxPhase(c, nowMs()); if (ph && ph.k === 'Takeoff') return { k: 'up', dur: 4 }; }
+  if (s.st === 'land') { const dur = shipDur(CG.landSec, s), x = (nowMs() - s.t0) / 1000; if (x >= 0 && x < dur) return { k: 'down', dur: Math.max(0.35, dur - x) }; }
+  return null;
+}
+function sfxStart(ph) {
+  const ctx = SFX.ctx; if (!ctx || ctx.state !== 'running' || !SFX.boom || !SFX.roar) return false;
+  sfxStop();
+  const t = ctx.currentTime + 0.02, fade = Math.max(0.35, ph.dur / (SPD || 1));
+  SFX.master.gain.setValueAtTime(sfxDist(), t);
+  const b = ctx.createBufferSource(); b.buffer = SFX.boom; b.connect(SFX.master); b.start(t);
+  const src = ctx.createBufferSource(); src.buffer = SFX.roar; src.loop = true;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.85, t); g.gain.linearRampToValueAtTime(0, t + fade);
+  src.connect(g); g.connect(SFX.master); src.start(t); src.stop(t + fade + 0.05);
+  SFX.voice = { src, g }; SFX.plays++; SFX.last = ph.k; return true;
+}
+function updShipSfx() {
+  if (!coverGone) return;
+  if (document.hidden || !sfxOn()) { sfxStop(); SFX.phase = undefined; return; }
+  const ph = thrustPh(), key = ph ? ph.k : '';
+  if (SFX.phase === undefined || SFX.hold) { SFX.phase = key; SFX.hold = false; return; }
+  if (key && key !== SFX.phase) { if (sfxStart(ph)) SFX.phase = key; }
+  else SFX.phase = key;
+  if (SFX.voice && SFX.ctx && SFX.ctx.state === 'running') SFX.master.gain.setTargetAtTime(sfxDist(), SFX.ctx.currentTime, 0.08);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) { sfxStop(); SFX.phase = undefined; try { SFX.ctx && SFX.ctx.suspend(); } catch (e) {} } else if (sfxOn() && SFX.ctx) { SFX.phase = undefined; SFX.ctx.resume(); } });
+function setSfx(on) { S.set.sfx = !!on; save(); if (!on) { sfxStop(); SFX.phase = undefined; } else sfxUnlock(); renderSettings(); }
+Object.defineProperty(window.__ps3d, 'sfx', { configurable: true, get: () => ({ plays: SFX.plays, last: SFX.last, phase: SFX.phase == null ? '' : SFX.phase, err: SFX.err, have: !!(SFX.boom && SFX.roar), dist: +sfxDist().toFixed(2), on: sfxOn() }) });
 function musicDuck(on) { MUS.ducked = !!on; musSetGain(on ? .12 : .6); }   // SFX / Eve line audio call this
 function setMusic(on) { S.set.music = !!on; save(); if (on) musUnlock(); else if (MUS.ctx) { musSetGain(.2); setTimeout(() => { if (S.set.music === false && MUS.ctx) MUS.ctx.suspend(); }, 260); } renderSettings(); }
 document.addEventListener('visibilitychange', () => { if (!MUS.ctx) return; if (document.hidden) MUS.ctx.suspend(); else if (S.set.music !== false) { MUS.ctx.resume(); musSetGain(.6); } });
 addEventListener('pagehide', () => { if (MUS.ctx) MUS.ctx.suspend(); });
 // settings (gear under the Eve bubble): Music on/off
-const setBtn = $('setBtn'), setPop = $('setPop'), musTgl = $('musTgl'), voiceTgl = $('voiceTgl');
+const setBtn = $('setBtn'), setPop = $('setPop'), musTgl = $('musTgl'), voiceTgl = $('voiceTgl'), sfxTgl = $('sfxTgl');
 function renderSettings() { const on = S.set.music !== false; musTgl.setAttribute('aria-checked', on); musTgl.querySelector('b').textContent = on ? 'ON' : 'OFF';
   $('musNote').textContent = musTracks().length ? '' : 'No tracks yet';
   voiceTgl.setAttribute('aria-checked', VOX.on); voiceTgl.querySelector('b').textContent = VOX.on ? 'ON' : 'OFF';
+  if (sfxTgl) { const sOn = sfxOn(); sfxTgl.setAttribute('aria-checked', sOn); sfxTgl.querySelector('b').textContent = sOn ? 'ON' : 'OFF'; }
   $('nameBtn').querySelector('b').textContent = PSD.playerName || '—';
   $('devBuild').textContent = `BUILD ${PSD.build}${PSD.v ? ' · ' + PSD.v : ''}\nTESTER ${PSD.code || '—'}${MOCK ? ' · MOCK ' + MOCK : ''}`; }
 for (const el of [setBtn, setPop]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
 setBtn.addEventListener('click', (e) => { e.stopPropagation(); renderSettings(); setPop.classList.toggle('on'); setBtn.setAttribute('aria-expanded', setPop.classList.contains('on')); });
 musTgl.addEventListener('click', (e) => { e.stopPropagation(); setMusic(S.set.music === false); });
+if (sfxTgl) sfxTgl.addEventListener('click', (e) => { e.stopPropagation(); setSfx(!sfxOn()); });
 voiceTgl.addEventListener('click', (e) => { e.stopPropagation(); setVoice(!VOX.on); });
 $('nameBtn').addEventListener('click', async (e) => { e.stopPropagation(); setPop.classList.remove('on'); setBtn.setAttribute('aria-expanded', false);
   const n = await devAskName(PSD.playerName); devStoreName(n); S.name = n; save(); renderSettings(); });
@@ -4951,10 +5001,12 @@ function frame() {
   const dt = Math.min(clock.getDelta(), document.hidden ? 0.1 : 0.25), gdt = dt * SPD; time += gdt; window.__ps3d.frames = (window.__ps3d.frames || 0) + 1;
   const now = nowMs();
   if (now < S.rt - 1000) stampGuard(now);                        // clock went backward mid-session: every stamp shifts back with S.rt, credit nothing
-  if (!document.hidden && RT.ready) { if ((now - S.rt) / 1000 > AWAY_SEC) catchUp(true); else { settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules
+  SFX.hold = false;
+  if (!document.hidden && RT.ready) { const gap = (now - S.rt) / 1000; if (gap > AWAY_SEC) { catchUp(true); SFX.hold = true; } else { if (gap > 1.5) SFX.hold = true; settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules. A long gap is catch-up: no rocket sound
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
   updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
   updCargo();
+  updShipSfx();
   updTruck(); updMineRev(gdt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). updTruck poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
   if (t2Mixer && fleetN() > 1) t2Mixer.update(gdt);   // ca-truckrot: Truck 2's clips
@@ -4964,7 +5016,7 @@ function frame() {
   for (const m of stationMixers) m.update(gdt);
   updBreakroom(dt);
   updFillArc();
-  updDeposits(gdt, time); updRefDust(); updQueued(); updChunks(dt); updFx(dt); updHL(); updGlow(); updTiers(dt);
+  updRefDust(); updChunks(dt); updFx(dt); updHL(); updGlow(); updTiers(dt);
   updEve(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); upUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
@@ -4983,7 +5035,7 @@ function frame() {
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ renderer, scene, camera, rigScaleAt: rigScale, fxStep: updFx, tierStep: updTiers, get tierList() { return tiers; }, EVE_BEATS,
   get boxIM() { return cg3.boxParts && cg3.boxParts[0] ? cg3.boxParts[0].im : null; }, cargoDoorK: () => (cg3.door ? +cg3.door.k.toFixed(3) : null),   // ca-cargoride QA read-outs
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
-  ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, deposits, spawnDeposit, catchUp, settleTo, tapDeposit, save, toScreen, drillCost, chuteCost, rate, fmt, depTapR, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
+  ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, catchUp, settleTo, save, toScreen, drillCost, chuteCost, rate, fmt, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
   get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, CRANE_TIME_MULT, pcSec, dockSec, dockClipEnd, dockAnimSec, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
@@ -5010,8 +5062,8 @@ function qaSkipToTouchdown() {
   const from = S.cg.sh.st, m0 = S.money, w0 = WARP;
   if (from === 'pad') return { ok: false, reason: 'no_trip', st: from };
   for (let i = 0; i < 8 && S.cg.sh.st !== 'pad'; i++) {
-    const s = S.cg.sh, due = s.st === 'board' ? s.t0 + boardSec(s) * 1000 : s.st === 'launch' ? s.t0 + CG.launchSec * 1000 : s.st === 'land' ? s.t0 + CG.landSec * 1000
-      : s.st === 'away' ? s.t0 + CG.awaySec * (payEarth() && s.cargo > 0 ? 500 : 1000) : t;
+    const s = S.cg.sh, due = s.st === 'board' ? s.t0 + boardSec(s) * 1000 : s.st === 'launch' ? s.t0 + shipDur(CG.launchSec, s) * 1000 : s.st === 'land' ? s.t0 + shipDur(CG.landSec, s) * 1000
+      : s.st === 'away' ? s.t0 + shipDur(CG.awaySec, s) * (payEarth() && s.cargo > 0 ? 500 : 1000) : t;
     if (due > t) WARP += due - t + 1;
     t = nowMs(); settleTo(t, null); S.rt = t;
   }

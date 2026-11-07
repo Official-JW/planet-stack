@@ -222,7 +222,7 @@ body.up-open #nbPlate,body.ec-shift #nbPlate{display:none}
 #setPop::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}
 #setPop::after{inset:1px;background:linear-gradient(180deg,#0f1a2ef5,#090f1df5)}
 #setPop .k{font:700 9px/1 system-ui;font-stretch:condensed;letter-spacing:.24em;color:#3ad0ff}
-#musTgl,#voiceTgl{display:flex;align-items:center;justify-content:space-between;gap:14px;height:44px;margin:-4px 0;border:0;background:none;padding:0;color:#eafcff;font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer}
+#musTgl,#voiceTgl,#sfxTgl{display:flex;align-items:center;justify-content:space-between;gap:14px;height:44px;margin:-4px 0;border:0;background:none;padding:0;color:#eafcff;font:700 12px/1 system-ui;font-stretch:condensed;letter-spacing:.18em;cursor:pointer}
 #shipTgls{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-top:12px}#shipTgls[hidden]{display:none}
 #shipTgls .tgl{display:flex;align-items:center;justify-content:space-between;gap:10px;box-sizing:border-box;width:100%;min-height:44px;height:44px;margin:0;padding:0 2px;flex:none;border:0;background:none;color:#eafcff;font:700 12px/1.2 system-ui;font-stretch:condensed;letter-spacing:.1em;text-align:left;cursor:pointer}
 #shipTgls .tgl .tg-lab{flex:1;min-width:0;text-align:left}
@@ -231,8 +231,8 @@ body.up-open #nbPlate,body.ec-shift #nbPlate{display:none}
 #shipTgls .su-meta{grid-column:1;grid-row:2;margin:0;font:700 11px/1.2 system-ui;letter-spacing:.02em;color:#7ff3ff;font-variant-numeric:tabular-nums;white-space:nowrap}
 #shipTgls .su-go{grid-column:2;grid-row:1 / span 2;margin:0;min-width:84px;padding:10px 8px;text-align:center;font:800 11px/1 system-ui;letter-spacing:.1em;color:#04202c;background:linear-gradient(180deg,#7fe6ff,#2fbdf0);clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px)}
 #shipTgls .tgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
-#musTgl b,#voiceTgl b,#shipTgls .tgl b{min-width:44px;padding:5px 0;text-align:center;font:800 11px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#3ad0ff;box-shadow:0 0 8px #3ad0ff88;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
-#musTgl[aria-checked=false] b,#voiceTgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
+#musTgl b,#voiceTgl b,#sfxTgl b,#shipTgls .tgl b{min-width:44px;padding:5px 0;text-align:center;font:800 11px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#3ad0ff;box-shadow:0 0 8px #3ad0ff88;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
+#musTgl[aria-checked=false] b,#voiceTgl[aria-checked=false] b,#sfxTgl[aria-checked=false] b{background:#c9d3e655;color:#c9d3e6;box-shadow:none}
 #musNote{font:600 9px/1 system-ui;letter-spacing:.1em;color:#c9d3e6;opacity:.6}
 #musNote:empty{display:none}
 /* ---- DEV build: tester-code start screen, DEV tag, build line ---- */
@@ -281,7 +281,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
 </head>
-<body data-tag="DEV · 11:43">
+<body data-tag="DEV · 13:08">
 <canvas id="c"></canvas>
 <div id="tag"></div><div id="dev" hidden></div>
 <div id="hud" class="ec-hud">
@@ -376,7 +376,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 <div id="storeChip" role="status"><i></i>STORAGE FULL</div>
 <div id="fuelG" role="status" aria-label="Launch Pad fuel"><div class="hd"><b>FUEL</b><em>0%</em></div><div class="tr"><i></i><s></s></div></div>
 <button id="setBtn" aria-label="Settings" aria-expanded="false"><i></i></button>
-<div id="setPop" role="dialog" aria-label="Settings"><div class="k">SETTINGS <span class="devtag">DEV</span></div><button id="musTgl" role="switch" aria-checked="true">MUSIC<b>ON</b></button><div id="musNote"></div><button id="voiceTgl" role="switch" aria-checked="true">VOICE<b>ON</b></button><button id="nameBtn">NAME<b></b></button><button id="devBugBtn">REPORT A BUG</button><div id="devBuild" class="devinfo"></div></div>
+<div id="setPop" role="dialog" aria-label="Settings"><div class="k">SETTINGS <span class="devtag">DEV</span></div><button id="musTgl" role="switch" aria-checked="true">MUSIC<b>ON</b></button><div id="musNote"></div><button id="sfxTgl" role="switch" aria-checked="true">SOUND<b>ON</b></button><button id="voiceTgl" role="switch" aria-checked="true">VOICE<b>ON</b></button><button id="nameBtn">NAME<b></b></button><button id="devBugBtn">REPORT A BUG</button><div id="devBuild" class="devinfo"></div></div>
 <div id="point"><b></b><i></i></div>
 <div id="away"><p>While you were away</p><h3 id="awayAmt">+$0</h3><button id="awayOk">Nice</button></div>
 <svg id="farc" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#0a1424cc" stroke-width="5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle cx="20" cy="20" r="15" fill="none" stroke="#ffffff2e" stroke-width="2.5" stroke-dasharray="62.83 999" transform="rotate(150 20 20)"/><circle id="farcV" cx="20" cy="20" r="15" fill="none" stroke="#7ff3ff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 999" transform="rotate(150 20 20)"/><text id="farcT" x="20" y="24">0%</text></svg>
@@ -390,6 +390,6 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 <div id="devStop" role="alertdialog" aria-label="Game stopped" hidden><div class="gbox"><div class="k">PLANET STACK <span class="devtag">DEV</span></div><h2>Can't play here</h2><p id="devStopMsg"></p><p class="sub" id="devStopSub"></p><button id="devStopBtn" hidden>RELOAD</button></div></div>
 <div id="devToast" role="status"></div>
 <div id="cover"><div class="sp" id="coverSp"></div><span id="coverTx">Loading Moonbase…</span><button id="coverRetry" hidden>Retry</button></div>
-<script type="module" src="../dev/main.js?v=dev1143"></script>
+<script type="module" src="../dev/main.js?v=dev1308"></script>
 <script src="../dev/bugreport.js?v=dev1006"></script>
 </body></html>
