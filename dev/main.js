@@ -2967,7 +2967,7 @@ function wkFoot() {          // crate AABB in the crate's own space (origin = Ba
     c.set(i ? lb.max.x : lb.min.x, j ? lb.max.y : lb.min.y, k ? lb.max.z : lb.min.z).applyMatrix4(L);
     x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y); z0 = Math.min(z0, c.z); z1 = Math.max(z1, c.z); }
   return (WK.foot = { x0, x1, y0, y1, z0, z1 }); }
-function wkPushBox(out, x0, x1, y0, y1, z0, z1, k) { const r = WALK.r;
+function wkPushBox(out, x0, x1, y0, y1, z0, z1, k) { const r = WALK.r + 0.7;   // crate body + the rack posts in front of the HE-3 face
   out.push({ rx0: x0, rx1: x1, rz0: z0, rz1: z1, y0, y1, x0: x0 - r, x1: x1 + r, z0: z0 - r, z1: z1 + r, k }); }
 function wkHull(slots, k) { const f = wkFoot(); let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9, n = 0;
   for (const s of slots) { if (!s) continue; n++;
