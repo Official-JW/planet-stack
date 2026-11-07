@@ -1065,10 +1065,11 @@ $('coverRetry').addEventListener('click', () => {
 // ===== HT-04 haul truck prop (Art c0452bd, md5 16eccb4d…): root 'Truck' at the ground centre, +X forward at yaw 0; world-space object
 let truck = null, truckRoot = null, truckDone = false, tMixer = null, fillArcNode = null, truck2Root = null, t2Mixer = null;
 const tActs = {}, wheels = [], fillMeshes = [], tActs2 = {}, wheels2 = [], fillMeshes2 = [];   // ca-truckrot: Truck 2's own clip actions / wheel bones / fill morphs
-function loadTruck() { loader.load('../qa3d-next/models/ht04_71fe624e.glb?v=71fe624e', (gltf) => {
+function loadTruck() { loader.load('../qa3d-next/models/ht04_76e02e8b.glb?v=76e02e8b', (gltf) => {
   truckRoot = gltf.scene; truck = truckRoot.getObjectByName('Truck') || truckRoot;
   truckRoot.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     if (o.morphTargetDictionary && 'fill' in o.morphTargetDictionary) fillMeshes.push([o, o.morphTargetDictionary.fill]); } });
+  truckRoot.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; if (ms.some(m => m && m.name === 'SHM_Glass_Clear')) o.castShadow = false; } });
   for (const n of ['FL', 'FR', 'ML', 'MR', 'RL', 'RR']) { const b = truckRoot.getObjectByName('HT04_Wheel_' + n); if (b) wheels.push({ b, q0: b.quaternion.clone() }); }   // rest (0, .7071, 0, .7071)
   fillArcNode = truckRoot.getObjectByName('Fill_Arc');
   TV.wheelR = (truck.userData && truck.userData.wheel_radius) || 0.853;
@@ -3262,7 +3263,8 @@ function cartSwap(oldO, newO) { if (oldO && oldO.parent) oldO.parent.remove(oldO
 function loadCargoArt() {
   const L = (key, url, fn) => loader.load(url, (g) => { try { fn(g); CART.ok[key] = true; cgBind(); } catch (e) { CART.err.push(key + ': ' + e.message); console.warn('cargo art ' + key + ' bind failed (placeholder stays)', e); } },
     undefined, (e) => { CART.err.push(key + ': load'); console.warn('cargo art ' + key + ' failed to load (placeholder stays)', e); });
-  L('fb05', '../qa3d-next/models/fb05_195461ef.glb?v=195461ef', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  L('fb05', '../qa3d-next/models/fb05_3b404b89.glb?v=3b404b89', (g) => { const o = g.scene; o.name = 'FB05_Art'; o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+    o.traverse(m => { if (m.isMesh) { const ms = Array.isArray(m.material) ? m.material : [m.material]; if (ms.some(x => x && x.name === 'SHM_Glass_Clear')) m.castShadow = false; } });
     o.position.copy(cg3.fb.position); o.rotation.copy(cg3.fb.rotation); cartSwap(cg3.fb, o); cg3.fb = o; FBS.wx = null; });
   L('box', '../qa3d-next/models/he3_crate_lbl_cfc95657.glb?v=cfc95657', (g) => {   // ART-SWAP (EM 10/31): Art's labelled He-3 crate (art_next/crates he3_crate_lbl, md5 cfc95657…: "HE-3" stencil letters as geometry on the glow slot, 612 tris, SHM_Paint + SHM_GlowCyan, no textures = the same 2 instanced draws); was 'models/cargo_box_66a3a00c.glb?v=66a3a00c'
     const o = g.scene; o.updateMatrixWorld(true); const parts = [];
