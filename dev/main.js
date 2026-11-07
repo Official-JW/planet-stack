@@ -889,7 +889,7 @@ function routeReady(which) {
   if (which) RT[which] = true; if (RT.ready || !RT.mine || !RT.ref) return;
   RT.ready = true; RT.at = Math.round(performance.now()); window.__ps3d.routeReadyAt = RT.at;
   if (hadRt) catchUp(true); else { const t = nowMs(); settleTo(t, null); S.rt = t; }   // credit time away since the last save, on the final route
-  hud(); upUI();
+  hud(); upUI(); v3hClearanceMaybe();
 }
 // ===== Mine station GLB (Art 582676b, md5 68e07c01…): rig + conveyor + chute, haul-loop markers, deposits, tiers, Cam_Target. No truck inside.
 let mixer = null, mine = null, rig = null, rigLoaded = false, coverGone = false;
@@ -1019,7 +1019,7 @@ function hideCover() {
   setTimeout(() => { c.remove(); coverGone = true; }, 420);
 }
 function maybeReady() {
-  if (!rigLoaded || !truckDone) return;
+  if (!rigLoaded || !truckDone || !drillDone) return;
   renderer.compile(scene, camera);
   requestAnimationFrame(() => requestAnimationFrame(hideCover));   // fade only once the Mine has been drawn
 }
@@ -1060,6 +1060,542 @@ function stripClickRock(root) {
   });
   for (const o of drop) if (o.parent) o.parent.remove(o);
 }
+// ===== v3h drill (art/mine-drill-v3h). Replaces the served Mine derrick, conveyor, hopper and silo.
+// Served mine_revamp_c9a9394e.glb stays the site (markers, ground skirt). The v3h GLB is placed on the same
+// transform as the Mine (Drill_Root at the Mine origin). Named hides are exact node names — never startsWith
+// 'Conveyor', which would also hide the new Conveyor_Gallery. Tier_03/05/08/12/20 are the old hopper, silo
+// and derrick cap (SUPPRESS_v3h.md); they are not drill-level rewards anymore.
+// Merged Base_Paint / Base_GlowCyan faces are dropped by world centroid against the eight glTF AABBs in
+// qa/art/drill_v3h/suppress/suppress_v3h.json. Centroids are in the Mine asset's glTF frame (mesh.matrixWorld
+// with the station offset undone). Raw triangle indices are not used: gltfpack -noq reorders them.
+const DRILL_V3H_GLB = '../qa3d-next/models/mine_drill_v3h_a489aa6a.glb?v=a489aa6a';
+const V3H_MINE_MD5 = 'c9a9394e3635f99f59423a4630ae6ae7';
+const V3H_AABBS = [
+  { name: 'PLANT', min: [-5.40, -0.30, -10.20], max: [14.20, 9.90, 12.20] },
+  { name: 'TEAL', min: [-5.80, 0.20, -6.60], max: [1.80, 2.40, 1.50] },
+  { name: 'DERRICK_BOX', min: [-11.20, 0.05, -6.40], max: [-4.50, 18.5, -1.40] },
+  { name: 'DERRICK_TALL', min: [-11.20, 3.80, -6.40], max: [-3.70, 18.5, -1.40] },
+  { name: 'PAD_BOX', min: [-9.70, -0.06, -5.40], max: [-5.30, 0.85, -1.90] },
+  { name: 'PAD_A', min: [-14.70, -0.35, -6.90], max: [-5.10, 1.20, 4.40] },
+  { name: 'PAD_B', min: [-13.40, -0.35, -1.52], max: [-5.10, 1.50, 4.40] },
+  { name: 'SCRAP', min: [-12.40, 1.00, -6.80], max: [-5.20, 6.40, 1.10] },
+];
+const V3H_HIDE = ['Rig', 'Drill_Pocket', 'Dust', 'Conveyor', 'Chute', 'Chute_Glow', 'Chute_Exit', 'Silo', 'Silo_BinFill', 'Deposit_01', 'Deposit_02', 'Rich_Pop', 'Tier_03', 'Tier_05', 'Tier_08', 'Tier_12', 'Tier_20'];
+for (let i = 0; i <= 10; i++) V3H_HIDE.push('OrePath_Bin_' + String(i).padStart(2, '0'));
+for (let i = 0; i <= 6; i++) V3H_HIDE.push('OrePath_Silo_' + String(i).padStart(2, '0'));
+const V3H_LED = 0xffb060;
+const V3H = { mounted: false, root: null, ledMat: null, leds: [], halo: null, ore: [], oreT: 0, clearance: null, suppress: null, truckBox: null, beds: null, landBed: null, a0: null, a1: null, spout: null, mouth: null, side: null, supports: null };
+let drillGltf = null, drillDone = false, drillFailed = false;
+const _va = new THREE.Vector3(), _vb = new THREE.Vector3(), _vc = new THREE.Vector3(), _vp = new THREE.Vector3(), _vq = new THREE.Quaternion(), _vs = new THREE.Vector3(1, 1, 1), _vm = new THREE.Matrix4(), _ve = new THREE.Euler(), _vy = new THREE.Vector3(0, 1, 0);
+function v3hHash(i) { let s = (i + 1) * 374761393; s = Math.imul(s ^ (s >>> 13), 1274126177); return ((s ^ (s >>> 16)) >>> 0) / 4294967296; }
+function v3hMineGuarded() {
+  return typeof MINE_GLB === 'string' && MINE_GLB.indexOf('mine_revamp_c9a9394e.glb') !== -1 && MINE_GLB.indexOf(V3H_MINE_MD5.slice(0, 8)) !== -1;
+}
+function v3hInBox(x, y, z, b) { return x >= b.min[0] && x <= b.max[0] && y >= b.min[1] && y <= b.max[1] && z >= b.min[2] && z <= b.max[2]; }
+function v3hBaseMeshes(root, prefix) {
+  const out = [];
+  root.traverse(o => { if (o.isMesh && o.parent && (o.parent.name === prefix || o.parent.name.startsWith(prefix))) out.push(o); });
+  return out;
+}
+// Drop decoded triangles whose Mine-local (glTF) centroid sits in any suppress AABB. Returns remaining tris.
+function v3hFilterMesh(mesh, mineRoot) {
+  const geo = mesh.geometry, pos = geo.getAttribute('position'), idx = geo.getIndex();
+  if (!pos || !idx) return { before: 0, keep: 0 };
+  const before = idx.count / 3;
+  const toLocal = new THREE.Matrix4().multiplyMatrices(new THREE.Matrix4().copy(mineRoot.matrixWorld).invert(), mesh.matrixWorld);
+  const kept = [];
+  for (let t = 0; t < idx.count; t += 3) {
+    const i0 = idx.getX(t), i1 = idx.getX(t + 1), i2 = idx.getX(t + 2);
+    _va.fromBufferAttribute(pos, i0).applyMatrix4(toLocal);
+    _vb.fromBufferAttribute(pos, i1).applyMatrix4(toLocal);
+    _vc.fromBufferAttribute(pos, i2).applyMatrix4(toLocal);
+    const cx = (_va.x + _vb.x + _vc.x) / 3, cy = (_va.y + _vb.y + _vc.y) / 3, cz = (_va.z + _vb.z + _vc.z) / 3;
+    let drop = false;
+    for (let i = 0; i < V3H_AABBS.length; i++) if (v3hInBox(cx, cy, cz, V3H_AABBS[i])) { drop = true; break; }
+    if (!drop) kept.push(i0, i1, i2);
+  }
+  geo.setIndex(kept);
+  if (geo.index) geo.index.needsUpdate = true;
+  if (geo.groups && geo.groups.length === 1) geo.groups[0].count = kept.length; else geo.clearGroups();
+  if (kept.length) { geo.computeBoundingBox(); geo.computeBoundingSphere(); } else mesh.visible = false;
+  return { before, keep: kept.length / 3 };
+}
+function v3hSuppressMerged(mineRoot) {
+  const report = { ran: false, md5: V3H_MINE_MD5, paint: null, glow: null, ok: false, why: '' };
+  if (!v3hMineGuarded()) { report.why = 'url is not mine_revamp_c9a9394e'; console.error('[v3h] suppress skipped', report); return report; }
+  mineRoot.updateMatrixWorld(true);
+  const paintMs = v3hBaseMeshes(mineRoot, 'Base_Paint'), glowMs = v3hBaseMeshes(mineRoot, 'Base_GlowCyan');
+  const sum = (ms) => ms.reduce((n, m) => n + ((m.geometry.index ? m.geometry.index.count : 0) / 3), 0);
+  const paintN = sum(paintMs), glowN = sum(glowMs);
+  if (paintN !== 8305 || glowN !== 1874) {
+    report.why = 'decoded counts ' + paintN + '/' + glowN + ' are not 8305/1874';
+    console.error('[v3h] suppress skipped (source hash/counts)', report);
+    console.assert(false, '[v3h] suppress source guard', report);
+    return report;
+  }
+  report.ran = true;
+  report.paint = paintMs.map(m => v3hFilterMesh(m, mineRoot));
+  report.glow = glowMs.map(m => v3hFilterMesh(m, mineRoot));
+  const paintKeep = report.paint.reduce((n, r) => n + r.keep, 0), glowKeep = report.glow.reduce((n, r) => n + r.keep, 0);
+  const paintDrop = 8305 - paintKeep, glowDrop = 1874 - glowKeep;
+  report.paintKeep = paintKeep; report.glowKeep = glowKeep; report.paintDrop = paintDrop; report.glowDrop = glowDrop;
+  report.ok = paintDrop === 7990 && paintKeep === 315 && glowDrop === 1874 && glowKeep === 0;
+  if (glowKeep === 0) { const g = mineRoot.getObjectByName('Base_GlowCyan'); if (g) g.visible = false; }
+  console[report.ok ? 'info' : 'error']('[v3h] merged-face suppress', { md5: V3H_MINE_MD5, paintDrop, paintKeep, glowDrop, glowKeep, ok: report.ok });
+  console.assert(report.ok, '[v3h] suppress counts, expected paint drop 7990 keep 315, glow drop 1874 keep 0', report);
+  return report;
+}
+function v3hHideNamed(root) {
+  const names = new Set(V3H_HIDE), gone = [];
+  const nodes = [];
+  root.traverse(o => { if (o.name && names.has(o.name)) nodes.push(o); });
+  for (const o of nodes) { if (!o.parent) continue; gone.push(o.name); o.parent.remove(o); }
+  for (let i = tiers.length - 1; i >= 0; i--) if (names.has(tiers[i].g.name)) tiers.splice(i, 1);
+  return gone;
+}
+function v3hRetireMineRev() {
+  MR.buf = false; MR.on = false; MR.glow = null; MR.fill = null; MR.dustAt = null;
+  if (MR.ore) { scene.remove(MR.ore); MR.ore.geometry.dispose(); MR.ore = null; }
+  if (MR.dust) { scene.remove(MR.dust); MR.dust.geometry.dispose(); MR.dust = null; }
+}
+function v3hTag(mesh) {
+  for (let p = mesh; p; p = p.parent) {
+    if (p.name === 'Conveyor_Gallery') return 'chute';
+    if (p.name === 'Operator' || p.name === 'Operator_Mesh') return 'op';
+    if (p.name === 'Cab_Glass' || /^Cab_Glass_/.test(p.name)) return 'glass';
+    if (/^LED_/.test(p.name)) return 'led';
+    if (/^Ore_Variant/.test(p.name)) return 'ore';
+  }
+  return 'drill';
+}
+function v3hExtract(mesh, start, count, root) {
+  const g = mesh.geometry, idx = g.index, pa = g.attributes.position, na = g.attributes.normal;
+  const map = new Map(), pos = [], nrm = [], indices = [];
+  for (let i = start; i < start + count; i++) {
+    const vi = idx.getX(i); let ni = map.get(vi);
+    if (ni == null) {
+      ni = map.size; map.set(vi, ni);
+      pos.push(pa.getX(vi), pa.getY(vi), pa.getZ(vi));
+      if (na) nrm.push(na.getX(vi), na.getY(vi), na.getZ(vi));
+    }
+    indices.push(ni);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (nrm.length) geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  geo.setIndex(indices);
+  geo.applyMatrix4(new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(mesh.matrixWorld));
+  return geo;
+}
+function v3hPrepLook(root) {
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const mats = [].concat(o.material);
+    const glass = mats.some(m => m && m.name === 'M_CabGlass');
+    const led = mats.some(m => m && m.name === 'M_MastLED');
+    const contact = mats.some(m => m && m.name === 'M_ContactShadow');
+    o.castShadow = !(glass || led || contact);
+    o.receiveShadow = !contact && !led;
+    for (const m of mats) {
+      if (!m) continue;
+      if (m.name === 'M_CabGlass') {
+        m.transparent = true; m.opacity = 0.34; m.roughness = 0.06; m.metalness = 0.04; m.color.set(0xd7eef6);
+        m.depthWrite = false; m.side = THREE.DoubleSide; m.envMapIntensity = 0.4;
+      } else if (m.name === 'M_MastLED') {
+        m.color.set(0x2a160e); m.emissive.setHex(0x000000); m.emissiveIntensity = 0; m.toneMapped = false;
+        V3H.ledMat = m;
+      } else if (m.name === 'SHM_Paint.002') { m.emissive.setHex(0xffb080); m.emissiveIntensity = 0.28; }
+      else if (m.name === 'M_ContactShadow') { m.depthWrite = false; }
+    }
+    if (glass) o.renderOrder = 3;
+  });
+}
+function v3hMergeStatic(root) {
+  const buckets = new Map();
+  const meshes = [];
+  root.traverse(o => { if (o.isMesh) meshes.push(o); });
+  for (const mesh of meshes) {
+    const tag = v3hTag(mesh);
+    if (tag === 'ore' || tag === 'op' || !mesh.geometry || !mesh.geometry.index) continue;
+    const mats = [].concat(mesh.material);
+    const groups = mesh.geometry.groups && mesh.geometry.groups.length ? mesh.geometry.groups : [{ start: 0, count: mesh.geometry.index.count, materialIndex: 0 }];
+    for (const gr of groups) {
+      const mat = mats[gr.materialIndex] || mats[0]; if (!mat) continue;
+      const geo = v3hExtract(mesh, gr.start, gr.count, root);
+      const key = tag + '|' + mat.name + '|' + (geo.attributes.normal ? 'n' : '');
+      let b = buckets.get(key);
+      if (!b) { b = { tag, mat, geos: [], meshes: [] }; buckets.set(key, b); }
+      b.geos.push(geo); if (!b.meshes.includes(mesh)) b.meshes.push(mesh);
+    }
+  }
+  const consumed = new Set();
+  for (const b of buckets.values()) {
+    const merged = b.geos.length === 1 ? b.geos[0] : mergeGeometries(b.geos, false);
+    if (!merged) { console.warn('[v3h] kept unmerged', b.mat && b.mat.name); continue; }
+    merged.computeBoundingSphere();
+    const mesh = new THREE.Mesh(merged, b.mat);
+    mesh.name = 'V3H_' + b.tag + '_' + (b.mat.name || 'mat');
+    mesh.userData.v3hTap = b.tag === 'chute' ? 'chute' : (b.tag === 'led' ? '' : 'drill');
+    mesh.castShadow = !(b.mat.name === 'M_CabGlass' || b.mat.name === 'M_MastLED' || b.mat.name === 'M_ContactShadow');
+    mesh.receiveShadow = b.mat.name !== 'M_ContactShadow' && b.mat.name !== 'M_MastLED';
+    if (b.mat.name === 'M_CabGlass') mesh.renderOrder = 3;
+    root.add(mesh);
+    for (const m of b.meshes) consumed.add(m);
+  }
+  for (const m of consumed) if (m.parent) m.parent.remove(m);
+}
+function v3hChunkGeo(node, root) {
+  let mesh = null; node.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+  if (!mesh) return null;
+  const g = mesh.geometry.clone();
+  g.applyMatrix4(new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(mesh.matrixWorld));
+  g.computeBoundingBox();
+  const c = g.boundingBox.getCenter(new THREE.Vector3());
+  g.translate(-c.x, -c.y, -c.z);
+  g.computeBoundingSphere();
+  return { geo: g, mat: mesh.material };
+}
+function v3hHaloTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), grd = g.createRadialGradient(32, 32, 1, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,196,120,0.95)'); grd.addColorStop(0.28, 'rgba(255,176,96,0.55)'); grd.addColorStop(1, 'rgba(255,140,40,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function v3hBuildOre(root) {
+  const spec = [
+    { id: 'S', node: 'Ore_Variant_S', belt: 12, pour: 4, bed: 16 },
+    { id: 'M', node: 'Ore_Variant_M', belt: 10, pour: 4, bed: 12 },
+    { id: 'L', node: 'Ore_Variant_L', belt: 6, pour: 3, bed: 8 },
+    { id: 'G', node: 'Ore_Variant_Glint', belt: 3, pour: 2, bed: 4 },
+  ];
+  const cols = 5, rows = 3, bedN = 40, bedPts = [];
+  for (let i = 0; i < bedN; i++) {
+    const col = i % cols, row = Math.floor(i / cols) % rows, layer = Math.floor(i / (cols * rows));
+    // Offsets from the Truck_Bed bone in truck axes: +X toward the cab, +Y up, +Z lateral. The bone sits at the rear of the bed.
+    bedPts.push(new THREE.Vector3(0.35 + (col / (cols - 1)) * 1.35 + (v3hHash(i + 3) - 0.5) * 0.05, 0.32 + layer * 0.11, (row / (rows - 1) - 0.5) * 0.9 + (v3hHash(i + 11) - 0.5) * 0.05));
+  }
+  const assign = { S: [], M: [], L: [], G: [] };
+  const order = [];
+  for (const s of spec) for (let i = 0; i < s.bed; i++) order.push(s.id);
+  order.forEach((id, i) => assign[id].push(bedPts[i]));
+  let qi = 0;
+  const quat = () => { const q = new THREE.Quaternion().setFromEuler(_ve.set(v3hHash(qi) * 6.28, v3hHash(qi + 50) * 6.28, v3hHash(qi + 80) * 6.28)); qi++; return q.clone(); };
+  for (const s of spec) {
+    const src = root.getObjectByName(s.node); if (!src) continue;
+    const built = v3hChunkGeo(src, root); if (!built) continue;
+    src.visible = false;
+    const mat = built.mat.clone(); mat.side = THREE.FrontSide;
+    const count = s.belt + s.pour + s.bed * 2;
+    const im = new THREE.InstancedMesh(built.geo, mat, count);
+    im.name = 'V3H_Ore_' + s.id; im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false;
+    const slots = [];
+    for (let i = 0; i < s.belt; i++) slots.push({ kind: 'belt', u0: i / s.belt, q: quat(), j: v3hHash(qi + i) * 2 - 1 });
+    for (let i = 0; i < s.pour; i++) slots.push({ kind: 'pour', u0: i / s.pour, q: quat(), j: v3hHash(qi + 200 + i) * 2 - 1, k: v3hHash(qi + 300 + i) * 2 - 1 });
+    for (let t = 0; t < 2; t++) for (let i = 0; i < s.bed; i++) slots.push({ kind: 'bed', truck: t, off: assign[s.id][i], q: quat() });
+    for (let i = 0; i < count; i++) im.setMatrixAt(i, ZERO);
+    scene.add(im);
+    V3H.ore.push({ im, slots, belt: s.belt, pour: s.pour, bed: s.bed });
+  }
+}
+function v3hBuildLamps(root) {
+  const names = ['LED_Mid_A', 'LED_Mid_B', 'LED_Crown'];
+  V3H.leds = names.map(n => { const o = root.getObjectByName(n); const c = new THREE.Vector3(); if (o) new THREE.Box3().setFromObject(o).getCenter(c); return { name: n, p: c, s: n === 'LED_Crown' ? 1.35 : 1.15 }; });
+  const halo = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: v3hHaloTex(), color: V3H_LED, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), 3);
+  halo.name = 'V3H_LampHalo'; halo.frustumCulled = false; halo.renderOrder = 4;
+  for (let i = 0; i < 3; i++) halo.setMatrixAt(i, ZERO);
+  scene.add(halo); V3H.halo = halo;
+}
+function v3hBindBeds() {
+  if (V3H.beds || !truckRoot || !V3H.a0) return;
+  const bed = truckRoot.getObjectByName('Truck_Bed'); if (!bed || !truck) return;
+  truck.updateMatrixWorld(true);
+  const bedInTruck = new THREE.Matrix4().multiplyMatrices(new THREE.Matrix4().copy(truck.matrixWorld).invert(), bed.matrixWorld);
+  const yaw = R.yMine || 0;
+  const park = new THREE.Vector3(MX + MK.Path_Load.x, 0, MK.Path_Load.z);
+  const target = V3H.bedWorld.clone().sub(park).applyQuaternion(new THREE.Quaternion().setFromAxisAngle(_vy, -yaw));
+  V3H.landTruck = target.clone();
+  const invBed = bedInTruck.clone().invert();
+  V3H.landBed = target.clone().applyMatrix4(invBed);
+  V3H.bedInv = invBed;
+  V3H.beds = [bed];
+  const b2 = truck2Root && truck2Root.getObjectByName('Truck_Bed');
+  V3H.beds.push(b2 || null);
+}
+function v3hMount(gltf) {
+  V3H.mounted = true;
+  V3H.suppress = v3hSuppressMerged(mine);
+  const gone = v3hHideNamed(mine);
+  v3hRetireMineRev();
+  const root = gltf.scene; root.name = 'Drill_v3h'; root.position.set(MX, 0, 0);
+  scene.add(root); root.updateMatrixWorld(true); V3H.root = root;
+  v3hPrepLook(root);
+  V3H.a0 = root.getObjectByName('Belt_Start').getWorldPosition(new THREE.Vector3());
+  V3H.a1 = root.getObjectByName('Belt_End').getWorldPosition(new THREE.Vector3());
+  V3H.spout = root.getObjectByName('Funnel_Spout').getWorldPosition(new THREE.Vector3());
+  V3H.bedWorld = root.getObjectByName('Ore_Bed_Target').getWorldPosition(new THREE.Vector3());
+  V3H.mouth = new THREE.Vector3().lerpVectors(V3H.a1, V3H.spout, 0.2);
+  V3H.mouth.y = V3H.spout.y + 1.05;
+  V3H.side = new THREE.Vector3(-(V3H.a1.z - V3H.a0.z), 0, V3H.a1.x - V3H.a0.x).normalize();
+  v3hBuildLamps(root);
+  v3hBuildOre(root);
+  V3H.supports = v3hCollectSupports(root);   // before merge removes the gallery meshes
+  v3hMergeStatic(root);
+  rig = root.getObjectByName('Drill_Rig') || rig;
+  v3hBindBeds();
+  const info = { glb: DRILL_V3H_GLB, md5: 'a489aa6a3f94ac80d72c4bb61994a9be', hide: gone, suppress: V3H.suppress, supports: V3H.supports.length, oreDraws: V3H.ore.length };
+  window.__ps3d.v3h = info;
+  v3hCaptureTruck(); v3hClearanceMaybe();
+  console.info('[v3h] mounted', info);
+}
+function loadDrillV3h() {
+  loader.load(DRILL_V3H_GLB, (gltf) => { drillGltf = gltf; v3hTryMount(); }, undefined, (e) => {
+    console.error('[v3h] drill GLB failed', e); drillFailed = true; drillDone = true; maybeReady();
+  });
+}
+function v3hTryMount() {
+  if (V3H.mounted || drillFailed || !mine || !drillGltf) return;
+  try { v3hMount(drillGltf); } catch (e) { console.error('[v3h] mount failed', e); }
+  drillDone = true; maybeReady();
+}
+function v3hDrillTap() {
+  if (!V3H.root) return nodesOf(mine, ['Rig']);
+  const ms = []; V3H.root.traverse(o => { if (o.isMesh && o.userData.v3hTap === 'drill' && o.visible) ms.push(o); });
+  const rigN = V3H.root.getObjectByName('Drill_Rig'); if (rigN) ms.push(rigN);
+  return ms.length ? ms : nodesOf(mine, ['Rig']);
+}
+function v3hChuteTap() {
+  if (!V3H.root) return nodesOf(mine, ['Conveyor', 'Silo']);
+  const ms = []; V3H.root.traverse(o => { if (o.isMesh && o.userData.v3hTap === 'chute' && o.visible) ms.push(o); });
+  const g = V3H.root.getObjectByName('Conveyor_Gallery'); if (g) ms.push(g);
+  return ms.length ? ms : nodesOf(mine, ['Conveyor', 'Silo']);
+}
+function v3hFlatHeap() {
+  if (!V3H.mounted) return;
+  for (const list of [fillMeshes, fillMeshes2]) for (const [m, j] of list) if (m.morphTargetInfluences) m.morphTargetInfluences[j] = 0;
+}
+function v3hLampOn(drilling) {
+  if (window.__ps3d && window.__ps3d.lampForce != null) return !!window.__ps3d.lampForce;
+  return !!(drilling && (performance.now() % 1000) < 500);
+}
+function updDrillV3h(dt) {
+  if (!V3H.mounted) return;
+  const drilling = digOn === true;
+  const on = v3hLampOn(drilling);
+  if (V3H.ledMat) { V3H.ledMat.emissive.setHex(on ? V3H_LED : 0x000000); V3H.ledMat.emissiveIntensity = on ? 3.6 : 0; }
+  if (V3H.halo) {
+    if (on) camera.getWorldDirection(_vp);
+    for (let i = 0; i < V3H.leds.length; i++) {
+      if (!on) { V3H.halo.setMatrixAt(i, ZERO); continue; }
+      const L = V3H.leds[i];
+      _va.copy(L.p).addScaledVector(_vp, -0.18);
+      _vq.copy(camera.quaternion); _vs.setScalar(L.s);
+      V3H.halo.setMatrixAt(i, _vm.compose(_va, _vq, _vs));
+    }
+    V3H.halo.instanceMatrix.needsUpdate = true;
+  }
+  if (drilling) V3H.oreT += dt;
+  v3hBindBeds();
+  v3hUpdOre(drilling);
+}
+const _bedOff = new THREE.Vector3(1.05, 0.8, 0);
+function v3hOnBed(ti, local, out) {
+  const bed = V3H.beds && V3H.beds[ti], tr = (RIG[ti] && RIG[ti].truck) || truck;
+  if (!bed || !tr) return out.copy(V3H.spout || _vp);
+  bed.updateWorldMatrix(true, false); bed.getWorldPosition(out);
+  _vq.setFromAxisAngle(_vy, tr.rotation.y); _vb.copy(local).applyQuaternion(_vq); return out.add(_vb);
+}
+function v3hUpdOre(drilling) {
+  if (!V3H.ore.length) return;
+  const beltDur = 3.2, pourDur = 1.05;
+  const land = V3H.beds && V3H.beds[0] ? v3hOnBed(0, _bedOff, _vc) : V3H.spout;
+  for (const pack of V3H.ore) {
+    const slots = pack.slots;
+    let b0 = 0, b1 = 0;
+    for (let i = 0; i < slots.length; i++) {
+      const s = slots[i];
+      let draw = false;
+      if (s.kind === 'belt' && drilling) {
+        const u = (s.u0 + V3H.oreT / beltDur) % 1;
+        _vp.lerpVectors(V3H.a0, V3H.a1, u).addScaledVector(V3H.side, s.j * 0.07); _vp.y += 0.05;
+        _vq.copy(s.q); _vs.set(1, 1, 1); draw = true;
+      } else if (s.kind === 'pour' && drilling) {
+        const u = (s.u0 + V3H.oreT / pourDur) % 1;
+        if (u < 0.34) _vp.lerpVectors(V3H.a1, V3H.mouth, u / 0.34);
+        else if (u < 0.68) _vp.lerpVectors(V3H.mouth, V3H.spout, (u - 0.34) / 0.34);
+        else { const k = (u - 0.68) / 0.32; _vp.lerpVectors(V3H.spout, land, k); _vp.x += s.j * 0.14 * k; _vp.z += s.k * 0.14 * k; }
+        _vq.copy(s.q); _vs.set(1, 1, 1); draw = true;
+      } else if (s.kind === 'bed') {
+        const ti = s.truck, G = RIG[ti];
+        const alive = G && G.truck && G.ts && G.ts.ph !== 'off' && (ti === 0 || (truck2Root && truck2Root.visible));
+        const nShow = alive ? Math.round(Math.max(0, Math.min(1, G.ts.fill || 0)) * pack.bed) : 0;
+        const ord = ti === 0 ? b0++ : b1++;
+        if (alive && ord < nShow && V3H.beds && V3H.beds[ti]) {
+          v3hOnBed(ti, s.off, _vp);
+          _vq.copy(s.q); _vs.set(1, 1, 1); draw = true;
+        }
+      }
+      pack.im.setMatrixAt(i, draw ? _vm.compose(_vp, _vq, _vs) : ZERO);
+    }
+    pack.im.instanceMatrix.needsUpdate = true;
+  }
+}
+function v3hCollectSupports(root) {
+  const tris = [];
+  const gal = root.getObjectByName('Conveyor_Gallery'); if (!gal) return tris;
+  gal.updateWorldMatrix(true, true);
+  gal.traverse(mesh => {
+    if (!mesh.isMesh || !mesh.geometry || !mesh.geometry.index) return;
+    const mat = mesh.material && mesh.material.name;
+    if (mat !== 'M_OcFoot' && mat !== 'M_OcTruss' && mat !== 'M_DrSteel') return;
+    const pos = mesh.geometry.attributes.position, idx = mesh.geometry.index, m = mesh.matrixWorld;
+    for (let i = 0; i < idx.count; i += 3) {
+      const a = new THREE.Vector3().fromBufferAttribute(pos, idx.getX(i)).applyMatrix4(m);
+      const b = new THREE.Vector3().fromBufferAttribute(pos, idx.getX(i + 1)).applyMatrix4(m);
+      const c = new THREE.Vector3().fromBufferAttribute(pos, idx.getX(i + 2)).applyMatrix4(m);
+      const minY = Math.min(a.y, b.y, c.y);
+      if (mat !== 'M_OcFoot' && minY > 3.05) continue;
+      tris.push({ a, b, c, mat, minY });
+    }
+  });
+  return tris;
+}
+function v3hCaptureTruck() {
+  if (!truck || V3H.truckBox) return;
+  truck.updateMatrixWorld(true);
+  const wb = new THREE.Box3().setFromObject(truck);
+  const inv = new THREE.Matrix4().copy(truck.matrixWorld).invert();
+  const lb = new THREE.Box3();
+  for (let i = 0; i < 8; i++) lb.expandByPoint(_va.set(i & 1 ? wb.max.x : wb.min.x, i & 2 ? wb.max.y : wb.min.y, i & 4 ? wb.max.z : wb.min.z).applyMatrix4(inv));
+  V3H.truckBox = { min: lb.min.clone(), max: lb.max.clone() };
+}
+function v3hDistPointBox(p, mn, mx) {
+  const dx = Math.max(mn.x - p.x, 0, p.x - mx.x), dy = Math.max(mn.y - p.y, 0, p.y - mx.y), dz = Math.max(mn.z - p.z, 0, p.z - mx.z);
+  return Math.hypot(dx, dy, dz);
+}
+function v3hDistSegSeg(p1, q1, p2, q2) {
+  const d1x = q1.x - p1.x, d1y = q1.y - p1.y, d1z = q1.z - p1.z, d2x = q2.x - p2.x, d2y = q2.y - p2.y, d2z = q2.z - p2.z;
+  const rx = p1.x - p2.x, ry = p1.y - p2.y, rz = p1.z - p2.z;
+  const a = d1x * d1x + d1y * d1y + d1z * d1z, e = d2x * d2x + d2y * d2y + d2z * d2z, f = d2x * rx + d2y * ry + d2z * rz;
+  let s, t; const EPS = 1e-8;
+  if (a <= EPS && e <= EPS) return Math.hypot(rx, ry, rz);
+  if (a <= EPS) { s = 0; t = Math.max(0, Math.min(1, f / e)); }
+  else {
+    const c = d1x * rx + d1y * ry + d1z * rz;
+    if (e <= EPS) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
+    else {
+      const b = d1x * d2x + d1y * d2y + d1z * d2z, denom = a * e - b * b;
+      s = denom > EPS ? Math.max(0, Math.min(1, (b * f - c * e) / denom)) : 0;
+      t = (b * s + f) / e;
+      if (t < 0) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
+      else if (t > 1) { t = 1; s = Math.max(0, Math.min(1, (b - c) / a)); }
+    }
+  }
+  return Math.hypot(rx + d1x * s - d2x * t, ry + d1y * s - d2y * t, rz + d1z * s - d2z * t);
+}
+function v3hDistPointTri(p, a, b, c) {
+  const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z, acx = c.x - a.x, acy = c.y - a.y, acz = c.z - a.z;
+  const apx = p.x - a.x, apy = p.y - a.y, apz = p.z - a.z, d1 = abx * apx + aby * apy + abz * apz, d2 = acx * apx + acy * apy + acz * apz;
+  if (d1 <= 0 && d2 <= 0) return Math.hypot(apx, apy, apz);
+  const bpx = p.x - b.x, bpy = p.y - b.y, bpz = p.z - b.z, d3 = abx * bpx + aby * bpy + abz * bpz, d4 = acx * bpx + acy * bpy + acz * bpz;
+  if (d3 >= 0 && d4 <= d3) return Math.hypot(bpx, bpy, bpz);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); return Math.hypot(a.x + abx * v - p.x, a.y + aby * v - p.y, a.z + abz * v - p.z); }
+  const cpx = p.x - c.x, cpy = p.y - c.y, cpz = p.z - c.z, d5 = abx * cpx + aby * cpy + abz * cpz, d6 = acx * cpx + acy * cpy + acz * cpz;
+  if (d6 >= 0 && d5 <= d6) return Math.hypot(cpx, cpy, cpz);
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); return Math.hypot(a.x + acx * w - p.x, a.y + acy * w - p.y, a.z + acz * w - p.z); }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return Math.hypot(b.x + (c.x - b.x) * w - p.x, b.y + (c.y - b.y) * w - p.y, b.z + (c.z - b.z) * w - p.z); }
+  const den = 1 / (va + vb + vc), v = vb * den, w = vc * den;
+  return Math.hypot(a.x + abx * v + acx * w - p.x, a.y + aby * v + acy * w - p.y, a.z + abz * v + acz * w - p.z);
+}
+const V3H_EDGES = [[0, 1], [0, 2], [0, 4], [1, 3], [1, 5], [2, 3], [2, 6], [3, 7], [4, 5], [4, 6], [5, 7], [6, 7]];
+const _c0 = new THREE.Vector3(), _c1 = new THREE.Vector3(), _ba = new THREE.Vector3(), _bb = new THREE.Vector3(), _tC = new THREE.Vector3();
+function v3hCorner(i, mn, mx, out) { return out.set(i & 1 ? mx.x : mn.x, i & 2 ? mx.y : mn.y, i & 4 ? mx.z : mn.z); }
+function v3hSegCross2(ax, ay, bx, by, cx, cy, dx, dy) {
+  const d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), d2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
+  const d3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), d4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+function v3hSegRect(x0, y0, x1, y1, minx, maxx, miny, maxy) {
+  if ((x0 >= minx && x0 <= maxx && y0 >= miny && y0 <= maxy) || (x1 >= minx && x1 <= maxx && y1 >= miny && y1 <= maxy)) return true;
+  return v3hSegCross2(x0, y0, x1, y1, minx, miny, maxx, miny) || v3hSegCross2(x0, y0, x1, y1, maxx, miny, maxx, maxy) || v3hSegCross2(x0, y0, x1, y1, maxx, maxy, minx, maxy) || v3hSegCross2(x0, y0, x1, y1, minx, maxy, minx, miny);
+}
+function v3hDistSegBox(a, b, mn, mx) {
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+  let t0 = 0, t1 = 1, hit = true;
+  const clip = (p, d, lo, hi) => {
+    if (Math.abs(d) < 1e-12) { if (p < lo || p > hi) hit = false; return; }
+    let u0 = (lo - p) / d, u1 = (hi - p) / d; if (u0 > u1) { const s = u0; u0 = u1; u1 = s; }
+    if (u0 > t0) t0 = u0; if (u1 < t1) t1 = u1; if (t0 > t1) hit = false;
+  };
+  clip(a.x, dx, mn.x, mx.x); clip(a.y, dy, mn.y, mx.y); clip(a.z, dz, mn.z, mx.z);
+  if (hit) return 0;
+  let best = Math.min(v3hDistPointBox(a, mn, mx), v3hDistPointBox(b, mn, mx));
+  const faces = [['x', 'y', 'z'], ['y', 'x', 'z'], ['z', 'x', 'y']];
+  for (const [n, u, v] of faces) {
+    const d = n === 'x' ? dx : n === 'y' ? dy : dz;
+    if (Math.abs(d) > 1e-6) continue;
+    const pv = a[n];
+    for (const face of [mn[n], mx[n]]) {
+      const dist = Math.abs(pv - face);
+      if (dist >= best) continue;
+      if (v3hSegRect(a[u], a[v], b[u], b[v], mn[u], mx[u], mn[v], mx[v])) best = dist;
+    }
+  }
+  for (const e of V3H_EDGES) {
+    v3hCorner(e[0], mn, mx, _c0); v3hCorner(e[1], mn, mx, _c1);
+    const d = v3hDistSegSeg(a, b, _c0, _c1); if (d < best) best = d;
+  }
+  return best;
+}
+function v3hDistTriBox(a, b, c, mn, mx) {
+  let d = Math.min(v3hDistSegBox(a, b, mn, mx), v3hDistSegBox(b, c, mn, mx), v3hDistSegBox(c, a, mn, mx));
+  if (d === 0) return 0;
+  for (let i = 0; i < 8; i++) { const cd = v3hDistPointTri(v3hCorner(i, mn, mx, _c0), a, b, c); if (cd < d) d = cd; if (d === 0) return 0; }
+  return d;
+}
+function v3hMeasureClearance() {
+  const box = V3H.truckBox, tris = V3H.supports;
+  if (!box || !tris || !tris.length || !R.pOut) return { error: 'not ready' };
+  const samples = [];
+  const pose = {};
+  const add = (x, z, yaw) => { if (x > MX - 28 && x < MX + 48) samples.push({ x, z, yaw }); };
+  for (const P of [R.pOut, R.pBack]) {
+    if (!P) continue;
+    for (let s = 0; s <= P.L; s += 0.5) { pathAt(P, s, pose); add(pose.x, pose.z, pose.yaw); }
+  }
+  const ap = mw('Path_Load_Approach'), ld = mw('Path_Load');
+  for (let u = 0; u <= 1.001; u += 0.1) add(ap[0] + (ld[0] - ap[0]) * Math.min(1, u), ap[1] + (ld[1] - ap[1]) * Math.min(1, u), R.yMine || 0);
+  let min = Infinity, hit = null, tested = 0, zeros = 0, posMin = Infinity;
+  const inv = new THREE.Matrix4(), e = new THREE.Euler();
+  for (const smp of samples) {
+    e.set(0, smp.yaw, 0); _vm.makeRotationFromEuler(e); _vm.setPosition(smp.x, 0, smp.z); inv.copy(_vm).invert();
+    for (let i = 0; i < tris.length; i++) {
+      const t = tris[i];
+      const cx = (t.a.x + t.b.x + t.c.x) / 3, cz = (t.a.z + t.b.z + t.c.z) / 3;
+      if ((cx - smp.x) ** 2 + (cz - smp.z) ** 2 > 64) continue;
+      tested++;
+      _ba.copy(t.a).applyMatrix4(inv); _bb.copy(t.b).applyMatrix4(inv); _tC.copy(t.c).applyMatrix4(inv);
+      const d = v3hDistTriBox(_ba, _bb, _tC, box.min, box.max);
+      if (d <= 0.001) zeros++; else if (d < posMin) posMin = d;
+      if (d < min) { min = d; hit = { d: +d.toFixed(3), mat: t.mat, truck: { x: +smp.x.toFixed(2), z: +smp.z.toFixed(2), yaw: +smp.yaw.toFixed(3) }, at: [+cx.toFixed(2), +((t.a.y + t.b.y + t.c.y) / 3).toFixed(2), +cz.toFixed(2)] }; }
+    }
+  }
+  const out = { min: +min.toFixed(3), intersect: min <= 0.001, zeros, posMin: posMin < Infinity ? +posMin.toFixed(3) : null, samples: samples.length, tested, supports: tris.length, hit, truckBox: { min: box.min.toArray().map(n => +n.toFixed(2)), max: box.max.toArray().map(n => +n.toFixed(2)) } };
+  console[out.intersect ? 'error' : 'info']('[v3h] clearance ' + JSON.stringify(out));
+  return out;
+}
+function v3hClearanceMaybe() {
+  if (!V3H.mounted || !truck || !R.pOut || !RT.ready) return;
+  if (!V3H.clearance) {
+    v3hCaptureTruck();
+    try { V3H.clearance = v3hMeasureClearance(); } catch (e) { console.error('[v3h] clearance failed', e); V3H.clearance = { error: String(e) }; }
+  }
+  if (window.__ps3d.v3h) window.__ps3d.v3h.clearance = V3H.clearance;
+}
+
 function loadRig() { loader.load(MINE_GLB, (gltf) => {
   clearTimeout(coverTimer); coverTimer = 0;            // loaded: the 15 s 'still loading' warning can never fire late
   mine = gltf.scene; mine.position.set(MX, 0, 0);
@@ -1085,7 +1621,7 @@ function loadRig() { loader.load(MINE_GLB, (gltf) => {
   routeReady('mine');
   applyRigLevel(); fitSite(MINE); stripClickRock(mine);
   if (op) { const d = MK.Operator_Deck; op.position.set(MX + d.x, 0, d.z); }
-  rigLoaded = true; maybeReady();
+  rigLoaded = true; v3hTryMount(); maybeReady();
   Object.assign(window.__ps3d, { mine, rig, MK, clips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
 }, undefined, (e) => {
   console.error('Mine GLB load failed', e); clearTimeout(coverTimer); coverTimer = 0; routeReady('mine');   // fallback route stands
@@ -1123,7 +1659,7 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_76e02e8b.glb?v=76e0
   for (const c of gltf.animations) tActs2[c.name] = t2Mixer.clipAction(c);
   if (tActs2.truck_load_rich) { tActs2.truck_load_rich.setLoop(THREE.LoopOnce, 1); tActs2.truck_load_rich.clampWhenFinished = false; }
   if (tActs2.truck_dump) { tActs2.truck_dump.setLoop(THREE.LoopOnce, 1); tActs2.truck_dump.clampWhenFinished = true; }
-  truckDone = true; maybeReady();
+  truckDone = true; v3hCaptureTruck(); v3hClearanceMaybe(); maybeReady();
   Object.assign(window.__ps3d, { truck2Root, truck2Unlocked, fleetN, buyTruck2: () => buyTruck2() });
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
   metBind();                         // META-RACE fix (EM 10/31): bind here too: when the meteorite GLB lands first, its own metBind() finds no truck yet
@@ -1793,7 +2329,10 @@ function updPadCam(dt) {               // dt = wall-clock frame dt (not game spe
   LD.p = clamp(LD.p + (LD.want ? dt : -dt) / PADCAM.easeSec, 0, 1); LD.w = fss(LD.p); LD.src = SITECAM[PADI].load.src;
 }
 let shK = 1;
-function placeCamera() { poseCam(camera, camX);
+function placeCamera() {
+  const shot = window.__ps3d && window.__ps3d.shotCam;
+  if (shot) { camera.position.set(shot.px, shot.py, shot.pz); camera.lookAt(shot.tx, shot.ty, shot.tz); camera.updateMatrixWorld(); return; }
+  poseCam(camera, camX);
   const g = camSeg(camX), A = SITECAM[g.i0], B = SITECAM[g.i1], u = g.u, k = A.k + (B.k - A.k) * u, dx = A.dx + (B.dx - A.dx) * u, dz = A.dz + (B.dz - A.dz) * u;
   if (Math.abs(k - shK) > .01) { shK = k; Object.assign(sun.shadow.camera, { left: -22 * k, right: 22 * k, top: 22 * k, bottom: -22 * k, far: 120 * k }); sun.shadow.camera.updateProjectionMatrix(); }
   sun.position.set(camX + dx - 30 * k, 22 * k, dz + 18 * k); sun.target.position.set(camX + dx, 0, dz); }
@@ -3859,8 +4398,8 @@ function upBox(nodes, hx, y1, hz, b) {   // world box around marker nodes: ±hx 
   b.makeEmpty(); for (const n of nodes) { n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x - hx, 0, _uv.z - hz)); n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x + hx, y1, _uv.z + hz)); } return b;
 }
 const UPT = [
-  { id: 'drill', p: 'drill', site: MINE, objs: () => nodesOf(mine, ['Rig', 'Tier_20']), hl: () => nodesOf(mine, ['Rig']) },
-  { id: 'chute', p: 'chute', site: MINE, objs: () => nodesOf(mine, ['Conveyor', 'Silo']), hl: () => mrChuteHL() || nodesOf(mine, ['Conveyor', 'Silo']) },   // ca-minerevamp: Chute_Glow when the GLB has it
+  { id: 'drill', p: 'drill', site: MINE, objs: () => v3hDrillTap(), hl: () => v3hDrillTap() },
+  { id: 'chute', p: 'chute', site: MINE, objs: () => v3hChuteTap(), hl: () => mrChuteHL() || v3hChuteTap() },   // ca-minerevamp: Chute_Glow when the GLB has it
   { id: 'refinery', p: 'purity', site: REF, objs: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Tier_05', 'Tier_08', 'Base_GlowRed']), hl: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Base_GlowRed']) },
   { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBox(n, 4, 9, 4, b) : null; }, hl: () => [] },
   { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBox(n, 3, 8, 3, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
@@ -4847,10 +5386,12 @@ function frame() {
   updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
   updCargo();
   updShipSfx();
-  updTruck(); updMineRev(gdt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). updTruck poses the truck + sets its clips, then its mixer applies them this frame
+  updTruck(); updMineRev(gdt); updDrillV3h(dt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). v3h ore + mast lamps use digOn. updTruck poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
   if (t2Mixer && fleetN() > 1) t2Mixer.update(gdt);   // ca-truckrot: Truck 2's clips
+  v3hFlatHeap();   // the HT-04 fill morph is a smooth heap on the body mesh; the v3h chunks are the bed pile
   updMet();
+  if (V3H.mounted && MET.o) MET.o.visible = false;   // the fragment sat on that heap; chunks are the load now
   if (mixer) mixer.update(gdt);
   updOperator(gdt);
   for (const m of stationMixers) m.update(gdt);
@@ -4888,7 +5429,7 @@ setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading af
 Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, get BOARD_SEC() { return boardSec(); }, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); upUI();
-loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain(); loadRefTerrain();
+loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain(); loadRefTerrain(); loadDrillV3h();
 frame();
 
 // ===== QA fast-forward hook + badge (dev/ with ?qa=1 only; see QA_ON). Nothing below exists on a normal load.

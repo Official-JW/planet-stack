@@ -143,7 +143,9 @@ Exact node names from the served GLB. Hide or remove the node and its descendant
 
 `Dep_01` and `Dep_02` are **empty pins** (no deposit mesh). Live code currently keeps them as pins after stripping `Deposit_*`. Leave them unless you also want those pins gone.
 
-Do **not** hide site markers / infrastructure: `Base_Paint`, `Base_GlowCyan`, `Tier_03`, `Tier_05`, `Tier_08`, `Tier_12`, `Tier_20`, `Cam_Target`, `Path_*`, `Crew_Path_*`, `Road_Entry`, `Operator_Deck`.
+Do **not** hide site markers: `Cam_Target`, `Path_*`, `Crew_Path_*`, `Road_Entry`, `Operator_Deck`.
+
+`Base_Paint` / `Base_GlowCyan` and `Tier_03` / `Tier_05` / `Tier_08` / `Tier_12` / `Tier_20` are **not** naive keep-as-is nodes — see **Merged-face suppression** below. Keeping `Base_Paint` and `Base_GlowCyan` without that filter resurrects the merged hopper, silo, supports, pad and scrap. Keeping the Tiers resurrects the detailed hopper (`Tier_05`), upgraded silo (`Tier_12`) and tall derrick cap (`Tier_20`).
 
 ## Dependencies
 
@@ -168,3 +170,22 @@ Do **not** hide site markers / infrastructure: `Base_Paint`, `Base_GlowCyan`, `T
 - 3/4 operator reads as a seated suited figure; face/gender detail is not sharp; a front mullion crosses mid-torso.
 - Concept pour was a populated loop, not an empty bed filling from scratch. Coders own the in-game pour.
 - 3D moving clearance remains UNVERIFIED.
+
+
+## Merged-face suppression
+
+Named-node hides alone are not enough. In v3 and onwards the study deleted merged faces inside `Base_Paint` and `Base_GlowCyan` (old hopper, silo, supports, pad, derrick and scrap) with a world-space centroid AABB test, not by hiding those nodes. `EXPORT_v3h.md` originally said to keep both nodes; doing that without the filter resurrects those fragments in game.
+
+Full mapping, glTF AABBs, counts, decode notes, JS snippet and verification stills: [`suppress/SUPPRESS_v3h.md`](suppress/SUPPRESS_v3h.md) and [`suppress/suppress_v3h.json`](suppress/suppress_v3h.json).
+
+Recommended runtime recipe: after `GLTFLoader` + `MeshoptDecoder` decode, drop any triangle on the unnamed mesh child of `Base_Paint` or `Base_GlowCyan` whose **world-space centroid** falls inside any of the eight AABBs in that JSON (v3 `PLANT` + `TEAL`, plus the earlier v1/v2 derrick/pad/scrap boxes). Do **not** ship raw triangle-index masks — `gltfpack -noq` of this served file already reorders vertices and welds 7 `Base_Paint` verts, so those indices would be wrong in Three.js.
+
+Count check against the remembered 4641 / 1041:
+
+- Those numbers are the *incremental* v3 `PLANT ∪ TEAL` cut after v1/v2 had already run, not the raw served primitives.
+- On the meshopt-decoded served file, `PLANT ∪ TEAL` contains 4773 paint + 1197 glow triangles; 132 paint + 155 glow of those also sit in a v1/v2 box. Incremental = **4641** paint (exact) and **1042** glow (one more than the remembered 1041 — a single glow triangle 2.9 mm outside `DERRICK_BOX`; apply the AABB, not a hardcoded 1041).
+- The recommended full union removes **7990** of 8305 `Base_Paint` triangles (315 remain, a low drill-side ground skirt) and **all 1874** `Base_GlowCyan` triangles (the node is then empty; hiding it is equivalent). That matches `Mesh_1` / `Mesh_0` remaining in the v3 and v3h study blends.
+
+Also hide `Tier_03`, `Tier_05`, `Tier_08`, `Tier_12`, `Tier_20` (v1 did this for served-base / Lv 1 upgrades; the study kept them hidden). They are the detailed visual hopper, upgraded silo and tall derrick cap. The face filter does not touch them.
+
+Verification still (served Mine + filter + study hides + v3h GLB): [`suppress/suppress_v3h_over_mine.png`](suppress/suppress_v3h_over_mine.png). Eye-check: no old pad scraps, hopper, silo or support fragments.
