@@ -4145,7 +4145,8 @@ function ucOpen(t) {
   if (t.id === 'padFuel' && upEl.offsetLeft < 220 && cg3.ship && upShown(cg3.ship)) { cg3.ship.updateWorldMatrix(true, true); b.expandByObject(cg3.ship); }   // gc-ui3 (EM 17:40 item 5): the Fuel card frames the rocket too, so its nose and the tank tops stay below the HUD (phones only; gc-ui3b: wide screens frame as in 5c14647)
   if (b.isEmpty()) { UC.t = null; return; }
   const mc = camera.clone(); mc.clearViewOffset();
-  const k0 = CAMLOOK.k > 0 ? CAMLOOK.k : 1, tg = fitBox(mc, b, k0, bb, k0 * 1.15);   // card open: stay on the station frame (CAM_OVERRIDE included, e.g. Shipyard 75901d07) or pull back at most 15%, and centre the building in the band above the sheet. Close eases UC.w back to 0, which is that same frame.
+  const k0 = CAMLOOK.k > 0 ? CAMLOOK.k : 1, phone = upEl.offsetLeft < 220;   // same phone test as the pad-fuel line above (gc-ui3b): the centred 305 px card sits at left < 220 only on a narrow viewport
+  const tg = fitBox(mc, b, k0, bb, phone ? k0 * 1.15 : 0);   // phones: at most 15% past the station frame. Desktop (offsetLeft >= 220): uncapped fitBox, the 74e7f02 pull-back. Close still eases UC.w to 0. Shipyard CAM_OVERRIDE is the resting frame either way.
   if (!tg.fit) { UC.t = null; window.__ps3d.ucFit = { id: t.id, fit: false }; return; }
   if (UC.w <= 0) Object.assign(UC, { lx: tg.lx, ly: tg.ly, lz: tg.lz, k: tg.k });
   Object.assign(UC, { want: 1, t, dur: .35, tg }); window.__ps3d.ucFit = { id: t.id, fit: true, k: +tg.k.toFixed(3), band: [bb.top, bb.bot] };
