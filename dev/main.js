@@ -1606,17 +1606,20 @@ const _fp = { x: 0, y: 0, z: 0 };
 function boxScreen(cam, b) { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, behind = false;
   for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) { const p = toScreen(x, y, z, cam, _fp); if (p.z > 1) behind = true; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
   return { x0, x1, y0, y1, behind }; }
-function fitBox(mc, b, k0, bb) {     // bb (optional): { top, bot, m } screen band to fit in instead of band()
+function fitBox(mc, b, k0, bb, kMax) {     // bb (optional): { top, bot, m } screen band. kMax (optional): stop pulling back here and still centre the box in that band
   const bd = bb || band(), M = bb ? bb.m : 12, e = THREE.MathUtils.degToRad(CAM.elev), ue = [0, Math.cos(e), -Math.sin(e)], vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const t = { lx: (b.min.x + b.max.x) / 2, ly: Math.max(0, (b.min.y + b.max.y) / 2), lz: (b.min.z + b.max.z) / 2, k: k0 };
+  const cap = kMax > k0 ? kMax : 0;
+  const recenter = () => { for (let it = 0; it < 4; it++) {
+    poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = boxScreen(mc, b); if (s.behind) return;
+    const pxm = (H / 2) / (camera.userData.dist * t.k * vt), dx = (bd.l != null ? (bd.l + bd.r) / 2 : W / 2) - (s.x0 + s.x1) / 2, dy = (bd.top + bd.bot) / 2 - (s.y0 + s.y1) / 2;
+    t.lx -= dx / pxm; t.ly += ue[1] * dy / pxm; t.lz += ue[2] * dy / pxm;
+  } };
   for (let n = 0; n < 200; n++) {
-    for (let it = 0; it < 4; it++) {         // re-centre: box centre → band centre
-      poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = boxScreen(mc, b); if (s.behind) break;
-      const pxm = (H / 2) / (camera.userData.dist * t.k * vt), dx = (bd.l != null ? (bd.l + bd.r) / 2 : W / 2) - (s.x0 + s.x1) / 2, dy = (bd.top + bd.bot) / 2 - (s.y0 + s.y1) / 2;
-      t.lx -= dx / pxm; t.ly += ue[1] * dy / pxm; t.lz += ue[2] * dy / pxm;
-    }
+    recenter();
     poseLook(mc, t.lx, t.ly, t.lz, t.k); const s = boxScreen(mc, b);
     if (!s.behind && s.x0 >= (bd.l != null ? bd.l : M) && s.x1 <= (bd.r != null ? bd.r : W - M) && s.y0 >= bd.top && s.y1 <= bd.bot) { t.fit = true; return t; }
+    if (cap && t.k * 1.03 > cap) { t.k = cap; recenter(); t.fit = true; t.capped = true; return t; }   // card-open cap: keep the building centred in the band above the sheet instead of zooming out until the whole box fits
     t.k *= 1.03;
   }
   t.fit = false; return t;
@@ -4028,7 +4031,8 @@ function ucOpen(t) {
   if (t.id === 'padFuel' && upEl.offsetLeft < 220 && cg3.ship && upShown(cg3.ship)) { cg3.ship.updateWorldMatrix(true, true); b.expandByObject(cg3.ship); }   // gc-ui3 (EM 17:40 item 5): the Fuel card frames the rocket too, so its nose and the tank tops stay below the HUD (phones only; gc-ui3b: wide screens frame as in 5c14647)
   if (b.isEmpty()) { UC.t = null; return; }
   const mc = camera.clone(); mc.clearViewOffset();
-  const tg = fitBox(mc, b, CAMLOOK.k, bb);   // never closer than the station view; backs off only as far as the object needs
+  const k0 = CAMLOOK.k > 0 ? CAMLOOK.k : 1, phone = upEl.offsetLeft < 220;   // same phone test as the pad-fuel line above (gc-ui3b): the centred 305 px card sits at left < 220 only on a narrow viewport
+  const tg = fitBox(mc, b, k0, bb, phone ? k0 * 1.15 : 0);   // phones: at most 15% past the station frame. Desktop (offsetLeft >= 220): uncapped fitBox, the 74e7f02 pull-back. Close still eases UC.w to 0. Shipyard CAM_OVERRIDE is the resting frame either way.
   if (!tg.fit) { UC.t = null; window.__ps3d.ucFit = { id: t.id, fit: false }; return; }
   if (UC.w <= 0) Object.assign(UC, { lx: tg.lx, ly: tg.ly, lz: tg.lz, k: tg.k });
   Object.assign(UC, { want: 1, t, dur: .35, tg }); window.__ps3d.ucFit = { id: t.id, fit: true, k: +tg.k.toFixed(3), band: [bb.top, bb.bot] };
@@ -4059,7 +4063,7 @@ function closeUp(why) {
 function fitTitle() { let f = 24; upH2.style.fontSize = ''; upH2.classList.remove('wrap'); while (upH2.scrollWidth > upH2.clientWidth + 0.5 && f > 15) upH2.style.fontSize = (--f) + 'px';
   if (upH2.scrollWidth > upH2.clientWidth + 0.5) upH2.classList.add('wrap'); }   // gc-ui3 (item 3): still too wide at 15 px → wraps (never cut off)   // long names shrink to fit beside the X
 function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost row; the button is LAUNCH (enabled exactly when canLaunch)
-  const big = P.big(), sub = P.sub(), [bt, ok] = P.btn(), k = [upCur, UPK.site, big[0], sub, bt, ok, S.cg.autoLoad, S.cg.autoLaunch].join('|');
+  const big = P.big(), sub = P.sub(), [bt, ok] = P.btn(), k = [upCur, UPK.site, big[0], sub, bt, ok, S.cg.autoLoad, S.cg.autoLaunch, shipLvNow(), shipUpgradeCost()].join('|');
   upBuy.style.display = '';   // ca-truck2: a maxed one-time card hides the shared button (#upBuy is display:block, so not [hidden])
   if (k === UPK.k) return; UPK.k = k;
   upEl.dataset.ico = P.ico; $('upKick').textContent = `${STATIONS[UPK.site]} · ${P.kick}`; $('upName').textContent = P.name; $('upLv').textContent = ''; fitTitle();
@@ -4069,11 +4073,14 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
   upBuy.disabled = !ok; upBuy.className = ok ? '' : 'max'; upBuy.textContent = bt;
   let tg = $('shipTgls'); if (!tg) { tg = document.createElement('div'); tg.id = 'shipTgls';   // auto load / launch switches
     for (const [key, label] of [['autoLoad', 'AUTO LOAD'], ['autoLaunch', 'AUTO LAUNCH']]) { const b = document.createElement('button'); b.className = 'tgl'; b.setAttribute('role', 'switch'); b.dataset.k = key;
-      b.append(document.createElement('b'), ' ' + label); b.addEventListener('click', (e) => { e.stopPropagation(); setShipTgl(key); }); tg.append(b); }
-    const lb = document.createElement('button'); lb.className = 'tgl'; lb.dataset.k = 'load1'; lb.textContent = 'LOAD 1 CRATE'; lb.addEventListener('click', (e) => { e.stopPropagation(); loadOne(); }); tg.append(lb);
-    const ub = document.createElement('button'); ub.className = 'tgl'; ub.dataset.k = 'shipUp'; ub.textContent = 'SHIP UPGRADE'; ub.addEventListener('click', (e) => { e.stopPropagation(); openUp('shipUp'); }); tg.append(ub);
+      const lab = document.createElement('span'); lab.className = 'tg-lab'; lab.textContent = label; b.append(lab, document.createElement('b')); b.addEventListener('click', (e) => { e.stopPropagation(); setShipTgl(key); }); tg.append(b); }
+    const lb = document.createElement('button'); lb.className = 'tgl'; lb.dataset.k = 'load1'; const ll = document.createElement('span'); ll.className = 'tg-lab'; ll.textContent = 'LOAD 1 CRATE'; lb.append(ll); lb.addEventListener('click', (e) => { e.stopPropagation(); loadOne(); }); tg.append(lb);
+    const ub = document.createElement('button'); ub.className = 'tgl shipup'; ub.dataset.k = 'shipUp';
+    const ul = document.createElement('span'); ul.className = 'tg-lab'; ul.textContent = 'SHIP UPGRADE';
+    const um = document.createElement('span'); um.className = 'su-meta'; const ug = document.createElement('span'); ug.className = 'su-go'; ug.textContent = 'UPGRADE';
+    ub.append(ul, um, ug); ub.addEventListener('click', (e) => { e.stopPropagation(); openUp('shipUp'); }); tg.append(ub);
     $('upSub').insertAdjacentElement('afterend', tg); }
-  for (const b of tg.children) { if (b.dataset.k === 'load1') { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } if (b.dataset.k === 'shipUp') { b.style.display = ''; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
+  for (const b of tg.children) { if (b.dataset.k === 'load1') { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } if (b.dataset.k === 'shipUp') { b.style.display = ''; const lv = shipLvNow(), maxed = lv >= CFG.econ.ship.levels, meta = b.querySelector('.su-meta'), go = b.querySelector('.su-go'); if (meta) meta.textContent = maxed ? `LV ${lv} · MAX` : `LV ${lv} · ${fmt(shipUpgradeCost())}`; if (go) go.textContent = maxed ? 'MAX' : 'UPGRADE'; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
   tg.hidden = false;
 }
 // ===== gc-crewpick: pick card in the standard panel. One chip per role (tap = +1, the − corner = −1; repeats allowed).
