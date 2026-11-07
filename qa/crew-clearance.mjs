@@ -17,7 +17,7 @@ const CHROME = process.env.CHROME || '/usr/local/bin/google-chrome';
 const BASE = process.env.PS_BASE || 'http://127.0.0.1:8765';
 const OUT = existsSync('/opt/cursor/artifacts') ? '/opt/cursor/artifacts' : path.resolve('qa/crew-clearance-out');
 mkdirSync(OUT, { recursive: true });
-const TS = 3;   // game-clock scale. 1x makes the away leg a 10-minute wait; 3x still reads as a walk.
+const TS = 2;   // game-clock scale. The 10-minute coast is skipped; 2x keeps the walks readable.
 
 const bootJs = () => {
   const ps = window.__ps3d, T = ps.THREE, WK = ps.wk;
@@ -77,14 +77,15 @@ const bootJs = () => {
     return { d, phase, x: +cx.toFixed(1), z: +cz.toFixed(1), y1: +y1.toFixed(1) };
   };
   ps.__mins = {};
-  setInterval(() => {
+  ps.__sample = () => {
     for (const k of ['miner', 'driver', 'mech', 'cm']) {
       const b = ps.__body(k); if (!b) continue;
       const M = ps.__mins[k] = ps.__mins[k] || { walk: 99, station: 99, ride: 99, climb: 99, at: '' };
       if (b.d < M[b.phase]) { M[b.phase] = +b.d.toFixed(3); if (b.phase === 'walk') M.at = b.x + ',' + b.z; }
       ps.__where = ps.__where || {}; ps.__where[k] = b;
     }
-  }, 250);
+  };
+  setInterval(ps.__sample, 250);
   const orig = ps.renderer.render.bind(ps.renderer);
   ps.renderer.render = function (scene, camera) {
     const W = ps.renderer.domElement.width, H = ps.renderer.domElement.height, look = ps.__look || { x: 640, z: 0 };
@@ -94,22 +95,43 @@ const bootJs = () => {
       camera.aspect = (W / (H / 2)); camera.position.set(cam[0], cam[1], cam[2]); camera.up.set(0, 1, 0); camera.lookAt(cam[3], cam[4], cam[5]); camera.updateProjectionMatrix();
       orig(scene, camera);
     };
-    put(H / 2, [look.x + (look.side || 16), 4.2, look.z, look.x, 1.3, look.z]);
-    put(0, [look.x, 32, look.z + 0.02, look.x, 0, look.z]);
+    put(H / 2, look.eye || [look.x + (look.side || 16), 4.2, look.z + 8, look.x, 1.3, look.z]);
+    put(0, [look.x, look.top || 22, look.z + 0.02, look.x, 0, look.z]);
     ps.renderer.setScissorTest(false); ps.renderer.setViewport(0, 0, W, H);
   };
 };
 
-async function record(page, frames, ms) {
+const FPS = 10;   // video frames per wall-second. The game clock steps with these frames, so a slow screenshot cannot skip the walk.
+
+async function installClock(page) {
+  await page.evaluate(() => {
+    if (window.__vclock) return;
+    const d0 = Date.now(), p0 = performance.now();
+    let elapsed = 0;
+    Date.now = () => d0 + elapsed;
+    performance.now = () => p0 + elapsed;
+    window.__vclock = { set(ms) { elapsed = ms; }, get() { return elapsed; } };
+  });
+}
+
+async function record(page, seconds) {
   const dir = path.join(tmpdir(), 'crew-frames-' + Date.now());
   mkdirSync(dir, { recursive: true });
-  const fps = 8, n = Math.min(frames, Math.round(ms / 1000 * fps));
+  const n = Math.max(1, Math.round(seconds * FPS));
+  const step = 1000 / FPS;
   for (let i = 0; i < n; i++) {
-    const t = Date.now();
-    const buf = await page.screenshot({ type: 'jpeg', quality: 60 });
+    await page.evaluate((step) => {
+      const c = window.__vclock; c.set(c.get() + step);
+      if (window.__ps3d && window.__ps3d.__sample) window.__ps3d.__sample();
+    }, step);
+    await page.evaluate(() => new Promise((resolve) => {
+      let done = false; const finish = () => { if (!done) { done = true; resolve(); } };
+      requestAnimationFrame(() => requestAnimationFrame(finish));
+      setTimeout(finish, 1200);
+    }));
+    const buf = await page.screenshot({ type: 'jpeg', quality: 56 });
     writeFileSync(path.join(dir, String(i).padStart(4, '0') + '.jpg'), buf);
-    const wait = 1000 / fps - (Date.now() - t);
-    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    if (i % 25 === 0) console.log('frame', i, '/', n);
   }
   return { dir, n };
 }
@@ -135,20 +157,44 @@ async function run() {
     await page.type('#gateCode', code); await page.click('#gateGo');
     await page.waitForFunction(() => window.__ps3d && window.__ps3d.wk && window.__ps3d.wk.ready, { timeout: 90000 });
     await page.evaluate(bootJs);
-    await new Promise(r => setTimeout(r, 500));
+    await installClock(page);
+    await new Promise(r => setTimeout(r, 400));
     // stations hold, then the full-hold launch
-    await page.evaluate(() => { window.__ps3d.__look = habLook(); function habLook() { return window.__ps3d.S.bt.hab === 1 ? { x: 640, z: -14, side: 18 } : { x: 171, z: 9, side: 14 }; } window.__ps3d.__look = (window.__ps3d.S.bt.hab === 1) ? { x: 642, z: -16, side: 18 } : { x: 168, z: 8, side: 14 }; });
-    const rec = await record(page, 12, 1500);
+    await page.evaluate(() => {
+      const ps = window.__ps3d; if (ps.__sample) ps.__sample();
+      const toast = document.getElementById('ecToast'); if (toast) toast.style.setProperty('display', 'none', 'important');
+      const w = ps.__where || {};
+      if (ps.S.bt.hab === 1 && w.driver) {
+        const d = w.driver; ps.__look = { x: d.x, z: d.z, top: 16, eye: [d.x + 5, 2.6, d.z + 5, d.x, 1.0, d.z] };
+      } else ps.__look = { x: 164, z: 8, top: 26, eye: [164, 9, 30, 164, 1.4, 8] };
+    });
+    const rec = await record(page, 3);
     await page.evaluate(() => { const ps = window.__ps3d, c = ps.S.cg; c.sh.hold = 20; c.autoLaunch = true; c.sh.f0 = ps.nowMs() - 180000; ps.settleTo(ps.nowMs(), null);
+      const toast = document.getElementById('ecToast'); if (toast) toast.style.setProperty('display', 'none', 'important');
       ps.__cam = setInterval(() => { const w = ps.__where || {}, truck = w.driver && w.driver.phase === 'ride' ? w.driver : w.miner && w.miner.phase === 'ride' ? w.miner : null;
         const pad = w.mech || w.cm || w.driver; const focus = truck || pad || { x: 640, z: -8 };
-        ps.__look = { x: focus.x, z: focus.z, side: truck ? 18 : 14 };
-        const x = document.querySelector('#upX'); if (x && !document.getElementById('upPanel').hidden) x.click(); }, 200); });
-    const more = await record(page, 200, 24000);
-    await page.screenshot({ path: path.join(OUT, name + '-still.png') });
-    // if the ship is away, skip the 10-minute coast so the return walk is in this clip
-    await page.evaluate(() => { const ps = window.__ps3d; if (ps.S.cg.sh.st !== 'pad' && window.PS_QA) window.PS_QA.skipToTouchdown(); });
-    const back = await record(page, 120, 14000);
+        const eye = truck ? [focus.x + 1, 2.6, focus.z + 8, focus.x, 1.6, focus.z] : [focus.x + 6, 3.0, focus.z + 6, focus.x, 1.0, focus.z];
+        ps.__look = { x: focus.x, z: focus.z, top: truck ? 22 : 16, eye };
+        const x = document.querySelector('#upX'); if (x && document.getElementById('upPanel') && !document.getElementById('upPanel').hidden) x.click(); }, 200); });
+    const plan = await page.evaluate((ts) => {
+      const ps = window.__ps3d;
+      const gather = ps.wkGatherSec(), back = ps.wkDescSec() + ps.wkReturnSec(), board = ps.BOARD_SEC || 40;
+      return { gather, back, board, out: gather / ts + Math.min(board, 28) / ts + 2, ret: back / ts + 3 };
+    }, TS);
+    console.log(name, 'plan', JSON.stringify(plan));
+    const more = await record(page, plan.out);
+    const { readdirSync } = await import('node:fs');
+    const shots = readdirSync(more.dir).filter(f => f.endsWith('.jpg')).sort();
+    const stillAt = shots[Math.min(shots.length - 1, Math.round(shots.length * 0.42))];
+    if (stillAt) {
+      await new Promise((resolve, reject) => {
+        const ff = spawn('ffmpeg', ['-y', '-i', path.join(more.dir, stillAt), path.join(OUT, name + '-still.png')], { stdio: 'inherit' });
+        ff.on('exit', (c) => c === 0 ? resolve() : reject(new Error('still ' + c)));
+      });
+    }
+    // skip the coast so the return walk is in this clip. The stepped clock stays put while this settles.
+    await page.evaluate(() => { const ps = window.__ps3d; if (ps.S.cg.sh.st !== 'pad' && window.PS_QA) return window.PS_QA.skipToTouchdown(); return { st: ps.S.cg.sh.st }; }).then((r) => console.log(name, 'skip', JSON.stringify(r)));
+    const back = await record(page, plan.ret);
     const mins = await page.evaluate(() => window.__ps3d.__mins);
     const st = await page.evaluate(() => ({ st: window.__ps3d.S.cg.sh.st, fly: window.__ps3d.S.cg.sh.fly, res: window.__ps3d.residentFlyers(), seats: window.__ps3d.shipFreePassengerSeats() }));
     report[name] = { mins, st, errs: errs.slice(0, 6), frames: [rec.dir, more.dir, back.dir] };
@@ -167,7 +213,7 @@ async function run() {
     writeFileSync(list, lines.join('\n'));
     const mp4 = path.join(OUT, name + '.mp4');
     await new Promise((resolve, reject) => {
-      const ff = spawn('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-r', '8', '-i', list, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', '8', '-crf', '30', '-movflags', '+faststart', mp4], { stdio: 'inherit' });
+      const ff = spawn('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-r', String(FPS), '-i', list, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(FPS), '-crf', '30', '-movflags', '+faststart', mp4], { stdio: 'inherit' });
       ff.on('exit', (c) => c === 0 ? resolve() : reject(new Error('ffmpeg ' + c)));
     });
     report[name].mp4 = mp4;

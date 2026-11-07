@@ -1404,7 +1404,7 @@ const WK = { ready: false, boardReady: false, brReady: false, attached: false, s
 // Hips at crew_climb local 0.02 s with the rig under the pad boarding root (sampled from the shipped GLB). The walk ends here.
 const WK_HAND = { mech: [644.29, -10.52], cm: [646.26, -8.66], miner: [646.25, -7.31], driver: [644.89, -3.84] };
 const WK_LANE = 647.2;   // open north-south apron east of the ship, the bay stacks (x ≤ 637) and the crane mast
-const WK_LOOP = [[648.2, -12], [648.2, -20], [636, -23], [628, -18], [628, -12], [636, -9.5]];   // Captain's post-Habitat tower inspection
+const WK_LOOP = [[664, 2], [664, -6], [656, -8], [652, -2], [652, 6], [658, 8]];   // Captain's post-Habitat inspection on the open east apron, clear of the pad deck
 const WK_CRANE = [643.6, 5.0];   // Co-pilot, south of the crane mast (body-height solid starts near z 7)
 function wkAllFly(sh) {   // this trip takes the whole crew (Mine + trucks pause). A started gather keeps its own count.
   sh = sh || (S.cg && S.cg.sh);
@@ -1456,7 +1456,7 @@ function wkCaptainPts(phase) {   // from a point on the inspection loop, forward
   const poly = wkLoopPoly(), pts = [];
   const a = wkAt(poly, phase); pts.push([a[0], a[1]]);
   for (let i = 0; i < poly.pts.length; i++) if (poly.seg[i] >= phase - 1e-3) pts.push(poly.pts[i]);
-  pts.push(WK_LOOP[0], [WK_LANE, -8], WK_HAND.driver);
+  pts.push(WK_LOOP[0], [664, -8], [WK_LANE, -8], WK_HAND.driver);
   return pts;
 }
 function wkOutPoly(key) {
@@ -1701,7 +1701,7 @@ function wkPoseDescent(t) { const a0 = wkClimbAct(); if (!a0) return false; cons
 }
 function wkMigPoly() { const truck = (typeof TS !== 'undefined' && isFinite(TS.x)) ? [TS.x, TS.z] : [MX + 11, 9];
   const shoulder = Math.min(12.4, truck[1] + 3.4);   // north of the haul lane, south of the flatbed lane, clear of the bridge footings
-  return wkPoly([[truck[0] + 2.4, truck[1] + 1.8], [truck[0] + 2.4, shoulder], [PX - 8, shoulder], [WK_LANE, shoulder], [WK_LANE, -8], WK_LOOP[0]]);
+  return wkPoly([[truck[0] + 2.4, truck[1] + 1.8], [truck[0] + 2.4, shoulder], [PX - 8, shoulder], [WK_LANE, shoulder], [WK_LANE, -8], [664, -8], WK_LOOP[0]]);
 }
 function wkUpd(t) { wkTryHome(t); if (!WK.ready) return;
   if (WK.sawHab === 0 && wkHab() && !(S.wk && S.wk.go > 0)) { WK.sawHab = 1; if (!S.wk) S.wk = { go: 0, down: 0, cx: 0, cz: 0, n: 0, cs: 0 }; S.wk.mig = t; }
