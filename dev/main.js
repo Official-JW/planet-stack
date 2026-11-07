@@ -51,6 +51,7 @@ const CFG = {
   richFill: 0.25, richBonus: 8, richPayDelay: 1.0,            // deposit tap: +25% bed (tweened over the 1 s truck_load_rich), bonus pays ~1 s later
   roverMax: 2,                          // ca-truck2: HT-04 fleet cap (S.rovers 1..roverMax); Truck 2 costs CFG.econ.p2Prices.truck2 (dead roverBonus / roverCost removed, no readers)
   crew0: 4,                             // starting crew; the Mine operator (Operator_Deck) is one of them
+  popMax: 100,                          // gc-crewpick: Moon base population cap (addPopulation); Habitat card shows N / 54 people
   depositMax: 2, depositEvery: 8,
   awayCardMin: 5, offlineAfterSec: 300,   // (offlineRate / offlineCapSec: set from CFG.econ.offline just below) Director 10/23: the 50% cut + away card only after 5 min away; shorter locks catch up at full rate
   saveEvery: 3,
@@ -339,6 +340,23 @@ if (!(S.rt > 0)) S.rt = nowMs();
 if (!S.set || typeof S.set !== 'object') S.set = { music: true };
 // gc-batch8 Phase 2 buildings (Director 22:43 Habitat spec): S.bt[key] = 1 once bought (saved with S). Missing / bad = not built (every save starts unbuilt).
 if (!S.bt || typeof S.bt !== 'object' || Array.isArray(S.bt)) S.bt = {}; for (const k of Object.keys(S.bt)) if (S.bt[k] !== 1) delete S.bt[k];
+// gc-crewpick-v2: S.pop is the only population counter (starts at crew0, capped at popMax). Specialists are male, free, and give no bonus;
+// they join through addPopulation. habFreeBeds() / shipFreePassengerSeats() belong to other lanes — call only behind typeof.
+function addPopulation(n) { const c = CFG.crew0, cap = CFG.popMax, cur = Number.isFinite(+S.pop) ? +S.pop : c; S.pop = Math.max(c, Math.min(cap, Math.floor(cur + (+n || 0)))); return S.pop; }
+addPopulation(0);
+const CREW_ROLES = [['eng', 'Engineer'], ['bot', 'Botanist'], ['weld', 'Welder'], ['mach', 'Machinist'], ['mech', 'Mechanic'], ['miner', 'Miner']], CREW_HARD = 64, HAB_BEDS = 54;
+const crewOk = (a) => Array.isArray(a) ? a.filter(k => CREW_ROLES.some(r => r[0] === k)).slice(0, CREW_HARD) : [];
+{ const o = S.crewRoles && typeof S.crewRoles === 'object' && !Array.isArray(S.crewRoles) ? S.crewRoles : {}; S.crewRoles = {}; for (const [k] of CREW_ROLES) S.crewRoles[k] = o[k] >= 0 ? Math.floor(o[k]) : 0; }
+const freeBeds = () => {
+  if (S.bt.hab !== 1) return 0;   // no Habitat: zero picks
+  if (typeof habFreeBeds === 'function') { const n = Math.floor(+habFreeBeds()); return n >= 0 ? n : 0; }
+  const pop = Number.isFinite(+S.pop) ? +S.pop : CFG.crew0; return Math.max(0, HAB_BEDS - pop);   // conservative: 54 Habitat beds; the 2 flying residents stay in S.pop (they keep their beds)
+};
+const freeSeats = () => {
+  if (typeof shipFreePassengerSeats === 'function') { const n = Math.floor(+shipFreePassengerSeats()); return n >= 0 ? n : 0; }
+  return Math.max(0, 4 - 2);   // conservative: unpublished 4-seat cabin minus the 2 flying residents who take seats
+};
+const maxPicks = () => S.bt.hab === 1 ? Math.max(0, Math.min(freeSeats(), freeBeds())) : 0;
 // legacy saves: ore left in the old bin and unpaid deposit trips settle exactly once, then the new truck loop starts
 if (S.bin > 0) S.money += Math.floor(S.bin) * CFG.oreValue; delete S.bin;
 for (const tr of S.trips) if (tr && !tr.paid && tr.bonus > 0 && CFG.econ.deposits !== false) { S.money += tr.bonus; S.dep++; }   // deposits off: legacy deposit-trip bonuses are dropped, not paid
@@ -2235,6 +2253,7 @@ fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (!(S.cg.fl >= 0)) S.cg.fl = S.cg.launches > 0 ? 1 : 0;   // gc-dockfix item 7: first-launch pass used (1) / open (0); a save that already launched has used it
 if (!(S.cg.ft >= 0)) S.cg.ft = 1;   // gc-dockfix item 6: saves from before this keep 2-crate trips (only a new save's first trip is short)
+if (S.cg.sh.crew != null) S.cg.sh.crew = crewOk(S.cg.sh.crew);   // gc-crewpick: a bad saved pick → none
 if (S.cg.sh.man) S.cg.sh.man = 0;   // 10/29: a full ship left waiting for a tap by an older away replay launches on its own again
 if (!(S.cg.full >= 0)) S.cg.full = 0; if (!(S.cg.sh.req >= 0)) S.cg.sh.req = 0; if (!(S.cg.dk >= 0)) S.cg.dk = 0;   // a6a00d3 saves
 if (S.cg.asum && !(typeof S.cg.asum === 'object' && S.cg.asum.n > 0 && S.cg.asum.amt >= 0)) S.cg.asum = null;   // econ 10/29: Eve's away summary {at, n, amt, shown}; bad value → none
@@ -2331,9 +2350,9 @@ function cgComplete(c, t, acc) {
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, n: s.hold, pur: cargoPurity() };   // gc-batch7: n = crates aboard at departure (display only; survives the Earth drop)
   } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + CG.awaySec * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
     c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
-  } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, n: s.n, pur: s.pur }; cgEv('landing', t); }
+  } else if (s.st === 'away' && s.t0 + CG.awaySec * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, n: s.n, pur: s.pur, crew: crewOk(s.crew) }; cgEv('landing', t); }   // gc-crewpick: the pick rides home
   else if (s.st === 'land' && s.t0 + CG.landSec * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
-    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; fuelAnchor(c, t, 0); cgEv('landed', t);   // refuelling starts on touchdown (empty tank, draws from the Refinery stock)
+    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; fuelAnchor(c, t, 0); cgEv('landed', t); crewLand(c, t, s.crew);   // gc-crewpick: picked crew join on touchdown (once: the pick leaves with the old sh)   // refuelling starts on touchdown (empty tank, draws from the Refinery stock)
     if (s.cargo > 0) cgDeliver(c, s.cargo, s.pur, t, acc);   // saves from before Step 2 that were already away carry no cargo (paid at the climb); payAt 'earth' already zeroed it
   }
 }
@@ -2365,6 +2384,11 @@ function cgQueuePay(c, t, amt) {     // short-gap drop-off: already credited; c.
 function cgShowPay(c, t, amt) {        // pop-up + Eve exactly once per payout, then save immediately (the 3 s autosave could otherwise miss it)
   if (c.pay && c.pay.at === t && c.pay.shown) return;
   c.pay = { at: t, amt, shown: true }; cargoPop(amt); eveDelivered(amt); save();
+}
+function crewLand(c, t, crew) {   // gc-crewpick: touchdown (live or away catch-up): picked crew join via addPopulation, clamped at free beds / popMax
+  const a = crewOk(crew); if (!a.length) return; const p0 = S.pop, p1 = addPopulation(Math.min(a.length, freeBeds())), n = p1 - p0;
+  for (const k of a.slice(0, n)) S.crewRoles[k]++; cgEv('crew_landed', t, { picked: a.length, added: n, pop: p1 });
+  if (n > 0) logU('upgrade', `${n} new crew joined the base (population ${p1})`); window.__ps3d.crewLanded = { picked: a.length, added: n, pop: p1, at: t };
 }
 function cgSettle(T, acc) {
   const c = S.cg; if (!FB.kOut) return;
@@ -3484,15 +3508,16 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
   ship: { name: 'Cargo Ship', ico: 'ship', launch: true, kick: 'Launch',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${CG.holdCap}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
-    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? 'On the way to Earth' : 'Landing'; },
-    btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < CG.holdCap) return [`Hold ${s.hold}/${CG.holdCap}`, false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
+    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? (crewWin(t) ? `On the way to Earth · crew ${crewOk(s.crew).length}/${maxPicks()}` : 'On the way to Earth') : 'Landing'; },
+    btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < CG.holdCap) return [`Hold ${s.hold}/${CG.holdCap}`, false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fueling' : 'Awaiting cargo', false]; },
-    buy: () => { if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
+    buy: () => { if (crewWin()) return crewOpen(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
+  crew: { name: 'Return Crew', ico: 'habitat', crew: true },   // gc-crewpick: opened by crewPrompt / the ship card; no tap target of its own
   // gc-ui2 (item 3): station buildings with no upgrades yet
   soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
   soonDock: { name: 'Cargo Space Dock', ico: 'dock', info: true, bld: ['dock', 'yard'], big: () => ['', ''], sub: () => 'Dock upgrades coming soon' },   // gc-batch8: builds the Dock, then the Shipyard (Jacob 06:48 'from the Dock card')
   soonShipyard: { name: 'Shipyard', ico: 'shipyard', info: true, bld: 'yard', big: () => ['', ''], sub: () => 'Shipyard upgrades coming soon' },
-  soonHabitat: { name: 'Habitat', ico: 'habitat', info: true, bld: 'hab', big: () => ['', ''], sub: () => 'Habitat upgrades coming soon' },   // gc-batch8: bld = a Phase 2 building: 'Not built yet' card + Build button until bought (BLD), then this Coming soon card
+  soonHabitat: { name: 'Habitat', ico: 'habitat', info: true, bld: 'hab', big: () => [`${Number.isFinite(+S.pop) ? +S.pop : CFG.crew0} / 54`, 'people'], sub: () => 'Habitat upgrades coming soon' },   // gc-crewpick: Habitat card shows N / 54 people   // gc-batch8: bld = a Phase 2 building: 'Not built yet' card + Build button until bought (BLD), then this Coming soon card
   soonEng: { name: 'Engineering', ico: 'eng', info: true, big: () => ['', ''], sub: () => 'Engineering upgrades coming soon' },
 };
 // tap targets (p = card). objs: nodes whose world boxes make the rect; box: a world box made here (no own mesh); hl: what glows on tap
@@ -3776,9 +3801,48 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
   for (const b of tg.children) { if (!b.dataset.k) { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
   tg.hidden = false;
 }
+// ===== gc-crewpick: pick card in the standard panel. One chip per role (tap = +1, the − corner = −1; repeats allowed).
+// Total ≤ min(free passenger seats, free beds). A tap saves the pick on the trip at once. The ship still flies on its timer;
+// when it leaves Earth (crewWin ends) the card closes with the pick locked in. The button only closes the card.
+const crewWin = (t = nowMs()) => { const s = S.cg && S.cg.sh; return !!(S.bt.hab === 1 && s && s.st === 'away' && t < s.t0 + CG.awaySec * 500); };
+const CRW = { seats: 0 };
+const crewMax = (seats = CRW.seats) => Math.max(0, Math.min(seats, freeBeds()));
+const upCrewEl = $('upCrew'), crewBtns = {};
+for (const [k, nm] of CREW_ROLES) { const b = document.createElement('button'); b.type = 'button'; b.dataset.role = k; b.innerHTML = '<span></span><b></b><i aria-label="Remove one">−</i>'; b.firstChild.textContent = nm; upCrewEl.append(b); crewBtns[k] = b; bindBuy(b, () => crewTap(k, b.dataset.rm === '1')); }
+upCrewEl.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (b) b.dataset.rm = e.target.tagName === 'I' ? '1' : ''; }, true);
+function crewTap(k, rm) {
+  if (upCur !== 'crew' || !crewWin()) return; const s = S.cg.sh, a = crewOk(s.crew), i = a.lastIndexOf(k);
+  if (rm) { if (i < 0) return; a.splice(i, 1); } else if (a.length < crewMax()) a.push(k); else return;
+  s.crew = a; save(); upUI(); window.__ps3d.crewPick = a.slice();
+}
+function crewOpen() { CRW.seats = S.bt.hab === 1 ? freeSeats() : 0; openUp('crew'); window.__ps3d.crewSeats = CRW.seats; }
+function crewLock(why) {
+  const s = S.cg.sh; CRW.seats = S.bt.hab === 1 ? freeSeats() : 0;
+  const a = crewOk(s.crew); if (s.crew && a.length > crewMax()) { s.crew = a.slice(0, crewMax()); save(); }
+  window.__ps3d.crewLocked = { pick: crewOk(s.crew), seats: CRW.seats, why }; closeUp(why);
+}
+function upCrewUI() {
+  const t = nowMs(); if (!crewWin(t)) { crewLock('crew-lock'); return; }
+  const s = S.cg.sh, a = crewOk(s.crew), mx = crewMax(), room = freeBeds(), left = Math.max(0, Math.ceil((s.t0 + CG.awaySec * 500 - t) / 1000));
+  const k = ['crew', a.join(), mx, CRW.seats, S.pop, left].join('|'); upBuy.style.display = ''; if (k === UPK.k) return; UPK.k = k;
+  upEl.dataset.ico = 'habitat'; upEl.dataset.locked = ''; $('upKick').textContent = 'Earth → Moon · Crew pick'; $('upName').textContent = 'Return Crew'; $('upLv').textContent = ''; fitTitle();
+  $('upEffK').textContent = mx === 0 ? 'Habitat full' : 'Passenger seats'; $('upLvl').hidden = true; $('upMeter').hidden = true; $('upCostRow').hidden = true;
+  const bg = $('upBig'); bg.hidden = false; bg.textContent = `Seats ${a.length}/${mx}`; const sm = document.createElement('small'); sm.textContent = 'filled'; bg.append(sm);
+  $('upSub').textContent = (mx === 0 ? `Population ${S.pop}/54: no room for new crew.` : room < CRW.seats ? `Room for ${room} more · population ${S.pop}/54` : `They join the base when the ship lands · population ${S.pop}/54`) + `\nLeaves Earth in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  if (UPK.s !== -2) { UPK.s = -2; upStk.textContent = ''; }
+  for (const [r] of CREW_ROLES) { const n = a.filter(x => x === r).length, dim = !n && a.length >= mx, b = crewBtns[r]; b.className = n ? 'on' : dim ? 'dim' : ''; b.children[1].textContent = n ? '×' + n : ''; b.setAttribute('aria-pressed', n ? 'true' : 'false'); b.setAttribute('aria-disabled', a.length >= mx ? 'true' : 'false'); }
+  upBuy.disabled = false; upBuy.className = ''; upBuy.textContent = a.length ? `Confirm · ${a.length} crew` : 'No crew this trip';
+}
+function crewPrompt() {   // once per trip (sh.cp, saved): Eve's line if she is free + the card if no other card is open; never blocks the sim
+  const s = S.cg.sh; if (s.cp || !coverGone || !crewWin()) return; const eve = !EC.ring && !EC.call && !ecIsOpen(), card = !upCur;
+  if (!eve && !card) return; s.cp = 1; save(); window.__ps3d.crewPrompted = { at: nowMs(), eve, card };
+  if (eve) ecRing({ id: 'crew_pick', tut: false, rep: true, point: null, lines: [freeBeds() > 0 ? 'Ship\'s on its way to Earth, Commander. Fill the passenger seats with specialists for the trip back. They join the base when it lands.' : 'The base is full, Commander. No free beds, so no new crew this trip.'] });
+  if (card) crewOpen();
+}
 function upUI() {                      // refreshes the open card (0.1 s tick + after buys); DOM only rebuilt when something shown changes
-  if (!upCur) return; const P = UP[upCur];
+  if (!upCur) return; const P = UP[upCur]; upCrewEl.hidden = !P.crew;
   { const tg = $('shipTgls'); if (tg && !P.launch) tg.hidden = true; }
+  if (P.crew) return upCrewUI();   // gc-crewpick
   if (P.launch) return upLaunchUI(P);   // gc-ui3 item 7: the rocket's launch card
   const bk = bldCardKey(P); if (bk) return upBuildUI(P, bk);   // gc-batch8: a Phase 2 building not built yet
   const lk = !!(P.lock && P.lock());   // gc-tapfix: a locked card (Chute before the drill) shows like a Coming soon card: no level / meter / cost, a disabled 'Locked' button
@@ -3829,7 +3893,7 @@ function bindBuy(el, fn) {
   el.addEventListener('pointercancel', () => { press = null; swallow = true; });   // a cancelled press never buys, even if a stray click follows
   el.addEventListener('click', (e) => { if (swallow) { swallow = false; return; } if (!press) fn(); });
 }
-bindBuy(upBuy, () => { const P = upCur && UP[upCur]; if (!P || upBuy.disabled) return; const bk = bldCardKey(P); if (bk) return buildSt(bk); if (P.buy) P.buy(); });   // gc-batch8: a building card's button builds it
+bindBuy(upBuy, () => { const P = upCur && UP[upCur]; if (!P || upBuy.disabled) return; if (P.crew) return closeUp('crew-done'); const bk = bldCardKey(P); if (bk) return buildSt(bk); if (P.buy) P.buy(); });   // gc-batch8: a building card's button builds it
 // ===== gc-batch8 Phase 2 buildings (Director 22:43, Habitat): until bought the station's model is dimmed (in place: colour ×BLD_DIM.c, emissive ×BLD_DIM.e,
 // opacity ×BLD_DIM.a; the materials are never swapped, so the tap highlight / glow clones still restore them), a 'Not built' plate sits over the station
 // name, and its card reads '<Station> · Not built yet' with the price on the Build button (camera stays). Prices: CFG.econ.p2Prices (Director LOCKED 10/31).
@@ -3868,7 +3932,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { BLD, isBuilt, buildSt, bldApply, nbUI });   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-crewpick hooks   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 function buyDrill() {
@@ -4188,7 +4252,7 @@ function eveGreet() {
   window.__ps3d.greeting = line; window.__ps3d.greetAnswer = () => ecAnswer(b);   // QA hook: answer the greeting even after its toast timed out
 }
 function updEve() {
-  eveDrillDone(); eveGreet(); eveLivePay(); eveAwaySum();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
+  eveDrillDone(); eveGreet(); eveLivePay(); eveAwaySum(); crewPrompt();         // short-gap live drop-off call, then the away summary, first when Eve is free (a story beat already ringing / open goes on; the next beat waits for them)
   if (S.wel !== 1 && !EC.ring && !EC.call && !ecIsOpen() && !(S.cg.asum && !S.cg.asum.shown) && !(S.cg.pay && S.cg.pay.shown === false)) for (const b of EVE_BEATS) if (!S.eve.includes(b.id) && EVE_TRIG[b.id]()) { if (eveDupSoon(b)) { S.eve.push(b.id); save(); window.__ps3d.eveSkipped = (window.__ps3d.eveSkipped || []).concat(b.id); continue; } ecRing(b); break; }   // story beats wait while the away summary is due
   let p = null;
   if (pointBeat && !pointerDone) {
