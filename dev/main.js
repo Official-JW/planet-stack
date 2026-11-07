@@ -1167,14 +1167,15 @@ function updOperator(dt) {
   OP.yaw = yaw; OP.pitch = pitch;
 }
 // Crew roster (Director 10:55): 4 people. board = the crew_boarding GLB climber they play (same clip either way; no second boarding clip).
-// Director 11:36 role swap: the Cargo Manager = Crew_2 (climbs second, starts beside the Receiver's spot), the Mechanic = Crew_1 (climbs first).
-// Before Habitat, residentFlyers() is 4: all four board and the Mine + trucks pause while the ship is off the pad.
-// After Habitat, residentFlyers() is 2: Mechanic + Cargo Manager board; the Miner and the Mine Driver stay, so the Mine and trucks keep running.
-// roles.json's Captain / Co-Captain flags are not used here (they have no climber on this clip).
-// Roles follow CREW[].board only (crewCount, crossfade pairing); nothing role → mesh is saved (S.bc / S.cg hold no crew index).
-// A trip snapshots sh.fly (and sh.left, pre-Habitat) so building Habitat mid-flight does not change who is already aboard.
-const CREW = [{ role: 'Miner', station: MINE, prop: 'mine_operator', flies: 1, board: 'Crew_3' }, { role: 'Mine Driver', station: MINE, prop: 'ht04', flies: 1, board: 'Crew_4' },
-  { role: 'Cargo Manager', station: 'pad', prop: 'receiver', flies: 1, board: 'Crew_2' }, { role: 'Mechanic', station: 'pad', flies: 1, board: 'Crew_1' }].slice(0, CFG.crew0);
+// Director 11:36 role swap: the Cargo Manager = Crew_2 (climbs second), the Mechanic rig Crew_1 climbs first.
+// GD 11/07 try 2: the Captain IS the Mine Driver (Crew_4, in the cab). The Co-pilot is the crane operator at the Launch Pad (Crew_1).
+// The Miner (Crew_3) rides the Mine truck flatbed. The Cargo Manager (Crew_2 handler) walks from the break room.
+// Before Habitat, residentFlyers() is 4: the whole crew leaves and the Mine, the trucks and the pad crane pause.
+// After Habitat, residentFlyers() is 2: only the Captain and the Co-pilot fly. The Miner and the Cargo Manager keep working, so the Mine keeps running.
+// The Captain's post-Habitat station is an inspection loop around the launch tower (iPad in hand). He leaves from there.
+// A trip snapshots sh.fly (and sh.left, when all 4 go) so building Habitat mid-flight does not change who is already aboard.
+const CREW = [{ role: 'Miner', station: MINE, prop: 'mine_operator', flies: 1, board: 'Crew_3' }, { role: 'Mine Driver', station: MINE, prop: 'ht04', flies: 1, board: 'Crew_4', captain: 1 },
+  { role: 'Cargo Manager', station: 'pad', prop: 'receiver', flies: 1, board: 'Crew_2' }, { role: 'Mechanic', station: 'pad', flies: 1, board: 'Crew_1', copilot: 1 }].slice(0, CFG.crew0);
 const CREW_BOARD = Object.fromEntries(CREW.filter(c => c.board).map(c => [c.role, c.board]));   // role → GLB climber ('Cargo Manager' → 'Crew_2')
 // One resident-flight count. S.pop already includes these people (they keep their beds). Not a second population counter.
 function residentFlyers() { return S.bt && S.bt.hab === 1 ? 2 : CFG.crew0; }
@@ -1183,10 +1184,12 @@ function tripFly(sh) {   // flyers on this trip: the snapshot, else the current 
   if (!(sh.fly > 0)) { if (sh.st && sh.st !== 'pad') sh.fly = residentFlyers(); else return residentFlyers(); }
   return sh.fly >= CFG.crew0 ? CFG.crew0 : 2;
 }
-function flyCrew(sh) {   // who plays the existing climbers this trip. Pre-Habitat: all four. Post-Habitat: the pad pair (Crew_1, Crew_2).
-  const all = CREW.filter(c => c.board), n = sh && sh.fly > 0 ? (sh.fly >= CFG.crew0 ? CFG.crew0 : 2) : residentFlyers();
+function flyCrew(sh) {   // who climbs this trip. Pre-Habitat: all four. Post-Habitat: Captain (Crew_4) + Co-pilot (Crew_1). A gather already started keeps S.wk.n.
+  const all = CREW.filter(c => c.board);
+  const n = sh && sh.fly > 0 ? (sh.fly >= CFG.crew0 ? CFG.crew0 : 2)
+    : (S.wk && S.wk.go > 0 && !(S.wk.down > 0) && S.wk.n > 0 ? (S.wk.n >= CFG.crew0 ? CFG.crew0 : 2) : residentFlyers());
   if (n >= all.length) return all;
-  const stay = all.filter(c => c.station !== MINE); return stay.length ? stay : all.slice(0, n);
+  const pair = all.filter(c => c.captain || c.copilot); return pair.length ? pair : all.slice(0, n);
 }
 function habFreeBeds() {   // 0 until Habitat is built. Beds = 54 - S.pop. Flyers stay in S.pop, so leaving does not free a bed. Picks are not subtracted here.
   if (!S.bt || S.bt.hab !== 1) return 0;
@@ -1242,7 +1245,7 @@ function makeFollowCam(cfg) {
 // (3.4 s stagger); Crew_k hides after extras.inside_hatch_s. Boarding time tb = now − launch start, read from S.cg.sh only (boardOf), so a reload, a
 // lock or ?speed=N lands on the exact pose (pure function of state + now, like the Receiver). The cargo sim is untouched (sale at launch + 8 s, away,
 // landing): only the ship's VISUAL lift-off waits until the crew are aboard and the camera is home (BD.lift). ?board=off = no crew, old lift-off.
-// Climbers on screen = flyCrew() (pre-Habitat all 4; post-Habitat Crew_1 Mechanic + Crew_2 Cargo Manager). The other climbers stay in the clip and are hidden. No new boarding clip.
+// Climbers on screen = flyCrew() (pre-Habitat all 4; post-Habitat Captain Crew_4 + Co-pilot Crew_1). The others stay at their stations. No new boarding clip.
 // BD.crew / BD.inside are in climb order (Crew_1 first), whatever the role order in CREW; the GLB's own extras.role labels are not read.
 // Camera (Director 05:01 stage 1) = the ladder adapter for FollowCam: target = the lead climber's pelvis (C1_Hips) sampled from the clips, from the
 // walk-in; hand-off at the trigger's threshold_y_m (14 m) to Board_Focus_Top + its frame_w; release when the last climber is inside. Gate: only if the
@@ -1270,7 +1273,7 @@ const OLD_RECV = QD.get('oldrecv') === '1';
 // (no new clip or walk). ?oldrecv=1: the handler is not faded (as before).
 function crewOnPad() {   // pre-hab persistent C-rigs do not fade-swap onto a second climber. Post-hab: the Cargo Manager still uses rxAlpha() as before.
   if (op) fadeObj(op, minerAway() ? rxAlpha() : 1); if (cg3 && cg3.astro) fadeObj(cg3.astro, OLD_RECV ? rxAlpha() : 0);
-  if (!OLD_RECV && BRK.ok && BRK.h) fadeObj(BRK.h.scene, (WK.ready && wkPreHab()) ? 1 : rxAlpha()); }
+  if (!OLD_RECV && BRK.ok && BRK.h) { const cmAway = WK.ready && wkFlyerKeys().indexOf('cm') >= 0 && S.cg && S.cg.sh && S.cg.sh.st !== 'pad' && !(S.wk && S.wk.down > 0 && (nowMs() - S.wk.down) / 1000 < wkDescSec() + wkReturnSec()); fadeObj(BRK.h.scene, cmAway ? 0 : (WK.ready ? 1 : rxAlpha())); } }
 function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = Mine operator, Cargo Manager = Receiver + his climber (CREW_BOARD: Crew_2), Mechanic = his climber (Crew_1)
   // (Cargo Manager is 2 only inside the boarding crossfade: cmA = his summed opacity, cmFull = his fully opaque figures)
   const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
@@ -1315,8 +1318,8 @@ function updCrew() {
   if (act && BD.fc) { const rel = boardSec(S.cg.sh) - BCAM.in - BCAM.hold - BCAM.out; if (rel > 0) BD.fc.cfg.release = rel; }   // last flying climber, so a Habitat bought after load eases out with the sim
   const cv = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site / lead-in: no draws
   const descending = !!(S.wk && S.wk.down > 0 && (nowMs() - S.wk.down) / 1000 < wkDescSec());
-  const persist = WK.ready && wkPreHab(); fadeObj(BD.root, descending ? 1 : cv ? (persist ? 1 : fss((tb - BD.pre) / BCAM.fadeIn)) : 0);   // pre-hab: same C-rig bodies, no climber fade-in; descent keeps the ladder group visible
-  if (cv) { crewPose(tb - BD.pre); for (let i = 0; i < BD.n; i++) if (BD.crew[i] && BD.crew[i].visible) walkApplyObj('crew' + i, BD.crew[i], false); }
+  const persist = WK.ready; fadeObj(BD.root, descending ? 1 : cv ? (persist ? 1 : fss((tb - BD.pre) / BCAM.fadeIn)) : 0);   // persistent C-rigs stay solid (no fade-in, no crate push). Descent keeps the ladder group visible
+  if (cv) { if (persist && typeof wkPoseClimb === 'function') wkPoseClimb(tb - BD.pre); else crewPose(tb - BD.pre); }
   crewOnPad();
   if (act && (!S.bc || S.bc.id !== b.id)) { S.bc = { id: b.id, on: viewingPad() ? 1 : 0, x: 0 }; save(); }   // gate: decided once per boarding, saved
   let w = 0;
@@ -1357,14 +1360,39 @@ function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
   window.__ps3d.crewBoarding = { n: BD.n, end: BD.end, trig: +BD.trig.toFixed(3), trigSrc: BD.trigSrc, topFw: BD.fc.cfg.finalFw, followFw: +BD.fc.fw().toFixed(2), lift: +BD.lift.toFixed(2), pre: BD.pre, end: BD.pre + BD.end, inside: BD.inside.map(x => +(x + BD.pre).toFixed(3)), names: BD.crew.map(c => c.name), roles: BD.crew.map(c => (CREW.find(r => r.board === c.name) || {}).role) };
 }, undefined, (e) => console.warn('crew boarding GLB failed (ship launches without crew)', e)); }
 
-// ===== Crew walk Phase 1 (Director 11/07, truck-ride 11/07): pre-Habitat only, C-rig bodies, full-hold pickup.
-// Persistent Miner (Crew_3), Driver (Crew_4), Mechanic (Crew_1) replace workplace-only / missing meshes from game start.
-// Cargo Manager stays the C2 handler. Same object workplace → ride/walk → board → return. No Crew_N swap.
-// Mine pair ride the emptied HT-04 along the existing road at TV.v; mechanic + Cargo Manager keep their short walks.
-// Pickup when the hold is full (Director). Launch waits if the last rider/walker is still out. Descent = crew_climb reversed.
+// ===== Crew from their stations (GD 11/07 try 2). No spawn, no teleport, no live crate push.
+// Each rig is placed at his station at load and plays an idle work loop. A launch walks or rides him from there.
+// Captain = Crew_4 in the Mine truck cab (pre-Habitat). After Habitat he inspects the launch tower with an iPad.
+// Co-pilot = Crew_1 at the pad crane. Miner = Crew_3 on the truck flatbed for the ride. Cargo Manager = the break-room handler.
+// Fixed waypoint polylines (WK_LANE and the tower loop) stay on the open apron, east of the bay stacks and the crane mast.
+// Boarding is the existing top-door climb. The clip's call / walk-in is not used: they are already at the climb's first frame.
 const WK = { ready: false, boardReady: false, brReady: false, attached: false, stride: 1.4, v: 2.8, step: 1.9, ladder: null,
-  people: {}, stash: null, src: null, roadZ: 9 };
-function wkPreHab(sh) { if (S.wk && S.wk.go > 0) return true; sh = sh || (S.cg && S.cg.sh); return residentFlyers() >= CFG.crew0 || !!(sh && sh.fly >= CFG.crew0); }
+  people: {}, stash: null, src: null, roadZ: 9, loopOff: 0, ipad: null, flyClimb: null, climb: null };
+// Hips at crew_climb local 0.02 s with the rig under the pad boarding root (sampled from the shipped GLB). The walk ends here.
+const WK_HAND = { mech: [644.29, -10.52], cm: [646.26, -8.66], miner: [646.25, -7.31], driver: [644.89, -3.84] };
+const WK_LANE = 647.2;   // open north-south apron east of the ship, the bay stacks (x ≤ 637) and the crane mast
+const WK_LOOP = [[648.2, -12], [648.2, -20], [636, -23], [628, -18], [628, -12], [636, -9.5]];   // Captain's post-Habitat tower inspection
+const WK_CRANE = [643.6, 5.0];   // Co-pilot, south of the crane mast (body-height solid starts near z 7)
+function wkAllFly(sh) {   // this trip takes the whole crew (Mine + trucks pause). A started gather keeps its own count.
+  sh = sh || (S.cg && S.cg.sh);
+  if (S.wk && S.wk.go > 0 && S.wk.n > 0) return S.wk.n >= CFG.crew0;
+  if (sh && sh.fly > 0) return sh.fly >= CFG.crew0;
+  return residentFlyers() >= CFG.crew0;
+}
+function wkPreHab(sh) { return wkAllFly(sh); }
+function copilotAway(t) {   // pad crane holds while the Co-pilot is off his crane, until he is back on it
+  if (!S.wk || !(S.wk.go > 0)) return false;
+  if (!(wkFlyerKeys().indexOf('mech') >= 0)) return false;
+  if (S.wk.down > 0) return t < wkHomeAt();
+  return true;
+}
+let craneHoldT = 0;
+function craneFreeze(t) {   // slide an in-progress pad-crane job forward so it does not finish while the operator is away
+  if (!copilotAway(t)) { craneHoldT = 0; return; }
+  const prev = craneHoldT || t, dt = t - prev; craneHoldT = t;
+  if (!(dt > 0) || !S.cg || !S.cg.pc || !S.cg.pc.k) return;
+  S.cg.pc.t0 += dt; if (S.cg.rd && S.cg.rd.t0) S.cg.rd.t0 += dt; if (S.cg.dOpen) S.cg.dOpen += dt;
+}
 function wkShortLaunchAllowed() {   // cgLaunch / launchReady still require a full hold; firstLaunchPass is Eve-only; launchBelowMin 'allow0' does not launch short
   return false; }
 function wkPoly(pts) { const p = [pts[0]]; for (let i = 1; i < pts.length; i++) { const a = p[p.length - 1]; if (Math.hypot(pts[i][0] - a[0], pts[i][1] - a[1]) > 1e-4) p.push(pts[i]); }
@@ -1376,12 +1404,41 @@ function wkAt(poly, s) { const p = poly.pts; if (s <= 0) { const a = p[0], b = p
 function wkLadder() { if (!WK.ladder) WK.ladder = [PX + 3.854, -10.775]; return WK.ladder; }
 function wkRoad(from, to) { const z = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ;
   if (Math.abs(from[1] - z) < 0.08) return wkPoly([from, [to[0], z], to]); return wkPoly([from, [from[0], z], [to[0], z], to]); }
-function wkHomes() { const d = (MK && MK.Operator_Deck) || { x: -4.5, z: 6.5 }, l = (MK && MK.Path_Load) || { x: 11, z: 9 };
-  return { miner: [MX + d.x, d.z], driver: [MX + l.x - 3.5, l.z + 2.2], mech: [PX - 8, 8.2], cm: [PX + 13.08, 6.3] }; }
-function wkClip(clip, pfx) { const n = clip.clone(); n.name = clip.name + '_' + pfx; for (const tr of n.tracks) tr.name = tr.name.split('C2_').join(pfx + '_'); return n; }
+function wkHomes() { const d = (MK && MK.Operator_Deck) || { x: -4.5, z: 6.5 };
+  return { miner: [MX + d.x, d.z], driver: [MX + 11, 9], mech: WK_CRANE.slice(), cm: [PX + 13.7, 6.3] }; }
+function wkFlyerKeys() {
+  const fly = {}, keys = [];
+  for (const c of flyCrew(S.cg && S.cg.sh)) fly[c.board] = 1;
+  if (fly.Crew_3) keys.push('miner'); if (fly.Crew_4) keys.push('driver'); if (fly.Crew_1) keys.push('mech'); if (fly.Crew_2) keys.push('cm');
+  return keys;
+}
+function wkLoopPoly() { if (!WK.loopPoly) WK.loopPoly = wkPoly(WK_LOOP.concat([WK_LOOP[0]])); return WK.loopPoly; }
+function wkLoopAt(t) { const poly = wkLoopPoly(), s = (((t / 1000) * WK.v + (WK.loopOff || 0)) % poly.L + poly.L) % poly.L; return wkAt(poly, s); }
+function wkLaneTo(from, hand) {   // join the east apron lane, then the climb handoff. Spur stays off the bay (x ≤ 637) and the crane mast.
+  const lane = WK_LANE, south = from[1] < 8.6;
+  const spur = south ? [from, [from[0], Math.min(from[1], 4.2)], [lane, Math.min(from[1], 4.2)]] : [from, [lane, from[1]]];
+  return wkPoly(spur.concat([[lane, hand[1] + 1.2], hand]));
+}
+function wkCaptainPts(phase) {   // from a point on the inspection loop, forward to the loop start, then the lane to the cab-side handoff
+  const poly = wkLoopPoly(), pts = [];
+  const a = wkAt(poly, phase); pts.push([a[0], a[1]]);
+  for (let i = 0; i < poly.pts.length; i++) if (poly.seg[i] >= phase - 1e-3) pts.push(poly.pts[i]);
+  pts.push(WK_LOOP[0], [WK_LANE, -8], WK_HAND.driver);
+  return pts;
+}
+function wkOutPoly(key) {
+  const h = wkHomes();
+  if (key === 'mech') return wkLaneTo(h.mech, WK_HAND.mech);
+  if (key === 'cm') { const w = S.wk, start = w && (w.cx || w.cz) ? [w.cx, w.cz] : h.cm; return wkLaneTo(start, WK_HAND.cm); }
+  if (key === 'driver' && !wkAllFly()) return wkPoly(wkCaptainPts(S.wk && S.wk.cs > 0 ? S.wk.cs : 0));
+  if (key === 'miner' || key === 'driver') { const pad = wkPadStop(); return wkLaneTo([pad[0] + 3.2, pad[1]], WK_HAND[key]); }
+  return wkLaneTo(h[key] || h.mech, WK_HAND[key] || WK_HAND.mech);
+}
+function wkClip(clip, pfx) {   // rotations only: the handler clips bake root translation for the break room. On a C-rig that translation collapses the skeleton. We move the object ourselves.
+  const n = clip.clone(); n.name = clip.name + '_' + pfx; n.tracks = n.tracks.filter(tr => tr.name.endsWith('.quaternion'));
+  for (const tr of n.tracks) tr.name = tr.name.split('C2_').join(pfx + '_'); return n; }
 function wkDescSec() { const a = BD.acts && BD.acts.crew_climb; return a ? a.getClip().duration : 36.2; }
-function wkPersonSec(key) { const h = wkHomes(), L = wkLadder(), w = S.wk, start = key === 'cm' && w && (w.cx || w.cz) ? [w.cx, w.cz] : h[key], poly = wkRoad(start, L);
-  return poly.L / WK.v + (key === 'driver' ? WK.step : 0); }
+function wkPersonSec(key) { const poly = wkOutPoly(key); return (poly.L / WK.v) + (key === 'miner' && wkAllFly() ? WK.step : 0); }
 function wkUpDur() { const c = WK.src && WK.src.up; return c && c.duration > 0.2 ? c.duration : 1.2; }
 function wkPickPt() { const h = wkHomes(), z = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ; return [h.miner[0], z]; }
 function wkPadStop() { const L = wkLadder(), z = (typeof CPH !== 'undefined' && CPH.lanes && CPH.lanes.out != null) ? CPH.lanes.out : 13; return [L[0], z]; }
@@ -1404,69 +1461,113 @@ function wkDriveAt(drv, t) { if (!drv || !drv.poly) return { x: 0, z: 0, yaw: 0,
 function wkTaxiSchedule(dir) { dir = dir === 'back' ? 'back' : 'out';
   const pick = wkPickPt(), pad = wkPadStop(), ladder = wkLadder(), load = wkLoadPt(), step = WK.step, up = wkUpDur(), h = wkHomes();
   if (dir === 'out') {
-    const app = wkDrive(wkTruckOrigin(), pick), ride = wkDrive(pick, pad), walkL = wkRoad(pad, ladder).L / WK.v;
+    const app = wkDrive(wkTruckOrigin(), pick), ride = wkDrive(pick, pad), walkL = Math.max(wkOutPoly('miner').L, wkOutPoly('driver').L) / WK.v;
     const tApp = app.T, tDown = step, tUp = up, tRide = ride.T, tOff = step, tWalk = walkL;
     return { dir, app, ride, pick, pad, ladder, load, tApp, tDown, tUp, tRide, tOff, tWalk, tHome: 0, minerW: 0, drvW: 0, home: null,
       total: tApp + tDown + tUp + tRide + tOff + tWalk }; }
-  const walkL = wkRoad(ladder, pad).L / WK.v, ride = wkDrive(pad, pick), home = wkDrive(pick, load);
+  const walkL = Math.max(wkOutPoly('miner').L, wkOutPoly('driver').L) / WK.v, ride = wkDrive(pad, pick), home = wkDrive(pick, load);
   const minerW = wkRoad(pick, h.miner).L / WK.v, drvW = wkRoad(pick, h.driver).L / WK.v, tUp = up, tRide = ride.T, tOff = step;
   return { dir, app: null, ride, home, pick, pad, ladder, load, tApp: 0, tDown: 0, tUp, tRide, tOff, tWalk: walkL, tHome: home.T, minerW, drvW,
     total: walkL + tUp + tRide + tOff + Math.max(minerW, drvW, home.T) }; }
-function wkGatherSec() { if (!wkPreHab()) return 0; return Math.max(wkTaxiSchedule('out').total, wkPersonSec('mech'), wkPersonSec('cm')); }
-function wkReturnSec() { if (!wkPreHab()) return 0; return Math.max(wkTaxiSchedule('back').total, wkPersonSec('mech'), wkPersonSec('cm')); }
-function wkArrived(t) { if (!wkPreHab() || !S.wk || !(S.wk.go > 0)) return true; return t >= S.wk.go + wkGatherSec() * 1000; }
+function wkGatherSec() {
+  const keys = wkFlyerKeys(); let m = 0;
+  if (wkAllFly()) m = Math.max(m, wkTaxiSchedule('out').total);
+  for (const k of keys) if (!(wkAllFly() && (k === 'miner' || k === 'driver'))) m = Math.max(m, wkPersonSec(k));
+  if (wkAllFly()) { m = Math.max(m, wkTaxiSchedule('out').total); }
+  return m;
+}
+function wkReturnSec() {
+  const keys = wkFlyerKeys(); let m = 0;
+  if (wkAllFly()) m = Math.max(m, wkTaxiSchedule('back').total);
+  for (const k of keys) if (!(wkAllFly() && (k === 'miner' || k === 'driver'))) m = Math.max(m, wkPersonSec(k));
+  if (wkAllFly()) m = Math.max(m, wkTaxiSchedule('back').total);
+  return m;
+}
+function wkArrived(t) {   // launch holds until the rigs exist and every flyer has reached the climb handoff. ?board=off keeps the old instant launch.
+  if (!BD.on) return true; if (!WK.ready) return false; if (!S.wk || !(S.wk.go > 0)) return false;
+  return t >= S.wk.go + wkGatherSec() * 1000;
+}
 function wkHomeAt() { if (!S.wk || !(S.wk.down > 0)) return 0; return S.wk.down + (wkDescSec() + wkReturnSec()) * 1000; }
-function minerOffAt(t) { if (S.wk && S.wk.go > 0) { if (S.wk.down > 0) return t >= S.wk.go && t < wkHomeAt(); return t >= S.wk.go; }
-  const s = S.cg && S.cg.sh; return !!(s && s.st !== 'pad' && tripFly(s) >= CFG.crew0); }
-function wkCmBusy(t) { if (!S.wk || !(S.wk.go > 0)) return false; return S.wk.down > 0 ? t < wkHomeAt() : true; }
-function wkShouldPickup(c) { if (!wkPreHab(c && c.sh)) return false; if (holdN(c) >= holdCap()) return true; return !!(c.sh && c.sh.req && wkShortLaunchAllowed()); }
-function wkEnsurePickup(c, t, acc) { if (!S.wk) S.wk = { go: 0, down: 0, cx: 0, cz: 0 }; if (S.wk.go > 0) return;
-  S.wk.go = t; S.wk.down = 0; const h = wkHomes();
+function minerOffAt(t) {   // the Mine pauses only while the Miner is off it (a whole-crew trip). Post-Habitat he stays, so the Mine keeps running.
+  if (!wkAllFly()) { const s = S.cg && S.cg.sh; return !!(s && s.st !== 'pad' && tripFly(s) >= CFG.crew0); }
+  if (S.wk && S.wk.go > 0) { if (S.wk.down > 0) return t >= S.wk.go && t < wkHomeAt(); return t >= S.wk.go; }
+  const s = S.cg && S.cg.sh; return !!(s && s.st !== 'pad' && tripFly(s) >= CFG.crew0);
+}
+function wkCmBusy(t) { if (!S.wk || !(S.wk.go > 0)) return false; if (wkFlyerKeys().indexOf('cm') < 0) return false; return S.wk.down > 0 ? t < wkHomeAt() : true; }
+function wkShouldPickup(c) { if (holdN(c) >= holdCap()) return true; return !!(c.sh && c.sh.req && wkShortLaunchAllowed()); }
+function wkEnsurePickup(c, t, acc) {
+  if (!WK.ready) return; if (!S.wk) S.wk = { go: 0, down: 0, cx: 0, cz: 0, n: 0, cs: 0 }; if (S.wk.go > 0) return;
+  S.wk.go = t; S.wk.down = 0; S.wk.n = residentFlyers(); const h = wkHomes();
+  const poly = wkLoopPoly(); S.wk.cs = (((t / 1000) * WK.v + (WK.loopOff || 0)) % poly.L + poly.L) % poly.L;
   if (!acc && BRK.ok && BRK.h && BRK.h.root) { BRK.h.root.updateMatrixWorld(true); const v = new THREE.Vector3(); BRK.h.root.getWorldPosition(v); S.wk.cx = v.x; S.wk.cz = v.z; }
-  else { S.wk.cx = h.cm[0]; S.wk.cz = h.cm[1]; } }
+  else { S.wk.cx = h.cm[0]; S.wk.cz = h.cm[1]; }
+}
 function wkTryHome(t) { if (!S.wk || !(S.wk.down > 0) || t < wkHomeAt()) return;
-  const go = S.wk.go; S.wk.go = 0; S.wk.down = 0; S.wk.cx = 0; S.wk.cz = 0; if (go > 0) shiftTrucks(t - go); if (WK.ready) wkParkIdle(); }
-function wkPlay(p, name, time, loop) { if (!p || !p.acts) return;
+  const go = S.wk.go, all = S.wk.n >= CFG.crew0;
+  WK.loopOff = -((t / 1000) * WK.v);   // the return ends on the loop start, so the inspection resumes from there
+  S.wk.go = 0; S.wk.down = 0; S.wk.cx = 0; S.wk.cz = 0; S.wk.n = 0; S.wk.cs = 0;
+  if (all && go > 0) shiftTrucks(t - go); if (WK.ready) wkParkIdle(); }
+function wkRest(p) { if (!p || !p.obj || p.handler) return; p.obj.traverse(m => { const r = m.userData && m.userData.rest; if (r) { m.position.copy(r.p); m.scale.copy(r.s); } }); }
+function wkAnchor(o, pfx) {   // boarding clips park the body on the Root bone, not the object origin. Shift the object so the Root lands on the spot wkPlace just set.
+  const root = o.getObjectByName(pfx + '_Root'); if (!root) return;
+  const x = o.position.x, y = o.position.y, z = o.position.z, yaw = o.rotation.y;
+  const c = Math.cos(yaw), s = Math.sin(yaw), rx = root.position.x, rz = root.position.z;
+  o.position.set(x - (c * rx + s * rz), y - root.position.y, z - (-s * rx + c * rz));
+}
+function wkPlay(p, name, time, loop) { if (!p || !p.acts) return; const x = p.obj ? p.obj.position.x : 0, y = p.obj ? p.obj.position.y : 0, z = p.obj ? p.obj.position.z : 0, yaw = p.obj ? p.obj.rotation.y : 0;
   const pick = p.handler ? (name === 'walk' ? 'Handler_Walk_Loop' : name === 'idle' ? 'Handler_Door_Wait' : name === 'step' ? 'Handler_Step_Down' : name === 'up' ? 'Handler_Step_Up' : name) : name;
   for (const n in p.acts) p.acts[n].setEffectiveWeight(0);
   const a = p.acts[pick]; if (!a) return; const dur = a.getClip().duration; a.setEffectiveWeight(1); a.paused = true;
-  a.time = loop ? ((time % dur) + dur) % dur : clamp(time, 0, dur - 1e-4); p.mx.update(0); }
+  a.time = loop ? ((time % dur) + dur) % dur : clamp(time, 0, dur - 1e-4); p.mx.update(0);
+  if (!p.handler && p.obj && p.pfx) { p.obj.position.set(x, y, z); p.obj.rotation.y = yaw; wkAnchor(p.obj, p.pfx); } }
 function wkPlace(obj, x, z, yaw) { if (!obj) return; obj.position.x = x; obj.position.y = 0; obj.position.z = z; if (yaw != null) obj.rotation.set(0, yaw, 0); }
-function wkParkIdle() { if (!WK.ready) return; const h = wkHomes();
-  for (const key of ['miner', 'driver', 'mech']) { const p = WK.people[key]; if (!p || !p.obj) continue; if (p.obj.parent !== scene) scene.add(p.obj);
-    p.obj.visible = true; wkPlace(p.obj, h[key][0], h[key][1], key === 'mech' ? Math.PI / 2 : 0); wkPlay(p, 'idle', 0, true); } WK.attached = false; }
+function wkHab() { return !!(S.bt && S.bt.hab === 1); }
+function wkIpad(on) { const p = WK.ipad; if (!p) return; p.visible = !!on;
+  if (!on) { if (p.parent) p.parent.remove(p); return; }
+  const hand = WK.people.driver && WK.people.driver.obj && WK.people.driver.obj.getObjectByName('C4_Hand_R');
+  if (!hand) return; if (p.parent !== hand) hand.add(p); p.position.set(0.02, 0.08, 0.04); p.rotation.set(0.4, 0.2, 0.6);
+}
+function wkSeatCab(p) { const ch = (typeof truckRoot !== 'undefined' && truckRoot) ? truckRoot.getObjectByName('Truck_Chassis') : null; if (!ch || !p || !p.obj) return;
+  if (p.obj.parent !== ch) ch.add(p.obj); p.obj.visible = true; p.obj.position.set(1.55, 0.85, 0.15); p.obj.rotation.set(0, -Math.PI / 2, 0); p.obj.scale.set(1, 1, 1);
+  wkPlay(p, 'idle', 0, true); wkIpad(false);
+}
+function wkParkIdle() { if (!WK.ready) return; const h = wkHomes(), t = nowMs();
+  const miner = WK.people.miner, mech = WK.people.mech, driver = WK.people.driver;
+  if (miner && miner.obj) { if (miner.obj.parent !== scene) scene.add(miner.obj); miner.obj.visible = true; wkPlace(miner.obj, h.miner[0], h.miner[1], Math.PI); wkPlay(miner, 'idle', (t / 1000) % 4, true); }
+  if (mech && mech.obj) { if (mech.obj.parent !== scene) scene.add(mech.obj); mech.obj.visible = true; wkPlace(mech.obj, h.mech[0], h.mech[1], 0); wkPlay(mech, 'idle', (t / 1000) % 4, true); }
+  if (driver && driver.obj) { if (wkHab()) { if (driver.obj.parent !== scene) scene.add(driver.obj); driver.obj.visible = true; const q = wkLoopAt(t); wkPlace(driver.obj, q[0], q[1], q[2]); wkPlay(driver, 'walk', (t / 1000) * WK.v / WK.stride, true); wkIpad(true); }
+    else wkSeatCab(driver); }
+  WK.attached = false;
+}
 function wkStopMixers() { for (const key of ['miner', 'driver', 'mech']) { const p = WK.people[key]; if (p && p.acts) for (const n in p.acts) p.acts[n].setEffectiveWeight(0); }
   if (BRK.ok && BRK.h && BRK.h.acts) for (const n in BRK.h.acts) BRK.h.acts[n].setEffectiveWeight(0); }
-function wkAttachBoard() { if (!WK.ready || !BD.root || WK.attached) return;
-  for (const key of ['miner', 'driver', 'mech']) { const p = WK.people[key]; if (!p || !p.obj) continue; BD.root.add(p.obj); p.obj.position.set(0, 0, 0); p.obj.rotation.set(0, 0, 0); p.obj.scale.set(1, 1, 1); p.obj.visible = true; }
-  if (BRK.ok && BRK.h) { const hs = BRK.h.scene; hs.visible = true; BD.root.add(hs); hs.position.set(0, 0, 0); hs.rotation.set(0, 0, 0); hs.scale.set(1, 1, 1); if (BRK.h.root) { BRK.h.root.position.set(0, 0, 0); BRK.h.root.rotation.set(0, 0, 0); } }
+function wkAttachBoard() { if (!WK.ready || !BD.root || WK.attached) return; const keys = wkFlyerKeys(); wkIpad(false);
+  for (const key of ['miner', 'driver', 'mech']) { const p = WK.people[key]; if (!p || !p.obj || keys.indexOf(key) < 0) continue;
+    BD.root.add(p.obj); p.obj.position.set(0, 0, 0); p.obj.rotation.set(0, 0, 0); p.obj.scale.set(1, 1, 1); p.obj.visible = true; }
+  if (keys.indexOf('cm') >= 0 && BRK.ok && BRK.h) { const hs = BRK.h.scene; hs.visible = true; BD.root.add(hs); hs.position.set(0, 0, 0); hs.rotation.set(0, 0, 0); hs.scale.set(1, 1, 1); if (BRK.h.root) { BRK.h.root.position.set(0, 0, 0); BRK.h.root.rotation.set(0, 0, 0); } }
   wkStopMixers(); WK.attached = true; }
 function wkDetachBoard() { if (!WK.ready || !WK.attached) return;
-  for (const key of ['miner', 'driver', 'mech']) { const p = WK.people[key]; if (p && p.obj) scene.add(p.obj); }
-  if (BRK.ok && BRK.h && BRK.grp) { BRK.h.scene.visible = true; BRK.grp.add(BRK.h.scene); } WK.attached = false; }
+  for (const key of ['miner', 'driver', 'mech']) { const p = WK.people[key]; if (p && p.obj && p.obj.parent === BD.root) scene.add(p.obj); }
+  if (BRK.ok && BRK.h && BRK.grp && BRK.h.scene.parent === BD.root) { BRK.h.scene.visible = true; BRK.grp.add(BRK.h.scene); } WK.attached = false; }
 function wkHideFlyers() { const fly = {}; for (const c of flyCrew(S.cg && S.cg.sh)) fly[c.role] = 1;
   const map = { miner: 'Miner', driver: 'Mine Driver', mech: 'Mechanic', cm: 'Cargo Manager' };
   for (const key of ['miner', 'driver', 'mech']) { const p = WK.people[key]; if (p && p.obj && fly[map[key]]) p.obj.visible = false; }
   if (BRK.ok && BRK.h && fly['Cargo Manager']) BRK.h.scene.visible = false; }
-function wkPoseOne(key, t, dir) { const p = WK.people[key]; if (!p) return; const h = wkHomes(), dest = wkLadder();
-  const start = key === 'cm' && S.wk && (S.wk.cx || S.wk.cz) ? [S.wk.cx, S.wk.cz] : h[key];
-  const out = wkRoad(start, dest), back = wkPoly(out.pts.slice().reverse()), poly = dir === 'back' ? back : out;
+function wkPoseOne(key, t, dir) { const p = WK.people[key]; if (!p) return;
+  const out = wkOutPoly(key), back = wkPoly(out.pts.slice().reverse()), poly = dir === 'back' ? back : out;
   const go = dir === 'back' ? S.wk.down + wkDescSec() * 1000 : S.wk.go; let tau = (t - go) / 1000; if (tau < 0) tau = 0;
-  const step = (key === 'driver' && dir === 'out') ? WK.step : 0, up = (key === 'driver' && dir === 'back') ? WK.step : 0;
-  let s, yaw, x, z, clip = 'walk', ct;
-  if (dir === 'out' && step && tau < step) { s = 0; clip = 'step'; ct = tau; const a = poly.pts[0], b = poly.pts[1] || a; x = a[0]; z = a[1]; yaw = Math.atan2(b[0] - a[0], b[1] - a[1]); }
-  else {
-    const walkT = dir === 'out' ? tau - step : tau; s = Math.min(Math.max(0, walkT) * WK.v, poly.L);
-    if (dir === 'back' && up && poly.L - s <= up * WK.v) { clip = 'up'; ct = up - (poly.L - s) / WK.v; }
-    else if (s >= poly.L - 1e-6) { clip = 'idle'; ct = 0; }
-    else { ct = s / WK.stride; clip = 'walk'; }
-    const q = wkAt(poly, s); x = q[0]; z = q[1]; yaw = q[2]; }
+  const s = Math.min(Math.max(0, tau) * WK.v, poly.L), q = wkAt(poly, s);
+  const clip = s >= poly.L - 1e-6 ? 'idle' : 'walk', ct = clip === 'walk' ? s / WK.stride : 0;
   const obj = p.handler ? p.root : p.obj; if (!obj) return;
-  if (p.handler) { obj.position.set(x - PX, 0, z); obj.rotation.set(0, yaw, 0); if (p.obj) p.obj.visible = true; }
-  else { if (obj.parent !== scene) scene.add(obj); obj.visible = true; wkPlace(obj, x, z, yaw); }
+  if (p.handler) { obj.position.set(q[0] - PX, 0, q[1]); obj.rotation.set(0, q[2], 0); if (p.obj) p.obj.visible = true; }
+  else { if (obj.parent !== scene) scene.add(obj); obj.visible = true; wkPlace(obj, q[0], q[1], q[2]); }
   wkPlay(p, clip, ct, clip === 'walk' || clip === 'idle');
-  walkApplyObj('wk-' + key, obj, false); }
-function wkPoseWalk(t, dir) { wkPoseOne('mech', t, dir); wkPoseOne('cm', t, dir); wkPoseMine(t, dir); }
+  if (key === 'driver') wkIpad(!wkAllFly());
+}
+function wkPoseWalk(t, dir) { const keys = wkFlyerKeys();
+  for (const k of keys) { if (wkAllFly() && (k === 'miner' || k === 'driver')) continue; wkPoseOne(k, t, dir); }
+  if (wkAllFly()) wkPoseMine(t, dir); wkPoseStayers(t);
+}
 function wkSide(x, z, yaw, sign) { const r = 1.85; return [x + Math.sin(yaw) * r * sign, z + Math.cos(yaw) * r * sign]; }
 function wkTaxiTruckAt(t) { if (!S.wk || !(S.wk.go > 0)) return null;
   const sh = S.cg && S.cg.sh, pad = wkPadStop(), stay = { x: pad[0], z: pad[1], yaw: Math.PI / 2, v: 0, ph: 'hold' };
@@ -1485,50 +1586,100 @@ function wkTruckFromSch(sch, tau) { if (tau < 0) tau = 0;
   const after = sch.tWalk + sch.tUp + sch.tRide + sch.tOff;
   if (tau < after) { const p = wkDriveAt(sch.ride, sch.ride.T); p.v = 0; p.ph = 'hold'; return p; }
   const p = wkDriveAt(sch.home, tau - after); p.ph = p.v > 0.15 ? 'back' : 'hold'; return p; }
-function wkTaxiOverride(t, o) { const p = wkTaxiTruckAt(t); if (!p) return false;
+function wkTaxiOverride(t, o) { if (!wkAllFly()) return false; const p = wkTaxiTruckAt(t); if (!p) return false;
   o.x = p.x; o.z = p.z; o.yaw = p.yaw; o.v = p.v; o.ph = p.ph; o.fill = 0; o.shown = 0; o.el = 0; return true; }
 function wkBed() { return (typeof truckRoot !== 'undefined' && truckRoot) ? truckRoot.getObjectByName('Truck_Bed') : null; }
 function wkSeatOnBed(p, slot) { const bed = wkBed(); if (!p || !p.obj) return;
   const seats = { miner: [-1.7, 1.05, 0.55], driver: [-1.7, 1.05, -0.55] }, s = seats[slot] || seats.miner;
   if (bed) { bed.add(p.obj); p.obj.visible = true; p.obj.position.set(s[0], s[1], s[2]); p.obj.rotation.set(0, Math.PI / 2, 0); p.obj.scale.set(1, 1, 1); }
   wkPlay(p, 'idle', 0, true); }
-function wkWalkTo(key, from, to, tau, extra) { const p = WK.people[key]; if (!p) return; extra = extra || {};
-  const poly = wkRoad(from, to), s = Math.min(Math.max(0, tau) * WK.v, poly.L), q = wkAt(poly, s);
-  let clip = 'walk', ct = s / WK.stride; if (s >= poly.L - 1e-6) { clip = extra.endClip || 'idle'; ct = extra.endCt || 0; }
-  else if (extra.startClip && tau < (extra.startDur || 0)) { clip = extra.startClip; ct = tau; }
+function wkPosePoly(key, poly, tau) { const p = WK.people[key]; if (!p || !poly) return;
+  const s = Math.min(Math.max(0, tau) * WK.v, poly.L), q = wkAt(poly, s), clip = s >= poly.L - 1e-6 ? 'idle' : 'walk', ct = clip === 'walk' ? s / WK.stride : 0;
   const obj = p.handler ? p.root : p.obj; if (!obj) return;
   if (p.handler) { obj.position.set(q[0] - PX, 0, q[1]); obj.rotation.set(0, q[2], 0); if (p.obj) p.obj.visible = true; }
   else { if (obj.parent !== scene) scene.add(obj); obj.visible = true; wkPlace(obj, q[0], q[1], q[2]); }
-  wkPlay(p, clip, ct, clip === 'walk' || clip === 'idle'); walkApplyObj('wk-' + key, obj, false); }
+  wkPlay(p, clip, ct, true);
+}
+function wkWalkTo(key, from, to, tau) { wkPosePoly(key, wkPoly([from, to]), tau); }
 function wkStand(key, x, z, yaw, clip, ct) { const p = WK.people[key]; if (!p || !p.obj) return;
   if (p.obj.parent !== scene) scene.add(p.obj); p.obj.visible = true; wkPlace(p.obj, x, z, yaw); wkPlay(p, clip || 'idle', ct || 0, (clip || 'idle') === 'idle' || clip === 'walk'); }
 function wkPoseMine(t, dir) { const sch = wkTaxiSchedule(dir), t0 = dir === 'back' ? S.wk.down + wkDescSec() * 1000 : S.wk.go;
   let tau = (t - t0) / 1000; if (tau < 0) tau = 0; const truck = wkTruckFromSch(sch, tau), side = wkSide(truck.x, truck.z, truck.yaw, 1);
-  const h = wkHomes(), miner = WK.people.miner, driver = WK.people.driver;
+  const h = wkHomes(), miner = WK.people.miner, driver = WK.people.driver, door = [WK_LANE, sch.pad[1]];
   if (dir === 'out') {
-    const a0 = 0, a1 = sch.tApp, d1 = a1 + sch.tDown, u1 = d1 + sch.tUp, r1 = u1 + sch.tRide, o1 = r1 + sch.tOff;
-    if (tau < a1) { wkStand('miner', h.miner[0], h.miner[1], 0, 'idle', 0); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'idle', 0); return; }
-    if (tau < d1) { wkWalkTo('miner', h.miner, side, tau - a1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - a1); return; }
-    if (tau < u1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - d1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - d1); return; }
-    if (tau < r1) { wkSeatOnBed(miner, 'miner'); wkSeatOnBed(driver, 'driver'); return; }
-    if (tau < o1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); return; }
-    wkWalkTo('miner', sch.pad, sch.ladder, tau - o1); wkWalkTo('driver', sch.pad, sch.ladder, tau - o1); return; }
+    const a1 = sch.tApp, d1 = a1 + sch.tDown, u1 = d1 + sch.tUp, r1 = u1 + sch.tRide, o1 = r1 + sch.tOff;
+    if (tau < r1) { if (driver) wkSeatCab(driver); }   // in the cab until the pad stop
+    if (tau < a1) { wkStand('miner', h.miner[0], h.miner[1], Math.PI, 'idle', 0); return; }
+    if (tau < d1) { wkWalkTo('miner', h.miner, side, tau - a1); return; }
+    if (tau < u1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - d1); return; }
+    if (tau < r1) { wkSeatOnBed(miner, 'miner'); return; }
+    if (tau < o1) { wkWalkTo('miner', side, door, tau - r1); if (driver && driver.obj && driver.obj.parent) { driver.obj.parent.remove(driver.obj); } wkWalkTo('driver', [truck.x + 1.6, truck.z], door, tau - r1); wkIpad(false); return; }
+    wkPosePoly('miner', wkOutPoly('miner'), tau - o1); wkPosePoly('driver', wkOutPoly('driver'), tau - o1); wkIpad(false); return; }
   const w1 = sch.tWalk, u1 = w1 + sch.tUp, r1 = u1 + sch.tRide, o1 = r1 + sch.tOff;
-  if (tau < w1) { wkWalkTo('miner', sch.ladder, sch.pad, tau); wkWalkTo('driver', sch.ladder, sch.pad, tau); return; }
-  if (tau < u1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - w1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - w1); return; }
-  if (tau < r1) { wkSeatOnBed(miner, 'miner'); wkSeatOnBed(driver, 'driver'); return; }
-  if (tau < o1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'step', tau - r1); return; }
-  wkWalkTo('miner', sch.pick, h.miner, tau - o1); wkWalkTo('driver', sch.pick, h.driver, tau - o1); }
+  if (tau >= u1 && driver) wkSeatCab(driver);   // back in the cab once he has climbed aboard for the ride home
+  if (tau < w1) { wkPosePoly('miner', wkPoly(wkOutPoly('miner').pts.slice().reverse()), tau); wkPosePoly('driver', wkPoly(wkOutPoly('driver').pts.slice().reverse()), tau); return; }
+  if (tau < u1) { wkStand('miner', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - w1); return; }
+  if (tau < r1) { wkSeatOnBed(miner, 'miner'); return; }
+  if (tau < o1) { wkWalkTo('miner', side, h.miner, tau - r1); return; }
+  wkWalkTo('miner', sch.pick, h.miner, tau - o1);
+}
 
-function wkPoseDescent(t) { if (!BD.acts || !BD.acts.crew_climb) return false; const u = (t - S.wk.down) / 1000, dur = wkDescSec(); if (u < 0 || u >= dur) return false;
-  wkAttachBoard(); const a = BD.acts.crew_climb; if (BD.cur !== 'crew_climb_rev') { BD.mx.stopAllAction(); a.play(); a.setEffectiveWeight(1); BD.cur = 'crew_climb_rev'; }
-  a.paused = true; a.timeScale = 1; a.time = clamp(dur - u, 0, dur - 1e-4); BD.mx.update(0);
+function wkFlyPrefixes() { const p = []; for (const k of wkFlyerKeys()) { const who = WK.people[k]; if (who && who.pfx) p.push(who.pfx + '_'); else if (k === 'cm') p.push('C2_'); } return p; }
+function wkClimbAct() {
+  if (!BD.acts || !BD.acts.crew_climb) return null;
+  const want = wkFlyPrefixes().join(',');
+  if (WK.flyClimb && WK.flyKey === want) return WK.flyClimb;
+  const src = BD.acts.crew_climb.getClip(), pfx = wkFlyPrefixes();
+  const tracks = src.tracks.filter(tr => pfx.some(p => tr.name.startsWith(p)));
+  const clip = new THREE.AnimationClip('climb_fly_' + want, src.duration, tracks);
+  WK.flyClimb = BD.mx.clipAction(clip); WK.flyClimb.play(); WK.flyClimb.paused = true; WK.flyKey = want; return WK.flyClimb;
+}
+function wkSyncClimb(local) {   // the Cargo Manager's handler shares C2_ bone names, so the climb's C2 tracks play on him
+  if (wkFlyerKeys().indexOf('cm') < 0 || !WK.climb || !BRK.h) return;
+  for (const n in BRK.h.acts) BRK.h.acts[n].setEffectiveWeight(0);
+  const a = WK.climb, dur = a.getClip().duration; a.setEffectiveWeight(1); a.paused = true; a.time = clamp(local, 0, dur - 1e-4); BRK.h.mx.update(0);
+  if (BRK.h.root) { BRK.h.root.position.set(0, 0, 0); BRK.h.root.rotation.set(0, 0, 0); }
+}
+function wkPoseClimb(tb) {   // tb is board time minus the lead-in. The climb clip starts at its own t0; before that they wait on the apron.
+  const t0 = BD.clips && BD.clips[2] ? BD.clips[2].t0 : 22.3, local = tb - t0;
+  if (local < 0) { if (WK.attached) wkDetachBoard(); wkPoseHandoff(); return; }
+  wkAttachBoard(); const a = wkClimbAct(); if (!a) return;
+  if (BD.cur !== 'fly_climb') { BD.mx.stopAllAction(); a.reset(); a.play(); a.setEffectiveWeight(1); BD.cur = 'fly_climb'; }
+  const dur = a.getClip().duration; a.paused = true; a.time = clamp(local, 0, dur - 1e-4); BD.mx.update(0);
   const on = {}; for (const c of flyCrew(S.cg && S.cg.sh)) on[c.board] = 1;
-  for (let i = 0; i < BD.n; i++) { const o = BD.crew[i]; if (o) o.visible = !!on[o.name]; } return true; }
+  for (let i = 0; i < BD.n; i++) { const o = BD.crew[i]; if (!o || !on[o.name]) continue; o.visible = local < ((BD.inside[i] || dur) - t0); }
+  wkSyncClimb(local); wkIpad(false);
+}
+function wkPoseHandoff() { const keys = wkFlyerKeys();
+  for (const k of keys) { if (wkAllFly() && (k === 'miner' || k === 'driver')) { wkPosePoly(k, wkOutPoly(k), 1e6); continue; } wkPosePoly(k, wkOutPoly(k), 1e6); }
+  wkPoseStayers(nowMs());
+}
+function wkPoseStayers(t) { const fly = wkFlyerKeys(), h = wkHomes();
+  if (fly.indexOf('miner') < 0 && WK.people.miner) { const p = WK.people.miner; if (p.obj && p.obj.parent !== scene) scene.add(p.obj); p.obj.visible = true; wkPlace(p.obj, h.miner[0], h.miner[1], Math.PI); wkPlay(p, 'idle', (t / 1000) % 4, true); }
+  if (fly.indexOf('mech') < 0 && WK.people.mech) { const p = WK.people.mech; if (p.obj && p.obj.parent !== scene) scene.add(p.obj); p.obj.visible = true; wkPlace(p.obj, h.mech[0], h.mech[1], 0); wkPlay(p, 'idle', (t / 1000) % 4, true); }
+  if (fly.indexOf('driver') < 0 && WK.people.driver) { if (wkHab()) { const q = wkLoopAt(t), p = WK.people.driver; if (p.obj.parent !== scene) scene.add(p.obj); p.obj.visible = true; wkPlace(p.obj, q[0], q[1], q[2]); wkPlay(p, 'walk', (t / 1000) * WK.v / WK.stride, true); wkIpad(true); } else wkSeatCab(WK.people.driver); }
+}
+function wkPoseDescent(t) { const a0 = wkClimbAct(); if (!a0) return false; const u = (t - S.wk.down) / 1000, dur = wkDescSec(); if (u < 0 || u >= dur) return false;
+  wkAttachBoard(); if (BD.cur !== 'fly_climb_rev') { BD.mx.stopAllAction(); a0.reset(); a0.play(); a0.setEffectiveWeight(1); BD.cur = 'fly_climb_rev'; }
+  a0.paused = true; a0.time = clamp(dur - u, 0, dur - 1e-4); BD.mx.update(0);
+  const on = {}; for (const c of flyCrew(S.cg && S.cg.sh)) on[c.board] = 1;
+  for (let i = 0; i < BD.n; i++) { const o = BD.crew[i]; if (o && on[o.name]) o.visible = true; }
+  wkSyncClimb(dur - u); wkPoseStayers(t); wkIpad(false); return true;
+}
+function wkMigPoly() { const truck = (typeof TS !== 'undefined' && isFinite(TS.x)) ? [TS.x, TS.z] : [MX + 11, 9];
+  const shoulder = Math.min(12.4, truck[1] + 3.4);   // north of the haul lane, south of the flatbed lane, clear of the bridge footings
+  return wkPoly([[truck[0] + 2.4, truck[1] + 1.8], [truck[0] + 2.4, shoulder], [PX - 8, shoulder], [WK_LANE, shoulder], [WK_LANE, -8], WK_LOOP[0]]);
+}
 function wkUpd(t) { wkTryHome(t); if (!WK.ready) return;
-  if (boardOf()) { wkAttachBoard(); return; }
+  if (WK.sawHab === 0 && wkHab() && !(S.wk && S.wk.go > 0)) { WK.sawHab = 1; if (!S.wk) S.wk = { go: 0, down: 0, cx: 0, cz: 0, n: 0, cs: 0 }; S.wk.mig = t; }
+  const b = boardOf();
+  if (b) { const tb = (t - b.B) / 1000, t0 = BD.clips && BD.clips[2] ? BD.clips[2].t0 : 22.3; if (tb - BD.pre < t0) { if (WK.attached) wkDetachBoard(); wkPoseHandoff(); return; } return; }
   if (S.wk && S.wk.down > 0) { const u = (t - S.wk.down) / 1000; if (u < wkDescSec()) { wkPoseDescent(t); return; } wkDetachBoard(); wkPoseWalk(t, 'back'); return; }
-  if (S.wk && S.wk.go > 0) { const s = S.cg && S.cg.sh; if (s && s.st !== 'pad') { wkHideFlyers(); return; } wkDetachBoard(); wkPoseWalk(t, 'out'); return; }
+  if (S.wk && S.wk.go > 0) { const s = S.cg && S.cg.sh; if (s && s.st !== 'pad') { wkHideFlyers(); wkPoseStayers(t); return; } if (WK.attached) wkDetachBoard(); wkPoseWalk(t, 'out'); return; }
+  if (S.wk && S.wk.mig > 0) { const poly = wkMigPoly(), tau = (t - S.wk.mig) / 1000;
+    if (tau * WK.v >= poly.L) { S.wk.mig = 0; WK.loopOff = -((t / 1000) * WK.v); wkParkIdle(); return; }
+    wkPoseStayers(t); const p = WK.people.driver; if (p && p.obj && p.obj.parent !== scene) scene.add(p.obj);
+    wkPosePoly('driver', poly, tau); wkIpad(true); return; }
   if (WK.attached) wkDetachBoard(); wkParkIdle(); }
 function wkTryBind() { if (WK.ready || !WK.boardReady || !WK.brReady || !BD.root || !BRK.ok || !BRK.h) return;
   const o = BD.root, c1 = o.getObjectByName('Crew_1'), c2 = o.getObjectByName('Crew_2'), c3 = o.getObjectByName('Crew_3'), c4 = o.getObjectByName('Crew_4');
@@ -1536,12 +1687,21 @@ function wkTryBind() { if (WK.ready || !WK.boardReady || !WK.brReady || !BD.root
   WK.src = { walk: BRK.h.acts.Handler_Walk_Loop.getClip(), idle: BRK.h.acts.Handler_Door_Wait.getClip(), step: BRK.h.acts.Handler_Step_Down.getClip(),
     up: BRK.h.acts.Handler_Step_Up && BRK.h.acts.Handler_Step_Up.getClip() };
   WK.stash = new THREE.Group(); WK.stash.name = 'WK_Stash'; WK.stash.visible = false; scene.add(WK.stash); if (c2) WK.stash.add(c2);
-  const mk = (obj, pfx, key) => { scene.add(obj); obj.visible = true; obj.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; } });
-    const mx = new THREE.AnimationMixer(obj), acts = {}; const add = (k, clip) => { if (!clip) return; const a = mx.clipAction(wkClip(clip, pfx)); a.play(); a.paused = true; a.setEffectiveWeight(0); acts[k] = a; };
-    add('walk', WK.src.walk); add('idle', WK.src.idle); add('step', WK.src.step); add('up', WK.src.up); WK.people[key] = { obj, pfx, mx, acts, key }; };
+  const mk = (obj, pfx, key) => { scene.add(obj); obj.visible = true; obj.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
+    if (m.isBone) m.userData.rest = { p: m.position.clone(), q: m.quaternion.clone(), s: m.scale.clone() }; });
+    const mx = new THREE.AnimationMixer(obj), acts = {}; const body = (clipName) => { const src = BD.acts[clipName] && BD.acts[clipName].getClip(); if (!src) return null; return new THREE.AnimationClip(clipName + '_' + pfx, src.duration, src.tracks.filter(tr => tr.name.startsWith(pfx + '_'))); };
+    const add = (k, clip) => { if (!clip) return; const a = mx.clipAction(clip); a.play(); a.paused = true; a.setEffectiveWeight(0); acts[k] = a; };
+    const walkC = body('crew_walk_to_pad'), idleC = body('crew_call');
+    add('walk', walkC); add('idle', idleC); add('step', walkC); add('up', walkC); WK.people[key] = { obj, pfx, mx, acts, key }; };
   mk(c3, 'C3', 'miner'); mk(c4, 'C4', 'driver'); mk(c1, 'C1', 'mech');
   WK.people.cm = { obj: BRK.h.scene, root: BRK.h.root, mx: BRK.h.mx, acts: BRK.h.acts, key: 'cm', handler: true };
-  WK.ready = true; wkParkIdle();
+  { const src = BD.acts.crew_climb && BD.acts.crew_climb.getClip(), tracks = src ? src.tracks.filter(tr => tr.name.startsWith('C2_')) : [];
+    if (tracks.length) { WK.climb = BRK.h.mx.clipAction(new THREE.AnimationClip('c2_climb', src.duration, tracks)); WK.climb.play(); WK.climb.paused = true; WK.climb.setEffectiveWeight(0); } }
+  const ip = new THREE.Group(); ip.name = 'Captain_iPad';
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.012), new THREE.MeshStandardMaterial({ color: 0x1c2430, roughness: 0.45, metalness: 0.15 }));
+  const screen = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.2, 0.004), new THREE.MeshStandardMaterial({ color: 0x8ff6ff, emissive: 0x1a6ea8, emissiveIntensity: 0.85, roughness: 0.25 }));
+  screen.position.z = 0.008; ip.add(body); ip.add(screen); ip.visible = false; WK.ipad = ip;
+  WK.sawHab = (S.bt && S.bt.hab === 1) ? 1 : 0; WK.ready = true; wkParkIdle();
   Object.assign(window.__ps3d, { wk: WK, wkGatherSec, wkReturnSec, wkHomes, wkArrived, minerOffAt, wkUpd, wkShouldPickup, wkPersonSec, wkDescSec, wkRoad, wkAt, wkPreHab, wkShortLaunchAllowed, wkTaxiSchedule, wkTaxiTruckAt, wkPickPt, wkPadStop }); }
 
 
@@ -2519,8 +2679,8 @@ for (const k of ['fuelLv', 'purLv']) S[k] = Math.max(1, Math.floor(+S[k]) || 1);
 S.fuelLv = fuelLvOk();                 // P2-FUEL: a missing / bad FuelLv is Lv1, never above the max level   // Refinery levels: saves from before ca-econ-refinery (6df2e40) start at Lv1
 if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo loop: it starts empty at the last save time (no back-pay for old dumps)
 if (S.cg.autoLoad === undefined) S.cg.autoLoad = true; if (S.cg.autoLaunch === undefined) S.cg.autoLaunch = false;   // Jacob 11/1: ship switches (Qwen)
-if (!S.wk || typeof S.wk !== 'object') S.wk = { go: 0, down: 0, cx: 0, cz: 0 };
-else { S.wk.go = +S.wk.go || 0; S.wk.down = +S.wk.down || 0; S.wk.cx = +S.wk.cx || 0; S.wk.cz = +S.wk.cz || 0; }
+if (!S.wk || typeof S.wk !== 'object') S.wk = { go: 0, down: 0, cx: 0, cz: 0, n: 0, cs: 0 };
+else { S.wk.go = +S.wk.go || 0; S.wk.down = +S.wk.down || 0; S.wk.cx = +S.wk.cx || 0; S.wk.cz = +S.wk.cz || 0; S.wk.n = +S.wk.n || 0; S.wk.cs = +S.wk.cs || 0; }
 fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an old save's stock is clamped to this level's cap (200/250/300/350/400). fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (!(S.cg.fl >= 0)) S.cg.fl = S.cg.launches > 0 ? 1 : 0;   // gc-dockfix item 7: first-launch pass used (1) / open (0); a save that already launched has used it
@@ -2559,7 +2719,7 @@ function cgMake(tDump) {           // called at the dump time, after the cargo s
   c.ref.push(r); c.made++; cgEv('box_made', tDump);
 }
 function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a full, fuelled ship launches on its own while away too (was Director 23:00: waited for a Launch tap, sh.man), inside the 4 h cap
-  wkTryHome(t);
+  wkTryHome(t); if (typeof craneFreeze === 'function') craneFreeze(t);
   for (let g = 0; g < 50; g++) {
     crSync(c, t); let ch = false; const f = c.fb, s = c.sh;   // gc-crane2: the attendant's walk follows the cargo state (before any lift decision)
     if (!c.rc && f.st === 'load' && f.bed < tripN(c) && c.ref.length && c.ref[0] <= t && (!BRC.on || brWhen(c, t) <= t)) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : brPad(c, t) ? 2 : 0; } c.rcT = t; c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
@@ -2569,7 +2729,7 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
       if (st || ((!dB || shipTakes(c, t)) && c.bay + f.bed <= CG.bayCap)) {   // gc-dockbld: bay can't take the bed → wait here (was: drove on to the pad while the ship was away and sat there), so a Dock bought / freed later gets it at once
  c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; c.ft = 1; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
-    if (!c.pc.k && crAt(c, t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back
+    if (!c.pc.k && crAt(c, t) && !copilotAway(t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back. Pad crane waits while the Co-pilot is off the crane.
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
       else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < holdCap() && !dockBusy(c, t) && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
       else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < holdCap() && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
@@ -2577,9 +2737,9 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (wkShouldPickup(c)) wkEnsurePickup(c, t, acc);
     if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && s.hold >= holdCap() && ((c.autoLaunch && !s.man) || (s.req && t >= s.req))) {   // Jacob 11/1: full hold only; Auto Launch or the Launch tap
-      if (wkPreHab(s) && !wkArrived(t)) { wkEnsurePickup(c, t, acc); }
+      if (!wkArrived(t)) { wkEnsurePickup(c, t, acc); }
       else {
-      const flyN = (S.wk && S.wk.go > 0 && !(S.wk.down > 0)) ? CFG.crew0 : residentFlyers(), bsec = boardSec({ fly: flyN });   // snapshot who leaves; a Habitat bought later does not pull them back
+      const flyN = (S.wk && S.wk.go > 0 && S.wk.n > 0 && !(S.wk.down > 0)) ? (S.wk.n >= CFG.crew0 ? CFG.crew0 : 2) : residentFlyers(), bsec = boardSec({ fly: flyN });   // snapshot who leaves; a Habitat bought later does not pull them back
       c.sh = Object.assign({}, s, { st: bsec ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0 }); ch = true; cgEv(bsec ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0, fly: flyN }); } }   // the crew boards first (boardSec) after walkers arrive; boardSec itself is unchanged
     else if (s.st === 'pad' && s.req && t >= s.req && s.hold < holdCap() && !c.rd) { s.req = 0; s.rh = 0; ch = true; }
     if (!ch) break;
