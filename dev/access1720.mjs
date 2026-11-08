@@ -1,6 +1,6 @@
 // Crew access for the 1720 channel ladder. Pure timing / IK. The scene binder is access1720_bind.mjs.
-// Rungs are read from the deployed ladder meshes (centers of the cross-bars). Hands and feet plant
-// on those centers. The rail fold is a rotation plus a bend, so the shipped clip keeps its morphs.
+// Rungs are read from the deployed ladder meshes (centers of the cross-bars). Feet plant on those
+// centers; hands grip the side rails via gripAt. The rail fold is a rotation plus a bend, so the shipped clip keeps its morphs.
 
 export const DEPLOY_T = 82 / 16;          // last fully deployed frame of Animation
 export const STOW_T0 = 82 / 16;
@@ -13,6 +13,15 @@ export const GAP = 1.5;                   // seconds between one climber finishi
 export const WALK_V = 1.4;
 export const DOOR_SEC = 1.2;
 export const PALM = 0.10;                 // wrist → palm, along the forearm. Fingers wrap the rung.
+export const RAIL_CTC = 0.50;
+export const RAIL_HALF = 0.25;
+export const GRIP_OUT = 0.11;
+export function sideDir(outward) { return { x: outward.z, y: 0, z: -outward.x }; }
+export function gripAt(rung, limb, outward) {
+  if (limb[1] !== 'H') return rung;
+  const sign = limb[0] === 'L' ? -1 : 1;
+  return add(rung, add(mul(sideDir(outward), sign * RAIL_HALF), mul(outward, GRIP_OUT)));
+}
 export const SOLE = 0.07;                 // ankle → sole, world down
 export const UPPER = Math.hypot(0.0654689, 0.290664, 0.035048);
 export const FORE = Math.hypot(0.0335623, 0.225372, 0.114481);
@@ -388,9 +397,9 @@ export function movingLimbsAt(rungs, tau) {
 export function poseFrame(rungs, tau, outward) {
   const yaw = faceYaw(outward);
   const yawQ = yawQuat(yaw);
-  const planted = plantsAt(rungs, tau).map((p) => ({ ...p, park: false }));
+  const planted = plantsAt(rungs, tau).map((p) => ({ ...p, at: gripAt(p.at, p.limb, outward), park: false }));
   const found = posePlants(planted, outward, yaw);
-  const extra = movingLimbsAt(rungs, tau).map((p) => ({ ...p, park: true }));
+  const extra = movingLimbsAt(rungs, tau).map((p) => ({ ...p, at: gripAt(p.at, p.limb, outward), park: true }));
   const posed = quatsFromPose(found.hip, yawQ, outward, planted.concat(extra));
   const contacts = posed.contacts.filter((c) => !extra.find((p) => p.limb === c.limb));
   return { ...posed, hip: found.hip, err: Math.max(...contacts.map((c) => c.err), 0), contacts, outward, yaw };
