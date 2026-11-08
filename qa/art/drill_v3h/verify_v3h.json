@@ -1,0 +1,148 @@
+{
+  "drill_glb": "/workspace/art_next/mine_drill_concept_1107/export_v3h/mine_drill_v3h.glb",
+  "mine_glb": "/workspace/art_next/mine_drill_concept_1107/_src/served/mine_revamp_c9a9394e.glb",
+  "note": "Blender 4.2 importer lacks EXT_meshopt_compression; overlay used gltfpack -noq unpacks of the official files.",
+  "drill_only_nodes": [
+    "Belt_End",
+    "Belt_Start",
+    "Cab_Glass",
+    "Cab_Glass_Front",
+    "Cab_Glass_Mast",
+    "Cab_Glass_Rear",
+    "Cab_Glass_Top",
+    "Conveyor_Gallery",
+    "Drill_Rig",
+    "Drill_Root",
+    "Funnel_Spout",
+    "LED_Crown",
+    "LED_Mid_A",
+    "LED_Mid_B",
+    "Mesh_0.001",
+    "Mesh_1.001",
+    "Mesh_10.001",
+    "Mesh_11.001",
+    "Mesh_12.001",
+    "Mesh_13.001",
+    "Mesh_2.001",
+    "Mesh_3.001",
+    "Mesh_4.001",
+    "Mesh_5.001",
+    "Mesh_6.001",
+    "Mesh_7.001",
+    "Mesh_8.001",
+    "Mesh_9.001",
+    "Operator",
+    "Operator_Mesh",
+    "Ore_Bed_Target",
+    "Ore_Spawn",
+    "Ore_Variant_Glint",
+    "Ore_Variant_L",
+    "Ore_Variant_M",
+    "Ore_Variant_S"
+  ],
+  "expected_found": {
+    "Drill_Root": true,
+    "LED_Mid_A": true,
+    "LED_Mid_B": true,
+    "LED_Crown": true,
+    "Belt_Start": true,
+    "Belt_End": true,
+    "Funnel_Spout": true,
+    "Ore_Spawn": true,
+    "Ore_Bed_Target": true,
+    "Cab_Glass": true,
+    "Operator": true,
+    "Cab_Glass_Front": true,
+    "Cab_Glass_Mast": true,
+    "Cab_Glass_Rear": true,
+    "Cab_Glass_Top": true,
+    "Drill_Rig": true,
+    "Conveyor_Gallery": true,
+    "Operator_Mesh": true,
+    "Ore_Variant_S": true,
+    "Ore_Variant_M": true,
+    "Ore_Variant_L": true,
+    "Ore_Variant_Glint": true
+  },
+  "leaks": [
+    "Conveyor_Gallery"
+  ],
+  "drill_bounds_blender": {
+    "min": [
+      -13.174999237060547,
+      -10.430868148803711,
+      -2.5705535411834717
+    ],
+    "max": [
+      11.373071670532227,
+      5.02984619140625,
+      14.190018653869629
+    ],
+    "center": [
+      -0.9009637832641602,
+      -2.7005109786987305,
+      5.809732556343079
+    ]
+  },
+  "mine_bounds_blender": {
+    "min": [
+      -15.549371719360352,
+      -14.74181842803955,
+      -0.08746719360351562
+    ],
+    "max": [
+      13.709939956665039,
+      14.722063064575195,
+      21.779998779296875
+    ],
+    "center": [
+      -0.9197158813476562,
+      -0.009877681732177734,
+      10.84626579284668
+    ]
+  },
+  "drill_root": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "mine_root": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "drill_materials": [
+    "M_CabGlass",
+    "M_ContactShadow",
+    "M_DeckEdgeLit",
+    "M_DrDark",
+    "M_DrGraph",
+    "M_DrHose",
+    "M_DrLGray",
+    "M_DrRailV2",
+    "M_DrRod",
+    "M_DrSteel",
+    "M_DrWhite",
+    "M_MastLED",
+    "M_OcBelt",
+    "M_OcBeltRet",
+    "M_OcChute",
+    "M_OcChute2",
+    "M_OcFoot",
+    "M_OcGrate",
+    "M_OcHood2",
+    "M_OcMotor",
+    "M_OcRail",
+    "M_OcRoll",
+    "M_OcSkirt",
+    "M_OcTruss",
+    "M_OreGlint",
+    "M_OreRock",
+    "M_RigCyan",
+    "M_StatusAmber",
+    "M_WinFrame",
+    "SHM_GlowCyan.001",
+    "SHM_Paint.002"
+  ],
+  "screenshot": "/workspace/art_next/mine_drill_concept_1107/export_v3h/mine_drill_v3h_over_mine.png"
+}

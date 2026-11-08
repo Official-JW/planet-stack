@@ -1,0 +1,351 @@
+{
+  "anchors": {
+    "Drill_Root": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    },
+    "LED_Mid_A": {
+      "blender": [
+        -6.82,
+        3.6,
+        7.35
+      ],
+      "gltf": [
+        -6.82,
+        7.35,
+        -3.6
+      ],
+      "type": "MESH"
+    },
+    "LED_Mid_B": {
+      "blender": [
+        -6.82,
+        3.6,
+        10.55
+      ],
+      "gltf": [
+        -6.82,
+        10.55,
+        -3.6
+      ],
+      "type": "MESH"
+    },
+    "LED_Crown": {
+      "blender": [
+        -7.5,
+        2.88,
+        13.87
+      ],
+      "gltf": [
+        -7.5,
+        13.87,
+        -2.88
+      ],
+      "type": "MESH"
+    },
+    "Belt_Start": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    },
+    "Belt_End": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    },
+    "Funnel_Spout": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    },
+    "Ore_Spawn": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    },
+    "Ore_Bed_Target": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    },
+    "Cab_Glass": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    },
+    "Operator": {
+      "blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "type": "EMPTY"
+    }
+  },
+  "cab_lights_suggestion_only": {
+    "CabWarm": {
+      "type": "AREA",
+      "energy": 18.0,
+      "color": [
+        1.0,
+        0.699999988079071,
+        0.41999998688697815
+      ],
+      "blender": [
+        -8.55,
+        2.42,
+        2.98
+      ],
+      "gltf": [
+        -8.55,
+        2.98,
+        -2.42
+      ],
+      "size": 0.550000011920929
+    },
+    "CabKey": {
+      "type": "AREA",
+      "energy": 10.0,
+      "color": [
+        1.0,
+        0.7799999713897705,
+        0.550000011920929
+      ],
+      "blender": [
+        -8.55,
+        1.15,
+        2.55
+      ],
+      "gltf": [
+        -8.55,
+        2.55,
+        -1.15
+      ],
+      "size": 0.44999998807907104
+    },
+    "CabFill": {
+      "type": "POINT",
+      "energy": 6.0,
+      "color": [
+        1.0,
+        0.7599999904632568,
+        0.5199999809265137
+      ],
+      "blender": [
+        -8.55,
+        2.1,
+        2.3
+      ],
+      "gltf": [
+        -8.55,
+        2.3,
+        -2.1
+      ],
+      "size": 0.0
+    }
+  },
+  "tris_blender": 13242,
+  "meshes": [
+    [
+      "Cab_Glass_Front",
+      12,
+      8,
+      [
+        "M_CabGlass"
+      ]
+    ],
+    [
+      "Cab_Glass_Mast",
+      12,
+      8,
+      [
+        "M_CabGlass"
+      ]
+    ],
+    [
+      "Cab_Glass_Rear",
+      12,
+      8,
+      [
+        "M_CabGlass"
+      ]
+    ],
+    [
+      "Cab_Glass_Top",
+      12,
+      8,
+      [
+        "M_CabGlass"
+      ]
+    ],
+    [
+      "Conveyor_Gallery",
+      6848,
+      3972,
+      [
+        "M_OcBelt",
+        "M_OcBeltRet",
+        "M_OcSkirt",
+        "M_OcTruss",
+        "M_OcRoll",
+        "M_OcGrate",
+        "M_OcRail",
+        "M_OcFoot",
+        "M_DrSteel",
+        "M_OcMotor",
+        "M_OcChute",
+        "M_DrGraph",
+        "M_StatusAmber",
+        "M_OcChute2",
+        "M_OcHood2"
+      ]
+    ],
+    [
+      "Drill_Rig",
+      4656,
+      2760,
+      [
+        "M_DrGraph",
+        "M_DrDark",
+        "M_DrSteel",
+        "M_DrLGray",
+        "M_DrWhite",
+        "M_StatusAmber",
+        "M_DrRod",
+        "M_DrHose",
+        "M_ContactShadow",
+        "M_DrRailV2",
+        "M_DeckEdgeLit",
+        "M_RigCyan",
+        "M_WinFrame"
+      ]
+    ],
+    [
+      "LED_Crown",
+      140,
+      72,
+      [
+        "M_MastLED"
+      ]
+    ],
+    [
+      "LED_Mid_A",
+      140,
+      72,
+      [
+        "M_MastLED"
+      ]
+    ],
+    [
+      "LED_Mid_B",
+      140,
+      72,
+      [
+        "M_MastLED"
+      ]
+    ],
+    [
+      "Operator_Mesh",
+      1126,
+      1776,
+      [
+        "SHM_Paint.002",
+        "SHM_GlowCyan.001"
+      ]
+    ],
+    [
+      "Ore_Variant_Glint",
+      36,
+      20,
+      [
+        "M_OreGlint"
+      ]
+    ],
+    [
+      "Ore_Variant_L",
+      36,
+      20,
+      [
+        "M_OreRock"
+      ]
+    ],
+    [
+      "Ore_Variant_M",
+      36,
+      20,
+      [
+        "M_OreRock"
+      ]
+    ],
+    [
+      "Ore_Variant_S",
+      36,
+      20,
+      [
+        "M_OreRock"
+      ]
+    ]
+  ]
+}
