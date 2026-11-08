@@ -70,7 +70,7 @@ const bootJs = () => {
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     let phase = 'station';
     if (!flying) phase = 'station';
-    else if (par === 'Truck_Chassis' || par === 'Truck_Bed') phase = 'ride';
+    else if (/FB05|Flatbed|Truck_Bed|Truck_Chassis/.test(par)) phase = 'ride';
     else if (o.parent === ps.BD.root || (key === 'cm' && ps.br && ps.br.h && ps.br.h.scene.parent === ps.BD.root)) phase = 'climb';
     else if (y1 > 2.4 && Math.hypot(cx - 644, cz + 10.6) < 8) phase = 'climb';
     else if (ps.S.wk && ps.S.wk.go > 0) phase = Math.hypot(cx - 644, cz + 10) < 3 ? 'climb' : 'walk';
@@ -121,10 +121,48 @@ const bootJs = () => {
           if (!prev || dd < prev.d) row[leg] = { d: +dd.toFixed(3), at: b.x + ',' + b.z };
         }
       }
+      const half = 1.95;
+      const stampLine = (pts, leg) => {
+        if (!pts || pts.length < 2) return;
+        for (const fill of ['empty', 'partial', 'full']) {
+          let best = 99, at = '';
+          for (let i = 1; i < pts.length; i++) {
+            const a = pts[i - 1], b = pts[i], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+            const n = Math.max(1, Math.ceil(len / 0.5));
+            const px = -(b[1] - a[1]) / len, pz = (b[0] - a[0]) / len;
+            for (let k = 0; k <= n; k++) {
+              const x = a[0] + (b[0] - a[0]) * k / n, z = a[1] + (b[1] - a[1]) * k / n;
+              for (const s of [0, half, -half]) {
+                const d = ps.__distOn(ps.__fills[fill], x + px * s, z + pz * s);
+                if (d < best) { best = d; at = (x + px * s).toFixed(1) + ',' + (z + pz * s).toFixed(1); }
+              }
+            }
+          }
+          const slot = ps.__mins.vehicle = ps.__mins.vehicle || {};
+          const row = slot[fill] = slot[fill] || {};
+          if (!row[leg] || best < row[leg].d) row[leg] = { d: +best.toFixed(3), at };
+        }
+      };
+      if (ps.S.wk && ps.S.wk.go > 0 && !ps.__vehOut) {
+        ps.__vehOut = 1;
+        if (ps.residentFlyers() >= 4) {
+          const s = ps.wkTaxiSchedule('out'), b = ps.wkTaxiSchedule('back');
+          if (s && s.app && s.app.poly) stampLine(s.app.poly.pts, 'depart');
+          if (s && s.ride && s.ride.poly) stampLine(s.ride.poly.pts, 'depart');
+          if (b && b.ride && b.ride.poly) stampLine(b.ride.poly.pts, 'return');
+          if (b && b.home && b.home.poly) stampLine(b.home.poly.pts, 'return');
+        } else if (ps.wkShuttleSchedule) {
+          const s = ps.wkShuttleSchedule('out'); if (s && s.pts) stampLine(s.pts, 'depart');
+        }
+      }
+      if (ps.S.wk && ps.S.wk.down > 0 && !ps.__vehBack && ps.wkShuttleSchedule && ps.residentFlyers() < 4) {
+        ps.__vehBack = 1; const s = ps.wkShuttleSchedule('back'); if (s && s.pts) stampLine(s.pts, 'return');
+      }
       const sec = Math.floor((window.__vclock ? window.__vclock.get() : 0) / 2000);
       if (sec !== ps.__lastSec) {
         ps.__lastSec = sec; const tk = ps.truckState || {}, cg = ps.S.cg;
-        ps.__obs.snap.push({ sec, truckX: tk.x != null ? +tk.x.toFixed(2) : null, truckPh: tk.ph || '', st: ps.mineRev ? +ps.mineRev.st.toFixed(3) : null, pc: cg && cg.pc && cg.pc.k || '', away: !!ps.minerOffAt(ps.nowMs()), ship: cg && cg.sh && cg.sh.st, bed: ps.__obs.minerBed, ipad: !!(ps.wk.ipad && ps.wk.ipad.visible) });
+        const fb = ps.cg3 && ps.cg3.fb;
+        ps.__obs.snap.push({ sec, truckX: tk.x != null ? +tk.x.toFixed(2) : null, truckPh: tk.ph || '', st: ps.mineRev ? +ps.mineRev.st.toFixed(3) : null, pc: cg && cg.pc && cg.pc.k || '', away: !!ps.minerOffAt(ps.nowMs()), ship: cg && cg.sh && cg.sh.st, bed: ps.__obs.minerBed, ipad: !!(ps.wk.ipad && ps.wk.ipad.visible), br: ps.br ? +ps.br.tau.toFixed(3) : null, fbX: fb ? +fb.position.x.toFixed(1) : null, fbZ: fb ? +fb.position.z.toFixed(1) : null });
       }
     };
     return;
@@ -308,7 +346,7 @@ async function run() {
     const stillAt = shots[more.bed >= 0 ? Math.min(shots.length - 1, more.bed) : Math.min(shots.length - 1, Math.round(shots.length * 0.42))];
     if (stillAt) {
       await new Promise((resolve, reject) => {
-        const ff = spawn('ffmpeg', ['-y', '-i', path.join(more.dir, stillAt), path.join(OUT, name + '-frame-stepped-simulation-still.png')], { stdio: 'inherit' });
+        const ff = spawn('ffmpeg', ['-y', '-i', path.join(more.dir, stillAt), path.join(OUT, name + '-try3-frame-stepped-simulation-still.png')], { stdio: 'inherit' });
         ff.on('exit', (c) => c === 0 ? resolve() : reject(new Error('still ' + c)));
       });
     }
@@ -324,7 +362,7 @@ async function run() {
   if (MODE !== 'clips') {
     measured.push(await measureScenario(browser, 'crew-before-habitat', '00002', false));
     measured.push(await measureScenario(browser, 'crew-after-habitat', '00001', true));
-    writeFileSync(path.join(OUT, 'crew-clearance.json'), JSON.stringify(measured, null, 2));
+    writeFileSync(path.join(OUT, 'crew-clearance-try3.json'), JSON.stringify(measured, null, 2));
     let fail = false;
     for (const row of measured) { row.worst = worstWalk(row.mins); if (row.worst && row.worst.d < 0.5) fail = true; }
     console.log(JSON.stringify(measured.map(r => ({ name: r.name, worst: r.worst, racks: r.racks, bed: r.obs && r.obs.minerBed, routes: r.obs && r.obs.routes, captain: r.obs && r.obs.captain0, mid: r.mid, skipped: r.skipped, seats: r.seats, res: r.res })), null, 2));
@@ -344,7 +382,7 @@ async function run() {
       for (const f of readdirSync(d).filter(f => f.endsWith('.jpg')).sort()) lines.push("file '" + path.join(d, f) + "'");
     }
     writeFileSync(list, lines.join('\n'));
-    const mp4 = path.join(OUT, name + '-frame-stepped-simulation.mp4');
+    const mp4 = path.join(OUT, name + '-try3-frame-stepped-simulation.mp4');
     const font = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
     const vf = "drawtext=fontfile=" + font + ":text='FRAME-STEPPED SIMULATION PROOF — not real-time playback or a performance measurement':fontsize=12:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=4:x=8:y=h-26";
     await new Promise((resolve, reject) => {

@@ -988,8 +988,10 @@ function mrOwnGlow(root) {            // Chute_Glow + descendants (Set; empty wi
 function mrChuteHL() { if (!MR.glow) return null; if (!MR.gm.length) MR.glow.visible = true; return [MR.glow]; }   // emissive mode: the pulse lerps its own (dark or lit) emissive   // shown before hlStart / glowStart read it; updMineRev settles it next frame
 function updMineRev(dt) {
   if (!mine) return; dt = Math.min(Math.max(dt, 0), .1);
-  const fillNow = MR.fillNow, run = MR.buf ? fillNow || MR.st < 1 : fillNow;   // run = the drill + belt (same rule as setDigging in updTruck)
-  if (MR.buf) MR.st = clamp(MR.st + ((run ? MR_DIG : 0) - (fillNow ? MR_DRAIN : 0)) * dt / fillSec(), 0, 1);
+  // The Miner is off the Mine: freeze the silo and the belt on this frame's dt. Nothing is stored up, so the return continues from the same level.
+  const crewOff = typeof minerAway === 'function' && minerAway();
+  const fillNow = !crewOff && MR.fillNow, run = !crewOff && (MR.buf ? MR.fillNow || MR.st < 1 : MR.fillNow);
+  if (MR.buf && !crewOff) MR.st = clamp(MR.st + ((run ? MR_DIG : 0) - (fillNow ? MR_DRAIN : 0)) * dt / fillSec(), 0, 1);
   if (MR.glow) { const v = S.chute > 1 || !!GLOW.on.chute || (HL.t >= 0 && HL.id === 'chute');
     if (!MR.gm.length) { if (MR.glow.visible !== v) MR.glow.visible = v; }
     else if (MR.gOn !== v) { MR.gOn = v; for (const g of MR.gm) { if (v) g.m.emissive.copy(g.c); else g.m.emissive.setRGB(0, 0, 0); g.m.emissiveIntensity = 1; } } }   // the node stays visible (graphite band when off)
@@ -1404,8 +1406,9 @@ const WK = { ready: false, boardReady: false, brReady: false, attached: false, s
 // Hips at crew_climb local 0.02 s with the rig under the pad boarding root (sampled from the shipped GLB). The walk ends here.
 const WK_HAND = { mech: [644.29, -10.52], cm: [646.26, -8.66], miner: [646.25, -7.31], driver: [644.89, -3.84] };
 const WK_LANE = 647.2;   // open north-south apron east of the ship, the bay stacks (x ≤ 637) and the crane mast
-const WK_LOOP = [[664, 2], [664, -6], [656, -8], [652, -2], [652, 6], [658, 8]];   // Captain's post-Habitat inspection on the open east apron, clear of the pad deck
+const WK_LOOP = [[662, -3], [662, -11], [650, -12], [647, -8], [654, -4]];   // Captain's post-Habitat inspection on the open south apron. The old north edge (652, 6) is the break room.
 const WK_CRANE = [643.6, 5.0];   // Co-pilot, south of the crane mast (body-height solid starts near z 7)
+const WK_SHUT = { cap: [658, -10], mech: [646, 1.6], drop: [645.2, -8.2], east: 664, north: 26 };   // flatbed stops on the open south apron (body clearance measured > 5 m)
 function wkAllFly(sh) {   // this trip takes the whole crew (Mine + trucks pause). A started gather keeps its own count.
   sh = sh || (S.cg && S.cg.sh);
   if (S.wk && S.wk.go > 0 && S.wk.n > 0) return S.wk.n >= CFG.crew0;
@@ -1452,18 +1455,14 @@ function wkLaneTo(from, hand) {   // join the east apron lane, then the climb ha
   const spur = south ? [from, [from[0], Math.min(from[1], 4.2)], [lane, Math.min(from[1], 4.2)]] : [from, [lane, from[1]]];
   return wkPoly(spur.concat([[lane, hand[1] + 1.2], hand]));
 }
-function wkCaptainPts(phase) {   // from a point on the inspection loop, forward to the loop start, then the lane to the cab-side handoff
-  const poly = wkLoopPoly(), pts = [];
-  const a = wkAt(poly, phase); pts.push([a[0], a[1]]);
-  for (let i = 0; i < poly.pts.length; i++) if (poly.seg[i] >= phase - 1e-3) pts.push(poly.pts[i]);
-  pts.push(WK_LOOP[0], [664, -8], [WK_LANE, -8], WK_HAND.driver);
-  return pts;
-}
+function wkCapSpot() {   // where the Captain is on the inspection loop when this gather starts
+  const poly = wkLoopPoly(), s = S.wk && S.wk.cs > 0 ? S.wk.cs : 0, a = wkAt(poly, s); return [a[0], a[1]]; }
 function wkOutPoly(key) {
   const h = wkHomes();
+  if (!wkAllFly() && key === 'driver') return wkPoly([WK_SHUT.drop, WK_HAND.driver]);   // last steps off the flatbed, not the old loop through the break room
+  if (!wkAllFly() && key === 'mech') return wkPoly([WK_SHUT.drop, WK_HAND.mech]);
   if (key === 'mech') return wkLaneTo(h.mech, WK_HAND.mech);
   if (key === 'cm') { const w = S.wk, start = w && (w.cx || w.cz) ? [w.cx, w.cz] : h.cm; return wkLaneTo(start, WK_HAND.cm); }
-  if (key === 'driver' && !wkAllFly()) return wkPoly(wkCaptainPts(S.wk && S.wk.cs > 0 ? S.wk.cs : 0));
   if (key === 'miner' || key === 'driver') { const pad = wkPadStop(); return wkLaneTo([pad[0] + 3.2, pad[1]], WK_HAND[key]); }
   return wkLaneTo(h[key] || h.mech, WK_HAND[key] || WK_HAND.mech);
 }
@@ -1503,17 +1502,21 @@ function wkTaxiSchedule(dir) { dir = dir === 'back' ? 'back' : 'out';
   return { dir, app: null, ride, home, pick, pad, ladder, load, tApp: 0, tDown: 0, tUp, tRide, tOff, tWalk: walkL, tHome: home.T, minerW, drvW,
     total: walkL + tUp + tRide + tOff + Math.max(minerW, drvW, home.T) }; }
 function wkGatherSec() {
+  if (!wkAllFly()) { const sch = S.wk && S.wk.go > 0 ? wkShuttleSchedule('out') : wkShuttleBuild('out', nowMs()); return sch && sch.crew > 0 ? sch.crew : 20; }
   const keys = wkFlyerKeys(); let m = 0;
   if (wkAllFly()) m = Math.max(m, wkTaxiSchedule('out').total);
-  for (const k of keys) if (!(wkAllFly() && (k === 'miner' || k === 'driver'))) m = Math.max(m, wkPersonSec(k));
-  if (wkAllFly()) { m = Math.max(m, wkTaxiSchedule('out').total); }
+  for (const k of keys) if (!(k === 'miner' || k === 'driver')) m = Math.max(m, wkPersonSec(k));
+  m = Math.max(m, wkTaxiSchedule('out').total);
   return m;
 }
 function wkReturnSec() {
+  if (!wkAllFly()) {
+    const sch = S.wk && S.wk.down > 0 ? wkShuttleSchedule('back') : wkShuttleBuild('back', nowMs());
+    return sch ? Math.max(sch.crew, sch.fbEnd - (sch.desc || 0), 1) : 20; }
   const keys = wkFlyerKeys(); let m = 0;
-  if (wkAllFly()) m = Math.max(m, wkTaxiSchedule('back').total);
-  for (const k of keys) if (!(wkAllFly() && (k === 'miner' || k === 'driver'))) m = Math.max(m, wkPersonSec(k));
-  if (wkAllFly()) m = Math.max(m, wkTaxiSchedule('back').total);
+  m = Math.max(m, wkTaxiSchedule('back').total);
+  for (const k of keys) if (!(k === 'miner' || k === 'driver')) m = Math.max(m, wkPersonSec(k));
+  m = Math.max(m, wkTaxiSchedule('back').total);
   return m;
 }
 function wkArrived(t) {   // launch holds until the rigs exist and every flyer has reached the climb handoff. ?board=off keeps the old instant launch.
@@ -1598,8 +1601,9 @@ function wkPoseOne(key, t, dir) { const p = WK.people[key]; if (!p) return;
   if (key === 'driver') wkIpad(!wkAllFly());
 }
 function wkPoseWalk(t, dir) { const keys = wkFlyerKeys();
-  for (const k of keys) { if (wkAllFly() && (k === 'miner' || k === 'driver')) continue; wkPoseOne(k, t, dir); }
-  if (wkAllFly()) wkPoseMine(t, dir); wkPoseStayers(t);
+  if (!wkAllFly()) { wkPoseShuttle(t, dir); wkPoseStayers(t); return; }
+  for (const k of keys) { if (k === 'miner' || k === 'driver') continue; wkPoseOne(k, t, dir); }
+  wkPoseMine(t, dir); wkPoseStayers(t);
 }
 function wkSide(x, z, yaw, sign) { const r = 1.85; return [x + Math.sin(yaw) * r * sign, z + Math.cos(yaw) * r * sign]; }
 function wkTaxiTruckAt(t) { if (!S.wk || !(S.wk.go > 0)) return null;
@@ -1621,6 +1625,120 @@ function wkTruckFromSch(sch, tau) { if (tau < 0) tau = 0;
   const p = wkDriveAt(sch.home, tau - after); p.ph = p.v > 0.15 ? 'back' : 'hold'; return p; }
 function wkTaxiOverride(t, o) { if (!wkAllFly()) return false; const p = wkTaxiTruckAt(t); if (!p) return false;
   o.x = p.x; o.z = p.z; o.yaw = p.yaw; o.v = p.v; o.ph = p.ph; o.fill = 0; o.shown = 0; o.el = 0; return true; }
+function wkRun(pts) { const poly = wkPoly(pts), v = (typeof TV !== 'undefined' && TV.v) ? TV.v : 8.33; return { poly, T: poly.L / v, v }; }
+function wkPlayLegs(legs, tau) { let t = Math.max(0, tau);
+  for (const leg of legs) {
+    if (t <= leg.drv.T) return wkDriveAt(leg.drv, t);
+    t -= leg.drv.T;
+    if (t <= leg.hold) { const p = wkDriveAt(leg.drv, leg.drv.T); p.v = 0; p.ph = 'hold'; return p; }
+    t -= leg.hold; }
+  const last = legs[legs.length - 1], p = wkDriveAt(last.drv, last.drv.T); p.v = 0; p.ph = 'hold'; return p; }
+function wkLegEnd(legs) { let t = 0; for (const leg of legs) t += leg.drv.T + leg.hold; return t; }
+function wkFbEscape(c, t0) {   // stay on the flatbed's own road until east of the refinery, then the measured north spur is clear
+  const o = { x: 0, z: 0, yaw: 0, v: 0 }, pts = [];
+  if (typeof fbPoseAt !== 'function' || !c) return [[636.5, 13]];
+  fbPoseAt(c, t0, o); pts.push([+o.x, +o.z]);
+  const lane = (z) => Math.abs(z - 13) < 1.2 || Math.abs(z - 22) < 1.2;
+  if (o.x >= 360 && lane(o.z)) return pts;
+  for (let ms = 500; ms <= 90000; ms += 500) {
+    fbPoseAt(c, t0 + ms, o); const last = pts[pts.length - 1];
+    if (Math.hypot(o.x - last[0], o.z - last[1]) >= 4) pts.push([+o.x, +o.z]);
+    if (o.x >= 370 && lane(o.z)) { pts.push([+o.x, +o.z]); return pts; } }
+  pts.push([636.5, 13]); return pts; }
+function wkShuttleBuild(dir, t0) {
+  const esc = wkFbEscape(S.cg, t0), end = esc[esc.length - 1], xj = Math.max(360, Math.min(636, end[0]));
+  const cap = WK_SHUT.cap, mech = WK_SHUT.mech, drop = WK_SHUT.drop;
+  const spine = esc.concat([[xj, end[1]], [xj, WK_SHUT.north], [WK_SHUT.east, WK_SHUT.north], [WK_SHUT.east, -12], [658, -12], cap]);
+  const step = WK.step, v = WK.v;
+  const capFrom = wkCapSpot(), capWalk = wkPoly([capFrom, [capFrom[0], -10], cap]).L / v;
+  const mechWalk = wkPoly([wkHomes().mech, [WK_CRANE[0], mech[1]], mech]).L / v;
+  const handD = wkPoly([drop, WK_HAND.driver]).L / v, handM = wkPoly([drop, WK_HAND.mech]).L / v;
+  if (dir === 'out') {
+    const toCap = wkRun(spine), toMech = wkRun([cap, mech]), toDrop = wkRun([mech, drop]);
+    const holdCap = Math.max(0, capWalk - toCap.T) + step, tMechArrive = toCap.T + holdCap + toMech.T;
+    const holdMech = Math.max(0, mechWalk - tMechArrive) + step, tDrop = tMechArrive + holdMech + toDrop.T;
+    const back = wkRun(spine.concat([mech, drop]).slice().reverse());
+    const legs = [{ drv: toCap, hold: holdCap }, { drv: toMech, hold: holdMech }, { drv: toDrop, hold: step }, { drv: back, hold: 0 }];
+    return { dir, legs, pts: spine.concat([mech, drop]), capWalk, mechWalk, handD, handM, step,
+      tCap: toCap.T, tBoardCap: toCap.T + holdCap, tMech: tMechArrive, tBoardMech: tMechArrive + holdMech,
+      tDrop, tOff: tDrop + step, crew: tDrop + step + Math.max(handD, handM), fbEnd: wkLegEnd(legs) }; }
+  const desc = wkDescSec();
+  const goDrop = wkRun(esc.concat([[xj, end[1]], [xj, WK_SHUT.north], [WK_SHUT.east, WK_SHUT.north], [WK_SHUT.east, -12], drop]));
+  const goMech = wkRun([drop, mech]), goCap = wkRun([mech, cap]);
+  const goHome = wkRun([cap, [658, -12], [WK_SHUT.east, -12], [WK_SHUT.east, WK_SHUT.north], [xj, WK_SHUT.north], [xj, end[1]]].concat(esc.slice().reverse()));
+  const ready = desc + Math.max(handD, handM);
+  const holdDrop = Math.max(0, ready - goDrop.T) + step;
+  const tMech = goDrop.T + holdDrop + goMech.T, tCap = tMech + step + goCap.T;
+  const legs = [{ drv: goDrop, hold: holdDrop }, { drv: goMech, hold: step }, { drv: goCap, hold: step }, { drv: goHome, hold: 0 }];
+  const homeCap = wkPoly([cap, WK_LOOP[0]]).L / v, homeMech = wkPoly([mech, wkHomes().mech]).L / v;
+  return { dir, legs, pts: goDrop.poly.pts.concat(goMech.poly.pts, goCap.poly.pts, goHome.poly.pts), capWalk, mechWalk, handD, handM, step, desc,
+    tDrop: goDrop.T, tBoard: goDrop.T + holdDrop, tMech, tCap, tOffCap: tCap + step, homeCap, homeMech,
+    crew: Math.max(0, Math.max(tMech + step + homeMech, tCap + step + homeCap) - desc), fbEnd: wkLegEnd(legs) };
+}
+function wkShuttleSchedule(dir) { dir = dir === 'back' ? 'back' : 'out';
+  if (wkAllFly() || !S.wk || !(S.wk.go > 0)) return null;
+  const t0 = dir === 'back' ? S.wk.down : S.wk.go; if (!(t0 > 0)) return null;
+  const slot = dir === 'back' ? 'schBack' : 'schOut';
+  if (WK[slot] && WK[slot].t0 === t0) return WK[slot];
+  const sch = wkShuttleBuild(dir, t0); sch.t0 = t0; WK[slot] = sch; return sch; }
+function wkShuttleHold(t) { if (wkAllFly() || !S.wk || !(S.wk.go > 0)) return false;
+  if (S.wk.down > 0) { const sch = wkShuttleSchedule('back'); return !!(sch && (t - S.wk.down) / 1000 < sch.fbEnd); }
+  const sch = wkShuttleSchedule('out'); return !!(sch && (t - S.wk.go) / 1000 < sch.fbEnd); }
+function wkShuttleFlatbed(t, o) { if (!wkShuttleHold(t)) return false;
+  const dir = S.wk.down > 0 ? 'back' : 'out', sch = wkShuttleSchedule(dir); if (!sch) return false;
+  const tau = dir === 'back' ? (t - S.wk.down) / 1000 : (t - S.wk.go) / 1000;
+  const p = wkPlayLegs(sch.legs, tau); o.x = p.x; o.z = p.z; o.yaw = p.yaw; o.v = p.v; if (p.v > 0.15) o.ph = 'out'; return true; }
+function wkCargoHeld(t) {   // flatbed, refinery crane and pad-crane jobs do not finish. Whole-crew trip: until they are home. Post-Habitat: while the flatbed is the shuttle.
+  const whole = wkAllFly() && S.wk && S.wk.go > 0 && !(S.wk.down > 0 && t >= wkHomeAt());
+  return !!(whole || (typeof wkShuttleHold === 'function' && wkShuttleHold(t))); }
+function wkCargoSlide(c, t) {   // also slide the stamps so a hold that ends resumes the same remaining time. Ship stamps are not moved.
+  if (!wkCargoHeld(t)) { WK.cargoT = 0; return; }
+  const prev = WK.cargoT || t; WK.cargoT = t; const dt = t - prev; if (!(dt > 0)) return;
+  c.fb.t0 += dt; if (c.rc) c.rc += dt; if (c.rcT) c.rcT += dt;
+  if (c.ref) for (let i = 0; i < c.ref.length; i++) c.ref[i] += dt;
+  if (c.as) c.as.t0 += dt; if (c.dka) c.dka.t0 += dt; if (c.rd) c.rd.t0 += dt; if (c.dOpen) c.dOpen += dt;
+  if (c.brS) for (let i = 0; i < c.brS.length; i++) c.brS[i] += dt; }
+function wkSeatFb(key, slot) { const fb = (typeof cg3 !== 'undefined' && cg3) ? cg3.fb : null, p = WK.people[key]; if (!fb || !p || !p.obj) return;
+  const seats = { driver: [-2.4, 1.15, 0.7], mech: [-2.4, 1.15, -0.7] }, s = seats[slot] || seats[key] || seats.driver;
+  if (p.obj.parent !== fb) fb.add(p.obj); p.obj.visible = true; p.obj.position.set(s[0], s[1], s[2]); p.obj.rotation.set(0, Math.PI / 2, 0); p.obj.scale.set(1, 1, 1);
+  wkPlay(p, 'idle', 0, true); if (key === 'driver') wkIpad(false); }
+function wkPoseShuttle(t, dir) {
+  const sch = wkShuttleSchedule(dir); if (!sch) return;
+  const t0 = dir === 'back' ? S.wk.down : S.wk.go; let tau = (t - t0) / 1000; if (tau < 0) tau = 0;
+  const truck = wkPlayLegs(sch.legs, tau), side = wkSide(truck.x, truck.z, truck.yaw, 1);
+  if (dir === 'out') {
+    const capAt = wkCapSpot();
+    if (tau < sch.capWalk) wkWalkTo('driver', capAt, WK_SHUT.cap, tau);
+    else if (tau < sch.tBoardCap - sch.step) wkStand('driver', WK_SHUT.cap[0], WK_SHUT.cap[1], 0, 'idle', 0);
+    else if (tau < sch.tBoardCap) wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - (sch.tBoardCap - sch.step));
+    else if (tau < sch.tDrop) wkSeatFb('driver', 'driver');
+    else if (tau < sch.tOff) { wkWalkTo('driver', side, WK_SHUT.drop, tau - sch.tDrop); }
+    else wkPosePoly('driver', wkOutPoly('driver'), tau - sch.tOff);
+    if (tau < sch.mechWalk) wkWalkTo('mech', wkHomes().mech, WK_SHUT.mech, tau);
+    else if (tau < sch.tBoardMech - sch.step) wkStand('mech', WK_SHUT.mech[0], WK_SHUT.mech[1], Math.PI, 'idle', 0);
+    else if (tau < sch.tBoardMech) wkStand('mech', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - (sch.tBoardMech - sch.step));
+    else if (tau < sch.tDrop) wkSeatFb('mech', 'mech');
+    else if (tau < sch.tOff) wkWalkTo('mech', side, WK_SHUT.drop, tau - sch.tDrop);
+    else wkPosePoly('mech', wkOutPoly('mech'), tau - sch.tOff);
+    if (tau >= sch.tBoardCap) wkIpad(false); else wkIpad(true);
+    return; }
+  const u = tau - sch.desc;
+  if (u < 0) return;
+  if (u < sch.handD) wkPosePoly('driver', wkPoly(wkOutPoly('driver').pts.slice().reverse()), u);
+  else if (tau < sch.tDrop) wkStand('driver', WK_SHUT.drop[0], WK_SHUT.drop[1], 0, 'idle', 0);
+  else if (tau < sch.tBoard - sch.step) wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'idle', 0);
+  else if (tau < sch.tBoard) wkStand('driver', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - (sch.tBoard - sch.step));
+  else if (tau < sch.tCap) wkSeatFb('driver', 'driver');
+  else if (tau < sch.tOffCap) wkWalkTo('driver', side, WK_SHUT.cap, tau - sch.tCap);
+  else { wkWalkTo('driver', WK_SHUT.cap, WK_LOOP[0], tau - sch.tOffCap); wkIpad(true); }
+  if (u < sch.handM) wkPosePoly('mech', wkPoly(wkOutPoly('mech').pts.slice().reverse()), u);
+  else if (tau < sch.tDrop) wkStand('mech', WK_SHUT.drop[0], WK_SHUT.drop[1], 0, 'idle', 0);
+  else if (tau < sch.tBoard - sch.step) wkStand('mech', side[0], side[1], truck.yaw + Math.PI / 2, 'idle', 0);
+  else if (tau < sch.tBoard) wkStand('mech', side[0], side[1], truck.yaw + Math.PI / 2, 'up', tau - (sch.tBoard - sch.step));
+  else if (tau < sch.tMech) wkSeatFb('mech', 'mech');
+  else if (tau < sch.tMech + sch.step) wkWalkTo('mech', side, WK_SHUT.mech, tau - sch.tMech);
+  else wkWalkTo('mech', WK_SHUT.mech, wkHomes().mech, tau - sch.tMech - sch.step);
+}
 function wkBed() { return (typeof truckRoot !== 'undefined' && truckRoot) ? truckRoot.getObjectByName('Truck_Bed') : null; }
 function wkSeatOnBed(p, slot) { const bed = wkBed(); if (!p || !p.obj) return;
   const seats = { miner: [-1.7, 1.05, 0.55], driver: [-1.7, 1.05, -0.55] }, s = seats[slot] || seats.miner;
@@ -1735,7 +1853,7 @@ function wkTryBind() { if (WK.ready || !WK.boardReady || !WK.brReady || !BD.root
   const screen = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.2, 0.004), new THREE.MeshStandardMaterial({ color: 0x8ff6ff, emissive: 0x1a6ea8, emissiveIntensity: 0.85, roughness: 0.25 }));
   screen.position.z = 0.008; ip.add(body); ip.add(screen); ip.visible = false; WK.ipad = ip;
   WK.sawHab = (S.bt && S.bt.hab === 1) ? 1 : 0; WK.ready = true; wkParkIdle();
-  Object.assign(window.__ps3d, { wk: WK, wkGatherSec, wkReturnSec, wkHomes, wkArrived, minerOffAt, wkUpd, wkShouldPickup, wkPersonSec, wkDescSec, wkRoad, wkAt, wkPreHab, wkShortLaunchAllowed, wkTaxiSchedule, wkTaxiTruckAt, wkPickPt, wkPadStop }); }
+  Object.assign(window.__ps3d, { wk: WK, wkGatherSec, wkReturnSec, wkHomes, wkArrived, minerOffAt, wkUpd, wkShouldPickup, wkPersonSec, wkDescSec, wkRoad, wkAt, wkPreHab, wkShortLaunchAllowed, wkTaxiSchedule, wkTaxiTruckAt, wkPickPt, wkPadStop, wkShuttleSchedule, wkShuttleHold }); }
 
 
 // ===== camera framing (fixed camera, ~14 m wide in portrait)
@@ -2652,22 +2770,22 @@ function cgMake(tDump) {           // called at the dump time, after the cargo s
   c.ref.push(r); c.made++; cgEv('box_made', tDump);
 }
 function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a full, fuelled ship launches on its own while away too (was Director 23:00: waited for a Launch tap, sh.man), inside the 4 h cap
-  wkTryHome(t); if (typeof craneFreeze === 'function') craneFreeze(t);
+  wkTryHome(t); if (typeof craneFreeze === 'function') craneFreeze(t); if (typeof wkCargoSlide === 'function') wkCargoSlide(c, t);
   for (let g = 0; g < 50; g++) {
-    crSync(c, t); let ch = false; const f = c.fb, s = c.sh;   // gc-crane2: the attendant's walk follows the cargo state (before any lift decision)
-    if (!c.rc && f.st === 'load' && f.bed < tripN(c) && c.ref.length && c.ref[0] <= t && (!BRC.on || brWhen(c, t) <= t)) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : brPad(c, t) ? 2 : 0; } c.rcT = t; c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
+    crSync(c, t); let ch = false; const f = c.fb, s = c.sh, held = wkCargoHeld(t);   // gc-crane2: the attendant's walk follows the cargo state (before any lift decision)
+    if (!held && !c.rc && f.st === 'load' && f.bed < tripN(c) && c.ref.length && c.ref[0] <= t && (!BRC.on || brWhen(c, t) <= t)) { if (BRC.on) { brAdv(c, t); c.rcP = c.made - c.ref.length >= brArr(c, t) ? 1 : brPad(c, t) ? 2 : 0; } c.rcT = t; c.ref.shift(); c.rc = t; ch = true; cgEv('ref_crane_lift', t, { slot: f.bed + 1 }); }
     // Cargo Dock (Director 01:32, restored EM 17:48): ship can't take boxes (shipTakes: refuelling, away, hold full, Launch tap pending) → a loaded flatbed stores at
     // the Dock if stored ≤ cap − 2 (Dock full: drives through and waits at the pad); ship takes boxes → a loaded flatbed drives through to the bay
-    if (!c.rc && f.st === 'load' && f.bed >= tripN(c)) { const dB = !!S.bt && S.bt.dock === 1, st = dB && !shipTakes(c, t) && c.dk <= CFG.dock.cap - f.bed ? 'store' : '';   // gc-dockbld (Jacob 11/01): stores only at a built Dock (was: an unbuilt Dock filled invisibly, so a bought Dock could already be full)   // ca-dock (Director 01:32, restored EM 17:48): the Dock fills whenever the ship can't take boxes (refuelling on the pad included); full Dock: drives through to the bay
+    if (!held && !c.rc && f.st === 'load' && f.bed >= tripN(c)) { const dB = !!S.bt && S.bt.dock === 1, st = dB && !shipTakes(c, t) && c.dk <= CFG.dock.cap - f.bed ? 'store' : '';   // gc-dockbld (Jacob 11/01): stores only at a built Dock (was: an unbuilt Dock filled invisibly, so a bought Dock could already be full)   // ca-dock (Director 01:32, restored EM 17:48): the Dock fills whenever the ship can't take boxes (refuelling on the pad included); full Dock: drives through to the bay
       if (st || ((!dB || shipTakes(c, t)) && c.bay + f.bed <= CG.bayCap)) {   // gc-dockbld: bay can't take the bed → wait here (was: drove on to the pad while the ship was away and sat there), so a Dock bought / freed later gets it at once
  c.fb = { st: 'out', t0: t, bed: f.bed, dk: st }; c.ft = 1; ch = true; cgEv('fb_depart', t, { bed: f.bed, dock: st }); } }
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
-    if (!c.pc.k && crAt(c, t) && !copilotAway(t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back. Pad crane waits while the Co-pilot is off the crane.
+    if (!held && !c.pc.k && crAt(c, t) && !copilotAway(t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back. Pad crane waits while the Co-pilot is off the crane.
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
       else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < holdCap() && !dockBusy(c, t) && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
       else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < holdCap() && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
     }
-    if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
+    if (!held && c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (wkShouldPickup(c)) wkEnsurePickup(c, t, acc);
     if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && s.hold >= holdCap() && ((c.autoLaunch && !s.man) || (s.req && t >= s.req))) {   // Jacob 11/1: full hold only; Auto Launch or the Launch tap
       if (!wkArrived(t)) { wkEnsurePickup(c, t, acc); }
@@ -2687,33 +2805,34 @@ const dockSec = (f) => (f.dk === 'load' ? CPH.dock.loadSec : Math.max(1, f.bed |
 const tripN = (c) => c.ft ? CG.perTrip : (CG.firstTrip || CG.perTrip);   // gc-dockfix item 6: a new save's first flatbed trip leaves with CG.firstTrip crate(s); every later trip CG.perTrip
 function cgNext(c) {
   let n = Infinity; const T = (x) => { if (x < n) n = x; }, s = c.sh;
+  if (!wkCargoHeld(c.t)) {
   if (c.rc) T(c.rc + CG.refLoadSec * 1000); else if (c.fb.st === 'load' && c.fb.bed < tripN(c) && c.ref.length) { const r = BRC.on ? Math.max(c.ref[0], brWhen(c, c.t)) : c.ref[0]; if (r > c.t) T(r); }   // ca-bridgehold: the crane waits for the box on the pad
   if (c.fb.st === 'out') T(c.fb.t0 + (c.fb.dk ? FB.kD1.T : FB.kOut.T) * 1000); else if (c.fb.st === 'back') T(c.fb.t0 + FB.kBack.T * 1000);
   else if (c.fb.st === 'dock') T(c.fb.t0 + dockSec(c.fb) * 1000); else if (c.fb.st === 'out2') T(c.fb.t0 + FB.kD2.T * 1000);
   if (!c.pc.k && c.dk > 0 && s.st === 'pad' && dockBusyEnd(c) > c.t) T(dockBusyEnd(c));   // ca-dock: Dock crane free again → the next Dock-first lift
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
-  if (c.pc.k) T(pcEnd(c.pc));
+  if (c.pc.k) T(pcEnd(c.pc)); }
   if (s.st === 'board') T(s.t0 + boardSec(s) * 1000); else if (s.st === 'launch') T(s.t0 + shipDur(CG.launchSec, s) * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + shipDur(CG.awaySec, s) * 500 : s.t0 + shipDur(CG.awaySec, s) * 1000); else if (s.st === 'land') T(s.t0 + shipDur(CG.landSec, s) * 1000);
   else { if (s.hold >= holdCap() && !pcHold(c.pc.k) && fuelFinishAt(c) > c.t) T(fuelFinishAt(c)); if (s.req > c.t) T(s.req);
     if (S.wk && S.wk.go > 0 && !S.wk.down) { const arr = S.wk.go + wkGatherSec() * 1000; if (arr > c.t) T(arr); }
     if (S.wk && S.wk.down > 0) { const home = wkHomeAt(); if (home > c.t) T(home); } }
-  if (c.rd) T(c.rd.t0 + CG.rideSec * 1000);   // ca-cargoride: the crate's ride from the door shelf into Hold_NN ends
+  if (!wkCargoHeld(c.t) && c.rd) T(c.rd.t0 + CG.rideSec * 1000);   // ca-cargoride: the crate's ride from the door shelf into Hold_NN ends
   crNext(c, T);   // gc-crane2: he reaches his post / walks back in / reaches the chair
   return n;
 }
 function cgComplete(c, t, acc) {
-  if (c.rc && c.rc + CG.refLoadSec * 1000 <= t) { c.rc = 0; c.fb.bed++; cgEv('bed_loaded', t, { bed: c.fb.bed }); }
+  if (!wkCargoHeld(t) && c.rc && c.rc + CG.refLoadSec * 1000 <= t) { c.rc = 0; c.fb.bed++; cgEv('bed_loaded', t, { bed: c.fb.bed }); }
   const f = c.fb;
-  if (f.st === 'out' && f.dk && f.t0 + FB.kD1.T * 1000 <= t) { c.fb = { st: 'dock', t0: t, bed: f.bed, dk: f.dk, n: c.dk }; c.dka = { k: f.dk, t0: t, n: c.dk, s: f.dk === 'store' ? dockSec(f) : 0 }; cgEv('fb_at_dock', t, { dock: f.dk, stored: c.dk }); }
-  else if (f.st === 'dock' && f.t0 + dockSec(f) * 1000 <= t) { const ld = f.dk === 'load', k = ld ? Math.min(CG.perTrip, c.dk) : f.bed; c.dk += ld ? -k : k; c.fb = { st: 'out2', t0: t, bed: ld ? k : 0 }; cgEv('fb_dock_done', t, { dock: f.dk, stored: c.dk }); }   // ca-dock: an old save's 'load' trip takes what is left (min 2, Dock)
-  else if ((f.st === 'out' && !f.dk && f.t0 + FB.kOut.T * 1000 <= t) || (f.st === 'out2' && f.t0 + FB.kD2.T * 1000 <= t)) {
+  if (!wkCargoHeld(t) && f.st === 'out' && f.dk && f.t0 + FB.kD1.T * 1000 <= t) { c.fb = { st: 'dock', t0: t, bed: f.bed, dk: f.dk, n: c.dk }; c.dka = { k: f.dk, t0: t, n: c.dk, s: f.dk === 'store' ? dockSec(f) : 0 }; cgEv('fb_at_dock', t, { dock: f.dk, stored: c.dk }); }
+  else if (!wkCargoHeld(t) && f.st === 'dock' && f.t0 + dockSec(f) * 1000 <= t) { const ld = f.dk === 'load', k = ld ? Math.min(CG.perTrip, c.dk) : f.bed; c.dk += ld ? -k : k; c.fb = { st: 'out2', t0: t, bed: ld ? k : 0 }; cgEv('fb_dock_done', t, { dock: f.dk, stored: c.dk }); }   // ca-dock: an old save's 'load' trip takes what is left (min 2, Dock)
+  else if (!wkCargoHeld(t) && ((f.st === 'out' && !f.dk && f.t0 + FB.kOut.T * 1000 <= t) || (f.st === 'out2' && f.t0 + FB.kD2.T * 1000 <= t))) {
     if (!f.bed) { c.fb = { st: 'back', t0: t, bed: 0 }; cgEv('fb_at_pad_empty', t); }   // stored its boxes at the Dock: straight back
     else { c.fb = { st: 'unload', t0: t, bed: f.bed }; c.as = { st: 'walk_out', t0: t }; cgEv('fb_at_pad', t, { bed: f.bed }); } }
-  else if (c.fb.st === 'back' && c.fb.t0 + FB.kBack.T * 1000 <= t) { c.fb = { st: 'load', t0: t, bed: 0 }; cgEv('fb_at_refinery', t); }
-  if (c.as.st === 'walk_out' && c.as.t0 + CG.walkOutSec * 1000 <= t) { c.as = { st: 'ready', t0: t }; cgEv('astro_ready', t); }
-  else if (c.as.st === 'walk_back' && c.as.t0 + CG.walkBackSec * 1000 <= t) { c.as = { st: 'home', t0: t }; cgEv('astro_home', t); }
-  if (c.rd && c.rd.t0 + CG.rideSec * 1000 <= t) rideEnd(c, c.rd.t0 + CG.rideSec * 1000);
-  if (c.pc.k && pcEnd(c.pc) <= t) {
+  else if (!wkCargoHeld(t) && c.fb.st === 'back' && c.fb.t0 + FB.kBack.T * 1000 <= t) { c.fb = { st: 'load', t0: t, bed: 0 }; cgEv('fb_at_refinery', t); }
+  if (!wkCargoHeld(t) && c.as.st === 'walk_out' && c.as.t0 + CG.walkOutSec * 1000 <= t) { c.as = { st: 'ready', t0: t }; cgEv('astro_ready', t); }
+  else if (!wkCargoHeld(t) && c.as.st === 'walk_back' && c.as.t0 + CG.walkBackSec * 1000 <= t) { c.as = { st: 'home', t0: t }; cgEv('astro_home', t); }
+  if (!wkCargoHeld(t) && c.rd && c.rd.t0 + CG.rideSec * 1000 <= t) rideEnd(c, c.rd.t0 + CG.rideSec * 1000);
+  if (!wkCargoHeld(t) && c.pc.k && pcEnd(c.pc) <= t) {
     if (c.pc.k === 'unload') { c.bay++; cgEv('checked_in_bay', t, { bay: c.bay }); } else { if (c.rd) rideEnd(c, c.rd.t0 + CG.rideSec * 1000); c.rd = { t0: t, n: c.sh.hold, src: c.pc.k === 'dock' ? 'dock' : 'bay' }; cgEv('hold_ride', t, { slot: c.sh.hold + 1, src: c.rd.src }); }   // ca-cargoride: set on the open tray → level ride in through the door (c.rd, saved) → counted at the end
     c.pc = { k: '', t0: 0 };
   }
@@ -2726,9 +2845,9 @@ function cgComplete(c, t, acc) {
     c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
   } else if (s.st === 'away' && s.t0 + shipDur(CG.awaySec, s) * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, n: s.n, pur: s.pur, crew: crewOk(s.crew), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 }; cgEv('landing', t); }   // gc-crewpick: the pick rides home. fm keeps the landing clock
   else if (s.st === 'land' && s.t0 + shipDur(CG.landSec, s) * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
-    const left = s.left > 0 && (s.fly >= CFG.crew0) ? s.left : 0, origGo = S.wk && S.wk.go > 0 && s.fly >= CFG.crew0 ? S.wk.go : 0;
-    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; if (left > 0) payPend(left, acc); else if (origGo > 0) payPend(origGo, acc);
-    if (origGo > 0) S.wk.down = t; else if (left > 0) shiftTrucks(t - left);
+    const left = s.left > 0 && (s.fly >= CFG.crew0) ? s.left : 0, origGo = S.wk && S.wk.go > 0 ? S.wk.go : 0;
+    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; if (left > 0) payPend(left, acc); else if (origGo > 0 && s.fly >= CFG.crew0) payPend(origGo, acc);
+    if (origGo > 0) S.wk.down = t; else if (left > 0) shiftTrucks(t - left);   // post-Habitat pair comes back down the ladder too. Truck stamps shift only for a whole-crew trip (wkTryHome).
     fuelAnchor(c, t, 0); cgEv('landed', t); crewLand(c, t, s.crew);   // pre-Habitat: trucks stay frozen at S.wk.go until wkTryHome shifts them. Picked crew join on touchdown.
     if (s.cargo > 0) cgDeliver(c, s.cargo, s.pur, t, acc);   // saves from before Step 2 that were already away carry no cargo (paid at the climb); payAt 'earth' already zeroed it
   }
@@ -3421,7 +3540,14 @@ function crGet(c) { let r = c.cr;
 const crTau = (r, t) => r.m === 'room' ? BRD.seat[0] : brAdvU(r.u0, (t - r.t0) / 1000, r.m === 'out' ? BR_PATH.T : BRD.seat[0]);
 const crPostAt = (r) => r.t0 + brDur(r.u0, BR_PATH.T) * 1000;
 const crAt = (c, t) => { const r = crGet(c); return r.m === 'out' && t >= crPostAt(r) - 1; };   // at his post (1 ms float slack)
-function crSync(c, t) { const r = crGet(c), d = crDuty(c), T = BR_PATH.T;
+let crHoldT = 0;
+function crSync(c, t) { const r = crGet(c);
+  if (typeof wkCmBusy === 'function' && wkCmBusy(t)) {   // Cargo Manager is off the break room: slide his clock so the loop holds and does not jump when he is back
+    const prev = crHoldT || t; crHoldT = t; const dt = t - prev;
+    if (dt > 0) { r.t0 += dt; if (r.o) r.o += dt; }
+    return; }
+  crHoldT = 0;
+  const d = crDuty(c), T = BR_PATH.T;
   if (r.m === 'back' && !d) { const tS = r.t0 + brDur(r.u0, BRD.seat[0]) * 1000; if (t >= tS - 1) { r.m = 'room'; r.t0 = tS; r.u0 = BRD.seat[0]; } }
   if (d) { r.o = 0;
     if (r.m === 'room') { r.m = 'out'; r.t0 = t; r.u0 = BRD.stand; cgEv('crew_out', t); }
@@ -3612,7 +3738,7 @@ function rxPose(c, t, ap) {           // Receiver clips are sampled from S.cg ti
 }
 function updCargo() {
   if (!cg3.fb || !FB.kOut) return; const c = S.cg, t = nowMs(); brFrame(c, t);
-  fbPoseAt(c, t, FBS); const fb = cg3.fb; fb.position.set(FBS.x, 0, FBS.z); fb.rotation.set(0, FBS.yaw, 0); fb.updateMatrixWorld(true);
+  fbPoseAt(c, t, FBS); if (typeof wkShuttleFlatbed === 'function') wkShuttleFlatbed(t, FBS); const fb = cg3.fb; fb.position.set(FBS.x, 0, FBS.z); fb.rotation.set(0, FBS.yaw, 0); fb.updateMatrixWorld(true);
   if (FBS.wx !== null) { const dx = FBS.x - FBS.wx, dz = FBS.z - FBS.wz; if (Math.hypot(dx, dz) < 20) FBS.wa += (dx * Math.cos(FBS.yaw) - dz * Math.sin(FBS.yaw)) / cg3.wheelR; }   // roll by real distance
   FBS.wx = FBS.x; FBS.wz = FBS.z;
   if (cg3.wheelNodes) for (const w of cg3.wheelNodes) w.b.quaternion.copy(w.q0).multiply(_cq2.setFromAxisAngle(_X, FBS.wa));
