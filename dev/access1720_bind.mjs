@@ -1,7 +1,7 @@
 // Scene side of the 1720 crew access. Timing and IK live in access1720.mjs.
 import {
   nominalRungs, showTimes, poseShow, outwardOf, rungsLocal, climbDur,
-  DEPLOY_T, STOW_T0, CLIP_END, DOOR_SEC,
+  DEPLOY_T, STOW_T0, CLIP_END, DOOR_SEC, STOW_TEL_T1, STOW_TEL_SEC, STOW_SLIDE_SEC,
 } from './access1720.mjs';
 
 export const HULL_URL = '../qa3d-next/models/hull_channel_relief_1720_4700a081.glb?v=4700a081';
@@ -24,8 +24,10 @@ export function createAccess(THREE) {
   function clipAt(tb, show) {
     if (tb < show.deploy) return (tb / show.deploy) * DEPLOY_T;
     if (tb < show.stow) return DEPLOY_T;
-    const u = Math.min(1, (tb - show.stow) / (CLIP_END - STOW_T0));
-    return STOW_T0 + u * (CLIP_END - STOW_T0);
+    const dt = tb - show.stow;
+    if (dt < STOW_TEL_SEC) return STOW_T0 + (dt / STOW_TEL_SEC) * (STOW_TEL_T1 - STOW_T0);
+    const u = Math.min(1, (dt - STOW_TEL_SEC) / STOW_SLIDE_SEC);
+    return STOW_TEL_T1 + u * (CLIP_END - STOW_TEL_T1);
   }
   function doorAt(tb, show) {
     let k = 1;

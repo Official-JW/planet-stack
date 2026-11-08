@@ -5,6 +5,9 @@
 export const DEPLOY_T = 82 / 16;          // last fully deployed frame of Animation
 export const STOW_T0 = 82 / 16;
 export const CLIP_END = 159 / 16;
+export const STOW_TEL_T1 = 108 / 16;
+export const STOW_TEL_SEC = 3;
+export const STOW_SLIDE_SEC = 2;
 export const CLIMB_V = 0.8;                // m/s up the rungs
 export const GAP = 1.5;                   // seconds between one climber finishing and the next starting
 export const WALK_V = 1.4;
@@ -311,7 +314,7 @@ export function showTimes(n, rungs, walkDist) {
   const last = finish.length ? finish[finish.length - 1].inside : start0;
   const close = last;
   const stow = close + DOOR_SEC;
-  const launch = stow + (CLIP_END - STOW_T0);
+  const launch = stow + STOW_TEL_SEC + STOW_SLIDE_SEC;
   return { deploy, walk, climb, deck, per, start0, finish, close, stow, launch, gap: GAP };
 }
 

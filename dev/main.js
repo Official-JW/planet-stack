@@ -2243,7 +2243,23 @@ function accessUpdate(tb) {
   const info = ACC.tick(tb, people);
   if (info) window.__ps3d.access1720 = { tb: +tb.toFixed(2), clip: +info.clip.toFixed(3), door: +info.door.toFixed(2), n: people.length, rungs: ACC.A.rungs.length, launch: +info.show.launch.toFixed(2) };
   const live = people.find((p) => p.obj.visible);
-  if (live && viewingPad()) {
+  const show = info && info.show;
+  if (show && viewingPad() && tb >= show.close) {
+    const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
+    if (hull) {
+      const look = new THREE.Vector3(-1.419532, 16.5, 4.950498).applyMatrix4(hull.matrixWorld);
+      const destLx = look.x, destLy = look.y, destLz = look.z, destK = 1;
+      if (BC.ph !== 'door' && BC.ph !== 'stow') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
+      const from = BC._stowFrom || { lx: destLx, ly: destLy, lz: destLz, k: destK };
+      const u = tb < show.stow ? Math.max(0, Math.min(1, (tb - show.close) / Math.max(1e-4, show.stow - show.close))) : 1;
+      const s = u * u * (3 - 2 * u);
+      BC.lx = from.lx + (destLx - from.lx) * s;
+      BC.ly = from.ly + (destLy - from.ly) * s;
+      BC.lz = from.lz + (destLz - from.lz) * s;
+      BC.k = from.k + (destK - from.k) * s;
+      BC.w = 1; BC.ph = tb < show.stow ? 'door' : 'stow'; BC.tb = tb;
+    }
+  } else if (live && viewingPad()) {
     const w = new THREE.Vector3(); live.obj.getWorldPosition(w);
     BC.lx = w.x; BC.ly = w.y + 0.9; BC.lz = w.z; BC.k = 0.28; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
   }
