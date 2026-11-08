@@ -1068,7 +1068,7 @@ function stripClickRock(root) {
 // Merged Base_Paint / Base_GlowCyan faces are dropped by world centroid against the eight glTF AABBs in
 // qa/art/drill_v3h/suppress/suppress_v3h.json. Centroids are in the Mine asset's glTF frame (mesh.matrixWorld
 // with the station offset undone). Raw triangle indices are not used: gltfpack -noq reorders them.
-const DRILL_V3H_GLB = '../qa3d-next/models/mine_drill_v3h_a489aa6a.glb?v=a489aa6a';
+const DRILL_V3H_GLB = '../qa3d-next/models/mine_drill_v3h_c2c_a611a50d.glb?v=a611a50d';
 const V3H_MINE_MD5 = 'c9a9394e3635f99f59423a4630ae6ae7';
 const V3H_AABBS = [
   { name: 'PLANT', min: [-5.40, -0.30, -10.20], max: [14.20, 9.90, 12.20] },
@@ -1453,7 +1453,7 @@ function v3hMount(gltf) {
   v3hMergeStatic(root);
   rig = root.getObjectByName('Drill_Rig') || rig;
   v3hBindBeds();
-  const info = { glb: DRILL_V3H_GLB, md5: 'a489aa6a3f94ac80d72c4bb61994a9be', hide: gone, suppress: V3H.suppress, supports: V3H.supports.length, oreDraws: V3H.ore.length };
+  const info = { glb: DRILL_V3H_GLB, md5: 'a611a50d9a254d9a6e97f423d38d6289', hide: gone, suppress: V3H.suppress, supports: V3H.supports.length, oreDraws: V3H.ore.length };
   window.__ps3d.v3h = info;
   v3hCaptureTruck(); v3hClearanceMaybe();
   console.info('[v3h] mounted', info);
