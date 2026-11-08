@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { createAccess, accessSeconds, HULL_URL, ACCESS_URL } from './access1720_bind.mjs';
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
@@ -2184,8 +2185,11 @@ const CAMLOOK = { lx: 0, ly: 0, lz: 0, k: 1 };
 // so the sim, offline catch-up and reload never depend on the art: lead-in (camera ease-in) + last flying climber inside + hold + ease-out.
 const BOARD_INSIDE = { Crew_1: 47.79, Crew_2: 51.19, Crew_3: 54.59, Crew_4: 57.99 };   // crew_boarding.glb extras.inside_hatch_s (checked on load)
 const BOARD_FLY = CREW.filter(c => c.board);   // every climber in the clip; flyCrew() chooses who is visible this trip
+const ACC = createAccess(THREE);
 function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-out. Pre-Habitat this is the old 4-crew BOARD_SEC.
   const fly = flyCrew(sh || (S.cg && S.cg.sh) || null); if (!BD.on || !fly.length) return 0;
+  // 1720 ladder: deploy, one climber at a time, stow, then launch. Nominal until the mesh rungs are read.
+  if (!ACC.A.failed) return accessSeconds(fly.length, ACC.A.rungs);
   let m = 0; for (const c of fly) { const ins = BOARD_INSIDE[c.board] || 0; if (ins > m) m = ins; }
   return BCAM.in + m + BCAM.hold + BCAM.out;
 }
@@ -2202,7 +2206,74 @@ function crewPose(tb) {                // pure: tb seconds since the launch
 // frame is drawn (every climber ≥ minPx from their first visible frame); clip timing relative to each other is unchanged.
 const crewCamAt = (tb, o = BC) => BD.fc.at(tb - BD.pre, o), crewCamW = (tb) => BD.fc.w(tb - BD.pre), crewPoseB = (tb) => crewPose(tb - BD.pre);
 const viewingPad = () => S.site === PADI && Math.abs(camX - PX) < 3 && !drag;
+const ACC_KEY = { Miner: 'miner', 'Mine Driver': 'driver', Mechanic: 'mech', 'Cargo Manager': 'cm' };
+const ACC_PFX = { miner: 'C3', driver: 'C4', mech: 'C1', cm: 'C2' };
+function accessPeople() {
+  const out = [];
+  for (const c of flyCrew(S.cg && S.cg.sh)) {
+    const k = ACC_KEY[c.role], p = WK.people[k]; if (!p || !p.obj) continue;
+    const pfx = ACC_PFX[k];
+    if (!p._accRest) {
+      p._accRest = {};
+      for (const name of ['Hips', 'Spine', 'Chest', 'Neck', 'Head']) {
+        const b = p.obj.getObjectByName(pfx + '_' + name);
+        if (b) p._accRest[name] = b.quaternion.clone();
+      }
+    }
+    out.push({ obj: p.obj, pfx, rest: p._accRest, stand: p._accStand || null, mx: p.mx, acts: p.acts });
+  }
+  return out;
+}
+function accessUpdate(tb) {
+  if (!ACC.A.ready) return;
+  const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder'); if (!hull) return;
+  const people = accessPeople();
+  for (const p of people) {
+    if (p.mx && !p.obj.userData._accHeld) {
+      if (p.acts) for (const n in p.acts) p.acts[n].setEffectiveWeight(0);
+      p.obj.userData._accHeld = 1;
+    }
+    if (p.obj.parent !== hull) {
+      p.obj.updateWorldMatrix(true, false);
+      hull.attach(p.obj);
+      p.stand = p.obj.position.clone();
+      p.obj.userData._accStand = p.stand;
+    } else p.stand = p.obj.userData._accStand || p.obj.position.clone();
+  }
+  const info = ACC.tick(tb, people);
+  if (info) window.__ps3d.access1720 = { tb: +tb.toFixed(2), clip: +info.clip.toFixed(3), door: +info.door.toFixed(2), n: people.length, rungs: ACC.A.rungs.length, launch: +info.show.launch.toFixed(2) };
+  const live = people.find((p) => p.obj.visible);
+  if (live && viewingPad()) {
+    const w = new THREE.Vector3(); live.obj.getWorldPosition(w);
+    BC.lx = w.x; BC.ly = w.y + 0.9; BC.lz = w.z; BC.k = 0.28; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
+  }
+}
+function accessLoad(rig) {
+  const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull) return;
+  let hullG = null, accG = null, bad = false;
+  const fail = (e) => { bad = true; ACC.A.failed = true; console.warn('crew access 1720 failed (served hull stays)', e); };
+  const done = () => {
+    if (bad || !hullG || !accG) return;
+    try {
+      const old = [];
+      for (const c of hull.children) if (c.isMesh && !c.name) old.push(c);
+      for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
+      const info = ACC.bind(hullG, accG, hull, old);
+      const meshes = []; hullG.scene.traverse((m) => { if (m.isMesh) meshes.push(m); });
+      try { const cw = cockpitWindowPrep(rig, meshes); if (cw && cw.n) { cg3.cockpit = cw; window.__ps3d.cockpit = cw; } } catch (e) { console.warn('cockpit retarget', e); }
+      window.__ps3d.access1720 = info;
+    } catch (e) { fail(e); }
+  };
+  loader.load(HULL_URL, (g) => { hullG = g; done(); }, undefined, fail);
+  loader.load(ACCESS_URL, (g) => { accG = g; done(); }, undefined, fail);
+}
 function updCrew() {
+  const bNow = boardOf();
+  if (ACC.A.ready && bNow) { accessUpdate((nowMs() - bNow.B) / 1000); crewOnPad(); return; }
+  if (ACC.A.ready) {
+    const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
+    if (hull) for (const p of accessPeople()) if (p.obj.parent === hull) { scene.attach(p.obj); p.obj.userData._accStand = null; p.obj.userData._accHeld = 0; }
+  }
   wkUpd(nowMs());
   if (!BD.root) { crewOnPad(); return; }
   const b = boardOf(), tb = b ? (nowMs() - b.B) / 1000 : -1, act = !!b && tb >= 0 && tb < BD.lift;
@@ -4259,6 +4330,7 @@ function padLoaded(g) {
   window.__ps3d.padRouteChanged = before !== CPH.pad.unload.join() + CPH.pad.uturn.join();   // false: the defaults already are this GLB's markers
   if (cg3.rx) { const rv = findA(o, CARGO_ALIAS.receive); cg3.rx.root.position.copy(rv.getWorldPosition(new THREE.Vector3())); cg3.rx.root.quaternion.copy(rv.getWorldQuaternion(new THREE.Quaternion())); }
   stationObjs[PADI] = o; o.userData.camTarget = camTargetOf(o); o.userData.camOv = camOvFor(PAD_GLB); fitSite(PADI); padRoadCheck(); window.__ps3d.pad = o;
+  accessLoad(rig);
 }
 function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder at Attach_Hold (rides launch / landing with the hull); a failed load just leaves the hull bare
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull || Q.get('hold') === 'off') return;
@@ -5724,6 +5796,7 @@ function frame() {
   updFillArc();
   updRefDust(); updChunks(dt); updFx(dt); updHL(); updGlow(); updTiers(dt);
   updEve(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
+  { const bLate = boardOf(); if (ACC.A.ready && bLate) accessUpdate((nowMs() - bLate.B) / 1000); }
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); upUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
   renderer.render(scene, camera); upPoseRec();
