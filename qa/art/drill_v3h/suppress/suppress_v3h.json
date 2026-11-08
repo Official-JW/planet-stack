@@ -1,0 +1,402 @@
+{
+  "title": "Merged-face suppression for served mine_revamp_c9a9394e.glb when keeping Base_Paint / Base_GlowCyan alongside v3h",
+  "written": "2026-11-07T13:55:00-08:00",
+  "zone": "America/Los_Angeles",
+  "served_glb": {
+    "filename": "mine_revamp_c9a9394e.glb",
+    "md5": "c9a9394e3635f99f59423a4630ae6ae7",
+    "extensions": [
+      "KHR_mesh_quantization",
+      "EXT_meshopt_compression"
+    ],
+    "note": "No Draco. Positions on these primitives decode via meshopt ATTRIBUTES + EXPONENTIAL filter to float32 (accessor componentType 5126); KHR_mesh_quantization does not rescale them."
+  },
+  "decode": {
+    "runtime": "THREE.GLTFLoader with MeshoptDecoder (GLTFLoader.js GLTFMeshoptCompression.loadBufferView calls MeshoptDecoder.decodeGltfBuffer / decodeGltfBufferAsync)",
+    "this_pass": "meshoptimizer 1.2 MeshoptDecoder.decodeGltfBuffer \u2014 same decoder and arguments the loader uses",
+    "gltfpack_noq": "gltfpack 1.3 -noq -kn -km -ke of the official packed file was compared. Triangle SET is identical; vertex and index ORDER are not. Paint vertex count changed 7056 -> 7049 (7 welded).",
+    "vertex_index_order_vs_GLTFLoader": "Use the meshoptimizer/Three.js decode of the official packed bytes. Do not assume gltfpack -noq preserves order."
+  },
+  "recommended_recipe": "world_space_centroid_aabb_union",
+  "recommended_reason": "Matches the original Blender cut_faces_in_box predicate (world-space face centroid inside an inclusive AABB). Stable across meshopt decode, gltfpack -noq, and any future re-pack/quantize. A connected-island list is unnecessary: the authoring boxes already isolate hopper/silo/supports/scrap (v3) plus the earlier derrick/pad/scrap (v1/v2). A split would be an art export, which this pass does not do.",
+  "raw_triangle_index_masks": {
+    "valid_after_meshopt_decode_of_this_exact_served_file": "Yes \u2014 Three.js GLTFLoader of md5 c9a9394e3635f99f59423a4630ae6ae7 produces a deterministic vertex/index order, so a mask of triangle slots would drop the intended faces on that exact decode.",
+    "valid_after_gltfpack_noq": false,
+    "valid_after_any_repack_or_requantize": false,
+    "do_not_ship": true,
+    "evidence": "gltfpack -noq -kn -km -ke reordered both primitives and welded 7 Base_Paint vertices (7056 vs 7049) while keeping the same 8305/1874 triangle set. A raw index mask from the unpack would delete the wrong triangles in GLTFLoader."
+  },
+  "face_test": {
+    "predicate": "For each triangle, compute the world-space centroid of its three vertices. Drop the triangle if the centroid is inside ANY listed AABB (inclusive on all six faces).",
+    "source": "/workspace/art_next/mine_drill_concept_1107/_src/build_drill_concept_v3.py cut_faces_in_box (lines 32-55) and the v3 PLANT/TEAL boxes (lines 155-171). v1 and v2 used the same function with different boxes.",
+    "parent_filter": "Only meshes whose parent name starts with Base_Paint or Base_GlowCyan. On the served GLB that is one unnamed mesh child each (Three.js: Base_Paint.children[0], Base_GlowCyan.children[0]; Blender import names Mesh_1 and Mesh_0).",
+    "transforms": "Served parent empties and mesh children have identity transforms, so local == world == glTF +Y-up coordinates. Still multiply by mesh.matrixWorld so a later scene offset stays correct."
+  },
+  "axes": {
+    "boxes_below_are": "glTF / Three.js (+Y up)",
+    "blender_to_gltf": "gltf(x, y, z) = blender(x, z, -y)",
+    "gltf_to_blender": "blender(x, y, z) = gltf(x, -z, y)"
+  },
+  "layers": {
+    "v3_plant": {
+      "what": "Hopper cone+legs+pipe, silo/dome, chute supports, leftover teal scrap near the old hopper foot. Everything plant-side of the drill (blender x > -5.40). Do not treat this layer as a drill-side cut.",
+      "script": "build_drill_concept_v3.py PLANT + TEAL, applied after named hides, on meshes that had already received the v1 and v2 cuts (v3 was a copy of v2).",
+      "boxes": [
+        "PLANT",
+        "TEAL"
+      ]
+    },
+    "v1_v2_prior": {
+      "what": "Old merged derrick/mast (v1 DERRICK_BOX + DERRICK_TALL), circular pad scraps (v1 PAD_BOX, v2 PAD_A + PAD_B), leftover drill-side scrap (v2 SCRAP). Already applied in the v2 blend that v3 copied, so they never appear in v3/v3h study meshes.",
+      "required_on_raw_served_glb": true,
+      "reason": "Named-node hides (Rig, Conveyor, Silo, \u2026) do not remove these fragments; they live inside the merged Base_Paint / Base_GlowCyan primitives. Applying only the v3 boxes leaves them in game.",
+      "boxes": [
+        "DERRICK_BOX",
+        "DERRICK_TALL",
+        "PAD_BOX",
+        "PAD_A",
+        "PAD_B",
+        "SCRAP"
+      ]
+    }
+  },
+  "aabbs_gltf": {
+    "PLANT": {
+      "min": [
+        -5.4,
+        -0.3,
+        -10.2
+      ],
+      "max": [
+        14.2,
+        9.9,
+        12.2
+      ],
+      "blender": [
+        -5.4,
+        14.2,
+        -12.2,
+        10.2,
+        -0.3,
+        9.9
+      ],
+      "layer": "v3_plant",
+      "note": "blender (xmin,xmax,ymin,ymax,zmin,zmax)"
+    },
+    "TEAL": {
+      "min": [
+        -5.8,
+        0.2,
+        -6.6
+      ],
+      "max": [
+        1.8,
+        2.4,
+        1.5
+      ],
+      "blender": [
+        -5.8,
+        1.8,
+        -1.5,
+        6.6,
+        0.2,
+        2.4
+      ],
+      "layer": "v3_plant",
+      "note": "leftover cyan scrap near old hopper foot; extends 0.40 m further in -X than PLANT"
+    },
+    "DERRICK_BOX": {
+      "min": [
+        -11.2,
+        0.05,
+        -6.4
+      ],
+      "max": [
+        -4.5,
+        18.5,
+        -1.4
+      ],
+      "blender": [
+        -11.2,
+        -4.5,
+        1.4,
+        6.4,
+        0.05,
+        18.5
+      ],
+      "layer": "v1_v2_prior"
+    },
+    "DERRICK_TALL": {
+      "min": [
+        -11.2,
+        3.8,
+        -6.4
+      ],
+      "max": [
+        -3.7,
+        18.5,
+        -1.4
+      ],
+      "blender": [
+        -11.2,
+        -3.7,
+        1.4,
+        6.4,
+        3.8,
+        18.5
+      ],
+      "layer": "v1_v2_prior"
+    },
+    "PAD_BOX": {
+      "min": [
+        -9.7,
+        -0.06,
+        -5.4
+      ],
+      "max": [
+        -5.3,
+        0.85,
+        -1.9
+      ],
+      "blender": [
+        -9.7,
+        -5.3,
+        1.9,
+        5.4,
+        -0.06,
+        0.85
+      ],
+      "layer": "v1_v2_prior"
+    },
+    "PAD_A": {
+      "min": [
+        -14.7,
+        -0.35,
+        -6.9
+      ],
+      "max": [
+        -5.1,
+        1.2,
+        4.4
+      ],
+      "blender": [
+        -14.7,
+        -5.1,
+        -4.4,
+        6.9,
+        -0.35,
+        1.2
+      ],
+      "layer": "v1_v2_prior"
+    },
+    "PAD_B": {
+      "min": [
+        -13.4,
+        -0.35,
+        -1.52
+      ],
+      "max": [
+        -5.1,
+        1.5,
+        4.4
+      ],
+      "blender": [
+        -13.4,
+        -5.1,
+        -4.4,
+        1.52,
+        -0.35,
+        1.5
+      ],
+      "layer": "v1_v2_prior"
+    },
+    "SCRAP": {
+      "min": [
+        -12.4,
+        1.0,
+        -6.8
+      ],
+      "max": [
+        -5.2,
+        6.4,
+        1.1
+      ],
+      "blender": [
+        -12.4,
+        -5.2,
+        -1.1,
+        6.8,
+        1.0,
+        6.4
+      ],
+      "layer": "v1_v2_prior"
+    }
+  },
+  "primitives": [
+    {
+      "parent_node": "Base_Paint",
+      "served_node_index": 13,
+      "child_node_index": 1,
+      "mesh_index": 1,
+      "primitive_index": 0,
+      "mesh_name": null,
+      "blender_import_name": "Mesh_1",
+      "material": "SHM_Paint",
+      "decoded_vertex_count": 7056,
+      "decoded_triangle_count": 8305,
+      "index_accessor": 7,
+      "position_accessor": 4,
+      "index_range": [
+        0,
+        7055
+      ],
+      "counts": {
+        "per_box_independent": {
+          "PLANT": 4750,
+          "TEAL": 337,
+          "DERRICK_BOX": 1073,
+          "DERRICK_TALL": 202,
+          "PAD_BOX": 277,
+          "PAD_A": 1730,
+          "PAD_B": 1104,
+          "SCRAP": 1520
+        },
+        "v3_union_on_raw_served": 4773,
+        "v1v2_union_on_raw_served": 3349,
+        "overlap_v1v2_and_v3": 132,
+        "v3_incremental_after_v1v2": 4641,
+        "remembered_v3_incremental": 4641,
+        "full_union_recommended": 7990,
+        "remaining_after_full_union": 315
+      },
+      "remaining_after_full_union_centroid_aabb_gltf": {
+        "min": [
+          -12.067708333333334,
+          -0.048828125,
+          -9.0234375
+        ],
+        "max": [
+          -5.425455729166667,
+          0.599609375,
+          -6.9033203125
+        ],
+        "note": "Low drill-side ground skirt outside the v1/v2 pad boxes. Matches the 315 faces left on Mesh_1 in mine_drill_concept_v3.blend and v3h.blend."
+      }
+    },
+    {
+      "parent_node": "Base_GlowCyan",
+      "served_node_index": 12,
+      "child_node_index": 0,
+      "mesh_index": 0,
+      "primitive_index": 0,
+      "mesh_name": null,
+      "blender_import_name": "Mesh_0",
+      "material": "SHM_GlowCyan",
+      "decoded_vertex_count": 1932,
+      "decoded_triangle_count": 1874,
+      "index_accessor": 3,
+      "position_accessor": 0,
+      "index_range": [
+        0,
+        1931
+      ],
+      "counts": {
+        "per_box_independent": {
+          "PLANT": 1164,
+          "TEAL": 219,
+          "DERRICK_BOX": 582,
+          "DERRICK_TALL": 181,
+          "PAD_BOX": 174,
+          "PAD_A": 474,
+          "PAD_B": 238,
+          "SCRAP": 424
+        },
+        "v3_union_on_raw_served": 1197,
+        "v1v2_union_on_raw_served": 832,
+        "overlap_v1v2_and_v3": 155,
+        "v3_incremental_after_v1v2": 1042,
+        "remembered_v3_incremental": 1041,
+        "full_union_recommended": 1874,
+        "remaining_after_full_union": 0
+      },
+      "note": "After the recommended full AABB union this primitive is empty. Hiding the Base_GlowCyan node is visually equivalent. The v3 and v3h study blends already store Mesh_0 with 0 faces and 0 verts."
+    }
+  ],
+  "count_reconciliation": {
+    "remembered": {
+      "Base_Paint": 4641,
+      "Base_GlowCyan": 1041
+    },
+    "explanation": "Those remembered totals are the incremental V3_PLANT_CUT (PLANT \u222a TEAL) printed after v3 ran on a copy of the already-cut v2 blend, not the raw served primitives. On the meshopt-decoded served file, PLANT \u222a TEAL contains 4773 paint + 1197 glow triangles, of which 132 paint + 155 glow also sit in a v1/v2 box and had already been deleted before the v3 script ran. Incremental = 4773-132 = 4641 paint (exact) and 1197-155 = 1042 glow (one more than the remembered 1041).",
+    "glow_off_by_one": "The extra glow triangle is index 669 in the Three.js-decoded Base_GlowCyan primitive. Its centroid is (-5.0824, 1.2904, -1.3971) in glTF coordinates, 2.9 mm outside DERRICK_BOX (nearest prior box). A Blender import of a gltfpack -noq unpack (which the authoring pipeline used, because Blender 4.2 cannot decode meshopt) can nudge that centroid across the box face, so the logged V3_PLANT_CUT glow total can read 1041. Apply the AABB test, not a hardcoded 1041, so this boundary triangle is classified consistently.",
+    "study_blend_remaining": {
+      "mine_drill_concept_v3.blend": {
+        "Mesh_1_Base_Paint": 315,
+        "Mesh_0_Base_GlowCyan": 0
+      },
+      "mine_drill_concept_v3h.blend": {
+        "Mesh_1_Base_Paint": 315,
+        "Mesh_0_Base_GlowCyan": 0
+      },
+      "matches_full_union": true
+    }
+  },
+  "named_hides_do_not_replace_this": [
+    "Rig",
+    "Drill_Pocket",
+    "Dust",
+    "Conveyor",
+    "OrePath_Bin_00",
+    "OrePath_Bin_01",
+    "OrePath_Bin_02",
+    "OrePath_Bin_03",
+    "OrePath_Bin_04",
+    "OrePath_Bin_05",
+    "OrePath_Bin_06",
+    "OrePath_Bin_07",
+    "OrePath_Bin_08",
+    "OrePath_Bin_09",
+    "OrePath_Bin_10",
+    "Chute",
+    "Chute_Glow",
+    "Chute_Exit",
+    "Silo",
+    "Silo_BinFill",
+    "OrePath_Silo_00",
+    "OrePath_Silo_01",
+    "OrePath_Silo_02",
+    "OrePath_Silo_03",
+    "OrePath_Silo_04",
+    "OrePath_Silo_05",
+    "OrePath_Silo_06",
+    "Deposit_01",
+    "Deposit_02",
+    "Rich_Pop"
+  ],
+  "do_not_hide_by_prefix_Conveyor": "Conveyor_Gallery is the new v3h gallery and must not match a startswith('Conveyor') hide.",
+  "additional_named_hides_to_match_study": {
+    "why": "v1 build_drill_concept.py HIDE_NODES hid Tier_03/05/08/12/20 as served-base (Lv 1) upgrades. The v3+ study blends keep those hides. They are the detailed visual hopper (Tier_05), upgraded silo (Tier_12), tall derrick cap (Tier_20), plus Tier_03 and Tier_08. EXPORT_v3h.md said to keep the Tiers; that resurrects hopper and silo even after the merged-face AABB cut and the Silo/Conveyor/Chute/Rig hides.",
+    "nodes": [
+      "Tier_03",
+      "Tier_05",
+      "Tier_08",
+      "Tier_12",
+      "Tier_20"
+    ],
+    "child_meshes_after_blender_import": {
+      "Tier_03": "Mesh_5",
+      "Tier_05": "Mesh_6 (hopper cone + legs)",
+      "Tier_08": "Mesh_7",
+      "Tier_12": "Mesh_8 (upgraded silo)",
+      "Tier_20": "Mesh_9 (tall derrick cap, blender Z 13.53\u201321.78 at the old Rig XY)"
+    },
+    "in_three_js": "scene.getObjectByName('Tier_05') etc. \u2014 hide the named empty and its mesh child (same unnamed-child pattern as Base_Paint)."
+  },
+  "eye_check": {
+    "primary_image": "suppress_v3h_over_mine.png",
+    "plant_side_image": "suppress_v3h_plant_side.png",
+    "export_hides_only_image": "suppress_v3h_over_mine_export_hides_only.png",
+    "with_study_hides": "PASS: no old hopper, silo, circular pad, derrick or plant supports. New v3h drill, gallery and funnel remain. 315 leftover Base_Paint triangles are a low drill-side ground skirt (glTF centroid AABB x[-12.07,-5.43], y[-0.05,0.60], z[-9.02,-6.90]), not plant.",
+    "export_named_hides_without_tiers": "FAIL for hopper/silo: Tier_05 (hopper) and Tier_12 (silo) stay visible. See export_hides_only images."
+  }
+}
