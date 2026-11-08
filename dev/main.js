@@ -1481,7 +1481,8 @@ function v3hFlattenSpout() {
   truck.traverse(o => { if (o.isMesh && o.material && o.material.name === 'SHM_Paint' && o.geometry && !o.geometry.userData.v3hLump && o.geometry.attributes.position.count > 1000) meshes.push(o); });
   const v = new THREE.Vector3();
   const tx = truck.position.x, tz = truck.position.z;
-  const inLump = (p) => p.y > 3.05 && p.y < 5.8 && p.x < tx - 2.4 && p.x > tx - 4.3 && p.z > tz + 0.5 && p.z < tz + 1.75;
+  // The smooth cluster sits mid-bed under the spout (about 1.5 m behind the truck origin). Corner posts are farther out in z.
+  const inLump = (p) => p.y > 3.15 && p.y < 5.8 && p.x < tx - 0.7 && p.x > tx - 2.6 && p.z > tz - 0.9 && p.z < tz + 0.9;
   for (const mesh of meshes) {
     if (typeof mesh.applyBoneTransform !== 'function') continue;
     mesh.updateWorldMatrix(true, false); if (mesh.skeleton) mesh.skeleton.update();
