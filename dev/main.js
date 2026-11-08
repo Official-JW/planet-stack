@@ -1367,8 +1367,8 @@ function v3hBuildOre(root) {
   heap.forEach((p, i) => assign[mix[i % mix.length]].push(p));
   const spec = [
     { id: 'S', node: 'Ore_Variant_S', belt: 6, pour: 0, bed: assign.S.length, lift: 0.02 },
-    { id: 'M', node: 'Ore_Variant_M', belt: 6, pour: 6, bed: assign.M.length, lift: 0.05 },
-    { id: 'L', node: 'Ore_Variant_L', belt: 4, pour: 10, bed: assign.L.length, lift: 0.08 },
+    { id: 'M', node: 'Ore_Variant_M', belt: 6, pour: 0, bed: assign.M.length, lift: 0.05 },
+    { id: 'L', node: 'Ore_Variant_L', belt: 4, pour: 7, bed: assign.L.length, lift: 0.08 },
     { id: 'G', node: 'Ore_Variant_Glint', belt: 1, pour: 0, bed: assign.G.length, lift: 0.03 },
   ];
   let qi = 0;
@@ -1383,10 +1383,9 @@ function v3hBuildOre(root) {
     im.name = 'V3H_Ore_' + s.id; im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false;
     const slots = [];
     for (let i = 0; i < s.belt; i++) slots.push({ kind: 'belt', u0: i / s.belt, q: quat(), j: v3hHash(qi + i) * 2 - 1, sc: 0.94 + v3hHash(qi + 17 + i) * 0.1 });
-    // L is 21 cm and M is 14 cm in the GLB. At the default Mine camera that is about 6 px, so the
-    // falling stream is drawn from the larger variants at a fixed multiple. The bed heap stays at 1.
-    const pourSc = s.id === 'L' ? 2.7 : 2.35;
-    for (let i = 0; i < s.pour; i++) slots.push({ kind: 'pour', u0: (i + 0.35) / s.pour, q: quat(), j: ((i % 3) - 1) * 0.07, k: (v3hHash(qi + 90 + i) - 0.5) * 0.05, sc: pourSc * (0.92 + v3hHash(qi + 19 + i) * 0.14) });
+    // L is 21 cm in the GLB, about 6 px at the default Mine camera. The falling stream is that
+    // variant at 2.15x, spaced so the rocks stay separate. The bed heap stays at 1.
+    for (let i = 0; i < s.pour; i++) slots.push({ kind: 'pour', u0: (i + 0.5) / s.pour, q: quat(), j: ((i % 3) - 1) * 0.16, k: (v3hHash(qi + 90 + i) - 0.5) * 0.08, sc: 2.15 * (0.94 + v3hHash(qi + 19 + i) * 0.1) });
     for (let t = 0; t < 2; t++) for (let i = 0; i < s.bed; i++) slots.push({ kind: 'bed', truck: t, off: assign[s.id][i], lift: s.lift, q: quat() });
     for (let i = 0; i < count; i++) im.setMatrixAt(i, ZERO);
     scene.add(im);
@@ -1523,9 +1522,9 @@ const _bedTmp = new THREE.Vector3();
 const _pp = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
 function v3hFallAt(u, land, out) {
   // A column on the camera side of the chute, clear of the funnel, from above the lip down into the pile.
-  _pp[0].copy(V3H.spout); _pp[0].x -= 0.05; _pp[0].y += 1.7; _pp[0].z += 1.25;
-  _pp[1].copy(V3H.spout); _pp[1].y += 0.05; _pp[1].z += 1.15;
-  _pp[2].copy(land); _pp[2].y += 0.15; _pp[2].z += 0.55;
+  _pp[0].copy(V3H.spout); _pp[0].x -= 0.05; _pp[0].y += 2.6; _pp[0].z += 1.35;
+  _pp[1].copy(V3H.spout); _pp[1].y += 0.15; _pp[1].z += 1.2;
+  _pp[2].copy(land); _pp[2].y += 0.2; _pp[2].z += 0.6;
   const lens = [0, _pp[1].distanceTo(_pp[0]), 0];
   lens[2] = lens[1] + _pp[2].distanceTo(_pp[1]);
   let d = Math.max(0, Math.min(1, u)) * lens[2];
