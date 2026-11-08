@@ -1484,7 +1484,15 @@ function v3hFlattenSpout() {
   // The smooth gray lump is SHM_Paint at the back of the bed. A wide box also catches the bed walls, so only the cluster under the spout is eligible, and only once that cluster is a few hundred verts (the parked pose).
   if (!truck || TS.ph !== 'fill' || Math.abs(truck.position.x - (MX + 11)) > 0.15) return;
   const meshes = [];
-  truck.traverse(o => { if (o.isMesh && o.material && o.material.name === 'SHM_Paint' && o.geometry && !o.geometry.userData.v3hLump && o.geometry.attributes.position.count > 1000) meshes.push(o); });
+  truck.traverse(o => {
+    if (!o.isMesh || !o.material || o.material.name !== 'SHM_Paint' || !o.geometry || o.geometry.attributes.position.count < 1000) return;
+    const pos = o.geometry.attributes.position;
+    let sunk = 0;
+    for (let i = 0; i < pos.count && sunk < 8; i += 29) if (pos.getY(i) < -100) sunk++;
+    if (o.geometry.userData.v3hLump && sunk) return;
+    delete o.geometry.userData.v3hLump;
+    meshes.push(o);
+  });
   const v = new THREE.Vector3();
   const tx = truck.position.x, tz = truck.position.z;
   // The smooth cluster sits mid-bed under the spout (about 1.5 m behind the truck origin). Corner posts are farther out in z.
