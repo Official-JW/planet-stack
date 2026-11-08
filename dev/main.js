@@ -2229,10 +2229,6 @@ function accessUpdate(tb) {
   const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder'); if (!hull) return;
   const people = accessPeople();
   for (const p of people) {
-    if (p.mx && !p.obj.userData._accHeld) {
-      if (p.acts) for (const n in p.acts) p.acts[n].setEffectiveWeight(0);
-      p.obj.userData._accHeld = 1;
-    }
     if (p.obj.parent !== hull) {
       p.obj.updateWorldMatrix(true, false);
       hull.attach(p.obj);
@@ -2242,13 +2238,27 @@ function accessUpdate(tb) {
   }
   const info = ACC.tick(tb, people);
   if (info) window.__ps3d.access1720 = { tb: +tb.toFixed(2), clip: +info.clip.toFixed(3), door: +info.door.toFixed(2), n: people.length, rungs: ACC.A.rungs.length, launch: +info.show.launch.toFixed(2) };
-  const live = people.find((p) => p.obj.visible);
+  for (const p of people) {
+    if (p.mode === 'walk' && p.acts) {
+      p.obj.userData._accHeld = 0;
+      wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true);
+    } else if (p.acts) {
+      for (const n in p.acts) p.acts[n].setEffectiveWeight(0);
+      p.obj.userData._accHeld = 1;
+    }
+  }
+  const climber = people.find((p) => p.mode === 'climb' && p.obj.visible);
+  const walker = people.find((p) => p.mode === 'walk' && p.obj.visible && p.outside);
+  const live = climber || walker;
   const show = info && info.show;
   if (show && viewingPad() && tb >= show.close) {
     const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
     if (hull) {
-      const look = new THREE.Vector3(-1.419532, 16.5, 4.950498).applyMatrix4(hull.matrixWorld);
-      const destLx = look.x, destLy = look.y, destLz = look.z, destK = 1;
+      const dt = tb - show.stow;
+      const lookY = dt < 3 ? 17.8 : 26.2;
+      const destK = dt < 3 ? 0.40 : 0.33;
+      const look = new THREE.Vector3(-1.419532, lookY, 4.950498).applyMatrix4(hull.matrixWorld);
+      const destLx = look.x, destLy = look.y, destLz = look.z;
       if (BC.ph !== 'door' && BC.ph !== 'stow') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
       const from = BC._stowFrom || { lx: destLx, ly: destLy, lz: destLz, k: destK };
       const u = tb < show.stow ? Math.max(0, Math.min(1, (tb - show.close) / Math.max(1e-4, show.stow - show.close))) : 1;
@@ -2272,7 +2282,7 @@ function accessLoad(rig) {
     if (bad || !hullG || !accG) return;
     try {
       const old = [];
-      for (const c of hull.children) if (c.isMesh && !c.name) old.push(c);
+      hull.traverse((c) => { if (c.isMesh && !c.name) old.push(c); });
       for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
       const info = ACC.bind(hullG, accG, hull, old);
       const meshes = []; hullG.scene.traverse((m) => { if (m.isMesh) meshes.push(m); });
@@ -4082,9 +4092,11 @@ function vfxPlumes(n, len) {   // nozzle ring in Plume_Root space (same clocking
 }
 function vfxPhase(c, t) {              // → { k: 'Takeoff' | 'Landing', x: clip seconds } or null (pure: S.cg.sh + now)
   const s = c && c.sh; if (!s) return null;
-  if (s.st === 'board') { const bsec = boardSec(s), fly = flyCrew(s), x = (t - (s.t0 + (bsec - VFX.ign) * 1000)) / 1000, inside = fly.length ? s.t0 + (BCAM.in + Math.max(...fly.map(f => BOARD_INSIDE[f.board] || 0))) * 1000 : s.t0;
-    return x >= 0 && t >= inside ? { k: 'Takeoff', x } : null; }   // NOTES: never ignite while anyone who is boarding is still outside
-  if (s.st === 'launch') { const u = (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), x = (boardSec(s) ? VFX.ign : 0) + u * CG.launchSec; return x < VFX.toff ? { k: 'Takeoff', x } : null; }   // shorter climb: the 8 s of plume after ignition plays out as the ship leaves
+  if (s.st === 'board') {
+    if (ACC.A.ready) return null;
+    const bsec = boardSec(s), fly = flyCrew(s), x = (t - (s.t0 + (bsec - VFX.ign) * 1000)) / 1000, inside = fly.length ? s.t0 + (BCAM.in + Math.max(...fly.map(f => BOARD_INSIDE[f.board] || 0))) * 1000 : s.t0;
+    return x >= 0 && t >= inside ? { k: 'Takeoff', x } : null; }
+  if (s.st === 'launch') { const u = (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), x = (boardSec(s) && !ACC.A.ready ? VFX.ign : 0) + u * CG.launchSec; return x < VFX.toff ? { k: 'Takeoff', x } : null; }
   if (s.st === 'land') return { k: 'Landing', x: ((t - s.t0) / (shipDur(CG.landSec, s) * 1000)) * CG.landSec };
   if (s.st === 'pad' && c.launches > 0) { const x = CG.landSec + (t - s.t0) / 1000; return x >= CG.landSec && x < VFX.land ? { k: 'Landing', x } : null; }
   return null;

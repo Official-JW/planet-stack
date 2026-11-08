@@ -37,7 +37,8 @@ export function createAccess(THREE) {
   }
   function applyDoor(k) {
     const d = A.doors; if (!d) return;
-    d.outer.position.set(OPEN_OUTER.x * k, 0, OPEN_OUTER.z * k);
+    const oz = (d.outer.userData && d.outer.userData.baseZ) || 0;
+    d.outer.position.set(OPEN_OUTER.x * k, 0, OPEN_OUTER.z * k + oz);
     d.inner.position.set(OPEN_INNER.x * k, 0, OPEN_INNER.z * k);
   }
   function applyPose(person, pose) {
@@ -80,6 +81,8 @@ export function createAccess(THREE) {
       const slot = show.finish[i];
       if (!slot) return;
       const tau = tb - slot.start;
+      person.mode = 'wait';
+      person.outside = false;
       if (tau < -0.01) {
         if (person.stand) {
           const dest = v({
@@ -91,13 +94,25 @@ export function createAccess(THREE) {
           person.obj.position.lerpVectors(person.stand, dest, u);
           person.obj.quaternion.identity();
           person.obj.visible = true;
+          person.mode = 'walk';
+          person.outside = true;
         }
         return;
       }
-      if (tau > show.per + 0.05) { person.obj.visible = false; return; }
+      if (tau > show.per + 0.05) { person.obj.visible = false; person.mode = 'inside'; return; }
       person.obj.visible = true;
       const pose = poseShow(A.rungs, A.outward, Math.max(0, tau));
-      applyPose(person, pose);
+      if (tau <= show.climb) {
+        person.mode = 'climb';
+        person.outside = true;
+        applyPose(person, pose);
+      } else {
+        const u = show.deck > 1e-4 ? Math.min(1, (tau - show.climb) / show.deck) : 1;
+        person.mode = u < 0.55 ? 'walk' : 'enter';
+        person.outside = u < 0.55;
+        if (person.mode === 'enter') applyPose(person, pose);
+        else person.obj.position.copy(v(pose.root));
+      }
       info.push({ i, tau, err: pose.err || 0, contacts: (pose.contacts || []).length });
     });
     return { clip: ct, door: doorAt(tb, show), info, show };
@@ -149,6 +164,30 @@ export function createAccess(THREE) {
       outer: accG.scene.getObjectByName('Study_1146_Access_OuterDoor'),
       inner: accG.scene.getObjectByName('Study_1146_Access_InnerDoor'),
     };
+    if (A.doors.outer) A.doors.outer.userData.baseZ = 0.10;
+    if (proposal && proposal.geometry && proposal.geometry.index && proposal.geometry.attributes.position) {
+      const pos = proposal.geometry.attributes.position;
+      const src = proposal.geometry.index;
+      const keep = [];
+      for (let t = 0; t < src.count; t += 3) {
+        const ia = src.getX(t), ib = src.getX(t + 1), ic = src.getX(t + 2);
+        const cx = (pos.getX(ia) + pos.getX(ib) + pos.getX(ic)) / 3;
+        const cy = (pos.getY(ia) + pos.getY(ib) + pos.getY(ic)) / 3;
+        const cz = (pos.getZ(ia) + pos.getZ(ib) + pos.getZ(ic)) / 3;
+        if (cx >= -0.50 && cx <= 0.50 && cy >= 28.78 && cy <= 30.50 && cz >= 3.90 && cz <= 4.15) continue;
+        keep.push(ia, ib, ic);
+      }
+      proposal.geometry.setIndex(keep);
+      proposal.geometry.computeVertexNormals();
+      const mats = proposal.material ? [].concat(proposal.material) : [];
+      for (const mat of mats) {
+        if (!mat) continue;
+        mat.polygonOffset = true;
+        mat.polygonOffsetFactor = 1;
+        mat.polygonOffsetUnits = 1;
+      }
+    }
+    applyDoor(0);
     A.ready = true;
     A.morph = true;
     return { rungs: rungs.length, climb: +climbDur(rungs).toFixed(3), launch4: +A.show.launch.toFixed(3) };

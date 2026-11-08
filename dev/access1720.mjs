@@ -362,14 +362,37 @@ export function framePlants(rungs, tau, outward) {
   return parkLimbs(rungs, plantsAt(rungs, tau), outward);
 }
 
+export function movingLimbsAt(rungs, tau) {
+  const nAdv = Math.max(1, rungs.length - 2);
+  let t = tau;
+  let k = 0;
+  for (; k < nAdv - 1; k++) {
+    const d = stepDur(rungs, k);
+    if (t < d) break;
+    t -= d;
+  }
+  if (k > nAdv - 1) k = nAdv - 1;
+  const dur = stepDur(rungs, k);
+  const f = clamp(t / dur, 0, 0.999);
+  const lo = rungs[k], hi = rungs[k + 1], up = rungs[Math.min(rungs.length - 1, k + 2)];
+  const footA = k % 2 === 0 ? 'RF' : 'LF';
+  const handA = k % 2 === 0 ? 'LH' : 'RH';
+  const footB = footA === 'RF' ? 'LF' : 'RF';
+  const handB = handA === 'LH' ? 'RH' : 'LH';
+  const u = smooth(clamp((f - 0.12) / 0.70, 0, 1));
+  return [
+    { limb: footB, at: lerp3(lo, hi, u) },
+    { limb: handB, at: lerp3(hi, up, u) },
+  ];
+}
 export function poseFrame(rungs, tau, outward) {
   const yaw = faceYaw(outward);
   const yawQ = yawQuat(yaw);
   const planted = plantsAt(rungs, tau).map((p) => ({ ...p, park: false }));
   const found = posePlants(planted, outward, yaw);
-  const all = parkLimbs(rungs, planted, outward);
-  const posed = quatsFromPose(found.hip, yawQ, outward, all);
-  const contacts = posed.contacts.filter((c) => !all.find((p) => p.limb === c.limb && p.park));
+  const extra = movingLimbsAt(rungs, tau).map((p) => ({ ...p, park: true }));
+  const posed = quatsFromPose(found.hip, yawQ, outward, planted.concat(extra));
+  const contacts = posed.contacts.filter((c) => !extra.find((p) => p.limb === c.limb));
   return { ...posed, hip: found.hip, err: Math.max(...contacts.map((c) => c.err), 0), contacts, outward, yaw };
 }
 
