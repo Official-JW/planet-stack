@@ -1335,23 +1335,42 @@ function v3hHaloTex() {
   g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-function v3hBuildOre(root) {
-  const spec = [
-    { id: 'S', node: 'Ore_Variant_S', belt: 16, pour: 8, bed: 36 },
-    { id: 'M', node: 'Ore_Variant_M', belt: 8, pour: 3, bed: 14 },
-    { id: 'L', node: 'Ore_Variant_L', belt: 3, pour: 1, bed: 6 },
-    { id: 'G', node: 'Ore_Variant_Glint', belt: 2, pour: 1, bed: 4 },
-  ];
-  const cols = 5, rows = 3, bedN = 60, bedPts = [];
-  for (let i = 0; i < bedN; i++) {
-    const col = i % cols, row = Math.floor(i / cols) % rows, layer = Math.floor(i / (cols * rows));
-    // Offsets from the Truck_Bed bone in truck axes: +X toward the cab, +Y up, +Z lateral. The bone sits at the rear of the bed.
-    bedPts.push(new THREE.Vector3(0.4 + (col / (cols - 1)) * 1.25 + (v3hHash(i + 3) - 0.5) * 0.1, 0.28 + layer * 0.18 + (v3hHash(i + 7) - 0.5) * 0.04, (row / (rows - 1) - 0.5) * 0.95 + (v3hHash(i + 11) - 0.5) * 0.08));
+function v3hHeapPoints() {
+  // Truck_Bed bone is the rear of the bed. +X toward the cab, +Y up, +Z lateral.
+  // Funnel_Spout sits about (2.8, 1.5) in that frame; the floor is near y=0.30 and the side rails top out near y=1.7.
+  const cx = 2.45, cz = 0.08, floor = 0.36, peak = 1.42, hx = 2.15, hz = 0.86;
+  const pts = [];
+  let n = 0;
+  for (let x = cx - hx; x <= cx + 0.32; x += 0.15) {
+    for (let z = cz - hz; z <= cz + hz; z += 0.15) {
+      const rx = (x - cx) / hx, rz = (z - cz) / hz, r = Math.hypot(rx, rz);
+      if (r > 1) continue;
+      const h = peak * Math.max(0.08, 1 - r * r);
+      const jx = (v3hHash(n + 1) - 0.5) * 0.05, jz = (v3hHash(n + 2) - 0.5) * 0.05;
+      for (let y = 0; y < h - 0.02; y += 0.125) {
+        const ny = y / peak;
+        const p = new THREE.Vector3(x + jx, floor + y + (v3hHash(n + 4) - 0.5) * 0.03, z + jz);
+        // Footprint grows ahead of height, so 25% is a mound under the spout and 75% already covers the floor.
+        p.reveal = Math.max(r * 0.68, ny);
+        pts.push(p);
+        n++;
+      }
+    }
   }
+  pts.sort((a, b) => a.reveal - b.reveal || a.y - b.y);
+  return pts;
+}
+function v3hBuildOre(root) {
+  const heap = v3hHeapPoints();
+  const mix = ['S', 'M', 'S', 'L', 'S', 'M', 'S', 'S', 'M', 'S', 'L', 'S', 'M', 'S', 'G', 'S'];
   const assign = { S: [], M: [], L: [], G: [] };
-  const order = [];
-  for (const s of spec) for (let i = 0; i < s.bed; i++) order.push(s.id);
-  order.forEach((id, i) => assign[id].push(bedPts[i]));
+  heap.forEach((p, i) => assign[mix[i % mix.length]].push(p));
+  const spec = [
+    { id: 'S', node: 'Ore_Variant_S', belt: 6, pour: 2, bed: assign.S.length, lift: 0.02 },
+    { id: 'M', node: 'Ore_Variant_M', belt: 6, pour: 8, bed: assign.M.length, lift: 0.05 },
+    { id: 'L', node: 'Ore_Variant_L', belt: 4, pour: 14, bed: assign.L.length, lift: 0.08 },
+    { id: 'G', node: 'Ore_Variant_Glint', belt: 1, pour: 2, bed: assign.G.length, lift: 0.03 },
+  ];
   let qi = 0;
   const quat = () => { const q = new THREE.Quaternion().setFromEuler(_ve.set(v3hHash(qi) * 6.28, v3hHash(qi + 50) * 6.28, v3hHash(qi + 80) * 6.28)); qi++; return q.clone(); };
   for (const s of spec) {
@@ -1363,9 +1382,9 @@ function v3hBuildOre(root) {
     const im = new THREE.InstancedMesh(built.geo, mat, count);
     im.name = 'V3H_Ore_' + s.id; im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false;
     const slots = [];
-    for (let i = 0; i < s.belt; i++) slots.push({ kind: 'belt', u0: i / s.belt, q: quat(), j: v3hHash(qi + i) * 2 - 1, sc: 0.92 + v3hHash(qi + 17 + i) * 0.16 });
-    for (let i = 0; i < s.pour; i++) slots.push({ kind: 'pour', u0: (i + 0.5) / s.pour, q: quat(), j: (v3hHash(qi + 200 + i) - 0.5) * 0.12, k: (v3hHash(qi + 300 + i) - 0.5) * 0.12, sc: 0.92 + v3hHash(qi + 19 + i) * 0.16 });
-    for (let t = 0; t < 2; t++) for (let i = 0; i < s.bed; i++) slots.push({ kind: 'bed', truck: t, off: assign[s.id][i], q: quat() });
+    for (let i = 0; i < s.belt; i++) slots.push({ kind: 'belt', u0: i / s.belt, q: quat(), j: v3hHash(qi + i) * 2 - 1, sc: 0.94 + v3hHash(qi + 17 + i) * 0.1 });
+    for (let i = 0; i < s.pour; i++) slots.push({ kind: 'pour', u0: (i + 0.5) / s.pour, q: quat(), j: ((i % 3) - 1) * 0.1 + (v3hHash(qi + i) - 0.5) * 0.03, k: (v3hHash(qi + 90 + i) - 0.5) * 0.06, sc: 0.96 + v3hHash(qi + 19 + i) * 0.08 });
+    for (let t = 0; t < 2; t++) for (let i = 0; i < s.bed; i++) slots.push({ kind: 'bed', truck: t, off: assign[s.id][i], lift: s.lift, q: quat() });
     for (let i = 0; i < count; i++) im.setMatrixAt(i, ZERO);
     scene.add(im);
     V3H.ore.push({ im, slots, belt: s.belt, pour: s.pour, bed: s.bed });
@@ -1496,8 +1515,20 @@ function updDrillV3h(dt) {
   v3hBindBeds();
   v3hUpdOre(drilling);
 }
-const _bedOff = new THREE.Vector3(1.05, 0.8, 0);
+const _bedOff = new THREE.Vector3(2.42, 0.5, 0.08);
+const _bedTmp = new THREE.Vector3();
 const _pp = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+function v3hFallAt(u, land, out) {
+  // A column just on the near side of the chute, from above the spout lip down into the pile, so it stays readable at the default Mine zoom.
+  _pp[0].copy(V3H.spout); _pp[0].x -= 0.2; _pp[0].y += 1.35; _pp[0].z += 0.85;
+  _pp[1].copy(V3H.spout); _pp[1].x -= 0.12; _pp[1].y -= 0.02; _pp[1].z += 0.7;
+  _pp[2].copy(land); _pp[2].z += 0.28;
+  const lens = [0, _pp[1].distanceTo(_pp[0]), 0];
+  lens[2] = lens[1] + _pp[2].distanceTo(_pp[1]);
+  let d = Math.max(0, Math.min(1, u)) * lens[2];
+  if (d <= lens[1]) return out.lerpVectors(_pp[0], _pp[1], lens[1] > 1e-4 ? d / lens[1] : 0);
+  return out.lerpVectors(_pp[1], _pp[2], (lens[2] - lens[1]) > 1e-4 ? (d - lens[1]) / (lens[2] - lens[1]) : 1);
+}
 function v3hPourAt(u, land, out) {
   _pp[0].copy(V3H.a1); _pp[1].copy(V3H.mouth); _pp[2].copy(V3H.spout); _pp[3].copy(land);
   const lens = [0, 0, 0, 0];
@@ -1528,7 +1559,9 @@ function v3hOnBed(ti, local, out) {
 }
 function v3hUpdOre(drilling) {
   if (!V3H.ore.length) return;
-  const beltDur = 3.2, pourDur = 1.05;
+  const beltDur = 3.2, pourDur = 0.85;
+  const fill0 = (RIG[0] && RIG[0].ts && RIG[0].ts.fill) || 0;
+  _bedOff.set(2.45, 0.42 + 1.2 * Math.min(1, Math.max(0, fill0)), 0.08);
   const land = V3H.beds && V3H.beds[0] ? v3hOnBed(0, _bedOff, _vc) : V3H.spout;
   for (const pack of V3H.ore) {
     const slots = pack.slots;
@@ -1542,7 +1575,7 @@ function v3hUpdOre(drilling) {
         _vq.copy(s.q); _vs.setScalar(s.sc || 1); draw = true;
       } else if (s.kind === 'pour' && drilling) {
         const u = (s.u0 + V3H.oreT / pourDur) % 1;
-        v3hPourAt(u, land, _vp); _vp.x += s.j; _vp.z += s.k;
+        v3hFallAt(u, land, _vp); _vp.x += s.j; _vp.z += s.k;
         _vq.copy(s.q); _vs.setScalar(s.sc || 1); draw = true;
       } else if (s.kind === 'bed') {
         const ti = s.truck, G = RIG[ti];
@@ -1550,7 +1583,7 @@ function v3hUpdOre(drilling) {
         const nShow = alive ? Math.round(Math.max(0, Math.min(1, G.ts.fill || 0)) * pack.bed) : 0;
         const ord = ti === 0 ? b0++ : b1++;
         if (alive && ord < nShow && V3H.beds && V3H.beds[ti]) {
-          v3hOnBed(ti, s.off, _vp);
+          _bedTmp.copy(s.off); _bedTmp.y += s.lift || 0; v3hOnBed(ti, _bedTmp, _vp);
           _vq.copy(s.q); _vs.setScalar(s.sc || 1); draw = true;
         }
       }
