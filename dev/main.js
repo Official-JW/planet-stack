@@ -1378,6 +1378,8 @@ function v3hBuildOre(root) {
     const built = v3hChunkGeo(src, root); if (!built) continue;
     src.visible = false;
     const mat = built.mat.clone(); mat.side = THREE.FrontSide; mat.flatShading = true;
+    // Moon-sand gray, matched to the ground. Roughness, metalness and the chunk mesh stay as they are.
+    mat.color.setHex(s.id === 'G' ? 0x9c9890 : 0x8a8780);
     const count = s.belt + s.pour + s.bed * 2;
     const im = new THREE.InstancedMesh(built.geo, mat, count);
     im.name = 'V3H_Ore_' + s.id; im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false;
@@ -1465,27 +1467,36 @@ function v3hChuteTap() {
   return ms.length ? ms : nodesOf(mine, ['Conveyor', 'Silo']);
 }
 function v3hFlattenSpout() {
-  if (V3H.spoutFlat || !truck || TS.ph !== 'fill' || Math.abs(truck.position.x - (MX + 11)) > 0.4) return;
-  let mesh = null;
-  truck.traverse(o => { if (!mesh && o.isMesh && o.material && o.material.name === 'SHM_Paint' && o.geometry && o.geometry.attributes.position.count > 1000) mesh = o; });
-  if (!mesh || typeof mesh.applyBoneTransform !== 'function') return;
-  mesh.updateWorldMatrix(true, false); if (mesh.skeleton) mesh.skeleton.update();
-  const p = mesh.geometry.attributes.position, v = new THREE.Vector3();
-  const tx = truck.position.x, tz = truck.position.z;
-  let n = 0;
-  for (let pass = 0; pass < 4; pass++) {
-    let hit = 0;
+  if (!truck || TS.ph !== 'fill' || Math.abs(truck.position.x - (MX + 11)) > 0.4) return;
+  const meshes = [];
+  truck.traverse(o => { if (o.isMesh && o.material && o.material.name === 'SHM_Paint' && o.geometry && !o.geometry.userData.v3hLump && o.geometry.attributes.position.count > 1000) meshes.push(o); });
+  for (const mesh of meshes) {
+    if (typeof mesh.applyBoneTransform !== 'function') continue;
+    mesh.updateWorldMatrix(true, false); if (mesh.skeleton) mesh.skeleton.update();
+    const p = mesh.geometry.attributes.position;
+    const morph = mesh.geometry.morphAttributes.position && mesh.geometry.morphAttributes.position[0];
+    const v = new THREE.Vector3();
+    const tx = truck.position.x, tz = truck.position.z;
+    let n = 0;
     for (let i = 0; i < p.count; i++) {
-      v.set(p.getX(i), p.getY(i), p.getZ(i));
+      if (p.getY(i) < -100) continue;
+      // The rendered lump is the rest pose plus the fill morph at -1. Test that pose, then drop the base vertex.
+      let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      if (morph) { x -= morph.getX(i); y -= morph.getY(i); z -= morph.getZ(i); }
+      v.set(x, y, z);
       mesh.applyBoneTransform(i, v); v.applyMatrix4(mesh.matrixWorld);
-      // Only the lump standing above the bed rails. The rails themselves sit lower, and pulling those verts makes sheets.
-      if (v.y < 2.9 || v.x > tx + 0.35 || v.x < tx - 4.2 || v.z < tz - 1.6 || v.z > tz + 1.6) continue;
-      p.setY(i, p.getY(i) - 3500);
-      hit++; n++;
+      // Above the bed rails only. The rails and the cab sit outside this box.
+      if (v.y < 2.75 || v.x > tx + 0.5 || v.x < tx - 4.6 || v.z < tz - 1.85 || v.z > tz + 1.85) continue;
+      p.setY(i, p.getY(i) - 8000);
+      n++;
     }
-    if (!hit) break;
+    if (!n) continue;
+    p.needsUpdate = true;
+    if (p.data) p.data.needsUpdate = true;
+    mesh.geometry.userData.v3hLump = n;
+    V3H.spoutFlat = n;
+    console.info('[v3h] spout lump verts', n);
   }
-  if (n) { p.needsUpdate = true; V3H.spoutFlat = n; console.info('[v3h] spout lump verts', n); }
 }
 function v3hFlatHeap() {
   if (!V3H.mounted) return;
