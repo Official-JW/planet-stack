@@ -1466,6 +1466,12 @@ function v3hChuteTap() {
   const g = V3H.root.getObjectByName('Conveyor_Gallery'); if (g) ms.push(g);
   return ms.length ? ms : nodesOf(mine, ['Conveyor', 'Silo']);
 }
+function v3hDeinterleave(attr) {
+  if (!attr || !attr.isInterleavedBufferAttribute) return attr;
+  const arr = new Float32Array(attr.count * attr.itemSize);
+  for (let i = 0; i < attr.count; i++) for (let k = 0; k < attr.itemSize; k++) arr[i * attr.itemSize + k] = attr.getComponent(i, k);
+  return new THREE.BufferAttribute(arr, attr.itemSize);
+}
 function v3hLumpAt(mesh, i, morph, v) {
   let x = mesh.geometry.attributes.position.getX(i), y = mesh.geometry.attributes.position.getY(i), z = mesh.geometry.attributes.position.getZ(i);
   if (y < -100) return null;
@@ -1486,8 +1492,12 @@ function v3hFlattenSpout() {
   for (const mesh of meshes) {
     if (typeof mesh.applyBoneTransform !== 'function') continue;
     mesh.updateWorldMatrix(true, false); if (mesh.skeleton) mesh.skeleton.update();
-    const p = mesh.geometry.attributes.position;
-    const morph = mesh.geometry.morphAttributes.position && mesh.geometry.morphAttributes.position[0];
+    let p = mesh.geometry.attributes.position;
+    let morph = mesh.geometry.morphAttributes.position && mesh.geometry.morphAttributes.position[0];
+    if (p.isInterleavedBufferAttribute) {
+      p = v3hDeinterleave(p); mesh.geometry.setAttribute('position', p);
+      if (morph) { morph = v3hDeinterleave(morph); mesh.geometry.morphAttributes.position[0] = morph; }
+    }
     const ids = [];
     for (let i = 0; i < p.count; i++) { const w = v3hLumpAt(mesh, i, morph, v); if (w && inLump(w)) ids.push(i); }
     if (ids.length < 40 || ids.length > 900) continue;
