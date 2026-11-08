@@ -1271,16 +1271,17 @@ function v3hMergeStatic(root) {
   for (const mesh of meshes) {
     const tag = v3hTag(mesh);
     if (tag === 'ore' || tag === 'op' || !mesh.geometry) continue;
-    for (const mat of [].concat(mesh.material)) {
-      if (!mat) continue;
-      if (chuteOk && chuteName.has(mat.name)) {
-        const g = mesh.geometry, groups = g.groups && g.groups.length ? g.groups : [{ start: 0, count: g.index ? g.index.count : 0, materialIndex: 0 }];
-        const mats = [].concat(mesh.material);
-        let n = 0;
-        for (const gr of groups) { const gm = mats[gr.materialIndex] || mats[0]; if (gm && gm.name === mat.name) n += gr.count / 3; }
-        chuteDrop[mat.name] = (chuteDrop[mat.name] || 0) + n;
+    if (chuteOk) {
+      const only = [].concat(mesh.material).filter(Boolean);
+      if (only.length && only.every(m => chuteName.has(m.name))) {
+        const n = (mesh.geometry.index ? mesh.geometry.index.count : mesh.geometry.attributes.position.count) / 3;
+        chuteDrop[only[0].name] = (chuteDrop[only[0].name] || 0) + n;
+        if (mesh.parent) mesh.parent.remove(mesh);
         continue;
       }
+    }
+    for (const mat of [].concat(mesh.material)) {
+      if (!mat) continue;
       if (keepName.has(mat.name)) {
         const key = mat.name;
         let b = buckets.get(key); if (!b) { b = blank(); b.mat = mat; buckets.set(key, b); }
