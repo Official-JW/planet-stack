@@ -1259,6 +1259,10 @@ function v3hMeshFrom(into, mat, name, tap, cast) {
 }
 function v3hMergeStatic(root) {
   const keepName = new Set(['M_CabGlass', 'M_MastLED', 'M_OreRock', 'M_OreGlint', 'SHM_Paint.002', 'SHM_GlowCyan.001', 'M_ContactShadow', 'M_OcTruss']);
+  // The dark chute and its hood are material groups on Conveyor_Gallery, not their own nodes. a489aa6a only.
+  const chuteName = new Set(['M_OcChute2', 'M_OcHood2']);
+  const chuteDrop = {};
+  const chuteOk = typeof DRILL_V3H_GLB === 'string' && DRILL_V3H_GLB.indexOf('a489aa6a') !== -1;
   const buckets = new Map();
   const meshes = [];
   root.traverse(o => { if (o.isMesh) meshes.push(o); });
@@ -1269,6 +1273,14 @@ function v3hMergeStatic(root) {
     if (tag === 'ore' || tag === 'op' || !mesh.geometry) continue;
     for (const mat of [].concat(mesh.material)) {
       if (!mat) continue;
+      if (chuteOk && chuteName.has(mat.name)) {
+        const g = mesh.geometry, groups = g.groups && g.groups.length ? g.groups : [{ start: 0, count: g.index ? g.index.count : 0, materialIndex: 0 }];
+        const mats = [].concat(mesh.material);
+        let n = 0;
+        for (const gr of groups) { const gm = mats[gr.materialIndex] || mats[0]; if (gm && gm.name === mat.name) n += gr.count / 3; }
+        chuteDrop[mat.name] = (chuteDrop[mat.name] || 0) + n;
+        continue;
+      }
       if (keepName.has(mat.name)) {
         const key = mat.name;
         let b = buckets.get(key); if (!b) { b = blank(); b.mat = mat; buckets.set(key, b); }
@@ -1302,6 +1314,7 @@ function v3hMergeStatic(root) {
     for (const m of b.meshes) consumed.add(m);
   }
   for (const m of consumed) if (m.parent) m.parent.remove(m);
+  if (chuteOk) console.info('[v3h] chute stripped', chuteDrop);
   root.traverse(o => { if (o.isMesh && (o.name === 'Operator_Mesh' || (o.parent && o.parent.name === 'Operator_Mesh'))) { o.castShadow = false; } });
 }
 function v3hChunkGeo(node, root) {
@@ -1551,10 +1564,10 @@ const _bedOff = new THREE.Vector3(2.42, 0.5, 0.08);
 const _bedTmp = new THREE.Vector3();
 const _pp = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
 function v3hFallAt(u, land, out) {
-  // A column on the camera side of the chute, clear of the funnel, from above the lip down into the pile.
-  _pp[0].copy(V3H.spout); _pp[0].x -= 0.05; _pp[0].y += 2.6; _pp[0].z += 1.35;
-  _pp[1].copy(V3H.spout); _pp[1].y += 0.15; _pp[1].z += 1.2;
-  _pp[2].copy(land); _pp[2].y += 0.2; _pp[2].z += 0.6;
+  // Off the belt lip (Belt_End) and down into the pile. The chute is gone, so the stream does not hang in the air above it.
+  _pp[0].copy(V3H.a1); _pp[0].y -= 0.08;
+  _pp[1].copy(V3H.a1); _pp[1].x += 0.4; _pp[1].y -= 1.15;
+  _pp[2].copy(land); _pp[2].y += 0.12;
   const lens = [0, _pp[1].distanceTo(_pp[0]), 0];
   lens[2] = lens[1] + _pp[2].distanceTo(_pp[1]);
   let d = Math.max(0, Math.min(1, u)) * lens[2];
