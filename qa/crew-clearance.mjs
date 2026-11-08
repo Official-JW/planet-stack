@@ -192,7 +192,8 @@ const bootJs = () => {
   };
 };
 
-const FPS = 10;   // video frames per wall-second. The game clock steps with these frames, so a slow screenshot cannot skip the walk.
+const FPS = 5;    // capture rate. The game clock steps with these frames, so a slow screenshot cannot skip the walk.
+const PLAY = 10;  // playback rate of the proof file. Still a frame-stepped simulation, not real time.
 
 async function installClock(page) {
   await page.evaluate(() => {
@@ -219,7 +220,7 @@ async function record(page, seconds) {
     await page.evaluate(() => new Promise((resolve) => {
       let done = false; const finish = () => { if (!done) { done = true; resolve(); } };
       requestAnimationFrame(() => requestAnimationFrame(finish));
-      setTimeout(finish, 1200);
+      setTimeout(finish, 400);
     }));
     const buf = await page.screenshot({ type: 'jpeg', quality: 56 });
     writeFileSync(path.join(dir, String(i).padStart(4, '0') + '.jpg'), buf);
@@ -337,7 +338,7 @@ async function run() {
     const plan = await page.evaluate((ts) => {
       const ps = window.__ps3d;
       const gather = ps.wkGatherSec(), back = ps.wkDescSec() + ps.wkReturnSec(), board = ps.BOARD_SEC || 40;
-      return { gather, back, board, out: gather / ts + Math.min(board, 28) / ts + 2, ret: back / ts + 3 };
+      return { gather, back, board, out: gather / ts + Math.min(board, 8) / ts + 2, ret: back / ts + 3 };
     }, TS);
     console.log(name, 'plan', JSON.stringify(plan));
     const more = await record(page, plan.out);
@@ -386,7 +387,7 @@ async function run() {
     const font = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
     const vf = "drawtext=fontfile=" + font + ":text='FRAME-STEPPED SIMULATION PROOF — not real-time playback or a performance measurement':fontsize=12:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=4:x=8:y=h-26";
     await new Promise((resolve, reject) => {
-      const ff = spawn('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-r', String(FPS), '-i', list, '-vf', vf, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(FPS), '-crf', '30', '-movflags', '+faststart', mp4], { stdio: 'inherit' });
+      const ff = spawn('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-r', String(PLAY), '-i', list, '-vf', vf, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(PLAY), '-crf', '30', '-movflags', '+faststart', mp4], { stdio: 'inherit' });
       ff.on('exit', (c) => c === 0 ? resolve() : reject(new Error('ffmpeg ' + c)));
     });
     report[name].mp4 = mp4;
