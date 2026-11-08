@@ -9,6 +9,18 @@ export const STOW_TEL_T1 = 108 / 16;
 export const STOW_TEL_SEC = 3;
 export const STOW_SLIDE_SEC = 2;
 export const CLIMB_V = 0.8;                // m/s up the rungs
+export const STAGE_TRAVEL = 4.678333;
+export const RUNGS_PER_STAGE = 16;
+export const RUNG_PITCH = STAGE_TRAVEL / RUNGS_PER_STAGE;
+export const RUNG_LY0 = -0.25;
+export const HAND_SPAN = 5;
+export const STEP_SEC = 0.50;
+export function stageRungLocals() {
+  const out = [];
+  for (let i = 0; i < RUNGS_PER_STAGE; i++) out.push(RUNG_LY0 - i * RUNG_PITCH);
+  return out;
+}
+export function climbSteps(rungs) { return Math.max(1, rungs.length - 1); }
 export const GAP = 1.5;                   // seconds between one climber finishing and the next starting
 export const WALK_V = 1.4;
 export const DOOR_SEC = 1.2;
@@ -250,11 +262,14 @@ export function rungSpacing(rungs) {
 
 // Duration of one person's rung climb (not including the walk or the door).
 export function stepDur(rungs, k) {
-  return Math.max(0.4, (rungs[k + 1].y - rungs[k].y) / CLIMB_V);
+  if (!rungs[k + 1]) return STEP_SEC;
+  const dy = Math.max(1e-4, rungs[k + 1].y - rungs[k].y);
+  return Math.max(0.40, Math.min(0.70, dy / (RUNG_PITCH / STEP_SEC)));
 }
 export function climbDur(rungs) {
   let t = 0;
-  for (let k = 0; k < rungs.length - 2; k++) t += stepDur(rungs, k);
+  const n = climbSteps(rungs);
+  for (let k = 0; k < n; k++) t += stepDur(rungs, k);
   return t + 0.6;
 }
 
@@ -298,10 +313,10 @@ export function poseShow(rungs, outward, tau) {
 }
 
 const STAGE_Y = [28.52, 23.841667, 19.163334, 14.485, 9.806666, 5.128334];
-const RUNG_LOCAL = [-4.0685, -2.949, -1.8294, -0.7098];
 export function nominalRungs() {
   const x = -1.419532, z = 4.950498, out = [];
-  for (const oy of STAGE_Y) for (const ly of RUNG_LOCAL) out.push({ x, y: oy + ly, z });
+  const lys = stageRungLocals();
+  for (const oy of STAGE_Y) for (const ly of lys) out.push({ x, y: oy + ly, z });
   out.sort((a, b) => a.y - b.y);
   return out;
 }
@@ -346,7 +361,7 @@ function parkLimbs(rungs, planted, outward) {
 // Only diagonals (foot + opposite hand on adjacent rungs). Two hands cannot span the
 // 1.32 m stage-joint gap. A step is: hold the diagonal, release to one hand, arrive on the next diagonal.
 export function plantsAt(rungs, tau) {
-  const nAdv = Math.max(1, rungs.length - 2);
+  const nAdv = climbSteps(rungs);
   let t = tau;
   let k = 0;
   for (; k < nAdv - 1; k++) {
@@ -357,14 +372,16 @@ export function plantsAt(rungs, tau) {
   if (k > nAdv - 1) k = nAdv - 1;
   const dur = stepDur(rungs, k);
   const f = clamp(t / dur, 0, 0.999);
-  const lo = rungs[k], hi = rungs[k + 1], up = rungs[Math.min(rungs.length - 1, k + 2)];
+  const last = rungs.length - 1;
+  const lo = rungs[k], hi = rungs[Math.min(last, k + 1)];
+  const handLo = rungs[Math.min(last, k + HAND_SPAN)];
+  const handHi = rungs[Math.min(last, k + HAND_SPAN + 1)];
   const footA = k % 2 === 0 ? 'RF' : 'LF';
   const handA = k % 2 === 0 ? 'LH' : 'RH';
   const footB = footA === 'RF' ? 'LF' : 'RF';
   const handB = handA === 'LH' ? 'RH' : 'LH';
-  // Stay on a diagonal the whole step so the body never collapses into a one-hand crouch.
-  if (f < 0.82) return [{ limb: footA, at: lo }, { limb: handA, at: hi }];
-  return [{ limb: footB, at: hi }, { limb: handB, at: up }];
+  if (f < 0.82) return [{ limb: footA, at: lo }, { limb: handA, at: handLo }];
+  return [{ limb: footB, at: hi }, { limb: handB, at: handHi }];
 }
 
 export function framePlants(rungs, tau, outward) {
@@ -372,7 +389,7 @@ export function framePlants(rungs, tau, outward) {
 }
 
 export function movingLimbsAt(rungs, tau) {
-  const nAdv = Math.max(1, rungs.length - 2);
+  const nAdv = climbSteps(rungs);
   let t = tau;
   let k = 0;
   for (; k < nAdv - 1; k++) {
@@ -383,7 +400,10 @@ export function movingLimbsAt(rungs, tau) {
   if (k > nAdv - 1) k = nAdv - 1;
   const dur = stepDur(rungs, k);
   const f = clamp(t / dur, 0, 0.999);
-  const lo = rungs[k], hi = rungs[k + 1], up = rungs[Math.min(rungs.length - 1, k + 2)];
+  const last = rungs.length - 1;
+  const lo = rungs[k], hi = rungs[Math.min(last, k + 1)];
+  const handLo = rungs[Math.min(last, k + HAND_SPAN)];
+  const handHi = rungs[Math.min(last, k + HAND_SPAN + 1)];
   const footA = k % 2 === 0 ? 'RF' : 'LF';
   const handA = k % 2 === 0 ? 'LH' : 'RH';
   const footB = footA === 'RF' ? 'LF' : 'RF';
@@ -391,7 +411,7 @@ export function movingLimbsAt(rungs, tau) {
   const u = smooth(clamp((f - 0.12) / 0.70, 0, 1));
   return [
     { limb: footB, at: lerp3(lo, hi, u) },
-    { limb: handB, at: lerp3(hi, up, u) },
+    { limb: handB, at: lerp3(handLo, handHi, u) },
   ];
 }
 export function poseFrame(rungs, tau, outward) {

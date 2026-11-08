@@ -2,7 +2,7 @@
 // Run: node --experimental-default-type=module qa/art/ladder_1720/verify_climb.mjs
 import fs from 'fs';
 import {
-  rungsLocal, poseFrame, bodySpheres, poseStand, outwardOf, faceYaw, climbDur,
+  stageRungLocals, poseFrame, bodySpheres, poseStand, outwardOf, faceYaw, climbDur,
   showTimes, add, mul, sub, len, DEPLOY_T, STOW_T0, CLIP_END, DOOR_SEC,
 } from '../../../dev/access1720.mjs';
 
@@ -92,7 +92,7 @@ function trisOf(pos, idx, xform) {
 }
 const idn = (x, y, z) => ({ x, y, z });
 
-const lad = glb('qa3d-next/models/access_platform_ladder_rails_1720_299f517d.glb');
+const lad = glb('qa3d-next/models/access_platform_ladder_rails_1720_b8bed28c.glb');
 const hul = glb('qa3d-next/models/hull_channel_relief_1720_4700a081.glb');
 
 // Deployed stage origins from the clip (frame 82).
@@ -116,7 +116,7 @@ for (let s = 0; s < 6; s++) {
   const idx = readAcc(lad.js, lad.bin, prim.indices);
   const org = stageT['LadderStage_' + s];
   const xf = (x, y, z) => ({ x: x + org.x, y: y + org.y, z: z + org.z });
-  for (const r of rungsLocal(pos)) rungs.push({ x: org.x + r.x, y: org.y + r.y, z: org.z + r.z, stage: s });
+  for (const ly of stageRungLocals()) rungs.push({ x: org.x, y: org.y + ly, z: org.z, stage: s });
   // stile triangles: every vertex is out on a rail (|x| > 0.12). Cross-bars are not stiles.
   for (let t = 0; t < idx.length; t += 3) {
     const ids = [idx[t], idx[t + 1], idx[t + 2]];

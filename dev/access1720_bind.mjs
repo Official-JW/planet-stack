@@ -1,11 +1,11 @@
 // Scene side of the 1720 crew access. Timing and IK live in access1720.mjs.
 import {
-  nominalRungs, showTimes, poseShow, outwardOf, rungsLocal, climbDur,
+  nominalRungs, showTimes, poseShow, outwardOf, stageRungLocals, climbDur,
   DEPLOY_T, STOW_T0, CLIP_END, DOOR_SEC, STOW_TEL_T1, STOW_TEL_SEC, STOW_SLIDE_SEC,
 } from './access1720.mjs';
 
 export const HULL_URL = '../qa3d-next/models/hull_channel_relief_1720_4700a081.glb?v=4700a081';
-export const ACCESS_URL = '../qa3d-next/models/access_platform_ladder_rails_1720_299f517d.glb?v=299f517d';
+export const ACCESS_URL = '../qa3d-next/models/access_platform_ladder_rails_1720_b8bed28c.glb?v=b8bed28c';
 const OPEN_OUTER = { x: 1.55, y: 0, z: 0.22 };
 const OPEN_INNER = { x: 1.55, y: 0, z: -0.18 };
 
@@ -143,13 +143,10 @@ export function createAccess(THREE) {
       const stage = accG.scene.getObjectByName('LadderStage_' + s);
       const mesh = stage.isMesh ? stage : null;
       if (!mesh) throw new Error('stage mesh ' + s);
-      const attr = mesh.geometry.attributes.position;
-      const arr = attr.array;
-      const local = rungsLocal(arr);
       mesh.updateWorldMatrix(true, false);
       const toShip = new THREE.Matrix4().multiplyMatrices(inv, mesh.matrixWorld);
-      for (const r of local) {
-        const p = new THREE.Vector3(r.x, r.y, r.z).applyMatrix4(toShip);
+      for (const ly of stageRungLocals()) {
+        const p = new THREE.Vector3(0, ly, 0).applyMatrix4(toShip);
         rungs.push({ x: p.x, y: p.y, z: p.z });
       }
     }
