@@ -2248,7 +2248,7 @@ function accessUpdate(tb) {
     }
   }
   const climber = people.find((p) => p.mode === 'climb' && p.obj.visible);
-  const walker = people.find((p) => p.mode === 'walk' && p.obj.visible && p.outside);
+  const walker = people.find((p) => (p.mode === 'walk' || p.mode === 'enter') && p.obj.visible);
   const live = climber || walker;
   const show = info && info.show;
   if (show && viewingPad() && tb >= show.close) {

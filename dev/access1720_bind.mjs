@@ -162,6 +162,84 @@ export function createAccess(THREE) {
       inner: accG.scene.getObjectByName('Study_1146_Access_InnerDoor'),
     };
     if (A.doors.outer) A.doors.outer.userData.baseZ = 0.10;
+    const white = new THREE.MeshStandardMaterial({ color: 0xf3f6fa, metalness: 0.22, roughness: 0.16 });
+    for (const name of ['Study_1146_Access_Chamber', 'Study_1146_Access_Corridor']) {
+      const mesh = accG.scene.getObjectByName(name);
+      if (mesh) { mesh.material = white; mesh.castShadow = false; }
+    }
+    const hatchMat = new THREE.MeshStandardMaterial({ color: 0xb7c0c8, metalness: 0.4, roughness: 0.3 });
+    for (const name of ['Study_1146_Access_InnerDoor', 'Study_1146_Access_OuterDoor', 'Study_1146_Access_PressureFrame']) {
+      const mesh = accG.scene.getObjectByName(name);
+      if (mesh) mesh.material = hatchMat;
+    }
+    const stripMat = new THREE.MeshStandardMaterial({ color: 0x9aefff, emissive: 0x2ad0ff, emissiveIntensity: 1.8, roughness: 0.35, metalness: 0.05 });
+    const stripBoxes = [
+      { x: -0.62, y: 30.62, z: 2.75, sx: 0.045, sy: 0.03, sz: 1.7 },
+      { x: 0.62, y: 30.62, z: 2.75, sx: 0.045, sy: 0.03, sz: 1.7 },
+      { x: -0.50, y: 30.60, z: 0.78, sx: 0.045, sy: 0.03, sz: 1.2 },
+      { x: 0.50, y: 30.60, z: 0.78, sx: 0.045, sy: 0.03, sz: 1.2 },
+      { x: -0.62, y: 29.65, z: 3.68, sx: 0.04, sy: 1.9, sz: 0.035 },
+      { x: 0.62, y: 29.65, z: 3.68, sx: 0.04, sy: 1.9, sz: 0.035 },
+    ];
+    const stripIM = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), stripMat, stripBoxes.length);
+    stripIM.name = 'Access_Airlock_Strips';
+    stripIM.frustumCulled = false;
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < stripBoxes.length; i++) {
+      const s = stripBoxes[i];
+      dummy.position.set(s.x, s.y, s.z);
+      dummy.scale.set(s.sx, s.sy, s.sz);
+      dummy.updateMatrix();
+      stripIM.setMatrixAt(i, dummy.matrix);
+    }
+    stripIM.instanceMatrix.needsUpdate = true;
+    (accG.scene.getObjectByName('Study_1146_Root') || accG.scene).add(stripIM);
+    const out = A.outward;
+    const side = { x: out.z, y: 0, z: -out.x };
+    const bay = new THREE.Group();
+    bay.name = 'LadderBay_1720';
+    bay.position.set(-1.419532, 28.52, 4.950498);
+    bay.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+      new THREE.Vector3(side.x, 0, side.z),
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(out.x, 0, out.z),
+    ));
+    const dark = new THREE.MeshStandardMaterial({ color: 0x14161a, metalness: 0.15, roughness: 0.85 });
+    let hullMat = null;
+    hullG.scene.traverse((m) => { if (!hullMat && m.isMesh && m.material) hullMat = m.material; });
+    const lipMat = hullMat ? hullMat.clone() : new THREE.MeshStandardMaterial({ color: 0x6b7380, metalness: 0.45, roughness: 0.48 });
+    const unit = new THREE.BoxGeometry(1, 1, 1);
+    const fillIM = (im, boxes) => {
+      const d2 = new THREE.Object3D();
+      for (let i = 0; i < boxes.length; i++) {
+        const b = boxes[i];
+        d2.position.set(b[0], b[1], b[2]);
+        d2.scale.set(b[3], b[4], b[5]);
+        d2.updateMatrix();
+        im.setMatrixAt(i, d2.matrix);
+      }
+      im.instanceMatrix.needsUpdate = true;
+      im.frustumCulled = false;
+      return im;
+    };
+    const interior = [
+      [0, -2.50, -0.34, 0.76, 5.10, 0.04],
+      [-0.38, -2.50, -0.16, 0.04, 5.10, 0.40],
+      [0.38, -2.50, -0.16, 0.04, 5.10, 0.40],
+      [0, 0.06, -0.16, 0.80, 0.06, 0.40],
+    ];
+    const lips = [
+      [-0.42, -2.50, 0.06, 0.06, 5.14, 0.08],
+      [0.42, -2.50, 0.06, 0.06, 5.14, 0.08],
+      [0, 0.10, 0.06, 0.90, 0.08, 0.08],
+      [0, -5.08, 0.02, 0.90, 0.06, 0.16],
+    ];
+    const imDark = fillIM(new THREE.InstancedMesh(unit, dark, interior.length), interior);
+    const imLip = fillIM(new THREE.InstancedMesh(unit, lipMat, lips.length), lips);
+    imDark.name = 'LadderBay_Interior';
+    imLip.name = 'LadderBay_Lip';
+    bay.add(imDark, imLip);
+    accG.scene.add(bay);
     if (proposal && proposal.geometry && proposal.geometry.index && proposal.geometry.attributes.position) {
       const pos = proposal.geometry.attributes.position;
       const src = proposal.geometry.index;

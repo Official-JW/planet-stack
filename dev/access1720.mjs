@@ -164,7 +164,8 @@ export function plantArm(hip, yawQ, side, target, outward) {
 export function plantLeg(hip, yawQ, side, target, outward) {
   const H = hipJoint(hip, yawQ, side);
   const ankleT = add(target, { x: 0, y: SOLE, z: 0 });
-  const pole = add(H, add(mul(outward, 0.35), { x: 0, y: 0.05, z: 0 }));
+  const bend = target.y > 27.4 ? 0.25 : -0.35;
+  const pole = add(H, add(mul(outward, bend), { x: 0, y: 0.05, z: 0 }));
   const solved = solve2(H, ankleT, THIGH, SHIN, pole);
   const contact = add(solved.wrist, { x: 0, y: -SOLE, z: 0 });
   return { H, knee: solved.elbow, ankle: solved.wrist, contact, err: len(sub(contact, target)) };
