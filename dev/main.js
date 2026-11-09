@@ -2203,9 +2203,12 @@ const BOARD_INSIDE = { Crew_1: 47.79, Crew_2: 51.19, Crew_3: 54.59, Crew_4: 57.9
 const BOARD_FLY = CREW.filter(c => c.board);   // every climber in the clip; flyCrew() chooses who is visible this trip
 const ACC = createAccess(THREE);
 function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-out. Pre-Habitat this is the old 4-crew BOARD_SEC.
-  const fly = flyCrew(sh || (S.cg && S.cg.sh) || null); if (!BD.on || !fly.length) return 0;
+  sh = sh || (S.cg && S.cg.sh) || null;
+  // Freeze duration on the trip so leaving the pad / retargeting never shortens boarding into an instant launch.
+  if (sh && sh.bsec > 0) return sh.bsec;
+  const fly = flyCrew(sh); if (!BD.on || !fly.length) return 0;
   // 1720 ladder: deploy, one climber at a time, stow, then launch. Nominal until the mesh rungs are read.
-  if (!ACC.A.failed) return accessSeconds(fly.length, ACC.A.rungs);
+  if (ACC.A.ready || !ACC.A.failed) return accessSeconds(fly.length, ACC.A.rungs || null);
   let m = 0; for (const c of fly) { const ins = BOARD_INSIDE[c.board] || 0; if (ins > m) m = ins; }
   return BCAM.in + m + BCAM.hold + BCAM.out;
 }
@@ -2263,71 +2266,8 @@ function accessUpdate(tb) {
       p.obj.userData._accHeld = 1;
     }
   }
-  const climber = people.find((p) => p.mode === 'climb' && p.obj.visible);
-  const walker = people.find((p) => (p.mode === 'walk' || p.mode === 'enter') && p.obj.visible);
-  const live = climber || walker;
-  const show = info && info.show;
-  if (show && viewingPad() && tb >= show.close) {
-    const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
-    if (hull) {
-      const entryClosed = show.entryClosed != null ? show.entryClosed : show.close;
-      const airHold = entryClosed + 2.5; // beat inside with door shut before cutting outside
-      if (tb < airHold) {
-        // Inside white airlock: poseCam places cam at far wall → entry. Hold BC look on door.
-        const door = new THREE.Vector3(0, 29.40, 3.55).applyMatrix4(hull.matrixWorld);
-        BC.lx = door.x; BC.ly = door.y; BC.lz = door.z;
-        BC.k = 0.13; BC.w = 1; BC.ph = 'airlock'; BC.tb = tb;
-      } else {
-        BC._airFrom = null;
-        const airHoldEnd = entryClosed + 2.5;
-        const dt = tb - show.stow;
-        const lookY = dt < 3 ? 17.8 : 26.2;
-        const destK = dt < 3 ? 0.40 : 0.33;
-        const look = new THREE.Vector3(-1.419532, lookY, 4.950498).applyMatrix4(hull.matrixWorld);
-        const destLx = look.x, destLy = look.y, destLz = look.z;
-        if (BC.ph !== 'door' && BC.ph !== 'stow' && BC.ph !== 'airlock') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
-        if (BC.ph === 'airlock') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
-        const from = BC._stowFrom || { lx: destLx, ly: destLy, lz: destLz, k: destK };
-        const u = tb < show.stow ? Math.max(0, Math.min(1, (tb - airHoldEnd) / Math.max(1e-4, show.stow - airHoldEnd))) : 1;
-        const s = u * u * (3 - 2 * u);
-        BC.lx = from.lx + (destLx - from.lx) * s;
-        BC.ly = from.ly + (destLy - from.ly) * s;
-        BC.lz = from.lz + (destLz - from.lz) * s;
-        BC.k = from.k + (destK - from.k) * s;
-        BC.w = 1; BC.ph = tb < show.stow ? 'door' : 'stow'; BC.tb = tb;
-      }
-    }
-  } else if (climber && viewingPad() && ACC.A.rungs && ACC.A.rungs.length > 1) {
-    // Wide ladder frame (was BC.k=0.28 crop): fit full nominal ladder (y~5..28), keep climber in frame.
-    const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
-    const r0 = ACC.A.rungs[0], r1 = ACC.A.rungs[ACC.A.rungs.length - 1];
-    const mid = new THREE.Vector3(r0.x, (r0.y + r1.y) * 0.5, r0.z);
-    if (hull) mid.applyMatrix4(hull.matrixWorld);
-    const cw = new THREE.Vector3(); climber.obj.getWorldPosition(cw);
-    BC.lx = mid.x * 0.50 + cw.x * 0.50;
-    BC.ly = mid.y * 0.45 + (cw.y + 0.9) * 0.55;
-    BC.lz = mid.z * 0.50 + cw.z * 0.50;
-    const ladderH = Math.abs(r1.y - r0.y);
-    const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const dist = Math.max(1e-3, camera.userData.dist || 20);
-    // k scales cam distance (larger = wider). Floor above old 0.28 crop; cap so subject stays readable at pad dist~47.
-    const fitK = (ladderH * 0.52) / (dist * vt);
-    BC.k = Math.max(0.48, Math.min(0.78, fitK));
-    BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
-  } else if (walker && viewingPad()) {
-    // Approach / deck walk: medium shot that keeps the ladder foot in frame (not the old tight 0.28 crop).
-    const w = new THREE.Vector3(); walker.obj.getWorldPosition(w);
-    const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
-    if (ACC.A.rungs && ACC.A.rungs.length && hull) {
-      const foot = new THREE.Vector3(ACC.A.rungs[0].x, ACC.A.rungs[0].y, ACC.A.rungs[0].z).applyMatrix4(hull.matrixWorld);
-      BC.lx = w.x * 0.45 + foot.x * 0.55;
-      BC.ly = Math.max(w.y + 1.2, foot.y + 4);
-      BC.lz = w.z * 0.45 + foot.z * 0.55;
-    } else {
-      BC.lx = w.x; BC.ly = w.y + 0.9; BC.lz = w.z;
-    }
-    BC.k = 0.58; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
-  }
+  // Boarding camera removed: sequence plays in-world; player camera stays put (bb0f753 swipe/station).
+  BC.w = 0; BC.ph = 'off'; BC.tb = tb;
 }
 function accessLoad(rig) {
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull) return;
@@ -2351,7 +2291,12 @@ function accessLoad(rig) {
 }
 function updCrew() {
   const bNow = boardOf();
-  if (ACC.A.ready && bNow) { accessUpdate((nowMs() - bNow.B) / 1000); crewOnPad(); return; }
+  if (ACC.A.ready && bNow) {
+    accessUpdate((nowMs() - bNow.B) / 1000);
+    crewOnPad();
+    BC.w = 0; BC.ph = 'off'; // no boarding follow / airlock cam
+    return;
+  }
   if (ACC.A.ready) {
     const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
     if (hull) for (const p of accessPeople()) if (p.obj.parent === hull) { scene.attach(p.obj); p.obj.userData._accStand = null; p.obj.userData._accHeld = 0; }
@@ -2359,23 +2304,18 @@ function updCrew() {
   wkUpd(nowMs());
   if (!BD.root) { crewOnPad(); return; }
   const b = boardOf(), tb = b ? (nowMs() - b.B) / 1000 : -1, act = !!b && tb >= 0 && tb < BD.lift;
-  if (act && BD.fc) { const rel = boardSec(S.cg.sh) - BCAM.in - BCAM.hold - BCAM.out; if (rel > 0) BD.fc.cfg.release = rel; }   // last flying climber, so a Habitat bought after load eases out with the sim
-  const cv = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;   // off-site / lead-in: no draws
+  // Legacy crew_boarding GLB path: still pose climbers, but never take the follow camera (Jacob 2:20).
+  if (act && BD.fc) { const rel = boardSec(S.cg.sh) - BCAM.in - BCAM.hold - BCAM.out; if (rel > 0) BD.fc.cfg.release = rel; }
+  const cv = act && tb >= BD.pre && tb - BD.pre < BD.end && Math.abs(camX - PX) < GAP * .75;
   const descending = !!(S.wk && S.wk.down > 0 && (nowMs() - S.wk.down) / 1000 < wkDescSec());
-  const persist = WK.ready && wkPreHab(); fadeObj(BD.root, descending ? 1 : cv ? (persist ? 1 : fss((tb - BD.pre) / BCAM.fadeIn)) : 0);   // pre-hab: same C-rig bodies, no climber fade-in; descent keeps the ladder group visible
+  const persist = WK.ready && wkPreHab(); fadeObj(BD.root, descending ? 1 : cv ? (persist ? 1 : fss((tb - BD.pre) / BCAM.fadeIn)) : 0);
   if (cv) { crewPose(tb - BD.pre); for (let i = 0; i < BD.n; i++) if (BD.crew[i] && BD.crew[i].visible) walkApplyObj('crew' + i, BD.crew[i], false); }
   crewOnPad();
-  if (act && (!S.bc || S.bc.id !== b.id)) { S.bc = { id: b.id, on: viewingPad() ? 1 : 0, x: 0 }; save(); }   // gate: decided once per boarding, saved
-  let w = 0;
-  if (act && S.bc.on) { crewCamAt(tb, BC); w = S.bc.x ? BD.fc.cancelW() : crewCamW(tb); }
-  else BC.ph = 'off';
   if (!act) BD.fc.rel = null;
-  BC.w = w; BC.tb = tb;
+  BC.w = 0; BC.ph = 'off'; BC.tb = tb;
 }
-function crewCancel(by) {             // any tap / swipe / dot: ease back to the station camera, stays there for this boarding
-  const b = boardOf(); if (!BD.root || !b || !S.bc || S.bc.id !== b.id || !S.bc.on || S.bc.x) return;
-  S.bc.x = 1; save(); BD.fc.cancel(BC.w);
-  window.__ps3d.crewCanceled = { by, tb: +BC.tb.toFixed(2), w: +BC.w.toFixed(3) };
+function crewCancel(by) {             // Boarding cam removed — tap/swipe/dot only change station; boarding keeps running.
+  window.__ps3d.crewCanceled = { by, tb: +BC.tb.toFixed(2), w: 0 };
 }
 function loadCrew() { if (!BD.on) return; loader.load(CREW_GLB, (g) => {
   const o = g.scene, root = o.getObjectByName('CrewBoarding'), ex = (root && root.userData) || {}; o.name = 'CrewBoarding_Art'; o.position.set(PX, 0, 0);
@@ -2614,28 +2554,6 @@ function poseCam(cam, x) {
   if (cam === camera && UC.w > 0) { const w = UC.w; lx += (UC.lx - lx) * w; lyy += (UC.ly - lyy) * w; lz += (UC.lz - lz) * w; kk += (UC.k - kk) * w; }   // gc-ui2: upgrade-card camera (tapped object above the card)
   if (cam === camera && BC.w > 0) { const w = BC.w; lx += (BC.lx - lx) * w; lyy += (BC.ly - lyy) * w; lz += (BC.lz - lz) * w; kk *= Math.pow(BC.k / kk, w); }   // crew boarding camera blend (k in log space)
   if (cam === camera) { CAMLOOK.lx = lx; CAMLOOK.ly = lyy; CAMLOOK.lz = lz; CAMLOOK.k = kk; }
-  // Airlock beat: far wall / inner-hatch side of Airlock4 → entry. FOV ~75; ≥0.6 m from crew.
-  if (cam === camera && BC.w > 0 && BC.ph === 'airlock' && cg3.ship) {
-    const hull = cg3.ship.getObjectByName('Ship_Placeholder');
-    if (hull) {
-      hull.updateMatrixWorld(true);
-      const e = hull.matrixWorld.elements;
-      if (!BC._airFov) { BC._airFov = cam.fov; BC._airNear = cam.near; }
-      cam.fov = 85; cam.near = 0.08; cam.updateProjectionMatrix();
-      // Far-wall center looking at crew row + entry (pull back vs corner crop).
-      const ax = 0.0, ay = 29.70, az = 2.10;
-      const lxD = 0.0, lyD = 29.40, lzD = 3.20;
-      const cx = e[0]*ax+e[4]*ay+e[8]*az+e[12], cy = e[1]*ax+e[5]*ay+e[9]*az+e[13], cz = e[2]*ax+e[6]*ay+e[10]*az+e[14];
-      const dx = e[0]*lxD+e[4]*lyD+e[8]*lzD+e[12], dy = e[1]*lxD+e[5]*lyD+e[9]*lzD+e[13], dz = e[2]*lxD+e[6]*lyD+e[10]*lzD+e[14];
-      cam.position.set(cx, cy, cz);
-      cam.lookAt(dx, dy, dz);
-      cam.updateMatrixWorld();
-      return;
-    }
-  } else if (cam === camera && BC._airFov != null && BC.ph !== 'airlock') {
-    cam.fov = BC._airFov; cam.near = BC._airNear; cam.updateProjectionMatrix();
-    BC._airFov = null; BC._airNear = null;
-  }
   poseLook(cam, lx, lyy, lz, kk);
 }
 function poseLook(cam, lx, ly, lz, k) {
@@ -3552,7 +3470,7 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
       if (wkPreHab(s) && !wkArrived(t)) { wkEnsurePickup(c, t, acc); }
       else {
       const flyN = (S.wk && S.wk.go > 0 && !(S.wk.down > 0)) ? CFG.crew0 : residentFlyers(), bsec = boardSec({ fly: flyN });   // snapshot who leaves; a Habitat bought later does not pull them back
-      c.sh = Object.assign({}, s, { st: bsec ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0, fm: shipFlightAt() }); ch = true; cgEv(bsec ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0, fly: flyN, fm: shipFlightAt() }); } }   // fm frozen for this trip (reload keeps the same launch/away/land clock). boardSec itself is unchanged
+      c.sh = Object.assign({}, s, { st: bsec ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0, fm: shipFlightAt(), bsec: bsec || 0 }); ch = true; cgEv(bsec ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0, fly: flyN, fm: shipFlightAt(), bsec }); } }   // fm + bsec frozen for this trip
     else if (s.st === 'pad' && s.req && t >= s.req && s.hold < holdCap() && !c.rd) { s.req = 0; s.rh = 0; ch = true; }
     if (!ch) break;
   }
@@ -3597,7 +3515,7 @@ function cgComplete(c, t, acc) {
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
-  if (s.st === 'board' && s.t0 + boardSec(s) * 1000 <= t) { const tl = s.t0 + boardSec(s) * 1000; c.sh = Object.assign({}, s, { st: 'launch', t0: tl }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: boardSec(s) }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once). fly + left stay on sh.
+  if (s.st === 'board' && s.t0 + boardSec(s) * 1000 <= t) { const tl = s.t0 + boardSec(s) * 1000; const bsec = boardSec(s); c.sh = Object.assign({}, s, { st: 'launch', t0: tl, bsec }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: bsec }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once). fly + left stay on sh.
   else if (s.st === 'launch' && s.t0 + shipDur(CG.launchSec, s) * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
     c.launches++; cgEv('departed', t, { boxes: s.hold });
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, n: s.hold, pur: cargoPurity(), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 };   // gc-batch7: n = crates aboard at departure (display only; survives the Earth drop). fly / left / fm ride with the trip

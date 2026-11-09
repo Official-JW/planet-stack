@@ -68,27 +68,30 @@ export function createAccess(THREE) {
       doorK = 1 - Math.max(0, Math.min(1, ct / BAY_DOOR_SEC));
     }
 
-    // v10 solid ladder: translation-only slide (A&A telescope clips zeroed).
+    // Solid orange ladder slides; PackRoot/Deck platform rides Ladder_Deploy/Stow (same timing).
     let clipT = 0;
     const stowStart = show.entryClosed != null ? show.entryClosed : show.close;
     const smooth = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
-    // Keep morph clips silent — geometry is our SolidLadder.
-    zero(acts.deploy); zero(acts.stow);
-    let slideU = 0; // 0=stowed (up), 1=deployed (down)
+    let slideU = 0; // 0=stowed, 1=deployed
     if (tb < BAY_DOOR_SEC) {
       slideU = 0; clipT = 0;
+      set(acts.deploy, 0, LADDER_DEPLOY_SEC); zero(acts.stow);
     } else if (tb < show.deploy) {
       const lt = tb - BAY_DOOR_SEC;
       slideU = smooth(lt / LADDER_DEPLOY_SEC);
       clipT = lt;
+      set(acts.deploy, lt, LADDER_DEPLOY_SEC); zero(acts.stow);
     } else if (tb < stowStart) {
       slideU = 1; clipT = LADDER_DEPLOY_SEC;
+      set(acts.deploy, LADDER_DEPLOY_SEC - 1e-4, LADDER_DEPLOY_SEC); zero(acts.stow);
     } else if (tb < show.stow) {
       const lt = tb - stowStart;
       slideU = 1 - smooth(lt / LADDER_STOW_SEC);
       clipT = LADDER_DEPLOY_SEC + lt;
+      zero(acts.deploy); set(acts.stow, lt, LADDER_STOW_SEC);
     } else {
       slideU = 0; clipT = LADDER_DEPLOY_SEC + LADDER_STOW_SEC;
+      zero(acts.deploy); set(acts.stow, LADDER_STOW_SEC - 1e-4, LADDER_STOW_SEC);
     }
     if (A._solidLadder) {
       const travel = A._solidTravel || 24;
@@ -395,9 +398,9 @@ export function createAccess(THREE) {
       hullRoot.traverse((c) => { c.visible = false; });
     }
     // 1015 airlock room + deck replaced by 1123 airlock packet — hide leftovers.
+    // Keep PackRoot + Study_1353_DeckThin (platform drawer). Hide only 1015 airlock leftovers.
     for (const n of [
       'Airlock_Corridor_White', 'Airlock_GlowStrips', 'Airlock_InnerHatch_Mount',
-      'Study_1353_DeckThin', 'Deck_Root', 'DeckPack', 'DeckThin',
       'Airlock_Merged', 'Airlock_Glow', 'Airlock_Light', 'Airlock_Dark',
     ]) {
       const o = accG.scene.getObjectByName(n);
@@ -594,13 +597,15 @@ export function createAccess(THREE) {
 
     // v10: hide A&A telescoping ladder (rails + stages + sleeve). Build one solid sliding ladder.
     {
-      const hideNames = /^(Rails|LadderStage_|LadderStages_IM|Ladder_Sleeve|PackRoot|LAD_|POST_|RAIL)/i;
+      // Hide A&A telescope rails/stages/sleeve only. PackRoot + Deck stay — that is the platform drawer.
+      const hideNames = /^(Rails|LadderStage_|LadderStages_IM|Ladder_Sleeve|LAD_|POST_|RAIL)/i;
       accG.scene.traverse((o) => {
         const n = o.name || '';
+        if (n === 'PackRoot' || n === 'Deck_Root' || n === 'Study_1353_DeckThin') return;
         if (o.isMesh && (hideNames.test(n) || /Sleeve|LadderStage|Rails_Merged|LadderStages/.test(n))) {
           o.visible = false;
         }
-        if (/^LadderStage_\d$/.test(n) || n === 'Rails' || n === 'PackRoot' || n === 'Ladder_Sleeve') {
+        if (/^LadderStage_\d$/.test(n) || n === 'Rails' || n === 'Ladder_Sleeve') {
           o.visible = false;
           o.traverse((c) => { if (c.isMesh) c.visible = false; });
         }
