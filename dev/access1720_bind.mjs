@@ -162,12 +162,27 @@ export function createAccess(THREE) {
     const sync = syncClips(tb, show);
     const info = [];
     const foot = A.rungs[0], out = A.outward, side = { x: out.z, y: 0, z: -out.x };
+    // Snap everyone into final airlock slots before EntryDoor_Close — no walk into cam.
+    const parkAll = tb >= show.close - 0.15;
     people.forEach((person, i) => {
       const slot = show.finish[i];
       if (!slot) return;
       const tau = tb - slot.start;
       person.mode = 'wait';
       person.outside = false;
+      if (parkAll && person.obj) {
+        person.mode = 'inside';
+        person.outside = false;
+        person.obj.visible = true;
+        if (!person._airSlot) {
+          // Line toward entry; cam (-1.25, 2.45) keeps ≥0.6 m to suit AABB.
+          const xs = [-0.70, -0.10, 0.50, 1.15];
+          const zs = [3.20, 3.30, 3.30, 3.20];
+          person._airSlot = { x: xs[i] ?? 0, y: 28.90, z: zs[i] ?? 3.25 };
+        }
+        person.obj.position.set(person._airSlot.x, person._airSlot.y, person._airSlot.z);
+        return;
+      }
       if (tau < -0.01) {
         if (person.stand) {
           const dest = v({
@@ -185,18 +200,15 @@ export function createAccess(THREE) {
         return;
       }
       if (tau > show.per + 0.05) {
-        // Stay visible in the white airlock (keep last enter pose — re-IK explode skins).
+        // Park at final airlock spots before EntryDoor_Close (keep last enter pose — no re-IK).
         person.mode = 'inside';
         person.outside = false;
         person.obj.visible = true;
         if (!person._airSlot) {
-          const n = Math.max(1, people.length);
-          const slotX = -1.7 + (i / Math.max(1, n - 1)) * 3.4;
-          person._airSlot = {
-            x: slotX,
-            y: Math.max(28.6, person.obj.position.y),
-            z: Math.min(1.15, Math.max(0.55, person.obj.position.z)),
-          };
+          // Line toward entry; cam (-1.25, 2.45) keeps ≥0.6 m to suit AABB.
+          const xs = [-0.70, -0.10, 0.50, 1.15];
+          const zs = [3.20, 3.30, 3.30, 3.20];
+          person._airSlot = { x: xs[i] ?? 0, y: 28.90, z: zs[i] ?? 3.25 };
         }
         person.obj.position.set(person._airSlot.x, person._airSlot.y, person._airSlot.z);
         return;

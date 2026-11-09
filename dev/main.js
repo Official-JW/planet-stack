@@ -2257,34 +2257,10 @@ function accessUpdate(tb) {
       const entryClosed = show.entryClosed != null ? show.entryClosed : show.close;
       const airHold = entryClosed + 2.5; // beat inside with door shut before cutting outside
       if (tb < airHold) {
-        // Inside the white airlock: frame all crew as EntryDoor_Close slides shut, then cut outside for stow.
-        const inside = people.filter((p) => (p.mode === 'inside' || p.mode === 'enter') && p.obj && p.obj.visible);
-        const crew = inside.length ? inside : people.filter((p) => p.obj && p.obj.visible);
-        const room = new THREE.Vector3(0, 29.45, 0.85).applyMatrix4(hull.matrixWorld); // deep in hall
-        const door = new THREE.Vector3(0, 29.35, 2.35).applyMatrix4(hull.matrixWorld); // toward entry
-        let cx = 0, cy = 0, cz = 0, n = 0;
-        for (const p of crew) {
-          const w = new THREE.Vector3(); p.obj.getWorldPosition(w);
-          cx += w.x; cy += w.y + 0.85; cz += w.z; n++;
-        }
-        if (n) { cx /= n; cy /= n; cz /= n; } else { cx = room.x; cy = room.y; cz = room.z; }
-        const closeDur = Math.max(1e-4, entryClosed - show.close);
-        const u = Math.max(0, Math.min(1, (tb - show.close) / closeDur)); // 0..1 over the close
-        // Ease from last climber into a tight inside look; hold through the close + 1s beat.
-        const from = BC._airFrom || { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
-        if (!BC._airFrom) BC._airFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
-        // Look at crew cluster, biased toward the door so the shut reads; k ~0.13 ≈ inside the hall.
-        const lookX = cx * 0.55 + door.x * 0.45;
-        const lookY = Math.max(cy, room.y) + 0.15; // chest / face height
-        const lookZ = cz * 0.40 + door.z * 0.60;
-        const destK = 0.13;
-        const tIn = Math.max(0, Math.min(1, u / 0.45)); // move inside over first ~45% of close
-        const eIn = tIn * tIn * (3 - 2 * tIn);
-        BC.lx = from.lx + (lookX - from.lx) * eIn;
-        BC.ly = from.ly + (lookY - from.ly) * eIn;
-        BC.lz = from.lz + (lookZ - from.lz) * eIn;
-        BC.k = from.k + (destK - from.k) * eIn;
-        BC.w = 1; BC.ph = 'airlock'; BC.tb = tb;
+        // Inside white airlock: poseCam places cam at far wall → entry. Hold BC look on door.
+        const door = new THREE.Vector3(0, 29.40, 3.55).applyMatrix4(hull.matrixWorld);
+        BC.lx = door.x; BC.ly = door.y; BC.lz = door.z;
+        BC.k = 0.13; BC.w = 1; BC.ph = 'airlock'; BC.tb = tb;
       } else {
         BC._airFrom = null;
         const airHoldEnd = entryClosed + 2.5;
@@ -2623,19 +2599,27 @@ function poseCam(cam, x) {
   if (cam === camera && UC.w > 0) { const w = UC.w; lx += (UC.lx - lx) * w; lyy += (UC.ly - lyy) * w; lz += (UC.lz - lz) * w; kk += (UC.k - kk) * w; }   // gc-ui2: upgrade-card camera (tapped object above the card)
   if (cam === camera && BC.w > 0) { const w = BC.w; lx += (BC.lx - lx) * w; lyy += (BC.ly - lyy) * w; lz += (BC.lz - lz) * w; kk *= Math.pow(BC.k / kk, w); }   // crew boarding camera blend (k in log space)
   if (cam === camera) { CAMLOOK.lx = lx; CAMLOOK.ly = lyy; CAMLOOK.lz = lz; CAMLOOK.k = kk; }
-  // Airlock beat: camera INSIDE the white hall (inner-hatch corner) looking toward entry past the 4 crew.
+  // Airlock beat: far wall / inner-hatch side of Airlock4 → entry. FOV ~75; ≥0.6 m from crew.
   if (cam === camera && BC.w > 0 && BC.ph === 'airlock' && cg3.ship) {
     const hull = cg3.ship.getObjectByName('Ship_Placeholder');
     if (hull) {
       hull.updateMatrixWorld(true);
       const e = hull.matrixWorld.elements;
-      // Wider inside hall view (A&A B inset): back corner, look past all 4 toward entry.
-      const ax = -2.05, ay = 29.85, az = -0.85;
-      cam.position.set(e[0]*ax+e[4]*ay+e[8]*az+e[12], e[1]*ax+e[5]*ay+e[9]*az+e[13], e[2]*ax+e[6]*ay+e[10]*az+e[14]);
-      cam.lookAt(lx, Math.max(lyy, 29.55), lz);
+      if (!BC._airFov) { BC._airFov = cam.fov; BC._airNear = cam.near; }
+      cam.fov = 80; cam.near = 0.05; cam.updateProjectionMatrix();
+      // Room AABB z≈1.84..3.78, x≈±2.41. Cam in open space near far wall, look at EntryDoor.
+      const ax = -0.90, ay = 29.65, az = 2.30;
+      const lxD = 0.50, lyD = 29.35, lzD = 3.50;
+      const cx = e[0]*ax+e[4]*ay+e[8]*az+e[12], cy = e[1]*ax+e[5]*ay+e[9]*az+e[13], cz = e[2]*ax+e[6]*ay+e[10]*az+e[14];
+      const dx = e[0]*lxD+e[4]*lyD+e[8]*lzD+e[12], dy = e[1]*lxD+e[5]*lyD+e[9]*lzD+e[13], dz = e[2]*lxD+e[6]*lyD+e[10]*lzD+e[14];
+      cam.position.set(cx, cy, cz);
+      cam.lookAt(dx, dy, dz);
       cam.updateMatrixWorld();
       return;
     }
+  } else if (cam === camera && BC._airFov != null && BC.ph !== 'airlock') {
+    cam.fov = BC._airFov; cam.near = BC._airNear; cam.updateProjectionMatrix();
+    BC._airFov = null; BC._airNear = null;
   }
   poseLook(cam, lx, lyy, lz, kk);
 }
