@@ -1,0 +1,175 @@
+{
+  "rungs": 24,
+  "rungY": [
+    1.0598,
+    27.8102
+  ],
+  "climbSec": 32.639,
+  "samples": 189,
+  "maxContactCm": 0.886,
+  "minClearanceCm": 3.23,
+  "minWhere": {
+    "tag": "door",
+    "t": 0,
+    "d": 0.03234375000000156,
+    "name": "hull",
+    "sphere": "head"
+  },
+  "contactPass": true,
+  "clearancePass": true,
+  "show": {
+    "deploy": 5.125,
+    "walk": 4.285714285714286,
+    "climb": 32.6385417342186,
+    "deck": 2.371249305843363,
+    "per": 35.00979104006196,
+    "start0": 5.125,
+    "finish": [
+      {
+        "start": 5.125,
+        "inside": 40.13479104006196
+      },
+      {
+        "start": 41.63479104006196,
+        "inside": 76.64458208012393
+      },
+      {
+        "start": 78.14458208012393,
+        "inside": 113.15437312018588
+      },
+      {
+        "start": 114.65437312018588,
+        "inside": 149.66416416024785
+      }
+    ],
+    "close": 149.66416416024785,
+    "stow": 150.86416416024784,
+    "launch": 155.67666416024784,
+    "gap": 1.5
+  },
+  "worst": [
+    {
+      "tag": "door",
+      "t": 0,
+      "contactCm": 0,
+      "clearCm": 3.23,
+      "hit": "hull",
+      "sphere": "head"
+    },
+    {
+      "tag": "door",
+      "t": 0,
+      "contactCm": 0,
+      "clearCm": 3.63,
+      "hit": "hull",
+      "sphere": "head"
+    },
+    {
+      "tag": "door",
+      "t": 0,
+      "contactCm": 0,
+      "clearCm": 3.65,
+      "hit": "hull",
+      "sphere": "head"
+    },
+    {
+      "tag": "door",
+      "t": 0,
+      "contactCm": 0,
+      "clearCm": 4.71,
+      "hit": "hull",
+      "sphere": "head"
+    },
+    {
+      "tag": "door",
+      "t": 0,
+      "contactCm": 0,
+      "clearCm": 5.31,
+      "hit": "hull",
+      "sphere": "head"
+    },
+    {
+      "tag": "climb",
+      "t": 27.4,
+      "contactCm": 0.886,
+      "clearCm": 6.99,
+      "hit": "stiles",
+      "sphere": "RHsh"
+    },
+    {
+      "tag": "climb",
+      "t": 27.6,
+      "contactCm": 0.886,
+      "clearCm": 6.99,
+      "hit": "stiles",
+      "sphere": "RHsh"
+    },
+    {
+      "tag": "climb",
+      "t": 27.8,
+      "contactCm": 0.886,
+      "clearCm": 6.99,
+      "hit": "stiles",
+      "sphere": "RHsh"
+    }
+  ],
+  "clearDeck": [],
+  "glb": {
+    "hull_channel_relief_1720_4700a081": {
+      "bytes": 304872,
+      "md5": "4700a081d9f8d662e61187537a730dc5",
+      "role": "served hull replacement"
+    },
+    "access_platform_ladder_rails_1720_299f517d": {
+      "bytes": 9694064,
+      "md5": "299f517d8caa3ebfc28283c59a374551",
+      "role": "door, deck, ladder, rails. Original kept. Not recompressed."
+    }
+  },
+  "morphs": {
+    "kept": true,
+    "targets": 159,
+    "reason": "Rail posts fold by rotating about the deck sockets and the outer rails bend between posts. Translate-only node transforms cannot match clip_channel_1720. The ladder stages were already translations. Morph weights stay on the Animation clip."
+  },
+  "padView": {
+    "withAccess": {
+      "draws": 61,
+      "triangles": 255686
+    },
+    "servedHatchShown_newScenesHidden": {
+      "draws": 43,
+      "triangles": 239572
+    },
+    "deltaDraws": 18,
+    "deltaTriangles": 16114,
+    "viewport": "390x844",
+    "note": "Same Launch Pad view. Delta is this branch versus the served hull and hatch drawn without the two new scenes."
+  },
+  "contacts": {
+    "maxCm": 0.886,
+    "limitCm": 1,
+    "pass": true,
+    "samples": 189
+  },
+  "clearance": {
+    "minCm": 3.23,
+    "limitCm": 3,
+    "pass": true,
+    "tightest": {
+      "tag": "door",
+      "t": 0,
+      "d": 0.03234375000000156,
+      "name": "hull",
+      "sphere": "head"
+    }
+  },
+  "climb": {
+    "speedMps": 0.8,
+    "gapSec": 1.5,
+    "oneAtATime": true,
+    "rungs": 24,
+    "perClimberSec": 35.00979104006196,
+    "fourCrewLaunchSec": 155.67666416024784
+  },
+  "iphoneFps": "Not measured on an iPhone. Desktop capture was 390x844 under SwiftShader, which is not a phone frame time. The 9.7 MB download and the 159 rail morph targets are the load and frame-time risk; they were not rebuilt."
+}
