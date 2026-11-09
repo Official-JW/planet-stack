@@ -204,6 +204,7 @@ export function createAccess(THREE) {
           });
           const u = slot.start > 0.05 ? Math.min(1, tb / slot.start) : 1;
           person.obj.position.lerpVectors(person.stand, dest, u);
+          person.obj.position.y = 0; // feet on pad — never inherit truck/breakroom height
           person.obj.quaternion.identity();
           person.obj.visible = true;
           person.mode = 'walk';
@@ -653,5 +654,93 @@ export function createAccess(THREE) {
     return { rungs: rungs.length, climb: +climbDur(rungs).toFixed(3), launch4: +A.show.launch.toFixed(3) };
   }
 
-  return { A, tick, bind, syncClips };
+
+  // Dev/QA only: step the boarding timeline and assert every crew's feet are on
+  // ground (y≈0) or on the ladder rung span while climbing. Not used in gameplay.
+  function assertBoardFeet(people, { dt = 0.05, maxErr = 0.03, groundY = 0 } = {}) {
+    const n = Math.max(1, people.length);
+    const show = showTimes(n, A.rungs || nominalRungs(), 6);
+    const rungYs = (A.rungs || []).map((r) => r.y).sort((a, b) => a - b);
+    const rungLo = rungYs.length ? rungYs[0] - 0.45 : 0;
+    const rungHi = rungYs.length ? rungYs[rungYs.length - 1] + 0.65 : 30;
+    const HIP = 0.94;
+    const violations = [];
+    let maxFeetErr = 0;
+    const saved = people.map((p) => ({
+      pos: p.obj.position.clone(),
+      quat: p.obj.quaternion.clone(),
+      vis: p.obj.visible,
+    }));
+    const foot = A.rungs[0];
+    const out = A.outward || { x: 0, z: 1 };
+    try {
+      for (let tb = 0; tb <= show.launch + 0.001; tb = +(tb + dt).toFixed(4)) {
+        tick(tb, people);
+        people.forEach((person, i) => {
+          if (!person.obj || !person.obj.visible) return;
+          // Kill handler bake every sample (clips rewrite Crew_2).
+          const c2 = person.obj.getObjectByName && person.obj.getObjectByName('Crew_2');
+          if (c2) { c2.position.set(0, 0, 0); c2.rotation.set(0, 0, 0); }
+          const mode = person.mode || '';
+          const py = person.obj.position.y;
+          const hips = person.obj.getObjectByName((person.pfx || '') + '_Hips');
+          let hipsLocalY = HIP;
+          if (hips) hipsLocalY = hips.position.y || HIP;
+          // Ship-local feet ≈ posed-root Y (walk/wait use y=0 root; climb root = hip-HIP_Y).
+          let feetY = py;
+          if (mode === 'climb' || mode === 'enter') feetY = py; // pose.root already = hip - HIP_Y ≈ feet
+          if (mode === 'inside') feetY = py;
+
+          const push = (expect, err) => {
+            maxFeetErr = Math.max(maxFeetErr, err);
+            violations.push({
+              id: person.pfx || String(i), tb: +tb.toFixed(3), mode,
+              feetY: +feetY.toFixed(4), expect, err: +err.toFixed(4),
+              pos: person.obj.position.toArray().map((v) => +v.toFixed(3)),
+            });
+          };
+
+          if (mode === 'inside' || mode === 'enter') {
+            if (feetY < 27.5 - maxErr || feetY > 31.0 + maxErr) {
+              push('airlock', feetY < 27.5 ? 27.5 - feetY : feetY - 31.0);
+            }
+            return;
+          }
+          if (mode === 'climb') {
+            if (feetY < rungLo - maxErr || feetY > rungHi + maxErr) {
+              push('ladderY', feetY < rungLo ? rungLo - feetY : feetY - rungHi);
+            }
+            // Must be on the ladder face — catches Crew_2 bake offset (~14 m).
+            const dx = person.obj.position.x - foot.x;
+            const dz = person.obj.position.z - foot.z;
+            const lat = Math.hypot(dx, dz);
+            if (lat > 1.5) push('ladderXZ', lat);
+            if (c2) {
+              const off = Math.hypot(c2.position.x, c2.position.z);
+              if (off > maxErr) push('crew2bake', off);
+            }
+            return;
+          }
+          // walk / wait: on pad ground, OR elevated deck walk into the airlock after climb
+          if (feetY > 2.0) {
+            // Deck traverse (bind sets mode=walk for first half of deck)
+            if (feetY < rungHi - 1.0 - maxErr || feetY > 31.0 + maxErr) {
+              push('deck', feetY < rungHi - 1.0 ? (rungHi - 1.0) - feetY : feetY - 31.0);
+            }
+          } else {
+            const err = Math.abs(feetY - groundY);
+            if (err > maxErr) push(groundY, err);
+          }
+        });
+      }
+    } finally {
+      people.forEach((p, i) => {
+        const s = saved[i]; if (!s || !p.obj) return;
+        p.obj.position.copy(s.pos); p.obj.quaternion.copy(s.quat); p.obj.visible = s.vis;
+      });
+    }
+    return { ok: violations.length === 0, violations, maxFeetErr: +maxFeetErr.toFixed(4), samples: Math.floor(show.launch / dt) + 1, launch: show.launch };
+  }
+
+  return { A, tick, bind, syncClips, assertBoardFeet };
 }

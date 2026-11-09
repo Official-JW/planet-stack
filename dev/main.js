@@ -2227,11 +2227,35 @@ const crewCamAt = (tb, o = BC) => BD.fc.at(tb - BD.pre, o), crewCamW = (tb) => B
 const viewingPad = () => S.site === PADI && Math.abs(camX - PX) < 3 && !drag;
 const ACC_KEY = { Miner: 'miner', 'Mine Driver': 'driver', Mechanic: 'mech', 'Cargo Manager': 'cm' };
 const ACC_PFX = { miner: 'C3', driver: 'C4', mech: 'C1', cm: 'C2' };
+function accessCrew2(p) {
+  // Cargo Manager = breakroom handler GLB: Scene → Crew_2@(13.7,0.2,6.3) → C2_Root → C2_Hips.
+  // Posing Scene left Crew_2's baked pad offset, so C2 floated ~14 m off the ladder (Jacob 2:44).
+  return (p && p.obj && p.obj.getObjectByName && p.obj.getObjectByName('Crew_2')) || (p && p.root) || null;
+}
+function accessPrepHandler(p) {
+  if (!p || !p.handler) return;
+  const c2 = accessCrew2(p); if (!c2) return;
+  // Stash once, then force-clear every frame: Handler_* clips rewrite Crew_2.position.
+  if (c2.userData._accC2Pos == null) {
+    c2.userData._accC2Pos = c2.position.clone();
+    c2.userData._accC2Rot = c2.rotation.clone();
+  }
+  c2.position.set(0, 0, 0);
+  c2.rotation.set(0, 0, 0);
+}
+function accessRestoreHandler(p) {
+  if (!p || !p.handler) return;
+  const c2 = accessCrew2(p); if (!c2 || c2.userData._accC2Pos == null) return;
+  c2.position.copy(c2.userData._accC2Pos);
+  if (c2.userData._accC2Rot) c2.rotation.copy(c2.userData._accC2Rot);
+  delete c2.userData._accC2Pos; delete c2.userData._accC2Rot;
+}
 function accessPeople() {
   const out = [];
   for (const c of flyCrew(S.cg && S.cg.sh)) {
     const k = ACC_KEY[c.role], p = WK.people[k]; if (!p || !p.obj) continue;
     const pfx = ACC_PFX[k];
+    accessPrepHandler(p);
     if (!p._accRest) {
       p._accRest = {};
       for (const name of ['Hips', 'Spine', 'Chest', 'Neck', 'Head']) {
@@ -2239,9 +2263,26 @@ function accessPeople() {
         if (b) p._accRest[name] = b.quaternion.clone();
       }
     }
-    out.push({ obj: p.obj, pfx, rest: p._accRest, stand: p._accStand || null, mx: p.mx, acts: p.acts });
+    out.push({ obj: p.obj, pfx, rest: p._accRest, stand: p._accStand || null, mx: p.mx, acts: p.acts, handler: !!p.handler, key: p.key, root: p.root });
   }
   return out;
+}
+function accessAssertFeet(opts) {
+  // Dev/QA only (?qa=1). Steps the full boarding timeline; must report zero violations.
+  if (!ACC.A.ready || typeof ACC.assertBoardFeet !== 'function') return { ok: false, err: 'access not ready' };
+  const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder'); if (!hull) return { ok: false, err: 'no hull' };
+  const people = accessPeople();
+  for (const p of people) {
+    if (p.obj.parent !== hull) { p.obj.updateWorldMatrix(true, false); hull.attach(p.obj); p.obj.position.y = 0; }
+  }
+  const r = ACC.assertBoardFeet(people, opts || {});
+  window.__ps3d.accessFeetAssert = r;
+  if (r.violations && r.violations.length) {
+    for (const v of r.violations.slice(0, 40)) console.warn('accessFeet', v.id, 'tb=' + v.tb, v.mode, 'feetY=' + v.feetY, 'err=' + v.err, v.pos);
+  } else {
+    console.info('accessFeet OK maxErr=' + r.maxFeetErr + 'm samples=' + r.samples);
+  }
+  return r;
 }
 function accessUpdate(tb) {
   if (!ACC.A.ready) return;
@@ -2251,9 +2292,15 @@ function accessUpdate(tb) {
     if (p.obj.parent !== hull) {
       p.obj.updateWorldMatrix(true, false);
       hull.attach(p.obj);
+      // Feet on pad/terrain in ship-local (ship origin at pad y=0). Drop any truck/breakroom height.
+      p.obj.position.y = 0;
       p.stand = p.obj.position.clone();
-      p.obj.userData._accStand = p.stand;
-    } else p.stand = p.obj.userData._accStand || p.obj.position.clone();
+      p.stand.y = 0;
+      p.obj.userData._accStand = p.stand.clone();
+    } else {
+      p.stand = p.obj.userData._accStand || p.obj.position.clone();
+      if (p.stand) p.stand.y = 0;
+    }
   }
   const info = ACC.tick(tb, people);
   if (info) window.__ps3d.access1720 = { tb: +tb.toFixed(2), clip: +info.clip.toFixed(3), door: +info.door.toFixed(2), entry: +(info.entry || 0).toFixed(2), n: people.length, rungs: ACC.A.rungs.length, launch: +info.show.launch.toFixed(2) };
@@ -2265,6 +2312,8 @@ function accessUpdate(tb) {
       for (const n in p.acts) p.acts[n].setEffectiveWeight(0);
       p.obj.userData._accHeld = 1;
     }
+    // Re-clear Crew_2 bake after mixer/clip writes (Handler_* tracks).
+    accessPrepHandler(WK.people[p.key] || p);
   }
   // Boarding camera removed: sequence plays in-world; player camera stays put (bb0f753 swipe/station).
   BC.w = 0; BC.ph = 'off'; BC.tb = tb;
@@ -2299,7 +2348,12 @@ function updCrew() {
   }
   if (ACC.A.ready) {
     const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
-    if (hull) for (const p of accessPeople()) if (p.obj.parent === hull) { scene.attach(p.obj); p.obj.userData._accStand = null; p.obj.userData._accHeld = 0; }
+    if (hull) for (const p of accessPeople()) if (p.obj.parent === hull) {
+      scene.attach(p.obj); p.obj.userData._accStand = null; p.obj.userData._accHeld = 0;
+      // Put Cargo Manager Scene back under the breakroom group and restore Crew_2 bake.
+      const wk = WK.people[p.key]; accessRestoreHandler(wk || p);
+      if (p.handler && BRK.ok && BRK.grp && BRK.h && p.obj) { BRK.grp.add(p.obj); p.obj.position.set(0, 0, 0); p.obj.rotation.set(0, 0, 0); }
+    }
   }
   wkUpd(nowMs());
   if (!BD.root) { crewOnPad(); return; }
@@ -5286,7 +5340,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { accessAssertFeet, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 function buyDrill() {
