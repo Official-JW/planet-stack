@@ -375,11 +375,11 @@ export function createAccess(THREE) {
     const cStow = findClip(clips, 'Ladder_Stow');
     const cDoorOpen = findClip(clips, 'BayDoor_Open');
     const cDoorClose = findClip(clips, 'BayDoor_Close');
-    // Rails/stages are deleted after rung bake; clips deploy/stow kept only so findClip succeeds then zeroed.
+    // Deploy/Stow clips kept only so findClip succeeds; then zeroed — PackRoot tween drives the drawer.
     if (!asm || !cDeploy || !cStow || !cDoorOpen || !cDoorClose) {
       throw new Error('access 1015 nodes/clips missing');
     }
-    // rails morph optional — we use nominalRungs for climb IK and delete telescope meshes.
+    // Climb IK uses nominalRungs; telescope meshes deleted below.
 
     // Parent access + airlock only — never the 1015 hull replacement GLB.
     for (const scene of [accG.scene, airG && airG.scene].filter(Boolean)) {
@@ -451,9 +451,7 @@ export function createAccess(THREE) {
     acts.doorOpen.time = 0; acts.doorOpen.setEffectiveWeight(0);
     mixer.update(0);
 
-    // ---- Draw reduction: merge static meshes; instance animated ladder stages. ----
-    // Shape-keyed Rails stay as one morph mesh. LadderStage_1..5 stay as animated nodes
-    // but draw through one InstancedMesh (same geo, per-stage scale). BayDoor merges to one draw.
+    // ---- Draw reduction: merge BayDoor. Telescope ladder stages deleted below. ----
 
     const doorMat = (() => {
       const d = accG.scene.getObjectByName('BayDoor');
@@ -467,7 +465,7 @@ export function createAccess(THREE) {
       mergeUnder(bayDoor, THREE, { oneMaterial: doorMat, name: 'BayDoor_Merged' });
     }
 
-    // Telescope rails/stages deleted later; SolidLadder draws instead.
+    // Telescope meshes deleted below; SolidLadder draws instead.
 
     // 1123 airlock: merge static room to 1 body + 1 glow; each entry leaf → 1 draw (animated).
     {
