@@ -4,8 +4,9 @@
 
 // 1015 packet: BayDoor_Open/Close 1.0s, Ladder_Deploy/Stow 4.375s (LINEAR clamp).
 export const BAY_DOOR_SEC = 1.0;
-export const LADDER_DEPLOY_SEC = 3.0; // v10 solid slide
-export const LADDER_STOW_SEC = 3.0; // v10 solid slide
+// 1015 packet: Ladder_Deploy/Stow are 4.375s (restored from 78c19d1; v10 solid had shortened to 3.0 and truncated telescope).
+export const LADDER_DEPLOY_SEC = 4.375;
+export const LADDER_STOW_SEC = 4.375;
 export const ENTRY_DOOR_SEC = 1.0; // EntryDoor_Open/Close (1123 airlock)
 export const DEPLOY_T = BAY_DOOR_SEC + LADDER_DEPLOY_SEC; // when ladder is fully out
 export const DOOR_SEC = BAY_DOOR_SEC; // alias used by show/camera timing
