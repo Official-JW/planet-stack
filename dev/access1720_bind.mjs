@@ -1,6 +1,6 @@
 // Scene side of the PR17 crew access (1015 bay/airlock packet). Timing and IK live in access1720.mjs.
 import {
-  nominalRungs, showTimes, poseShow, outwardOf, stageRungLocals, climbDur,
+  nominalRungs, showTimes, poseShow, poseStand, outwardOf, stageRungLocals, climbDur, faceYaw,
   DEPLOY_T, BAY_DOOR_SEC, LADDER_DEPLOY_SEC, LADDER_STOW_SEC, ENTRY_DOOR_SEC,
 } from './access1720.mjs';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -184,7 +184,23 @@ export function createAccess(THREE) {
         }
         return;
       }
-      if (tau > show.per + 0.05) { person.obj.visible = false; person.mode = 'inside'; return; }
+      if (tau > show.per + 0.05) {
+        // Stay visible in the white airlock (keep last enter pose — re-IK explode skins).
+        person.mode = 'inside';
+        person.outside = false;
+        person.obj.visible = true;
+        if (!person._airSlot) {
+          const n = Math.max(1, people.length);
+          const slotX = -1.7 + (i / Math.max(1, n - 1)) * 3.4;
+          person._airSlot = {
+            x: slotX,
+            y: Math.max(28.6, person.obj.position.y),
+            z: Math.min(1.15, Math.max(0.55, person.obj.position.z)),
+          };
+        }
+        person.obj.position.set(person._airSlot.x, person._airSlot.y, person._airSlot.z);
+        return;
+      }
       person.obj.visible = true;
       const pose = poseShow(A.rungs, A.outward, Math.max(0, tau));
       if (tau <= show.climb) {
@@ -489,6 +505,17 @@ export function createAccess(THREE) {
       })();
       mergeList(body, bodyMat, airRoot, 'Airlock4_Body');
       mergeList(glow, glowMat, airRoot, 'Airlock4_Glow');
+      {
+        const ab = airRoot.getObjectByName('Airlock4_Body');
+        if (ab && ab.material) {
+          ab.material.color.setHex(0xf4f7fa);
+          ab.material.emissive.setHex(0xd8dde3);
+          ab.material.emissiveIntensity = 0.35;
+          ab.material.metalness = 0;
+          ab.material.roughness = 0.62;
+          ab.material.needsUpdate = true;
+        }
+      }
       const leafL = airG.scene.getObjectByName('EntryDoor_L');
       const leafR = airG.scene.getObjectByName('EntryDoor_R');
       if (leafL && doorMat) mergeList(doorL, doorMat, leafL, 'EntryDoor_L_Merged');
@@ -520,23 +547,31 @@ export function createAccess(THREE) {
           A._syncDoors = syncDoors;
         }
       }
-      // Cheap interior fill so white panels read without a bloom pass.
-      const fill = new THREE.PointLight(0xf2f6ff, 1.35, 9, 2);
+      // Cheap interior fill so white panels read without a bloom pass (boosted for inside cam).
+      const fill = new THREE.PointLight(0xf7fbff, 2.6, 11, 1.6);
       fill.name = 'Access_Airlock_Fill';
-      fill.position.set(0, 29.6, 2.2);
+      fill.position.set(0, 29.55, 1.35);
       airRoot.add(fill);
+      const fill2 = new THREE.PointLight(0xffffff, 1.1, 7, 2);
+      fill2.name = 'Access_Airlock_Fill2';
+      fill2.position.set(0.0, 28.9, 0.4);
+      airRoot.add(fill2);
     }
 
     // Hull: stainless body + bay liner + glow (3 draws max).
-    let hullBody = null, hullLiner = null, hullGlow = null;
+    // Prefer SHM_Stainless_* (off-white vertex panels per A&A stills). First-hit was
+    // Study1240_Rebate, which + metalness and no envMap reads solid black on device.
+    let hullBody = null, hullLiner = null, hullGlow = null, hullStainless = null;
     hullRoot.traverse((o) => {
       if (!o.isMesh) return;
       const mat = Array.isArray(o.material) ? o.material[0] : o.material;
       const mn = mat?.name || '';
       if (/Glow/.test(mn)) hullGlow = hullGlow || mat;
       else if (/BayLiner|Track_Metal/.test(mn)) hullLiner = hullLiner || mat;
+      else if (/SHM_Stainless|Stainless/i.test(mn)) hullStainless = hullStainless || mat;
       else hullBody = hullBody || mat;
     });
+    hullBody = hullStainless || hullBody;
     const hullLists = { body: [], liner: [], glow: [] };
     hullRoot.traverse((o) => {
       if (!o.isMesh) return;
@@ -546,10 +581,36 @@ export function createAccess(THREE) {
       else if (/BayLiner|Track_Metal/.test(mn)) hullLists.liner.push(o);
       else hullLists.body.push(o);
     });
-    // One hull draw: body + bay liner share the stainless/body material (liner colour was close; saves a draw).
+    // One hull draw: body + bay liner share the panel material (saves a draw).
     const hullAll = hullLists.body.concat(hullLists.liner);
     mergeList(hullAll, hullBody || hullLiner, hullRoot, 'Hull_Body');
     mergeList(hullLists.glow, hullGlow, hullRoot, 'Hull_Glow');
+    // Force A&A off-white panel look on served + replacement hull (pad/launch/zoom).
+    // Material/lighting only — no geo change. Served SHM_Stainless is metalness 0.5 with no
+    // envMap (reads solid black); dark COLOR_0 also crushes. Drop vertexColors so baseColor wins.
+    function retintHullPanels(root) {
+      if (!root) return;
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of [].concat(o.material || [])) {
+          if (!m || !m.isMeshStandardMaterial) continue;
+          const n = m.name || '';
+          if (/Glow|Glass|Plume|Window|BayDoor|EntryDoor|LAD_|POST_|RAIL|Airlock_Panel/i.test(n)) continue;
+          if (!(/SHM_Stainless|Stainless|Hull_Body|M_AftSkirt|Study1240|Study1353/i.test(n))) continue;
+          m.color.setHex(0xe8e6df);
+          m.metalness = 0.12;
+          m.roughness = 0.58;
+          m.envMapIntensity = 0.4;
+          m.emissive.setHex(0x222220);
+          m.emissiveIntensity = 0.22;
+          m.vertexColors = false;
+          m.needsUpdate = true;
+        }
+      });
+    }
+    retintHullPanels(hullRoot);
+    retintHullPanels(hullNode);
+    A._retintHullPanels = retintHullPanels;
 
     // One shared cyan glow draw (hull bay strips + airlock strips).
     {

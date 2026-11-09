@@ -2255,22 +2255,39 @@ function accessUpdate(tb) {
     const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
     if (hull) {
       const entryClosed = show.entryClosed != null ? show.entryClosed : show.close;
-      if (tb < entryClosed) {
-        // Follow last crew into the airlock while EntryDoor_Close slides shut behind them.
-        const inside = people.filter((p) => p.mode === 'inside' || p.mode === 'enter');
-        const lead = inside[inside.length - 1] || people.find((p) => p.obj.visible);
-        if (lead && lead.obj) {
-          const w = new THREE.Vector3(); lead.obj.getWorldPosition(w);
-          const air = new THREE.Vector3(0, 29.4, 2.1).applyMatrix4(hull.matrixWorld);
-          const u = Math.max(0, Math.min(1, (tb - show.close) / Math.max(1e-4, entryClosed - show.close)));
-          const s = u * u * (3 - 2 * u);
-          BC.lx = w.x + (air.x - w.x) * s;
-          BC.ly = (w.y + 0.9) + (air.y - (w.y + 0.9)) * s;
-          BC.lz = w.z + (air.z - w.z) * s;
-          BC.k = 0.55 + 0.15 * s;
-          BC.w = 1; BC.ph = 'airlock'; BC.tb = tb;
+      const airHold = entryClosed + 2.5; // beat inside with door shut before cutting outside
+      if (tb < airHold) {
+        // Inside the white airlock: frame all crew as EntryDoor_Close slides shut, then cut outside for stow.
+        const inside = people.filter((p) => (p.mode === 'inside' || p.mode === 'enter') && p.obj && p.obj.visible);
+        const crew = inside.length ? inside : people.filter((p) => p.obj && p.obj.visible);
+        const room = new THREE.Vector3(0, 29.45, 0.85).applyMatrix4(hull.matrixWorld); // deep in hall
+        const door = new THREE.Vector3(0, 29.35, 2.35).applyMatrix4(hull.matrixWorld); // toward entry
+        let cx = 0, cy = 0, cz = 0, n = 0;
+        for (const p of crew) {
+          const w = new THREE.Vector3(); p.obj.getWorldPosition(w);
+          cx += w.x; cy += w.y + 0.85; cz += w.z; n++;
         }
+        if (n) { cx /= n; cy /= n; cz /= n; } else { cx = room.x; cy = room.y; cz = room.z; }
+        const closeDur = Math.max(1e-4, entryClosed - show.close);
+        const u = Math.max(0, Math.min(1, (tb - show.close) / closeDur)); // 0..1 over the close
+        // Ease from last climber into a tight inside look; hold through the close + 1s beat.
+        const from = BC._airFrom || { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
+        if (!BC._airFrom) BC._airFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
+        // Look at crew cluster, biased toward the door so the shut reads; k ~0.13 ≈ inside the hall.
+        const lookX = cx * 0.55 + door.x * 0.45;
+        const lookY = Math.max(cy, room.y) + 0.15; // chest / face height
+        const lookZ = cz * 0.40 + door.z * 0.60;
+        const destK = 0.13;
+        const tIn = Math.max(0, Math.min(1, u / 0.45)); // move inside over first ~45% of close
+        const eIn = tIn * tIn * (3 - 2 * tIn);
+        BC.lx = from.lx + (lookX - from.lx) * eIn;
+        BC.ly = from.ly + (lookY - from.ly) * eIn;
+        BC.lz = from.lz + (lookZ - from.lz) * eIn;
+        BC.k = from.k + (destK - from.k) * eIn;
+        BC.w = 1; BC.ph = 'airlock'; BC.tb = tb;
       } else {
+        BC._airFrom = null;
+        const airHoldEnd = entryClosed + 2.5;
         const dt = tb - show.stow;
         const lookY = dt < 3 ? 17.8 : 26.2;
         const destK = dt < 3 ? 0.40 : 0.33;
@@ -2279,7 +2296,7 @@ function accessUpdate(tb) {
         if (BC.ph !== 'door' && BC.ph !== 'stow' && BC.ph !== 'airlock') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
         if (BC.ph === 'airlock') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
         const from = BC._stowFrom || { lx: destLx, ly: destLy, lz: destLz, k: destK };
-        const u = tb < show.stow ? Math.max(0, Math.min(1, (tb - entryClosed) / Math.max(1e-4, show.stow - entryClosed))) : 1;
+        const u = tb < show.stow ? Math.max(0, Math.min(1, (tb - airHoldEnd) / Math.max(1e-4, show.stow - airHoldEnd))) : 1;
         const s = u * u * (3 - 2 * u);
         BC.lx = from.lx + (destLx - from.lx) * s;
         BC.ly = from.ly + (destLy - from.ly) * s;
@@ -2606,6 +2623,20 @@ function poseCam(cam, x) {
   if (cam === camera && UC.w > 0) { const w = UC.w; lx += (UC.lx - lx) * w; lyy += (UC.ly - lyy) * w; lz += (UC.lz - lz) * w; kk += (UC.k - kk) * w; }   // gc-ui2: upgrade-card camera (tapped object above the card)
   if (cam === camera && BC.w > 0) { const w = BC.w; lx += (BC.lx - lx) * w; lyy += (BC.ly - lyy) * w; lz += (BC.lz - lz) * w; kk *= Math.pow(BC.k / kk, w); }   // crew boarding camera blend (k in log space)
   if (cam === camera) { CAMLOOK.lx = lx; CAMLOOK.ly = lyy; CAMLOOK.lz = lz; CAMLOOK.k = kk; }
+  // Airlock beat: camera INSIDE the white hall (inner-hatch corner) looking toward entry past the 4 crew.
+  if (cam === camera && BC.w > 0 && BC.ph === 'airlock' && cg3.ship) {
+    const hull = cg3.ship.getObjectByName('Ship_Placeholder');
+    if (hull) {
+      hull.updateMatrixWorld(true);
+      const e = hull.matrixWorld.elements;
+      // Wider inside hall view (A&A B inset): back corner, look past all 4 toward entry.
+      const ax = -2.05, ay = 29.85, az = -0.85;
+      cam.position.set(e[0]*ax+e[4]*ay+e[8]*az+e[12], e[1]*ax+e[5]*ay+e[9]*az+e[13], e[2]*ax+e[6]*ay+e[10]*az+e[14]);
+      cam.lookAt(lx, Math.max(lyy, 29.55), lz);
+      cam.updateMatrixWorld();
+      return;
+    }
+  }
   poseLook(cam, lx, lyy, lz, kk);
 }
 function poseLook(cam, lx, ly, lz, k) {
@@ -4412,7 +4443,10 @@ function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder 
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull || Q.get('hold') === 'off') return;
   loader.load(HOLD_GLB, (g) => { const h = g.scene; h.name = 'Part_Hold'; h.position.fromArray(HOLD_ATTACH);
     h.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; } });
-    hull.add(h); h.updateMatrixWorld(true); cg3.hold = h; window.__ps3d.shipHold = { url: HOLD_GLB, parent: h.parent.name, at: HOLD_ATTACH, part: (h.children[0] && h.children[0].userData.part) || h.userData.part || '' }; },
+    hull.add(h); h.updateMatrixWorld(true); cg3.hold = h; window.__ps3d.shipHold = { url: HOLD_GLB, parent: h.parent.name, at: HOLD_ATTACH, part: (h.children[0] && h.children[0].userData.part) || h.userData.part || '' };
+    // Keep A&A off-white hull after hold stainless joins the placeholder.
+    try { ACC.A._retintHullPanels?.(hull); } catch (e) {}
+  },
     undefined, (e) => console.warn('ship hold part failed to load (bare hull)', e));
 }
 function padDoorAt(k, n) {             // ca-cargoride: the door at a pose set from game time (the ride's close), sampled on clip n
@@ -5337,7 +5371,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 function buyDrill() {
