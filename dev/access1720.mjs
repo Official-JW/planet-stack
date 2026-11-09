@@ -6,6 +6,7 @@
 export const BAY_DOOR_SEC = 1.0;
 export const LADDER_DEPLOY_SEC = 4.375;
 export const LADDER_STOW_SEC = 4.375;
+export const ENTRY_DOOR_SEC = 1.0; // EntryDoor_Open/Close (1123 airlock)
 export const DEPLOY_T = BAY_DOOR_SEC + LADDER_DEPLOY_SEC; // when ladder is fully out
 export const DOOR_SEC = BAY_DOOR_SEC; // alias used by show/camera timing
 // Legacy single-clip scrub constants (1827). Kept so older verify scripts import cleanly.
@@ -329,11 +330,13 @@ export function nominalRungs() {
 
 export function showTimes(n, rungs, walkDist) {
   const deploy = DEPLOY_T;
+  const entryOpen = deploy + ENTRY_DOOR_SEC;  // EntryDoor_Open finishes
   const walk = walkDist / WALK_V;
   const climb = climbDur(rungs);
   const deck = deckDur();
   const per = climb + deck;
-  const start0 = Math.max(deploy, walk);
+  // Climb after bay door + ladder deploy + entry door open.
+  const start0 = Math.max(entryOpen, walk);
   const finish = [];
   let t = start0;
   for (let i = 0; i < n; i++) {
@@ -342,10 +345,11 @@ export function showTimes(n, rungs, walkDist) {
     t = t1 + GAP;
   }
   const last = finish.length ? finish[finish.length - 1].inside : start0;
-  const close = last;                         // Ladder_Stow starts
-  const stow = close + LADDER_STOW_SEC;        // BayDoor_Close starts after stow
+  const close = last;                            // EntryDoor_Close starts (all inside)
+  const entryClosed = close + ENTRY_DOOR_SEC;    // then Ladder_Stow
+  const stow = entryClosed + LADDER_STOW_SEC;    // then BayDoor_Close
   const launch = stow + BAY_DOOR_SEC;
-  return { deploy, walk, climb, deck, per, start0, finish, close, stow, launch, gap: GAP };
+  return { deploy, entryOpen, walk, climb, deck, per, start0, finish, close, entryClosed, stow, launch, gap: GAP };
 }
 
 // Plants for climber-local time tau in [0, climbDur].

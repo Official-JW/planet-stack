@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
-import { createAccess, accessSeconds, HULL_URL, ACCESS_URL } from './access1720_bind.mjs';
+import { createAccess, accessSeconds, HULL_URL, ACCESS_URL, AIRLOCK_URL } from './access1720_bind.mjs';
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
@@ -2237,7 +2237,7 @@ function accessUpdate(tb) {
     } else p.stand = p.obj.userData._accStand || p.obj.position.clone();
   }
   const info = ACC.tick(tb, people);
-  if (info) window.__ps3d.access1720 = { tb: +tb.toFixed(2), clip: +info.clip.toFixed(3), door: +info.door.toFixed(2), n: people.length, rungs: ACC.A.rungs.length, launch: +info.show.launch.toFixed(2) };
+  if (info) window.__ps3d.access1720 = { tb: +tb.toFixed(2), clip: +info.clip.toFixed(3), door: +info.door.toFixed(2), entry: +(info.entry || 0).toFixed(2), n: people.length, rungs: ACC.A.rungs.length, launch: +info.show.launch.toFixed(2) };
   for (const p of people) {
     if (p.mode === 'walk' && p.acts) {
       p.obj.userData._accHeld = 0;
@@ -2254,37 +2254,85 @@ function accessUpdate(tb) {
   if (show && viewingPad() && tb >= show.close) {
     const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
     if (hull) {
-      const dt = tb - show.stow;
-      const lookY = dt < 3 ? 17.8 : 26.2;
-      const destK = dt < 3 ? 0.40 : 0.33;
-      const look = new THREE.Vector3(-1.419532, lookY, 4.950498).applyMatrix4(hull.matrixWorld);
-      const destLx = look.x, destLy = look.y, destLz = look.z;
-      if (BC.ph !== 'door' && BC.ph !== 'stow') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
-      const from = BC._stowFrom || { lx: destLx, ly: destLy, lz: destLz, k: destK };
-      const u = tb < show.stow ? Math.max(0, Math.min(1, (tb - show.close) / Math.max(1e-4, show.stow - show.close))) : 1;
-      const s = u * u * (3 - 2 * u);
-      BC.lx = from.lx + (destLx - from.lx) * s;
-      BC.ly = from.ly + (destLy - from.ly) * s;
-      BC.lz = from.lz + (destLz - from.lz) * s;
-      BC.k = from.k + (destK - from.k) * s;
-      BC.w = 1; BC.ph = tb < show.stow ? 'door' : 'stow'; BC.tb = tb;
+      const entryClosed = show.entryClosed != null ? show.entryClosed : show.close;
+      if (tb < entryClosed) {
+        // Follow last crew into the airlock while EntryDoor_Close slides shut behind them.
+        const inside = people.filter((p) => p.mode === 'inside' || p.mode === 'enter');
+        const lead = inside[inside.length - 1] || people.find((p) => p.obj.visible);
+        if (lead && lead.obj) {
+          const w = new THREE.Vector3(); lead.obj.getWorldPosition(w);
+          const air = new THREE.Vector3(0, 29.4, 2.1).applyMatrix4(hull.matrixWorld);
+          const u = Math.max(0, Math.min(1, (tb - show.close) / Math.max(1e-4, entryClosed - show.close)));
+          const s = u * u * (3 - 2 * u);
+          BC.lx = w.x + (air.x - w.x) * s;
+          BC.ly = (w.y + 0.9) + (air.y - (w.y + 0.9)) * s;
+          BC.lz = w.z + (air.z - w.z) * s;
+          BC.k = 0.55 + 0.15 * s;
+          BC.w = 1; BC.ph = 'airlock'; BC.tb = tb;
+        }
+      } else {
+        const dt = tb - show.stow;
+        const lookY = dt < 3 ? 17.8 : 26.2;
+        const destK = dt < 3 ? 0.40 : 0.33;
+        const look = new THREE.Vector3(-1.419532, lookY, 4.950498).applyMatrix4(hull.matrixWorld);
+        const destLx = look.x, destLy = look.y, destLz = look.z;
+        if (BC.ph !== 'door' && BC.ph !== 'stow' && BC.ph !== 'airlock') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
+        if (BC.ph === 'airlock') BC._stowFrom = { lx: BC.lx, ly: BC.ly, lz: BC.lz, k: BC.k };
+        const from = BC._stowFrom || { lx: destLx, ly: destLy, lz: destLz, k: destK };
+        const u = tb < show.stow ? Math.max(0, Math.min(1, (tb - entryClosed) / Math.max(1e-4, show.stow - entryClosed))) : 1;
+        const s = u * u * (3 - 2 * u);
+        BC.lx = from.lx + (destLx - from.lx) * s;
+        BC.ly = from.ly + (destLy - from.ly) * s;
+        BC.lz = from.lz + (destLz - from.lz) * s;
+        BC.k = from.k + (destK - from.k) * s;
+        BC.w = 1; BC.ph = tb < show.stow ? 'door' : 'stow'; BC.tb = tb;
+      }
     }
-  } else if (live && viewingPad()) {
-    const w = new THREE.Vector3(); live.obj.getWorldPosition(w);
-    BC.lx = w.x; BC.ly = w.y + 0.9; BC.lz = w.z; BC.k = 0.28; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
+  } else if (climber && viewingPad() && ACC.A.rungs && ACC.A.rungs.length > 1) {
+    // Wide ladder frame: whole ladder in shot, climber kept in frame. Never crop the ladder; never show an empty ladder (climber-only gate above).
+    const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
+    const r0 = ACC.A.rungs[0], r1 = ACC.A.rungs[ACC.A.rungs.length - 1];
+    const mid = new THREE.Vector3(r0.x, (r0.y + r1.y) * 0.5, r0.z);
+    if (hull) mid.applyMatrix4(hull.matrixWorld);
+    const cw = new THREE.Vector3(); climber.obj.getWorldPosition(cw);
+    // Bias look slightly toward the climber so they read, but keep ladder mid as the anchor.
+    BC.lx = mid.x * 0.72 + cw.x * 0.28;
+    BC.ly = mid.y * 0.82 + (cw.y + 0.9) * 0.18;
+    BC.lz = mid.z * 0.72 + cw.z * 0.28;
+    const ladderH = Math.abs(r1.y - r0.y);
+    const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const dist = Math.max(1e-3, camera.userData.dist || 20);
+    // Fit full ladder height (+10% pad) into the vertical FOV at the look point.
+    const fitK = (ladderH * 0.55) / (dist * vt);
+    BC.k = Math.max(1.05, Math.min(2.4, fitK));
+    BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
+  } else if (walker && viewingPad()) {
+    // Approach / deck walk: medium shot that still keeps the ladder foot in frame (not the old tight 0.28 crop).
+    const w = new THREE.Vector3(); walker.obj.getWorldPosition(w);
+    const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
+    if (ACC.A.rungs && ACC.A.rungs.length && hull) {
+      const foot = new THREE.Vector3(ACC.A.rungs[0].x, ACC.A.rungs[0].y, ACC.A.rungs[0].z).applyMatrix4(hull.matrixWorld);
+      BC.lx = w.x * 0.55 + foot.x * 0.45;
+      BC.ly = Math.max(w.y + 0.9, foot.y + 4);
+      BC.lz = w.z * 0.55 + foot.z * 0.45;
+    } else {
+      BC.lx = w.x; BC.ly = w.y + 0.9; BC.lz = w.z;
+    }
+    BC.k = 0.72; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
   }
 }
 function accessLoad(rig) {
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull) return;
-  let hullG = null, accG = null, bad = false;
+  let hullG = null, accG = null, airG = null, bad = false;
   const fail = (e) => { bad = true; ACC.A.failed = true; console.warn('crew access 1720 failed (served hull stays)', e); };
   const done = () => {
-    if (bad || !hullG || !accG) return;
+    if (bad || !hullG || !accG || !airG) return;
     try {
       const old = [];
-      hull.traverse((c) => { if (c.isMesh && !c.name) old.push(c); });
-      for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow', 'Access_Chamber', 'Access_Corridor']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
-      const info = ACC.bind(hullG, accG, hull, old);
+      // Served hull mesh: GLTFLoader names the unnamed pad node mesh_3. Hide by name and by nameless mesh.
+      hull.traverse((c) => { if (c.isMesh && (!c.name || c.name === 'mesh_3')) old.push(c); });
+      for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow', 'Access_Chamber', 'Access_Corridor', 'mesh_3']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
+      const info = ACC.bind(hullG, accG, airG, hull, old);
       const meshes = []; hullG.scene.traverse((m) => { if (m.isMesh) meshes.push(m); });
       try { const cw = cockpitWindowPrep(rig, meshes); if (cw && cw.n) { cg3.cockpit = cw; window.__ps3d.cockpit = cw; } } catch (e) { console.warn('cockpit retarget', e); }
       window.__ps3d.access1720 = info;
@@ -2292,6 +2340,7 @@ function accessLoad(rig) {
   };
   loader.load(HULL_URL, (g) => { hullG = g; done(); }, undefined, fail);
   loader.load(ACCESS_URL, (g) => { accG = g; done(); }, undefined, fail);
+  loader.load(AIRLOCK_URL, (g) => { airG = g; done(); }, undefined, fail);
 }
 function updCrew() {
   const bNow = boardOf();
