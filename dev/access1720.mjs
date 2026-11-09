@@ -28,7 +28,8 @@ export function stageRungLocals() {
   return out;
 }
 export function climbSteps(rungs) { return Math.max(1, rungs.length - 1); }
-export const GAP = 1.5;                   // seconds between one climber finishing and the next starting
+export const CLIMB_GAP_M = 1.5;            // next climber starts when previous is ~1.5 m up
+export const GAP = 1.5;                   // fallback seconds if rung dy missing
 export const WALK_V = 1.4;
 export const PALM = 0.10;                 // wrist → palm, along the forearm. Fingers wrap the rung.
 export const RAIL_CTC = 0.50;
@@ -279,6 +280,16 @@ export function climbDur(rungs) {
   for (let k = 0; k < n; k++) t += stepDur(rungs, k);
   return t + 0.6;
 }
+/** Seconds for a climber to rise ~CLIMB_GAP_M on the ladder (spacing so two never overlap). */
+export function climbGapSec(rungs) {
+  let t = 0, rise = 0;
+  const n = climbSteps(rungs);
+  for (let k = 0; k < n && rise < CLIMB_GAP_M; k++) {
+    t += stepDur(rungs, k);
+    rise += Math.max(0, (rungs[k + 1] ? rungs[k + 1].y : 0) - (rungs[k] ? rungs[k].y : 0));
+  }
+  return Math.max(1.0, t || GAP);
+}
 
 export const DECK_PATH = [
   { x: -0.95, z: 4.62, y: 28.54, hip: 0.78 },
@@ -335,21 +346,26 @@ export function showTimes(n, rungs, walkDist) {
   const climb = climbDur(rungs);
   const deck = deckDur();
   const per = climb + deck;
-  // Climb after bay door + ladder deploy + entry door open.
-  const start0 = Math.max(entryOpen, walk);
+  const gap = climbGapSec(rungs);
+  // Ladder ready → first climber starts ASAP (pad crew already at foot do not wait on others).
+  // Later climbers start when the previous is ~1.5 m up (gap), or when they themselves arrive.
+  const ready = Math.max(entryOpen, deploy);
   const finish = [];
-  let t = start0;
+  let prevStart = null;
   for (let i = 0; i < n; i++) {
-    const t1 = t + per;
-    finish.push({ start: t, inside: t1 });
-    t = t1 + GAP;
+    const arrive = walk; // walk-from-stand; pad crew stand near foot so lerp is short
+    let t = Math.max(ready, arrive);
+    if (prevStart != null) t = Math.max(t, prevStart + gap);
+    finish.push({ start: t, inside: t + per });
+    prevStart = t;
   }
+  const start0 = finish.length ? finish[0].start : ready;
   const last = finish.length ? finish[finish.length - 1].inside : start0;
   const close = last;                            // EntryDoor_Close starts (all inside)
   const entryClosed = close + ENTRY_DOOR_SEC;    // then Ladder_Stow
   const stow = entryClosed + LADDER_STOW_SEC;    // then BayDoor_Close
   const launch = stow + BAY_DOOR_SEC;
-  return { deploy, entryOpen, walk, climb, deck, per, start0, finish, close, entryClosed, stow, launch, gap: GAP };
+  return { deploy, entryOpen, walk, climb, deck, per, start0, finish, close, entryClosed, stow, launch, gap };
 }
 
 // Plants for climber-local time tau in [0, climbDur].

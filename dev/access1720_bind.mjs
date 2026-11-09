@@ -359,7 +359,9 @@ export function createAccess(THREE) {
   }
 
   function bind(hullG, accG, airG, hullNode, hide) {
-    const hullRoot = hullG.scene.getObjectByName('PR17_Hull_Replacement');
+    // v10-safe: do NOT parent/replace with PR17_Hull_Replacement (trashes served AA3 ship).
+    // Bay door + orange ladder come from the access assembly only; served hull stays as-is.
+    const hullRoot = hullG && hullG.scene ? hullG.scene.getObjectByName('PR17_Hull_Replacement') : null;
     const asm = accG.scene.getObjectByName('PR17_Access_Assembly');
     const rails = accG.scene.getObjectByName('Rails');
     const clips = accG.animations || [];
@@ -367,7 +369,7 @@ export function createAccess(THREE) {
     const cStow = findClip(clips, 'Ladder_Stow');
     const cDoorOpen = findClip(clips, 'BayDoor_Open');
     const cDoorClose = findClip(clips, 'BayDoor_Close');
-    if (!hullRoot || !asm || !rails || !cDeploy || !cStow || !cDoorOpen || !cDoorClose) {
+    if (!asm || !rails || !cDeploy || !cStow || !cDoorOpen || !cDoorClose) {
       throw new Error('access 1015 nodes/clips missing');
     }
     let railsMorph = (rails.morphTargetInfluences && rails.morphTargetInfluences.length >= 24) ? rails : null;
@@ -378,13 +380,20 @@ export function createAccess(THREE) {
     }
     if (!railsMorph) throw new Error('access 1015 rails morphs missing');
 
-    for (const scene of [hullG.scene, accG.scene, airG && airG.scene].filter(Boolean)) {
+    // Parent access + airlock only — never the 1015 hull replacement GLB.
+    for (const scene of [accG.scene, airG && airG.scene].filter(Boolean)) {
       scene.position.set(0, 0, 0); scene.quaternion.identity(); scene.scale.set(1, 1, 1);
       // No castShadow on packet meshes — pad sun already has the ship; saves shadow-pass draws.
       scene.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; } });
       hullNode.add(scene);
     }
+    // hide[] should only be old ladder/bay hatch parts — never served hull meshes.
     for (const o of hide) if (o) { o.visible = false; A.old.push(o); }
+    if (hullRoot) {
+      // Keep GLB loaded for bay-only probes if needed, but never show the replacement hull.
+      hullRoot.visible = false;
+      hullRoot.traverse((c) => { c.visible = false; });
+    }
     // 1015 airlock room + deck replaced by 1123 airlock packet — hide leftovers.
     for (const n of [
       'Airlock_Corridor_White', 'Airlock_GlowStrips', 'Airlock_InnerHatch_Mount',
@@ -565,64 +574,12 @@ export function createAccess(THREE) {
       airRoot.add(fill2);
     }
 
-    // Hull: stainless body + bay liner + glow (3 draws max).
-    // Prefer SHM_Stainless_* (off-white vertex panels per A&A stills). First-hit was
-    // Study1240_Rebate, which + metalness and no envMap reads solid black on device.
-    let hullBody = null, hullLiner = null, hullGlow = null, hullStainless = null;
-    hullRoot.traverse((o) => {
-      if (!o.isMesh) return;
-      const mat = Array.isArray(o.material) ? o.material[0] : o.material;
-      const mn = mat?.name || '';
-      if (/Glow/.test(mn)) hullGlow = hullGlow || mat;
-      else if (/BayLiner|Track_Metal/.test(mn)) hullLiner = hullLiner || mat;
-      else if (/SHM_Stainless|Stainless/i.test(mn)) hullStainless = hullStainless || mat;
-      else hullBody = hullBody || mat;
-    });
-    hullBody = hullStainless || hullBody;
-    const hullLists = { body: [], liner: [], glow: [] };
-    hullRoot.traverse((o) => {
-      if (!o.isMesh) return;
-      const mat = Array.isArray(o.material) ? o.material[0] : o.material;
-      const mn = mat?.name || '';
-      if (/Glow/.test(mn)) hullLists.glow.push(o);
-      else if (/BayLiner|Track_Metal/.test(mn)) hullLists.liner.push(o);
-      else hullLists.body.push(o);
-    });
-    // One hull draw: body + bay liner share the panel material (saves a draw).
-    const hullAll = hullLists.body.concat(hullLists.liner);
-    mergeList(hullAll, hullBody || hullLiner, hullRoot, 'Hull_Body');
-    mergeList(hullLists.glow, hullGlow, hullRoot, 'Hull_Glow');
-    // Force A&A off-white panel look on served + replacement hull (pad/launch/zoom).
-    // Material/lighting only — no geo change. Served SHM_Stainless is metalness 0.5 with no
-    // envMap (reads solid black); dark COLOR_0 also crushes. Drop vertexColors so baseColor wins.
-    function retintHullPanels(root) {
-      if (!root) return;
-      root.traverse((o) => {
-        if (!o.isMesh) return;
-        for (const m of [].concat(o.material || [])) {
-          if (!m || !m.isMeshStandardMaterial) continue;
-          const n = m.name || '';
-          if (/Glow|Glass|Plume|Window|BayDoor|EntryDoor|LAD_|POST_|RAIL|Airlock_Panel/i.test(n)) continue;
-          if (!(/SHM_Stainless|Stainless|Hull_Body|M_AftSkirt|Study1240|Study1353/i.test(n))) continue;
-          m.color.setHex(0xe8e6df);
-          m.metalness = 0.12;
-          m.roughness = 0.58;
-          m.envMapIntensity = 0.4;
-          m.emissive.setHex(0x222220);
-          m.emissiveIntensity = 0.22;
-          m.vertexColors = false;
-          m.needsUpdate = true;
-        }
-      });
-    }
-    retintHullPanels(hullRoot);
-    retintHullPanels(hullNode);
-    A._retintHullPanels = retintHullPanels;
+    // Hull replacement + retintHullPanels REMOVED (Jacob: ship must match DEV 18:48).
 
     // One shared cyan glow draw (hull bay strips + airlock strips).
     {
       const glows = [];
-      for (const root of [hullRoot, airRoot, asm]) {
+      for (const root of [airRoot, asm].filter(Boolean)) {
         root.traverse((o) => {
           if (!o.isMesh || !o.visible) return;
           const mn = (Array.isArray(o.material) ? o.material[0] : o.material)?.name || '';

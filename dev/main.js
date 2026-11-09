@@ -2321,9 +2321,8 @@ function accessLoad(rig) {
     if (bad || !hullG || !accG || !airG) return;
     try {
       const old = [];
-      // Served hull mesh: GLTFLoader names the unnamed pad node mesh_3. Hide by name and by nameless mesh.
-      hull.traverse((c) => { if (c.isMesh && (!c.name || c.name === 'mesh_3')) old.push(c); });
-      for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow', 'Access_Chamber', 'Access_Corridor', 'mesh_3']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
+      // Keep served AA3 hull visible. Only hide old hatch/chamber parts the bay/ladder replaces.
+      for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow', 'Access_Chamber', 'Access_Corridor']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
       const info = ACC.bind(hullG, accG, airG, hull, old);
       const meshes = []; hullG.scene.traverse((m) => { if (m.isMesh) meshes.push(m); });
       try { const cw = cockpitWindowPrep(rig, meshes); if (cw && cw.n) { cg3.cockpit = cw; window.__ps3d.cockpit = cw; } } catch (e) { console.warn('cockpit retarget', e); }
@@ -4428,8 +4427,6 @@ function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder 
   loader.load(HOLD_GLB, (g) => { const h = g.scene; h.name = 'Part_Hold'; h.position.fromArray(HOLD_ATTACH);
     h.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; } });
     hull.add(h); h.updateMatrixWorld(true); cg3.hold = h; window.__ps3d.shipHold = { url: HOLD_GLB, parent: h.parent.name, at: HOLD_ATTACH, part: (h.children[0] && h.children[0].userData.part) || h.userData.part || '' };
-    // Keep A&A off-white hull after hold stainless joins the placeholder.
-    try { ACC.A._retintHullPanels?.(hull); } catch (e) {}
   },
     undefined, (e) => console.warn('ship hold part failed to load (bare hull)', e));
 }
