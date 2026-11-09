@@ -5084,7 +5084,7 @@ function engTapMeshes() {
 const PAD_TANKS = { min: [-19.9, 0.4, -10.7], max: [-11.6, 10.9, -0.5] };   // pad-local tanks; y0=0.4 so ground in front of Habitat/pad doesn't count as fuel
 function padTankBox(b) { const o = stationObjs[PADI]; if (!o || !o.getObjectByName('Hose_LOX')) return null; o.updateWorldMatrix(true, false);
   b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0], i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
-const PAD_DECK = { min: [-12, 0, -22], max: [12, 1.7, -4] };   // pad-local slab: the base platform under the ship, not the crane tower (z +8) and not the fuel tanks (x < -12)
+const PAD_DECK = { min: [-10, 0.08, -16], max: [12, 2.2, 5.5] };   // pad platform toward cam (+Z); skip crane (~z 8) and LOX/LCH4 tanks (x < -11)
 function shipDocked() { return !!(cg3.ship && cg3.ship.visible && S.cg && S.cg.sh && S.cg.sh.st === 'pad'); }
 function shipHitBox(b) {   // meter-space hull only. Quantized skirt/hold bounds are 0..16383; setFromObject on those
   // without a sane scale blows the hit volume up to the tower corner and the deck. Skip any mesh whose
