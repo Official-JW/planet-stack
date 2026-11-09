@@ -2289,36 +2289,35 @@ function accessUpdate(tb) {
       }
     }
   } else if (climber && viewingPad() && ACC.A.rungs && ACC.A.rungs.length > 1) {
-    // Wide ladder frame: whole ladder in shot, climber kept in frame. Never crop the ladder; never show an empty ladder (climber-only gate above).
+    // Wide ladder frame (was BC.k=0.28 crop): fit full nominal ladder (y~5..28), keep climber in frame.
     const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
     const r0 = ACC.A.rungs[0], r1 = ACC.A.rungs[ACC.A.rungs.length - 1];
     const mid = new THREE.Vector3(r0.x, (r0.y + r1.y) * 0.5, r0.z);
     if (hull) mid.applyMatrix4(hull.matrixWorld);
     const cw = new THREE.Vector3(); climber.obj.getWorldPosition(cw);
-    // Bias look slightly toward the climber so they read, but keep ladder mid as the anchor.
-    BC.lx = mid.x * 0.72 + cw.x * 0.28;
-    BC.ly = mid.y * 0.82 + (cw.y + 0.9) * 0.18;
-    BC.lz = mid.z * 0.72 + cw.z * 0.28;
+    BC.lx = mid.x * 0.50 + cw.x * 0.50;
+    BC.ly = mid.y * 0.45 + (cw.y + 0.9) * 0.55;
+    BC.lz = mid.z * 0.50 + cw.z * 0.50;
     const ladderH = Math.abs(r1.y - r0.y);
     const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const dist = Math.max(1e-3, camera.userData.dist || 20);
-    // Fit full ladder height (+10% pad) into the vertical FOV at the look point.
-    const fitK = (ladderH * 0.55) / (dist * vt);
-    BC.k = Math.max(1.05, Math.min(2.4, fitK));
+    // k scales cam distance (larger = wider). Floor above old 0.28 crop; cap so subject stays readable at pad dist~47.
+    const fitK = (ladderH * 0.52) / (dist * vt);
+    BC.k = Math.max(0.48, Math.min(0.78, fitK));
     BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
   } else if (walker && viewingPad()) {
-    // Approach / deck walk: medium shot that still keeps the ladder foot in frame (not the old tight 0.28 crop).
+    // Approach / deck walk: medium shot that keeps the ladder foot in frame (not the old tight 0.28 crop).
     const w = new THREE.Vector3(); walker.obj.getWorldPosition(w);
     const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder');
     if (ACC.A.rungs && ACC.A.rungs.length && hull) {
       const foot = new THREE.Vector3(ACC.A.rungs[0].x, ACC.A.rungs[0].y, ACC.A.rungs[0].z).applyMatrix4(hull.matrixWorld);
-      BC.lx = w.x * 0.55 + foot.x * 0.45;
-      BC.ly = Math.max(w.y + 0.9, foot.y + 4);
-      BC.lz = w.z * 0.55 + foot.z * 0.45;
+      BC.lx = w.x * 0.45 + foot.x * 0.55;
+      BC.ly = Math.max(w.y + 1.2, foot.y + 4);
+      BC.lz = w.z * 0.45 + foot.z * 0.55;
     } else {
       BC.lx = w.x; BC.ly = w.y + 0.9; BC.lz = w.z;
     }
-    BC.k = 0.72; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
+    BC.k = 0.58; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
   }
 }
 function accessLoad(rig) {

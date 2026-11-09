@@ -416,6 +416,17 @@ export function createAccess(THREE) {
     }
     rungs.sort((a, b) => a.y - b.y);
     if (rungs.length < 8) throw new Error('rungs missing');
+    // Live stage-mesh samples drifted below the pad after the 1015 InstancedMesh bind
+    // (LadderStage_5 world y ≈ -23). Packet authority is nominalRungs (STAGE_Y 5..28),
+    // which matches Rails_Merged AABB and the bay/airlock face at local z≈+5.
+    {
+      const nom = nominalRungs();
+      if (nom.length >= 8) {
+        if (nom.length !== rungs.length) console.warn('access rungs', rungs.length, '→ nominal', nom.length);
+        rungs.length = 0;
+        for (const r of nom) rungs.push({ x: r.x, y: r.y, z: r.z });
+      }
+    }
 
     acts.deploy.time = 0; acts.deploy.setEffectiveWeight(0);
     acts.doorOpen.time = 0; acts.doorOpen.setEffectiveWeight(0);
