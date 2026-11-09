@@ -1146,6 +1146,7 @@ function v3hSuppressMerged(mineRoot) {
   return report;
 }
 function v3hHideNamed(root) {
+  // DEV 18:48 cleanup: Tier_*/old Rig/Conveyor/Silo/Chute/OrePath leftovers leave the scene for good (not merely visible=false).
   const names = new Set(V3H_HIDE), gone = [];
   const nodes = [];
   root.traverse(o => { if (o.name && names.has(o.name)) nodes.push(o); });
@@ -1231,8 +1232,10 @@ function v3hPack(mesh, mat, root, into) {
   }
 }
 function v3hShadeMat(transparent) {
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1, transparent: !!transparent, opacity: transparent ? 0.42 : 1, depthWrite: !transparent });
-  mat.customProgramCacheKey = () => 'v3h-shade';
+  // Cleanup companion: black emissive carrier so afford-glow/hl clones cannot blow the packed drill to flat white.
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, transparent: !!transparent, opacity: transparent ? 0.42 : 1, depthWrite: !transparent });
+  mat.userData.v3hShade = 1;
+  mat.customProgramCacheKey = () => 'v3h-shade-clean';
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <color_pars_vertex>', '#include <color_pars_vertex>\nattribute vec3 emColor;\nattribute vec3 shade;\nvarying vec3 vEm;\nvarying vec3 vShade;')
@@ -1241,6 +1244,7 @@ function v3hShadeMat(transparent) {
       .replace('#include <color_pars_fragment>', '#include <color_pars_fragment>\nvarying vec3 vEm;\nvarying vec3 vShade;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vShade.r;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vShade.g;')
+      .replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = vEm * vShade.b;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance = vEm * vShade.b;');
   };
   return mat;
@@ -1259,10 +1263,9 @@ function v3hMeshFrom(into, mat, name, tap, cast) {
 }
 function v3hMergeStatic(root) {
   const keepName = new Set(['M_CabGlass', 'M_MastLED', 'M_OreRock', 'M_OreGlint', 'SHM_Paint.002', 'SHM_GlowCyan.001', 'M_ContactShadow', 'M_OcTruss']);
-  // The dark chute and its hood are material groups on Conveyor_Gallery, not their own nodes. a489aa6a only.
+  // DEV 18:48 cleanup: M_OcChute2 / M_OcHood2 are the old dark funnel (own meshes after decode, and/or groups on Conveyor_Gallery). Drop them entirely — never pack into V3H_Static. M_OcChute (feed lip) stays.
   const chuteName = new Set(['M_OcChute2', 'M_OcHood2']);
   const chuteDrop = {};
-  const chuteOk = typeof DRILL_V3H_GLB === 'string' && DRILL_V3H_GLB.indexOf('a489aa6a') !== -1;
   const buckets = new Map();
   const meshes = [];
   root.traverse(o => { if (o.isMesh) meshes.push(o); });
@@ -1271,17 +1274,22 @@ function v3hMergeStatic(root) {
   for (const mesh of meshes) {
     const tag = v3hTag(mesh);
     if (tag === 'ore' || tag === 'op' || !mesh.geometry) continue;
-    if (chuteOk) {
-      const only = [].concat(mesh.material).filter(Boolean);
-      if (only.length && only.every(m => chuteName.has(m.name))) {
-        const n = (mesh.geometry.index ? mesh.geometry.index.count : mesh.geometry.attributes.position.count) / 3;
-        chuteDrop[only[0].name] = (chuteDrop[only[0].name] || 0) + n;
-        if (mesh.parent) mesh.parent.remove(mesh);
+    const only = [].concat(mesh.material).filter(Boolean);
+    if (only.length && only.every(m => chuteName.has(m.name))) {
+      const n = (mesh.geometry.index ? mesh.geometry.index.count : mesh.geometry.attributes.position.count) / 3;
+      chuteDrop[only[0].name] = (chuteDrop[only[0].name] || 0) + n;
+      if (mesh.parent) mesh.parent.remove(mesh);
+      continue;
+    }
+    for (const mat of only) {
+      if (chuteName.has(mat.name)) {
+        const g = mesh.geometry, groups = g.groups && g.groups.length ? g.groups : [{ start: 0, count: g.index ? g.index.count : 0, materialIndex: 0 }];
+        const mats = only;
+        let n = 0;
+        for (const gr of groups) { const gm = mats[gr.materialIndex] || mats[0]; if (gm && gm.name === mat.name) n += gr.count / 3; }
+        chuteDrop[mat.name] = (chuteDrop[mat.name] || 0) + n;
         continue;
       }
-    }
-    for (const mat of [].concat(mesh.material)) {
-      if (!mat) continue;
       if (keepName.has(mat.name)) {
         const key = mat.name;
         let b = buckets.get(key); if (!b) { b = blank(); b.mat = mat; buckets.set(key, b); }
@@ -1315,7 +1323,7 @@ function v3hMergeStatic(root) {
     for (const m of b.meshes) consumed.add(m);
   }
   for (const m of consumed) if (m.parent) m.parent.remove(m);
-  if (chuteOk) console.info('[v3h] chute stripped', chuteDrop);
+  if (Object.keys(chuteDrop).length) console.info('[v3h] chute stripped', chuteDrop);
   root.traverse(o => { if (o.isMesh && (o.name === 'Operator_Mesh' || (o.parent && o.parent.name === 'Operator_Mesh'))) { o.castShadow = false; } });
 }
 function v3hChunkGeo(node, root) {
@@ -1496,7 +1504,9 @@ function v3hLumpAt(mesh, i, morph, v) {
 }
 function v3hFlattenSpout() {
   // The smooth gray lump is SHM_Paint at the back of the bed. A wide box also catches the bed walls, so only the cluster under the spout is eligible, and only once that cluster is a few hundred verts (the parked pose).
-  if (!truck || TS.ph !== 'fill' || Math.abs(truck.position.x - (MX + 11)) > 0.15) return;
+  // Cleanup: allow one sink whenever the truck is near the chute (fill or just-loaded park); skip once V3H.spoutFlat is set.
+  if (!truck || V3H.spoutFlat) return;
+  if (Math.abs(truck.position.x - (MX + 11)) > 1.5) return;
   const meshes = [];
   truck.traverse(o => {
     if (!o.isMesh || !o.material || o.material.name !== 'SHM_Paint' || !o.geometry || o.geometry.attributes.position.count < 1000) return;
@@ -1984,6 +1994,8 @@ function loadTruck() { loader.load('../qa3d-next/models/ht04_76e02e8b.glb?v=76e0
   for (const c of gltf.animations) tActs2[c.name] = t2Mixer.clipAction(c);
   if (tActs2.truck_load_rich) { tActs2.truck_load_rich.setLoop(THREE.LoopOnce, 1); tActs2.truck_load_rich.clampWhenFinished = false; }
   if (tActs2.truck_dump) { tActs2.truck_dump.setLoop(THREE.LoopOnce, 1); tActs2.truck_dump.clampWhenFinished = true; }
+  // DEV 18:48 cleanup: sink the smooth SHM_Paint bed lump once the HT-04 is in the scene (fill-phase retry in v3hFlatHeap stays as a guard).
+  try { v3hFlattenSpout(); } catch (e) { console.warn('[v3h] lump sink at load', e); }
   truckDone = true; v3hCaptureTruck(); v3hClearanceMaybe(); maybeReady();
   Object.assign(window.__ps3d, { truck2Root, truck2Unlocked, fleetN, buyTruck2: () => buyTruck2() });
   Object.assign(window.__ps3d, { truck, truckRoot, wheels, truckClips: gltf.animations.map(a => a.name + ':' + a.duration.toFixed(2)) });
@@ -4924,8 +4936,8 @@ function hlStart(t, r) {
   for (const root of t.hl()) root.traverse((m) => {
     if (!m.isMesh || !m.visible || !m.material) return;
     const orig = m.material, arr = Array.isArray(orig) ? orig : [orig];
-    if (!arr.some(c => c.emissive && !c.transparent)) return;
-    const cl = arr.map(c => c.emissive && !c.transparent ? c.clone() : c);
+    if (!arr.some(c => c.emissive && !c.transparent && !c.userData.v3hShade)) return;
+    const cl = arr.map(c => c.emissive && !c.transparent && !c.userData.v3hShade ? c.clone() : c);
     const e = { m, orig, cl: Array.isArray(orig) ? cl : cl[0], src: arr }; m.material = e.cl; HL.list.push(e);
   });
   HL.t = 0; HL.t0 = performance.now(); HL.to = setTimeout(hlEnd, (window.__ps3d.qaHlSec || HL_SEC) * 1000 + 30); window.__ps3d.hlOn = true;   // timer too: the glow ends on time even if frames stall
@@ -4955,7 +4967,7 @@ function glowStart(t) {                // clone this target's meshes; false whil
   const roots = t.hl(); if (!roots.length) return false; let n = 0;
   for (const root of roots) root.traverse((m) => {
     if (!m.isMesh || !m.material) return;
-    const orig = m.material, arr = Array.isArray(orig) ? orig : [orig], ok = (c) => c.emissive && (!c.transparent || c.userData.bld0);
+    const orig = m.material, arr = Array.isArray(orig) ? orig : [orig], ok = (c) => c.emissive && !c.userData.v3hShade && (!c.transparent || c.userData.bld0);
     if (!arr.some(ok)) return;
     const cl = arr.map(c => ok(c) ? c.clone() : c);
     const e = { site: t.site, id: t.id, m, orig, cl: Array.isArray(orig) ? cl : cl[0], cla: cl, src: arr };
