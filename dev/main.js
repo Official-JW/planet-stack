@@ -2331,7 +2331,7 @@ function accessUpdate(tb) {
         // Inside white airlock: poseCam places cam at far wall → entry. Hold BC look on door.
         const door = new THREE.Vector3(0, 29.40, 3.55).applyMatrix4(hull.matrixWorld);
         BC.lx = door.x; BC.ly = door.y; BC.lz = door.z;
-        BC.k = 0.13; BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+        BC.k = 0.13; BC.w = 1; BC.ph = 'airlock'; BC.tb = tb;
       } else {
         BC._airFrom = null;
         const airHoldEnd = entryClosed + 2.5;
@@ -2349,7 +2349,7 @@ function accessUpdate(tb) {
         BC.ly = from.ly + (destLy - from.ly) * s;
         BC.lz = from.lz + (destLz - from.lz) * s;
         BC.k = from.k + (destK - from.k) * s;
-        BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+        BC.w = 1; BC.ph = tb < show.stow ? 'door' : 'stow'; BC.tb = tb;
       }
     }
   } else if (climber && viewingPad() && ACC.A.rungs && ACC.A.rungs.length > 1) {
@@ -2368,7 +2368,7 @@ function accessUpdate(tb) {
     // k scales cam distance (larger = wider). Floor above old 0.28 crop; cap so subject stays readable at pad dist~47.
     const fitK = (ladderH * 0.52) / (dist * vt);
     BC.k = Math.max(0.48, Math.min(0.78, fitK));
-    BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+    BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
   } else if (walker && viewingPad()) {
     // Approach / deck walk: medium shot that keeps the ladder foot in frame (not the old tight 0.28 crop).
     const w = new THREE.Vector3(); walker.obj.getWorldPosition(w);
@@ -2381,7 +2381,7 @@ function accessUpdate(tb) {
     } else {
       BC.lx = w.x; BC.ly = w.y + 0.9; BC.lz = w.z;
     }
-    BC.k = 0.58; BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+    BC.k = 0.58; BC.w = 1; BC.ph = 'climb'; BC.tb = tb;
   }
 }
 function accessLoad(rig) {
@@ -2422,9 +2422,10 @@ function updCrew() {
   crewOnPad();
   if (act && (!S.bc || S.bc.id !== b.id)) { S.bc = { id: b.id, on: viewingPad() ? 1 : 0, x: 0 }; save(); }   // gate: decided once per boarding, saved
   let w = 0;
-  // Boarding follow cam disabled (pinch-zoom PR): keep station framing through boarding.
-  BC.ph = 'off'; BC.w = 0; BC.tb = tb;
+  if (act && S.bc.on) { crewCamAt(tb, BC); w = S.bc.x ? BD.fc.cancelW() : crewCamW(tb); }
+  else BC.ph = 'off';
   if (!act) BD.fc.rel = null;
+  BC.w = w; BC.tb = tb;
 }
 function crewCancel(by) {             // any tap / swipe / dot: ease back to the station camera, stays there for this boarding
   const b = boardOf(); if (!BD.root || !b || !S.bc || S.bc.id !== b.id || !S.bc.on || S.bc.x) return;
@@ -5084,7 +5085,7 @@ function engTapMeshes() {
 const PAD_TANKS = { min: [-19.9, 0.4, -10.7], max: [-11.6, 10.9, -0.5] };   // pad-local tanks; y0=0.4 so ground in front of Habitat/pad doesn't count as fuel
 function padTankBox(b) { const o = stationObjs[PADI]; if (!o || !o.getObjectByName('Hose_LOX')) return null; o.updateWorldMatrix(true, false);
   b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0], i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
-const PAD_DECK = { min: [-10, 0.08, -16], max: [12, 2.2, 5.5] };   // pad platform toward cam (+Z); skip crane (~z 8) and LOX/LCH4 tanks (x < -11)
+const PAD_DECK = { min: [-11, 0.05, -18], max: [13, 2.6, 11] };   // pad platform slab (cam-side +Z for phone taps); skip crane tower (~z≥12) and LOX/LCH4 (x≲-12)
 function shipDocked() { return !!(cg3.ship && cg3.ship.visible && S.cg && S.cg.sh && S.cg.sh.st === 'pad'); }
 function shipHitBox(b) {   // meter-space hull only. Quantized skirt/hold bounds are 0..16383; setFromObject on those
   // without a sane scale blows the hit volume up to the tower corner and the deck. Skip any mesh whose
