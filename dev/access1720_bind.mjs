@@ -68,41 +68,32 @@ export function createAccess(THREE) {
       doorK = 1 - Math.max(0, Math.min(1, ct / BAY_DOOR_SEC));
     }
 
-    // Solid orange ladder + PackRoot platform: own smoothstep tweens (NO Ladder_Deploy/Stow clips —
-    // those also drive telescope stages). Telescope meshes are removed from the scene in bind().
+    // Ladder telescope + PackRoot platform: drive Ladder_Deploy/Stow clips (source 78c19d1 /
+    // pre-stepped-IM). Bay door already scrubbed above. No SolidLadder; no PackRoot tween.
     let clipT = 0;
     const stowStart = show.entryClosed != null ? show.entryClosed : show.close;
-    const smooth = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
-    zero(acts.deploy); zero(acts.stow); // clips unbound from visuals; keep actions silent
-    let slideU = 0; // 0=stowed (up / drawer in), 1=deployed (down / drawer out)
     if (tb < BAY_DOOR_SEC) {
-      slideU = 0; clipT = 0;
+      set(acts.deploy, 0, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
+      clipT = 0;
     } else if (tb < show.deploy) {
       const lt = tb - BAY_DOOR_SEC;
-      slideU = smooth(lt / LADDER_DEPLOY_SEC);
+      set(acts.deploy, lt, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
       clipT = lt;
     } else if (tb < stowStart) {
-      slideU = 1; clipT = LADDER_DEPLOY_SEC;
+      set(acts.deploy, LADDER_DEPLOY_SEC - 1e-4, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
+      clipT = LADDER_DEPLOY_SEC;
     } else if (tb < show.stow) {
       const lt = tb - stowStart;
-      slideU = 1 - smooth(lt / LADDER_STOW_SEC);
+      zero(acts.deploy);
+      set(acts.stow, lt, LADDER_STOW_SEC);
       clipT = LADDER_DEPLOY_SEC + lt;
     } else {
-      slideU = 0; clipT = LADDER_DEPLOY_SEC + LADDER_STOW_SEC;
-    }
-    // Platform drawer: PackRoot rest (stowed DX) → origin (deployed). Independent of camera.
-    if (A._packRoot && A._packStow) {
-      const sx = A._packStow.x, sy = A._packStow.y, sz = A._packStow.z;
-      A._packRoot.position.set(sx * (1 - slideU), sy * (1 - slideU), sz * (1 - slideU));
-      A._packRoot.visible = true;
-    }
-    // Solid ladder: one rigid piece, translation-only. Fully down while climb; up after last inside.
-    if (A._solidLadder) {
-      const travel = A._solidTravel || 24;
-      A._solidLadder.position.y = (1 - slideU) * travel;
-      A._solidLadder.visible = slideU > 0.001;
-      if (slideU <= 0.001 && tb >= show.stow) A._solidLadder.visible = false;
-      if (slideU <= 0.001 && tb < BAY_DOOR_SEC) A._solidLadder.visible = false;
+      zero(acts.deploy);
+      set(acts.stow, LADDER_STOW_SEC - 1e-4, LADDER_STOW_SEC);
+      clipT = LADDER_DEPLOY_SEC + LADDER_STOW_SEC;
     }
 
     // EntryDoor (1123): open after ladder deploy; hold open through climb; close after last inside.
@@ -367,7 +358,7 @@ export function createAccess(THREE) {
 
   function bind(hullG, accG, airG, hullNode, hide) {
     // v10-safe: do NOT parent/replace with PR17_Hull_Replacement (trashes served AA3 ship).
-    // Bay door + orange ladder come from the access assembly only; served hull stays as-is.
+    // Bay door + telescoping ladder come from the access assembly only; served hull stays as-is.
     const hullRoot = hullG && hullG.scene ? hullG.scene.getObjectByName('PR17_Hull_Replacement') : null;
     const asm = accG.scene.getObjectByName('PR17_Access_Assembly');
     const rails = accG.scene.getObjectByName('Rails');
@@ -376,11 +367,17 @@ export function createAccess(THREE) {
     const cStow = findClip(clips, 'Ladder_Stow');
     const cDoorOpen = findClip(clips, 'BayDoor_Open');
     const cDoorClose = findClip(clips, 'BayDoor_Close');
-    // Deploy/Stow clips kept only so findClip succeeds; then zeroed — PackRoot tween drives the drawer.
-    if (!asm || !cDeploy || !cStow || !cDoorOpen || !cDoorClose) {
+    // BayDoor + Ladder_Deploy/Stow required (source 78c19d1 telescope). Served hull stays.
+    if (!asm || !rails || !cDeploy || !cStow || !cDoorOpen || !cDoorClose) {
       throw new Error('access 1015 nodes/clips missing');
     }
-    // Climb IK uses nominalRungs; telescope meshes deleted below.
+    let railsMorph = (rails.morphTargetInfluences && rails.morphTargetInfluences.length >= 24) ? rails : null;
+    if (!railsMorph) {
+      rails.traverse((o) => {
+        if (!railsMorph && o.morphTargetInfluences && o.morphTargetInfluences.length >= 24) railsMorph = o;
+      });
+    }
+    if (!railsMorph) throw new Error('access 1015 rails morphs missing');
 
     // Parent access + airlock only — never the 1015 hull replacement GLB.
     for (const scene of [accG.scene, airG && airG.scene].filter(Boolean)) {
@@ -440,7 +437,7 @@ export function createAccess(THREE) {
     mixer.update(0);
     accG.scene.updateMatrixWorld(true);
 
-    // Climb IK uses nominal rungs (packet authority). Telescope stage meshes are deleted below.
+    // Climb IK uses nominal rungs (packet authority; live stage samples can drift).
     const rungs = [];
     {
       const nom = nominalRungs();
@@ -452,7 +449,7 @@ export function createAccess(THREE) {
     acts.doorOpen.time = 0; acts.doorOpen.setEffectiveWeight(0);
     mixer.update(0);
 
-    // ---- Draw reduction: merge BayDoor. Telescope ladder stages deleted below. ----
+    // ---- Draw reduction: merge BayDoor. Telescope stages kept (pre-stepped IM). ----
 
     const doorMat = (() => {
       const d = accG.scene.getObjectByName('BayDoor');
@@ -466,7 +463,7 @@ export function createAccess(THREE) {
       mergeUnder(bayDoor, THREE, { oneMaterial: doorMat, name: 'BayDoor_Merged' });
     }
 
-    // Telescope meshes deleted below; SolidLadder draws instead.
+    // Telescope LadderStage_* + Rails kept; SolidLadder removed.
 
     // 1123 airlock: merge static room to 1 body + 1 glow; each entry leaf → 1 draw (animated).
     {
@@ -564,81 +561,39 @@ export function createAccess(THREE) {
       }
     }
 
-    // DELETE A&A telescoping ladder from the scene (not just hide). PackRoot + Deck stay for the drawer.
+    // Restore original telescoping ladder (source 78c19d1, before stepped LadderStages_IM).
+    // Keep LadderStage_0..5 + Rails meshes; PackRoot/Deck driven by Ladder_Deploy/Stow.
+    // Do NOT build stepped InstancedMesh (28/24/20/16/12/8 mm) and do NOT build SolidLadder.
     {
-      const kill = [];
-      accG.scene.traverse((o) => {
-        const n = o.name || '';
-        if (n === 'PackRoot' || n === 'Deck_Root' || n === 'Study_1353_DeckThin' || n === 'BayDoor' || n === 'BayDoor_Merged') return;
-        if (/^LadderStage_\d/.test(n) || n === 'Rails' || n === 'Ladder_Sleeve' || n === 'LadderStages_IM' || n === 'Rails_Merged') kill.push(o);
-        else if (o.isMesh && /Sleeve|LadderStage|Rails_Merged|LadderStages|LAD_|POST_|^RAIL/i.test(n)) kill.push(o);
-      });
-      for (const o of kill) {
-        o.traverse((c) => { if (c.isMesh) { c.geometry?.dispose?.(); } });
-        if (o.parent) o.parent.remove(o);
-      }
       A._syncStages = null;
       A._stageIM = null;
-      // PackRoot drawer rest pose (stowed DX from the GLB). Deployed = (0,0,0).
+      A._solidLadder = null;
+      A._packRoot = null;
+      A._packStow = null;
       const pack = accG.scene.getObjectByName('PackRoot');
       if (pack) {
-        A._packRoot = pack;
-        A._packStow = { x: pack.position.x, y: pack.position.y, z: pack.position.z };
-        // Start stowed
-        pack.position.set(A._packStow.x, A._packStow.y, A._packStow.z);
+        pack.visible = true;
+        // Ensure deck / stages / rails under PackRoot stay visible (platform drawer).
+        pack.traverse((o) => {
+          const n = o.name || '';
+          if (/^LadderStage_\d/.test(n) || n === 'Rails' || n === 'Deck_Root' || n === 'Study_1353_DeckThin' || n === 'DeckThin' || n === 'DeckPack') {
+            o.visible = true;
+          }
+          if (o.isMesh && (/^LadderStage_/.test(n) || n === 'Rails' || /Deck/i.test(n))) o.visible = true;
+        });
       }
-    }
-
-    // Solid ladder: 2 box rails (90 mm) + InstancedMesh rungs @ 0.292 m. Safety orange.
-    {
-      const nom = rungs; // already nominal
-      const y0 = nom[0].y, y1 = nom[nom.length - 1].y;
-      const lx = nom[0].x, lz = nom[0].z;
-      const railT = 0.090; // 90 mm box — readable at pad cam; still one rigid piece
-      const railGap = 0.50; // center-to-center ≈ 2 * RAIL_HALF
-      const railH = (y1 - y0) + 0.40;
-      const railY = (y0 + y1) * 0.5;
-      const mat = new THREE.MeshStandardMaterial({
-        color: 0xff6a13, roughness: 0.5, metalness: 0.2, name: 'SolidLadder_Mat',
-      });
-      const grp = new THREE.Group();
-      grp.name = 'SolidLadder';
-      // Two rails (merged into one BufferGeometry via mergeGeometries)
-      const railGeos = [];
-      for (const sx of [-railGap * 0.5, railGap * 0.5]) {
-        const g = new THREE.BoxGeometry(railT, railH, railT);
-        g.translate(lx + sx, railY, lz);
-        railGeos.push(g);
+      // Rails morph mesh stays untouched — Ladder_Deploy/Stow drive morph targets (78c19d1).
+      if (rails) {
+        rails.visible = true;
+        rails.traverse((o) => { if (o.isMesh) o.visible = true; });
       }
-      const railMerged = mergeGeometries(railGeos, false);
-      for (const g of railGeos) g.dispose();
-      const railMesh = new THREE.Mesh(railMerged, mat);
-      railMesh.name = 'SolidLadder_Rails';
-      railMesh.castShadow = true; railMesh.receiveShadow = true; railMesh.frustumCulled = false;
-      grp.add(railMesh);
-      // Rungs as InstancedMesh
-      const rungGeo = new THREE.BoxGeometry(railGap - railT, railT * 0.85, railT * 0.85);
-      const rungIM = new THREE.InstancedMesh(rungGeo, mat, nom.length);
-      rungIM.name = 'SolidLadder_Rungs';
-      rungIM.frustumCulled = false;
-      rungIM.castShadow = true; rungIM.receiveShadow = true;
-      const dummy = new THREE.Object3D();
-      for (let i = 0; i < nom.length; i++) {
-        dummy.position.set(nom[i].x, nom[i].y, nom[i].z);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        rungIM.setMatrixAt(i, dummy.matrix);
+      for (let s = 0; s <= 5; s++) {
+        const node = accG.scene.getObjectByName('LadderStage_' + s);
+        if (node) {
+          node.visible = true;
+          node.traverse((o) => { if (o.isMesh) o.visible = true; });
+        }
       }
-      rungIM.instanceMatrix.needsUpdate = true;
-      grp.add(rungIM);
-      // Travel: slide fully up into bay (bottom clears bay lip ~y=28)
-      const travel = Math.max(8, (y1 - y0) + 1.0);
-      grp.position.set(0, travel, 0); // start stowed
-      grp.visible = false;
-      hullNode.add(grp);
-      A._solidLadder = grp;
-      A._solidTravel = travel;
     }
 
     A.rungs = rungs;
