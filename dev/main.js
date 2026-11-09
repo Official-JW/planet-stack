@@ -2606,10 +2606,10 @@ function poseCam(cam, x) {
       hull.updateMatrixWorld(true);
       const e = hull.matrixWorld.elements;
       if (!BC._airFov) { BC._airFov = cam.fov; BC._airNear = cam.near; }
-      cam.fov = 80; cam.near = 0.05; cam.updateProjectionMatrix();
-      // Room AABB z≈1.84..3.78, x≈±2.41. Cam in open space near far wall, look at EntryDoor.
-      const ax = -0.90, ay = 29.65, az = 2.30;
-      const lxD = 0.50, lyD = 29.35, lzD = 3.50;
+      cam.fov = 85; cam.near = 0.08; cam.updateProjectionMatrix();
+      // Far-wall center looking at crew row + entry (pull back vs corner crop).
+      const ax = 0.0, ay = 29.70, az = 2.10;
+      const lxD = 0.0, lyD = 29.40, lzD = 3.20;
       const cx = e[0]*ax+e[4]*ay+e[8]*az+e[12], cy = e[1]*ax+e[5]*ay+e[9]*az+e[13], cz = e[2]*ax+e[6]*ay+e[10]*az+e[14];
       const dx = e[0]*lxD+e[4]*lyD+e[8]*lzD+e[12], dy = e[1]*lxD+e[5]*lyD+e[9]*lzD+e[13], dz = e[2]*lxD+e[6]*lyD+e[10]*lzD+e[14];
       cam.position.set(cx, cy, cz);
