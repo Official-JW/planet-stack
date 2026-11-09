@@ -1068,7 +1068,7 @@ function stripClickRock(root) {
 // Merged Base_Paint / Base_GlowCyan faces are dropped by world centroid against the eight glTF AABBs in
 // qa/art/drill_v3h/suppress/suppress_v3h.json. Centroids are in the Mine asset's glTF frame (mesh.matrixWorld
 // with the station offset undone). Raw triangle indices are not used: gltfpack -noq reorders them.
-const DRILL_V3H_GLB = '../qa3d-next/models/mine_drill_v3h_a489aa6a.glb?v=a489aa6a';
+const DRILL_V3H_GLB = '../qa3d-next/models/mine_drill_v3h_c2c_a611a50d.glb?v=a611a50d';
 const V3H_MINE_MD5 = 'c9a9394e3635f99f59423a4630ae6ae7';
 const V3H_AABBS = [
   { name: 'PLANT', min: [-5.40, -0.30, -10.20], max: [14.20, 9.90, 12.20] },
@@ -1231,8 +1231,13 @@ function v3hPack(mesh, mat, root, into) {
   }
 }
 function v3hShadeMat(transparent) {
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1, transparent: !!transparent, opacity: transparent ? 0.42 : 1, depthWrite: !transparent });
-  mat.customProgramCacheKey = () => 'v3h-shade';
+  // Paint pack: albedo/emissive/rough/metal live in vertex attrs. Emissive MUST stay black on the
+  // material itself — a white carrier used to blow the whole drill to flat white whenever the
+  // custom overwrite missed (glow/hl clones, shader cache, SwiftShader), because MeshStandard
+  // initializes totalEmissiveRadiance from the emissive uniform before emissivemap_fragment.
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, color: 0xffffff, emissive: 0x000000, emissiveIntensity: 1, transparent: !!transparent, opacity: transparent ? 0.42 : 1, depthWrite: !transparent });
+  mat.userData.v3hShade = 1;
+  mat.customProgramCacheKey = () => 'v3h-shade2';
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <color_pars_vertex>', '#include <color_pars_vertex>\nattribute vec3 emColor;\nattribute vec3 shade;\nvarying vec3 vEm;\nvarying vec3 vShade;')
@@ -1241,6 +1246,7 @@ function v3hShadeMat(transparent) {
       .replace('#include <color_pars_fragment>', '#include <color_pars_fragment>\nvarying vec3 vEm;\nvarying vec3 vShade;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vShade.r;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vShade.g;')
+      .replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = vEm * vShade.b;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance = vEm * vShade.b;');
   };
   return mat;
@@ -1250,6 +1256,7 @@ function v3hMeshFrom(into, mat, name, tap, cast) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(into.pos, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(into.nrm, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(into.col, 3));
+  if (geo.attributes.color) geo.attributes.color.colorSpace = THREE.LinearSRGBColorSpace;
   geo.setAttribute('emColor', new THREE.Float32BufferAttribute(into.em, 3));
   geo.setAttribute('shade', new THREE.Float32BufferAttribute(into.sh, 3));
   geo.computeBoundingSphere();
@@ -1453,7 +1460,7 @@ function v3hMount(gltf) {
   v3hMergeStatic(root);
   rig = root.getObjectByName('Drill_Rig') || rig;
   v3hBindBeds();
-  const info = { glb: DRILL_V3H_GLB, md5: 'a489aa6a3f94ac80d72c4bb61994a9be', hide: gone, suppress: V3H.suppress, supports: V3H.supports.length, oreDraws: V3H.ore.length };
+  const info = { glb: DRILL_V3H_GLB, md5: 'a611a50d9a254d9a6e97f423d38d6289', hide: gone, suppress: V3H.suppress, supports: V3H.supports.length, oreDraws: V3H.ore.length };
   window.__ps3d.v3h = info;
   v3hCaptureTruck(); v3hClearanceMaybe();
   console.info('[v3h] mounted', info);
@@ -4924,8 +4931,8 @@ function hlStart(t, r) {
   for (const root of t.hl()) root.traverse((m) => {
     if (!m.isMesh || !m.visible || !m.material) return;
     const orig = m.material, arr = Array.isArray(orig) ? orig : [orig];
-    if (!arr.some(c => c.emissive && !c.transparent)) return;
-    const cl = arr.map(c => c.emissive && !c.transparent ? c.clone() : c);
+    if (!arr.some(c => c.emissive && !c.transparent && !c.userData.v3hShade)) return;
+    const cl = arr.map(c => c.emissive && !c.transparent && !c.userData.v3hShade ? c.clone() : c);
     const e = { m, orig, cl: Array.isArray(orig) ? cl : cl[0], src: arr }; m.material = e.cl; HL.list.push(e);
   });
   HL.t = 0; HL.t0 = performance.now(); HL.to = setTimeout(hlEnd, (window.__ps3d.qaHlSec || HL_SEC) * 1000 + 30); window.__ps3d.hlOn = true;   // timer too: the glow ends on time even if frames stall
@@ -4955,7 +4962,7 @@ function glowStart(t) {                // clone this target's meshes; false whil
   const roots = t.hl(); if (!roots.length) return false; let n = 0;
   for (const root of roots) root.traverse((m) => {
     if (!m.isMesh || !m.material) return;
-    const orig = m.material, arr = Array.isArray(orig) ? orig : [orig], ok = (c) => c.emissive && (!c.transparent || c.userData.bld0);
+    const orig = m.material, arr = Array.isArray(orig) ? orig : [orig], ok = (c) => c.emissive && !c.userData.v3hShade && (!c.transparent || c.userData.bld0);
     if (!arr.some(ok)) return;
     const cl = arr.map(c => ok(c) ? c.clone() : c);
     const e = { site: t.site, id: t.id, m, orig, cl: Array.isArray(orig) ? cl : cl[0], cla: cl, src: arr };
