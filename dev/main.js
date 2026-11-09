@@ -2670,8 +2670,9 @@ function poseCam(cam, x) {
   // Boarding / airlock auto-cam removed (Jacob pinch-zoom): never blend BC — it was the 'weird zoom'.
   if (cam === camera) { BC.w = 0; BC.ph = 'off'; }
   // Persistent user pinch/wheel zoom (not reset by station switch / boarding / cards).
+  // Do NOT re-assign ZOOM.z here — zoomClamp belongs on the gesture path only; mutating z
+  // every frame from CAMLOOK.k / ly drift was the residual zoom bump through boarding.
   if (cam === camera) {
-    ZOOM.z = zoomClamp(ZOOM.z);
     kk *= ZOOM.z;
     lx += ZOOM.ox; lz += ZOOM.oz;
   }
