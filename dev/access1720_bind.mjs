@@ -1,13 +1,14 @@
-// Scene side of the 1720 crew access. Timing and IK live in access1720.mjs.
+// Scene side of the PR17 crew access (1015 bay/airlock packet). Timing and IK live in access1720.mjs.
 import {
   nominalRungs, showTimes, poseShow, outwardOf, stageRungLocals, climbDur,
-  DEPLOY_T, STOW_T0, CLIP_END, DOOR_SEC, STOW_TEL_T1, STOW_TEL_SEC, STOW_SLIDE_SEC,
+  DEPLOY_T, BAY_DOOR_SEC, LADDER_DEPLOY_SEC, LADDER_STOW_SEC,
 } from './access1720.mjs';
 
-export const HULL_URL = '../qa3d-next/models/hull_channel_relief_1720_4700a081.glb?v=4700a081';
-export const ACCESS_URL = '../qa3d-next/models/access_platform_ladder_rails_1720_b8bed28c.glb?v=b8bed28c';
-const OPEN_OUTER = { x: 1.55, y: 0, z: 0.22 };
-const OPEN_INNER = { x: 1.55, y: 0, z: -0.18 };
+export const HULL_URL = '../qa3d-next/models/pr17_hull_bay_1015_ee26cbd9.glb?v=ee26cbd9';
+// Single swap point when A&A ships the resized airlock. Today the airlock corridor lives
+// inside the 1015 access assembly (ladder + bay door + airlock); change only this path.
+export const AIRLOCK_URL = '../qa3d-next/models/pr17_access_assembly_1015_7dc4c876.glb?v=7dc4c876';
+export const ACCESS_URL = AIRLOCK_URL;
 
 export function accessSeconds(n, rungs) {
   return showTimes(Math.max(1, n | 0), rungs || nominalRungs(), 6).launch;
@@ -16,31 +17,85 @@ export function accessSeconds(n, rungs) {
 export function createAccess(THREE) {
   const A = {
     ready: false, failed: false, rungs: null, outward: null, show: null,
-    mixer: null, act: null, doors: null, root: null, old: [],
+    mixer: null, acts: null, root: null, old: [],
   };
   const q = (v) => new THREE.Quaternion(v.x, v.y, v.z, v.w);
   const v = (p) => new THREE.Vector3(p.x, p.y, p.z);
 
-  function clipAt(tb, show) {
-    if (tb < show.deploy) return (tb / show.deploy) * DEPLOY_T;
-    if (tb < show.stow) return DEPLOY_T;
-    const dt = tb - show.stow;
-    if (dt < STOW_TEL_SEC) return STOW_T0 + (dt / STOW_TEL_SEC) * (STOW_TEL_T1 - STOW_T0);
-    const u = Math.min(1, (dt - STOW_TEL_SEC) / STOW_SLIDE_SEC);
-    return STOW_TEL_T1 + u * (CLIP_END - STOW_TEL_T1);
+  function findClip(clips, name) {
+    return (clips || []).find((c) => c.name === name) || null;
   }
-  function doorAt(tb, show) {
-    let k = 1;
-    if (tb < show.deploy) k = Math.max(0, (tb - (show.deploy - DOOR_SEC)) / DOOR_SEC);
-    else if (tb >= show.close) k = 1 - Math.min(1, (tb - show.close) / DOOR_SEC);
-    return k;
+
+  function makeAction(mixer, clip) {
+    const act = mixer.clipAction(clip);
+    act.setLoop(THREE.LoopOnce, 0);
+    act.clampWhenFinished = true;
+    act.enabled = true;
+    act.paused = true;
+    act.play();
+    return act;
   }
-  function applyDoor(k) {
-    const d = A.doors; if (!d) return;
-    const oz = (d.outer.userData && d.outer.userData.baseZ) || 0;
-    d.outer.position.set(OPEN_OUTER.x * k, 0, OPEN_OUTER.z * k + oz);
-    d.inner.position.set(OPEN_INNER.x * k, 0, OPEN_INNER.z * k);
+
+  // Scrub discrete BayDoor / Ladder clips to match show timeline.
+  // Sequence: BayDoor_Open → Ladder_Deploy → (climb) → Ladder_Stow → BayDoor_Close.
+  // InnerHatch_* stays unwired (empty mount; locked Access_InnerDoor stays as served).
+  function syncClips(tb, show) {
+    const acts = A.acts; if (!acts) return { clip: 0, door: 0 };
+    const set = (act, t, dur) => {
+      if (!act) return;
+      act.enabled = true;
+      act.paused = true;
+      act.time = Math.max(0, Math.min(dur - 1e-4, t));
+      act.setEffectiveWeight(1);
+    };
+    const zero = (act) => { if (act) { act.time = 0; act.setEffectiveWeight(0); } };
+
+    // Door open 0..BAY_DOOR_SEC; held open until show.stow; close over BAY_DOOR_SEC after stow.
+    let doorK = 0;
+    if (tb < BAY_DOOR_SEC) {
+      set(acts.doorOpen, tb, BAY_DOOR_SEC);
+      zero(acts.doorClose);
+      doorK = Math.max(0, Math.min(1, tb / BAY_DOOR_SEC));
+    } else if (tb < show.stow) {
+      set(acts.doorOpen, BAY_DOOR_SEC - 1e-4, BAY_DOOR_SEC);
+      zero(acts.doorClose);
+      doorK = 1;
+    } else {
+      const ct = tb - show.stow;
+      zero(acts.doorOpen);
+      set(acts.doorClose, ct, BAY_DOOR_SEC);
+      doorK = 1 - Math.max(0, Math.min(1, ct / BAY_DOOR_SEC));
+    }
+
+    // Ladder: idle stowed until door open finishes; deploy; hold; stow after last inside (show.close).
+    let clipT = 0;
+    if (tb < BAY_DOOR_SEC) {
+      set(acts.deploy, 0, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
+      clipT = 0;
+    } else if (tb < show.deploy) {
+      const lt = tb - BAY_DOOR_SEC;
+      set(acts.deploy, lt, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
+      clipT = lt;
+    } else if (tb < show.close) {
+      set(acts.deploy, LADDER_DEPLOY_SEC - 1e-4, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
+      clipT = LADDER_DEPLOY_SEC;
+    } else if (tb < show.stow) {
+      const lt = tb - show.close;
+      zero(acts.deploy);
+      set(acts.stow, lt, LADDER_STOW_SEC);
+      clipT = LADDER_DEPLOY_SEC + lt;
+    } else {
+      zero(acts.deploy);
+      set(acts.stow, LADDER_STOW_SEC - 1e-4, LADDER_STOW_SEC);
+      clipT = LADDER_DEPLOY_SEC + LADDER_STOW_SEC;
+    }
+    A.mixer.update(0);
+    return { clip: clipT, door: doorK };
   }
+
   function applyPose(person, pose) {
     if (typeof window !== 'undefined' && window.__ps3d && window.__ps3d.freezeClimb) return;
     const pfx = person.pfx;
@@ -71,10 +126,7 @@ export function createAccess(THREE) {
     if (!A.ready) return null;
     const show = showTimes(Math.max(1, people.length), A.rungs, 6);
     A.show = show;
-    const ct = Math.min(CLIP_END - 1e-4, Math.max(0, clipAt(tb, show)));
-    A.act.time = ct;
-    A.mixer.update(0);
-    applyDoor(doorAt(tb, show));
+    const sync = syncClips(tb, show);
     const info = [];
     const foot = A.rungs[0], out = A.outward, side = { x: out.z, y: 0, z: -out.x };
     people.forEach((person, i) => {
@@ -115,33 +167,66 @@ export function createAccess(THREE) {
       }
       info.push({ i, tau, err: pose.err || 0, contacts: (pose.contacts || []).length });
     });
-    return { clip: ct, door: doorAt(tb, show), info, show };
+    return { clip: sync.clip, door: sync.door, info, show };
   }
 
   function bind(hullG, accG, hullNode, hide) {
-    const proposal = hullG.scene.getObjectByName('Study_1720_Hull_Channel_PROPOSAL');
-    const asm = accG.scene.getObjectByName('Assembly_1720_SPLIT');
-    const rails = accG.scene.getObjectByName('RailsMoving');
-    const clip = (accG.animations || []).find((c) => c.name === 'Animation');
-    if (!proposal || !asm || !rails || !clip || !(rails.morphTargetInfluences && rails.morphTargetInfluences.length >= 159)) {
-      throw new Error('access 1720 nodes missing');
+    const hullRoot = hullG.scene.getObjectByName('PR17_Hull_Replacement');
+    const asm = accG.scene.getObjectByName('PR17_Access_Assembly');
+    const rails = accG.scene.getObjectByName('Rails');
+    const clips = accG.animations || [];
+    const cDeploy = findClip(clips, 'Ladder_Deploy');
+    const cStow = findClip(clips, 'Ladder_Stow');
+    const cDoorOpen = findClip(clips, 'BayDoor_Open');
+    const cDoorClose = findClip(clips, 'BayDoor_Close');
+    // InnerHatch_* intentionally unused — mount is empty; locked Access_InnerDoor stays as served.
+    if (!hullRoot || !asm || !rails || !cDeploy || !cStow || !cDoorOpen || !cDoorClose) {
+      throw new Error('access 1015 nodes/clips missing');
     }
+    // Rails is multi-primitive → Group; morph influences live on mesh children (24 targets).
+    let railsMorph = (rails.morphTargetInfluences && rails.morphTargetInfluences.length >= 24) ? rails : null;
+    if (!railsMorph) {
+      rails.traverse((o) => {
+        if (!railsMorph && o.morphTargetInfluences && o.morphTargetInfluences.length >= 24) railsMorph = o;
+      });
+    }
+    if (!railsMorph) throw new Error('access 1015 rails morphs missing');
     for (const scene of [hullG.scene, accG.scene]) {
       scene.position.set(0, 0, 0); scene.quaternion.identity(); scene.scale.set(1, 1, 1);
       scene.traverse((m) => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; m.frustumCulled = false; } });
       hullNode.add(scene);
     }
     for (const o of hide) if (o) { o.visible = false; A.old.push(o); }
+
     const mixer = new THREE.AnimationMixer(accG.scene);
-    const act = mixer.clipAction(clip);
-    act.play(); act.paused = true; act.clampWhenFinished = true;
-    act.time = DEPLOY_T; mixer.update(0); accG.scene.updateMatrixWorld(true);
+    const acts = {
+      deploy: makeAction(mixer, cDeploy),
+      stow: makeAction(mixer, cStow),
+      doorOpen: makeAction(mixer, cDoorOpen),
+      doorClose: makeAction(mixer, cDoorClose),
+    };
+    // Sample rungs at fully deployed pose.
+    acts.deploy.time = LADDER_DEPLOY_SEC - 1e-4;
+    acts.deploy.setEffectiveWeight(1);
+    acts.stow.setEffectiveWeight(0);
+    acts.doorOpen.time = BAY_DOOR_SEC - 1e-4;
+    acts.doorOpen.setEffectiveWeight(1);
+    acts.doorClose.setEffectiveWeight(0);
+    mixer.update(0);
+    accG.scene.updateMatrixWorld(true);
+
     const rungs = [];
-    // Rungs from each stage's geometry, transformed by the deployed world matrix into ship space.
     const inv = new THREE.Matrix4().copy(hullNode.matrixWorld).invert();
+    function stageMesh(stage) {
+      if (!stage) return null;
+      if (stage.isMesh) return stage;
+      let m = null;
+      stage.traverse((o) => { if (!m && o.isMesh) m = o; });
+      return m;
+    }
     for (let s = 0; s < 6; s++) {
       const stage = accG.scene.getObjectByName('LadderStage_' + s);
-      const mesh = stage.isMesh ? stage : null;
+      const mesh = stageMesh(stage);
       if (!mesh) throw new Error('stage mesh ' + s);
       mesh.updateWorldMatrix(true, false);
       const toShip = new THREE.Matrix4().multiplyMatrices(inv, mesh.matrixWorld);
@@ -152,121 +237,32 @@ export function createAccess(THREE) {
     }
     rungs.sort((a, b) => a.y - b.y);
     if (rungs.length < 8) throw new Error('rungs missing');
-    act.time = 0; mixer.update(0);
+
+    // Rest: door closed, ladder stowed.
+    acts.deploy.time = 0; acts.deploy.setEffectiveWeight(0);
+    acts.doorOpen.time = 0; acts.doorOpen.setEffectiveWeight(0);
+    mixer.update(0);
+
     A.rungs = rungs;
     A.outward = outwardOf(rungs[Math.floor(rungs.length / 2)]);
     A.show = showTimes(4, rungs, 6);
-    A.mixer = mixer; A.act = act; A.root = asm;
-    A.doors = {
-      outer: accG.scene.getObjectByName('Study_1146_Access_OuterDoor'),
-      inner: accG.scene.getObjectByName('Study_1146_Access_InnerDoor'),
-    };
-    if (A.doors.outer) A.doors.outer.userData.baseZ = 0.10;
-    const white = new THREE.MeshStandardMaterial({ color: 0xf3f6fa, metalness: 0.22, roughness: 0.16 });
-    for (const name of ['Study_1146_Access_Chamber', 'Study_1146_Access_Corridor']) {
-      const mesh = accG.scene.getObjectByName(name);
-      if (mesh) { mesh.material = white; mesh.castShadow = false; }
+    A.mixer = mixer;
+    A.acts = acts;
+    A.root = asm;
+
+    // Minimal fill light so the current airlock reads in the end-shot camera (no polish).
+    const airlock = accG.scene.getObjectByName('Airlock_Corridor_White');
+    if (airlock) {
+      const light = new THREE.PointLight(0xe8f0ff, 1.1, 8, 2);
+      light.name = 'Access_Airlock_Fill';
+      light.position.set(0, 30.2, 2.4);
+      (asm || accG.scene).add(light);
     }
-    const hatchMat = new THREE.MeshStandardMaterial({ color: 0xb7c0c8, metalness: 0.4, roughness: 0.3 });
-    for (const name of ['Study_1146_Access_InnerDoor', 'Study_1146_Access_OuterDoor', 'Study_1146_Access_PressureFrame']) {
-      const mesh = accG.scene.getObjectByName(name);
-      if (mesh) mesh.material = hatchMat;
-    }
-    const stripMat = new THREE.MeshStandardMaterial({ color: 0x9aefff, emissive: 0x2ad0ff, emissiveIntensity: 1.8, roughness: 0.35, metalness: 0.05 });
-    const stripBoxes = [
-      { x: -0.62, y: 30.62, z: 2.75, sx: 0.045, sy: 0.03, sz: 1.7 },
-      { x: 0.62, y: 30.62, z: 2.75, sx: 0.045, sy: 0.03, sz: 1.7 },
-      { x: -0.50, y: 30.60, z: 0.78, sx: 0.045, sy: 0.03, sz: 1.2 },
-      { x: 0.50, y: 30.60, z: 0.78, sx: 0.045, sy: 0.03, sz: 1.2 },
-      { x: -0.62, y: 29.65, z: 3.68, sx: 0.04, sy: 1.9, sz: 0.035 },
-      { x: 0.62, y: 29.65, z: 3.68, sx: 0.04, sy: 1.9, sz: 0.035 },
-    ];
-    const stripIM = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), stripMat, stripBoxes.length);
-    stripIM.name = 'Access_Airlock_Strips';
-    stripIM.frustumCulled = false;
-    const dummy = new THREE.Object3D();
-    for (let i = 0; i < stripBoxes.length; i++) {
-      const s = stripBoxes[i];
-      dummy.position.set(s.x, s.y, s.z);
-      dummy.scale.set(s.sx, s.sy, s.sz);
-      dummy.updateMatrix();
-      stripIM.setMatrixAt(i, dummy.matrix);
-    }
-    stripIM.instanceMatrix.needsUpdate = true;
-    (accG.scene.getObjectByName('Study_1146_Root') || accG.scene).add(stripIM);
-    const out = A.outward;
-    const side = { x: out.z, y: 0, z: -out.x };
-    const bay = new THREE.Group();
-    bay.name = 'LadderBay_1720';
-    bay.position.set(-1.419532, 28.52, 4.950498);
-    bay.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
-      new THREE.Vector3(side.x, 0, side.z),
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(out.x, 0, out.z),
-    ));
-    const dark = new THREE.MeshStandardMaterial({ color: 0x14161a, metalness: 0.15, roughness: 0.85 });
-    let hullMat = null;
-    hullG.scene.traverse((m) => { if (!hullMat && m.isMesh && m.material) hullMat = m.material; });
-    const lipMat = hullMat ? hullMat.clone() : new THREE.MeshStandardMaterial({ color: 0x6b7380, metalness: 0.45, roughness: 0.48 });
-    const unit = new THREE.BoxGeometry(1, 1, 1);
-    const fillIM = (im, boxes) => {
-      const d2 = new THREE.Object3D();
-      for (let i = 0; i < boxes.length; i++) {
-        const b = boxes[i];
-        d2.position.set(b[0], b[1], b[2]);
-        d2.scale.set(b[3], b[4], b[5]);
-        d2.updateMatrix();
-        im.setMatrixAt(i, d2.matrix);
-      }
-      im.instanceMatrix.needsUpdate = true;
-      im.frustumCulled = false;
-      return im;
-    };
-    const interior = [
-      [0, -2.50, -0.34, 0.76, 5.10, 0.04],
-      [-0.38, -2.50, -0.16, 0.04, 5.10, 0.40],
-      [0.38, -2.50, -0.16, 0.04, 5.10, 0.40],
-      [0, 0.06, -0.16, 0.80, 0.06, 0.40],
-    ];
-    const lips = [
-      [-0.42, -2.50, 0.06, 0.06, 5.14, 0.08],
-      [0.42, -2.50, 0.06, 0.06, 5.14, 0.08],
-      [0, 0.10, 0.06, 0.90, 0.08, 0.08],
-      [0, -5.08, 0.02, 0.90, 0.06, 0.16],
-    ];
-    const imDark = fillIM(new THREE.InstancedMesh(unit, dark, interior.length), interior);
-    const imLip = fillIM(new THREE.InstancedMesh(unit, lipMat, lips.length), lips);
-    imDark.name = 'LadderBay_Interior';
-    imLip.name = 'LadderBay_Lip';
-    bay.add(imDark, imLip);
-    accG.scene.add(bay);
-    if (proposal && proposal.geometry && proposal.geometry.index && proposal.geometry.attributes.position) {
-      const pos = proposal.geometry.attributes.position;
-      const src = proposal.geometry.index;
-      const keep = [];
-      for (let t = 0; t < src.count; t += 3) {
-        const ia = src.getX(t), ib = src.getX(t + 1), ic = src.getX(t + 2);
-        const cx = (pos.getX(ia) + pos.getX(ib) + pos.getX(ic)) / 3;
-        const cy = (pos.getY(ia) + pos.getY(ib) + pos.getY(ic)) / 3;
-        const cz = (pos.getZ(ia) + pos.getZ(ib) + pos.getZ(ic)) / 3;
-        if (cx >= -0.50 && cx <= 0.50 && cy >= 28.78 && cy <= 30.50 && cz >= 3.90 && cz <= 4.15) continue;
-        keep.push(ia, ib, ic);
-      }
-      proposal.geometry.setIndex(keep);
-      proposal.geometry.computeVertexNormals();
-      const mats = proposal.material ? [].concat(proposal.material) : [];
-      for (const mat of mats) {
-        if (!mat) continue;
-        mat.polygonOffset = true;
-        mat.polygonOffsetFactor = 1;
-        mat.polygonOffsetUnits = 1;
-      }
-    }
-    applyDoor(0);
+
     A.ready = true;
     A.morph = true;
     return { rungs: rungs.length, climb: +climbDur(rungs).toFixed(3), launch4: +A.show.launch.toFixed(3) };
   }
 
-  return { A, tick, bind, clipAt, doorAt };
+  return { A, tick, bind, syncClips };
 }

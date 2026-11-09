@@ -2283,7 +2283,7 @@ function accessLoad(rig) {
     try {
       const old = [];
       hull.traverse((c) => { if (c.isMesh && !c.name) old.push(c); });
-      for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
+      for (const n of ['Crew_Hatch', 'Crew_Hatch_Status', 'Crew_Hatch_Status_Glow', 'Access_Chamber', 'Access_Corridor']) { const o = hull.getObjectByName(n); if (o) old.push(o); }
       const info = ACC.bind(hullG, accG, hull, old);
       const meshes = []; hullG.scene.traverse((m) => { if (m.isMesh) meshes.push(m); });
       try { const cw = cockpitWindowPrep(rig, meshes); if (cw && cw.n) { cg3.cockpit = cw; window.__ps3d.cockpit = cw; } } catch (e) { console.warn('cockpit retarget', e); }

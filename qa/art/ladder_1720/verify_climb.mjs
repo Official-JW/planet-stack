@@ -92,7 +92,7 @@ function trisOf(pos, idx, xform) {
 }
 const idn = (x, y, z) => ({ x, y, z });
 
-const lad = glb('qa3d-next/models/access_platform_ladder_rails_1720_b8bed28c.glb');
+const lad = glb('qa3d-next/models/pr17_access_assembly_1015_7dc4c876.glb');
 const hul = glb('qa3d-next/models/hull_channel_relief_1720_4700a081.glb');
 
 // Deployed stage origins from the clip (frame 82).

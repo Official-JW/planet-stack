@@ -1,13 +1,19 @@
-// Crew access for the 1720 channel ladder. Pure timing / IK. The scene binder is access1720_bind.mjs.
+// Crew access for the PR17 channel ladder (1015 packet). Pure timing / IK. The scene binder is access1720_bind.mjs.
 // Rungs are read from the deployed ladder meshes (centers of the cross-bars). Feet plant on those
 // centers; hands grip the side rails via gripAt. The rail fold is a rotation plus a bend, so the shipped clip keeps its morphs.
 
-export const DEPLOY_T = 82 / 16;          // last fully deployed frame of Animation
-export const STOW_T0 = 82 / 16;
-export const CLIP_END = 159 / 16;
-export const STOW_TEL_T1 = 108 / 16;
-export const STOW_TEL_SEC = 3;
-export const STOW_SLIDE_SEC = 2;
+// 1015 packet: BayDoor_Open/Close 1.0s, Ladder_Deploy/Stow 4.375s (LINEAR clamp).
+export const BAY_DOOR_SEC = 1.0;
+export const LADDER_DEPLOY_SEC = 4.375;
+export const LADDER_STOW_SEC = 4.375;
+export const DEPLOY_T = BAY_DOOR_SEC + LADDER_DEPLOY_SEC; // when ladder is fully out
+export const DOOR_SEC = BAY_DOOR_SEC; // alias used by show/camera timing
+// Legacy single-clip scrub constants (1827). Kept so older verify scripts import cleanly.
+export const STOW_T0 = LADDER_DEPLOY_SEC;
+export const CLIP_END = LADDER_DEPLOY_SEC + LADDER_STOW_SEC;
+export const STOW_TEL_T1 = LADDER_DEPLOY_SEC;
+export const STOW_TEL_SEC = LADDER_STOW_SEC;
+export const STOW_SLIDE_SEC = BAY_DOOR_SEC;
 export const CLIMB_V = 0.8;                // m/s up the rungs
 export const STAGE_TRAVEL = 4.678333;
 export const RUNGS_PER_STAGE = 16;
@@ -23,7 +29,6 @@ export function stageRungLocals() {
 export function climbSteps(rungs) { return Math.max(1, rungs.length - 1); }
 export const GAP = 1.5;                   // seconds between one climber finishing and the next starting
 export const WALK_V = 1.4;
-export const DOOR_SEC = 1.2;
 export const PALM = 0.10;                 // wrist → palm, along the forearm. Fingers wrap the rung.
 export const RAIL_CTC = 0.50;
 export const RAIL_HALF = 0.25;
@@ -337,9 +342,9 @@ export function showTimes(n, rungs, walkDist) {
     t = t1 + GAP;
   }
   const last = finish.length ? finish[finish.length - 1].inside : start0;
-  const close = last;
-  const stow = close + DOOR_SEC;
-  const launch = stow + STOW_TEL_SEC + STOW_SLIDE_SEC;
+  const close = last;                         // Ladder_Stow starts
+  const stow = close + LADDER_STOW_SEC;        // BayDoor_Close starts after stow
+  const launch = stow + BAY_DOOR_SEC;
   return { deploy, walk, climb, deck, per, start0, finish, close, stow, launch, gap: GAP };
 }
 
