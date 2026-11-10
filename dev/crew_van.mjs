@@ -3,6 +3,11 @@
 // (the picked crew who joined the base in crewLand) walk to its side door and get in, and it drops them off: Engineers at the Shipyard
 // (roles.json "Builds new ships at the Shipyard"; they walk the Shipyard's authored Crew_Path_01..05 to Hall_Door_Front), everyone else at the
 // Habitat (their beds; authored Crew_Path_01..03 through the airlock). The starting crew keep their approved paths (deboard walk home, Mine taxi truck).
+// Jacob 11/10 1:02 PM ("miners go to the mine and mechanics go to the shipyard... the van should do the drop off at both those locations"):
+// Mechanics now get off at the Shipyard with the Engineers, and Miners ride on after the Habitat stop to a Mine stop (van road out of every approved
+// framing: z 96 behind the Refinery/Dock views, a rock-free gap at x 212-246 down to the Mine, a U-turn so the van stops heading east with the door
+// toward the camera), get out and walk the Mine's authored Dep_02 → Crew_Path_04..01. The van then drives back to the pad and home to the Habitat stop.
+// Clear of: Art's truck trails, the Refinery bridge, every rock (≥ 1.9 m from the van's centre line), and the ST-10B transporter lane (z −13, x 640-700).
 // Purely visual: no sim, money, population or role-counter changes. Everything is a pure function of the trip start time, so a reload mid-trip resumes.
 // STAND-IN VAN: the van model is NOT approved (the glass van stills had seating problems). This is a primitive stand-in (boxes + cylinders) with one
 // sliding side door (all doors slide); replace with Art's van when approved. Crew are hidden once inside (no seats shown).
@@ -15,7 +20,9 @@ const DOOR_SEC = 1.2, STAGGER = 1.1, MAXP = 8;   // door slide time, gap between
 const GAUGE = 2.0, TRAIL_W = GAUGE / 0.652, TRAIL_V = 0.249, FADE_M = 4;   // truck trail: ruts 0.652 of the width apart; v 0.249 per m
 const TRAIL_U = [0, .076, .174, .272, .5, .728, .826, .924, 1], TRAIL_R = [1, 1, .59, 1, 1, 1, .59, 1, 1], TRAIL_A = .98;
 const KEY = 'ps3d_crewvan';
-const DEST = (role, yard) => role === 'eng' && yard ? 'ship' : 'hab';   // roles.json: engineer "Builds new ships at the Shipyard" (once it is built); others live in the Habitat
+const DEST = (role, yard) => role === 'miner' ? 'mine' : (role === 'eng' || role === 'mech') && yard ? 'ship' : 'hab';   // Jacob 1:02 PM: miners → Mine, mechanics (+ engineers) → Shipyard once built; others live in the Habitat
+const VHAUL = 14, ALAT = 2.5;          // Mine run only: top speed on the long road (off-screen) and the corner limit (lateral m/s²), so it slows for the U-turn
+const TERR = [100, 420, -10, 94];      // x0 x1 z0 z1 where the Mine/Refinery terrain is not flat (probed heights, 5 m grid); rays elsewhere skip it
 
 export function createCrewVan(THREE, D) {
   const st = { ready: false, trip: null, sch: null, van: null, door: null, people: [], trail: null, yCache: new Map(), boxes: null, err: null, buildMs: 0 };
@@ -27,9 +34,10 @@ export function createCrewVan(THREE, D) {
     const k = Math.round(x * 2) + ',' + Math.round(z * 2); if (st.yCache.has(k)) return st.yCache.get(k);
     let y = 0; if (!st.boxes) { st.boxes = D.groundRoots().filter(Boolean).map(r => [r, new THREE.Box3().setFromObject(r)]); }
     const roots = st.boxes.filter(([, b]) => x >= b.min.x && x <= b.max.x && z >= b.min.z && z <= b.max.z).map(([r]) => r);   // only the station(s) under this point
-    if (roots.length) { ray.set(new V3(x, 3, z), new V3(0, -1, 0)); ray.far = 4;
-      for (const h of ray.intersectObjects(roots, true)) { if (h.object.visible && h.point.y < 1.2 && h.point.y > y) y = h.point.y; } }
-    st.yCache.set(k, y); return y;
+    let keep = true; if (x > TERR[0] && x < TERR[1] && z > TERR[2] && z < TERR[3]) { const t = D.terrainRoots ? D.terrainRoots() : []; if (t) roots.push(...t); else keep = false; }   // terrain not loaded yet: don't cache
+    if (roots.length) { ray.set(new V3(x, 3, z), new V3(0, -1, 0)); ray.far = 4; let hy = -1e9;
+      for (const h of ray.intersectObjects(roots, true)) { if (h.object.visible && h.point.y < 1.2 && h.point.y > hy) hy = h.point.y; } if (hy > -1e9) y = hy; }
+    if (keep) st.yCache.set(k, y); return y;
   }
   // ---- smooth path through way points, sampled every 0.5 m
   function mkPath(pts) {
@@ -48,6 +56,18 @@ export function createCrewVan(THREE, D) {
   const driveDist = (L, t) => { const T = driveSec(L), ta = Math.min(VMAX / ACC, T / 2), vp = ACC * ta;
     if (t <= 0) return 0; if (t >= T) return L; if (t < ta) return .5 * ACC * t * t; if (t < T - ta) return .5 * ACC * ta * ta + vp * (t - ta);
     const r = T - t; return L - .5 * ACC * r * r; };
+  function prof(path, vmax) {   // Mine run: speed limited by vmax, corner radius (ALAT) and ACC, from 0 to 0; time table along the path's samples
+    const { P, s } = path, n = P.length, vl = new Float64Array(n), v = new Float64Array(n), t = new Float64Array(n), W = 4;
+    for (let i = 0; i < n; i++) { const a = P[Math.max(0, i - W)], b = P[i], c = P[Math.min(n - 1, i + W)];
+      const h1 = Math.atan2(b.z - a.z, b.x - a.x), h2 = Math.atan2(c.z - b.z, c.x - b.x); let dh = Math.abs(h2 - h1); if (dh > Math.PI) dh = 2 * Math.PI - dh;
+      const k = dh / Math.max(.5, (Math.hypot(b.x - a.x, b.z - a.z) + Math.hypot(c.x - b.x, c.z - b.z)) / 2); vl[i] = Math.min(vmax, Math.sqrt(ALAT / Math.max(k, 1e-6))); }
+    v[0] = 0; for (let i = 1; i < n; i++) v[i] = Math.min(vl[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * ACC * (s[i] - s[i - 1])));
+    v[n - 1] = 0; for (let i = n - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * ACC * (s[i + 1] - s[i])));
+    for (let i = 1; i < n; i++) t[i] = t[i - 1] + (s[i] - s[i - 1]) / Math.max(.3, (v[i] + v[i - 1]) / 2);
+    return { t, T: t[n - 1] };
+  }
+  const profDist = (path, pr, u) => { const { t } = pr; if (u <= 0) return 0; if (u >= pr.T) return path.L; let lo = 0, hi = t.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (t[m] <= u) lo = m; else hi = m; } return path.s[lo] + (path.s[hi] - path.s[lo]) * (u - t[lo]) / ((t[hi] - t[lo]) || 1); };
   const poly = (pts) => { const s = [0]; for (let i = 1; i < pts.length; i++) s.push(s[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return { pts, s, L: s[s.length - 1] }; };
   const polyAt = (pl, d) => { const { pts, s, L } = pl; d = Math.max(0, Math.min(L, d)); let i = 1; while (i < s.length - 1 && s[i] < d) i++;
     const a = pts[i - 1], b = pts[i] || a, u = (d - s[i - 1]) / ((s[i] - s[i - 1]) || 1); return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, Math.atan2(b[0] - a[0], b[1] - a[1])]; };
@@ -65,8 +85,21 @@ export function createCrewVan(THREE, D) {
     const back = []; for (let i = main.P.length - 1; i >= 0; i--) { const p = main.P[i]; if (p.x < J[0] + 3) break; if (i % 6 === 0) back.push([p.x, p.z]); }
     const inPath = mkPath([...back, ...loopPts]);
     const loop = mkPath(loopPts);
-    return { V, S, H, main, sS, inPath, loop, shipWalk: ['Crew_Path_01', 'Crew_Path_02', 'Crew_Path_03', 'Crew_Path_04', 'Crew_Path_05'].map(sy),
+    const Lo = { V, S, H, main, sS, inPath, loop, shipWalk: ['Crew_Path_01', 'Crew_Path_02', 'Crew_Path_03', 'Crew_Path_04', 'Crew_Path_05'].map(sy),
       habWalk: ['Crew_Path_01', 'Crew_Path_02', 'Crew_Path_03'].map(hb) };
+    // Mine run (world x/z; stations sit at i·160). Lane z 96 is past the bottom of the Refinery (z 76) and Dock (z 88) framings; x 212-246 is the
+    // rock-free gap down to the Mine; west on z 36 into the Mine framing, U-turn (r 9.25) round x 154, stop M heading east on z 17.5 (Art's Mine
+    // truck trail ends at z 12 and the loading truck at z ~13.5; rocks start at z 20.9 east of x 173). Out leaves the pad loop at (PX+10, 35.5); back joins the loop tail just before V.
+    const mn = (n) => D.MINEI != null ? m(D.MINEI, n) : null, mw = ['Dep_02', 'Crew_Path_04', 'Crew_Path_03', 'Crew_Path_02', 'Crew_Path_01'].map(mn);
+    if (mw.every(Boolean)) {
+      const M = [167, 17.5], lead = loopPts.slice(0, 4);
+      const out = [[PX - 10, 38], [PX - 28, 46], [PX - 42, 58], [PX - 56, 74], [PX - 75, 90], [PX - 100, 96], [400, 96], [300, 96], [236, 96], [222, 90], [217, 75], [217, 50], [212, 40], [200, 36.2], [180, 36], [163, 36], [156.5, 33.3], [153.75, 26.75], [156.5, 20.2], [163, 17.5], M];
+      const ret = [M, [185, 17], [200, 15.4], [215, 15.5], [232, 20], [240, 32], [241, 60], [244, 82], [256, 93], [275, 96.3], [300, 96], [400, 96], [PX - 140, 96], [PX - 122, 93], [PX - 95, 78], [PX - 65, 52], [PX - 40, 34], [PX - 22, 28.2], [PX - 12, 26.6], V];
+      Lo.M = M; Lo.mineWalk = mw; Lo.mineH = mkPath([...back, ...lead, ...out]); Lo.ret = mkPath(ret);
+      Lo.mineTrail = [[mkPath([lead[3], ...out]), true, false], [mkPath(ret.slice(0, 11)), false, true], [mkPath(ret.slice(11, 19)), true, true]];   // drawn once each: the shared z 96 stretch and the loop tail only once
+      Lo.prof = { mineH: prof(Lo.mineH, VHAUL), ret: prof(Lo.ret, VHAUL) };
+    }
+    return Lo;
   }
 
   // ---- stand-in van (primitives). Local frame: forward +z, right side (door) = −x, so heading +x world puts the door toward the camera (+z).
@@ -142,17 +175,27 @@ export function createCrewVan(THREE, D) {
     const m = new THREE.Mesh(geo, mat); m.name = 'CrewVan_Trail'; m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true;
     D.scene.add(m); st.trail = m; return true;
   }
+  function buildMineTrail(Lo) {   // its own frame after the pad/Shipyard/Habitat trail (terrain rays cost more); waits for the terrain GLBs
+    const mat = D.trailMaterial(); if (!mat || !Lo.mineTrail || (D.terrainRoots && !D.terrainRoots())) return false;
+    if (!st.warm) st.warm = Lo.mineTrail.flatMap(([p]) => p.P.filter((_, i) => i % 4 === 0)).filter(v => v.x > TERR[0] && v.x < TERR[1] && v.z > TERR[2] && v.z < TERR[3]);
+    for (let n = 0; st.warm.length && n < 8; n++) { const v = st.warm.pop(); groundY(v.x, v.z); }   // terrain rays (~1.5 ms each) spread 8 per frame; the ribbon then reads the cache
+    if (st.warm.length) return false;
+    const gs = Lo.mineTrail.map(([p, a, b]) => ribbon(p, a, b)), geo = D.mergeGeometries ? D.mergeGeometries(gs) : gs[0];
+    const m = new THREE.Mesh(geo, mat); m.name = 'CrewVan_Trail_Mine'; m.renderOrder = 1; m.castShadow = false; m.receiveShadow = true;
+    D.scene.add(m); st.trail2 = m; return true;
+  }
 
   // ---- schedule (pure in the trip start T and the riders)
   function schedule(trip, Lo) {
-    const yard = !!D.yardBuilt(), roles = trip.roles.slice(0, MAXP), ship = roles.map((r, i) => DEST(r, yard) === 'ship' ? i : -1).filter(i => i >= 0), hab = roles.map((r, i) => DEST(r, yard) === 'hab' ? i : -1).filter(i => i >= 0);
+    const yard = !!D.yardBuilt(), roles = trip.roles.slice(0, MAXP), dst = (k) => roles.map((r, i) => DEST(r, yard) === k && (k !== 'mine' || Lo.mineH) ? i : -1).filter(i => i >= 0);
+    const mine = dst('mine'), ship = dst('ship'), hab = roles.map((r, i) => mine.includes(i) || ship.includes(i) ? -1 : i).filter(i => i >= 0);   // no Mine road (markers missing): miners ride to the Habitat
     const tIn = driveSec(Lo.inPath.L), V = Lo.V, Vy = along(Lo.main, 0)[2];
     const L0 = D.ladder(), rid = [];
     let tOpen = tIn;
     for (let i = 0; i < roles.length; i++) {
-      const q = doorW(V[0], V[1], Vy, .9 * i + .1, 1.75 + .25 * i);
-      const pl = poly([[L0[0], L0[1] + 1.2], [D.PX + 3.2, -3.4], [D.PX + 22.5, 2], [D.PX + 22.5, 22], [D.PX + 1.5, 29.4], q]);   // pad crew path to the deck's east edge, past the crane, round the van's nose
-      const t0 = 1 + i * STAGGER; rid.push({ role: roles[i], dest: DEST(roles[i], yard), walk: pl, t0, tArr: t0 + pl.L / WALK_V, q });
+      const q = doorW(V[0], V[1], Vy, .85 * i + .1, 1.55);   // queue in a line along the van's side toward its tail (was fanning out toward the camera, under the TAKEOFF & LANDING label)
+      const pl = poly([[L0[0], L0[1] + 1.2], [D.PX + 3.2, -3.4], [D.PX + 22.5, 2], [D.PX + 22.5, 22], [D.PX + 2, 28.3], q]);   // pad crew path to the deck's east edge, past the crane, round the van's nose
+      const t0 = 1 + i * STAGGER; rid.push({ role: roles[i], dest: mine.includes(i) ? 'mine' : ship.includes(i) ? 'ship' : 'hab', walk: pl, t0, tArr: t0 + pl.L / WALK_V, q });
     }
     tOpen = Math.max(tIn, rid.length ? rid[0].tArr - DOOR_SEC : 0);
     let tPrev = tOpen + DOOR_SEC - STAGGER;
@@ -160,17 +203,21 @@ export function createCrewVan(THREE, D) {
     for (const r of rid) { const pl = poly([r.q, dpt, inside]); r.tIn0 = Math.max(r.tArr, tPrev + STAGGER); r.inPl = pl; r.tGone = r.tIn0 + pl.L / WALK_V; tPrev = r.tIn0; }
     const tClose = (rid.length ? Math.max(...rid.map(r => r.tGone)) : tOpen + DOOR_SEC) + .3, tGo = tClose + DOOR_SEC;
     const legs = []; let t = tGo, s0 = 0;
-    const drop = (sStop, ids, walkPts, key) => {
-      const L = sStop - s0; legs.push({ k: 'drive', t0: t, t1: t + driveSec(L), s0, s1: sStop }); t += driveSec(L); s0 = sStop;
-      const [x, z, yaw] = along(Lo.main, sStop), ins = doorW(x, z, yaw, 0, .3), dp = doorW(x, z, yaw, 0, 1.5), dO = t; let tq = t + DOOR_SEC;
-      const around = key === 'hab' ? [doorW(x, z, yaw, -3.3, 2.0)] : [doorW(x, z, yaw, -3.3, 2.0)];
+    const drop = (sStop, ids, walkPts, key, P = 'main') => {
+      if (P === 'main') { const L = sStop - s0; legs.push({ k: 'drive', P, t0: t, t1: t + driveSec(L), s0, s1: sStop }); t += driveSec(L); s0 = sStop; }
+      const [x, z, yaw] = along(Lo[P], sStop), ins = doorW(x, z, yaw, 0, .3), dp = doorW(x, z, yaw, 0, 1.5), dO = t; let tq = t + DOOR_SEC;
+      const around = key === 'mine' ? [doorW(x, z, yaw, 3.6, 1.6), doorW(x, z, yaw, 3.6, -1.6)] : [doorW(x, z, yaw, -3.3, 2.0)];   // Mine: round the van's tail to the Mine side
       for (const i of ids) { const r = rid[i]; r.dropPl = poly([ins, dp, ...around, ...walkPts.filter(Boolean)]); r.tOut = tq; r.tDone = tq + r.dropPl.L / WALK_V; tq += STAGGER; }
       const tc = (ids.length ? tq - STAGGER + 2.4 / WALK_V : t + DOOR_SEC) + .2;
       const clear = Math.max(0, ...ids.map(i => rid[i].tOut + rid[i].dropPl.s[2 + around.length] / WALK_V + .5));   // pulls away once every rider is past its nose
-      const t1 = Math.max(tc + DOOR_SEC, clear); legs.push({ k: 'stop', t0: dO, t1, s: sStop, open: dO, close: tc, key }); t = t1;
+      const t1 = Math.max(tc + DOOR_SEC, clear); legs.push({ k: 'stop', P, t0: dO, t1, s: sStop, open: dO, close: tc, key }); t = t1;
     };
+    const run = (P) => { const T = Lo.prof[P].T; legs.push({ k: 'run', P, t0: t, t1: t + T }); t += T; };
     if (ship.length) drop(Lo.sS, ship, Lo.shipWalk, 'ship');
-    drop(Lo.main.L, hab, Lo.habWalk, 'hab');
+    if (hab.length || !mine.length) drop(Lo.main.L, hab, Lo.habWalk, 'hab');
+    else { const L = Lo.main.L - s0; legs.push({ k: 'drive', P: 'main', t0: t, t1: t + driveSec(L), s0, s1: Lo.main.L }); t += driveSec(L); }   // miners only: past the Habitat stop without stopping
+    if (mine.length) { run('mineH'); drop(Lo.mineH.L, mine, Lo.mineWalk, 'mine', 'mineH'); run('ret');
+      legs.push({ k: 'drive', P: 'main', t0: t, t1: t + driveSec(Lo.main.L), s0: 0, s1: Lo.main.L }); t += driveSec(Lo.main.L); }   // back past the pad, home to the Habitat stop
     const tEnd = Math.max(t, ...rid.map(r => r.tDone || 0));
     return { roles, rid, tIn, tOpen, tClose, tGo, legs, tEnd };
   }
@@ -178,8 +225,9 @@ export function createCrewVan(THREE, D) {
     if (u < sch.tIn) { const d = driveDist(Lo.inPath.L, u), p = along(Lo.inPath, d); return { p, door: 0, ph: 'in' }; }
     if (u < sch.tGo) { const p = along(Lo.main, 0); const door = u < sch.tOpen ? 0 : u < sch.tClose ? (u - sch.tOpen) / DOOR_SEC : 1 - (u - sch.tClose) / DOOR_SEC; return { p, door, ph: 'pickup' }; }
     for (const l of sch.legs) {
-      if (l.k === 'drive' && u < l.t1) return { p: along(Lo.main, l.s0 + driveDist(l.s1 - l.s0, u - l.t0)), door: 0, ph: 'drive' };
-      if (l.k === 'stop' && u < l.t1) { const door = u < l.close ? (u - l.open) / DOOR_SEC : 1 - (u - l.close) / DOOR_SEC; return { p: along(Lo.main, l.s), door, ph: 'drop_' + l.key }; }
+      if (l.k === 'drive' && u < l.t1) return { p: along(Lo[l.P], l.s0 + driveDist(l.s1 - l.s0, u - l.t0)), door: 0, ph: l.P === 'main' ? 'drive' : 'drive_' + l.P };
+      if (l.k === 'run' && u < l.t1) return { p: along(Lo[l.P], profDist(Lo[l.P], Lo.prof[l.P], u - l.t0)), door: 0, ph: 'drive_' + l.P };
+      if (l.k === 'stop' && u < l.t1) { const door = u < l.close ? (u - l.open) / DOOR_SEC : 1 - (u - l.close) / DOOR_SEC; return { p: along(Lo[l.P], l.s), door, ph: 'drop_' + l.key }; }
     }
     return { p: along(Lo.main, Lo.main.L), door: 0, ph: 'parked' };
   }
@@ -187,10 +235,11 @@ export function createCrewVan(THREE, D) {
   let Lo = null, schKey = '';
   function update(now) {
     try {
-      if (!D.habBuilt()) { if (st.van) st.van.visible = false; if (st.trail) st.trail.visible = false; for (const p of st.people) if (p) p.g.visible = false; return; }
+      if (!D.habBuilt()) { if (st.van) st.van.visible = false; if (st.trail) st.trail.visible = false; if (st.trail2) st.trail2.visible = false; for (const p of st.people) if (p) p.g.visible = false; return; }
       if (!Lo) { Lo = layout(); if (!Lo) return; }
       if (!st.van) st.van = mkVan();
-      if (!st.trail && D.trailOn()) { const t0 = performance.now(); if (buildTrail(Lo)) st.buildMs = Math.round(performance.now() - t0); } if (st.trail) st.trail.visible = true;
+      if (!st.trail && D.trailOn()) { const t0 = performance.now(); if (buildTrail(Lo)) { st.buildMs = Math.round(performance.now() - t0); st.defer = true; } } if (st.trail) st.trail.visible = true;
+      if (st.defer) st.defer = false; else if (st.trail && !st.trail2 && Lo.mineTrail) { const t0 = performance.now(); if (buildMineTrail(Lo)) st.buildMs2 = Math.round(performance.now() - t0); } if (st.trail2) st.trail2.visible = true;
       st.ready = true;
       const trip = st.trip; let u = trip ? (now - trip.T) / 1000 : 1e9;
       const key = trip && trip.T + '|' + trip.roles.join() + '|' + !!D.yardBuilt(); if (trip && (!st.sch || schKey !== key)) { st.sch = schedule(trip, Lo); schKey = key; }
@@ -218,5 +267,5 @@ export function createCrewVan(THREE, D) {
     roles = (roles || []).filter(Boolean); if (!roles.length) return;
     st.trip = { T, roles }; st.sch = null; try { localStorage.setItem(KEY, JSON.stringify(st.trip)); } catch (e) {}
   }
-  return { st, update, landed, get layout() { return Lo; }, info: (now) => ({ ready: st.ready, ph: st.ph, trip: st.trip, u: st.trip ? (now - st.trip.T) / 1000 : null, tEnd: st.sch && st.sch.tEnd, legs: st.sch && st.sch.legs, rid: st.sch && st.sch.rid.map(r => ({ role: r.role, dest: r.dest, t0: r.t0, tArr: +r.tArr.toFixed(1), tGone: +r.tGone.toFixed(1), tOut: r.tOut && +r.tOut.toFixed(1), tDone: r.tDone && +r.tDone.toFixed(1) })), err: st.err }) };
+  return { st, update, landed, get layout() { return Lo; }, info: (now) => ({ ready: st.ready, ph: st.ph, trip: st.trip, u: st.trip ? (now - st.trip.T) / 1000 : null, tEnd: st.sch && st.sch.tEnd, legs: st.sch && st.sch.legs, rid: st.sch && st.sch.rid.map(r => ({ role: r.role, dest: r.dest, t0: r.t0, tArr: +r.tArr.toFixed(1), tGone: +r.tGone.toFixed(1), tOut: r.tOut && +r.tOut.toFixed(1), tDone: r.tDone && +r.tDone.toFixed(1) })), err: st.err, buildMs: st.buildMs, buildMs2: st.buildMs2 }) };
 }

@@ -6263,10 +6263,12 @@ renderer.info.autoReset = true;
 function cvLanded(td, s) {   // riders = this landing's picked crew who joined (crewLand: crewLanded.added at the touchdown = deboard start)
   try { const L = window.__ps3d.crewLanded, a = crewOk(s && s.crew), n = L && L.at === s.t0 ? L.added : a.length; const roles = a.slice(0, Math.max(0, n));
     if (window.__ps3d.crewVan) window.__ps3d.crewVan.landed(td, roles); else (window.__ps3d.cvQ = window.__ps3d.cvQ || []).push([td, roles]); } catch (e) {} }
-const CV = createCrewVan(THREE, { scene, PX, SHIPI, HABI, mergeGeometries,
+const CV = createCrewVan(THREE, { scene, PX, SHIPI, HABI, MINEI: MINE, mergeGeometries,
   habBuilt: () => !!(S.bt && S.bt.hab === 1), yardBuilt: () => !!(S.bt && S.bt.yard === 1), trailOn: () => TRAIL_ON, ladder: () => wkLadder(),
   marker: (i, n) => { const r = stationObjs[i], o = r && r.getObjectByName(n); if (!o) return null; const v = new THREE.Vector3(); o.getWorldPosition(v); return [v.x, v.z]; },
   groundRoots: () => [[PADI, 'Pad_Base'], [SHIPI, 'shipyard_base'], [HABI, 'Hab_Paint']].map(([i, n]) => stationObjs[i] && stationObjs[i].getObjectByName(n)),   // floor meshes only (cheap rays)
+  terrainRoots: () => { const a = [window.__ps3d.mineTerrain, window.__ps3d.refTerrain]; if (a.some(t => !t)) return null;   // null = still loading; Terrain_Ground only (no rocks)
+    const r = []; for (const t of a) if (t.obj) t.obj.traverse(o => { if (o.isMesh && o.name === 'Terrain_Ground') r.push(o); }); return r; },
   trailMaterial: () => { const o = scene.getObjectByName('Truck_Trails_Art'); let m = null; if (o) o.traverse(x => { if (!m && x.isMesh) m = x.material; }); return m; },
   crewTemplate: () => WK.stash && WK.stash.getObjectByName('Crew_2'), walkClip: () => WK.src && WK.src.walk, idleClip: () => WK.src && WK.src.idle });
 window.__ps3d.crewVan = CV; for (const [td, r] of (window.__ps3d.cvQ || [])) CV.landed(td, r); window.__ps3d.cvQ = [];
