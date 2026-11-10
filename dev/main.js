@@ -4031,7 +4031,20 @@ function cgBind() {
   fb.traverse(o => { if (o.isInstancedMesh && A.wheel.test(o.name)) cg3.wheels = o; });
   const wn = A.wheelNames.map(n => fb.getObjectByName(n)).filter(Boolean); if (wn.length) cg3.wheelNodes = wn.map(b => ({ b, q0: b.quaternion.clone() }));   // FB-05: spin about local +X
   cg3.holds = []; cg3.holdYaw = []; for (let i = 1; i <= CG.holdCap; i++) { const h = findA(cg3.ship, A.hold(i)); cg3.holds.push(h ? h.position.clone() : new THREE.Vector3(-3.5, .45, 0)); cg3.holdYaw.push(h ? h.rotation.y : 0); }
-  if (RDT.tray && RDT.seat && cg3.holds.length) { let lo = Infinity; for (const h of cg3.holds) if (h.y < lo) lo = h.y; const dy = RDT.seat.y - lo; if (dy > 1) for (const h of cg3.holds) h.y += dy; }   // mid-door pad: Hold_01..10 still sit on the old low decks (12.75 / 14.7); raise them onto the tray plane so the ride does not drop 4 m
+  if (RDT.tray && RDT.seat && cg3.holds.length) {   // animation only: slot Y for the mid-door ride. Does not start/stop lifts, money, or crate counts.
+    let lo = Infinity, hi = -Infinity;
+    for (const h of cg3.holds) { if (h.y < lo) lo = h.y; if (h.y > hi) hi = h.y; }
+    const dy = RDT.seat.y - lo;
+    if (dy > 1) {
+      // Mid-door pad: art Hold_01..10 still sit on the old low decks (12.75 / 14.7).
+      // Raise them so the post-slide ride does not drop 4 m, but park the first storage
+      // deck one pitch ABOVE the tray / Crate_Drop_Hold_Mid conveyor floor. That floor is
+      // a waypoint; leaving crates on it left them stuck in the door-shaft lift with no
+      // upward travel (the "lift" phase was a same-height slide).
+      const pitch = hi - lo > 0.4 ? hi - lo : 1.5;
+      for (const h of cg3.holds) h.y += dy + pitch;
+    }
+  }
   holdExtend(cg3.holds, cg3.holdYaw, shipHoldMax());   // slots past the art markers: same deck footprint, stacked above the raised Hold_NN
   cg3.pg.updateMatrixWorld(true); const rv = findA(cg3.pg, A.receive), hm = findA(cg3.pg, PAD_ALIAS.home);
   cg3.receive = rv.getWorldPosition(new THREE.Vector3()); cg3.home = hm.getWorldPosition(new THREE.Vector3());
