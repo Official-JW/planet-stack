@@ -504,3 +504,52 @@ export function faceYaw(outward) {
   const face = mul(outward, -1);
   return yawOf(face);
 }
+
+
+/** Deboard timeline: same door/ladder clips as boarding, crew exit then walk home, then close/stow.
+ *  finish[i].start = leave airlock; .onPad = feet on pad at ladder foot; .home = arrived at stand. */
+export function showTimesDeboard(n, rungs, walkDist) {
+  const deploy = DEPLOY_T;
+  const entryOpen = deploy + ENTRY_DOOR_SEC;
+  const walkHome = walkDist / WALK_V;
+  const climb = climbDur(rungs);
+  const deck = deckDur();
+  const per = climb + deck; // reverse deck out + climb down
+  const gap = climbGapSec(rungs);
+  const ready = Math.max(entryOpen, deploy);
+  const finish = [];
+  let prevStart = null;
+  for (let i = 0; i < n; i++) {
+    let t = ready;
+    if (prevStart != null) t = Math.max(t, prevStart + gap);
+    finish.push({ start: t, onPad: t + per, home: t + per + walkHome });
+    prevStart = t;
+  }
+  const start0 = finish.length ? finish[0].start : ready;
+  const lastHome = finish.length ? finish[finish.length - 1].home : start0;
+  const lastPad = finish.length ? finish[finish.length - 1].onPad : start0;
+  const close = lastHome; // entry closes only after everyone walked clear
+  const entryClosed = close + ENTRY_DOOR_SEC;
+  const stow = entryClosed + LADDER_STOW_SEC;
+  const done = stow + BAY_DOOR_SEC;
+  return {
+    deploy, entryOpen, walk: walkHome, climb, deck, per, gap,
+    start0, finish, close, entryClosed, stow, launch: done, done, lastPad, walkHome,
+  };
+}
+
+/** Deboard local pose: tau=0 at airlock → reverse deck → climb down to pad. */
+export function poseShowDeboard(rungs, outward, tau) {
+  const c = climbDur(rungs), d = deckDur();
+  if (tau <= d) {
+    const u = 1 - clamp(tau / Math.max(1e-6, d), 0, 1);
+    const at = deckPoint(u);
+    return poseStand(at, faceYaw(outward), outward, at.hip);
+  }
+  const climbTau = c - (tau - d);
+  return poseFrame(rungs, clamp(climbTau, 0, c - 1e-4), outward);
+}
+
+export function deboardSeconds(n, rungs, walkDist) {
+  return showTimesDeboard(Math.max(1, n | 0), rungs || nominalRungs(), walkDist == null ? 6 : walkDist).done;
+}
