@@ -1,7 +1,7 @@
 // Scene side of the PR17 crew access (1015 bay/airlock packet). Timing and IK live in access1720.mjs.
 import {
-  nominalRungs, showTimes, poseShow, poseStand, outwardOf, stageRungLocals, climbDur, faceYaw,
-  DEPLOY_T, BAY_DOOR_SEC, LADDER_DEPLOY_SEC, LADDER_STOW_SEC, ENTRY_DOOR_SEC,
+  nominalRungs, showTimes, showTimesDeboard, poseShow, poseShowDeboard, poseStand, outwardOf, stageRungLocals, climbDur, faceYaw,
+  DEPLOY_T, BAY_DOOR_SEC, LADDER_DEPLOY_SEC, LADDER_STOW_SEC, ENTRY_DOOR_SEC, deboardSeconds,
 } from './access1720.mjs';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -14,6 +14,14 @@ export const AIRLOCK_URL = '../qa3d-next/models/pr17_airlock4_assembly_1123_b1b1
 export function accessSeconds(n, rungs) {
   return showTimes(Math.max(1, n | 0), rungs || nominalRungs(), 6).launch;
 }
+export { deboardSeconds };
+export function accessDeboardSeconds(n, rungs) {
+  return deboardSeconds(Math.max(1, n | 0), rungs || nominalRungs(), 6);
+}
+export function accessDeboardShow(n, rungs) {
+  return showTimesDeboard(Math.max(1, n | 0), rungs || nominalRungs(), 6);
+}
+
 
 export function createAccess(THREE) {
   const A = {
@@ -68,35 +76,32 @@ export function createAccess(THREE) {
       doorK = 1 - Math.max(0, Math.min(1, ct / BAY_DOOR_SEC));
     }
 
-    // v10 solid ladder: translation-only slide (A&A telescope clips zeroed).
+    // Ladder telescope + PackRoot platform: drive Ladder_Deploy/Stow clips (source 78c19d1 /
+    // pre-stepped-IM). Bay door already scrubbed above. No SolidLadder; no PackRoot tween.
     let clipT = 0;
     const stowStart = show.entryClosed != null ? show.entryClosed : show.close;
-    const smooth = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
-    // Keep morph clips silent — geometry is our SolidLadder.
-    zero(acts.deploy); zero(acts.stow);
-    let slideU = 0; // 0=stowed (up), 1=deployed (down)
     if (tb < BAY_DOOR_SEC) {
-      slideU = 0; clipT = 0;
+      set(acts.deploy, 0, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
+      clipT = 0;
     } else if (tb < show.deploy) {
       const lt = tb - BAY_DOOR_SEC;
-      slideU = smooth(lt / LADDER_DEPLOY_SEC);
+      set(acts.deploy, lt, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
       clipT = lt;
     } else if (tb < stowStart) {
-      slideU = 1; clipT = LADDER_DEPLOY_SEC;
+      set(acts.deploy, LADDER_DEPLOY_SEC - 1e-4, LADDER_DEPLOY_SEC);
+      zero(acts.stow);
+      clipT = LADDER_DEPLOY_SEC;
     } else if (tb < show.stow) {
       const lt = tb - stowStart;
-      slideU = 1 - smooth(lt / LADDER_STOW_SEC);
+      zero(acts.deploy);
+      set(acts.stow, lt, LADDER_STOW_SEC);
       clipT = LADDER_DEPLOY_SEC + lt;
     } else {
-      slideU = 0; clipT = LADDER_DEPLOY_SEC + LADDER_STOW_SEC;
-    }
-    if (A._solidLadder) {
-      const travel = A._solidTravel || 24;
-      A._solidLadder.position.y = (1 - slideU) * travel;
-      A._solidLadder.visible = slideU > 0.001 || tb < show.stow;
-      // Fully hidden when fully stowed after close sequence
-      if (slideU <= 0.001 && tb >= show.stow) A._solidLadder.visible = false;
-      if (slideU <= 0.001 && tb < BAY_DOOR_SEC) A._solidLadder.visible = false;
+      zero(acts.deploy);
+      set(acts.stow, LADDER_STOW_SEC - 1e-4, LADDER_STOW_SEC);
+      clipT = LADDER_DEPLOY_SEC + LADDER_STOW_SEC;
     }
 
     // EntryDoor (1123): open after ladder deploy; hold open through climb; close after last inside.
@@ -198,6 +203,7 @@ export function createAccess(THREE) {
           });
           const u = slot.start > 0.05 ? Math.min(1, tb / slot.start) : 1;
           person.obj.position.lerpVectors(person.stand, dest, u);
+          person.obj.position.y = 0; // feet on pad — never inherit truck/breakroom height
           person.obj.quaternion.identity();
           person.obj.visible = true;
           person.mode = 'walk';
@@ -237,6 +243,76 @@ export function createAccess(THREE) {
       info.push({ i, tau, err: pose.err || 0, contacts: (pose.contacts || []).length });
     });
     return { clip: sync.clip, door: sync.door, entry: sync.entry, info, show };
+  }
+
+  /** Deboard: doors/ladder same scrub; crew exit airlock, climb DOWN, walk to stand, then close/stow. */
+  function tickDeboard(tb, people) {
+    if (!A.ready) return null;
+    const show = showTimesDeboard(Math.max(1, people.length), A.rungs, 6);
+    A.show = show;
+    const sync = syncClips(tb, show);
+    const info = [];
+    const foot = A.rungs[0], out = A.outward, side = { x: out.z, y: 0, z: -out.x };
+    people.forEach((person, i) => {
+      const slot = show.finish[i];
+      if (!slot) return;
+      const tau = tb - slot.start;
+      person.mode = 'wait';
+      person.outside = false;
+      // Before this climber's exit slot: park in airlock
+      if (tau < -0.01) {
+        person.mode = 'inside';
+        person.outside = false;
+        person.obj.visible = true;
+        if (!person._airSlot) {
+          const xs = [-0.85, -0.28, 0.28, 0.85];
+          const zs = [2.65, 2.70, 2.70, 2.65];
+          person._airSlot = { x: xs[i] ?? 0, y: 28.90, z: zs[i] ?? 2.70 };
+        }
+        person.obj.position.set(person._airSlot.x, person._airSlot.y, person._airSlot.z);
+        person.obj.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+        return;
+      }
+      // Exit + climb down
+      if (tau <= show.per + 0.02) {
+        person.obj.visible = true;
+        const pose = poseShowDeboard(A.rungs, A.outward, Math.max(0, tau));
+        if (tau <= show.deck) {
+          person.mode = tau < show.deck * 0.45 ? 'enter' : 'walk';
+          person.outside = person.mode === 'walk';
+          if (person.mode === 'enter') applyPose(person, pose);
+          else person.obj.position.copy(v(pose.root));
+        } else {
+          person.mode = 'climb';
+          person.outside = true;
+          applyPose(person, pose);
+        }
+        info.push({ i, tau, err: pose.err || 0, phase: 'exit' });
+        return;
+      }
+      // On pad: walk from ladder foot to stand (station / gather point)
+      const dest = person.stand ? person.stand.clone() : v({
+        x: foot.x + out.x * 1.15 + side.x * (i - (people.length - 1) / 2) * 0.75,
+        y: 0,
+        z: foot.z + out.z * 1.15 + side.z * (i - (people.length - 1) / 2) * 0.75,
+      });
+      dest.y = 0;
+      const footPos = v({
+        x: foot.x + out.x * 1.15 + side.x * (i - (people.length - 1) / 2) * 0.75,
+        y: 0,
+        z: foot.z + out.z * 1.15 + side.z * (i - (people.length - 1) / 2) * 0.75,
+      });
+      const walkT = Math.max(1e-3, slot.home - slot.onPad);
+      const u = Math.min(1, Math.max(0, (tb - slot.onPad) / walkT));
+      person.obj.visible = true;
+      person.obj.position.lerpVectors(footPos, dest, u);
+      person.obj.position.y = 0;
+      person.obj.quaternion.identity();
+      person.mode = u < 0.999 ? 'walk' : 'wait';
+      person.outside = true;
+      info.push({ i, tau, phase: 'home', u });
+    });
+    return { clip: sync.clip, door: sync.door, entry: sync.entry, info, show, deboard: true };
   }
 
   // Bake mesh local matrix into geometry, return a clone ready to merge under parent.
@@ -360,7 +436,7 @@ export function createAccess(THREE) {
 
   function bind(hullG, accG, airG, hullNode, hide) {
     // v10-safe: do NOT parent/replace with PR17_Hull_Replacement (trashes served AA3 ship).
-    // Bay door + orange ladder come from the access assembly only; served hull stays as-is.
+    // Bay door + telescoping ladder come from the access assembly only; served hull stays as-is.
     const hullRoot = hullG && hullG.scene ? hullG.scene.getObjectByName('PR17_Hull_Replacement') : null;
     const asm = accG.scene.getObjectByName('PR17_Access_Assembly');
     const rails = accG.scene.getObjectByName('Rails');
@@ -369,6 +445,7 @@ export function createAccess(THREE) {
     const cStow = findClip(clips, 'Ladder_Stow');
     const cDoorOpen = findClip(clips, 'BayDoor_Open');
     const cDoorClose = findClip(clips, 'BayDoor_Close');
+    // BayDoor + Ladder_Deploy/Stow required (source 78c19d1 telescope). Served hull stays.
     if (!asm || !rails || !cDeploy || !cStow || !cDoorOpen || !cDoorClose) {
       throw new Error('access 1015 nodes/clips missing');
     }
@@ -395,9 +472,9 @@ export function createAccess(THREE) {
       hullRoot.traverse((c) => { c.visible = false; });
     }
     // 1015 airlock room + deck replaced by 1123 airlock packet — hide leftovers.
+    // Keep PackRoot + Study_1353_DeckThin (platform drawer). Hide only 1015 airlock leftovers.
     for (const n of [
       'Airlock_Corridor_White', 'Airlock_GlowStrips', 'Airlock_InnerHatch_Mount',
-      'Study_1353_DeckThin', 'Deck_Root', 'DeckPack', 'DeckThin',
       'Airlock_Merged', 'Airlock_Glow', 'Airlock_Light', 'Airlock_Dark',
     ]) {
       const o = accG.scene.getObjectByName(n);
@@ -430,56 +507,27 @@ export function createAccess(THREE) {
     acts.entryOpen.time = 0; acts.entryOpen.setEffectiveWeight(0);
     acts.entryClose.time = 0; acts.entryClose.setEffectiveWeight(0);
     airMixer.update(0);
-    acts.deploy.time = LADDER_DEPLOY_SEC - 1e-4;
-    acts.deploy.setEffectiveWeight(1);
-    acts.stow.setEffectiveWeight(0);
+    acts.deploy.time = 0; acts.deploy.setEffectiveWeight(0);
+    acts.stow.time = 0; acts.stow.setEffectiveWeight(0);
     acts.doorOpen.time = BAY_DOOR_SEC - 1e-4;
     acts.doorOpen.setEffectiveWeight(1);
     acts.doorClose.setEffectiveWeight(0);
     mixer.update(0);
     accG.scene.updateMatrixWorld(true);
 
+    // Climb IK uses nominal rungs (packet authority; live stage samples can drift).
     const rungs = [];
-    const inv = new THREE.Matrix4().copy(hullNode.matrixWorld).invert();
-    function stageMesh(stage) {
-      if (!stage) return null;
-      if (stage.isMesh) return stage;
-      let m = null;
-      stage.traverse((o) => { if (!m && o.isMesh) m = o; });
-      return m;
-    }
-    for (let s = 0; s < 6; s++) {
-      const stage = accG.scene.getObjectByName('LadderStage_' + s);
-      const mesh = stageMesh(stage);
-      if (!mesh) throw new Error('stage mesh ' + s);
-      mesh.updateWorldMatrix(true, false);
-      const toShip = new THREE.Matrix4().multiplyMatrices(inv, mesh.matrixWorld);
-      for (const ly of stageRungLocals()) {
-        const p = new THREE.Vector3(0, ly, 0).applyMatrix4(toShip);
-        rungs.push({ x: p.x, y: p.y, z: p.z });
-      }
-    }
-    rungs.sort((a, b) => a.y - b.y);
-    if (rungs.length < 8) throw new Error('rungs missing');
-    // Live stage-mesh samples drifted below the pad after the 1015 InstancedMesh bind
-    // (LadderStage_5 world y ≈ -23). Packet authority is nominalRungs (STAGE_Y 5..28),
-    // which matches Rails_Merged AABB and the bay/airlock face at local z≈+5.
     {
       const nom = nominalRungs();
-      if (nom.length >= 8) {
-        if (nom.length !== rungs.length) console.warn('access rungs', rungs.length, '→ nominal', nom.length);
-        rungs.length = 0;
-        for (const r of nom) rungs.push({ x: r.x, y: r.y, z: r.z });
-      }
+      for (const r of nom) rungs.push({ x: r.x, y: r.y, z: r.z });
     }
+    if (rungs.length < 8) throw new Error('rungs missing');
 
     acts.deploy.time = 0; acts.deploy.setEffectiveWeight(0);
     acts.doorOpen.time = 0; acts.doorOpen.setEffectiveWeight(0);
     mixer.update(0);
 
-    // ---- Draw reduction: merge static meshes; instance animated ladder stages. ----
-    // Shape-keyed Rails stay as one morph mesh. LadderStage_1..5 stay as animated nodes
-    // but draw through one InstancedMesh (same geo, per-stage scale). BayDoor merges to one draw.
+    // ---- Draw reduction: merge BayDoor. Telescope stages kept (pre-stepped IM). ----
 
     const doorMat = (() => {
       const d = accG.scene.getObjectByName('BayDoor');
@@ -493,8 +541,7 @@ export function createAccess(THREE) {
       mergeUnder(bayDoor, THREE, { oneMaterial: doorMat, name: 'BayDoor_Merged' });
     }
 
-    // v10: skip Rails merge — A&A rails/stages are hidden; SolidLadder draws instead.
-    if (rails) rails.traverse((o) => { o.visible = false; });
+    // Telescope LadderStage_* + Rails kept; SolidLadder removed.
 
     // 1123 airlock: merge static room to 1 body + 1 glow; each entry leaf → 1 draw (animated).
     {
@@ -592,75 +639,144 @@ export function createAccess(THREE) {
       }
     }
 
-    // v10: hide A&A telescoping ladder (rails + stages + sleeve). Build one solid sliding ladder.
+    // Restore original telescoping ladder (source 78c19d1, before stepped LadderStages_IM).
+    // Keep LadderStage_0..5 + Rails meshes; PackRoot/Deck driven by Ladder_Deploy/Stow.
+    // Do NOT build stepped InstancedMesh (28/24/20/16/12/8 mm) and do NOT build SolidLadder.
     {
-      const hideNames = /^(Rails|LadderStage_|LadderStages_IM|Ladder_Sleeve|PackRoot|LAD_|POST_|RAIL)/i;
-      accG.scene.traverse((o) => {
-        const n = o.name || '';
-        if (o.isMesh && (hideNames.test(n) || /Sleeve|LadderStage|Rails_Merged|LadderStages/.test(n))) {
-          o.visible = false;
-        }
-        if (/^LadderStage_\d$/.test(n) || n === 'Rails' || n === 'PackRoot' || n === 'Ladder_Sleeve') {
-          o.visible = false;
-          o.traverse((c) => { if (c.isMesh) c.visible = false; });
-        }
-      });
-      const railsNode = accG.scene.getObjectByName('Rails');
-      if (railsNode) { railsNode.visible = false; railsNode.traverse((c) => { c.visible = false; }); }
       A._syncStages = null;
       A._stageIM = null;
-    }
+      A._solidLadder = null;
+      A._packRoot = null;
+      A._packStow = null;
+      const pack = accG.scene.getObjectByName('PackRoot');
+      if (pack) {
+        pack.visible = true;
+        // Ensure deck / stages / rails under PackRoot stay visible (platform drawer).
+        pack.traverse((o) => {
+          const n = o.name || '';
+          if (/^LadderStage_\d/.test(n) || n === 'Rails' || n === 'Deck_Root' || n === 'Study_1353_DeckThin' || n === 'DeckThin' || n === 'DeckPack') {
+            o.visible = true;
+          }
+          if (o.isMesh && (/^LadderStage_/.test(n) || n === 'Rails' || /Deck/i.test(n))) o.visible = true;
+        });
+      }
+      // Rails morph mesh stays untouched — Ladder_Deploy/Stow drive morph targets (78c19d1).
+      if (rails) {
+        rails.visible = true;
+        rails.traverse((o) => { if (o.isMesh) o.visible = true; });
+      }
+      for (let s = 0; s <= 5; s++) {
+        const node = accG.scene.getObjectByName('LadderStage_' + s);
+        if (node) {
+          node.visible = true;
+          node.traverse((o) => { if (o.isMesh) o.visible = true; });
+        }
+      }
 
-    // Solid ladder: 2 box rails (56 mm) + InstancedMesh rungs @ 0.292 m. Safety orange.
-    {
-      const nom = rungs; // already nominal
-      const y0 = nom[0].y, y1 = nom[nom.length - 1].y;
-      const lx = nom[0].x, lz = nom[0].z;
-      const railT = 0.056; // 56 mm box section
-      const railGap = 0.50; // center-to-center ≈ 2 * RAIL_HALF
-      const railH = (y1 - y0) + 0.40;
-      const railY = (y0 + y1) * 0.5;
-      const mat = new THREE.MeshStandardMaterial({
-        color: 0xff6a13, roughness: 0.5, metalness: 0.2, name: 'SolidLadder_Mat',
-      });
-      const grp = new THREE.Group();
-      grp.name = 'SolidLadder';
-      // Two rails (merged into one BufferGeometry via mergeGeometries)
-      const railGeos = [];
-      for (const sx of [-railGap * 0.5, railGap * 0.5]) {
-        const g = new THREE.BoxGeometry(railT, railH, railT);
-        g.translate(lx + sx, railY, lz);
-        railGeos.push(g);
+      // --- Ladder visibility (Jacob 4:35): recolor ONLY ladder meshes via a dedicated cloned mat.
+      // Never mutate shared hull / Ship_Placeholder materials.
+      {
+        const ladderMat = new THREE.MeshStandardMaterial({
+          name: 'Ladder_BrushedMetal',
+          color: 0xC8CCD2,
+          metalness: 0.6,
+          roughness: 0.35,
+          emissive: 0x3A4048,
+          emissiveIntensity: 0.22,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        });
+        ladderMat.userData._ladderPaint = 1;
+        const underLadder = (o) => {
+          let x = o;
+          while (x) {
+            const n = x.name || '';
+            if (/^LadderStage_/.test(n) || n === 'Rails' || n === 'Ladder_Sleeve' || /Rung/i.test(n)) return true;
+            x = x.parent;
+          }
+          return false;
+        };
+        const paintRoot = (root) => {
+          if (!root) return;
+          root.traverse((o) => {
+            if (!o.isMesh || !underLadder(o)) return;
+            o.material = ladderMat;
+            o.renderOrder = 2;
+            o.castShadow = true;
+            o.receiveShadow = true;
+          });
+        };
+        paintRoot(pack);
+        paintRoot(rails);
+        for (let s = 0; s <= 5; s++) paintRoot(accG.scene.getObjectByName('LadderStage_' + s));
+        A._ladderMat = ladderMat;
       }
-      const railMerged = mergeGeometries(railGeos, false);
-      for (const g of railGeos) g.dispose();
-      const railMesh = new THREE.Mesh(railMerged, mat);
-      railMesh.name = 'SolidLadder_Rails';
-      railMesh.castShadow = true; railMesh.receiveShadow = true;
-      grp.add(railMesh);
-      // Rungs as InstancedMesh
-      const rungGeo = new THREE.BoxGeometry(railGap - railT, railT * 0.85, railT * 0.85);
-      const rungIM = new THREE.InstancedMesh(rungGeo, mat, nom.length);
-      rungIM.name = 'SolidLadder_Rungs';
-      rungIM.frustumCulled = false;
-      rungIM.castShadow = true; rungIM.receiveShadow = true;
-      const dummy = new THREE.Object3D();
-      for (let i = 0; i < nom.length; i++) {
-        dummy.position.set(nom[i].x, nom[i].y, nom[i].z);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        rungIM.setMatrixAt(i, dummy.matrix);
+
+      // Foot plate (~0.6×0.4 m) at the tip stage — yellow/black hazard stripes.
+      // Parent to LadderStage_5 in LOCAL space at the mesh AABB bottom so it rides
+      // Ladder_Deploy/Stow correctly (do NOT bake bind-time world/rung poses).
+      {
+        const tip = accG.scene.getObjectByName('LadderStage_5');
+        if (tip) {
+          const cv = document.createElement('canvas');
+          cv.width = 128; cv.height = 64;
+          const ctx = cv.getContext('2d');
+          const w = 18;
+          for (let i = -4; i < 12; i++) {
+            ctx.fillStyle = (i % 2 === 0) ? '#E8C200' : '#1a1a1a';
+            ctx.beginPath();
+            const x = i * w;
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x + w, 0);
+            ctx.lineTo(x + w * 2, 64);
+            ctx.lineTo(x + w, 64);
+            ctx.closePath();
+            ctx.fill();
+          }
+          const map = new THREE.CanvasTexture(cv);
+          map.colorSpace = THREE.SRGBColorSpace;
+          map.needsUpdate = true;
+          const footMat = new THREE.MeshStandardMaterial({
+            name: 'Ladder_FootPlate',
+            map,
+            metalness: 0.35,
+            roughness: 0.55,
+            emissive: 0x2a2a20,
+            emissiveIntensity: 0.12,
+            polygonOffset: true,
+            polygonOffsetFactor: -2,
+            polygonOffsetUnits: -2,
+          });
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.60, 0.04, 0.40), footMat);
+          foot.name = 'Ladder_FootPlate';
+          foot.castShadow = true;
+          foot.receiveShadow = true;
+          foot.renderOrder = 3;
+          // Local AABB of tip meshes (before adding the foot).
+          tip.updateWorldMatrix(true, true);
+          const box = new THREE.Box3();
+          tip.traverse((o) => {
+            if (!o.isMesh || o.name === 'Ladder_FootPlate') return;
+            o.geometry?.computeBoundingBox?.();
+            if (!o.geometry?.boundingBox) return;
+            const b = o.geometry.boundingBox.clone();
+            b.applyMatrix4(o.matrixWorld);
+            box.union(b);
+          });
+          if (!box.isEmpty()) {
+            const inv = new THREE.Matrix4().copy(tip.matrixWorld).invert();
+            const c = box.getCenter(new THREE.Vector3());
+            const worldFoot = new THREE.Vector3(c.x, box.min.y - 0.02, c.z);
+            foot.position.copy(worldFoot.applyMatrix4(inv));
+          } else {
+            // Fallback: sit just below tip local origin.
+            foot.position.set(0, -0.15, 0);
+          }
+          tip.add(foot);
+          A._footPlate = foot;
+        }
       }
-      rungIM.instanceMatrix.needsUpdate = true;
-      grp.add(rungIM);
-      // Travel: slide fully up into bay (bottom clears bay lip ~y=28)
-      const travel = Math.max(8, (y1 - y0) + 1.0);
-      grp.position.set(0, travel, 0); // start stowed
-      grp.visible = false;
-      hullNode.add(grp);
-      A._solidLadder = grp;
-      A._solidTravel = travel;
     }
 
     A.rungs = rungs;
@@ -676,5 +792,94 @@ export function createAccess(THREE) {
     return { rungs: rungs.length, climb: +climbDur(rungs).toFixed(3), launch4: +A.show.launch.toFixed(3) };
   }
 
-  return { A, tick, bind, syncClips };
+
+  // Dev/QA only: step the boarding timeline and assert every crew's feet are on
+  // ground (y≈0) or on the ladder rung span while climbing. Not used in gameplay.
+  function assertBoardFeet(people, { dt = 0.05, maxErr = 0.03, groundY = 0, deboard = false } = {}) {
+    const n = Math.max(1, people.length);
+    const show = deboard ? showTimesDeboard(n, A.rungs || nominalRungs(), 6) : showTimes(n, A.rungs || nominalRungs(), 6);
+    const tEnd = deboard ? (show.done || show.launch) : show.launch;
+    const rungYs = (A.rungs || []).map((r) => r.y).sort((a, b) => a - b);
+    const rungLo = rungYs.length ? rungYs[0] - 0.45 : 0;
+    const rungHi = rungYs.length ? rungYs[rungYs.length - 1] + 0.65 : 30;
+    const HIP = 0.94;
+    const violations = [];
+    let maxFeetErr = 0;
+    const saved = people.map((p) => ({
+      pos: p.obj.position.clone(),
+      quat: p.obj.quaternion.clone(),
+      vis: p.obj.visible,
+    }));
+    const foot = A.rungs[0];
+    const out = A.outward || { x: 0, z: 1 };
+    try {
+      for (let tb = 0; tb <= tEnd + 0.001; tb = +(tb + dt).toFixed(4)) {
+        deboard ? tickDeboard(tb, people) : tick(tb, people);
+        people.forEach((person, i) => {
+          if (!person.obj || !person.obj.visible) return;
+          // Kill handler bake every sample (clips rewrite Crew_2).
+          const c2 = person.obj.getObjectByName && person.obj.getObjectByName('Crew_2');
+          if (c2) { c2.position.set(0, 0, 0); c2.rotation.set(0, 0, 0); }
+          const mode = person.mode || '';
+          const py = person.obj.position.y;
+          const hips = person.obj.getObjectByName((person.pfx || '') + '_Hips');
+          let hipsLocalY = HIP;
+          if (hips) hipsLocalY = hips.position.y || HIP;
+          // Ship-local feet ≈ posed-root Y (walk/wait use y=0 root; climb root = hip-HIP_Y).
+          let feetY = py;
+          if (mode === 'climb' || mode === 'enter') feetY = py; // pose.root already = hip - HIP_Y ≈ feet
+          if (mode === 'inside') feetY = py;
+
+          const push = (expect, err) => {
+            maxFeetErr = Math.max(maxFeetErr, err);
+            violations.push({
+              id: person.pfx || String(i), tb: +tb.toFixed(3), mode,
+              feetY: +feetY.toFixed(4), expect, err: +err.toFixed(4),
+              pos: person.obj.position.toArray().map((v) => +v.toFixed(3)),
+            });
+          };
+
+          if (mode === 'inside' || mode === 'enter') {
+            if (feetY < 27.5 - maxErr || feetY > 31.0 + maxErr) {
+              push('airlock', feetY < 27.5 ? 27.5 - feetY : feetY - 31.0);
+            }
+            return;
+          }
+          if (mode === 'climb') {
+            if (feetY < rungLo - maxErr || feetY > rungHi + maxErr) {
+              push('ladderY', feetY < rungLo ? rungLo - feetY : feetY - rungHi);
+            }
+            // Must be on the ladder face — catches Crew_2 bake offset (~14 m).
+            const dx = person.obj.position.x - foot.x;
+            const dz = person.obj.position.z - foot.z;
+            const lat = Math.hypot(dx, dz);
+            if (lat > 1.5) push('ladderXZ', lat);
+            if (c2) {
+              const off = Math.hypot(c2.position.x, c2.position.z);
+              if (off > maxErr) push('crew2bake', off);
+            }
+            return;
+          }
+          // walk / wait: on pad ground, OR elevated deck walk into the airlock after climb
+          if (feetY > 2.0) {
+            // Deck traverse (bind sets mode=walk for first half of deck)
+            if (feetY < rungHi - 1.0 - maxErr || feetY > 31.0 + maxErr) {
+              push('deck', feetY < rungHi - 1.0 ? (rungHi - 1.0) - feetY : feetY - 31.0);
+            }
+          } else {
+            const err = Math.abs(feetY - groundY);
+            if (err > maxErr) push(groundY, err);
+          }
+        });
+      }
+    } finally {
+      people.forEach((p, i) => {
+        const s = saved[i]; if (!s || !p.obj) return;
+        p.obj.position.copy(s.pos); p.obj.quaternion.copy(s.quat); p.obj.visible = s.vis;
+      });
+    }
+    return { ok: violations.length === 0, violations, maxFeetErr: +maxFeetErr.toFixed(4), samples: Math.floor(tEnd / dt) + 1, launch: tEnd, deboard: !!deboard };
+  }
+
+  return { A, tick, tickDeboard, bind, syncClips, assertBoardFeet };
 }
