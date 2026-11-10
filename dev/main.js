@@ -2325,7 +2325,7 @@ function loadShipUpgrade() {
 }
 // --- gc/ship-upgrade (end) ---
 // Launch Pad level: Lv1–Lv9 keep the 1720 ladder; Lv10+ uses the A&A launch tower.
-// Default 1. ?padlv=N (dev QA, read from QD like ts) or S.padLv (clamped 1..10). No buy path — money is unchanged.
+// Default 1. ?padlv=N (dev QA, read from QD like ts) or S.padLv (clamped 1..10). Bought on the Launch Pad upgrade card (padUp, buyPad).
 function padLvNow() {
   const q = QD.get('padlv');  // QA flag: read from QD (Q is stripped except rm)
   if (q != null && q !== '' && isFinite(+q) && +q >= 1) return Math.max(1, Math.min(10, Math.floor(+q)));
@@ -2333,6 +2333,11 @@ function padLvNow() {
   return n >= 1 ? Math.min(10, n) : 1;
 }
 function padUsesTower(lv = padLvNow()) { return (lv | 0) >= 10; }
+// Launch Pad upgrade card (Jacob 11/10 8:57, GD): Lv1 → Lv10, the launch tower replaces the ladder at Lv10. Same price curve as the other level
+// cards (econCost: cost0 × costGrowth^(lv−1)). PLACEHOLDER prices for Director: cost0 = the locked Phase 2 pad price, ×1.6 like Fuel / Purity.
+const PAD_UP = { cost0: CFG.econ.p2Prices.pad, costGrowth: 1.6, max: 10 };
+const padCost = () => econCost(PAD_UP, padLvNow());
+const padUpLocked = () => !(S.cg && S.cg.sh && S.cg.sh.st === 'pad' && !S.cg.sh.req && !(S.wk && S.wk.go > 0));   // ship on the pad, no launch queued, no crew walking out: a trip never swaps ladder ↔ tower mid-sequence
 function setPadLv(lv) {
   S.padLv = Math.max(1, Math.min(10, lv | 0));
   applyPadTower();
@@ -2587,7 +2592,24 @@ function towerReleasePeople() {
     if (p.handler && BRK.ok && BRK.grp && BRK.h && p.obj) { BRK.grp.add(p.obj); p.obj.position.set(0, 0, 0); p.obj.rotation.set(0, 0, 0); }
   }
 }
+// Issue 23 (Jacob, iPhone): the persistent crew (WK C-rigs + the break room handler) are drawn whenever they are not riding the legacy
+// crew_boarding rig (BD.root). Two leftovers from that rig made them invisible: (1) fadeObj(BD.root, a) also fades any C-rig attached to it, so a
+// boarding that starts before the 1720 ladder GLBs are ready (a reload mid-boarding on a phone, camera off the pad) left their materials at
+// opacity 0, transparent: no body, full shadow (the shadow pass ignores opacity), for the rest of the session; (2) BD.fc samples the clip to
+// its end, where crew_climb scales every C*_Root to ~0 (1e-4, inside the hatch), so the Miner / Driver / Mechanic were bound at scale 0 and stayed
+// invisible at their workplaces until a ladder climb set them back to 1. Each frame, a rig outside BD.root gets its root scale and its own
+// fade value (handler: crewOnPad's _fa; C-rigs: 1) back. visible flags (wkHideFlyers, ladder / tower 'hide') are not touched.
+function crewShowFix() {
+  if (!WK.ready) return;
+  for (const k in WK.people) { const p = WK.people[k], o = p && p.obj; if (!o || o.parent === BD.root) continue;
+    if (!p.handler) { const r = p._root || (p._root = o.getObjectByName(p.pfx + '_Root')); if (r && Math.min(r.scale.x, r.scale.y, r.scale.z) < .01) r.scale.set(1, 1, 1); }
+    const want = o.userData._fa ?? 1, tr = want < .999; let bad = false;
+    o.traverse(m => { if (!m.isMesh || !m.userData._fm) return; for (const x of [].concat(m.material)) if (x.transparent !== tr || Math.abs(x.opacity - (tr ? want : 1)) > 1e-3) bad = true; });
+    if (bad) o.traverse(m => { if (!m.isMesh || !m.userData._fm) return; for (const x of [].concat(m.material)) { if (x.transparent !== tr) { x.transparent = tr; x.needsUpdate = true; } x.opacity = tr ? want : 1; } });
+  }
+}
 function updCrew() {
+  crewShowFix();
   const bNow = boardOf(), dNow = deboardOf();
   if (padUsesTower() && TW.T.ready && bNow) {
     towerUpdate((nowMs() - bNow.B) / 1000);
@@ -5257,6 +5279,11 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
       if (m) return `${a.seats} seats\n${a.engines} engines\n${ft(i)} min flight`;
       const b = shipRow(i + 1); return `${a.seats} → ${b.seats} seats\n${a.engines} → ${b.engines} engines\n${ft(i)} → ${ft(i + 1)} min flight`; },
     meter: () => [CFG.econ.ship.lv.length, shipLvNow() + 1] },
+  padUp: { name: 'Launch Pad', ico: 'ship', lock: () => padUpLocked(), lockSub: 'Upgrade while the ship is on the pad',   // issue 23 / GD: the pad's own level path (Lv10 = launch tower)
+    lv: () => padLvNow(), max: () => padLvNow() >= PAD_UP.max, cost: () => padCost(), buy: () => buyPad(),
+    big: (m) => m || padLvNow() + 1 >= PAD_UP.max ? ['Launch tower', 'crew access'] : ['Ladder', 'crew access'],
+    sub: (m) => m ? 'Elevator + crew arm to the hatch' : padLvNow() + 1 >= PAD_UP.max ? 'Next level: the launch tower replaces the ladder' : `Launch tower at Lv ${PAD_UP.max}`,
+    meter: () => [PAD_UP.max, Math.min(padLvNow(), PAD_UP.max)] },
   crew: { name: 'Return Crew', ico: 'habitat', crew: true },   // gc-crewpick: opened by crewPrompt / the ship card; no tap target of its own
   // gc-ui2 (item 3): station buildings with no upgrades yet
   soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
@@ -5306,6 +5333,9 @@ const UPT = [
   // gc-brkfade ticket 1 (Director 01:54, option a): the break room is part of the Pad, so a tap on it opens the Cargo Ship card. Meshes only (room,
   // helmet table, step; not the handler), no own / pose replay, no glow (hl empty). LAST in UPT: ties go to earlier targets in pickRay, and the
   // ship card's ucOpen lookup (first p === 'ship' at the site) still finds the ship entry.
+  // Issue 23 / GD: the crane next to the ship (the launch tower; Lv10: the A&A tower too) opens the Launch Pad upgrade card. Meshes only, no glow.
+  // It used to open nothing (blockedByTower still keeps the hull / pad deck from opening through it).
+  { id: 'padTower', p: 'padUp', site: PADI, objs: () => padTowerObjs(), hl: () => [] },
   { id: 'breakroom', p: 'ship', site: PADI, objs: () => BRK.ok ? ['BR_room', 'BR_helmet', 'BR_step'].map(n => BRK.grp.getObjectByName(n)).filter(Boolean) : [], hl: () => [] },
 ];
 
@@ -5381,6 +5411,7 @@ function shipHitBox(b) {   // meter-space hull only. Quantized skirt/hold bounds
   if (b.isEmpty()) return null;
   b.expandByScalar(0.7); return b;
 }
+function padTowerObjs() { const o = [], c = cg3.padArt && cg3.padArt.getObjectByName('Crane'); if (c) o.push(c); if (TW.T.root && TW.T.active) o.push(TW.T.root); return o; }
 function padDeckBox(b) { const o = cg3.padArt; if (!o) return null; o.updateWorldMatrix(true, false); b.makeEmpty();
   for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_DECK.max[0] : PAD_DECK.min[0], i & 2 ? PAD_DECK.max[1] : PAD_DECK.min[1], i & 4 ? PAD_DECK.max[2] : PAD_DECK.min[2]).applyMatrix4(o.matrixWorld));
   return b;
@@ -5638,7 +5669,7 @@ function closeUp(why) {
 function fitTitle() { let f = 24; upH2.style.fontSize = ''; upH2.classList.remove('wrap'); while (upH2.scrollWidth > upH2.clientWidth + 0.5 && f > 15) upH2.style.fontSize = (--f) + 'px';
   if (upH2.scrollWidth > upH2.clientWidth + 0.5) upH2.classList.add('wrap'); }   // gc-ui3 (item 3): still too wide at 15 px → wraps (never cut off)   // long names shrink to fit beside the X
 function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost row; the button is LAUNCH (enabled exactly when canLaunch)
-  const big = P.big(), sub = P.sub(), [bt, ok] = P.btn(), k = [upCur, UPK.site, big[0], sub, bt, ok, S.cg.autoLoad, S.cg.autoLaunch, shipLvNow(), shipUpgradeCost()].join('|');
+  const big = P.big(), sub = P.sub(), [bt, ok] = P.btn(), k = [upCur, UPK.site, big[0], sub, bt, ok, S.cg.autoLoad, S.cg.autoLaunch, padLvNow(), padCost(), padUpLocked()].join('|');
   upBuy.style.display = '';   // ca-truck2: a maxed one-time card hides the shared button (#upBuy is display:block, so not [hidden])
   if (k === UPK.k) return; UPK.k = k;
   upEl.dataset.ico = P.ico; $('upKick').textContent = `${STATIONS[UPK.site]} · ${P.kick}`; $('upName').textContent = P.name; $('upLv').textContent = ''; fitTitle();
@@ -5650,12 +5681,13 @@ function upLaunchUI(P) {               // gc-ui3 item 7: no level / meter / cost
     for (const [key, label] of [['autoLoad', 'AUTO LOAD'], ['autoLaunch', 'AUTO LAUNCH']]) { const b = document.createElement('button'); b.className = 'tgl'; b.setAttribute('role', 'switch'); b.dataset.k = key;
       const lab = document.createElement('span'); lab.className = 'tg-lab'; lab.textContent = label; b.append(lab, document.createElement('b')); b.addEventListener('click', (e) => { e.stopPropagation(); setShipTgl(key); }); tg.append(b); }
     const lb = document.createElement('button'); lb.className = 'tgl'; lb.dataset.k = 'load1'; const ll = document.createElement('span'); ll.className = 'tg-lab'; ll.textContent = 'LOAD 1 CRATE'; lb.append(ll); lb.addEventListener('click', (e) => { e.stopPropagation(); loadOne(); }); tg.append(lb);
-    const ub = document.createElement('button'); ub.className = 'tgl shipup'; ub.dataset.k = 'shipUp';
-    const ul = document.createElement('span'); ul.className = 'tg-lab'; ul.textContent = 'SHIP UPGRADE';
+    // Issue 23 / GD: the pad's own upgrade (was SHIP UPGRADE: ship upgrades move to the ship bay). Same row style (.shipup).
+    const ub = document.createElement('button'); ub.className = 'tgl shipup'; ub.dataset.k = 'padUp';
+    const ul = document.createElement('span'); ul.className = 'tg-lab'; ul.textContent = 'PAD UPGRADE';
     const um = document.createElement('span'); um.className = 'su-meta'; const ug = document.createElement('span'); ug.className = 'su-go'; ug.textContent = 'UPGRADE';
-    ub.append(ul, um, ug); ub.addEventListener('click', (e) => { e.stopPropagation(); upTapT = UPT.find(q => q.id === 'ship') || upTapT; openUp('shipUp'); }); tg.append(ub);
+    ub.append(ul, um, ug); ub.addEventListener('click', (e) => { e.stopPropagation(); upTapT = UPT.find(q => q.id === 'padTower') || upTapT; openUp('padUp'); }); tg.append(ub);
     $('upSub').insertAdjacentElement('afterend', tg); }
-  for (const b of tg.children) { if (b.dataset.k === 'load1') { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } if (b.dataset.k === 'shipUp') { b.style.display = ''; const lv = shipLvNow(), maxed = lv >= shipTop(), meta = b.querySelector('.su-meta'), go = b.querySelector('.su-go'); if (meta) meta.textContent = maxed ? `LV ${lv + 1} · MAX` : `LV ${lv + 1} · ${fmt(shipUpgradeCost())}`; if (go) go.textContent = maxed ? 'MAX' : 'UPGRADE'; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
+  for (const b of tg.children) { if (b.dataset.k === 'load1') { b.style.display = S.cg.autoLoad ? 'none' : ''; continue; } if (b.dataset.k === 'padUp') { b.style.display = ''; const lv = padLvNow(), maxed = lv >= PAD_UP.max, meta = b.querySelector('.su-meta'), go = b.querySelector('.su-go'); if (meta) meta.textContent = maxed ? `LV ${lv} · MAX` : `LV ${lv} · ${fmt(padCost())}`; if (go) go.textContent = maxed ? 'MAX' : 'UPGRADE'; continue; } const on = !!S.cg[b.dataset.k]; b.setAttribute('aria-checked', on); b.querySelector('b').textContent = on ? 'ON' : 'OFF'; }
   tg.hidden = false;
 }
 // ===== gc-crewpick: pick card in the standard panel. One chip per role (tap = +1, the − corner = −1; repeats allowed).
@@ -5819,6 +5851,14 @@ function buyFuel() {
   logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())} · LOX+LCH4 +${fuelMake()}/min, stock ${fuelCap()}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
+function buyPad() {                 // Launch Pad Lv N → N+1 (issue 23 / GD). Lv10: the launch tower replaces the ladder (setPadLv → applyPadTower)
+  const lv = padLvNow(), c = padCost(); if (lv >= PAD_UP.max || padUpLocked() || !canPay(c)) return;
+  const t = nowMs(); settleTo(t, null); pay(c); setPadLv(lv + 1);
+  save(); upUI(); hud();
+  popAtBuy('Launch Pad Lv ' + padLvNow());
+  logU('upgrade', `Launch Pad Lv ${padLvNow()}` + (padUsesTower() ? ': launch tower' : ''));
+  window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
+}
 function buyTruck2() {               // ca-truck2: one-time; same check / deduct / save as the other buys; loads departing from now count 2
   const c = CFG.econ.p2Prices.truck2; if (!truck2Unlocked() || S.rovers >= CFG.roverMax || !canPay(c)) return;
   const t = nowMs(); settleTo(t, null); pay(c); S.rovers = Math.min(CFG.roverMax, S.rovers + 1); if (TQ.init && !S.tk2) tk2Spawn(t);   // ca-truckrot: rolls in at the Mine holding spot
@@ -5848,7 +5888,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, setPadLv, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW });   // QA hooks (Refinery lane + ship hull + Lv10 tower)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, setPadLv, padCost, padUpLocked, buyPad, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW });   // QA hooks (Refinery lane + ship hull + Lv10 tower)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
