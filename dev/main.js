@@ -8,6 +8,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { createAccess, accessSeconds, accessDeboardSeconds, accessDeboardShow, HULL_URL, ACCESS_URL, AIRLOCK_URL } from './access1720_bind.mjs';
 import { createLv10Tower, towerBoardSeconds, towerDeboardSeconds, setLadderVisible, TOWER_URL } from './lv10_tower.mjs';
+import { createCrewVan } from './crew_van.mjs';   // crew van pickup / drop-off after deboarding (stand-in van; see the module)
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
@@ -3901,6 +3902,7 @@ function cgComplete(c, t, acc) {
     const td = s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000;
     c.sh = { st: 'pad', t0: td, hold: 0, f0: s.f0 || td, req: 0 }; // cargo loading may start now
     cgEv('deboard_done', td, { dsec: s.dsec });
+    cvLanded(td, s);   // crew van: hook only (visual; no sim change)
   }
 }
 const payEarth = () => CFG.econ.payAt === 'earth';
@@ -6256,6 +6258,19 @@ addEventListener('pagehide', save);
 const devEl = $('dev'); devEl.hidden = !DEV; if (DEV) devEl.textContent = 'measuring…';
 const clock = new THREE.Clock(); let frames = 0, acc = 0, fps = 0, saveT = 0, uiT = 0, time = 0; const hist = [];
 renderer.info.autoReset = true;
+// ===== Crew van (Jacob 11/10 9:07): pickup at the pad after deboarding, drop-off at the Shipyard / Habitat, with a tire-track trail. Module: crew_van.mjs
+// (stand-in van). Hooks: cvLanded() at the deboard → pad step (cgComplete), cvFrame() each frame after updCrew(). Visual only.
+function cvLanded(td, s) {   // riders = this landing's picked crew who joined (crewLand: crewLanded.added at the touchdown = deboard start)
+  try { const L = window.__ps3d.crewLanded, a = crewOk(s && s.crew), n = L && L.at === s.t0 ? L.added : a.length; const roles = a.slice(0, Math.max(0, n));
+    if (window.__ps3d.crewVan) window.__ps3d.crewVan.landed(td, roles); else (window.__ps3d.cvQ = window.__ps3d.cvQ || []).push([td, roles]); } catch (e) {} }
+const CV = createCrewVan(THREE, { scene, PX, SHIPI, HABI, mergeGeometries,
+  habBuilt: () => !!(S.bt && S.bt.hab === 1), yardBuilt: () => !!(S.bt && S.bt.yard === 1), trailOn: () => TRAIL_ON, ladder: () => wkLadder(),
+  marker: (i, n) => { const r = stationObjs[i], o = r && r.getObjectByName(n); if (!o) return null; const v = new THREE.Vector3(); o.getWorldPosition(v); return [v.x, v.z]; },
+  groundRoots: () => [[PADI, 'Pad_Base'], [SHIPI, 'shipyard_base'], [HABI, 'Hab_Paint']].map(([i, n]) => stationObjs[i] && stationObjs[i].getObjectByName(n)),   // floor meshes only (cheap rays)
+  trailMaterial: () => { const o = scene.getObjectByName('Truck_Trails_Art'); let m = null; if (o) o.traverse(x => { if (!m && x.isMesh) m = x.material; }); return m; },
+  crewTemplate: () => WK.stash && WK.stash.getObjectByName('Crew_2'), walkClip: () => WK.src && WK.src.walk, idleClip: () => WK.src && WK.src.idle });
+window.__ps3d.crewVan = CV; for (const [td, r] of (window.__ps3d.cvQ || [])) CV.landed(td, r); window.__ps3d.cvQ = [];
+function cvFrame() { if (stationObjs[SHIPI] && stationObjs[HABI]) CV.update(nowMs()); }
 function frame() {
   if (DEVHALT) return;                   // devHalt: the loop stops for good (no rAF scheduled)
   requestAnimationFrame(frame);
@@ -6265,7 +6280,7 @@ function frame() {
   SFX.hold = false;
   if (!document.hidden && RT.ready) { const gap = (now - S.rt) / 1000; if (gap > AWAY_SEC) { catchUp(true); SFX.hold = true; } else { if (gap > 1.5) SFX.hold = true; settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules. A long gap is catch-up: no rocket sound
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
-  updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); updPadCam(dt); placeCamera();
+  updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); cvFrame(); updPadCam(dt); placeCamera();
   updCargo();
   updShipSfx();
   updTruck(); updMineRev(gdt); updDrillV3h(dt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). v3h ore + mast lamps use digOn. updTruck poses the truck + sets its clips, then its mixer applies them this frame
