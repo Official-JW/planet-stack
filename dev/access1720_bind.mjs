@@ -636,7 +636,8 @@ export function createAccess(THREE) {
       }
 
       // Foot plate (~0.6×0.4 m) at the tip stage — yellow/black hazard stripes.
-      // Parent to LadderStage_5 (lowest telescope section) so it rides deploy/stow clips.
+      // Parent to LadderStage_5 in LOCAL space at the mesh AABB bottom so it rides
+      // Ladder_Deploy/Stow correctly (do NOT bake bind-time world/rung poses).
       {
         const tip = accG.scene.getObjectByName('LadderStage_5');
         if (tip) {
@@ -674,25 +675,26 @@ export function createAccess(THREE) {
           foot.castShadow = true;
           foot.receiveShadow = true;
           foot.renderOrder = 3;
-          // Sit just under the tip stage's local AABB bottom, centered on rungs XZ.
-          tip.updateWorldMatrix(true, false);
-          const box = new THREE.Box3().setFromObject(tip);
-          const inv = new THREE.Matrix4().copy(tip.matrixWorld).invert();
-          const c = box.getCenter(new THREE.Vector3());
-          const min = box.min.clone();
-          // World foot position: centered in XZ at tip, on pad y≈0 when deployed; local to tip.
-          const worldFoot = new THREE.Vector3(c.x, min.y - 0.02, c.z);
-          // Prefer rung-0 XZ if available (true pad contact point in ship space → world).
-          if (rungs && rungs[0]) {
-            const rw = new THREE.Vector3(rungs[0].x, rungs[0].y, rungs[0].z);
-            // rungs are already in ship/hull space; convert via hullNode
-            hullNode.updateWorldMatrix(true, false);
-            rw.applyMatrix4(hullNode.matrixWorld);
-            worldFoot.x = rw.x; worldFoot.z = rw.z;
-            worldFoot.y = rw.y - 0.05;
+          // Local AABB of tip meshes (before adding the foot).
+          tip.updateWorldMatrix(true, true);
+          const box = new THREE.Box3();
+          tip.traverse((o) => {
+            if (!o.isMesh || o.name === 'Ladder_FootPlate') return;
+            o.geometry?.computeBoundingBox?.();
+            if (!o.geometry?.boundingBox) return;
+            const b = o.geometry.boundingBox.clone();
+            b.applyMatrix4(o.matrixWorld);
+            box.union(b);
+          });
+          if (!box.isEmpty()) {
+            const inv = new THREE.Matrix4().copy(tip.matrixWorld).invert();
+            const c = box.getCenter(new THREE.Vector3());
+            const worldFoot = new THREE.Vector3(c.x, box.min.y - 0.02, c.z);
+            foot.position.copy(worldFoot.applyMatrix4(inv));
+          } else {
+            // Fallback: sit just below tip local origin.
+            foot.position.set(0, -0.15, 0);
           }
-          const local = worldFoot.clone().applyMatrix4(inv);
-          foot.position.copy(local);
           tip.add(foot);
           A._footPlate = foot;
         }
