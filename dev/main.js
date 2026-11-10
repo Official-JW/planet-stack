@@ -4617,6 +4617,16 @@ function padDoorAt(k, n) {             // ca-cargoride: the door at a pose set f
   const D = cg3.door, a = D.ca[n] || D.ca.cargo_door_open; if (!D.ca[n]) n = 'cargo_door_open'; D.k = k; D.last = performance.now();
   if (D.cur !== n) { D.mx.stopAllAction(); a.play(); D.cur = n; } a.time = (n === 'cargo_door_open' ? k : 1 - k) * a.getClip().duration; D.mx.update(0);
 }
+function padDoorWant(c) {              // animation only: when the cargo tray should be open. Does not start/stop lifts, money, or crate counts.
+  const s = c && c.sh;
+  if (!s || s.st !== 'pad') return false;
+  if (c.rd) return true;               // crate riding in
+  if (pcHold(c.pc && c.pc.k)) return true;   // mid hold/dock lift — hook needs the open tray
+  if (holdN(c) >= holdCap()) return false;
+  // Auto-load (or a queued LOAD 1 CRATE) keeps the door open between lifts, as designed 11/2.
+  // Turning AUTO LOAD off with nothing queued should restore the closed/stowed tray.
+  return !!(c.autoLoad || (c.ml || 0) > 0) && (c.bay > 0 || c.dk > 0);
+}
 function padDoor(open, sec = 2) {      // 2.0 s each way; open while PC-1 is on a bay→hold lift (the shelf takes the box), closes after (ca-cargoride: 1 s reopen after a ride)
   const D = cg3.door, now = performance.now(), dt = D.last ? Math.min(.25, (now - D.last) / 1000) * SPD : 0; D.last = now;   // × SPD: the door keeps pace with the lift it serves (QA ts; 1 = unchanged)
   const k0 = D.k; D.k = clamp(D.k + (open ? dt : -dt) / sec, 0, 1); if (D.k === k0 && D.cur) return;
@@ -4701,7 +4711,7 @@ function updCargo() {
   if (c.pc.k) { v = pcU(c.pc, now);   // ca-dock 'dock': picked at the next free bay slot (placeholder for the Dock feed)
     if (c.pc.k === 'unload') { slotW(c.fb.bed, _pk); bayPos(c.bay, _dp); } else { bayPos(c.bay, _pk); _dp.copy(RDT.tray ? RDT.seat : cg3.holdDoor || cg3.holds[Math.min(holdN(c), Math.max(0, cg3.holds.length - 1))]).applyMatrix4(sh.matrixWorld); } P = _pk; }   // Art pad: onto the open door shelf (Hold_Door), lands in Hold_NN at the end
   const carryP = PC.hiUnload ? cranePose(PC, v, P, _dp, restP, pcHold(c.pc.k) ? PC.hiHold : PC.hiUnload, PC.hiUnload) : cranePose(PC, v, P, _dp, restP);
-  if (cg3.door) { if (c.rd && !cg3.door.cur) cg3.door.k = 1; padDoor(s.st === 'pad' && (holdN(c) < holdCap() || !!c.rd)); }   // Jacob 11/2 8:07: the door stays open on the pad until the hold is full, then closes once (Qwen fix, GD-reviewed)
+  if (cg3.door) { if (c.rd && !cg3.door.cur) cg3.door.k = 1; padDoor(padDoorWant(c)); }   // tray stays open across auto-load gaps; closes after the current lift/ride once auto-load is off (and no LOAD 1 queued)
   if (c.rd && vis) rideDraw(c, now, sh);
   const py0 = c.pc.k === 'unload' ? FBS.yaw : 0, py1 = c.pc.k === 'unload' ? 0 : cg3.holdDoor ? cg3.holdDoorYaw : cg3.holdYaw[holdN(c)] || 0;
   if (P && v >= 0) boxAt(v < .3 ? _pk : carryP ? _hw.copy(PC.hookW).setY(PC.hookW.y - BOXP.hookY) : _dp, carryYaw(v, py0, py1));
