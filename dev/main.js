@@ -2333,13 +2333,16 @@ function accessUpdateDeboard(tb) {
   const homes = (typeof wkHomes === 'function') ? wkHomes() : null;
   const homeKey = { miner: 'miner', driver: 'driver', mech: 'mech', cm: 'cm' };
   hull.updateWorldMatrix(true, false);
-  const inv = new THREE.Matrix4().copy(hull.matrixWorld).invert();
+  const shipW = new THREE.Vector3(); hull.getWorldPosition(shipW);
   for (const p of people) {
-    // Stand = reverse of boarding path end: WK home in ship-local (pad near ladder if unknown).
+    // Stand = WK home translated into ship-local XZ (ship yaw≈0 on pad). Cap distance so walk-home stays on the pad.
     if (!p.obj.userData._accStand && homes && homeKey[p.key] && homes[homeKey[p.key]]) {
       const h = homes[homeKey[p.key]];
-      const w = new THREE.Vector3(h[0], 0, h[1]).applyMatrix4(inv);
-      w.y = 0; p.obj.userData._accStand = w.clone();
+      const local = new THREE.Vector3(h[0] - shipW.x, 0, h[1] - shipW.z);
+      // Keep walk-home on/near the pad apron (boarding reverse), not across the whole base in ship-local.
+      const lim = 28;
+      if (local.length() > lim) local.setLength(lim);
+      p.obj.userData._accStand = local;
     }
     if (p.obj.parent !== hull) {
       p.obj.updateWorldMatrix(true, false);
