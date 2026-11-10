@@ -3,7 +3,7 @@
 // Meshopt-compressed; load with GLTFLoader.setMeshoptDecoder(MeshoptDecoder).
 // Look meshes up by the named parent (gltfpack adds unnamed dequantise children).
 
-export const TOWER_URL = '../qa3d-next/models/lv10_tower_game_merged_5bbe5249.glb?v=5bbe5249';
+export const TOWER_URL = '../qa3d-next/models/lv10_tower_game_merged_v2_ea9c895d.glb?v=ea9c895d';
 
 export const ARM_RETRACT_SEC = 6.0;
 export const ARM_EXTEND_SEC = 6.0;
@@ -19,11 +19,6 @@ export const STAGGER_SEC = 0.7;     // second crew into / out of the cab
 export const APPROACH_M = 3.2;      // pad walk to the ground doors
 export const ARM_WALK_M = 11.2;     // cab floor to hatch sill along the arm
 export const CAB_FLOOR_Y = 0.31;    // Lift_Bottom / Lift_Top floor height (glTF y)
-
-const RECEPTACLE_BOX = {
-  min: [2.00, 14.55, -10.12],
-  max: [2.58, 15.44, -9.09],
-};
 
 const CLIP_DUR = {
   Arm_Retract: ARM_RETRACT_SEC,
@@ -140,94 +135,6 @@ export function setLadderVisible(accRoot, on) {
   }
 }
 
-function splitReceptacle(towerNode, dest, root, THREE) {
-  // Merged pack joins QD_Receptacle geometry into Tower. Pull those tris back out
-  // so the ship-side port can ride the hull (it must not stay on the pad during flight).
-  const box = new THREE.Box3(
-    new THREE.Vector3(...RECEPTACLE_BOX.min),
-    new THREE.Vector3(...RECEPTACLE_BOX.max),
-  );
-  const meshes = [];
-  towerNode.traverse((o) => { if (o.isMesh && o.geometry) meshes.push(o); });
-  const v = new THREE.Vector3();
-  for (const mesh of meshes) {
-    const geo = mesh.geometry;
-    const pos = geo.getAttribute('position');
-    if (!pos) continue;
-    mesh.updateWorldMatrix(true, false);
-    root.updateWorldMatrix(true, false);
-    const toRoot = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(mesh.matrixWorld);
-    const idx = geo.index;
-    const triCount = idx ? (idx.count / 3) : (pos.count / 3);
-    const keep = [], take = [];
-    for (let t = 0; t < triCount; t++) {
-      const a = idx ? idx.getX(t * 3) : t * 3;
-      const b = idx ? idx.getX(t * 3 + 1) : t * 3 + 1;
-      const c = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
-      v.fromBufferAttribute(pos, a).applyMatrix4(toRoot);
-      const va = v.clone();
-      v.fromBufferAttribute(pos, b).applyMatrix4(toRoot);
-      const vb = v.clone();
-      v.fromBufferAttribute(pos, c).applyMatrix4(toRoot);
-      const vc = v.clone();
-      const mid = va.add(vb).add(vc).multiplyScalar(1 / 3);
-      (box.containsPoint(mid) ? take : keep).push(a, b, c);
-    }
-    if (!take.length) continue;
-    const pulled = extractTris(geo, take, THREE);
-    if (keep.length) {
-      const rest = extractTris(geo, keep, THREE);
-      mesh.geometry.dispose();
-      mesh.geometry = rest;
-    } else {
-      mesh.visible = false;
-    }
-    const port = new THREE.Mesh(pulled, mesh.material);
-    port.name = 'QD_Receptacle_Mesh';
-    port.castShadow = !!mesh.castShadow;
-    port.receiveShadow = !!mesh.receiveShadow;
-    port.frustumCulled = false;
-    // pulled verts are still in mesh-local (Tower child) space. Bake into dest-local.
-    const bake = new THREE.Matrix4().copy(mesh.matrixWorld);
-    dest.updateWorldMatrix(true, false);
-    const inv = new THREE.Matrix4().copy(dest.matrixWorld).invert();
-    bake.premultiply(inv);
-    port.geometry.applyMatrix4(bake);
-    port.position.set(0, 0, 0);
-    port.quaternion.identity();
-    port.scale.set(1, 1, 1);
-    dest.add(port);
-  }
-}
-
-function extractTris(geo, ids, THREE) {
-  // ids = flat list of vertex indices, 3 per triangle, into the source geometry.
-  const srcPos = geo.getAttribute('position');
-  const map = new Map();
-  const remap = [];
-  let next = 0;
-  for (const i of ids) {
-    if (!map.has(i)) { map.set(i, next++); }
-    remap.push(map.get(i));
-  }
-  const out = new THREE.BufferGeometry();
-  const attrs = geo.attributes;
-  for (const name of Object.keys(attrs)) {
-    const attr = attrs[name];
-    const item = attr.itemSize;
-    const Arr = attr.array.constructor;
-    const buf = new Arr(next * item);
-    for (const [src, dst] of map) {
-      for (let k = 0; k < item; k++) buf[dst * item + k] = attr.array[src * item + k];
-    }
-    out.setAttribute(name, new THREE.BufferAttribute(buf, item, attr.normalized));
-  }
-  out.setIndex(remap);
-  out.computeBoundingBox();
-  out.computeBoundingSphere();
-  return out;
-}
-
 function fixBlendMats(root) {
   // Tw_MainBlend is used on whole Arm_Body / Cab_Body / cab leaves (not just glass).
   // depthWrite + a stable renderOrder avoids alpha sort holes from some pad cameras.
@@ -254,7 +161,7 @@ export function createLv10Tower(THREE) {
   const T = {
     ready: false, failed: false, loading: false, active: false,
     root: null, mixer: null, acts: null, nodes: {},
-    receptacle: null, retracted: false, resetT0: 0,
+    receptacle: null, receptacleHome: null, ship: null, retracted: false, resetT0: 0,
   };
 
   function byName(n) { return T.root && T.root.getObjectByName(n); }
@@ -317,12 +224,22 @@ export function createLv10Tower(THREE) {
   }
 
   function attachReceptacle(ship) {
+    ship = ship || T.ship;
+    if (ship) T.ship = ship;
     if (!T.receptacle || !ship) return;
     const hull = ship.getObjectByName('Ship_Placeholder') || ship;
     if (T.receptacle.parent === hull) return;
     T.receptacle.updateWorldMatrix(true, false);
     hull.updateWorldMatrix(true, false);
-    hull.attach(T.receptacle);
+    hull.attach(T.receptacle);   // world-preserving: port stays on the hull skin
+  }
+
+  function returnReceptacle() {
+    if (!T.receptacle || !T.receptacleHome) return;
+    if (T.receptacle.parent === T.receptacleHome) return;
+    T.receptacle.updateWorldMatrix(true, false);
+    T.receptacleHome.updateWorldMatrix(true, false);
+    T.receptacleHome.attach(T.receptacle);   // world-preserving return to the tower
   }
 
   function bind(gltf, pad, ship) {
@@ -370,17 +287,18 @@ export function createLv10Tower(THREE) {
       liftTop: byName('Lift_Top'),
       receptacle: byName('QD_Receptacle'),
     };
-    if (!T.nodes.tower || !T.nodes.cab || !T.nodes.armPivot || !T.nodes.qdPivot) {
+    if (!T.nodes.tower || !T.nodes.cab || !T.nodes.armPivot || !T.nodes.qdPivot || !T.nodes.receptacle) {
       throw new Error('lv10 tower nodes missing');
     }
 
     fixBlendMats(scene);
-    // Receptacle mesh is joined into Tower in the merged pack. Splitting it in pad-world
-    // was tried; a bad bake can poison bounds / the frame. Keep the mesh on the tower and
-    // parent the empty marker to the hull so we still have a hook. Visual port stays on
-    // the pad during flight (merged-pack limitation, 256 tris).
+    // v2 pack: QD_Receptacle is its own named mesh (gltfpack puts the tris on the
+    // unnamed dequantise child). Look it up by name and keep it on the tower until
+    // liftoff, then world-preserving attach to the hull; return it on reset / landing.
     T.receptacle = T.nodes.receptacle;
-    if (ship) attachReceptacle(ship);
+    if (!T.receptacle) throw new Error('lv10 tower QD_Receptacle missing');
+    T.receptacleHome = T.receptacle.parent;
+    T.ship = ship || T.ship || null;
 
     poseRest();
     T.ready = true;
@@ -411,7 +329,8 @@ export function createLv10Tower(THREE) {
     if (T.ready) {
       T.root.visible = true;
       T.active = true;
-      if (ship) attachReceptacle(ship);
+      if (ship) T.ship = ship;
+      returnReceptacle();
       poseRest();
       if (onOk) onOk(info());
       return;
@@ -709,6 +628,7 @@ export function createLv10Tower(THREE) {
 
   function tickDeboard(tb, people) {
     if (!T.ready || !T.active) return null;
+    returnReceptacle();   // touchdown: port returns to the tower before Arm_Extend / QD_Connect
     const show = buildDeboardShow(Math.max(1, people.length));
     driveDeboardClips(tb, show);
     T.root.updateMatrixWorld(true);
@@ -754,21 +674,27 @@ export function createLv10Tower(THREE) {
 
   function tickIdle(st) {
     if (!T.ready || !T.active) return;
-    if (st === 'launch' || st === 'away' || st === 'land') poseRetracted();
-    else if (T.resetT0) {
+    if (st === 'launch' || st === 'away' || st === 'land') {
+      poseRetracted();
+      attachReceptacle(T.ship);   // ride the hull; stays attached through away + landing descent
+    } else if (T.resetT0) {
       // handled by the caller via tickReset
-    } else if (st === 'pad' || !st) poseRest();
+    } else {
+      returnReceptacle();
+      if (st === 'pad' || !st) poseRest();
+    }
   }
 
   function tickReset(u) {
     if (!T.ready || !T.active) return false;
+    returnReceptacle();   // ship is on the pad; port goes back to the tower before Arm_Extend / QD_Connect
     poseReset(u);
     if (u >= ARM_EXTEND_SEC + QD_CONNECT_SEC) { T.resetT0 = 0; T.retracted = false; return true; }
     return false;
   }
 
   return {
-    T, load, bind, setActive, attachReceptacle, poseRest, poseRetracted, poseReset,
+    T, load, bind, setActive, attachReceptacle, returnReceptacle, poseRest, poseRetracted, poseReset,
     tickBoard, tickDeboard, tickIdle, tickReset, info, play, playK,
     buildBoardShow, buildDeboardShow,
   };
