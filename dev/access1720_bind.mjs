@@ -594,6 +594,109 @@ export function createAccess(THREE) {
           node.traverse((o) => { if (o.isMesh) o.visible = true; });
         }
       }
+
+      // --- Ladder visibility (Jacob 4:35): recolor ONLY ladder meshes via a dedicated cloned mat.
+      // Never mutate shared hull / Ship_Placeholder materials.
+      {
+        const ladderMat = new THREE.MeshStandardMaterial({
+          name: 'Ladder_BrushedMetal',
+          color: 0xC8CCD2,
+          metalness: 0.6,
+          roughness: 0.35,
+          emissive: 0x3A4048,
+          emissiveIntensity: 0.22,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        });
+        ladderMat.userData._ladderPaint = 1;
+        const underLadder = (o) => {
+          let x = o;
+          while (x) {
+            const n = x.name || '';
+            if (/^LadderStage_/.test(n) || n === 'Rails' || n === 'Ladder_Sleeve' || /Rung/i.test(n)) return true;
+            x = x.parent;
+          }
+          return false;
+        };
+        const paintRoot = (root) => {
+          if (!root) return;
+          root.traverse((o) => {
+            if (!o.isMesh || !underLadder(o)) return;
+            o.material = ladderMat;
+            o.renderOrder = 2;
+            o.castShadow = true;
+            o.receiveShadow = true;
+          });
+        };
+        paintRoot(pack);
+        paintRoot(rails);
+        for (let s = 0; s <= 5; s++) paintRoot(accG.scene.getObjectByName('LadderStage_' + s));
+        A._ladderMat = ladderMat;
+      }
+
+      // Foot plate (~0.6×0.4 m) at the tip stage — yellow/black hazard stripes.
+      // Parent to LadderStage_5 (lowest telescope section) so it rides deploy/stow clips.
+      {
+        const tip = accG.scene.getObjectByName('LadderStage_5');
+        if (tip) {
+          const cv = document.createElement('canvas');
+          cv.width = 128; cv.height = 64;
+          const ctx = cv.getContext('2d');
+          const w = 18;
+          for (let i = -4; i < 12; i++) {
+            ctx.fillStyle = (i % 2 === 0) ? '#E8C200' : '#1a1a1a';
+            ctx.beginPath();
+            const x = i * w;
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x + w, 0);
+            ctx.lineTo(x + w * 2, 64);
+            ctx.lineTo(x + w, 64);
+            ctx.closePath();
+            ctx.fill();
+          }
+          const map = new THREE.CanvasTexture(cv);
+          map.colorSpace = THREE.SRGBColorSpace;
+          map.needsUpdate = true;
+          const footMat = new THREE.MeshStandardMaterial({
+            name: 'Ladder_FootPlate',
+            map,
+            metalness: 0.35,
+            roughness: 0.55,
+            emissive: 0x2a2a20,
+            emissiveIntensity: 0.12,
+            polygonOffset: true,
+            polygonOffsetFactor: -2,
+            polygonOffsetUnits: -2,
+          });
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.60, 0.04, 0.40), footMat);
+          foot.name = 'Ladder_FootPlate';
+          foot.castShadow = true;
+          foot.receiveShadow = true;
+          foot.renderOrder = 3;
+          // Sit just under the tip stage's local AABB bottom, centered on rungs XZ.
+          tip.updateWorldMatrix(true, false);
+          const box = new THREE.Box3().setFromObject(tip);
+          const inv = new THREE.Matrix4().copy(tip.matrixWorld).invert();
+          const c = box.getCenter(new THREE.Vector3());
+          const min = box.min.clone();
+          // World foot position: centered in XZ at tip, on pad y≈0 when deployed; local to tip.
+          const worldFoot = new THREE.Vector3(c.x, min.y - 0.02, c.z);
+          // Prefer rung-0 XZ if available (true pad contact point in ship space → world).
+          if (rungs && rungs[0]) {
+            const rw = new THREE.Vector3(rungs[0].x, rungs[0].y, rungs[0].z);
+            // rungs are already in ship/hull space; convert via hullNode
+            hullNode.updateWorldMatrix(true, false);
+            rw.applyMatrix4(hullNode.matrixWorld);
+            worldFoot.x = rw.x; worldFoot.z = rw.z;
+            worldFoot.y = rw.y - 0.05;
+          }
+          const local = worldFoot.clone().applyMatrix4(inv);
+          foot.position.copy(local);
+          tip.add(foot);
+          A._footPlate = foot;
+        }
+      }
     }
 
     A.rungs = rungs;
