@@ -12,7 +12,7 @@
 html{--sab:env(safe-area-inset-bottom,0px)}
 html,body{margin:0;height:100%;background:#05060b;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:-apple-system,system-ui,sans-serif;color:#e8ecf4}
 button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
-#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;-ms-touch-action:none}
 #tag{position:fixed;left:10px;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 system-ui;background:#0009;padding:4px 7px;border-radius:6px;z-index:6;pointer-events:none}
 #dev{position:fixed;left:110px;right:auto;max-width:calc(100vw - 120px);white-space:nowrap;overflow:hidden;top:calc(env(safe-area-inset-top) + 6px);font:600 10px/1 ui-monospace,monospace;background:#000a;color:#7fffb0;padding:4px 7px;border-radius:6px;z-index:30;pointer-events:none}
 #hud{position:fixed;left:8px;right:calc(env(safe-area-inset-right,0px) + 64px);top:calc(env(safe-area-inset-top) + 26px);height:56px;display:flex;align-items:stretch;gap:6px;z-index:5;pointer-events:none;transition:opacity 150ms linear}
@@ -280,6 +280,22 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
 .devtag{display:inline-block;margin-left:6px;padding:2px 5px;font:800 9px/1 system-ui;letter-spacing:.16em;color:#090f1d;background:#ffb340;vertical-align:1px}
 </style>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=r169","three/addons/":"./vendor/addons/"}}</script>
+<script>
+/* Kill Safari/iOS page zoom (gesture + double-tap). Game camera pinch lives in main.js. */
+(function () {
+  const stop = (e) => { e.preventDefault(); };
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((n) => {
+    document.addEventListener(n, stop, { capture: true, passive: false });
+  });
+  document.addEventListener('dblclick', stop, { capture: true, passive: false });
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd < 350) e.preventDefault();
+    lastTouchEnd = now;
+  }, { capture: true, passive: false });
+})();
+</script>
 </head>
 <body data-tag="DEV · 14:01">
 <canvas id="c"></canvas>

@@ -2196,6 +2196,61 @@ function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = 
     ...(() => { const a = [vis(cg3.astro) ? (cg3.astro.userData._fa ?? 1) : brH ? (BRK.h.scene.userData._fa ?? 1) : 0, cl(CREW_BOARD['Cargo Manager']) ? BD.root.userData._fa : 0]; return { cmA: +(a[0] + a[1]).toFixed(4), cmFull: a.filter(x => x >= .999).length }; })() }; }
 const BC = { w: 0, tb: -1, lx: 0, ly: 0, lz: 0, k: 1, ph: 'off' };
 const CAMLOOK = { lx: 0, ly: 0, lz: 0, k: 1 };
+
+// ===== Pinch / wheel zoom (Jacob 2:48): persistent user scale on station framing. Not reset by site/board/cards.
+const ZOOM = { z: 1, ox: 0, oz: 0, min: 0.42, max: 1.0, pinching: false };
+function zoomClamp(z) {
+  // Never clip into/under ground: camera height ≥ 2.8 m at current lookY / station k.
+  const ly = CAMLOOK.ly || 0, elev = THREE.MathUtils.degToRad(CAM.elev || 18);
+  const dist = camera.userData.dist || 20;
+  const kBase = Math.max(0.25, (CAMLOOK.k || 1) / Math.max(1e-6, ZOOM.z || 1));
+  const minH = 2.8;
+  const minZByGround = (minH - ly) / Math.max(1e-3, dist * kBase * Math.sin(elev));
+  const minZ = Math.max(ZOOM.min, Math.min(ZOOM.max, minZByGround));
+  return clamp(z, minZ, ZOOM.max);
+}
+function zoomApply(factor, sx, sy) {
+  const before = ZOOM.z;
+  const z1 = zoomClamp(before * factor);
+  if (Math.abs(z1 - before) < 1e-5) return;
+  // Keep the ground point under (sx,sy) stable by shifting look XZ.
+  const ly = CAMLOOK.ly || 0;
+  const e = THREE.MathUtils.degToRad(CAM.elev || 18);
+  const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const ndcX = (sx / W) * 2 - 1, ndcY = -(sy / H) * 2 + 1;
+  const hitAt = (zMul) => {
+    const kk = Math.max(0.05, (CAMLOOK.k / Math.max(1e-6, before)) * zMul);
+    const d = (camera.userData.dist || 20) * kk;
+    const lx = CAMLOOK.lx, lz = CAMLOOK.lz;
+    const eye = { x: lx, y: ly + d * Math.sin(e), z: lz + d * Math.cos(e) };
+    // Camera looks at (lx,ly,lz); build a rough ray through NDC (same elev framing).
+    const forward = { x: lx - eye.x, y: ly - eye.y, z: lz - eye.z };
+    const fl = Math.hypot(forward.x, forward.y, forward.z) || 1;
+    forward.x /= fl; forward.y /= fl; forward.z /= fl;
+    const rx = forward.z, rz = -forward.x; // right ≈ horizontal cross with up
+    const rl = Math.hypot(rx, rz) || 1;
+    const right = { x: rx / rl, y: 0, z: rz / rl };
+    const up = {
+      x: right.y * forward.z - right.z * forward.y,
+      y: right.z * forward.x - right.x * forward.z,
+      z: right.x * forward.y - right.y * forward.x,
+    };
+    const dir = {
+      x: forward.x + right.x * ndcX * vt * camera.aspect + up.x * ndcY * vt,
+      y: forward.y + right.y * ndcX * vt * camera.aspect + up.y * ndcY * vt,
+      z: forward.z + right.z * ndcX * vt * camera.aspect + up.z * ndcY * vt,
+    };
+    const dl = Math.hypot(dir.x, dir.y, dir.z) || 1;
+    dir.x /= dl; dir.y /= dl; dir.z /= dl;
+    if (Math.abs(dir.y) < 1e-5) return null;
+    const tHit = (ly - eye.y) / dir.y; if (tHit < 0) return null;
+    return { x: eye.x + dir.x * tHit, z: eye.z + dir.z * tHit };
+  };
+  const p0 = hitAt(before);
+  ZOOM.z = z1;
+  const p1 = hitAt(z1);
+  if (p0 && p1) { ZOOM.ox += p0.x - p1.x; ZOOM.oz += p0.z - p1.z; }
+}
 // Sim boarding phase (Director 10:55): Launch tap / auto-launch → sh.st 'board' (sh.t0 = its start, shifted by cgShift like every sh timestamp); at
 // sh.t0 + BOARD_SEC the existing launch starts (burn, sale at +launchSec, away, land). BOARD_SEC is a constant of the art timing (not of the GLB load),
 // so the sim, offline catch-up and reload never depend on the art: lead-in (camera ease-in) + last flying climber inside + hold + ease-out.
@@ -2683,7 +2738,15 @@ function poseCam(cam, x) {
   let lx = x + dx, lyy = ly, lz = dz, kk = k;
   if (cam === camera && FOC.w > 0) { const w = FOC.w; lx += (FOC.lx - lx) * w; lyy += (FOC.ly - lyy) * w; lz += (FOC.lz - lz) * w; kk += (FOC.k - kk) * w; }   // tier focus blend
   if (cam === camera && UC.w > 0) { const w = UC.w; lx += (UC.lx - lx) * w; lyy += (UC.ly - lyy) * w; lz += (UC.lz - lz) * w; kk += (UC.k - kk) * w; }   // gc-ui2: upgrade-card camera (tapped object above the card)
-  if (cam === camera && BC.w > 0) { const w = BC.w; lx += (BC.lx - lx) * w; lyy += (BC.ly - lyy) * w; lz += (BC.lz - lz) * w; kk *= Math.pow(BC.k / kk, w); }   // crew boarding camera blend (k in log space)
+  // Boarding / airlock auto-cam removed (Jacob pinch-zoom): never blend BC — it was the 'weird zoom'.
+  if (cam === camera) { BC.w = 0; BC.ph = 'off'; }
+  // Persistent user pinch/wheel zoom (not reset by station switch / boarding / cards).
+  // Do NOT re-assign ZOOM.z here — zoomClamp belongs on the gesture path only; mutating z
+  // every frame from CAMLOOK.k / ly drift was the residual zoom bump through boarding.
+  if (cam === camera) {
+    kk *= ZOOM.z;
+    lx += ZOOM.ox; lz += ZOOM.oz;
+  }
   if (cam === camera) { CAMLOOK.lx = lx; CAMLOOK.ly = lyy; CAMLOOK.lz = lz; CAMLOOK.k = kk; }
   poseLook(cam, lx, lyy, lz, kk);
 }
@@ -2903,12 +2966,13 @@ ui();
 
 // ===== swipe: always exactly one station from S.site; tiny drags spring back; taps go to deposits, then to upgrade cards
 let drag = null;
-const TAP_PX = 12, TAP_MS = 800;   // gc-ui2: tap = finger lifted within TAP_MS and never more than TAP_PX from where it went down; anything further is a swipe
+const TAP_PX = 10, TAP_MS = 800;   // pinch-zoom: ≤10 px stay = tap; further = swipe. 2+ fingers / pinch never taps.
 canvas.addEventListener('pointerdown', (e) => {
   crewCancel('tap');                                              // any tap or swipe ends the boarding camera
   if (ecIsOpen()) { ecHangUp(); return; }                       // a tap on the scene first closes the Earth Coms panel
   if (drag) return; const t = e.timeStamp || performance.now();     // event time, so a busy frame can't distort the flick speed
   if (e.isPrimary === false) return;
+  if (_ptrs.size > 1 || ZOOM.pinching || _pinch) return;         // multi-touch / pinch: never a card tap or station swipe start
   const pk = upSettled() ? (pickUp(e.clientX, e.clientY, performance.now()) || false) : null;   // gc-tapfix: + touch time (mover grace)   // gc-ui3 (EM 17:40 item 1): the card comes from what is under the finger at touchSTART (false = settled, nothing there; null = camera sliding)
   window.__ps3d.downPick = pk ? pk.t.id : pk;
   drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: t, cx: camX, base: S.site, s: [[t, e.clientX]], moved: 0, pk };
@@ -2939,10 +3003,48 @@ function endDrag(e) {
   if (Math.abs(dx) > 0.15 * W) dir = dx < 0 ? 1 : -1;
   else if (Math.abs(v) > 0.35 && Math.abs(dx) >= 30) dir = v < 0 ? 1 : -1;   // a flick needs speed AND ≥30 px travel
   window.__ps3d.lastSwipe = { dx, v: +v.toFixed(3), dir, from: d.base };
-  if (!dir && d.moved <= TAP_PX && t - d.t0 <= TAP_MS && !cancel) { camX = d.cx; greetDismiss('world'); tap(d.x0, d.y0, d.pk); }   // ca-greetpass: a world tap takes the Welcome greeting down AND goes on to what was tapped   // camX: undo the ≤ 12 px drag pan, so the pick sees the scene the finger went down on   // gc-ui2 (EM 15:52 item 1): lifted within 800 ms AND moved ≤ 12 px; picks at the touch-START point
+  if (!dir && d.moved <= TAP_PX && t - d.t0 <= TAP_MS && !cancel && !ZOOM.pinching && _ptrs.size <= 1) { camX = d.cx; greetDismiss('world'); tap(d.x0, d.y0, d.pk); }   // ca-greetpass: a world tap takes the Welcome greeting down AND goes on to what was tapped   // camX: undo the ≤ 12 px drag pan, so the pick sees the scene the finger went down on   // gc-ui2 (EM 15:52 item 1): lifted within 800 ms AND moved ≤ 12 px; picks at the touch-START point
   goSite(stepSite(d.base, dir));   // one step in x order
 }
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('lostpointercapture', endDrag);
+
+// ===== Pinch / trackpad / wheel zoom (does not steal one-finger station swipe)
+const _ptrs = new Map(); // pointerId → {x,y}
+let _pinch = null; // {d0, z0, mx, my}
+function _pinchMid() {
+  const a = [..._ptrs.values()]; if (a.length < 2) return null;
+  return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) };
+}
+canvas.addEventListener('pointerdown', (e) => {
+  _ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (_ptrs.size >= 2) {
+    const m = _pinchMid();
+    if (m && m.d > 8) { _pinch = { d0: m.d, z0: ZOOM.z, mx: m.x, my: m.y }; ZOOM.pinching = true; if (drag) { try { canvas.releasePointerCapture(drag.id); } catch (_) {} drag = null; } }
+  }
+}, true);
+canvas.addEventListener('pointermove', (e) => {
+  if (!_ptrs.has(e.pointerId)) return;
+  _ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (_pinch && _ptrs.size >= 2) {
+    const m = _pinchMid(); if (!m || m.d < 4) return;
+    const target = zoomClamp(_pinch.z0 * (m.d / Math.max(1e-3, _pinch.d0)));
+    const factor = target / Math.max(1e-6, ZOOM.z);
+    zoomApply(factor, m.x, m.y);
+    e.preventDefault();
+  }
+}, true);
+function _ptrUp(e) {
+  _ptrs.delete(e.pointerId);
+  if (_ptrs.size < 2) { _pinch = null; ZOOM.pinching = false; }
+}
+canvas.addEventListener('pointerup', _ptrUp, true);
+canvas.addEventListener('pointercancel', _ptrUp, true);
+canvas.addEventListener('wheel', (e) => {
+  // Trackpad pinch = ctrl+wheel on macOS; plain wheel also zooms the game cam.
+  e.preventDefault();
+  const factor = Math.exp(-(e.deltaY || 0) * 0.0015);
+  zoomApply(factor, e.clientX, e.clientY);
+}, { passive: false });
 
 // ===== HUD
 if (CFG.showCrystals) $('cry').closest('.cell').hidden = false;
@@ -4970,9 +5072,9 @@ const UPT = [
   { id: 'drill', p: 'drill', site: MINE, objs: () => v3hDrillTap(), hl: () => v3hDrillTap() },
   { id: 'chute', p: 'chute', site: MINE, objs: () => v3hChuteTap(), hl: () => mrChuteHL() || v3hChuteTap() },   // ca-minerevamp: Chute_Glow when the GLB has it
   { id: 'refinery', p: 'purity', site: REF, objs: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Tier_05', 'Tier_08', 'Base_GlowRed']), hl: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Base_GlowRed']) },
-  { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBox(n, 4, 9, 4, b) : null; }, hl: () => [] },
-  { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBox(n, 3, 8, 3, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
-    add: (b) => padTankBox(b) },   // gc-ui2 (item 4): + the LOX / LCH4 tanks (part of the Pad_Base mesh, no own node)
+  { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBoxRaised(n, 3.2, 0.45, 9, 3.2, b) : null; }, hl: () => [] },
+  { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBoxRaised(n, 2.4, 0.45, 8, 2.4, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
+    add: (b) => padTankBox(b) },   // tanks stay; hose box no longer includes y=0 ground
   { id: 'truck', p: 'truck', site: -1, own: true, objs: () => truckRoot ? [truckRoot] : [], hl: () => truckRoot ? [truckRoot] : [] },
   { id: 'truck2', p: 'truck', site: -1, own: true, objs: () => truck2Root && truck2Root.visible ? [truck2Root] : [], hl: () => truck2Root && truck2Root.visible ? [truck2Root] : [] },   // ca-truck2: the parked Truck 2 opens the same card (site -1 like Truck 1: no tap-invite glow clones)
   // Hull (docked only) opens the ship upgrade sheet. The hit is a meter-space box around the visual hull
@@ -4988,23 +5090,68 @@ const UPT = [
   // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
   { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
-  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base']), hl: () => soonObjs(SHIPI, ['shipyard_base']),
-    box: (b) => { const o = stationObjs[SHIPI]; if (!o) return null; const x = o.position.x; b.min.set(x - 38, 0, -32); b.max.set(x + 38, 50, 18); return b; } },   // gc-fix78: visual hall+highbay+crane, not setFromObject(shipyard_base) (~150 m apron)
-  { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']), hl: () => soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']) },
-  { id: 'engineering', p: 'soonEng', site: 7, objs: () => soonObjs(7, []), hl: () => soonObjs(7, []) },
+  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base', 'Highbay', 'highbay', 'Crane', 'crane_base', 'Hall']), hl: () => soonObjs(SHIPI, ['shipyard_base']) },   // pinch-zoom: mesh ray only — dropped the 76×50 m ground box
+  { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => habTapMeshes(), hl: () => habTapMeshes() },   // pinch-zoom: tower meshes only (no ground apron)
+  { id: 'engineering', p: 'soonEng', site: 7, objs: () => engTapMeshes(), hl: () => engTapMeshes() },
   // gc-brkfade ticket 1 (Director 01:54, option a): the break room is part of the Pad, so a tap on it opens the Cargo Ship card. Meshes only (room,
   // helmet table, step; not the handler), no own / pose replay, no glow (hl empty). LAST in UPT: ties go to earlier targets in pickRay, and the
   // ship card's ucOpen lookup (first p === 'ship' at the site) still finds the ship entry.
   { id: 'breakroom', p: 'ship', site: PADI, objs: () => BRK.ok ? ['BR_room', 'BR_helmet', 'BR_step'].map(n => BRK.grp.getObjectByName(n)).filter(Boolean) : [], hl: () => [] },
 ];
+
+function auditTapTargets() {
+  const rows = [];
+  for (const t of UPT) {
+    const os = t.objs ? t.objs() : [];
+    let box = null, boxVol = null;
+    if (t.box) { box = t.box(_ub); if (box && !box.isEmpty()) { const s = box.getSize(new THREE.Vector3()); boxVol = +((s.x * s.y * s.z).toFixed(1)); } }
+    const meshes = [];
+    for (const o of os) o.traverse?.((m) => { if (m.isMesh && m.visible) meshes.push(m.name || m.type); });
+    rows.push({ id: t.id, card: t.p, site: t.site, meshN: meshes.length, meshes: meshes.slice(0, 8), hasBox: !!t.box, boxVol, mode: t.box && !os.length ? 'box-only' : (os.length ? 'mesh' : 'empty') });
+  }
+  window.__ps3d.tapAudit = rows;
+  console.info('tapAudit', rows.map((r) => r.id + ':' + r.mode + ':meshes=' + r.meshN + (r.boxVol != null ? ':boxVol=' + r.boxVol : '')).join(' | '));
+  return rows;
+}
 function soonObjs(i, names) {          // the station GLB's main building nodes, else its gray placeholder box (if it is still shown)
   const n = nodesOf(stationObjs[i], names); if (n.length) return n;
   return phBox[i] && phBox[i].parent && phBox[i].visible ? [phBox[i]] : [];
 }
-const PAD_TANKS = { min: [-19.9, 0, -10.7], max: [-11.6, 10.9, -0.5] };   // pad-local box around both fuel tanks (measured from Pad_Base hits at 393×852)
+
+function upBoxRaised(nodes, hx, y0, y1, hz, b) {   // like upBox but floor at y0 (not ground) so a ground ray misses
+  b.makeEmpty(); for (const n of nodes) { n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x - hx, y0, _uv.z - hz)); n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x + hx, y1, _uv.z + hz)); } return b;
+}
+function habTapMeshes() {
+  // Habitat card: Hab_Paint / Hab_Glass / airlock frame — skip any mesh whose bounds sit on the ground apron (max.y < 1.2).
+  const root = stationObjs[HABI]; if (!root) return soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']);
+  const named = nodesOf(root, ['Hab_Paint', 'Hab_Glass', 'Hab_Airlock', 'Airlock_Frame', 'Hab_Metal']);
+  const out = [];
+  const consider = named.length ? named : [root];
+  for (const o of consider) o.traverse((m) => {
+    if (!m.isMesh || !m.visible || !m.geometry) return;
+    if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+    _ub.makeEmpty().expandByObject(m);
+    if (_ub.isEmpty()) return;
+    if (_ub.max.y < 1.2) return;   // ground / apron slab
+    out.push(m);
+  });
+  return out.length ? out : soonObjs(HABI, ['Hab_Paint', 'Hab_Glass']);
+}
+function engTapMeshes() {
+  const root = stationObjs[7]; if (!root) return [];
+  const out = [];
+  root.traverse((m) => {
+    if (!m.isMesh || !m.visible || !m.geometry) return;
+    _ub.makeEmpty().expandByObject(m);
+    if (_ub.isEmpty() || _ub.max.y < 1.0) return;
+    out.push(m);
+  });
+  return out;
+}
+const PAD_TANKS = { min: [-19.9, 0.4, -10.7], max: [-11.6, 10.9, -0.5] };   // pad-local tanks; y0=0.4 so ground in front of Habitat/pad doesn't count as fuel
 function padTankBox(b) { const o = stationObjs[PADI]; if (!o || !o.getObjectByName('Hose_LOX')) return null; o.updateWorldMatrix(true, false);
   b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0], i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
-const PAD_DECK = { min: [-12, 0, -22], max: [12, 1.7, -4] };   // pad-local slab: the base platform under the ship, not the crane tower (z +8) and not the fuel tanks (x < -12)
+const PAD_DECK = { min: [-11, 0.05, -18], max: [13, 2.6, 11] };   // pad platform slab (cam-side +Z for phone taps); skip crane tower (~z≥12) and LOX/LCH4 (x≲-12)
 function shipDocked() { return !!(cg3.ship && cg3.ship.visible && S.cg && S.cg.sh && S.cg.sh.st === 'pad'); }
 function shipHitBox(b) {   // meter-space hull only. Quantized skirt/hold bounds are 0..16383; setFromObject on those
   // without a sane scale blows the hit volume up to the tower corner and the deck. Skip any mesh whose
@@ -5141,9 +5288,9 @@ function pickRay(x, y, t0) {           // t0: touch time (performance.now) → m
   window.__ps3d.lastRay = best ? { id: best.t.id, d: best.d, past: best.past, box: !!best.box, over: best.over || null } : null;
   return best;
 }
-function pickUp(x, y, t0) {            // ca-tapfix2: nothing under the finger now (touch time given) → the camera poses drawn within UP_CAMG, newest first
-  const h = pickRay(x, y, t0) || pickRect(x, y); if (h || t0 == null) return h;
-  for (const e of upPoseIn(UPCAM, t0, UP_CAMG).sort((a, b) => b.at - a.at)) { const p = upAtCam(e, () => pickRay(x, y, t0) || pickRect(x, y)); if (p) { p.cam = 'past'; window.__ps3d.lastRay = Object.assign({}, window.__ps3d.lastRay, { cam: 'past' }); return p; } }
+function pickUp(x, y, t0) {            // pinch-zoom: MESH/BOX RAY only — never the old screen-rect fallback (it opened Habitat from ground in front).
+  const h = pickRay(x, y, t0); if (h || t0 == null) return h;
+  for (const e of upPoseIn(UPCAM, t0, UP_CAMG).sort((a, b) => b.at - a.at)) { const p = upAtCam(e, () => pickRay(x, y, t0)); if (p) { p.cam = 'past'; window.__ps3d.lastRay = Object.assign({}, window.__ps3d.lastRay, { cam: 'past' }); return p; } }
   return null; }
 function pickRect(x, y) {              // the old screen-rect pick (smallest rect the finger is inside, else the nearest ≥ 44 px grown rect): fallback only
   let best = null, bA = Infinity, near = null, nD = Infinity;
@@ -5433,7 +5580,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 function buyDrill() {
@@ -5996,7 +6143,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get camX() { return camX; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; } }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
-Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, get BOARD_SEC() { return boardSec(); }, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, ZOOM, zoomApply, zoomClamp, get BOARD_SEC() { return boardSec(); }, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); upUI();
 loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain(); loadRefTerrain(); loadDrillV3h();
