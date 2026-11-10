@@ -1,7 +1,7 @@
 // Scene side of the PR17 crew access (1015 bay/airlock packet). Timing and IK live in access1720.mjs.
 import {
-  nominalRungs, showTimes, poseShow, poseStand, outwardOf, stageRungLocals, climbDur, faceYaw,
-  DEPLOY_T, BAY_DOOR_SEC, LADDER_DEPLOY_SEC, LADDER_STOW_SEC, ENTRY_DOOR_SEC,
+  nominalRungs, showTimes, showTimesDeboard, poseShow, poseShowDeboard, poseStand, outwardOf, stageRungLocals, climbDur, faceYaw,
+  DEPLOY_T, BAY_DOOR_SEC, LADDER_DEPLOY_SEC, LADDER_STOW_SEC, ENTRY_DOOR_SEC, deboardSeconds,
 } from './access1720.mjs';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -14,6 +14,14 @@ export const AIRLOCK_URL = '../qa3d-next/models/pr17_airlock4_assembly_1123_b1b1
 export function accessSeconds(n, rungs) {
   return showTimes(Math.max(1, n | 0), rungs || nominalRungs(), 6).launch;
 }
+export { deboardSeconds };
+export function accessDeboardSeconds(n, rungs) {
+  return deboardSeconds(Math.max(1, n | 0), rungs || nominalRungs(), 6);
+}
+export function accessDeboardShow(n, rungs) {
+  return showTimesDeboard(Math.max(1, n | 0), rungs || nominalRungs(), 6);
+}
+
 
 export function createAccess(THREE) {
   const A = {
@@ -235,6 +243,76 @@ export function createAccess(THREE) {
       info.push({ i, tau, err: pose.err || 0, contacts: (pose.contacts || []).length });
     });
     return { clip: sync.clip, door: sync.door, entry: sync.entry, info, show };
+  }
+
+  /** Deboard: doors/ladder same scrub; crew exit airlock, climb DOWN, walk to stand, then close/stow. */
+  function tickDeboard(tb, people) {
+    if (!A.ready) return null;
+    const show = showTimesDeboard(Math.max(1, people.length), A.rungs, 6);
+    A.show = show;
+    const sync = syncClips(tb, show);
+    const info = [];
+    const foot = A.rungs[0], out = A.outward, side = { x: out.z, y: 0, z: -out.x };
+    people.forEach((person, i) => {
+      const slot = show.finish[i];
+      if (!slot) return;
+      const tau = tb - slot.start;
+      person.mode = 'wait';
+      person.outside = false;
+      // Before this climber's exit slot: park in airlock
+      if (tau < -0.01) {
+        person.mode = 'inside';
+        person.outside = false;
+        person.obj.visible = true;
+        if (!person._airSlot) {
+          const xs = [-0.85, -0.28, 0.28, 0.85];
+          const zs = [2.65, 2.70, 2.70, 2.65];
+          person._airSlot = { x: xs[i] ?? 0, y: 28.90, z: zs[i] ?? 2.70 };
+        }
+        person.obj.position.set(person._airSlot.x, person._airSlot.y, person._airSlot.z);
+        person.obj.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+        return;
+      }
+      // Exit + climb down
+      if (tau <= show.per + 0.02) {
+        person.obj.visible = true;
+        const pose = poseShowDeboard(A.rungs, A.outward, Math.max(0, tau));
+        if (tau <= show.deck) {
+          person.mode = tau < show.deck * 0.45 ? 'enter' : 'walk';
+          person.outside = person.mode === 'walk';
+          if (person.mode === 'enter') applyPose(person, pose);
+          else person.obj.position.copy(v(pose.root));
+        } else {
+          person.mode = 'climb';
+          person.outside = true;
+          applyPose(person, pose);
+        }
+        info.push({ i, tau, err: pose.err || 0, phase: 'exit' });
+        return;
+      }
+      // On pad: walk from ladder foot to stand (station / gather point)
+      const dest = person.stand ? person.stand.clone() : v({
+        x: foot.x + out.x * 1.15 + side.x * (i - (people.length - 1) / 2) * 0.75,
+        y: 0,
+        z: foot.z + out.z * 1.15 + side.z * (i - (people.length - 1) / 2) * 0.75,
+      });
+      dest.y = 0;
+      const footPos = v({
+        x: foot.x + out.x * 1.15 + side.x * (i - (people.length - 1) / 2) * 0.75,
+        y: 0,
+        z: foot.z + out.z * 1.15 + side.z * (i - (people.length - 1) / 2) * 0.75,
+      });
+      const walkT = Math.max(1e-3, slot.home - slot.onPad);
+      const u = Math.min(1, Math.max(0, (tb - slot.onPad) / walkT));
+      person.obj.visible = true;
+      person.obj.position.lerpVectors(footPos, dest, u);
+      person.obj.position.y = 0;
+      person.obj.quaternion.identity();
+      person.mode = u < 0.999 ? 'walk' : 'wait';
+      person.outside = true;
+      info.push({ i, tau, phase: 'home', u });
+    });
+    return { clip: sync.clip, door: sync.door, entry: sync.entry, info, show, deboard: true };
   }
 
   // Bake mesh local matrix into geometry, return a clone ready to merge under parent.
@@ -612,9 +690,10 @@ export function createAccess(THREE) {
 
   // Dev/QA only: step the boarding timeline and assert every crew's feet are on
   // ground (y≈0) or on the ladder rung span while climbing. Not used in gameplay.
-  function assertBoardFeet(people, { dt = 0.05, maxErr = 0.03, groundY = 0 } = {}) {
+  function assertBoardFeet(people, { dt = 0.05, maxErr = 0.03, groundY = 0, deboard = false } = {}) {
     const n = Math.max(1, people.length);
-    const show = showTimes(n, A.rungs || nominalRungs(), 6);
+    const show = deboard ? showTimesDeboard(n, A.rungs || nominalRungs(), 6) : showTimes(n, A.rungs || nominalRungs(), 6);
+    const tEnd = deboard ? (show.done || show.launch) : show.launch;
     const rungYs = (A.rungs || []).map((r) => r.y).sort((a, b) => a - b);
     const rungLo = rungYs.length ? rungYs[0] - 0.45 : 0;
     const rungHi = rungYs.length ? rungYs[rungYs.length - 1] + 0.65 : 30;
@@ -629,8 +708,8 @@ export function createAccess(THREE) {
     const foot = A.rungs[0];
     const out = A.outward || { x: 0, z: 1 };
     try {
-      for (let tb = 0; tb <= show.launch + 0.001; tb = +(tb + dt).toFixed(4)) {
-        tick(tb, people);
+      for (let tb = 0; tb <= tEnd + 0.001; tb = +(tb + dt).toFixed(4)) {
+        deboard ? tickDeboard(tb, people) : tick(tb, people);
         people.forEach((person, i) => {
           if (!person.obj || !person.obj.visible) return;
           // Kill handler bake every sample (clips rewrite Crew_2).
@@ -694,8 +773,8 @@ export function createAccess(THREE) {
         p.obj.position.copy(s.pos); p.obj.quaternion.copy(s.quat); p.obj.visible = s.vis;
       });
     }
-    return { ok: violations.length === 0, violations, maxFeetErr: +maxFeetErr.toFixed(4), samples: Math.floor(show.launch / dt) + 1, launch: show.launch };
+    return { ok: violations.length === 0, violations, maxFeetErr: +maxFeetErr.toFixed(4), samples: Math.floor(tEnd / dt) + 1, launch: tEnd, deboard: !!deboard };
   }
 
-  return { A, tick, bind, syncClips, assertBoardFeet };
+  return { A, tick, tickDeboard, bind, syncClips, assertBoardFeet };
 }

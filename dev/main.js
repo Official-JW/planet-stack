@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
-import { createAccess, accessSeconds, HULL_URL, ACCESS_URL, AIRLOCK_URL } from './access1720_bind.mjs';
+import { createAccess, accessSeconds, accessDeboardSeconds, accessDeboardShow, HULL_URL, ACCESS_URL, AIRLOCK_URL } from './access1720_bind.mjs';
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
@@ -2213,6 +2213,14 @@ function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-
   return BCAM.in + m + BCAM.hold + BCAM.out;
 }
 function boardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'board' ? { B: s.t0, id: c.launches + 1 } : null; }   // the boarding in progress
+function deboardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'deboard' ? { B: s.t0, id: (c.launches || 0) } : null; }
+function deboardSec(sh) {
+  const fly = flyCrew(sh || (S.cg && S.cg.sh) || null);
+  const n = Math.max(1, fly.length || tripFly(sh || (S.cg && S.cg.sh)) || CFG.crew0);
+  if (!ACC.A.failed) return accessDeboardSeconds(n, ACC.A.rungs || null);
+  return accessDeboardSeconds(n, null);
+}
+
 function crewPose(tb) {                // pure: tb seconds since the launch
   const C = BD.clips; let k = 0; while (k < C.length - 1 && tb >= C[k + 1].t0) k++;
   const c = C[k], a = BD.acts[c.name];
@@ -2318,6 +2326,50 @@ function accessUpdate(tb) {
   // Boarding camera removed: sequence plays in-world; player camera stays put (bb0f753 swipe/station).
   BC.w = 0; BC.ph = 'off'; BC.tb = tb;
 }
+function accessUpdateDeboard(tb) {
+  if (!ACC.A.ready || typeof ACC.tickDeboard !== 'function') return;
+  const hull = cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder'); if (!hull) return;
+  const people = accessPeople();
+  const homes = (typeof wkHomes === 'function') ? wkHomes() : null;
+  const homeKey = { miner: 'miner', driver: 'driver', mech: 'mech', cm: 'cm' };
+  hull.updateWorldMatrix(true, false);
+  const inv = new THREE.Matrix4().copy(hull.matrixWorld).invert();
+  for (const p of people) {
+    // Stand = reverse of boarding path end: WK home in ship-local (pad near ladder if unknown).
+    if (!p.obj.userData._accStand && homes && homeKey[p.key] && homes[homeKey[p.key]]) {
+      const h = homes[homeKey[p.key]];
+      const w = new THREE.Vector3(h[0], 0, h[1]).applyMatrix4(inv);
+      w.y = 0; p.obj.userData._accStand = w.clone();
+    }
+    if (p.obj.parent !== hull) {
+      p.obj.updateWorldMatrix(true, false);
+      hull.attach(p.obj);
+      if (!p.obj.userData._accStand) {
+        p.obj.position.y = 0;
+        p.stand = p.obj.position.clone(); p.stand.y = 0;
+        p.obj.userData._accStand = p.stand.clone();
+      } else {
+        p.stand = p.obj.userData._accStand.clone(); p.stand.y = 0;
+      }
+    } else {
+      p.stand = p.obj.userData._accStand || p.obj.position.clone();
+      if (p.stand) p.stand.y = 0;
+    }
+  }
+  const info = ACC.tickDeboard(tb, people);
+  if (info) window.__ps3d.access1720 = { tb: +tb.toFixed(2), clip: +info.clip.toFixed(3), door: +info.door.toFixed(2), entry: +(info.entry || 0).toFixed(2), n: people.length, rungs: ACC.A.rungs.length, launch: +(info.show.done || info.show.launch).toFixed(2), deboard: true };
+  for (const p of people) {
+    if (p.mode === 'walk' && p.acts) {
+      p.obj.userData._accHeld = 0;
+      wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true);
+    } else if (p.acts) {
+      for (const n in p.acts) p.acts[n].setEffectiveWeight(0);
+      p.obj.userData._accHeld = 1;
+    }
+    accessPrepHandler(WK.people[p.key] || p);
+  }
+  BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+}
 function accessLoad(rig) {
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull) return;
   let hullG = null, accG = null, airG = null, bad = false;
@@ -2339,11 +2391,22 @@ function accessLoad(rig) {
   loader.load(AIRLOCK_URL, (g) => { airG = g; done(); }, undefined, fail);
 }
 function updCrew() {
-  const bNow = boardOf();
+  const bNow = boardOf(), dNow = deboardOf();
   if (ACC.A.ready && bNow) {
     accessUpdate((nowMs() - bNow.B) / 1000);
     crewOnPad();
     BC.w = 0; BC.ph = 'off'; // no boarding follow / airlock cam
+    return;
+  }
+  if (ACC.A.ready && dNow) {
+    accessUpdateDeboard((nowMs() - dNow.B) / 1000);
+    // Miner/driver truck reverse (existing wkTaxiSchedule 'back') after climb-down; ACC already walked mech/cm home.
+    if (WK.ready && S.wk && S.wk.down > 0) {
+      const u = (nowMs() - S.wk.down) / 1000;
+      if (u >= wkDescSec()) { wkDetachBoard(); wkPoseWalk(nowMs(), 'back'); }
+    }
+    crewOnPad();
+    BC.w = 0; BC.ph = 'off';
     return;
   }
   if (ACC.A.ready) {
@@ -2420,7 +2483,17 @@ function wkRoad(from, to) { const z = (typeof ROAD !== 'undefined' && ROAD.zIn !
 function wkHomes() { const d = (MK && MK.Operator_Deck) || { x: -4.5, z: 6.5 }, l = (MK && MK.Path_Load) || { x: 11, z: 9 };
   return { miner: [MX + d.x, d.z], driver: [MX + l.x - 3.5, l.z + 2.2], mech: [PX - 8, 8.2], cm: [PX + 13.08, 6.3] }; }
 function wkClip(clip, pfx) { const n = clip.clone(); n.name = clip.name + '_' + pfx; for (const tr of n.tracks) tr.name = tr.name.split('C2_').join(pfx + '_'); return n; }
-function wkDescSec() { const a = BD.acts && BD.acts.crew_climb; return a ? a.getClip().duration : 36.2; }
+function wkDescSec() {
+  // PR17 access deboard: truck reverse starts after last climber reaches the pad (not the old crew_climb GLB).
+  if (ACC.A.ready && !ACC.A.failed && typeof accessDeboardShow === 'function') {
+    try {
+      const n = Math.max(1, (flyCrew(S.cg && S.cg.sh) || []).length || CFG.crew0);
+      const show = accessDeboardShow(n, ACC.A.rungs || null);
+      if (show && show.lastPad > 0) return show.lastPad;
+    } catch (e) {}
+  }
+  const a = BD.acts && BD.acts.crew_climb; return a ? a.getClip().duration : 36.2;
+}
 function wkPersonSec(key) { const h = wkHomes(), L = wkLadder(), w = S.wk, start = key === 'cm' && w && (w.cx || w.cz) ? [w.cx, w.cz] : h[key], poly = wkRoad(start, L);
   return poly.L / WK.v + (key === 'driver' ? WK.step : 0); }
 function wkUpDur() { const c = WK.src && WK.src.up; return c && c.duration > 0.2 ? c.duration : 1.2; }
@@ -2568,7 +2641,8 @@ function wkPoseDescent(t) { if (!BD.acts || !BD.acts.crew_climb) return false; c
   for (let i = 0; i < BD.n; i++) { const o = BD.crew[i]; if (o) o.visible = !!on[o.name]; } return true; }
 function wkUpd(t) { wkTryHome(t); if (!WK.ready) return;
   if (boardOf()) { wkAttachBoard(); return; }
-  if (S.wk && S.wk.down > 0) { const u = (t - S.wk.down) / 1000; if (u < wkDescSec()) { wkPoseDescent(t); return; } wkDetachBoard(); wkPoseWalk(t, 'back'); return; }
+  if (deboardOf() && ACC.A.ready) return; // ACC owns deboard bodies; truck reverse handled in updCrew
+  if (S.wk && S.wk.down > 0) { const u = (t - S.wk.down) / 1000; if (u < wkDescSec()) { if (!(ACC.A.ready && !ACC.A.failed && (deboardOf() || (S.cg && S.cg.sh && S.cg.sh.st === 'deboard')))) wkPoseDescent(t); return; } wkDetachBoard(); wkPoseWalk(t, 'back'); return; }
   if (S.wk && S.wk.go > 0) { const s = S.cg && S.cg.sh; if (s && s.st !== 'pad') { wkHideFlyers(); return; } wkDetachBoard(); wkPoseWalk(t, 'out'); return; }
   if (WK.attached) wkDetachBoard(); wkParkIdle(); }
 function wkTryBind() { if (WK.ready || !WK.boardReady || !WK.brReady || !BD.root || !BRK.ok || !BRK.h) return;
@@ -3544,7 +3618,7 @@ function cgNext(c) {
   if (!c.pc.k && c.dk > 0 && s.st === 'pad' && dockBusyEnd(c) > c.t) T(dockBusyEnd(c));   // ca-dock: Dock crane free again → the next Dock-first lift
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
   if (c.pc.k) T(pcEnd(c.pc));
-  if (s.st === 'board') T(s.t0 + boardSec(s) * 1000); else if (s.st === 'launch') T(s.t0 + shipDur(CG.launchSec, s) * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + shipDur(CG.awaySec, s) * 500 : s.t0 + shipDur(CG.awaySec, s) * 1000); else if (s.st === 'land') T(s.t0 + shipDur(CG.landSec, s) * 1000);
+  if (s.st === 'board') T(s.t0 + boardSec(s) * 1000); else if (s.st === 'launch') T(s.t0 + shipDur(CG.launchSec, s) * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + shipDur(CG.awaySec, s) * 500 : s.t0 + shipDur(CG.awaySec, s) * 1000); else if (s.st === 'land') T(s.t0 + shipDur(CG.landSec, s) * 1000); else if (s.st === 'deboard') T(s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000);
   else { if (s.hold >= holdCap() && !pcHold(c.pc.k) && fuelFinishAt(c) > c.t) T(fuelFinishAt(c)); if (s.req > c.t) T(s.req);
     if (S.wk && S.wk.go > 0 && !S.wk.down) { const arr = S.wk.go + wkGatherSec() * 1000; if (arr > c.t) T(arr); }
     if (S.wk && S.wk.down > 0) { const home = wkHomeAt(); if (home > c.t) T(home); } }
@@ -3576,12 +3650,28 @@ function cgComplete(c, t, acc) {
   } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + shipDur(CG.awaySec, s) * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
     c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
   } else if (s.st === 'away' && s.t0 + shipDur(CG.awaySec, s) * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, n: s.n, pur: s.pur, crew: crewOk(s.crew), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 }; cgEv('landing', t); }   // gc-crewpick: the pick rides home. fm keeps the landing clock
-  else if (s.st === 'land' && s.t0 + shipDur(CG.landSec, s) * 1000 <= t) {           // touchdown: the drop-off is credited in this same state change, so it can only happen once
+  else if (s.st === 'land' && s.t0 + shipDur(CG.landSec, s) * 1000 <= t) {           // touchdown → deboard (bay/ladder/climb-down/walk), then pad. Drop-off credited once here.
     const left = s.left > 0 && (s.fly >= CFG.crew0) ? s.left : 0, origGo = S.wk && S.wk.go > 0 && s.fly >= CFG.crew0 ? S.wk.go : 0;
-    c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 }; if (left > 0) payPend(left, acc); else if (origGo > 0) payPend(origGo, acc);
-    if (origGo > 0) S.wk.down = t; else if (left > 0) shiftTrucks(t - left);
-    fuelAnchor(c, t, 0); cgEv('landed', t); crewLand(c, t, s.crew);   // pre-Habitat: trucks stay frozen at S.wk.go until wkTryHome shifts them. Picked crew join on touchdown.
-    if (s.cargo > 0) cgDeliver(c, s.cargo, s.pur, t, acc);   // saves from before Step 2 that were already away carry no cargo (paid at the climb); payAt 'earth' already zeroed it
+    const flyN = s.fly || 0;
+    const needDeboard = !ACC.A.failed && (flyN > 0 || crewOk(s.crew).length > 0);
+    if (left > 0) payPend(left, acc); else if (origGo > 0) payPend(origGo, acc);
+    fuelAnchor(c, t, 0); cgEv('landed', t); crewLand(c, t, s.crew);
+    if (s.cargo > 0) cgDeliver(c, s.cargo, s.pur, t, acc);
+    if (needDeboard) {
+      const dsec = deboardSec({ fly: flyN || CFG.crew0, crew: s.crew });
+      c.sh = { st: 'deboard', t0: t, hold: 0, f0: t, req: 0, fly: flyN, left: left || 0, crew: crewOk(s.crew), dsec, fm: s.fm > 0 ? s.fm : 1 };
+      if (origGo > 0) { if (!S.wk) S.wk = { go: origGo, down: 0, cx: 0, cz: 0 }; S.wk.down = t; }
+      else if (left > 0) shiftTrucks(t - left);
+      cgEv('deboard', t, { dsec, fly: flyN });
+    } else {
+      c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 };
+      if (origGo > 0) { if (!S.wk) S.wk = { go: origGo, down: 0, cx: 0, cz: 0 }; S.wk.down = t; }
+      else if (left > 0) shiftTrucks(t - left);
+    }
+  } else if (s.st === 'deboard' && s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000 <= t) {
+    const td = s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000;
+    c.sh = { st: 'pad', t0: td, hold: 0, f0: s.f0 || td, req: 0 }; // cargo loading may start now
+    cgEv('deboard_done', td, { dsec: s.dsec });
   }
 }
 const payEarth = () => CFG.econ.payAt === 'earth';
@@ -3646,7 +3736,7 @@ function stampGuard(now = nowMs()) {
   cgEv('stamp_guard', now, { gap: Math.round(g) }); (window.__ps3d = window.__ps3d || {}).stampGuard = { at: now, gap: Math.round(g) };
   return g;
 }
-const fuelAt = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelNow(t).g / CFG.econ.fuel.tank : s.st === 'launch' ? 1 : 0; };   // tank 0–1: fills from touchdown at the pump rate (refuelSec(S.fuelLv)), from the Refinery stock (fuelSolve)
+const fuelAt = (t) => { const s = S.cg.sh; return (s.st === 'pad' || s.st === 'deboard') ? fuelNow(t).g / CFG.econ.fuel.tank : s.st === 'launch' ? 1 : 0; };   // tank 0–1: fills from touchdown at the pump rate (refuelSec(S.fuelLv)), from the Refinery stock (fuelSolve)
 const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the (level-scaled) climb, empty while away/landing
 const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= holdCap() && fuelAt(t) >= 1; };   // full hold only (the chip shows on this)
 const launchBlocked = (h = S.cg.sh.hold) => CFG.econ.launchBelowMin === 'block' && !(launchPayFor(h) > 0);   // 'block' = no launch under a full hold. A short first flight is not an exception
@@ -4848,7 +4938,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
   ship: { name: 'Launch Pad', ico: 'ship', launch: true, kick: 'Pad',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${holdCap()}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
-    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? (crewWin(t) ? `On the way to Earth · crew ${crewOk(s.crew).length}/${maxPicks()}` : 'On the way to Earth') : 'Landing'; },
+    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'deboard' ? 'Deboarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? (crewWin(t) ? `On the way to Earth · crew ${crewOk(s.crew).length}/${maxPicks()}` : 'On the way to Earth') : 'Landing'; },
     btn: () => { const s = S.cg.sh, t = nowMs(); if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < holdCap()) return [`Hold ${s.hold}/${holdCap()}`, false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fueling' : 'Awaiting cargo', false]; },
     buy: () => { if (crewWin()) return crewOpen(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
@@ -5340,7 +5430,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { accessAssertFeet, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 function buyDrill() {
@@ -5920,7 +6010,7 @@ function qaSkipToTouchdown() {
   const from = S.cg.sh.st, m0 = S.money, w0 = WARP;
   if (from === 'pad') return { ok: false, reason: 'no_trip', st: from };
   for (let i = 0; i < 8 && S.cg.sh.st !== 'pad'; i++) {
-    const s = S.cg.sh, due = s.st === 'board' ? s.t0 + boardSec(s) * 1000 : s.st === 'launch' ? s.t0 + shipDur(CG.launchSec, s) * 1000 : s.st === 'land' ? s.t0 + shipDur(CG.landSec, s) * 1000
+    const s = S.cg.sh, due = s.st === 'board' ? s.t0 + boardSec(s) * 1000 : s.st === 'deboard' ? s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000 : s.st === 'launch' ? s.t0 + shipDur(CG.launchSec, s) * 1000 : s.st === 'land' ? s.t0 + shipDur(CG.landSec, s) * 1000
       : s.st === 'away' ? s.t0 + shipDur(CG.awaySec, s) * (payEarth() && s.cargo > 0 ? 500 : 1000) : t;
     if (due > t) WARP += due - t + 1;
     t = nowMs(); settleTo(t, null); S.rt = t;
