@@ -7,6 +7,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { createAccess, accessSeconds, accessDeboardSeconds, accessDeboardShow, HULL_URL, ACCESS_URL, AIRLOCK_URL } from './access1720_bind.mjs';
+import { createLv10Tower, towerBoardSeconds, towerDeboardSeconds, setLadderVisible, TOWER_URL } from './lv10_tower.mjs';
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
@@ -2257,11 +2258,37 @@ function zoomApply(factor, sx, sy) {
 const BOARD_INSIDE = { Crew_1: 47.79, Crew_2: 51.19, Crew_3: 54.59, Crew_4: 57.99 };   // crew_boarding.glb extras.inside_hatch_s (checked on load)
 const BOARD_FLY = CREW.filter(c => c.board);   // every climber in the clip; flyCrew() chooses who is visible this trip
 const ACC = createAccess(THREE);
+const TW = createLv10Tower(THREE);
+// Launch Pad level: Lv1–Lv9 keep the 1720 ladder; Lv10+ uses the A&A launch tower.
+// Default 1. ?padlv=N (dev QA, read from QD like ts) or S.padLv (clamped 1..10). No buy path — money is unchanged.
+function padLvNow() {
+  const q = QD.get('padlv');  // QA flag: read from QD (Q is stripped except rm)
+  if (q != null && q !== '' && isFinite(+q) && +q >= 1) return Math.max(1, Math.min(10, Math.floor(+q)));
+  const n = Math.floor(+S.padLv);
+  return n >= 1 ? Math.min(10, n) : 1;
+}
+function padUsesTower(lv = padLvNow()) { return (lv | 0) >= 10; }
+function setPadLv(lv) {
+  S.padLv = Math.max(1, Math.min(10, lv | 0));
+  applyPadTower();
+}
+function applyPadTower() {
+  const on = padUsesTower();
+  if (on && cg3.padArt && !TW.T.ready && !TW.T.failed) TW.load(loader, cg3.padArt, cg3.ship, (info) => {
+    setLadderVisible(ACC.A.root, false);
+    window.__ps3d.lv10tower = Object.assign(TW.info(), { url: TOWER_URL, padLv: padLvNow() });
+  });
+  TW.setActive(on && TW.T.ready);
+  if (ACC.A.root) setLadderVisible(ACC.A.root, !on);
+  if (TW.T.receptacle) TW.T.receptacle.visible = !!(on && TW.T.ready);
+}
 function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-out. Pre-Habitat this is the old 4-crew BOARD_SEC.
   sh = sh || (S.cg && S.cg.sh) || null;
   // Freeze duration on the trip so leaving the pad / retargeting never shortens boarding into an instant launch.
   if (sh && sh.bsec > 0) return sh.bsec;
   const fly = flyCrew(sh); if (!BD.on || !fly.length) return 0;
+  // Lv10: elevator + arm + QD release + arm retract. Constants, not the GLB, so offline catch-up stays stable.
+  if (padUsesTower()) return towerBoardSeconds(fly.length);
   // 1720 ladder: deploy, one climber at a time, stow, then launch. Nominal until the mesh rungs are read.
   if (ACC.A.ready || !ACC.A.failed) return accessSeconds(fly.length, ACC.A.rungs || null);
   let m = 0; for (const c of fly) { const ins = BOARD_INSIDE[c.board] || 0; if (ins > m) m = ins; }
@@ -2272,6 +2299,7 @@ function deboardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'deboar
 function deboardSec(sh) {
   const fly = flyCrew(sh || (S.cg && S.cg.sh) || null);
   const n = Math.max(1, fly.length || tripFly(sh || (S.cg && S.cg.sh)) || CFG.crew0);
+  if (padUsesTower()) return towerDeboardSeconds(n);
   if (!ACC.A.failed) return accessDeboardSeconds(n, ACC.A.rungs || null);
   return accessDeboardSeconds(n, null);
 }
@@ -2442,21 +2470,89 @@ function accessLoad(rig) {
       const meshes = []; hullG.scene.traverse((m) => { if (m.isMesh) meshes.push(m); });
       try { const cw = cockpitWindowPrep(rig, meshes); if (cw && cw.n) { cg3.cockpit = cw; window.__ps3d.cockpit = cw; } } catch (e) { console.warn('cockpit retarget', e); }
       window.__ps3d.access1720 = info;
+      if (padUsesTower()) applyPadTower();
     } catch (e) { fail(e); }
   };
   loader.load(HULL_URL, (g) => { hullG = g; done(); }, undefined, fail);
   loader.load(ACCESS_URL, (g) => { accG = g; done(); }, undefined, fail);
   loader.load(AIRLOCK_URL, (g) => { airG = g; done(); }, undefined, fail);
 }
+function towerPeople() { return accessPeople(); }
+function towerUpdate(tb) {
+  const people = towerPeople();
+  const info = TW.tickBoard(tb, people);
+  for (const p of people) {
+    if (p.mode === 'walk' && p.acts) { p.obj.userData._accHeld = 0; wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true); }
+    else if (p.acts) { for (const n in p.acts) p.acts[n].setEffectiveWeight(0); p.obj.userData._accHeld = 1; }
+    accessPrepHandler(WK.people[p.key] || p);
+    if (p.mode === 'hide' && p.obj) p.obj.visible = false;
+  }
+  if (info) window.__ps3d.lv10tower = Object.assign(TW.info(), { tb: +tb.toFixed(2), launch: +info.launch.toFixed(2), padLv: padLvNow() });
+  BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+}
+function towerUpdateDeboard(tb) {
+  const people = towerPeople();
+  const info = TW.tickDeboard(tb, people);
+  for (const p of people) {
+    if (p.mode === 'walk' && p.acts) { p.obj.userData._accHeld = 0; wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true); }
+    else if (p.acts) { for (const n in p.acts) p.acts[n].setEffectiveWeight(0); p.obj.userData._accHeld = 1; }
+    accessPrepHandler(WK.people[p.key] || p);
+    if (p.mode === 'hide' && p.obj) p.obj.visible = false;
+  }
+  if (info) window.__ps3d.lv10tower = Object.assign(TW.info(), { tb: +tb.toFixed(2), done: +info.done.toFixed(2), deboard: true, padLv: padLvNow() });
+  BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+}
+function towerPoseAt(tb) {   // QA: pose the L10 boarding at an absolute time and leave it (caller should render immediately).
+  if (!TW.T.ready || !padUsesTower()) return null;
+  const people = accessPeople();
+  const info = TW.tickBoard(tb, people);
+  for (const p of people) {
+    if (p.mode === 'walk' && p.acts) { p.obj.userData._accHeld = 0; wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true); }
+    else if (p.acts) { for (const n in p.acts) p.acts[n].setEffectiveWeight(0); p.obj.userData._accHeld = 1; }
+    accessPrepHandler(WK.people[p.key] || p);
+    if (p.mode === 'hide' && p.obj) p.obj.visible = false;
+  }
+  return info;
+}
+function towerReleasePeople() {
+  if (!TW.T.root) return;
+  for (const p of accessPeople()) if (p.obj && p.obj.parent === TW.T.root) {
+    scene.attach(p.obj); p.obj.userData._accStand = null; p.obj.userData._accHeld = 0;
+    const wk = WK.people[p.key]; accessRestoreHandler(wk || p);
+    if (p.handler && BRK.ok && BRK.grp && BRK.h && p.obj) { BRK.grp.add(p.obj); p.obj.position.set(0, 0, 0); p.obj.rotation.set(0, 0, 0); }
+  }
+}
 function updCrew() {
   const bNow = boardOf(), dNow = deboardOf();
-  if (ACC.A.ready && bNow) {
+  if (padUsesTower() && TW.T.ready && bNow) {
+    towerUpdate((nowMs() - bNow.B) / 1000);
+    return;
+  }
+  if (padUsesTower() && TW.T.ready && dNow) {
+    towerUpdateDeboard((nowMs() - dNow.B) / 1000);
+    if (WK.ready && S.wk && S.wk.down > 0) {
+      const u = (nowMs() - S.wk.down) / 1000;
+      if (u >= wkDescSec()) { wkDetachBoard(); wkPoseWalk(nowMs(), 'back'); }
+    }
+    return;
+  }
+  if (padUsesTower() && TW.T.ready) {
+    towerReleasePeople();
+    const st = S.cg && S.cg.sh && S.cg.sh.st;
+    if (TW.T.resetT0) {
+      const u = (nowMs() - TW.T.resetT0) / 1000;
+      if (TW.tickReset(u)) TW.T.resetT0 = 0;
+    } else {
+      TW.tickIdle(st);
+    }
+  }
+  if (ACC.A.ready && bNow && !padUsesTower()) {
     accessUpdate((nowMs() - bNow.B) / 1000);
     crewOnPad();
     BC.w = 0; BC.ph = 'off'; // no boarding follow / airlock cam
     return;
   }
-  if (ACC.A.ready && dNow) {
+  if (ACC.A.ready && dNow && !padUsesTower()) {
     accessUpdateDeboard((nowMs() - dNow.B) / 1000);
     // Miner/driver truck reverse (existing wkTaxiSchedule 'back') after climb-down; ACC already walked mech/cm home.
     if (WK.ready && S.wk && S.wk.down > 0) {
@@ -2535,7 +2631,7 @@ function wkAt(poly, s) { const p = poly.pts; if (s <= 0) { const a = p[0], b = p
   if (s >= poly.L) { const a = p[p.length - 2] || p[0], b = p[p.length - 1]; return [b[0], b[1], Math.atan2(b[0] - a[0], b[1] - a[1])]; }
   let lo = 0, hi = poly.seg.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (poly.seg[m] <= s) lo = m; else hi = m; }
   const a = p[lo], b = p[hi], u = (s - poly.seg[lo]) / (poly.seg[hi] - poly.seg[lo] || 1); return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, Math.atan2(b[0] - a[0], b[1] - a[1])]; }
-function wkLadder() { if (!WK.ladder) WK.ladder = [PX + 3.854, -10.775]; return WK.ladder; }
+function wkLadder() { if (padUsesTower()) return [PX + 8.24, -8.6]; if (!WK.ladder) WK.ladder = [PX + 3.854, -10.775]; return WK.ladder; }
 function wkRoad(from, to) { const z = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ;
   if (Math.abs(from[1] - z) < 0.08) return wkPoly([from, [to[0], z], to]); return wkPoly([from, [from[0], z], [to[0], z], to]); }
 function wkHomes() { const d = (MK && MK.Operator_Deck) || { x: -4.5, z: 6.5 }, l = (MK && MK.Path_Load) || { x: 11, z: 9 };
@@ -3770,6 +3866,7 @@ function cgComplete(c, t, acc) {
       cgEv('deboard', t, { dsec, fly: flyN });
     } else {
       c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 };
+      if (padUsesTower() && TW.T.ready && TW.T.retracted) TW.T.resetT0 = t;
       if (origGo > 0) { if (!S.wk) S.wk = { go: origGo, down: 0, cx: 0, cz: 0 }; S.wk.down = t; }
       else if (left > 0) shiftTrucks(t - left);
     }
@@ -4617,6 +4714,7 @@ function padLoaded(g) {
   if (cg3.rx) { const rv = findA(o, CARGO_ALIAS.receive); cg3.rx.root.position.copy(rv.getWorldPosition(new THREE.Vector3())); cg3.rx.root.quaternion.copy(rv.getWorldQuaternion(new THREE.Quaternion())); }
   stationObjs[PADI] = o; o.userData.camTarget = camTargetOf(o); o.userData.camOv = camOvFor(PAD_GLB); fitSite(PADI); padRoadCheck(); window.__ps3d.pad = o;
   accessLoad(rig);
+  if (padUsesTower()) applyPadTower();
 }
 function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder at Attach_Hold (rides launch / landing with the hull); a failed load just leaves the hull bare
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull || Q.get('hold') === 'off') return;
@@ -5654,7 +5752,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   logU('upgrade', `Ship Lv ${S.shipLv + 1}: hold ${holdCap()}, seats ${shipSeats()}, ${shipEngines()} engines (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop });   // QA hooks (Refinery lane + ship hull)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, setPadLv, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW });   // QA hooks (Refinery lane + ship hull + Lv10 tower)
 Object.assign(window.__ps3d, { fuelStock, fuelMake, fuelCap, p2Prices: CFG.econ.p2Prices, fuelFinishAt: () => fuelFinishAt(), fuelState: (t = nowMs()) => Object.assign({ t, fu: Object.assign({}, fuelFu(S.cg)) }, fuelNow(t)),   // QA hooks (fuel stock)
   fuelSet: (o = {}) => { const t = nowMs(); settleTo(t, null); fuelAnchor(S.cg, t); if (o.lv >= 1) S.fuelLv = Math.min(fuelMaxLv(), Math.floor(o.lv));   // QA: force a stock / tank / fuel level now (e.g. { v: 0, g: 30, lv: 5 } → WAITING FOR FUEL on the pad)
     if (o.v >= 0) S.cg.fu.v = Math.min(fuelCap(), o.v); if (o.g >= 0) S.cg.fu.g = Math.min(CFG.econ.fuel.tank, o.g); UPK.k = ''; settleTo(t, null); save(); upUI(); return window.__ps3d.fuelState(t); } });
