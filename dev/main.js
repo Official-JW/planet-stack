@@ -9,6 +9,7 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { createAccess, accessSeconds, accessDeboardSeconds, accessDeboardShow, HULL_URL, ACCESS_URL, AIRLOCK_URL } from './access1720_bind.mjs';
 import { createLv10Tower, towerBoardSeconds, towerDeboardSeconds, setLadderVisible, TOWER_URL } from './lv10_tower.mjs';
 import { createCrewVan } from './crew_van.mjs';   // crew van pickup / drop-off after deboarding (stand-in van; see the module)
+import { createControlTower } from './control_tower.mjs';   // Control Tower at Launch Pad Lv20 (pad-local, east of the deck)
 // --- gc/ship-upgrade (begin) ---
 import { createShipUpgrade, migrateShipUpgrade, shipUpgradeBusy, shipUpgradeStaffed, shipUpgradeShortfallText, shipUpgradeWorkSec, SHIP_UPGRADE_REQ, BAY_X, PATH_Z, WORK_SEC_DEFAULT } from './ship_upgrade.mjs';
 // --- gc/ship-upgrade (end) ---
@@ -2269,6 +2270,7 @@ const BOARD_INSIDE = { Crew_1: 47.79, Crew_2: 51.19, Crew_3: 54.59, Crew_4: 57.9
 const BOARD_FLY = CREW.filter(c => c.board);   // every climber in the clip; flyCrew() chooses who is visible this trip
 const ACC = createAccess(THREE);
 const TW = createLv10Tower(THREE);
+const CT = createControlTower(THREE);
 // --- gc/ship-upgrade (begin) ---
 const SU = createShipUpgrade(THREE);
 function shipUpgradeLocked() {
@@ -2325,23 +2327,34 @@ function loadShipUpgrade() {
   });
 }
 // --- gc/ship-upgrade (end) ---
-// Launch Pad level: Lv1–Lv9 keep the 1720 ladder; Lv10+ uses the A&A launch tower.
-// Default 1. ?padlv=N (dev QA, read from QD like ts) or S.padLv (clamped 1..10). Bought on the Launch Pad upgrade card (padUp, buyPad).
+// Launch Pad level: Lv1–Lv9 keep the 1720 ladder; Lv10+ uses the A&A launch tower;
+// Lv20 adds the Control Tower (east of the pad). Default 1. ?padlv=N (dev QA, read from QD like ts) or S.padLv (clamped 1..20). Bought on the Launch Pad upgrade card (padUp, buyPad).
 function padLvNow() {
   const q = QD.get('padlv');  // QA flag: read from QD (Q is stripped except rm)
-  if (q != null && q !== '' && isFinite(+q) && +q >= 1) return Math.max(1, Math.min(10, Math.floor(+q)));
+  if (q != null && q !== '' && isFinite(+q) && +q >= 1) return Math.max(1, Math.min(PAD_UP.max, Math.floor(+q)));
   const n = Math.floor(+S.padLv);
-  return n >= 1 ? Math.min(10, n) : 1;
+  return n >= 1 ? Math.min(PAD_UP.max, n) : 1;
 }
 function padUsesTower(lv = padLvNow()) { return (lv | 0) >= 10; }
+function padUsesControlTower(lv = padLvNow()) { return (lv | 0) >= 20; }
 // Launch Pad upgrade card (Jacob 11/10 8:57, GD): Lv1 → Lv10, the launch tower replaces the ladder at Lv10. Same price curve as the other level
-// cards (econCost: cost0 × costGrowth^(lv−1)). PLACEHOLDER prices for Director: cost0 = the locked Phase 2 pad price, ×1.6 like Fuel / Purity.
-const PAD_UP = { cost0: CFG.econ.p2Prices.pad, costGrowth: 1.6, max: 10 };
-const padCost = () => econCost(PAD_UP, padLvNow());
+// cards (econCost: cost0 × costGrowth^(lv−1)) through the official Lv9→Lv10 price. Lv11–Lv20: each next price is the previous × PAD_PRICE_GROWTH_AFTER_10 (1.25), starting from that Lv9→Lv10 price. Levels 11–19 have no new perks; the Control Tower appears at Lv20.
+const PAD_LAUNCH_TOWER_LV = 10;        // keep the Lv10 teaser and perk exactly as they are
+const PAD_PRICE_GROWTH_AFTER_10 = 1.25;
+const PAD_UP = { cost0: CFG.econ.p2Prices.pad, costGrowth: 1.6, max: 20 };
+function padCost() {
+  const lv = padLvNow();
+  if (lv < PAD_LAUNCH_TOWER_LV) return econCost(PAD_UP, lv);
+  // From current lv (10..19) to lv+1: start at the official Lv9→Lv10 price, then ×1.25 per step, rounding each level.
+  let c = econCost(PAD_UP, PAD_LAUNCH_TOWER_LV - 1);
+  for (let i = 0; i < lv - (PAD_LAUNCH_TOWER_LV - 1); i++) c = Math.round(c * PAD_PRICE_GROWTH_AFTER_10);
+  return c;
+}
 const padUpLocked = () => !(S.cg && S.cg.sh && S.cg.sh.st === 'pad' && !S.cg.sh.req && !(S.wk && S.wk.go > 0));   // ship on the pad, no launch queued, no crew walking out: a trip never swaps ladder ↔ tower mid-sequence
 function setPadLv(lv) {
-  S.padLv = Math.max(1, Math.min(10, lv | 0));
+  S.padLv = Math.max(1, Math.min(PAD_UP.max, lv | 0));
   applyPadTower();
+  applyControlTower();
 }
 function applyPadTower() {
   const on = padUsesTower();
@@ -2352,6 +2365,14 @@ function applyPadTower() {
   TW.setActive(on && TW.T.ready);
   if (ACC.A.root) setLadderVisible(ACC.A.root, !on);
   if (TW.T.receptacle) TW.T.receptacle.visible = !!(on && TW.T.ready);
+}
+function applyControlTower() {
+  const on = padUsesControlTower();
+  if (on && cg3.padArt && !CT.T.ready && !CT.T.failed) CT.load(loader, cg3.padArt, (info) => {
+    CT.setActive(padUsesControlTower());
+    window.__ps3d.controlTower = Object.assign(CT.info(), { padLv: padLvNow() });
+  });
+  CT.setActive(on && CT.T.ready);
 }
 function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-out. Pre-Habitat this is the old 4-crew BOARD_SEC.
   sh = sh || (S.cg && S.cg.sh) || null;
@@ -2542,6 +2563,7 @@ function accessLoad(rig) {
       try { const cw = cockpitWindowPrep(rig, meshes); if (cw && cw.n) { cg3.cockpit = cw; window.__ps3d.cockpit = cw; } } catch (e) { console.warn('cockpit retarget', e); }
       window.__ps3d.access1720 = info;
       if (padUsesTower()) applyPadTower();
+      applyControlTower();
     } catch (e) { fail(e); }
   };
   loader.load(HULL_URL, (g) => { hullG = g; done(); }, undefined, fail);
@@ -4813,6 +4835,7 @@ function padLoaded(g) {
   stationObjs[PADI] = o; o.userData.camTarget = camTargetOf(o); o.userData.camOv = camOvFor(PAD_GLB); fitSite(PADI); padRoadCheck(); window.__ps3d.pad = o;
   accessLoad(rig);
   if (padUsesTower()) applyPadTower();
+  applyControlTower();
   // --- gc/ship-upgrade (begin) ---
   loadShipUpgrade();
   // --- gc/ship-upgrade (end) ---
@@ -5283,8 +5306,8 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     meter: () => [CFG.econ.ship.lv.length, shipLvNow() + 1] },
   padUp: { name: 'Launch Pad', ico: 'ship', lock: () => padUpLocked(), lockSub: 'Upgrade while the ship is on the pad',   // issue 23 / GD: the pad's own level path (Lv10 = launch tower)
     lv: () => padLvNow(), max: () => padLvNow() >= PAD_UP.max, cost: () => padCost(), buy: () => buyPad(),
-    big: (m) => m || padLvNow() + 1 >= PAD_UP.max ? ['Launch tower', 'crew access'] : ['Ladder', 'crew access'],
-    sub: (m) => m ? 'Elevator + crew arm to the hatch' : padLvNow() + 1 >= PAD_UP.max ? 'Next level: the launch tower replaces the ladder' : `Launch tower at Lv ${PAD_UP.max}`,
+    big: (m) => m || padLvNow() + 1 >= PAD_LAUNCH_TOWER_LV ? ['Launch tower', 'crew access'] : ['Ladder', 'crew access'],
+    sub: (m) => { const lv = padLvNow(); if (lv < PAD_LAUNCH_TOWER_LV - 1) return `Launch tower at Lv ${PAD_LAUNCH_TOWER_LV}`; if (lv === PAD_LAUNCH_TOWER_LV - 1) return 'Next level: the launch tower replaces the ladder'; return 'Control Tower at Lv 20'; },
     meter: () => [PAD_UP.max, Math.min(padLvNow(), PAD_UP.max)] },
   crew: { name: 'Return Crew', ico: 'habitat', crew: true },   // gc-crewpick: opened by crewPrompt / the ship card; no tap target of its own
   // gc-ui2 (item 3): station buildings with no upgrades yet
@@ -5413,17 +5436,22 @@ function shipHitBox(b) {   // meter-space hull only. Quantized skirt/hold bounds
   if (b.isEmpty()) return null;
   b.expandByScalar(0.7); return b;
 }
-function padTowerObjs() { const o = [], c = cg3.padArt && cg3.padArt.getObjectByName('Crane'); if (c) o.push(c); if (TW.T.root && TW.T.active) o.push(TW.T.root); return o; }
+function padTowerObjs() { const o = [], c = cg3.padArt && cg3.padArt.getObjectByName('Crane'); if (c) o.push(c); if (TW.T.root && TW.T.active) o.push(TW.T.root); if (CT.T.root && CT.T.active) o.push(CT.T.root); return o; }
 function padDeckBox(b) { const o = cg3.padArt; if (!o) return null; o.updateWorldMatrix(true, false); b.makeEmpty();
   for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_DECK.max[0] : PAD_DECK.min[0], i & 2 ? PAD_DECK.max[1] : PAD_DECK.min[1], i & 4 ? PAD_DECK.max[2] : PAD_DECK.min[2]).applyMatrix4(o.matrixWorld));
   return b;
 }
 const _lwp = new THREE.Vector3(), _lhit = new THREE.Vector3();
-function blockedByTower(ray, d) {   // the crane (launch tower) sits in front of the pad. A ray that hits it first opens nothing.
+function blockedByTower(ray, d) {   // the crane (launch tower) and Control Tower sit in front of the pad. A ray that hits them first opens nothing on the hull / deck (the pad card still wins via padTower).
   if (!(d < 1e8) || !ray) return false;
-  const crane = cg3.padArt && cg3.padArt.getObjectByName('Crane'); if (!crane) return false;
-  _urc.ray.copy(ray); const h = _urc.intersectObject(crane, true);
-  return h.length > 0 && h[0].distance + 0.2 < d;
+  const objs = [];
+  const crane = cg3.padArt && cg3.padArt.getObjectByName('Crane'); if (crane) objs.push(crane);
+  if (TW.T.root && TW.T.active) objs.push(TW.T.root);
+  if (CT.T.root && CT.T.active) objs.push(CT.T.root);
+  if (!objs.length) return false;
+  _urc.ray.copy(ray);
+  for (const o of objs) { const h = _urc.intersectObject(o, true); if (h.length > 0 && h[0].distance + 0.2 < d) return true; }
+  return false;
 }
 function hitNearLadder(ray) {   // a ray aimed at Ladder_Foot opens nothing (the marker is not a target, and it is not the hull)
   if (!ray) return false;
@@ -5858,7 +5886,7 @@ function buyPad() {                 // Launch Pad Lv N → N+1 (issue 23 / GD). 
   const t = nowMs(); settleTo(t, null); pay(c); setPadLv(lv + 1);
   save(); upUI(); hud();
   popAtBuy('Launch Pad Lv ' + padLvNow());
-  logU('upgrade', `Launch Pad Lv ${padLvNow()}` + (padUsesTower() ? ': launch tower' : ''));
+  logU('upgrade', `Launch Pad Lv ${padLvNow()}` + (padLvNow() === PAD_LAUNCH_TOWER_LV ? ': launch tower' : padLvNow() === 20 ? ': control tower' : ''));
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
 function buyTruck2() {               // ca-truck2: one-time; same check / deduct / save as the other buys; loads departing from now count 2
@@ -5890,7 +5918,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, setPadLv, padCost, padUpLocked, buyPad, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW });   // QA hooks (Refinery lane + ship hull + Lv10 tower)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
@@ -6385,7 +6413,7 @@ function frame() {
   SFX.hold = false;
   if (!document.hidden && RT.ready) { const gap = (now - S.rt) / 1000; if (gap > AWAY_SEC) { catchUp(true); SFX.hold = true; } else { if (gap > 1.5) SFX.hold = true; settleTo(now, null); S.rt = now; } }   // frozen page without a visibilitychange: away rules. A long gap is catch-up: no rocket sound
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
-  updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); cvFrame(); updPadCam(dt); placeCamera();
+  updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); cvFrame(); if (CT && CT.update) CT.update(gdt); updPadCam(dt); placeCamera();
   tickShipUpgrade(now);   // gc/ship-upgrade: pose ST-10B from saved S.upg stamps, then updCargo skips hull y if carrying
   updCargo();
   updShipSfx();
