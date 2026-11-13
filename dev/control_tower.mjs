@@ -1,13 +1,15 @@
 // Control Tower at Launch Pad Lv20 (Art control_tower_game, md5 2ab839e0).
-// Parent to LaunchPad_Art at pad-local glTF metres (23.5, 0, -18.0) — east of the deck,
-// same frame as the tanks, crane, ship markers, and the Lv10 launch tower (which is
-// parented to padArt at local origin). World would be (PX + 23.5, 0, -18).
-// Visible only when the pad is Lv20 (bought, or loaded / ?padlv=20).
+// Parent to LaunchPad_Art at pad-local glTF metres (18, 0, -42) — east of the deck
+// and south of the ST-10B lane. Same frame as the tanks, crane, ship markers, and
+// the Lv10 launch tower (parented to padArt at local origin). World is (PX+18, 0, -42).
+// South of the measured ST-10B body envelope (south face z −27.233 when on the z −13
+// lane) by ≥ 2 m, and fully inside the default 390×844 pad camera. Visible only when
+// the pad is Lv20 (bought, or loaded / ?padlv=20).
 // Loops: Radar_Spin, Beacon_Blink. Airlock door clips are never played; the four
 // leaves stay at their rest (shut) pose. No crew airlock walk-in.
 
 export const CT_URL = '../dev/models/control_tower_game_2ab839e0.glb?v=2ab839e0';
-export const CT_LOCAL = [23.5, 0, -18.0];
+export const CT_LOCAL = [18, 0, -42];
 export const LOOP_CLIPS = ['Radar_Spin', 'Beacon_Blink'];
 export const DOOR_LEAVES = [
   'Airlock_Door_Outer_S', 'Airlock_Door_Outer_N',

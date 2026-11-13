@@ -5307,7 +5307,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   padUp: { name: 'Launch Pad', ico: 'ship', lock: () => padUpLocked(), lockSub: 'Upgrade while the ship is on the pad',   // issue 23 / GD: the pad's own level path (Lv10 = launch tower)
     lv: () => padLvNow(), max: () => padLvNow() >= PAD_UP.max, cost: () => padCost(), buy: () => buyPad(),
     big: (m) => m || padLvNow() + 1 >= PAD_LAUNCH_TOWER_LV ? ['Launch tower', 'crew access'] : ['Ladder', 'crew access'],
-    sub: (m) => { const lv = padLvNow(); if (lv < PAD_LAUNCH_TOWER_LV - 1) return `Launch tower at Lv ${PAD_LAUNCH_TOWER_LV}`; if (lv === PAD_LAUNCH_TOWER_LV - 1) return 'Next level: the launch tower replaces the ladder'; return 'Control Tower at Lv 20'; },
+    sub: (m) => { const lv = padLvNow(); if (lv < PAD_LAUNCH_TOWER_LV - 1) return `Launch tower at Lv ${PAD_LAUNCH_TOWER_LV}`; if (lv === PAD_LAUNCH_TOWER_LV - 1) return 'Next level: the launch tower replaces the ladder'; return (m || lv >= 20) ? 'Control Tower built' : 'Control Tower at Lv 20'; },
     meter: () => [PAD_UP.max, Math.min(padLvNow(), PAD_UP.max)] },
   crew: { name: 'Return Crew', ico: 'habitat', crew: true },   // gc-crewpick: opened by crewPrompt / the ship card; no tap target of its own
   // gc-ui2 (item 3): station buildings with no upgrades yet
