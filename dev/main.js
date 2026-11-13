@@ -9,6 +9,7 @@ import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { createAccess, accessSeconds, accessDeboardSeconds, accessDeboardShow, HULL_URL, ACCESS_URL, AIRLOCK_URL } from './access1720_bind.mjs';
 import { createLv10Tower, towerBoardSeconds, towerDeboardSeconds, setLadderVisible, TOWER_URL } from './lv10_tower.mjs';
 import { createCrewVan } from './crew_van.mjs';   // crew van pickup / drop-off after deboarding (stand-in van; see the module)
+import { createCaptain } from './captain.mjs';   // ambient Captain + both pilots board on launch (visual; boardSec may wait for them)
 // --- gc/ship-upgrade (begin) ---
 import { createShipUpgrade, migrateShipUpgrade, shipUpgradeBusy, shipUpgradeStaffed, shipUpgradeShortfallText, shipUpgradeWorkSec, SHIP_UPGRADE_REQ, BAY_X, PATH_Z, WORK_SEC_DEFAULT } from './ship_upgrade.mjs';
 // --- gc/ship-upgrade (end) ---
@@ -2192,7 +2193,7 @@ const OLD_RECV = QD.get('oldrecv') === '1';
 // (no new clip or walk). ?oldrecv=1: the handler is not faded (as before).
 function crewOnPad() {   // pre-hab persistent C-rigs do not fade-swap onto a second climber. Post-hab: the Cargo Manager still uses rxAlpha() as before.
   if (op) fadeObj(op, minerAway() ? rxAlpha() : 1); if (cg3 && cg3.astro) fadeObj(cg3.astro, OLD_RECV ? rxAlpha() : 0);
-  if (!OLD_RECV && BRK.ok && BRK.h) fadeObj(BRK.h.scene, (WK.ready && wkPreHab()) ? 1 : rxAlpha()); }
+  if (!OLD_RECV && BRK.ok && BRK.h) fadeObj(BRK.h.scene, (typeof CAP !== 'undefined' && CAP && CAP.keepCopilotVisible && CAP.keepCopilotVisible()) ? 1 : ((WK.ready && wkPreHab()) ? 1 : rxAlpha())); }
 function crewCount(t = nowMs()) {     // people drawn per role (tests): Miner = Mine operator, Cargo Manager = Receiver + his climber (CREW_BOARD: Crew_2), Mechanic = his climber (Crew_1)
   // (Cargo Manager is 2 only inside the boarding crossfade: cmA = his summed opacity, cmFull = his fully opaque figures)
   const vis = (o) => { if (!o) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
@@ -2269,6 +2270,7 @@ const BOARD_INSIDE = { Crew_1: 47.79, Crew_2: 51.19, Crew_3: 54.59, Crew_4: 57.9
 const BOARD_FLY = CREW.filter(c => c.board);   // every climber in the clip; flyCrew() chooses who is visible this trip
 const ACC = createAccess(THREE);
 const TW = createLv10Tower(THREE);
+let CAP = null;   // set to createCaptain(...) once the scene deps exist (end of file)
 // --- gc/ship-upgrade (begin) ---
 const SU = createShipUpgrade(THREE);
 function shipUpgradeLocked() {
@@ -2353,17 +2355,20 @@ function applyPadTower() {
   if (ACC.A.root) setLadderVisible(ACC.A.root, !on);
   if (TW.T.receptacle) TW.T.receptacle.visible = !!(on && TW.T.ready);
 }
+function capBoardSec() { return (typeof CAP !== 'undefined' && CAP && CAP.boardExtra) ? (CAP.boardExtra() || 0) : 0; }
 function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-out. Pre-Habitat this is the old 4-crew BOARD_SEC.
   sh = sh || (S.cg && S.cg.sh) || null;
   // Freeze duration on the trip so leaving the pad / retargeting never shortens boarding into an instant launch.
   if (sh && sh.bsec > 0) return sh.bsec;
   const fly = flyCrew(sh); if (!BD.on || !fly.length) return 0;
+  let sec = 0;
   // Lv10: elevator + arm + QD release + arm retract. Constants, not the GLB, so offline catch-up stays stable.
-  if (padUsesTower()) return towerBoardSeconds(fly.length);
+  if (padUsesTower()) sec = towerBoardSeconds(fly.length);
   // 1720 ladder: deploy, one climber at a time, stow, then launch. Nominal until the mesh rungs are read.
-  if (ACC.A.ready || !ACC.A.failed) return accessSeconds(fly.length, ACC.A.rungs || null);
-  let m = 0; for (const c of fly) { const ins = BOARD_INSIDE[c.board] || 0; if (ins > m) m = ins; }
-  return BCAM.in + m + BCAM.hold + BCAM.out;
+  else if (ACC.A.ready || !ACC.A.failed) sec = accessSeconds(fly.length, ACC.A.rungs || null);
+  else { let m = 0; for (const c of fly) { const ins = BOARD_INSIDE[c.board] || 0; if (ins > m) m = ins; } sec = BCAM.in + m + BCAM.hold + BCAM.out; }
+  // Captain / Co-pilot walk + airlock may finish after the pad Mechanic: keep the sim in 'board' (and the ship on the pad) until both pilots are inside and the doors have stowed. Flyer count and the official climber schedule are unchanged.
+  return Math.max(sec, capBoardSec());
 }
 function boardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'board' ? { B: s.t0, id: c.launches + 1 } : null; }   // the boarding in progress
 function deboardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'deboard' ? { B: s.t0, id: (c.launches || 0) } : null; }
@@ -2416,6 +2421,7 @@ function accessPeople() {
   const out = [];
   for (const c of flyCrew(S.cg && S.cg.sh)) {
     const k = ACC_KEY[c.role], p = WK.people[k]; if (!p || !p.obj) continue;
+    if (k === 'cm' && typeof CAP !== 'undefined' && CAP && CAP.ownsCopilot && CAP.ownsCopilot()) continue;   // Co-pilot is walking the airlock / path; do not lerp him through the walls
     const pfx = ACC_PFX[k];
     accessPrepHandler(p);
     if (!p._accRest) {
@@ -2611,6 +2617,7 @@ function crewShowFix() {
 }
 function updCrew() {
   crewShowFix();
+  if (typeof CAP !== 'undefined' && CAP && CAP.update) CAP.update(nowMs());
   const bNow = boardOf(), dNow = deboardOf();
   if (padUsesTower() && TW.T.ready && bNow) {
     towerUpdate((nowMs() - bNow.B) / 1000);
@@ -2636,6 +2643,7 @@ function updCrew() {
   }
   if (ACC.A.ready && bNow && !padUsesTower()) {
     accessUpdate((nowMs() - bNow.B) / 1000);
+    if (typeof CAP !== 'undefined' && CAP && CAP.holdDoors) CAP.holdDoors((nowMs() - bNow.B) / 1000);
     crewOnPad();
     BC.w = 0; BC.ph = 'off'; // no boarding follow / airlock cam
     return;
@@ -4705,6 +4713,7 @@ function brTick() {                    // the visual follows the sim's cr at the
 }
 function updBreakroom(dt) { if (!BRK.ok) return;
   if (WK.ready && wkCmBusy(nowMs())) { const t = BRK.fix != null ? BRK.fix : brTick(); brHelmet(); brPuff(t); return; }
+  if (typeof CAP !== 'undefined' && CAP && CAP.ownsCopilot && CAP.ownsCopilot()) { const t = BRK.fix != null ? BRK.fix : brTick(); brHelmet(); brPuff(t); return; }   // CAP.update already posed the approved airlock / walk
   const t = BRK.fix != null ? BRK.fix : brTick(); brStep(t, dt); brHelmet(); brPuff(t); }
 // gc-crane2 helmet (no new art): the helmet GLB on the table is the helmet. Seated (room) it rests on the table; from the stand-start marker (τ 36.285)
 // until the seated marker (τ 33.285) on the way back it rides on C2_Head (fit once at bind from the rest pose, visor forward).
@@ -5824,7 +5833,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, advanceClock: (ms) => { if (HOLD !== null) HOLD += +ms || 0; return HOLD; }, stepFrame: (ms) => { if (HOLD !== null) HOLD += +ms || 0; const t = nowMs(); if (RT.ready) { settleTo(t, null); S.rt = t; } updCrew(); if (typeof cvFrame === 'function') cvFrame(); if (typeof tickShipUpgrade === 'function') tickShipUpgrade(t); if (typeof updCargo === 'function') updCargo(); if (typeof updBreakroom === 'function') updBreakroom((+ms || 0) / 1000); if (typeof placeCamera === 'function') placeCamera(); renderer.render(scene, camera); return t; }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 function buyDrill() {
@@ -6376,6 +6385,26 @@ const CV = createCrewVan(THREE, { scene, PX, SHIPI, HABI, MINEI: MINE, mergeGeom
   crewTemplate: () => WK.stash && WK.stash.getObjectByName('Crew_2'), walkClip: () => WK.src && WK.src.walk, idleClip: () => WK.src && WK.src.idle });
 window.__ps3d.crewVan = CV; for (const [td, r] of (window.__ps3d.cvQ || [])) CV.landed(td, r); window.__ps3d.cvQ = [];
 function cvFrame() { if (stationObjs[SHIPI] && stationObjs[HABI]) CV.update(nowMs()); }
+// Ambient Captain + launch boarding for both pilots. Visual; boardSec may wait until they are inside. See captain.mjs.
+CAP = createCaptain(THREE, {
+  disabled: () => QD.get('nocap') === '1',
+  scene, PX, nowMs, brDur, brStep, brHelmet, brPuff, BRD,
+  ladder: () => wkLadder(),
+  mech: () => WK.people && WK.people.mech,
+  cm: () => WK.people && WK.people.cm,
+  brkGrp: () => BRK.grp,
+  crAt: (t) => { const r = S.cg && crGet(S.cg); if (!r) return { m: 'room', u: BRD.seat[0], xz: null };
+    const u = crTau(r, t); let xz = null;
+    if (BRK.ok && BRK.h && BRK.h.root) { BRK.h.root.updateMatrixWorld(true); const v = new THREE.Vector3(); BRK.h.root.getWorldPosition(v); xz = [v.x, v.z]; }
+    return { m: r.m === 'out' && u >= BR_PATH.T - 1e-6 ? 'post' : r.m, u, xz }; },
+  boardOf, padUsesTower, wkPreHab, wkPlay,
+  rungs: () => ACC.A.rungs, outward: () => ACC.A.outward,
+  hull: () => cg3.ship && cg3.ship.getObjectByName('Ship_Placeholder'),
+  syncClips: (tb, show) => ACC.syncClips && ACC.syncClips(tb, show),
+  show: () => ACC.A.show, accessPrep: (p) => accessPrepHandler(WK.people[p.key] || p),
+  shipSt: () => S.cg && S.cg.sh && S.cg.sh.st, cgT: () => S.cg && S.cg.t,
+});
+window.__ps3d.captain = CAP;
 function frame() {
   if (DEVHALT) return;                   // devHalt: the loop stops for good (no rAF scheduled)
   requestAnimationFrame(frame);
