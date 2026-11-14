@@ -4,9 +4,13 @@
 // no sim state, no save, no taps (every mesh / sprite here has a no-op raycast).
 //
 // Order (clip r4): outer opens → crewman walks in to mid-vestibule → outer shuts → both side vents
-// puff soft mist that fades in and out (1.7 s) → 0.3 s beat → inner opens → he walks through → inner
-// shuts. Leaving is the same steps in reverse. Doors: the fix2 GLB's own Airlock_{Outer,Inner}_{Open,Close}
-// clips (1.5 s, 0.66 m bi-parting slide, md5 2ab839e0), sampled as-is on the existing four leaves.
+// puff soft mist that fades in and out (1.7 s) → 0.3 s beat → inner opens → he steps up to just inside the
+// inner doorway and stops → inner shuts. Leaving is the same steps in reverse. Doors: the fix2 GLB's own Airlock_{Outer,Inner}_{Open,Close}
+// clips (authored 1.5 s, 0.66 m bi-parting slide, md5 2ab839e0, not edited), sampled on the four leaves at
+// AL.doorRate 1.875 so each open / close takes the clip r4's 0.8 s.
+// The fix2 GLB has a solid panel 4 cm behind the inner leaves (x 1.20-1.28), so he never walks into it: he
+// stops in the vestibule just short of the open inner doorway (≥ 0.2 m clear of panel and leaves), the
+// inner door closes, and only once it is fully shut is he hidden; leaving is the exact reverse.
 // Walker: a clone of the in-game male crew rig (Crew_2, same suit as the crew van) driven by the
 // in-game crew walk: upper body = crew_walk_to_pad (crew_boarding_137a3b11.glb) bone tracks, phase-locked
 // to the steps; feet = the clip r4 plan (port of build_boarding.py WALK rules: Ls 0.55 m, Tst 0.40 s,
@@ -19,9 +23,10 @@
 export const AL = {
   xOut: 4.40,      // apron stand (tower-local x; clip r4 start 27.95 / end 27.90 with the tower at x 23.5)
   xMid: 2.65,      // mid-vestibule (clip 26.15)
-  xIn: 0.75,       // past the inner door (leaves at x 1.32-1.40; backer 1.20-1.28)
+  xIn: 2.00,       // stop just short of the inner doorway (leaves x 1.32-1.40, solid panel 1.20-1.28): body AABB ≥ 0.2 m clear
+  doorRate: 1.875, // GLB door clips are 1.5 s; clip r4 doors take 0.8 s
   vent: 1.7, beat: 0.3, closeLead: 0.4,   // clip r1-r4 vent window, beat, door-close lead before a walk ends
-  outCloseLead: 0.2,                      // outer close lead on the way out (fix2 leaves close slower than the clip's 0.8 s)
+  outCloseLead: 0.4,                      // outer close lead on the way out (clip r4: 14.6 vs walk end 14.98)
   dwellIn: 12, outIdle: 2.5, period: 46,  // ambient loop (game seconds)
   startAt: 42,                            // loop time when the tower first shows (4 s before the walk-in)
 };
@@ -255,7 +260,7 @@ export function createCtAirlock(THREE, D) {
       A.dclips[m[1].toLowerCase() + '_' + m[2].toLowerCase()] = { dur: c.duration, tr };
     }
     if (Object.keys(A.dclips).length !== 4 || Object.keys(A.doors).length !== 4) { A.failed = 'airlock clips / leaves missing'; return; }
-    A.loop = buildLoop(A.dclips.outer_open.dur);
+    A.loop = buildLoop(A.dclips.outer_open.dur / AL.doorRate);
     A.grp = new THREE.Group(); A.grp.name = 'CT_Airlock_FX'; ctRoot.add(A.grp);
     const tex = [mistTexture(THREE, 11), mistTexture(THREE, 23), mistTexture(THREE, 37)];
     for (const p of buildMist(A.loop.vents)) {
@@ -316,7 +321,7 @@ export function createCtAirlock(THREE, D) {
         if (!last[k]) { d.o.position.copy(d.rest); continue; }
         const c = A.dclips[k + '_' + last[k][0]], it = c.tr[n];
         if (!it) { d.o.position.copy(d.rest); continue; }
-        d.o.position.fromArray(it.evaluate(Math.min(c.dur, Math.max(0, t - last[k][1]))));
+        d.o.position.fromArray(it.evaluate(Math.min(c.dur, Math.max(0, (t - last[k][1]) * AL.doorRate))));
       }
     }
   }
