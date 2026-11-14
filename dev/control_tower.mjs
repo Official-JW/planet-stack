@@ -5,8 +5,10 @@
 // South of the measured ST-10B body envelope (south face z −27.233 when on the z −13
 // lane) by ≥ 2 m, and fully inside the default 390×844 pad camera. Visible only when
 // the pad is Lv20 (bought, or loaded / ?padlv=20).
-// Loops: Radar_Spin, Beacon_Blink. Airlock door clips are never played; the four
-// leaves stay at their rest (shut) pose. No crew airlock walk-in.
+// Loops: Radar_Spin, Beacon_Blink. Airlock: the crew walk-in / walk-out (ct_airlock.mjs, clip r4)
+// drives the four leaves from the GLB's own Airlock_* clips; until its crew rig is in, the leaves
+// stay at their rest (shut) pose.
+import { createCtAirlock } from './ct_airlock.mjs';
 
 export const CT_URL = '../dev/models/control_tower_game_2ab839e0.glb?v=2ab839e0';
 export const CT_LOCAL = [18, 0, -42];
@@ -16,8 +18,9 @@ export const DOOR_LEAVES = [
   'Airlock_Door_Inner_S', 'Airlock_Door_Inner_N',
 ];
 
-export function createControlTower(THREE) {
+export function createControlTower(THREE, deps = {}) {
   const T = { root: null, mixer: null, ready: false, failed: false, loading: false, active: false, actions: {}, doors: {} };
+  const AIR = createCtAirlock(THREE, deps);   // deps: crewTemplate(), walkClip() (crew_walk_to_pad)
 
   function load(loader, pad, onOk, onErr) {
     if (T.ready || T.failed || T.loading || !pad || !loader) return;
@@ -35,7 +38,7 @@ export function createControlTower(THREE) {
       T.root = o;
       T.mixer = new THREE.AnimationMixer(o);
       for (const c of (g.animations || [])) {
-        if (!LOOP_CLIPS.includes(c.name)) continue;   // never play Airlock_* Open/Close
+        if (!LOOP_CLIPS.includes(c.name)) continue;   // Airlock_* Open/Close are sampled by the airlock walk-in, not played here
         const a = T.mixer.clipAction(c);
         a.setLoop(THREE.LoopRepeat, Infinity);
         a.clampWhenFinished = false;
@@ -46,6 +49,7 @@ export function createControlTower(THREE) {
         const d = o.getObjectByName(n);
         if (d) T.doors[n] = { pos: d.position.clone(), quat: d.quaternion.clone() };
       }
+      try { AIR.setup(o, g.animations || []); } catch (e) { AIR.A.failed = String(e); console.warn('control tower airlock setup failed', e); }
       T.ready = true;
       T.loading = false;
       o.visible = !!T.active;
@@ -62,6 +66,7 @@ export function createControlTower(THREE) {
   function setActive(on) {
     T.active = !!on;
     if (T.root) T.root.visible = T.active;
+    if (!T.active) holdDoors();
   }
 
   function holdDoors() {
@@ -75,7 +80,9 @@ export function createControlTower(THREE) {
   function update(dt) {
     if (!T.ready || !T.active || !T.mixer) return;
     T.mixer.update(dt);
-    holdDoors();
+    let ok = false;
+    try { ok = AIR.update(dt); } catch (e) { AIR.A.failed = String(e); console.warn('control tower airlock stopped', e); }
+    if (!ok) { holdDoors(); if (AIR.A.failed) AIR.setVisible(false); }
   }
 
   function sync(lvOn) {
@@ -95,9 +102,10 @@ export function createControlTower(THREE) {
       url: CT_URL, local: CT_LOCAL.slice(),
       clips: Object.keys(T.actions),
       doors: Object.keys(T.doors),
+      airlock: AIR.info(),
       box,
     };
   }
 
-  return { T, load, setActive, update, holdDoors, sync, info, CT_URL, CT_LOCAL };
+  return { T, AIR, load, setActive, update, holdDoors, sync, info, CT_URL, CT_LOCAL };
 }

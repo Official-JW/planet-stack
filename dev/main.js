@@ -2270,7 +2270,8 @@ const BOARD_INSIDE = { Crew_1: 47.79, Crew_2: 51.19, Crew_3: 54.59, Crew_4: 57.9
 const BOARD_FLY = CREW.filter(c => c.board);   // every climber in the clip; flyCrew() chooses who is visible this trip
 const ACC = createAccess(THREE);
 const TW = createLv10Tower(THREE);
-const CT = createControlTower(THREE);
+const CT = createControlTower(THREE, {   // airlock walk-in: the male crew rig (Crew_2, as the crew van) + the in-game crew_walk_to_pad
+  crewTemplate: () => WK.stash && WK.stash.getObjectByName('Crew_2'), walkClip: () => BD.acts.crew_walk_to_pad && BD.acts.crew_walk_to_pad.getClip() });
 // --- gc/ship-upgrade (begin) ---
 const SU = createShipUpgrade(THREE);
 function shipUpgradeLocked() {
