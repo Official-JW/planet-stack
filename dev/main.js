@@ -1054,15 +1054,15 @@ const loader = loader0();
 // = 17,320 tris, 3 draws. Mine-local, so it sits at (MX, 0, 0). Rocks / keep-clear match v3: no Mine marker or truck path changes. The ground receives shadows
 // but does not cast (its far hills would only fill the ±22 m shadow map); the rocks cast + receive. On load the global ground + apron get the Mine hole.
 const MINE_TERRAIN_GLB = '../qa3d-next/models/mine_terrain_v3b_a4a2a4d2.glb?v=a4a2a4d2';
-// gc/terrain: A&A fix1 base terrain (HANDOFF 11/13 11:19 PM). Place each root at (X, 0, 0), no rotation/scale.
+// gc/terrain: A&A fix1 r2 terrain (HANDOFF_r2 11/13 11:44 PM; van-band flatten + seam trim). Place each root at (X, 0, 0), no rotation/scale.
 // Dock is authored in world Z, so its root is (480, 0, 0), not the dock building root (480, 0, −8).
 // loader0() already calls setMeshoptDecoder (EXT_meshopt_compression + EXT_mesh_gpu_instancing).
 const TERRAIN_FIX1 = {
-  ref:      { url: '../qa3d-next/models/refinery_terrain_fix1_69b6f0c7.glb?v=69b6f0c7', name: 'Refinery_Terrain', x: RX,          hook: 'refTerrain',      key: 'ref',      offQ: 'refterrain' },
-  dock:     { url: '../qa3d-next/models/dock_terrain_fix1_8226a0fb.glb?v=8226a0fb',       name: 'Dock_Terrain',     x: DOCKI * GAP, hook: 'dockTerrain',     key: 'dock' },
-  pad:      { url: '../qa3d-next/models/pad_terrain_fix1_ebf99e0b.glb?v=ebf99e0b',        name: 'Pad_Terrain',      x: PADI * GAP,  hook: 'padTerrain',      key: 'pad' },
-  shipyard: { url: '../qa3d-next/models/shipyard_terrain_fix1_12e97fd5.glb?v=12e97fd5',   name: 'Shipyard_Terrain', x: SHIPI * GAP, hook: 'shipyardTerrain', key: 'shipyard' },
-  hab:      { url: '../qa3d-next/models/habitat_terrain_fix1_202628b0.glb?v=202628b0',    name: 'Habitat_Terrain',  x: HABI * GAP,  hook: 'habTerrain',      key: 'hab' },
+  ref:      { url: '../qa3d-next/models/refinery_terrain_fix1_936837ec.glb?v=936837ec', name: 'Refinery_Terrain', x: RX,          hook: 'refTerrain',      key: 'ref',      offQ: 'refterrain' },
+  dock:     { url: '../qa3d-next/models/dock_terrain_fix1_bbbe5009.glb?v=bbbe5009',       name: 'Dock_Terrain',     x: DOCKI * GAP, hook: 'dockTerrain',     key: 'dock' },
+  pad:      { url: '../qa3d-next/models/pad_terrain_fix1_491d500a.glb?v=491d500a',        name: 'Pad_Terrain',      x: PADI * GAP,  hook: 'padTerrain',      key: 'pad' },
+  shipyard: { url: '../qa3d-next/models/shipyard_terrain_fix1_da360d86.glb?v=da360d86',   name: 'Shipyard_Terrain', x: SHIPI * GAP, hook: 'shipyardTerrain', key: 'shipyard' },
+  hab:      { url: '../qa3d-next/models/habitat_terrain_fix1_c18218fb.glb?v=c18218fb',    name: 'Habitat_Terrain',  x: HABI * GAP,  hook: 'habTerrain',      key: 'hab' },
 };
 function bindTerrainRoot(o, spec) {
   o.name = spec.name; o.position.set(spec.x, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1);
