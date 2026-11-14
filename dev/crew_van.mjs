@@ -78,7 +78,15 @@ export function createCrewVan(THREE, D) {
     const yRoad = sy('Road_Entry'), y1 = sy('Crew_Path_01'), h1 = hb('Crew_Path_01');
     if (!yRoad || !y1 || !h1) return null;
     const PX = D.PX, V = [PX - 4, 26.6], S = [y1[0] - 13.6, y1[1] + 5.2], H = [h1[0] - 8, h1[1] + 3.9];   // stops: in front of the Launch Pad (east of the flatbed U-turn), Shipyard apron front, Habitat door
-    const main = mkPath([V, [PX + 15, 27], [PX + 35, 27.6], [PX + 60, 26], [PX + 90, 22], yRoad, [yRoad[0] + 26, yRoad[1] + 12], [S[0] - 10, S[1] - 2], S, [S[0] + 15, S[1] + 1], [S[0] + 50, S[1]], [H[0] - 47, H[1] + 13.5], [H[0] - 17, H[1] + 2.5], H]);
+    // Issue 24: do not use Road_Entry (≈ 749, 21) or a diagonal across the Shipyard base
+    // (shipyard_base / SH_Rock ≈ x 748–862, z −36–47). Stay west of x 742 until z ≥ 54, then
+    // run along the camera-side front (z ≈ 53–54) to the existing apron stop S. The pad loop
+    // still leaves the main route at (PX+90, 22). Clear of the ST-10B lane (z −13, x 640–700)
+    // and of the Habitat / Life Support footprints east of the yard.
+    const YW = 742, YF = 54;
+    const main = mkPath([V, [PX + 15, 27], [PX + 35, 27.6], [PX + 60, 26], [PX + 90, 22],
+      [YW, 22], [YW, 36], [YW, YF], [YW + 18, YF], [S[0] - 20, YF - 1], S,
+      [S[0] + 15, S[1] + 1], [S[0] + 50, YF - 1], [866, YF - 1], [H[0] - 47, H[1] + 13.5], [H[0] - 17, H[1] + 2.5], H]);
     const sS = main.s[main.P.reduce((bi, p, i) => (Math.hypot(p.x - S[0], p.z - S[1]) < Math.hypot(main.P[bi].x - S[0], main.P[bi].z - S[1]) ? i : bi), 0)];
     const J = [PX + 90, 22];   // the drive-in leaves the main route here and loops round in front of the pad so the van stops heading east (door toward the camera)
     const loopPts = [J, [PX + 62, 33], [PX + 38, 35.5], [PX + 10, 35.5], [PX - 14, 34], [PX - 22, 29.5], [PX - 15, 26.7], V];
@@ -194,8 +202,15 @@ export function createCrewVan(THREE, D) {
     let tOpen = tIn;
     for (let i = 0; i < roles.length; i++) {
       const q = doorW(V[0], V[1], Vy, .85 * i + .1, 1.55);   // queue in a line along the van's side toward its tail (was fanning out toward the camera, under the TAKEOFF & LANDING label)
-      const pl = poly([[L0[0], L0[1] + 1.2], [D.PX + 3.2, -3.4], [D.PX + 22.5, 2], [D.PX + 22.5, 22], [D.PX + 2, 28.3], q]);   // pad crew path to the deck's east edge, past the crane, round the van's nose
-      const t0 = 1 + i * STAGGER; rid.push({ role: roles[i], dest: mine.includes(i) ? 'mine' : ship.includes(i) ? 'ship' : 'hab', walk: pl, t0, tArr: t0 + pl.L / WALK_V, q });
+      // After deboard (ladder foot / L10 cab approach = D.ladder()): walk a visible path around
+      // the ship, tower, crane, break-room and crate bay (west apron), then around the van's nose
+      // to the sliding door. No teleport; t0 is a short beat after deboard_done (cvLanded).
+      const east = D.PX + 26;   // x 666: east of the pad deck (665), crane jib (660) and break-room (655)
+      // North out of the L10 cab doors / ladder foot (do not step east into the elevator at
+      // x 651.44), easing 1.4 m east so the path clears the hull AABB, then around the crane
+      // and break-room to the van nose.
+      const pl = poly([[L0[0], L0[1]], [L0[0] + 1.4, -3.8], [east, 2], [east, 24], [D.PX + 2, 28.3], q]);
+      const t0 = 0.25 + i * STAGGER; rid.push({ role: roles[i], dest: mine.includes(i) ? 'mine' : ship.includes(i) ? 'ship' : 'hab', walk: pl, t0, tArr: t0 + pl.L / WALK_V, q });
     }
     tOpen = Math.max(tIn, rid.length ? rid[0].tArr - DOOR_SEC : 0);
     let tPrev = tOpen + DOOR_SEC - STAGGER;
