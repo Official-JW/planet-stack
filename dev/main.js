@@ -683,13 +683,15 @@ STATIONS.forEach((name, i) => {
 });
 // ===== passed station GLBs (Art): swap in for the gray box once loaded; tiers hidden; idle loops play; doors stay shut
 const DOCK = { pipeLaunchPad: [37.70, 0.66, 7.30] };   // Dock-local glTF; read from the GLB on load (the Launch Pad pipe joins here)
+const SY_HB_URL = '../dev/models/shipyard_hb01_v3r2_0e223393.glb?v=0e223393';
+const SY_PS_URL = '../dev/models/shipyard_ps01_v3r3r3_8f23dfd4.glb?v=8f23dfd4';
 const STATION_GLB = [
   { i: 0, url: '../dev/models/life_support_ls6113fa89.glb?v=6113fa89', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Art 10/31 (GD option 3, Jacob approved): repo LS b4edef9a + LS_Pipes O2/water/return run to the Habitat back wall, leg at z -17, NO tank-farm stub hiding; LS-local coords (LS_PipeExit local 13.5 = world 923.5 at x 910), 12 draws
   { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; dockLoaded(o, g); dockRoadCheck(o); } },
-  { i: SHIPI, url: 'models/shipyard_hb1_75901d07.glb?v=75901d07', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => hallDoor(mx, g, 1.21) },   // (1.21 s: HB-1 only, so the subclip keeps its 1.2 s key and the door reaches weight 1; EM 21:37) Shipyard HB-1 (Jacob approved 10/31 20:59; md5 75901d07…): building only. Own Cam_Target (-7, 23.5, 84.55) frame_w 134 (Art Fix A); CAM_OVERRIDE 75901d07 recentres the look-at on the yard and sets frame_w 80 (phones) plus the desktop frame_h floor. Its ring_*/jib_* build clips and highbay_door_*/highbay_glow_* stay unplayed (no highbay door, no work light, no road v7); was bcbd0934
+  { i: SHIPI, url: SY_HB_URL, loops: [], onLoad: (o, mx, g) => shipyardV3Loaded(o, mx, g) },   // Shipyard v3 hall (hb01 v3r2, md5 0e223393…) + print shop (ps01 v3r3r3, md5 8f23dfd4…) loaded at the station origin; EXPORT Cam_Target (9.5, 23.5, 107.0) frame_w 87.5. Front door stays closed. No hallDoor open-on-load.
   { i: HABI, url: 'models/habitat_v2_airlock_framed_a6381a77.glb?v=a6381a77', loops: [], onLoad: (o) => habAirlock(o) },   // Habitat v2 framed airlock (Art FRAMED_DOOR_SPEC, md5 a6381a77…): 13 draws, 16,288 tris, Cam_Target frame_w 48; doors idle + closed, light at its GLB default (EM 19:28)
 ];
 // Habitat airlock (EM 19:28): load-and-place only. Doors stay at their closed pivots (extras slide_axis x / slide_m 1.95 are unused, no door code) and
@@ -712,6 +714,80 @@ function hallDoor(mx, g, openSec) {   // openSec: optional per-GLB open time (HB
   const end = openSec > 0 ? openSec : CFG.hallDoor.openSec; if (c.duration > end + 1e-3) c = THREE.AnimationUtils.subclip(c, c.name + '_open', 0, Math.round(end * 1000), 1000);
   const a = mx.clipAction(c); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); window.__ps3d.hallDoor = { clip: c.name, dur: +c.duration.toFixed(3), action: a, morph: !!c.tracks.find(t => /morphTargetInfluences/.test(t.name)) };
 }
+// Shipyard v3 (gc/shipyard-v3): hall + print shop at the station origin, no offset. Front door stays closed.
+// Van / crew markers are re-attached at the old 75901d07 local positions so drop-off and Crew_Path_01..05 stay put.
+const SY_V3_MARKS = [
+  ['Road_Entry', -50.6290016, 0.230000004, 21.1040001],
+  ['Crew_Path_01', 13.5895624, 0.230000004, 44.8211288],
+  ['Crew_Path_02', 11.1182909, 0.230000004, 28.5023422],
+  ['Crew_Path_03', 7.99262428, 0.230000004, 10.7758036],
+  ['Crew_Path_04', -6.74974871, 0.230000004, 7.79043579],
+  ['Crew_Path_05', -18.8279152, 0.230000004, 8.39700127],
+  ['Crew_Path_06', 2.3169117, 0.230000004, 1.62231922],
+  ['Crew_Path_07', 16.4515171, 0.479999989, 1.16086054],
+  ['Crew_Path_08', 28.8792992, 0.479999989, -12.9617548],
+];
+const SYV = { root: null, hall: null, shop: null, mx: null, smx: null, print: null, jib: null, retract: null, welders: null, stack: null, ready: false };
+function syZeroMorphs(n) { if (!n) return; n.traverse(m => { if (m.morphTargetInfluences) m.morphTargetInfluences.fill(0); }); }
+function sySyncBuildStack() {   // hide the stand rings while a ship is on an ST-10B delivery (busy / carrying). Transporter still parks at x 700, not in the bay.
+  const n = SYV.stack || (stationObjs[SHIPI] && stationObjs[SHIPI].getObjectByName('HB01_BuildStack'));
+  if (!n) return; const hide = !!(typeof shipUpgradeBusy === 'function' && (shipUpgradeBusy(S) || (SU && SU.T && SU.T.carrying))); if (n.visible === hide) n.visible = !hide;
+}
+function shipyardV3Loaded(o, mx, gltf) {
+  const root = new THREE.Group(); root.name = 'Shipyard_V3';
+  root.position.copy(o.position); o.position.set(0, 0, 0); o.updateMatrix();
+  if (o.parent) { o.parent.add(root); root.add(o); } else { root.add(o); scene.add(root); }
+  stationObjs[SHIPI] = root;
+  root.userData.camTarget = null;
+  root.userData.camOv = camOvFor(SY_HB_URL);
+  o.name = o.name || 'Shipyard_HB01';
+  for (const [n, x, y, z] of SY_V3_MARKS) { const e = new THREE.Object3D(); e.name = n; e.position.set(x, y, z); root.add(e); }
+  // Invisible (colorWrite off) apron for crew-van ground rays. Old shipyard_base was the visible yard slab; taps do not include this name.
+  { const fl = new THREE.Mesh(new THREE.PlaneGeometry(170, 150), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+    fl.rotation.x = -Math.PI / 2; fl.position.set(5, 0.13, -8); fl.name = 'shipyard_base'; fl.receiveShadow = true; root.add(fl); }
+  syZeroMorphs(o.getObjectByName('HB01_DoorFront'));
+  syZeroMorphs(o.getObjectByName('HB01_DoorSide'));
+  syZeroMorphs(o.getObjectByName('HB01_Decks'));
+  syZeroMorphs(o.getObjectByName('HB01_Welders'));
+  const retract = gltf.animations.find(a => a.name === 'Decks_Retract');
+  if (retract) {
+    const a = mx.clipAction(retract); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.paused = true;
+    SYV.retract = a;
+  }
+  SYV.root = root; SYV.hall = o; SYV.mx = mx;
+  SYV.welders = o.getObjectByName('HB01_Welders');
+  SYV.stack = o.getObjectByName('HB01_BuildStack');
+  if (SYV.stack) SYV.stack.visible = true;
+  if (SYV.welders) SYV.welders.visible = true;
+  function playDecksRetract() {   // EXPORT: hide welders before Decks_Retract. Not auto-played (transporter is not wired into the bay).
+    if (SYV.welders) SYV.welders.visible = false;
+    if (!SYV.retract) return false;
+    SYV.retract.paused = false; SYV.retract.reset(); SYV.retract.setLoop(THREE.LoopOnce, 1); SYV.retract.clampWhenFinished = true; SYV.retract.play();
+    return true;
+  }
+  window.__ps3d.debugAddRing = () => {
+    const a = SYV.jib; if (!a) return false;
+    a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.paused = false; a.enabled = true; a.play();
+    return true;
+  };
+  window.__ps3d.shipyardV3 = SYV;
+  SYV.playDecksRetract = playDecksRetract;
+  loader0().load(SY_PS_URL, (g2) => {
+    const shop = g2.scene; shop.position.set(0, 0, 0); shop.rotation.set(0, 0, 0); shop.scale.set(1, 1, 1);
+    shop.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+    root.add(shop); shop.updateMatrixWorld(true);
+    const smx = new THREE.AnimationMixer(shop); stationMixers.push(smx);
+    const loop = g2.animations.find(a => a.name === 'Print_Loop');
+    if (loop) { const a = smx.clipAction(loop); a.setLoop(THREE.LoopRepeat, Infinity); a.play(); SYV.print = a; }
+    const jib = g2.animations.find(a => a.name === 'Jib_Swing');
+    if (jib) { const a = smx.clipAction(jib); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.paused = true; SYV.jib = a; }
+    SYV.shop = shop; SYV.smx = smx; SYV.ready = true;
+    sySyncBuildStack();
+    if (window.__ps3d.bldApply) window.__ps3d.bldApply(SHIPI);
+    fitSite(SHIPI);
+  }, undefined, (e) => { console.warn('Shipyard print shop GLB failed', SY_PS_URL, e); SYV.ready = 'shop-failed'; });
+}
+
 const SITECAM = STATIONS.map(() => ({ k: 1, dx: 0, dz: 0, ly: CAM.lookY }));   // per-station framing; the Mine keeps k=1, dx=dz=0 until its GLB (with Cam_Target) is in
 const stationMixers = [], stationObjs = {};
 const _ct = new THREE.Vector3();
@@ -736,6 +812,7 @@ const CAM_OVERRIDE = {
   '6113fa89': { glb: 'life_support_game_pipes_alt_z17 (repo LS b4edef9a + LS_Pipes, Art 10/31)', ct: { y: -3.58 }, frame_w: 47.6 },   // same LS framing as e8427ec4 (GLB Cam_Target is (0, -4.63, -12.5) W 38.5; override keeps the approved Director framing)
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
   '75901d07': { glb: 'shipyard_game_v3_hb1 (gc-fix78: look-at was (-7, 23.5, 84.55) frame_w 134 — 84 m of empty apron in front of the hall, so the card-open view was a tiny yard on a huge moon)', ct: { x: -6, y: 18, z: 12 }, frame_w: 80, frame_h: 150 },   // phones: width fit like Dock/Habitat so the hall+highbay+crane fill the band above the sheet; desktop frame_h 150 still clears the 50 m crane at 1280x800 / 1440x900
+  '0e223393': { glb: 'shipyard_hb01_v3r2 + shipyard_ps01_v3r3r3 (EXPORT.md Cam_Target (9.5, 23.5, 107.0) frame_w 87.5; no Cam_Target node in the GLB). frame_h 180 is a desktop-only height floor — at 1280x800 the width-only fit was d≈79 m and cropped the 72 m roof under the HUD; phones keep the 87.5 width fit (equivalent d≈275, fh cap ≈189).', ct: { x: 9.5, y: 23.5, z: 107.0 }, frame_w: 87.5, frame_h: 180 },
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
@@ -1062,6 +1139,48 @@ const TERRAIN_FIX1 = {
   shipyard: { url: '../qa3d-next/models/shipyard_terrain_r6_58ba3485.glb?v=58ba3485',   name: 'Shipyard_Terrain', x: SHIPI * GAP, hook: 'shipyardTerrain', key: 'shipyard' },
   hab:      { url: '../qa3d-next/models/habitat_terrain_r6_3896ecc9.glb?v=3896ecc9',    name: 'Habitat_Terrain',  x: HABI * GAP,  hook: 'habTerrain',      key: 'hab' },
 };
+// Flatten the r6 Shipyard terrain under the v3 hall + print shop so slabs don't float or bury.
+// Blend 8 m out to the surrounding relief. Leave the tile seams at world x 720 and 880 untouched.
+function flattenShipyardTerrain(root, ox) {
+  const zones = [   // station-local metres (EXPORT footprints + a little pad)
+    { x0: -76, x1: 38, z0: -36, z1: 32 },    // hall, front road, west side apron
+    { x0: 43, x1: 82, z0: -78, z1: -4 },     // print shop, CV0B belt, jib footing
+  ];
+  const BLEND = 8, SEAM = 0.05, Y0 = 0;
+  function inside(lx, lz) {
+    let d = -1e9;
+    for (const r of zones) d = Math.max(d, Math.min(lx - r.x0, r.x1 - lx, lz - r.z0, r.z1 - lz));
+    return d;
+  }
+  let n = 0, moved = 0, maxAbs = 0;
+  root.updateMatrixWorld(true);
+  root.traverse(m => {
+    if (!m.isMesh || !m.geometry || !m.geometry.getAttribute('position')) return;
+    const ground = m.name === 'Terrain_Ground' || (m.parent && m.parent.name === 'Terrain_Ground') || /Terrain_Ground/i.test(m.name || '');
+    if (!ground) return;
+    const geo = m.geometry, pos = geo.getAttribute('position');
+    const loc = new THREE.Vector3();
+    const inv = new THREE.Matrix4().copy(m.matrixWorld).invert();
+    for (let i = 0; i < pos.count; i++) {
+      loc.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      const wx = loc.x, wz = loc.z, wy = loc.y;
+      if (Math.abs(wx - (ox - 80)) < SEAM || Math.abs(wx - (ox + 80)) < SEAM) continue;   // 720 / 880 seam columns
+      const d = inside(wx - ox, wz);
+      if (d <= -BLEND) continue;
+      const w = d >= 0 ? 1 : 1 - (-d / BLEND);
+      const ny = wy + (Y0 - wy) * w;
+      if (Math.abs(ny - wy) < 1e-5) continue;
+      loc.set(wx, ny, wz).applyMatrix4(inv);
+      pos.setXYZ(i, loc.x, loc.y, loc.z);
+      n++; moved += Math.abs(ny - wy); maxAbs = Math.max(maxAbs, Math.abs(ny - wy));
+    }
+    pos.needsUpdate = true;
+    if (geo.computeBoundingBox) geo.computeBoundingBox();
+    if (geo.computeBoundingSphere) geo.computeBoundingSphere();
+    if (geo.boundsTree) delete geo.boundsTree;
+  });
+  window.__ps3d.shipyardFlatten = { verts: n, mean: n ? +(moved / n).toFixed(4) : 0, maxAbs: +maxAbs.toFixed(4) };
+}
 function bindTerrainRoot(o, spec) {
   o.name = spec.name; o.position.set(spec.x, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1);
   let tris = 0, draws = 0, mat = null;
@@ -1071,6 +1190,7 @@ function bindTerrainRoot(o, spec) {
     if (ground) mat = m.material; });
   if (mat) { GROUND_HOLE.mats[spec.key] = mat; if (spec.key === 'mine') GROUND_HOLE.tm = mat; if (spec.key === 'ref') GROUND_HOLE.rm = mat; }
   scene.add(o); GROUND_HOLE.set(spec.key, true);
+  if (spec.key === 'shipyard') flattenShipyardTerrain(o, spec.x);
   window.__ps3d[spec.hook] = { url: spec.url, tris, draws, obj: o, x: spec.x };
   terrainEdgeBlend(); return { tris, draws };
 }
@@ -2319,6 +2439,7 @@ function suEnv() {
 }
 function tickShipUpgrade(t = nowMs()) {
   const env = suEnv();
+  sySyncBuildStack();
   if (!SU.T.ready) return null;
   if (!shipUpgradeBusy(S)) { SU.idle(env); return { ph: 'idle' }; }
   const work = S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT;
@@ -5374,7 +5495,7 @@ const UPT = [
   // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
   { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
-  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['shipyard_base', 'Highbay', 'highbay', 'Crane', 'crane_base', 'Hall']), hl: () => soonObjs(SHIPI, ['shipyard_base']) },   // pinch-zoom: mesh ray only — dropped the 76×50 m ground box
+  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['HB01_Static', 'HB01_DoorFront', 'HB01_DoorSide', 'HB01_Decks', 'HB01_Welders', 'HB01_BuildStack', 'PS01_Static', 'PS01_Gantry', 'PS01_PrintGlow', 'PS01_Jib']), hl: () => soonObjs(SHIPI, ['HB01_Static', 'PS01_Static']) },   // v3 hall + print shop meshes only; terrain and the invisible shipyard_base apron are excluded
   { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => habTapMeshes(), hl: () => habTapMeshes() },   // pinch-zoom: tower meshes only (no ground apron)
   { id: 'engineering', p: 'soonEng', site: 7, objs: () => engTapMeshes(), hl: () => engTapMeshes() },
   // gc-brkfade ticket 1 (Director 01:54, option a): the break room is part of the Pad, so a tap on it opens the Cargo Ship card. Meshes only (room,
