@@ -3255,7 +3255,7 @@ canvas.addEventListener('pointermove', (e) => {
   _ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (_pinch && _ptrs.size >= 2) {
     const m = _pinchMid(); if (!m || m.d < 4) return;
-    const target = zoomClamp(_pinch.z0 * (m.d / Math.max(1e-3, _pinch.d0)));
+    const target = zoomClamp(_pinch.z0 * (_pinch.d0 / Math.max(1e-3, m.d)));
     const factor = target / Math.max(1e-6, ZOOM.z);
     zoomApply(factor, m.x, m.y);
     e.preventDefault();
@@ -3270,7 +3270,7 @@ canvas.addEventListener('pointercancel', _ptrUp, true);
 canvas.addEventListener('wheel', (e) => {
   // Trackpad pinch = ctrl+wheel on macOS; plain wheel also zooms the game cam.
   e.preventDefault();
-  const factor = Math.exp(-(e.deltaY || 0) * 0.0015);
+  const factor = Math.exp((e.deltaY || 0) * 0.0015);
   zoomApply(factor, e.clientX, e.clientY);
 }, { passive: false });
 
