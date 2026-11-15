@@ -720,9 +720,9 @@ const SY_V3_MARKS = [
   ['Road_Entry', -50.6290016, 0.230000004, 21.1040001],
   ['Crew_Path_01', 13.5895624, 0.230000004, 44.8211288],
   ['Crew_Path_02', 11.1182909, 0.230000004, 28.5023422],
-  ['Crew_Path_03', 7.99262428, 0.230000004, 10.7758036],
-  ['Crew_Path_04', -6.74974871, 0.230000004, 7.79043579],
-  ['Crew_Path_05', -18.8279152, 0.230000004, 8.39700127],
+  ['Crew_Path_03', 5.0, 0.16, 26.5],           // retargeted: front apron, approaching the closed door (was inside the hall at z 10.8)
+  ['Crew_Path_04', 0.4, 0.16, 24.8],
+  ['Crew_Path_05', 0.0, 0.16, 23.0],           // stop ~1 m in front of the facade (z +22); last segment faces the door (−Z)
   ['Crew_Path_06', 2.3169117, 0.230000004, 1.62231922],
   ['Crew_Path_07', 16.4515171, 0.479999989, 1.16086054],
   ['Crew_Path_08', 28.8792992, 0.479999989, -12.9617548],
@@ -733,6 +733,33 @@ function sySyncBuildStack() {   // hide the stand rings while a ship is on an ST
   const n = SYV.stack || (stationObjs[SHIPI] && stationObjs[SHIPI].getObjectByName('HB01_BuildStack'));
   if (!n) return; const hide = !!(typeof shipUpgradeBusy === 'function' && (shipUpgradeBusy(S) || (SU && SU.T && SU.T.carrying))); if (n.visible === hide) n.visible = !hide;
 }
+function syLookInterior(root) {   // glass + interior read-through at game zoom, no extra draws, never touches hull / Ship_Placeholder
+  if (!root) return;
+  const INTERIOR = /^(HB01_Decks|HB01_Welders|HB01_BuildStack)$/;
+  const underInterior = (m) => { for (let n = m; n; n = n.parent) if (INTERIOR.test(n.name || '')) return true; return false; };
+  root.traverse(m => {
+    if (!m.isMesh || !m.material) return;
+    const list = [].concat(m.material);
+    for (let i = 0; i < list.length; i++) {
+      let mt = list[i]; if (!mt) continue;
+      const name = mt.name || '';
+      if (name === 'SY_Glass') {
+        if (!mt.userData.syGlass) { mt = mt.clone(); mt.userData.syGlass = true; list[i] = mt; }
+        mt.color.set(0xe8f2f8); mt.opacity = 0.16; mt.transparent = true; mt.depthWrite = false;
+        mt.roughness = 0.06; mt.metalness = 0.04; mt.needsUpdate = true;
+      } else if (underInterior(m) && name === 'SY_Paint') {
+        if (!mt.userData.syInterior) { mt = mt.clone(); mt.userData.syInterior = true; list[i] = mt; }
+        mt.emissive.set(0x9a988c); mt.emissiveIntensity = 0.7; mt.needsUpdate = true;
+      }
+    }
+    m.material = list.length === 1 ? list[0] : list;
+  });
+  if (root.getObjectByName('HB01_Static') && !root.userData.syLight) {
+    const lit = new THREE.PointLight(0xf3f1ea, 1200, 80, 2);
+    lit.name = 'SY_InteriorLight'; lit.position.set(0, 22, -6); lit.castShadow = false; lit.intensity = 1200;
+    root.add(lit); root.userData.syLight = lit;
+  }
+}
 function shipyardV3Loaded(o, mx, gltf) {
   const root = new THREE.Group(); root.name = 'Shipyard_V3';
   root.position.copy(o.position); o.position.set(0, 0, 0); o.updateMatrix();
@@ -742,9 +769,11 @@ function shipyardV3Loaded(o, mx, gltf) {
   root.userData.camOv = camOvFor(SY_HB_URL);
   o.name = o.name || 'Shipyard_HB01';
   for (const [n, x, y, z] of SY_V3_MARKS) { const e = new THREE.Object3D(); e.name = n; e.position.set(x, y, z); root.add(e); }
-  // Invisible (colorWrite off) apron for crew-van ground rays. Old shipyard_base was the visible yard slab; taps do not include this name.
-  { const fl = new THREE.Mesh(new THREE.PlaneGeometry(170, 150), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
-    fl.rotation.x = -Math.PI / 2; fl.position.set(5, 0.13, -8); fl.name = 'shipyard_base'; fl.receiveShadow = true; root.add(fl); }
+  // Invisible (colorWrite off) apron for crew-van ground rays. Sized to the front apron + van stop only (local z 16..62):
+  // a 170×150 plane centred at z −8 had its back edge at z −83, which drew a straight horizontal line across the ground
+  // left and right of the hall (~screen y 306 at 1280×800). Taps do not include this name.
+  { const fl = new THREE.Mesh(new THREE.PlaneGeometry(140, 46), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+    fl.rotation.x = -Math.PI / 2; fl.position.set(-8, 0.13, 39); fl.name = 'shipyard_base'; fl.receiveShadow = false; root.add(fl); }
   syZeroMorphs(o.getObjectByName('HB01_DoorFront'));
   syZeroMorphs(o.getObjectByName('HB01_DoorSide'));
   syZeroMorphs(o.getObjectByName('HB01_Decks'));
@@ -759,6 +788,7 @@ function shipyardV3Loaded(o, mx, gltf) {
   SYV.stack = o.getObjectByName('HB01_BuildStack');
   if (SYV.stack) SYV.stack.visible = true;
   if (SYV.welders) SYV.welders.visible = true;
+  syLookInterior(o);
   function playDecksRetract() {   // EXPORT: hide welders before Decks_Retract. Not auto-played (transporter is not wired into the bay).
     if (SYV.welders) SYV.welders.visible = false;
     if (!SYV.retract) return false;
@@ -782,8 +812,9 @@ function shipyardV3Loaded(o, mx, gltf) {
     const jib = g2.animations.find(a => a.name === 'Jib_Swing');
     if (jib) { const a = smx.clipAction(jib); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.paused = true; SYV.jib = a; }
     SYV.shop = shop; SYV.smx = smx; SYV.ready = true;
+    syLookInterior(shop);
     sySyncBuildStack();
-    if (window.__ps3d.bldApply) window.__ps3d.bldApply(SHIPI);
+    if (window.__ps3d.bldApply) { delete root.userData.bldDim; window.__ps3d.bldApply(SHIPI); }
     fitSite(SHIPI);
   }, undefined, (e) => { console.warn('Shipyard print shop GLB failed', SY_PS_URL, e); SYV.ready = 'shop-failed'; });
 }
@@ -812,7 +843,7 @@ const CAM_OVERRIDE = {
   '6113fa89': { glb: 'life_support_game_pipes_alt_z17 (repo LS b4edef9a + LS_Pipes, Art 10/31)', ct: { y: -3.58 }, frame_w: 47.6 },   // same LS framing as e8427ec4 (GLB Cam_Target is (0, -4.63, -12.5) W 38.5; override keeps the approved Director framing)
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
   '75901d07': { glb: 'shipyard_game_v3_hb1 (gc-fix78: look-at was (-7, 23.5, 84.55) frame_w 134 — 84 m of empty apron in front of the hall, so the card-open view was a tiny yard on a huge moon)', ct: { x: -6, y: 18, z: 12 }, frame_w: 80, frame_h: 150 },   // phones: width fit like Dock/Habitat so the hall+highbay+crane fill the band above the sheet; desktop frame_h 150 still clears the 50 m crane at 1280x800 / 1440x900
-  '0e223393': { glb: 'shipyard_hb01_v3r2 + shipyard_ps01_v3r3r3 (EXPORT.md Cam_Target (9.5, 23.5, 107.0) frame_w 87.5; no Cam_Target node in the GLB). frame_h 180 is a desktop-only height floor — at 1280x800 the width-only fit was d≈79 m and cropped the 72 m roof under the HUD; phones keep the 87.5 width fit (equivalent d≈275, fh cap ≈189).', ct: { x: 9.5, y: 23.5, z: 107.0 }, frame_w: 87.5, frame_h: 180 },
+  '0e223393': { glb: 'shipyard_hb01_v3r2 + shipyard_ps01_v3r3r3 (EXPORT.md Cam_Target (9.5, 23.5, 107.0) frame_w 87.5; no Cam_Target node in the GLB). frame_h 180 is a desktop-only height floor (unchanged). phone: shift look-at x 9.5→19 and frame_w 87.5→120 so the hall is fully in frame and hall+print shop are centered on 390×844 (width-only 87.5 cut the halls left wall at local x −36).', ct: { x: 9.5, y: 23.5, z: 107.0 }, frame_w: 87.5, frame_h: 180, phone: { ct: { x: 19 }, frame_w: 120 } },
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
@@ -877,10 +908,13 @@ function fitSite(i) {
   const o = stationObjs[i]; if (!o || !camera.userData.dist) return;
   const ct = o.userData.camTarget, ov0 = o.userData.camOv, ovFull = ov0 && ov0.frame_w > 0 && ov0.ct && ov0.ct.x != null && ov0.ct.y != null && ov0.ct.z != null;
   if (ct || ovFull) {   // (a full CAM_OVERRIDE entry also frames a GLB that has no usable Cam_Target, e.g. Shipyard 2d57b95)   // Art's station camera: aim at Cam_Target (incl. its y), frame_w metres span the screen width at its depth; 38° vFOV, 18° down; edges may crop
-    o.updateMatrixWorld(true); if (ct) ct.getWorldPosition(_ct); else _ct.copy(o.position); const ov = ov0, fw = ov && ov.frame_w || ct.userData.frame_w;
-    if (ov && ov.ct) { if (ov.ct.x != null) _ct.x = o.position.x + ov.ct.x; if (ov.ct.y != null) _ct.y = o.position.y + ov.ct.y; if (ov.ct.z != null) _ct.z = o.position.z + ov.ct.z; }
+    o.updateMatrixWorld(true); if (ct) ct.getWorldPosition(_ct); else _ct.copy(o.position);
+    const ov = ov0, phone = !!(ov && ov.phone && camera.aspect < 1);
+    const ctOv = phone && ov.phone.ct ? Object.assign({}, ov.ct || {}, ov.phone.ct) : (ov && ov.ct);
+    const fw = (phone && ov.phone.frame_w) || (ov && ov.frame_w) || (ct && ct.userData.frame_w);
+    if (ctOv) { if (ctOv.x != null) _ct.x = o.position.x + ctOv.x; if (ctOv.y != null) _ct.y = o.position.y + ctOv.y; if (ctOv.z != null) _ct.z = o.position.z + ctOv.z; }
     let d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-    const fh = ov && ov.frame_h > 0 ? ov.frame_h : 0;   // optional height floor (only entries that set frame_h, e.g. the Habitat a6381a77): frame_h metres also fit the screen height at the target depth; wide screens back off, phones keep the width fit
+    const fh = (!phone && ov && ov.frame_h > 0) ? ov.frame_h : 0;   // optional height floor (only entries that set frame_h, e.g. the Habitat a6381a77): frame_h metres also fit the screen height at the target depth; wide screens back off, phones keep the width fit (or a phone:{} override)
     if (fh) { let hk = 1;   // gc-batch7 HABITAT label (Director 22:43): frame_band entries fit frame_h between the HUD and 12 px above the station label on landscape (was the full height: the airlock base sat under the HABITAT label at 1280/1440); phones unchanged
       if (ov.frame_band && camera.aspect >= 1) { const half = Math.min(H / 2 - Math.max(hudEl.getBoundingClientRect().bottom, 0) - 12, nameEl.getBoundingClientRect().top - 12 - H / 2); if (half > 60) hk = (H / 2) / half; }
       d = Math.max(d, hk * (fh / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))); }
@@ -1146,12 +1180,13 @@ function flattenShipyardTerrain(root, ox) {
     { x0: -76, x1: 38, z0: -36, z1: 32 },    // hall, front road, west side apron
     { x0: 43, x1: 82, z0: -78, z1: -4 },     // print shop, CV0B belt, jib footing
   ];
-  const BLEND = 8, SEAM = 0.05, Y0 = 0;
+  const BLEND = 24, SEAM = 0.05, Y0 = 0;
   function inside(lx, lz) {
     let d = -1e9;
     for (const r of zones) d = Math.max(d, Math.min(lx - r.x0, r.x1 - lx, lz - r.z0, r.z1 - lz));
     return d;
   }
+  const smooth = (t) => t * t * (3 - 2 * t);
   let n = 0, moved = 0, maxAbs = 0;
   root.updateMatrixWorld(true);
   root.traverse(m => {
@@ -1167,7 +1202,7 @@ function flattenShipyardTerrain(root, ox) {
       if (Math.abs(wx - (ox - 80)) < SEAM || Math.abs(wx - (ox + 80)) < SEAM) continue;   // 720 / 880 seam columns
       const d = inside(wx - ox, wz);
       if (d <= -BLEND) continue;
-      const w = d >= 0 ? 1 : 1 - (-d / BLEND);
+      const w = d >= 0 ? 1 : smooth(1 - (-d / BLEND));
       const ny = wy + (Y0 - wy) * w;
       if (Math.abs(ny - wy) < 1e-5) continue;
       loc.set(wx, ny, wz).applyMatrix4(inv);
