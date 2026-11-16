@@ -23,9 +23,9 @@ export const BAY_TIME_MUL_PER_LV = 0.98;        // every level x0.98 build / upg
 export const BAY_WELD2_LV = 10, BAY_SLOTS2_LV = 20, BAY_SHIP2_LV = 20, BAY_BOOSTER_LV = 30, BAY_RACK2_LV = 40, BAY_GOLD_LV = 50;
 export const BAY_SHIP2_PRICE = 2500000, BAY_BOOSTER_PRICE = 5000000, BAY_RING_PRICE = 100000;
 export const BAY_RACK = 6, BAY_RACK2 = 12;
-// PLACEHOLDER: the spec does not give base build times for the second ship, the booster or one ring. These are game seconds at Bay Lv1
-// (before bayTimeMul); retune here.
-export const BAY_BASE_SEC = { ship2: 600, booster: 900, ring: 60 };
+// Base build times in game seconds at Bay Lv1, before bayTimeMul (Game Director 11/15 17:02: second ship 3600 s, booster 5400 s).
+// PLACEHOLDER: ring 60 s (no number given yet).
+export const BAY_BASE_SEC = { ship2: 3600, booster: 5400, ring: 60 };
 export const BAY_LOOK_TIERS = [10, 20, 30, 40, 50];
 export const BAY_LOOK_NAMES = { 0: 'approved hall', 10: 'second welding platform', 20: 'wide hall, 2 ship spots', 30: 'wide hall + extended roof', 40: 'second ring rack', 50: 'gold-tier hall trim' };
 const SHIP_KINDS = ['ship2', 'booster'];
@@ -71,7 +71,8 @@ const CSS = `#bayTgls{display:flex;flex-direction:column;align-items:stretch;gap
 #bayTgls .tgl:not(.afford) .su-go{background:#232a38;color:#9aa1ae}
 #bayTgls .tgl.afford .su-go{animation:bayAfford 1.5s ease-in-out infinite}
 @keyframes bayAfford{0%,100%{filter:brightness(1)}50%{filter:brightness(1.45) saturate(1.3)}}
-@media (prefers-reduced-motion:reduce){#bayTgls .tgl.afford .su-go{animation:none;filter:brightness(1.25)}}`;
+@media (prefers-reduced-motion:reduce){#bayTgls .tgl.afford .su-go{animation:none;filter:brightness(1.25)}}
+#upBig.bayBig{white-space:normal;overflow-wrap:anywhere}#upBig.bayBig small{display:block;margin:5px 0 0;white-space:normal}`;   /* bay card only: the label wraps under the % so it can't run past the panel */
 
 export function createBayUpgrades(getS) {
   const A = { D: null, lookTier: -1, looks: Object.fromEntries(BAY_LOOK_TIERS.map(t => [t, []])), lookAny: [], lookLog: [], row: null, glowT: null, lastDone: [] };
@@ -105,7 +106,8 @@ export function createBayUpgrades(getS) {
     const c = price(k); if (!D.canPay(c)) r.push('Need ' + D.fmt(c));
     return r;
   }
-  const price = (k) => k === 'ship2' ? BAY_SHIP2_PRICE : k === 'booster' ? BAY_BOOSTER_PRICE : BAY_RING_PRICE;
+  const price = (k) => k === 'ship2' ? ((A.D && A.D.CFG && A.D.CFG.econ && +A.D.CFG.econ.p2Prices.ship2) || BAY_SHIP2_PRICE) :   // CFG.econ.p2Prices.ship2 (2.5M) is the source
+    k === 'booster' ? BAY_BOOSTER_PRICE : BAY_RING_PRICE;
   function start(k) {   // logic entry for a ship / booster / ring build (no button yet; QA hook and the future build UI call this)
     const D = A.D, w = why(k); if (w.length) return { ok: false, why: w };
     const t = D.nowMs(), lv = lvNow(), mul = bayTimeMul(lv), c = price(k); D.settle(t); D.pay(c);
@@ -132,6 +134,9 @@ export function createBayUpgrades(getS) {
     crawlerStop();
     if (ch) { D.save(); D.refresh(); }
   }
+  // Game Coder hook API: '' when a ship upgrade may start, else the reason ('Bay full (2/2 spots)'). A ship upgrade needs a free bay spot
+  // (A, or B from Lv20); bay builds hold their spot until done. Read-only; his shipUpgradeLocked / shipUpgradeLockReason call it.
+  function upgradeBlockReason() { if (!A.D || shipUpBusy() || freeSpotForUpgrade()) return ''; const n = baySlots(lvNow()); return `Bay full (${n}/${n} spot${n > 1 ? 's' : ''})`; }
   function freeSpotForUpgrade() { const t = new Set(jobsOf(SHIP_KINDS).map(j => j.spot || 'A')); return !t.has('A') ? 'A' : (baySlots(lvNow()) > 1 && !t.has('B') ? 'B' : null); }
   // ---- bay B transporter route (data + pose override; Game Coder's ST-10B code is read, not edited) ----
   // The ST-10B schedule (ship_upgrade.mjs schedule / phaseAt) times each drive leg from |bayX - padX|. For a bay-B job, crawlerStop() sets
@@ -215,9 +220,10 @@ export function createBayUpgrades(getS) {
   // the BAY UPGRADE row on the Shipyard card (like PAD UPGRADE on the ship card); cyan pulse on its button while affordable
   function ui(upCur) {
     const D = A.D; if (!D) return;
+    if (!document.getElementById('bayCss')) { const st = document.createElement('style'); st.id = 'bayCss'; st.textContent = CSS; document.head.append(st); }
+    const bg = document.getElementById('upBig'); if (bg) bg.classList.toggle('bayBig', upCur === 'bayUp');
     const show = upCur === 'soonShipyard' && !locked();
     if (!A.row) { if (!show) return;
-      const st = document.createElement('style'); st.id = 'bayCss'; st.textContent = CSS; document.head.append(st);
       const w = document.createElement('div'); w.id = 'bayTgls';
       const b = document.createElement('button'); b.className = 'tgl shipup'; b.dataset.k = 'bayUp';
       const l = document.createElement('span'); l.className = 'tg-lab'; l.textContent = 'BAY UPGRADE';
@@ -257,6 +263,6 @@ export function createBayUpgrades(getS) {
       glow: A.D && A.D.GLOW ? !!A.D.GLOW.on.bayUp : false, locked: locked(), spots: [...spotsTaken()], upgradeSpot: shipUpBusy() && S().upg ? (S().upg.bayB ? 'B' : 'A') : null,
       bayB: A.bayB, crawlerStopX: A.D && A.D.CFG ? A.D.CFG.shipyardCrawlerStopX : null, route: BAY_B_ROUTE };
   }
-  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
+  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, upgradeBlockReason, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
     consts: { BAY_MAX, BAY_COST0, BAY_COST_GROWTH, BAY_TIME_MUL_PER_LV, BAY_SHIP2_PRICE, BAY_BOOSTER_PRICE, BAY_RING_PRICE, BAY_BASE_SEC, BAY_LOOK_TIERS } };
 }
