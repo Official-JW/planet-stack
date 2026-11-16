@@ -10,6 +10,8 @@ import { createAccess, accessSeconds, accessDeboardSeconds, accessDeboardShow, H
 import { createLv10Tower, towerBoardSeconds, towerDeboardSeconds, setLadderVisible, TOWER_URL } from './lv10_tower.mjs';
 import { createCrewVan } from './crew_van.mjs';   // crew van pickup / drop-off after deboarding (stand-in van; see the module)
 import { createControlTower } from './control_tower.mjs';   // Control Tower at Launch Pad Lv20 (pad-local, east of the deck)
+import { createBayUpgrades } from './bay_upgrades.mjs';   // Shipyard Bay upgrade path Lv1-50 (gc2/bay-upgrades; logic + look hooks, see the module)
+const BAY = createBayUpgrades(() => S);   // no-op until BAY.install (after the cards); BAY.shift works from the start
 // --- gc/ship-upgrade (begin) ---
 import { createShipUpgrade, migrateShipUpgrade, shipUpgradeBusy, shipUpgradeStaffed, shipUpgradeShortfallText, shipUpgradeWorkSec, SHIP_UPGRADE_REQ, BAY_X, PATH_Z, WORK_SEC_DEFAULT } from './ship_upgrade.mjs';
 // --- gc/ship-upgrade (end) ---
@@ -3955,6 +3957,7 @@ function shiftTk(d) { shiftTrucks(d); cgShift(d);
   // --- gc/ship-upgrade (begin) ---
   if (S.upg && S.upg.t0 > 0) S.upg.t0 += d;
   // --- gc/ship-upgrade (end) ---
+  BAY.shift(d);   // gc2/bay-upgrades: Shipyard bay build job stamps (S.bay.jobs)
 }
 // ---- per-frame pose, wheels, clips, fill morph, arc gauge
 const _X = new THREE.Vector3(1, 0, 0), _wq = new THREE.Quaternion(), _fa = new THREE.Vector3();
@@ -5995,6 +5998,7 @@ function crewPrompt() {   // once per trip (sh.cp, saved): Eve's line if she is 
 function upUI() {                      // refreshes the open card (0.1 s tick + after buys); DOM only rebuilt when something shown changes
   if (!upCur) return; const P = UP[upCur]; upCrewEl.hidden = !P.crew;
   { const tg = $('shipTgls'); if (tg && !P.launch) tg.hidden = true; }
+  BAY.ui(upCur);   // gc2/bay-upgrades: BAY UPGRADE row on the built Shipyard card (hidden on every other card)
   if (P.crew) return upCrewUI();   // gc-crewpick
   if (P.launch) return upLaunchUI(P);   // gc-ui3 item 7: the rocket's launch card
   const bk = bldCardKey(P); if (bk) return upBuildUI(P, bk);   // gc-batch8: a Phase 2 building not built yet
@@ -6089,6 +6093,12 @@ function buildSt(k) {
 Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
+// gc2/bay-upgrades: Shipyard Bay card (UP.bayUp), hall afford glow, ship upgrade time x bayTimeMul, bay build slots. Reads the ship upgrade state, never writes its entry.
+BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, nowMs, logU, save, settle: (t) => settleTo(t, null), popAtBuy, openUp: (id) => openUp(id),
+  refresh: () => { UPK.k = ''; upUI(); hud(); }, shipUpgradeBusy: () => shipUpgradeBusy(S), hall: () => stationObjs[SHIPI] || null,
+  shipUpgradeWork0: () => { const e = suEnv(); return SU.schedule(e.padX, e.bayX, S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT).tWork0; },
+  CFG, SU, suEnv, driveV: SU.timings.DRIVE_V, stationX: () => SHIPI * GAP });   // bay B route: reads SU / suEnv, sets only CFG.shipyardCrawlerStopX during a bay-B job (see BAY_B_ROUTE)
+window.__ps3d.bay = BAY;   // QA: bay.info(), bay.setLv(n), bay.start('ship2' | 'booster' | 'ring'), bay.onLook(tier, fn)
 function buyDrill() {
   const c = drillCost(); if (!canPay(c)) return;
   pay(c); S.drill++; applyRigLevel(); applyTiers(S.drill); upgradeFx(); save(); upUI(); hud();
@@ -6654,6 +6664,7 @@ function frame() {
   if (MZ && padMzWanted()) MZ.applyLegacyHide(padMzLegacyCtx(), true);   // re-hide after late TW/ACC loads and applyPadTower
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
+  BAY.tick(now);   // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
   updShipSfx();
   updTruck(); updMineRev(gdt); updDrillV3h(dt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). v3h ore + mast lamps use digOn. updTruck poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
