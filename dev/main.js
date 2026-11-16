@@ -81,6 +81,7 @@ const CFG = {
   hallDoor: { clip: 'hall_door_open', openSec: 1.2 },   // Director 20:58: open once and stay open; longer clips (8c9cee7 3.6 s loop) use 0–openSec
   shipyardCrawlerStopX: 700,   // Director 21:17 (via EM): the crawler PARKS OUTSIDE HB-1 at world x ≈ 700 (Art v3: x 699.9 puts its front contacts at 714). Never drive in to
                                // HB1_Door_Front (world 708): the ~17 m opening is narrower than the 26.6 m tracks. Nothing drives a crawler to the Shipyard yet; any later crawler / ship-move code must stop here
+  bayBRoute: false,            // GD 11/15 19:27 PT: hall is still hb01 v3r2 (no DoorFrontB). GC2's bay-B detour would drive through the closed east wall; keep the bay-A park at shipyardCrawlerStopX. Slot B / ship2 / the bay-full toast stay as GC2 wrote them.
   // He-3 cargo loop (Director 10/23 spec). ALL numbers below are PLACEHOLDERS pending Director sign-off (see the cargo note in the commit report)
   // Director 20:34: boxValue 36 (full hold $360), fuel → refuelSec() (CFG.econ.fuel, Refinery lane), away 600 s, launch/land 8 s, bay 12, pallet 8; partial launch from the Launch button
   dock: { cap: 40, loadS: 3.0, storeS: 3.0 },   // ca-dock (Director via EM 10/31): cap = Cargo Dock stock cap (boxes, saved as S.cg.dk; the only copy); loadS = s per box, Dock -> hold (Dock-first loading while the ship is on the pad); gc-dockfix: storeS = s per crate of the flatbed's Dock store stop (was a fixed 31.4 s per 2-crate trip)
@@ -6188,6 +6189,19 @@ BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, no
   shipUpgradeWork0: () => { const e = suEnv(); return SU.schedule(e.padX, e.bayX, S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT).tWork0; },
   CFG, SU, suEnv, driveV: SU.timings.DRIVE_V, stationX: () => SHIPI * GAP });   // bay B route: reads SU / suEnv, sets only CFG.shipyardCrawlerStopX during a bay-B job (see BAY_B_ROUTE)
 window.__ps3d.bay = BAY;   // QA: bay.info(), bay.setLv(n), bay.start('ship2' | 'booster' | 'ring'), bay.onLook(tier, fn)
+// GD 11/15 19:27 PT: gate GC2's bay-B detour off without editing bay_upgrades.mjs. Tick may still set s.upg.bayB when spot A is held; we clear it so poseBayB no-ops and crawlerStop restores the bay-A park (700). freeSpotForUpgrade / upgradeBlockReason are left alone so a bay-B job uses the bay-A route/park and the bay-full toast still fires at 2/2.
+(function gateBayBRoute() {
+  const STOP0 = 700;
+  const off = () => {
+    if (CFG.bayBRoute) return;
+    if (S.upg && S.upg.bayB) S.upg.bayB = 0;
+    if (CFG.shipyardCrawlerStopX !== STOP0) CFG.shipyardCrawlerStopX = STOP0;
+  };
+  const _tick = BAY.tick;
+  BAY.tick = function (t) { off(); const r = _tick.apply(this, arguments); off(); return r; };
+  const _pose = SU.poseAt;
+  if (typeof _pose === 'function') SU.poseAt = function () { off(); return _pose.apply(this, arguments); };
+})();
 function buyDrill() {
   const c = drillCost(); if (!canPay(c)) return;
   pay(c); S.drill++; applyRigLevel(); applyTiers(S.drill); upgradeFx(); save(); upUI(); hud();
