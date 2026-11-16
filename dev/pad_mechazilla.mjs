@@ -48,7 +48,12 @@ function countMesh(root, skip) {
 // Nodes are looked up on the live tower / pad / access roots passed in
 // (never padArt.getObjectByName('Tower'), which could hit the stand-in's Tower).
 export const HIDE_TOWER_NODES = ['Tower', 'Arm_Pivot', 'Elevator_Cab', 'QD_Pivot'];
-export const HIDE_PAD_NODES = ['Pad_Base', 'Ladder_Foot'];
+// Pad_Base stays hidden: its deck/apron (LOX/LCH4 tanks are the same mesh)
+// overlaps the r2 Mount deck, steps, legs, trench and apron (see r3 clash notes).
+// A&A will cut a tanks-only GLB from Pad_Base later.
+// Hose_LOX / Hose_LCH4 are the live-pad refuel hoses (r1 Mesh_4/5). At Lv20
+// the pad feeds fuel through the mount ring, so the hoses are hidden.
+export const HIDE_PAD_NODES = ['Pad_Base', 'Ladder_Foot', 'Hose_LOX', 'Hose_LCH4'];
 // PackRoot is the platform drawer + telescoping ladder. Hide only this
 // group (and the added foot plate) so setLadderVisible can restore the
 // child LadderStage_* / Rails / deck meshes when leaving Lv20.
@@ -187,8 +192,9 @@ export function createPadMechazilla(THREE) {
   // on: set .visible false on the listed nodes. T.root (Lv10_Tower_Art) stays
   // visible so boarding crew parented to it still draw — they walk the
   // scripted cab/arm path in mid-air (flag, not a fix). CrewTower on the
-  // r2 stand-in is ignored. When off: restore only tower visuals + Pad_Base
-  // (applyPadTower / setLadderVisible already reset the ladder / platform).
+  // r2 stand-in is ignored. When off: restore only tower visuals + pad-owned
+  // nodes in HIDE_PAD_NODES (Pad_Base, hoses, Ladder_Foot). applyPadTower /
+  // setLadderVisible already reset the ladder / platform.
   function applyLegacyHide(ctx, on) {
     if (on) {
       if (!T.legacySaved) T.legacySaved = new Map();
