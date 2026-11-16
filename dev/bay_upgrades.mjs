@@ -28,7 +28,15 @@ export const BAY_RACK = 6, BAY_RACK2 = 12;
 export const BAY_BASE_SEC = { ship2: 600, booster: 900, ring: 60 };
 export const BAY_LOOK_TIERS = [10, 20, 30, 40, 50];
 export const BAY_LOOK_NAMES = { 0: 'approved hall', 10: 'second welding platform', 20: 'wide hall, 2 ship spots', 30: 'wide hall + extended roof', 40: 'second ring rack', 50: 'gold-tier hall trim' };
-const SHIP_KINDS = ['ship2', 'booster'];        // jobs that take a bay spot (rings use the welding platforms)
+const SHIP_KINDS = ['ship2', 'booster'];
+// ---- Lv20 bay B route (Game Director 11/15 3:40 PM PT) ----
+// Bay A is today's spot: the ST-10B parks outside the hall's west side at world x 700 (CFG.shipyardCrawlerStopX). From Bay Lv20, a ship upgrade
+// that starts while bay A is taken by a ship / booster build goes to bay B: from the pad along the z -13 trail to the bay A stop, south around the
+// hall's SW corner, east along the front apron, then north in through the east front door. Waypoints are Shipyard-local metres (station origin
+// world x 800, z 0), measured against the v3 hall (gc/shipyard-v3 0e223393: west wall x -41, facade z +22..+24.6, front door x -42..+41) and
+// the old HB-1 (front apron to z +47) with the ST-10B footprint (28 m along x, 31 m across). The apron leg at z +66 clears both halls' fronts
+// by >= 3 m. PLACEHOLDER: the stop inside bay B (x +22, z +10) and the door x are data for Art & Animation's Lv20 wide hall (bay B), retune here.
+export const BAY_B_ROUTE = { pts: [[-100, -13], [-100, 66], [22, 66], [22, 10]], turnM: 5 };        // jobs that take a bay spot (rings use the welding platforms)
 
 const clampLv = (lv) => Math.max(1, Math.min(BAY_MAX, Math.floor(+lv) || 1));
 export const bayCost = (lv) => (lv | 0) >= BAY_MAX ? 0 : Math.round(BAY_COST0 * BAY_COST_GROWTH ** (clampLv(lv) - 1));   // the step lv -> lv + 1
@@ -79,6 +87,8 @@ export function createBayUpgrades(getS) {
   const shipUpBusy = () => !!(A.D && A.D.shipUpgradeBusy());
   const jobsOf = (ks) => bay().jobs.filter(j => ks.includes(j.k));
   function slotsUsed() { return (shipUpBusy() ? 1 : 0) + jobsOf(SHIP_KINDS).length; }
+  function spotsTaken() { const t = new Set(jobsOf(SHIP_KINDS).map(j => j.spot || 'A')); const u = S().upg; if (shipUpBusy() && u) t.add(u.bayB ? 'B' : 'A'); return t; }
+  function freeSpot(lv = lvNow()) { const t = spotsTaken(); return !t.has('A') ? 'A' : (baySlots(lv) > 1 && !t.has('B') ? 'B' : null); }
   function why(k, lv = lvNow()) {   // every reason a build can't start now ([] = it can)
     const b = bay(), r = [], D = A.D; if (!D) return ['not ready'];
     if (locked()) r.push('Build the Shipyard first');
@@ -99,7 +109,7 @@ export function createBayUpgrades(getS) {
   function start(k) {   // logic entry for a ship / booster / ring build (no button yet; QA hook and the future build UI call this)
     const D = A.D, w = why(k); if (w.length) return { ok: false, why: w };
     const t = D.nowMs(), lv = lvNow(), mul = bayTimeMul(lv), c = price(k); D.settle(t); D.pay(c);
-    const j = { k, t0: t, sec: +(BAY_BASE_SEC[k] * mul).toFixed(3), mul: +mul.toFixed(6) }; bay().jobs.push(j);
+    const j = { k, t0: t, sec: +(BAY_BASE_SEC[k] * mul).toFixed(3), mul: +mul.toFixed(6) }; if (SHIP_KINDS.includes(k)) j.spot = freeSpot(lv) || 'A'; bay().jobs.push(j);
     D.save(); D.refresh(); D.logU('upgrade', `Shipyard: ${k === 'ship2' ? 'second ship' : k} build started (${D.fmt(c)}, ${Math.round(j.sec)} s)`);
     return { ok: true, job: Object.assign({}, j) };
   }
@@ -111,15 +121,57 @@ export function createBayUpgrades(getS) {
       D.logU('upgrade', `Shipyard: ${j.k === 'ship2' ? 'second ship' : j.k} built`); }
     if (shipUpBusy() && s.upg && !(s.upg.bayK > 0)) {
       const u = (t - s.upg.t0) / 1000, tw0 = D.shipUpgradeWork0();
-      if (u < tw0 && s.upg.workSec > 0) { const mul = bayTimeMul(lvNow()); s.upg.bayW0 = +s.upg.workSec; s.upg.workSec = +(s.upg.workSec * mul).toFixed(3); s.upg.bayK = +mul.toFixed(6); }
+      if (u < tw0 && s.upg.workSec > 0) { const mul = bayTimeMul(lvNow()); s.upg.bayW0 = +s.upg.workSec; s.upg.workSec = +(s.upg.workSec * mul).toFixed(3); s.upg.bayK = +mul.toFixed(6);
+        // bay B: Lv20+, bay A held by a ship / booster build, and the transporter has not left its leg to the pad yet
+        if (u < 1 && freeSpotForUpgrade() === 'B') { const e = D.suEnv(); s.upg.bayB = 1; s.upg.bayPadX = +e.padX; s.upg.bayPadZ = +e.padZ; s.upg.bayL = +routeLen(routePts(e.padX, e.padZ)).toFixed(3); } }
       else s.upg.bayK = 1;   // already in (or past) its work phase when first seen (e.g. a save from before this module): left as it was
       ch = true;
     }
+    crawlerStop();
     if (ch) { D.save(); D.refresh(); }
+    poseBayB(t);
+  }
+  function freeSpotForUpgrade() { const t = new Set(jobsOf(SHIP_KINDS).map(j => j.spot || 'A')); return !t.has('A') ? 'A' : (baySlots(lvNow()) > 1 && !t.has('B') ? 'B' : null); }
+  // ---- bay B transporter route (data + pose override; Game Coder's ST-10B code is read, not edited) ----
+  // The ST-10B schedule (ship_upgrade.mjs schedule / phaseAt) times each drive leg from |bayX - padX|. For a bay-B job, crawlerStop() sets
+  // CFG.shipyardCrawlerStopX (which suEnv reads every frame) to padX + the bay-B route length, so the same schedule gives the longer drive at the
+  // same 5 m/s; poseBayB() then re-places the transporter on the route after tickShipUpgrade has posed it. The value goes back to the stored
+  // original (700) the moment the job ends. Loaded legs (to bay B, back to the pad) follow the route; the empty legs drive straight between
+  // bay A's stop and the pad at normal speed (waiting at bay A, then parking there).
+  const routePts = (padX, padZ) => [[padX, padZ], ...BAY_B_ROUTE.pts.map(([x, z]) => [A.D.stationX() + x, z])];
+  const routeLen = (P) => { let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); return L; };
+  function routeAt(P, d) { d = Math.max(0, d); for (let i = 1; i < P.length; i++) { const l = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+      if (d <= l || i === P.length - 1) { const f = l > 0 ? Math.min(1, d / l) : 1; return [P[i - 1][0] + (P[i][0] - P[i - 1][0]) * f, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * f]; } d -= l; }
+    return P[P.length - 1].slice(); }
+  function crawlerStop() {
+    const D = A.D, s = S(); if (!D || !D.CFG) return; if (A.stop0 == null) A.stop0 = D.CFG.shipyardCrawlerStopX;
+    const want = shipUpBusy() && s.upg && s.upg.bayB && s.upg.bayL > 0 ? s.upg.bayPadX + s.upg.bayL : A.stop0;
+    if (D.CFG.shipyardCrawlerStopX !== want) D.CFG.shipyardCrawlerStopX = want;
+  }
+  const sm = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * u * (u * (u * 6 - 15) + 10); };   // same easing as ship_upgrade.mjs
+  function poseBayB(t) {
+    const D = A.D, s = S(), SU = D && D.SU; A.bayB = null; if (!SU || !SU.T || !SU.T.ready || !shipUpBusy() || !(s.upg && s.upg.bayB)) return;
+    const e = D.suEnv(), u = (t - s.upg.t0) / 1000, sch = SU.schedule(e.padX, e.bayX, s.upg.workSec > 0 ? +s.upg.workSec : 60), ph = SU.phaseAt(u, sch);
+    const P = routePts(s.upg.bayPadX, s.upg.bayPadZ), L = routeLen(P), ax = A.stop0, az = s.upg.bayPadZ, px = s.upg.bayPadX, tA = Math.abs(ax - px) / D.driveV;
+    let x, z, d = null;
+    if (ph.k === 'to_pad') { const f = (u - (sch.toPad - tA)) / tA; x = ax + (px - ax) * sm(f); z = az; }
+    else if (ph.k === 'pickup' || ph.k === 'drop') { x = px; z = az; }
+    else if (ph.k === 'to_bay') d = L * sm((u - sch.tToBay0) / sch.toBay);
+    else if (ph.k === 'work') d = L;
+    else if (ph.k === 'to_pad_back') d = L * (1 - sm((u - sch.tBack0) / sch.back));
+    else if (ph.k === 'to_bay_home') { const f = (u - sch.tHome0) / tA; x = px + (ax - px) * sm(f); z = az; }
+    else { x = ax; z = az; }
+    let yaw = 0;
+    if (d != null) { [x, z] = routeAt(P, d); const w = BAY_B_ROUTE.turnM, a = routeAt(P, d - w), b = routeAt(P, d + w); yaw = Math.atan2(-(b[1] - a[1]), b[0] - a[0]); }
+    SU.place(x, (e.shipY0 != null ? e.shipY0 : 0) - 0.45, z); SU.T.root.rotation.y = yaw; SU.T.root.updateMatrixWorld(true);
+    A.bayB = { ph: ph.k, x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(3), d: d == null ? null : +d.toFixed(2), L: +L.toFixed(2) };
   }
   function shift(d) { const s = getS(); if (!s || !s.bay || !Array.isArray(s.bay.jobs)) return; for (const j of s.bay.jobs) if (j && j.t0 > 0) j.t0 += d; }
 
   // ---- look hooks (no art yet: the approved hall stays at every level) ----
+  // Named hooks for Art & Animation's bay looks (tonight: Lv20 wide hall with bay B, Lv30 wide hall + extended roof). Each gets (tier, lv, ctx);
+  // ctx.hall is the Shipyard station root, ctx.slots / ctx.rack / ctx.lanes the current numbers, ctx.prev the previous tier.
+  const onLv10Look = (fn) => onLook(10, fn), onLv20WideHall = (fn) => onLook(20, fn), onLv30ExtendedRoof = (fn) => onLook(30, fn), onLv40Rack = (fn) => onLook(40, fn), onLv50Gold = (fn) => onLook(50, fn);
   function onLook(tier, fn) { if (tier === '*') A.lookAny.push(fn); else if (A.looks[tier]) A.looks[tier].push(fn); else throw new Error('bay look tier must be one of ' + BAY_LOOK_TIERS.join('/') + " or '*'"); }
   function applyLook(force) {   // called on load, on every buy and on setLv. Handlers get (tier, lv, ctx); tier 0 = the approved hall (Lv1-9).
     const lv = lvNow(), tier = bayLookTier(lv); if (!force && tier === A.lookTier) return tier; const prev = A.lookTier; A.lookTier = tier;
@@ -185,6 +237,7 @@ export function createBayUpgrades(getS) {
       A.glowT = { id: 'bayUp', p: 'bayGlow', site: shipT.site, hl: () => shipT.hl() };
       const i = D.GLOW_T.indexOf(shipT); D.GLOW_T.splice(i < 0 ? D.GLOW_T.length : i, 0, A.glowT);
     }
+    crawlerStop();   // before the first frame, so a saved bay-B job resumes on its own schedule
     applyLook(true);
   }
   function info() {
@@ -193,8 +246,9 @@ export function createBayUpgrades(getS) {
       shipUpgradeBusy: shipUpBusy(), lanes: bayRingLanes(lv), rackCap: bayRackCap(lv), rings: b.rings, own: Object.assign({}, b.own),
       jobs: b.jobs.map(j => Object.assign({ left: A.D ? +Math.max(0, j.t0 + j.sec * 1000 - A.D.nowMs()) / 1000 : null }, j)), lookTier: A.lookTier,
       look: BAY_LOOK_NAMES[A.lookTier], lookLog: A.lookLog.slice(), canStart: { ship2: why('ship2'), booster: why('booster'), ring: why('ring') },
-      glow: A.D && A.D.GLOW ? !!A.D.GLOW.on.bayUp : false, locked: locked() };
+      glow: A.D && A.D.GLOW ? !!A.D.GLOW.on.bayUp : false, locked: locked(), spots: [...spotsTaken()], upgradeSpot: shipUpBusy() && S().upg ? (S().upg.bayB ? 'B' : 'A') : null,
+      bayB: A.bayB, crawlerStopX: A.D && A.D.CFG ? A.D.CFG.shipyardCrawlerStopX : null, route: BAY_B_ROUTE };
   }
-  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, onLook, applyLook, info, slotsUsed,
+  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
     consts: { BAY_MAX, BAY_COST0, BAY_COST_GROWTH, BAY_TIME_MUL_PER_LV, BAY_SHIP2_PRICE, BAY_BOOSTER_PRICE, BAY_RING_PRICE, BAY_BASE_SEC, BAY_LOOK_TIERS } };
 }

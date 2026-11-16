@@ -5884,7 +5884,8 @@ const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.
 // gc2/bay-upgrades: Shipyard Bay card (UP.bayUp), hall afford glow, ship upgrade time x bayTimeMul, bay build slots. Reads the ship upgrade state, never writes its entry.
 BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, nowMs, logU, save, settle: (t) => settleTo(t, null), popAtBuy, openUp: (id) => openUp(id),
   refresh: () => { UPK.k = ''; upUI(); hud(); }, shipUpgradeBusy: () => shipUpgradeBusy(S), hall: () => stationObjs[SHIPI] || null,
-  shipUpgradeWork0: () => { const e = suEnv(); return SU.schedule(e.padX, e.bayX, S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT).tWork0; } });
+  shipUpgradeWork0: () => { const e = suEnv(); return SU.schedule(e.padX, e.bayX, S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT).tWork0; },
+  CFG, SU, suEnv, driveV: SU.timings.DRIVE_V, stationX: () => SHIPI * GAP });   // bay B route: reads SU / suEnv, sets only CFG.shipyardCrawlerStopX during a bay-B job (see BAY_B_ROUTE)
 window.__ps3d.bay = BAY;   // QA: bay.info(), bay.setLv(n), bay.start('ship2' | 'booster' | 'ring'), bay.onLook(tier, fn)
 function buyDrill() {
   const c = drillCost(); if (!canPay(c)) return;
