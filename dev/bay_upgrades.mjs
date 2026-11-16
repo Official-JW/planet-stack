@@ -129,13 +129,12 @@ export function createBayUpgrades(getS) {
     }
     crawlerStop();
     if (ch) { D.save(); D.refresh(); }
-    poseBayB(t);
   }
   function freeSpotForUpgrade() { const t = new Set(jobsOf(SHIP_KINDS).map(j => j.spot || 'A')); return !t.has('A') ? 'A' : (baySlots(lvNow()) > 1 && !t.has('B') ? 'B' : null); }
   // ---- bay B transporter route (data + pose override; Game Coder's ST-10B code is read, not edited) ----
   // The ST-10B schedule (ship_upgrade.mjs schedule / phaseAt) times each drive leg from |bayX - padX|. For a bay-B job, crawlerStop() sets
   // CFG.shipyardCrawlerStopX (which suEnv reads every frame) to padX + the bay-B route length, so the same schedule gives the longer drive at the
-  // same 5 m/s; poseBayB() then re-places the transporter on the route after tickShipUpgrade has posed it. The value goes back to the stored
+  // same 5 m/s; the SU.poseAt wrapper (wrapPose) then re-places the transporter on the route right after his poseAt. The value goes back to the stored
   // original (700) the moment the job ends. Loaded legs (to bay B, back to the pad) follow the route; the empty legs drive straight between
   // bay A's stop and the pad at normal speed (waiting at bay A, then parking there).
   const routePts = (padX, padZ) => [[padX, padZ], ...BAY_B_ROUTE.pts.map(([x, z]) => [A.D.stationX() + x, z])];
@@ -149,9 +148,15 @@ export function createBayUpgrades(getS) {
     if (D.CFG.shipyardCrawlerStopX !== want) D.CFG.shipyardCrawlerStopX = want;
   }
   const sm = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * u * (u * (u * 6 - 15) + 10); };   // same easing as ship_upgrade.mjs
-  function poseBayB(t) {
-    const D = A.D, s = S(), SU = D && D.SU; A.bayB = null; if (!SU || !SU.T || !SU.T.ready || !shipUpBusy() || !(s.upg && s.upg.bayB)) return;
-    const e = D.suEnv(), u = (t - s.upg.t0) / 1000, sch = SU.schedule(e.padX, e.bayX, s.upg.workSec > 0 ? +s.upg.workSec : 60), ph = SU.phaseAt(u, sch);
+  function wrapPose() {   // the only ST-10B hook: wrap SU.poseAt (Game Coder's suggestion). His poseAt runs unchanged (place, setCradle, attach /
+    // detach ship); for a bay-B job the wrapper then re-places the drive origin on the route. Nothing else in ship_upgrade.mjs is touched.
+    const SU = A.D && A.D.SU; if (!SU || SU.__bayWrapped || typeof SU.poseAt !== 'function') return; const orig = SU.poseAt;
+    SU.poseAt = function (u, sch, env) { const r = orig.call(this, u, sch, env); const p = poseBayB(u, sch, env); if (r && p) { r.x = p.x; r.z = p.z; r.bayB = p; } return r; };
+    SU.__bayWrapped = 1;
+  }
+  function poseBayB(u, sch, e) {
+    const D = A.D, s = S(), SU = D && D.SU; A.bayB = null; if (!SU || !SU.T || !SU.T.ready || !shipUpBusy() || !(s.upg && s.upg.bayB)) return null;
+    const ph = SU.phaseAt(u, sch);
     const P = routePts(s.upg.bayPadX, s.upg.bayPadZ), L = routeLen(P), ax = A.stop0, az = s.upg.bayPadZ, px = s.upg.bayPadX, tA = Math.abs(ax - px) / D.driveV;
     let x, z, d = null;
     if (ph.k === 'to_pad') { const f = (u - (sch.toPad - tA)) / tA; x = ax + (px - ax) * sm(f); z = az; }
@@ -164,7 +169,7 @@ export function createBayUpgrades(getS) {
     let yaw = 0;
     if (d != null) { [x, z] = routeAt(P, d); const w = BAY_B_ROUTE.turnM, a = routeAt(P, d - w), b = routeAt(P, d + w); yaw = Math.atan2(-(b[1] - a[1]), b[0] - a[0]); }
     SU.place(x, (e.shipY0 != null ? e.shipY0 : 0) - 0.45, z); SU.T.root.rotation.y = yaw; SU.T.root.updateMatrixWorld(true);
-    A.bayB = { ph: ph.k, x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(3), d: d == null ? null : +d.toFixed(2), L: +L.toFixed(2) };
+    return (A.bayB = { ph: ph.k, x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(3), d: d == null ? null : +d.toFixed(2), L: +L.toFixed(2) });
   }
   function shift(d) { const s = getS(); if (!s || !s.bay || !Array.isArray(s.bay.jobs)) return; for (const j of s.bay.jobs) if (j && j.t0 > 0) j.t0 += d; }
 
@@ -237,6 +242,7 @@ export function createBayUpgrades(getS) {
       A.glowT = { id: 'bayUp', p: 'bayGlow', site: shipT.site, hl: () => shipT.hl() };
       const i = D.GLOW_T.indexOf(shipT); D.GLOW_T.splice(i < 0 ? D.GLOW_T.length : i, 0, A.glowT);
     }
+    wrapPose();
     crawlerStop();   // before the first frame, so a saved bay-B job resumes on its own schedule
     applyLook(true);
   }
