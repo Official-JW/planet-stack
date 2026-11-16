@@ -3733,14 +3733,43 @@ function shipHudText(t = nowMs()) {
   if (ship2 && a !== 'Docked at bay') return a + ' · 2 docked';   // second hull is at the bay; the line is the active / nearest trip
   return a;
 }
+function shipLaunchFrac(s, t) {        // boarding + climb, 0–1, from the frozen board clock and launchSec
+  const b = (s.bsec > 0 ? s.bsec : (s.st === 'board' ? boardSec(s) : 0));
+  const L = shipDur(CG.launchSec, s);
+  const total = (b + L) * 1000; if (!(total > 0)) return 0;
+  const elapsed = s.st === 'board' ? (t - s.t0) : (b * 1000 + (t - s.t0));
+  return clamp(elapsed / total, 0, 1);
+}
+function shipBayWorkFrac(t = nowMs()) {   // read-only: existing S.upg + SU.schedule; do not start or edit the job
+  if (!(S.upg && S.upg.t0 > 0)) return 0;
+  const work = S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT;
+  const env = (typeof suEnv === 'function') ? suEnv() : null;
+  const padX = env && env.padX, bayX = env && env.bayX;
+  const sch = (SU && SU.schedule && padX != null && bayX != null) ? SU.schedule(padX, bayX, work) : null;
+  const end = sch && sch.tEnd > 0 ? sch.tEnd : work;
+  if (!(end > 0)) return 0;
+  return clamp((t - S.upg.t0) / (end * 1000), 0, 1);
+}
+function shipHudFrac(t = nowMs()) {    // mid-HUD bar, same ship / line as shipHudText, 0–1
+  if (typeof shipUpgradeBusy === 'function' && shipUpgradeBusy(S)) return shipBayWorkFrac(t);
+  const c = S.cg, s = c && c.sh; if (!s) return 0;
+  if (s.st === 'pad' || s.st === 'deboard') { const cap = holdCap(); return cap > 0 ? clamp((s.hold || 0) / cap, 0, 1) : 0; }
+  if (s.st === 'board' || s.st === 'launch') return shipLaunchFrac(s, t);
+  if (s.st === 'away') {
+    const half = (t < s.t0 + shipDur(CG.awaySec, s) * 500) ? 0 : 1;
+    return shipTripPct(s, t, half) / 100;   // exactly the N% in the status text
+  }
+  if (s.st === 'land') { const dur = shipDur(CG.landSec, s) * 1000; return dur > 0 ? clamp((t - s.t0) / dur, 0, 1) : 0; }
+  return 0;
+}
 function hud() {
   const mt = DEV ? '∞' : fmt(S.money); if (mt !== lastMoneyTxt) { moneyEl.textContent = mt; lastMoneyTxt = mt; moneyEl.classList.toggle('long', mt.length > 10);
     if (S.money > lastMoneyV && !moneyEl.classList.contains('bump')) moneyEl.classList.add('tick'); }   // soft tick on any increase (transform/opacity only, no forced reflow)
   lastMoneyV = S.money;
   const st = shipHudText(); if (st !== lastShipTxt) { rateEl.textContent = st; lastShipTxt = st; rateEl.classList.toggle('long', st.length > 18); }
   if (CFG.showCrystals) cryEl.textContent = S.crystals;   // paid currency (real money only); hidden until the shop lands
-  const bf = TC.ts.shown; if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = `scaleX(${bf.toFixed(3)})`; }   // bar = the truck bed
-  binEl.classList.toggle('full', TC.ts.ph !== 'fill' && TC.ts.shown >= 1);
+  const bf = shipHudFrac(); if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = 'scaleX(' + bf.toFixed(3) + ')'; }   // ship-status bar; transform only, skip no-op writes
+  if (binEl.classList.contains('full')) binEl.classList.remove('full');   // no truck-bed .full glow on this cell
 }
 // money pops: chunks and '+$X' fly to the HUD money counter (the HUD dims while an Earth Coms toast rings; the counter stays the target)
 const hudEl = $('hud');
@@ -6955,7 +6984,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, catchUp, settleTo, save, toScreen, drillCost, chuteCost, rate, fmt, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); tickShipUpgrade(nowMs()); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
-  get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, setShipTgl, crewEnRoute, launchReady, canLaunch, MONEY_ICON_URL, MONEY_ICON_URL_2X, shipHudText, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, CRANE_TIME_MULT, craneLoadSec, craneJobSec, pcSec, rideSecNow, rideDoorSecNow, refLoadSecNow, dockSec, dockClipEnd, dockAnimSec, get cargoLog() { return CG_LOG.slice(); },
+  get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, setShipTgl, crewEnRoute, launchReady, canLaunch, MONEY_ICON_URL, MONEY_ICON_URL_2X, shipHudText, shipHudFrac, shipLaunchFrac, shipBayWorkFrac, shipTripPct, hud, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, CRANE_TIME_MULT, craneLoadSec, craneJobSec, pcSec, rideSecNow, rideDoorSecNow, refLoadSecNow, dockSec, dockClipEnd, dockAnimSec, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, MR, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },
