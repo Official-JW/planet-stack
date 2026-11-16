@@ -122,8 +122,10 @@ export function createBayUpgrades(getS) {
     if (shipUpBusy() && s.upg && !(s.upg.bayK > 0)) {
       const u = (t - s.upg.t0) / 1000, tw0 = D.shipUpgradeWork0();
       if (u < tw0 && s.upg.workSec > 0) { const mul = bayTimeMul(lvNow()); s.upg.bayW0 = +s.upg.workSec; s.upg.workSec = +(s.upg.workSec * mul).toFixed(3); s.upg.bayK = +mul.toFixed(6);
-        // bay B: Lv20+, bay A held by a ship / booster build, and the transporter has not left its leg to the pad yet
-        if (u < 1 && freeSpotForUpgrade() === 'B') { const e = D.suEnv(); s.upg.bayB = 1; s.upg.bayPadX = +e.padX; s.upg.bayPadZ = +e.padZ; s.upg.bayL = +routeLen(routePts(e.padX, e.padZ)).toFixed(3); } }
+        // bay B: Lv20+, bay A held by a ship / booster build, and the transporter is still on its empty leg to the pad (before pickup; a long
+        // frame hitch at the start can't drop the job into the busy bay A). The empty leg is re-posed from bay A, so a late switch only nudges it.
+        const e0 = D.suEnv();
+        if (u < Math.abs(e0.bayX - e0.padX) / D.driveV && freeSpotForUpgrade() === 'B') { const e = e0; s.upg.bayB = 1; s.upg.bayPadX = +e.padX; s.upg.bayPadZ = +e.padZ; s.upg.bayL = +routeLen(routePts(e.padX, e.padZ)).toFixed(3); } }
       else s.upg.bayK = 1;   // already in (or past) its work phase when first seen (e.g. a save from before this module): left as it was
       ch = true;
     }
