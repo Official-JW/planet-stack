@@ -2517,12 +2517,30 @@ function boosterWanted() {   // 'st10b' | 'pad' | null. Economy/unlock: S.bay.ow
   if (S.bay && S.bay.own && S.bay.own.booster) return 'st10b';
   return null;
 }
+function padMzLegacyCtx() {   // live roots for the visibility-only hide in pad_mechazilla.mjs
+  const st = S.cg && S.cg.sh && S.cg.sh.st;
+  return {
+    padArt: cg3.padArt || null,
+    towerRoot: (TW.T && TW.T.root) || null,
+    receptacle: (TW.T && TW.T.receptacle) || null,
+    accRoot: (ACC.A && ACC.A.root) || null,
+    ship: cg3.ship || null,
+    shipState: st || null,
+  };
+}
 function applyPadMz() {   // show the chopsticks tower (r2 stand-in) at pad Lv20 or ?mz=1. Does not edit the Lv10 crew tower or control tower.
   const on = padMzWanted();
+  const hook = () => {
+    MZ.applyLegacyHide(padMzLegacyCtx(), on);
+    window.__ps3d.padMz = Object.assign(MZ.T.ready ? MZ.info() : { ready: false, visible: false }, { legacyHide: MZ.legacyInfo() });
+  };
+  // Hide the old Lv10 pieces as soon as MZ is wanted, even if the r2 stand-in is still loading.
+  if (on) hook();
   if (on && cg3.padArt && !MZ.T.ready && !MZ.T.failed) MZ.load(loader, cg3.padArt, (info) => {
-    MZ.setActive(true); window.__ps3d.padMz = info;
+    MZ.setActive(true); hook();
   });
-  else if (MZ.T.ready) { MZ.setActive(on); window.__ps3d.padMz = MZ.info(); }
+  else if (MZ.T.ready) { MZ.setActive(on); hook(); }
+  else if (!on) hook();
 }
 function loadBooster() {
   if (!SU.T || !SU.T.root) return;
@@ -6134,7 +6152,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, syncBooster, padMzWanted, boosterWanted });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, padMzLegacyCtx, syncBooster, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
@@ -6633,6 +6651,7 @@ function frame() {
   updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); cvFrame(); if (CT && CT.update) CT.update(gdt); updPadCam(dt); placeCamera();
   tickShipUpgrade(now);   // gc/ship-upgrade: pose ST-10B from saved S.upg stamps, then updCargo skips hull y if carrying
   if (MZ && MZ.T && MZ.T.ready) MZ.tick(gdt);
+  if (MZ && padMzWanted()) MZ.applyLegacyHide(padMzLegacyCtx(), true);   // re-hide after late TW/ACC loads and applyPadTower
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
   updShipSfx();

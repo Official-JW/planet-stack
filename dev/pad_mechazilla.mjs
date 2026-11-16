@@ -42,10 +42,39 @@ function countMesh(root, skip) {
   return { draws, tris: Math.round(tris) };
 }
 
+// Visibility-only hide of the pre-Mechazilla pad pieces. Does not call
+// setActive / setLadderVisible / attachReceptacle, and does not edit
+// lv10_tower, access1720, control_tower, or the Launch Pad card.
+// Nodes are looked up on the live tower / pad / access roots passed in
+// (never padArt.getObjectByName('Tower'), which could hit the stand-in's Tower).
+export const HIDE_TOWER_NODES = ['Tower', 'Arm_Pivot', 'Elevator_Cab', 'QD_Pivot'];
+export const HIDE_PAD_NODES = ['Pad_Base', 'Ladder_Foot'];
+// PackRoot is the platform drawer + telescoping ladder. Hide only this
+// group (and the added foot plate) so setLadderVisible can restore the
+// child LadderStage_* / Rails / deck meshes when leaving Lv20.
+export const HIDE_ACCESS_NODES = ['PackRoot', 'Ladder_FootPlate'];
+
+function isUnder(o, root) {
+  for (let n = o; n; n = n.parent) if (n === root) return true;
+  return false;
+}
+
+// The QD port rides the hull during launch / away / land. Hide it on the
+// pad (and if it would otherwise float) but leave it on a ship in flight.
+export function shipNeedsReceptacle(ctx) {
+  const rec = ctx && ctx.receptacle, ship = ctx && ctx.ship;
+  if (!rec || !ship) return false;
+  const hull = (ship.getObjectByName && ship.getObjectByName('Ship_Placeholder')) || ship;
+  if (!isUnder(rec, hull) && rec.parent !== hull) return false;
+  const st = ctx.shipState;
+  return st === 'launch' || st === 'away' || st === 'land';
+}
+
 export function createPadMechazilla(THREE) {
   const T = {
     ready: false, failed: false, loading: false,
     root: null, nodes: {}, mx: null, acts: {}, missing: [], clips: [],
+    legacyOn: false, legacySaved: null, legacyHidden: [],
   };
 
   function bind(gltf, padRoot) {
@@ -128,8 +157,80 @@ export function createPadMechazilla(THREE) {
       hidden: ['Mount', 'Crane'].filter((n) => T.nodes[n] && !T.nodes[n].visible),
       hasCrewTower: !!T.nodes.CrewTower,
       cam: PAD_MZ_CAM,
+      legacyHide: legacyInfo(),
     };
   }
 
-  return { T, load, bind, setActive, play, tick, info, consts: { PAD_MZ_URL, PAD_MZ_MD5, PAD_MZ_CAM, PAD_MZ_STANDIN, PAD_MZ_NODES, PAD_MZ_CLIPS } };
+  function collectLegacy(ctx) {
+    const out = [];
+    const add = (o) => { if (o && out.indexOf(o) < 0) out.push(o); };
+    const root = ctx && ctx.towerRoot;
+    if (root) {
+      for (const n of HIDE_TOWER_NODES) add(root.getObjectByName(n));
+    }
+    if (ctx && ctx.receptacle && !shipNeedsReceptacle(ctx)) add(ctx.receptacle);
+    const pad = ctx && ctx.padArt;
+    if (pad) {
+      for (const n of HIDE_PAD_NODES) {
+        const o = pad.getObjectByName(n);
+        // Pad_Base / Ladder_Foot live on the live pad GLB, not the stand-in.
+        if (o && !(T.root && isUnder(o, T.root))) add(o);
+      }
+    }
+    const acc = ctx && ctx.accRoot;
+    if (acc) {
+      for (const n of HIDE_ACCESS_NODES) add(acc.getObjectByName(n));
+    }
+    return out;
+  }
+
+  // on: set .visible false on the listed nodes. T.root (Lv10_Tower_Art) stays
+  // visible so boarding crew parented to it still draw — they walk the
+  // scripted cab/arm path in mid-air (flag, not a fix). CrewTower on the
+  // r2 stand-in is ignored. When off: restore only tower visuals + Pad_Base
+  // (applyPadTower / setLadderVisible already reset the ladder / platform).
+  function applyLegacyHide(ctx, on) {
+    if (on) {
+      if (!T.legacySaved) T.legacySaved = new Map();
+      const nodes = collectLegacy(ctx);
+      const hidden = [];
+      for (const o of nodes) {
+        if (!T.legacySaved.has(o)) T.legacySaved.set(o, o.visible);
+        o.visible = false;
+        if (o.name) hidden.push(o.name);
+      }
+      if (ctx && ctx.receptacle && shipNeedsReceptacle(ctx)) ctx.receptacle.visible = true;
+      T.legacyOn = true;
+      T.legacyHidden = hidden;
+    } else {
+      const restore = new Set();
+      const root = ctx && ctx.towerRoot;
+      if (root) {
+        for (const n of HIDE_TOWER_NODES) {
+          const o = root.getObjectByName(n);
+          if (o) restore.add(o);
+        }
+      }
+      if (ctx && ctx.padArt) {
+        for (const n of HIDE_PAD_NODES) {
+          const o = ctx.padArt.getObjectByName(n);
+          if (o && !(T.root && isUnder(o, T.root))) restore.add(o);
+        }
+      }
+      if (T.legacySaved) {
+        for (const [o, v] of T.legacySaved) {
+          if (o && restore.has(o)) o.visible = v;
+        }
+      }
+      T.legacySaved = null;
+      T.legacyOn = false;
+      T.legacyHidden = [];
+    }
+  }
+
+  function legacyInfo() {
+    return { on: !!T.legacyOn, hidden: (T.legacyHidden || []).slice() };
+  }
+
+  return { T, load, bind, setActive, play, tick, info, applyLegacyHide, legacyInfo, collectLegacy, consts: { PAD_MZ_URL, PAD_MZ_MD5, PAD_MZ_CAM, PAD_MZ_STANDIN, PAD_MZ_NODES, PAD_MZ_CLIPS } };
 }
