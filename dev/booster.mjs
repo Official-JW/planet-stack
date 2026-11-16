@@ -114,6 +114,21 @@ export function createBooster(THREE) {
     return true;
   }
 
+  // Stacked catch / TowerCrewBoard_Stack: parent to Mount_Turntable so the
+  // booster turns with the +135° boarding yaw. Local yaw stays -45°; world yaw
+  // is -45° + turntable (EXPORT_r2t2.md). Ring sits 0.8 m above the turntable (y 9).
+  function placeOnTurntable(tt) {
+    if (!T.booster || !tt) return false;
+    if (T.booster.parent !== tt) tt.add(T.booster);
+    T.booster.position.set(0, BOOSTER_PAD.y - 9, 0);
+    T.booster.rotation.set(0, BOOSTER_PAD.yaw, 0);
+    T.booster.visible = true;
+    if (T.cradle) T.cradle.visible = false;
+    T.mode = 'pad';
+    T.carrying = false;
+    return true;
+  }
+
   function hide() {
     if (T.booster) T.booster.visible = false;
     if (T.cradle) T.cradle.visible = false;
@@ -129,6 +144,7 @@ export function createBooster(THREE) {
     const st10b = opts && opts.st10b;
     if (st10b) attachCradle(st10b);
     if (!show) { hide(); return T.mode; }
+    if (opts.mode === 'pad' && opts.turntable) return placeOnTurntable(opts.turntable) ? 'pad' : T.mode;
     if (opts.mode === 'pad' && opts.pad) return placeOnPad(opts.pad) ? 'pad' : T.mode;
     return placeOnCradle() ? 'st10b' : T.mode;
   }
@@ -147,5 +163,5 @@ export function createBooster(THREE) {
     };
   }
 
-  return { T, load, attachCradle, placeOnCradle, placeOnPad, hide, sync, info, consts: { BOOSTER_URL, BOOSTER_MD5, CRADLE_URL, CRADLE_MD5, BOOSTER_PAD } };
+  return { T, load, attachCradle, placeOnCradle, placeOnPad, placeOnTurntable, hide, sync, info, consts: { BOOSTER_URL, BOOSTER_MD5, CRADLE_URL, CRADLE_MD5, BOOSTER_PAD } };
 }

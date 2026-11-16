@@ -15,7 +15,7 @@ const BAY = createBayUpgrades(() => S);   // no-op until BAY.install (after the 
 // --- gc/ship-upgrade (begin) ---
 import { createShipUpgrade, migrateShipUpgrade, shipUpgradeBusy, shipUpgradeStaffed, shipUpgradeShortfallText, shipUpgradeWorkSec, SHIP_UPGRADE_REQ, BAY_X, PATH_Z, WORK_SEC_DEFAULT } from './ship_upgrade.mjs';
 // --- gc/ship-upgrade (end) ---
-import { createPadMechazilla, PAD_MZ_URL, PAD_MZ_CAM } from './pad_mechazilla.mjs';   // gc/mechazilla: r2 stand-in pad rig; swap PAD_MZ_URL for the 6:30 final GLB
+import { createPadMechazilla, PAD_MZ_URL, PAD_MZ_CAM, mzBoardSeconds, mzDeboardSeconds } from './pad_mechazilla.mjs';   // gc/mechazilla: r2t2 final pad (elevator+arm in the chopstick tower, no CrewTower)
 import { createBooster } from './booster.mjs';   // gc/mechazilla: booster r2 + upright ST-10B cradle (economy/unlock stay on gc2/bay-upgrades)
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
@@ -2545,16 +2545,35 @@ function padMzLegacyCtx() {   // live roots for the visibility-only hide in pad_
     shipState: st || null,
   };
 }
-function applyPadMz() {   // show the chopsticks tower (r2 stand-in) at pad Lv20 or ?mz=1. Does not edit the Lv10 crew tower or control tower.
+function applyPadMzCam() {   // r2t2 game camera: Cam_Target (8.75, 51.75, −13), frame_w 109.5
+  const C = SITECAM[PADI]; if (!C || !camera.userData.dist) return;
+  if (!padMzWanted()) return;
+  const ov = PAD_MZ_CAM, fw = ov.frame_w;
+  const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
+  SITECAM[PADI] = { k: d / camera.userData.dist, dx: ov.ct.x, dz: ov.ct.z, ly: ov.ct.y, ct: true, d, fw, ov: 'mz-r2t2', rest: 'mz', mz: true };
+  window.__ps3d.padRest = { src: 'mz', ct: [ov.ct.x, ov.ct.y, ov.ct.z], frame_w: fw };
+}
+function mzBoardingOn() { return padMzWanted() && padLvNow() >= 20 && MZ && MZ.T && MZ.T.ready && MZ.T.root && MZ.T.root.visible; }
+function mzStackOn() {   // ship stacked on the booster (catch set-down, or booster already on the turntable)
+  const tt = MZ && MZ.T && MZ.T.nodes && MZ.T.nodes.Mount_Turntable;
+  return !!(BST && BST.T && BST.T.booster && tt && BST.T.booster.parent === tt);
+}
+function applyPadMz() {   // show the r2t2 chopsticks tower at pad Lv20 or ?mz=1. Does not edit the Lv10 crew tower or control tower.
   const on = padMzWanted();
   const hook = () => {
+    if (MZ.T.ready) MZ.setPadLv(padLvNow());
     MZ.applyLegacyHide(padMzLegacyCtx(), on);
+    if (on) applyPadMzCam(); else if (typeof padRestApply === 'function') { try { padRestApply(); } catch (e) {} }
     window.__ps3d.padMz = Object.assign(MZ.T.ready ? MZ.info() : { ready: false, visible: false }, { legacyHide: MZ.legacyInfo() });
   };
-  // Hide the old Lv10 pieces as soon as MZ is wanted, even if the r2 stand-in is still loading.
   if (on) hook();
   if (on && cg3.padArt && !MZ.T.ready && !MZ.T.failed) MZ.load(loader, cg3.padArt, (info) => {
-    MZ.setActive(true); hook();
+    MZ.setActive(true);
+    MZ.setPadLv(padLvNow());
+    const skirt = cg3.ship && (cg3.ship.getObjectByName('Aft_Skirt_Module') || cg3.ship.getObjectByName('Aft_Skirt') || cg3.ship.getObjectByName('Aft_Skirt_Seat'));
+    if (skirt) MZ.bindLegs(skirt);
+    if (cg3.hatchMx && cg3.hatchClips) MZ.bindHatch(cg3.hatchMx, cg3.hatchClips);
+    hook();
   });
   else if (MZ.T.ready) { MZ.setActive(on); hook(); }
   else if (!on) hook();
@@ -2628,7 +2647,8 @@ function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-
   // Freeze duration on the trip so leaving the pad / retargeting never shortens boarding into an instant launch.
   if (sh && sh.bsec > 0) return sh.bsec;
   const fly = flyCrew(sh); if (!BD.on || !fly.length) return 0;
-  // Lv10: elevator + arm + QD release + arm retract. Constants, not the GLB, so offline catch-up stays stable.
+  // Lv20 r2t2: TowerCrewBoard_Mount / _Stack clip length (52 / 58 s). Lv10: elevator + arm + QD, constants, not the GLB.
+  if (mzBoardingOn()) return mzBoardSeconds(fly.length, mzStackOn());
   if (padUsesTower()) return towerBoardSeconds(fly.length);
   // 1720 ladder: deploy, one climber at a time, stow, then launch. Nominal until the mesh rungs are read.
   if (ACC.A.ready || !ACC.A.failed) return accessSeconds(fly.length, ACC.A.rungs || null);
@@ -2640,6 +2660,7 @@ function deboardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'deboar
 function deboardSec(sh) {
   const fly = flyCrew(sh || (S.cg && S.cg.sh) || null);
   const n = Math.max(1, fly.length || tripFly(sh || (S.cg && S.cg.sh)) || CFG.crew0);
+  if (mzBoardingOn()) return mzDeboardSeconds(n, mzStackOn());
   if (padUsesTower()) return towerDeboardSeconds(n);
   if (!ACC.A.failed) return accessDeboardSeconds(n, ACC.A.rungs || null);
   return accessDeboardSeconds(n, null);
@@ -2845,7 +2866,54 @@ function towerUpdateDeboard(tb) {
   if (info) window.__ps3d.lv10tower = Object.assign(TW.info(), { tb: +tb.toFixed(2), done: +info.done.toFixed(2), deboard: true, padLv: padLvNow() });
   BC.w = 0; BC.ph = 'off'; BC.tb = tb;
 }
-function towerPoseAt(tb) {   // QA: pose the L10 boarding at an absolute time and leave it (caller should render immediately).
+function mzUpdateBoard(tb) {
+  const people = accessPeople();
+  const info = MZ.tickBoard(tb, people, { stack: mzStackOn() });
+  if (cg3.ship) MZ.followShip(cg3.ship);
+  for (const p of people) {
+    if (p.mode === 'walk' && p.acts) { p.obj.userData._accHeld = 0; wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true); }
+    else if (p.acts) { for (const n in p.acts) p.acts[n].setEffectiveWeight(0); p.obj.userData._accHeld = 1; }
+    accessPrepHandler(WK.people[p.key] || p);
+    if (p.mode === 'hide' && p.obj) p.obj.visible = false;
+  }
+  if (info) window.__ps3d.padMzBoard = Object.assign({ tb: +tb.toFixed(2) }, info);
+  BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+  return info;
+}
+function mzUpdateDeboard(tb) {
+  const people = accessPeople();
+  const info = MZ.tickDeboard(tb, people, { stack: mzStackOn() });
+  if (cg3.ship) MZ.followShip(cg3.ship);
+  for (const p of people) {
+    if (p.mode === 'walk' && p.acts) { p.obj.userData._accHeld = 0; wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true); }
+    else if (p.acts) { for (const n in p.acts) p.acts[n].setEffectiveWeight(0); p.obj.userData._accHeld = 1; }
+    accessPrepHandler(WK.people[p.key] || p);
+    if (p.mode === 'hide' && p.obj) p.obj.visible = false;
+  }
+  if (info) window.__ps3d.padMzBoard = Object.assign({ tb: +tb.toFixed(2) }, info);
+  BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+  return info;
+}
+function mzReleasePeople() {
+  if (!MZ || !MZ.T || !MZ.T.root) return;
+  MZ.releasePeople(accessPeople(), scene);
+  for (const p of accessPeople()) {
+    if (!p.obj) continue;
+    p.obj.userData._accStand = null; p.obj.userData._accHeld = 0;
+    const wk = WK.people[p.key]; accessRestoreHandler(wk || p);
+    if (p.handler && BRK.ok && BRK.grp && BRK.h && p.obj) { BRK.grp.add(p.obj); p.obj.position.set(0, 0, 0); p.obj.rotation.set(0, 0, 0); }
+  }
+}
+function mzPoseCatch(t, opts) {
+  if (!MZ.T.ready) return null;
+  const ok = MZ.poseCatch(t);
+  if (cg3.ship) MZ.followShip(cg3.ship);
+  const tt = MZ.T.nodes.Mount_Turntable;
+  if (opts && opts.stack && BST && BST.T && BST.T.ready && tt) BST.placeOnTurntable(tt);
+  return { ok, t, info: MZ.info(), ship: cg3.ship && [+cg3.ship.position.x.toFixed(2), +cg3.ship.position.y.toFixed(2), +cg3.ship.position.z.toFixed(2)] };
+}
+function towerPoseAt(tb) {   // QA: pose L10 boarding, or r2t2 chopstick-elevator boarding at Lv20.
+  if (mzBoardingOn()) return mzUpdateBoard(tb);
   if (!TW.T.ready || !padUsesTower()) return null;
   const people = accessPeople();
   const info = TW.tickBoard(tb, people);
@@ -2884,19 +2952,20 @@ function crewShowFix() {
 function updCrew() {
   crewShowFix();
   const bNow = boardOf(), dNow = deboardOf();
-  if (padUsesTower() && TW.T.ready && bNow) {
-    towerUpdate((nowMs() - bNow.B) / 1000);
+  if (mzBoardingOn() && bNow) {
+    mzUpdateBoard((nowMs() - bNow.B) / 1000);
     return;
   }
-  if (padUsesTower() && TW.T.ready && dNow) {
-    towerUpdateDeboard((nowMs() - dNow.B) / 1000);
+  if (mzBoardingOn() && dNow) {
+    mzUpdateDeboard((nowMs() - dNow.B) / 1000);
     if (WK.ready && S.wk && S.wk.down > 0) {
       const u = (nowMs() - S.wk.down) / 1000;
       if (u >= wkDescSec()) { wkDetachBoard(); wkPoseWalk(nowMs(), 'back'); }
     }
     return;
   }
-  if (padUsesTower() && TW.T.ready) {
+  if (mzBoardingOn() && !bNow && !dNow) mzReleasePeople();
+  if (padUsesTower() && TW.T.ready && !mzBoardingOn()) {
     towerReleasePeople();
     const st = S.cg && S.cg.sh && S.cg.sh.st;
     if (TW.T.resetT0) {
@@ -3369,6 +3438,7 @@ function padRestPts() {
 }
 const padRestK0 = (pts) => { const s = new THREE.Box3().setFromPoints(pts).getBoundingSphere(new THREE.Sphere()); return 1.2 * s.radius / camera.userData.dist; };   // camera starts outside the ship (from closer in the centring runs away)
 function padRestApply() {              // after fitSite(PADI) set the override frame: replace it with the ship fit when the ship nodes are there
+  if (padMzWanted()) { applyPadMzCam(); return; }
   const C = SITECAM[PADI]; if (!C || !cg3.padArt) return;
   let pts = null, t = null; try { pts = padRestPts(); t = pts && padLoadFit(pts, padRestK0(pts)); } catch (e) { console.warn('pad rest camera: fit failed', e); }
   if (!t) { C.rest = 'override'; window.__ps3d.padRest = { src: 'override', why: pts ? 'no fit' : 'ship nodes missing' }; return; }
@@ -4754,6 +4824,7 @@ function shipSkirtLoaded(g, prep) {
   prep.mount.add(sk); sk.updateMatrixWorld(true);
   const gear = createGear(sk); if (!gear) throw new Error('aft skirt: no extras.gear');
   cg3.skirt = sk; cg3.gear = gear; gear.update('land', 0, 0);   // rest: legs down, doors shut
+  if (MZ && MZ.T && MZ.T.ready) MZ.bindLegs(sk);
   if (stationObjs[PADI] === cg3.padArt) fitSite(PADI);   // the pad rest fit needs the landing legs: re-fit now they are in
   window.__ps3d.shipSkirt = { url: prep.url, seat: prep.seat, baseY: +prep.baseY.toFixed(3), bellVerts: prep.bells, legVerts: prep.legs, bells: prep.eng, cockpitVerts: prep.cw.n, nozzles: (() => { let n = 0; sk.traverse(o => { if (/^Engine_Nozzle_\d+$/.test(o.name)) n++; }); return n; })() };
 }
@@ -5073,6 +5144,8 @@ function padLoaded(g) {
   const mx = new THREE.AnimationMixer(o), ca = {}, cdTr = [];
   for (const c of g.animations) if (/^cargo_door_(open|close)$/.test(c.name)) { const keep = c.tracks.filter(t => !/^Cargo_Door\./.test(t.name)); if (keep.length !== c.tracks.length) cdTr.push(c.name); c.tracks = keep; ca[c.name] = mx.clipAction(c); }
   if (ca.cargo_door_open) cg3.door = { mx, ca, k: 0, last: 0, cur: '' };
+  cg3.hatchClips = (g.animations || []).filter((c) => /^crew_hatch_(open|close)$/.test(c.name));
+  if (cg3.hatchClips.length) cg3.hatchMx = new THREE.AnimationMixer(rig);
   { const cd = rig.getObjectByName('Cargo_Door'), kids = ['Cargo_Door_Panel', 'Cargo_Tray'].filter(n => cd.getObjectByName(n));
     if (ca.cargo_door_open && kids.length) {   // open pose (clip end) for the load camera: panel parked up + tray out on the sill; then back to shut
       const a = ca.cargo_door_open; a.play(); a.time = a.getClip().duration; mx.update(0); rig.updateMatrixWorld(true);
@@ -6180,7 +6253,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, padMzLegacyCtx, syncBooster, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, padMzLegacyCtx, syncBooster, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
@@ -6678,7 +6751,11 @@ function frame() {
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
   updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); cvFrame(); if (CT && CT.update) CT.update(gdt); updPadCam(dt); placeCamera();
   tickShipUpgrade(now);   // gc/ship-upgrade: pose ST-10B from saved S.upg stamps, then updCargo skips hull y if carrying
-  if (MZ && MZ.T && MZ.T.ready) MZ.tick(gdt);
+  if (MZ && MZ.T && MZ.T.ready) {
+    MZ.tick(gdt);
+    const st = S.cg && S.cg.sh && S.cg.sh.st;
+    if (padMzWanted() && cg3.ship && st !== 'launch' && st !== 'away' && st !== 'land' && !boardOf() && !deboardOf()) MZ.followShip(cg3.ship);
+  }
   if (MZ && padMzWanted()) MZ.applyLegacyHide(padMzLegacyCtx(), true);   // re-hide after late TW/ACC loads and applyPadTower
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
