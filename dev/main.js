@@ -687,20 +687,24 @@ STATIONS.forEach((name, i) => {
 });
 // ===== passed station GLBs (Art): swap in for the gray box once loaded; tiers hidden; idle loops play; doors stay shut
 const DOCK = { pipeLaunchPad: [37.70, 0.66, 7.30] };   // Dock-local glTF; read from the GLB on load (the Launch Pad pipe joins here)
-const SY_HB_URL = '../dev/models/shipyard_hb01_v3r2_0e223393.glb?v=0e223393';
+const SY_HB_LV19_URL = '../dev/models/shipyard_hb01_lv19_b_fd5332aa.glb?v=fd5332aa';   // 0e223393 copy + east opening, rack/CV removed; md5 fd5332aa…; used wherever PS04 lv19 shows (bay < 20)
+const SY_HB_LV20_URL = '../dev/models/shipyard_hb01_lv20_c_b3e5d7a3.glb?v=b3e5d7a3';   // bay _c, md5 b3e5d7a3…; pocketed slat doors, no rack/CV
+const SY_HB_LV30_URL = '../dev/models/shipyard_hb01_lv30_c_da8cad5d.glb?v=da8cad5d';   // bay _c + extended roof, md5 da8cad5d…
+const SY_HB_URL = SY_HB_LV19_URL;   // boot default: PS04 lv19 is on the hall below bay Lv20
 const SY_PS_LV19_URL = '../dev/models/shipyard_ps04_lv19_f3466e48.glb?v=f3466e48';   // PS04 r4b, md5 f3466e48…; meshopt
 const SY_PS_LV20_URL = '../dev/models/shipyard_ps04_lv20_lv30_c340036c.glb?v=c340036c';   // PS04 r4b for bay Lv20+, md5 c340036c…; meshopt
 const SY_PS_LV19_MD5 = 'f3466e480764200d530bd71a1fb7ed99';
 const SY_PS_LV20_MD5 = 'c340036cb8e6e7da0ec3919e2c54477e';
 function syPsLv() { return (typeof BAY !== 'undefined' && BAY && typeof BAY.lvNow === 'function') ? (BAY.lvNow() | 0) : 1; }
 function syPsUrl(lv = syPsLv()) { return (lv | 0) >= 20 ? SY_PS_LV20_URL : SY_PS_LV19_URL; }
+function syHbUrl(lv = syPsLv()) { const n = lv | 0; return n >= 30 ? SY_HB_LV30_URL : (n >= 20 ? SY_HB_LV20_URL : SY_HB_LV19_URL); }
 const STATION_GLB = [
   { i: 0, url: '../dev/models/life_support_ls6113fa89.glb?v=6113fa89', loops: ['Beacon_Lights_Blink', 'Fan_Scrubber_Spin'] },   // Art 10/31 (GD option 3, Jacob approved): repo LS b4edef9a + LS_Pipes O2/water/return run to the Habitat back wall, leg at z -17, NO tank-farm stub hiding; LS-local coords (LS_PipeExit local 13.5 = world 923.5 at x 910), 12 draws
   { i: 2, url: REFINERY_GLB,   // see REFINERY_GLB at the top
     loops: ['Beacon_Lights_Blink', 'conveyor_fuel_run', 'conveyor_he3_run', 'kiln_spin', 'sizer_spin'], onLoad: (o, mx, g) => refineryLoaded(o, mx, g) },
   { i: DOCKI, z: -8, url: '../qa3d-next/models/cargo_dock_c16d8565.glb?v=c16d8565', loops: ['Beacon_Lights_Blink'], onLoad: (o, mx, g) => {   // Art 8ca56d1 HANDOFF: Cargo Dock v4 (GC-1 overhead crane, 20 slots), root world (480, 0, −8); was dock_tankfarm 7959ae74
     const pl = o.getObjectByName('Pipe_LaunchPad'); if (pl) DOCK.pipeLaunchPad = pl.position.toArray(); window.__ps3d.dock = DOCK; dockLoaded(o, g); dockRoadCheck(o); } },
-  { i: SHIPI, url: SY_HB_URL, loops: [], onLoad: (o, mx, g) => shipyardV3Loaded(o, mx, g) },   // Shipyard v3 hall (hb01 v3r2, md5 0e223393…) + PS04 r4b print shop (lv19 below bay Lv20, lv20_lv30 at bay Lv20+). Station origin, no offset. Front door stays closed. No hallDoor open-on-load.
+  { i: SHIPI, url: SY_HB_URL, loops: [], onLoad: (o, mx, g) => shipyardV3Loaded(o, mx, g) },   // Shipyard hall: lv19_b below bay Lv20 (PS04 lv19 in the east opening), lv20_c / lv30_c at those levels. Station origin, no offset. Front doors start closed; door B opens for a bay-B crawler job. No hallDoor open-on-load.
   { i: HABI, url: 'models/habitat_v2_airlock_framed_a6381a77.glb?v=a6381a77', loops: [], onLoad: (o) => habAirlock(o) },   // Habitat v2 framed airlock (Art FRAMED_DOOR_SPEC, md5 a6381a77…): 13 draws, 16,288 tris, Cam_Target frame_w 48; doors idle + closed, light at its GLB default (EM 19:28)
 ];
 // Habitat airlock (EM 19:28): load-and-place only. Doors stay at their closed pivots (extras slide_axis x / slide_m 1.95 are unused, no door code) and
@@ -736,17 +740,8 @@ const SY_V3_MARKS = [
   ['Crew_Path_07', 16.4515171, 0.479999989, 1.16086054],
   ['Crew_Path_08', 28.8792992, 0.479999989, -12.9617548],
 ];
-const SYV = { root: null, hall: null, shop: null, mx: null, smx: null, print: null, belt: null, retract: null, welders: null, stack: null, shopUrl: null, lookHooked: false, ready: false };
+const SYV = { root: null, hall: null, shop: null, mx: null, smx: null, print: null, belt: null, retract: null, welders: null, stack: null, clips: null, hallUrl: null, shopUrl: null, lookHooked: false, doorBOpen: false, ready: false };
 function syZeroMorphs(n) { if (!n) return; n.traverse(m => { if (m.morphTargetInfluences) m.morphTargetInfluences.fill(0); }); }
-function syDoorBHoldClosed(root = SYV.root || stationObjs[SHIPI]) {   // EXPORT r4b: door B's open travel clips 5.9 m into the shop. Keep FrontBOpen at 0 while the shop is present.
-  if (!root) return;
-  for (const nm of ['HB20_DoorFrontB', 'HB30_DoorFrontB', 'HB01_DoorFrontB']) syZeroMorphs(root.getObjectByName(nm));
-  root.traverse(m => {
-    const d = m.morphTargetDictionary, inf = m.morphTargetInfluences;
-    if (!d || !inf) return;
-    if ('FrontBOpen' in d) inf[d.FrontBOpen] = 0;
-  });
-}
 function syUnloadShop() {
   if (SYV.smx) {
     const i = stationMixers.indexOf(SYV.smx);
@@ -758,7 +753,7 @@ function syUnloadShop() {
 }
 function syLoadPrintShop(lv = syPsLv()) {
   const url = syPsUrl(lv);
-  if (SYV.shopUrl === url && SYV.shop) { syDoorBHoldClosed(); return; }
+  if (SYV.shopUrl === url && SYV.shop) return;
   const root = SYV.root; if (!root) return;
   syUnloadShop();
   const want = url;
@@ -776,7 +771,6 @@ function syLoadPrintShop(lv = syPsLv()) {
     SYV.shop = shop; SYV.smx = smx; SYV.shopUrl = want; SYV.ready = true;
     syLookInterior(shop);
     sySyncBuildStack();
-    syDoorBHoldClosed(SYV.root);
     if (window.__ps3d.bldApply) { delete SYV.root.userData.bldDim; window.__ps3d.bldApply(SHIPI); }
     fitSite(SHIPI);
   }, undefined, (e) => { console.warn('Shipyard print shop GLB failed', url, e); if (SYV.shopUrl == null) SYV.ready = 'shop-failed'; });
@@ -784,17 +778,109 @@ function syLoadPrintShop(lv = syPsLv()) {
 function syHookBayLook() {
   if (SYV.lookHooked) return;
   if (!(BAY && typeof BAY.onLook === 'function')) return;
-  BAY.onLook('*', (_tier, lv) => { syLoadPrintShop(lv); syDoorBHoldClosed(); });
+  BAY.onLook('*', (_tier, lv) => { syLoadHall(lv); syLoadPrintShop(lv); });
   SYV.lookHooked = true;
 }
-function sySyncBuildStack() {   // hide the stand rings while a ship is on an ST-10B delivery (busy / carrying). Transporter still parks at x 700, not in the bay.
-  syDoorBHoldClosed();
-  const n = SYV.stack || (stationObjs[SHIPI] && stationObjs[SHIPI].getObjectByName('HB01_BuildStack'));
-  if (!n) return; const hide = !!(typeof shipUpgradeBusy === 'function' && (shipUpgradeBusy(S) || (SU && SU.T && SU.T.carrying))); if (n.visible === hide) n.visible = !hide;
+function syHallStacks() {
+  const o = SYV.hall, names = [];
+  if (!o) return { A: [], B: [] };
+  const A = ['HB01_BuildStack', 'HB20_BuildStackA', 'HB30_BuildStackA'].map(n => o.getObjectByName(n)).filter(Boolean);
+  const B = ['HB20_BuildStackB', 'HB30_BuildStackB'].map(n => o.getObjectByName(n)).filter(Boolean);
+  return { A, B };
+}
+function sySyncBuildStack() {   // hide the stand rings on the bay the ST-10B is delivering to
+  const busy = !!(typeof shipUpgradeBusy === 'function' && (shipUpgradeBusy(S) || (SU && SU.T && SU.T.carrying)));
+  const bayB = !!(busy && S.upg && S.upg.bayB);
+  const st = syHallStacks();
+  for (const n of st.A) n.visible = !(busy && !bayB);
+  for (const n of st.B) n.visible = !(busy && bayB);
+  SYV.stack = (st.A[0] || st.B[0] || null);
+}
+function syBindHallClips(mx, gltf) {
+  SYV.clips = {};
+  if (!mx || !gltf || !gltf.animations) return;
+  for (const c of gltf.animations) {
+    const a = mx.clipAction(c);
+    a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.enabled = true; a.paused = true;
+    SYV.clips[c.name] = a;
+  }
+  SYV.retract = SYV.clips.Decks_Retract || SYV.clips.DecksA_Retract || null;
+}
+function syPlayClip(name, atEnd) {
+  const a = SYV.clips && SYV.clips[name]; if (!a) return false;
+  const sib = name.endsWith('_Open') ? name.slice(0, -5) + '_Close'
+    : name.endsWith('_Close') ? name.slice(0, -6) + '_Open'
+    : name.endsWith('_Retract') ? name.slice(0, -8) + '_Extend'
+    : name.endsWith('_Extend') ? name.slice(0, -7) + '_Retract' : '';
+  const other = sib && SYV.clips[sib];
+  if (other && other !== a) { other.stop(); other.enabled = false; other.paused = true; }
+  a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.enabled = true; a.paused = false; a.play();
+  if (atEnd) { a.time = a.getClip().duration; a.paused = true; if (SYV.mx) SYV.mx.update(0); }
+  return true;
+}
+function sySetDoorB(open, snap) {   // play DoorFrontB_Open/_Close (3.0 s, same clip names on lv20_c / lv30_c). snap=true jumps to the parked pose for QA.
+  open = !!open;
+  const name = open ? 'DoorFrontB_Open' : 'DoorFrontB_Close';
+  const decks = open ? 'DecksB_Retract' : 'DecksB_Extend';
+  const ok = syPlayClip(name, snap);
+  syPlayClip(decks, snap);
+  if (!ok && SYV.hall) {   // morph fallback if a clip is missing
+    SYV.hall.traverse(m => {
+      const d = m.morphTargetDictionary, inf = m.morphTargetInfluences;
+      if (d && inf && 'FrontBOpen' in d) inf[d.FrontBOpen] = open ? 1 : 0;
+    });
+  }
+  SYV.doorBOpen = open;
+  return ok;
+}
+function syTickDoors() {   // un-gated: a bay-B job opens the east front door so the crawler goes through the opening, not the wall
+  const want = !!(typeof shipUpgradeBusy === 'function' && shipUpgradeBusy(S) && S.upg && S.upg.bayB);
+  if (want === !!SYV.doorBOpen) return;
+  sySetDoorB(want, false);
+}
+function syUnloadHall() {
+  if (SYV.mx) {
+    const i = stationMixers.indexOf(SYV.mx);
+    if (i >= 0) stationMixers.splice(i, 1);
+    try { SYV.mx.stopAllAction(); } catch (e) {}
+  }
+  if (SYV.hall && SYV.hall.parent) SYV.hall.parent.remove(SYV.hall);
+  SYV.hall = null; SYV.mx = null; SYV.clips = null; SYV.retract = null;
+  SYV.welders = null; SYV.stack = null; SYV.hallUrl = null; SYV.doorBOpen = false;
+}
+function syBindHall(o, mx, gltf, url) {
+  syZeroMorphs(o);
+  syBindHallClips(mx, gltf);
+  SYV.hall = o; SYV.mx = mx; SYV.hallUrl = url; SYV.doorBOpen = false;
+  SYV.welders = o.getObjectByName('HB01_Welders') || o.getObjectByName('HB20_WeldersA') || o.getObjectByName('HB30_WeldersA') || null;
+  if (SYV.welders) SYV.welders.visible = true;
+  const st = syHallStacks(); for (const n of [...st.A, ...st.B]) n.visible = true;
+  SYV.stack = st.A[0] || st.B[0] || null;
+  syLookInterior(o);
+  if (SYV.root) SYV.root.userData.camOv = camOvFor(url);
+  sySyncBuildStack();
+}
+function syLoadHall(lv = syPsLv()) {
+  const url = syHbUrl(lv);
+  if (SYV.hallUrl === url && SYV.hall) return;
+  const root = SYV.root; if (!root) return;
+  const want = url;
+  loader0().load(url, (g) => {
+    if (syHbUrl() !== want) return;
+    if (!SYV.root) return;
+    syUnloadHall();
+    const o = g.scene; o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1);
+    o.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+    SYV.root.add(o); o.updateMatrixWorld(true);
+    const mx = new THREE.AnimationMixer(o); stationMixers.push(mx);
+    syBindHall(o, mx, g, want);
+    if (window.__ps3d.bldApply) { delete SYV.root.userData.bldDim; window.__ps3d.bldApply(SHIPI); }
+    fitSite(SHIPI);
+  }, undefined, (e) => { console.warn('Shipyard hall GLB failed', url, e); });
 }
 function syLookInterior(root) {   // glass + interior read-through at game zoom, no extra draws, never touches hull / Ship_Placeholder
   if (!root) return;
-  const INTERIOR = /^(HB01_Decks|HB01_Welders|HB01_BuildStack)$/;
+  const INTERIOR = /^HB\d+_(Decks|Welders|BuildStack)/;
   const underInterior = (m) => { for (let n = m; n; n = n.parent) if (INTERIOR.test(n.name || '')) return true; return false; };
   root.traverse(m => {
     if (!m.isMesh || !m.material) return;
@@ -813,10 +899,11 @@ function syLookInterior(root) {   // glass + interior read-through at game zoom,
     }
     m.material = list.length === 1 ? list[0] : list;
   });
-  if (root.getObjectByName('HB01_Static') && !root.userData.syLight) {
+  const hallRoot = SYV.root || root;
+  if (hallRoot && !hallRoot.userData.syLight && (root.getObjectByName('HB01_Static') || root.getObjectByName('HB20_Static') || root.getObjectByName('HB30_Static'))) {
     const lit = new THREE.PointLight(0xf3f1ea, 1200, 80, 2);
     lit.name = 'SY_InteriorLight'; lit.position.set(0, 22, -6); lit.castShadow = false; lit.intensity = 1200;
-    root.add(lit); root.userData.syLight = lit;
+    hallRoot.add(lit); hallRoot.userData.syLight = lit;
   }
 }
 function shipyardV3Loaded(o, mx, gltf) {
@@ -833,34 +920,20 @@ function shipyardV3Loaded(o, mx, gltf) {
   // left and right of the hall (~screen y 306 at 1280×800). Taps do not include this name.
   { const fl = new THREE.Mesh(new THREE.PlaneGeometry(140, 46), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
     fl.rotation.x = -Math.PI / 2; fl.position.set(-8, 0.13, 39); fl.name = 'shipyard_base'; fl.receiveShadow = false; root.add(fl); }
-  syZeroMorphs(o.getObjectByName('HB01_DoorFront'));
-  syZeroMorphs(o.getObjectByName('HB01_DoorSide'));
-  syZeroMorphs(o.getObjectByName('HB20_DoorFrontB'));
-  syZeroMorphs(o.getObjectByName('HB30_DoorFrontB'));
-  syZeroMorphs(o.getObjectByName('HB01_Decks'));
-  syZeroMorphs(o.getObjectByName('HB01_Welders'));
-  syDoorBHoldClosed(root);
-  const retract = gltf.animations.find(a => a.name === 'Decks_Retract');
-  if (retract) {
-    const a = mx.clipAction(retract); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.paused = true;
-    SYV.retract = a;
-  }
-  SYV.root = root; SYV.hall = o; SYV.mx = mx;
-  SYV.welders = o.getObjectByName('HB01_Welders');
-  SYV.stack = o.getObjectByName('HB01_BuildStack');
-  if (SYV.stack) SYV.stack.visible = true;
-  if (SYV.welders) SYV.welders.visible = true;
-  syLookInterior(o);
-  function playDecksRetract() {   // EXPORT: hide welders before Decks_Retract. Not auto-played (transporter is not wired into the bay).
+  SYV.root = root;
+  syBindHall(o, mx, gltf, SY_HB_URL);
+  function playDecksRetract() {   // EXPORT: hide welders before Decks_Retract. Not auto-played for a bay-A park.
     if (SYV.welders) SYV.welders.visible = false;
-    if (!SYV.retract) return false;
-    SYV.retract.paused = false; SYV.retract.reset(); SYV.retract.setLoop(THREE.LoopOnce, 1); SYV.retract.clampWhenFinished = true; SYV.retract.play();
-    return true;
+    return syPlayClip('Decks_Retract') || syPlayClip('DecksA_Retract');
   }
   window.__ps3d.debugAddRing = () => false;   // PS04 has no jib; Jib_Swing / the old ring-add hook are gone
   window.__ps3d.shipyardV3 = SYV;
+  window.__ps3d.sySetDoorB = sySetDoorB;
+  window.__ps3d.syHbUrl = syHbUrl;
   SYV.playDecksRetract = playDecksRetract;
+  SYV.setDoorB = sySetDoorB;
   syHookBayLook();
+  syLoadHall();
   syLoadPrintShop();
 }
 
@@ -889,6 +962,9 @@ const CAM_OVERRIDE = {
   '4020a073': { glb: 'shipyard 2d57b95', ct: { x: 7.7, y: 6.2, z: 9.5 }, frame_w: 150, temporary: true },   // Director 21:25: TEMPORARY, testing only
   '75901d07': { glb: 'shipyard_game_v3_hb1 (gc-fix78: look-at was (-7, 23.5, 84.55) frame_w 134 — 84 m of empty apron in front of the hall, so the card-open view was a tiny yard on a huge moon)', ct: { x: -6, y: 18, z: 12 }, frame_w: 80, frame_h: 150 },   // phones: width fit like Dock/Habitat so the hall+highbay+crane fill the band above the sheet; desktop frame_h 150 still clears the 50 m crane at 1280x800 / 1440x900
   '0e223393': { glb: 'shipyard_hb01_v3r2 + shipyard_ps04 (EXPORT.md Cam_Target (9.5, 23.5, 107.0) frame_w 87.5; no Cam_Target node in the GLB). frame_h 180 is a desktop-only height floor (unchanged). phone: shift look-at x 9.5→19 and frame_w 87.5→120 so the hall is fully in frame and hall+print shop are centered on 390×844 (width-only 87.5 cut the halls left wall at local x −36).', ct: { x: 9.5, y: 23.5, z: 107.0 }, frame_w: 87.5, frame_h: 180, phone: { ct: { x: 19 }, frame_w: 120 } },
+  'fd5332aa': { glb: 'shipyard_hb01_lv19_b + PS04 lv19 (same Cam_Target / frame_w as 0e223393)', ct: { x: 9.5, y: 23.5, z: 107.0 }, frame_w: 87.5, frame_h: 180, phone: { ct: { x: 19 }, frame_w: 120 } },
+  'b3e5d7a3': { glb: 'shipyard_hb01_lv20_c + PS04 lv20_lv30 (same Cam_Target / frame_w as 0e223393)', ct: { x: 9.5, y: 23.5, z: 107.0 }, frame_w: 87.5, frame_h: 180, phone: { ct: { x: 19 }, frame_w: 120 } },
+  'da8cad5d': { glb: 'shipyard_hb01_lv30_c + PS04 lv20_lv30 (same Cam_Target / frame_w as 0e223393)', ct: { x: 9.5, y: 23.5, z: 107.0 }, frame_w: 87.5, frame_h: 180, phone: { ct: { x: 19 }, frame_w: 120 } },
   '1042e767': { glb: 'launch_pad_game_lv1ship AA2 b8dc5b1 (cockpit window CW-1 + Engine_Ring_Mount; same Cam_Target/frame_w as db78a6f7)', ct: { x: 0, y: 4, z: -0.7 }, frame_w: 78.25,   // rest: FALLBACK only (Director 10/25 rest = padRestApply ship fit)
     load: { ct: { x: -5.2, y: 4.2, z: -0.4 }, frame_w: 35 } },   // Director 10:57 pad load camera: HAND FALLBACK, used only if padLoadFit fails. Fit of this GLB: ct (-5.2, 4.75, -0.5) W 34.0; these clear the 3% margin at 393×852 and 375×812
   // FINAL_PAD_SLOT (AA3 final v4 pad, crane at pad-local 3.5, 0, 8.32): ONE line here, keyed by its md5 8. Rest = the runtime ship fit (padRestApply); ct/frame_w only
@@ -5718,7 +5794,7 @@ const UPT = [
   // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
   { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
-  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['HB01_Static', 'HB01_DoorFront', 'HB01_DoorSide', 'HB01_Decks', 'HB01_Welders', 'HB01_BuildStack', 'PS04_Static', 'PS04_Bridge', 'PS04_Head', 'PS04_PrintGlow']), hl: () => soonObjs(SHIPI, ['HB01_Static', 'PS04_Static']) },   // v3 hall + PS04 print shop meshes only; terrain and the invisible shipyard_base apron are excluded
+  { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['HB01_Static', 'HB01_DoorFront', 'HB01_DoorSide', 'HB01_Decks', 'HB01_Welders', 'HB01_BuildStack', 'HB20_Static', 'HB20_DoorFrontA', 'HB20_DoorFrontB', 'HB20_DoorSide', 'HB20_DecksA', 'HB20_DecksB', 'HB20_WeldersA', 'HB20_WeldersB', 'HB20_BuildStackA', 'HB20_BuildStackB', 'HB30_Static', 'HB30_DoorFrontA', 'HB30_DoorFrontB', 'HB30_DoorSide', 'HB30_DecksA', 'HB30_DecksB', 'HB30_WeldersA', 'HB30_WeldersB', 'HB30_BuildStackA', 'HB30_BuildStackB', 'HB30_ExtendedRoof', 'PS04_Static', 'PS04_Bridge', 'PS04_Head', 'PS04_PrintGlow']), hl: () => soonObjs(SHIPI, ['HB01_Static', 'HB20_Static', 'HB30_Static', 'PS04_Static']) },   // hall (lv19_b / lv20_c / lv30_c) + PS04; terrain and the invisible shipyard_base apron are excluded
   { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => habTapMeshes(), hl: () => habTapMeshes() },   // pinch-zoom: tower meshes only (no ground apron)
   { id: 'engineering', p: 'soonEng', site: 7, objs: () => engTapMeshes(), hl: () => engTapMeshes() },
   // gc-brkfade ticket 1 (Director 01:54, option a): the break room is part of the Pad, so a tap on it opens the Cargo Ship card. Meshes only (room,
@@ -6230,7 +6306,7 @@ BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, no
   CFG, SU, suEnv, driveV: SU.timings.DRIVE_V, stationX: () => SHIPI * GAP });   // bay B route: reads SU / suEnv, sets only CFG.shipyardCrawlerStopX during a bay-B job (see BAY_B_ROUTE)
 window.__ps3d.bay = BAY;   // QA: bay.info(), bay.setLv(n), bay.start('ship2' | 'booster' | 'ring'), bay.onLook(tier, fn)
 syHookBayLook();
-if (SYV.root) syLoadPrintShop();
+if (SYV.root) { syLoadHall(); syLoadPrintShop(); }
 function buyDrill() {
   const c = drillCost(); if (!canPay(c)) return;
   pay(c); S.drill++; applyRigLevel(); applyTiers(S.drill); upgradeFx(); save(); upUI(); hud();
@@ -6803,6 +6879,7 @@ function frame() {
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
   BAY.tick(now);   // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
+  syTickDoors();   // open DoorFrontB (3 s, parked in pockets) while a bay-B job is running; crawler stop stays GC2's 957
   if (BST && BST.T && BST.T.ready) syncBooster();   // own.booster is set in BAY.tick; show the cradle the same frame
   updShipSfx();
   updTruck(); updMineRev(gdt); updDrillV3h(dt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). v3h ore + mast lamps use digOn. updTruck poses the truck + sets its clips, then its mixer applies them this frame
