@@ -3715,7 +3715,7 @@ function shipTripPct(s, t, half) {   // 0–100 on the outbound (half=0) or retu
   return Math.round(clamp((half ? u - 0.5 : u) / 0.5, 0, 1) * 100);
 }
 function shipHudLine(c, t) {           // compact live status for the top HUD (fits 375 px)
-  if (typeof shipUpgradeBusy === 'function' && shipUpgradeBusy(S)) return 'Docked at bay';
+  if (typeof shipUpgradeBusy === 'function' && shipUpgradeBusy(S)) return 'At bay';
   const s = c && c.sh; if (!s) return 'Ship: At pad';
   if (s.st === 'pad') {
     if (c.rd || (c.pc && pcHold(c.pc.k))) return 'Loading';
@@ -3730,7 +3730,7 @@ function shipHudLine(c, t) {           // compact live status for the top HUD (f
 function shipHudText(t = nowMs()) {
   const a = shipHudLine(S.cg, t);
   const ship2 = !!(S.bay && S.bay.own && S.bay.own.ship2);
-  if (ship2 && a !== 'Docked at bay') return a + ' · 2 docked';   // second hull is at the bay; the line is the active / nearest trip
+  if (ship2 && a !== 'At bay') return a + ' · 2 docked';   // second hull is at the bay; the line is the active / nearest trip
   return a;
 }
 function shipLaunchFrac(s, t) {        // boarding + climb, 0–1, from the frozen board clock and launchSec
