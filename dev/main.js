@@ -13,6 +13,8 @@ import { createControlTower } from './control_tower.mjs';   // Control Tower at 
 // --- gc/ship-upgrade (begin) ---
 import { createShipUpgrade, migrateShipUpgrade, shipUpgradeBusy, shipUpgradeStaffed, shipUpgradeShortfallText, shipUpgradeWorkSec, SHIP_UPGRADE_REQ, BAY_X, PATH_Z, WORK_SEC_DEFAULT } from './ship_upgrade.mjs';
 // --- gc/ship-upgrade (end) ---
+import { createPadMechazilla, PAD_MZ_URL, PAD_MZ_CAM } from './pad_mechazilla.mjs';   // gc/mechazilla: r2 stand-in pad rig; swap PAD_MZ_URL for the 6:30 final GLB
+import { createBooster } from './booster.mjs';   // gc/mechazilla: booster r2 + upright ST-10B cradle (economy/unlock stay on gc2/bay-upgrades)
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
 // ===== balance: all tuning lives here (Director may retune) =====
@@ -2450,6 +2452,8 @@ const CT = createControlTower(THREE, {   // airlock walk-in: the male crew rig (
   crewTemplate: () => WK.stash && WK.stash.getObjectByName('Crew_2'), walkClip: () => BD.acts.crew_walk_to_pad && BD.acts.crew_walk_to_pad.getClip() });
 // --- gc/ship-upgrade (begin) ---
 const SU = createShipUpgrade(THREE);
+const MZ = createPadMechazilla(THREE);   // gc/mechazilla
+const BST = createBooster(THREE);        // gc/mechazilla
 function shipUpgradeLocked() {
   if (shipUpgradeBusy(S) || SU.T.carrying) return true;
   if (!(S.cg && S.cg.sh && S.cg.sh.st === 'pad')) return true;
@@ -2502,7 +2506,38 @@ function loadShipUpgrade() {
   SU.load(loader, scene, bayX, PATH_Z, (info) => {
     window.__ps3d.st10b = info;
     tickShipUpgrade(nowMs());
+    loadBooster();   // gc/mechazilla: cradle parents to ST-10B drive origin
   });
+}
+function padMzWanted() { return QD.get('mz') === '1' || padLvNow() >= 20; }
+function boosterWanted() {   // 'st10b' | 'pad' | null. Economy/unlock: S.bay.own.booster (gc2/bay-upgrades). QA: ?booster=1|st10b|pad
+  const q = QD.get('booster');
+  if (q === 'pad') return 'pad';
+  if (q === '1' || q === 'st10b') return 'st10b';
+  if (S.bay && S.bay.own && S.bay.own.booster) return 'st10b';
+  return null;
+}
+function applyPadMz() {   // show the chopsticks tower (r2 stand-in) at pad Lv20 or ?mz=1. Does not edit the Lv10 crew tower or control tower.
+  const on = padMzWanted();
+  if (on && cg3.padArt && !MZ.T.ready && !MZ.T.failed) MZ.load(loader, cg3.padArt, (info) => {
+    MZ.setActive(true); window.__ps3d.padMz = info;
+  });
+  else if (MZ.T.ready) { MZ.setActive(on); window.__ps3d.padMz = MZ.info(); }
+}
+function loadBooster() {
+  if (!SU.T || !SU.T.root) return;
+  if (!BST.T.ready && !BST.T.failed && !BST.T.loading) {
+    BST.load(loader, scene, SU.T.root, (info) => { window.__ps3d.booster = info; syncBooster(); });
+    return;
+  }
+  syncBooster();
+}
+function syncBooster() {
+  if (!BST.T.ready) return;
+  const want = boosterWanted();
+  const goal = want || 'hidden';
+  if (BST.T.mode !== goal) BST.sync({ show: !!want, mode: want || 'st10b', st10b: SU.T && SU.T.root, pad: cg3.padArt });
+  window.__ps3d.booster = Object.assign(BST.info(), { want, mode: BST.T.mode });
 }
 // --- gc/ship-upgrade (end) ---
 // Launch Pad level: Lv1–Lv9 keep the 1720 ladder; Lv10+ uses the A&A launch tower;
@@ -2533,6 +2568,7 @@ function setPadLv(lv) {
   S.padLv = Math.max(1, Math.min(PAD_UP.max, lv | 0));
   applyPadTower();
   applyControlTower();
+  applyPadMz();
 }
 function applyPadTower() {
   const on = padUsesTower();
@@ -2742,6 +2778,7 @@ function accessLoad(rig) {
       window.__ps3d.access1720 = info;
       if (padUsesTower()) applyPadTower();
       applyControlTower();
+      applyPadMz();
     } catch (e) { fail(e); }
   };
   loader.load(HULL_URL, (g) => { hullG = g; done(); }, undefined, fail);
@@ -5017,6 +5054,7 @@ function padLoaded(g) {
   // --- gc/ship-upgrade (begin) ---
   loadShipUpgrade();
   // --- gc/ship-upgrade (end) ---
+  applyPadMz();   // gc/mechazilla: r2 chopsticks stand-in (hidden unless Lv20 or ?mz=1)
 }
 function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder at Attach_Hold (rides launch / landing with the hull); a failed load just leaves the hull bare
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull || Q.get('hold') === 'off') return;
@@ -6096,7 +6134,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, syncBooster, padMzWanted, boosterWanted });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
@@ -6594,6 +6632,8 @@ function frame() {
   if (!drag) camX += (target - camX) * (1 - Math.exp(-dt * 9));
   updUpPend(); updUC(dt); updFocus(); updViewShift(); updCrew(); cvFrame(); if (CT && CT.update) CT.update(gdt); updPadCam(dt); placeCamera();
   tickShipUpgrade(now);   // gc/ship-upgrade: pose ST-10B from saved S.upg stamps, then updCargo skips hull y if carrying
+  if (MZ && MZ.T && MZ.T.ready) MZ.tick(gdt);
+  if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
   updShipSfx();
   updTruck(); updMineRev(gdt); updDrillV3h(dt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). v3h ore + mast lamps use digOn. updTruck poses the truck + sets its clips, then its mixer applies them this frame
