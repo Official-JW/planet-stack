@@ -2456,14 +2456,29 @@ const CT = createControlTower(THREE, {   // airlock walk-in: the male crew rig (
 const SU = createShipUpgrade(THREE);
 const MZ = createPadMechazilla(THREE);   // gc/mechazilla
 const BST = createBooster(THREE);        // gc/mechazilla
+function shipBayFull() {   // gc/mechazilla: block a new ship upgrade when BAY spots are taken (2/2 at Lv20). If BAY isn't loaded, don't block.
+  if (typeof BAY === 'undefined' || !BAY) return false;
+  if (!(S.bay && typeof S.bay === 'object')) return false;
+  try {
+    if (typeof BAY.upgradeBlockReason === 'function') return !!BAY.upgradeBlockReason();
+    if (typeof BAY.slotsUsed !== 'function' || typeof BAY.info !== 'function') return false;
+    const inf = BAY.info();
+    return !!(inf && inf.slots > 0 && inf.slotsUsed >= inf.slots);
+  } catch (e) { return false; }
+}
 function shipUpgradeLocked() {
   if (shipUpgradeBusy(S) || SU.T.carrying) return true;
   if (!(S.cg && S.cg.sh && S.cg.sh.st === 'pad')) return true;
+  if (shipBayFull()) return true;
   return !shipUpgradeStaffed(S, shipLvNow() + 1);
 }
 function shipUpgradeLockReason() {
   if (shipUpgradeBusy(S) || SU.T.carrying) return 'The ship is at the Shipyard';
   if (!(S.cg && S.cg.sh && S.cg.sh.st === 'pad')) return 'Dock the ship to upgrade it';
+  if (shipBayFull()) {
+    const r = (typeof BAY !== 'undefined' && BAY && typeof BAY.upgradeBlockReason === 'function') ? BAY.upgradeBlockReason() : '';
+    return r || 'Bay full';
+  }
   return shipUpgradeShortfallText(S, shipLvNow() + 1) || 'Locked';
 }
 function shipUpgradeLaunchReason() { return 'Ship is at the Shipyard'; }
@@ -6016,7 +6031,8 @@ function upUI() {                      // refreshes the open card (0.1 s tick + 
     $('upSub').textContent = sub;
     const me = $('upMeter'); me.hidden = !mt; if (mt) { const [n, on] = mt; if (me.children.length !== n) me.innerHTML = '<i></i>'.repeat(n); [...me.children].forEach((x, i) => { x.className = i < on ? 'on' : (!max && i === on ? 'nx' : ''); }); }
     $('upCostRow').hidden = info; $('upCost').textContent = max ? '—' : fmt(c);
-    upBuy.disabled = !ok; upBuy.className = info || max ? 'max' : ok ? '' : 'need';
+    const shipLkTap = lk && (upCur === 'shipUp' || upCur === 'soonShipyard');   // keep Locked tappable so a bay-full (or other lock) tap can toast
+    upBuy.disabled = shipLkTap ? false : !ok; upBuy.className = info || max ? 'max' : ok ? '' : 'need';
     upBuy.textContent = lk ? 'Locked' : info ? 'Coming soon' : max ? 'Max' : ok ? (P.once ? 'Buy' : 'Upgrade') : 'Need ' + fmt(c);
     upBuy.style.display = P.once && max ? 'none' : ''; $('upCostRow').hidden = info || (!!P.once && max);   // ca-truck2: a one-time buy has no button / cost once owned
   }
@@ -6147,9 +6163,11 @@ function buyPurity() {
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
 function buyShip() {   // Docked only. Settle first so a full hold launches at the old capacity; the new hold/seats/engines apply when the Shipyard work finishes.
-  const lv = shipLvNow(); if (lv >= shipTop() || !(S.cg && S.cg.sh && S.cg.sh.st === 'pad')) return;
-  if (shipUpgradeBusy(S) || SU.T.carrying) return;
-  if (!shipUpgradeStaffed(S, lv + 1)) return;   // specialists must be present on the Moon; they are not consumed
+  if (shipUpgradeLocked()) {   // includes bay-full; toast uses the existing #devToast style
+    if (typeof PSD !== 'undefined' && PSD.toast) PSD.toast(shipUpgradeLockReason());
+    return;
+  }
+  const lv = shipLvNow(); if (lv >= shipTop()) return;
   const c = shipUpgradeCost(); if (!canPay(c)) return;
   const t = nowMs(); settleTo(t, null);
   pay(c);
@@ -6166,7 +6184,7 @@ Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, 
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
-  shipUpgradeLocked, shipUpgradeLockReason, shipUpgradeLaunchReason, shipUpgradeStaffed: () => shipUpgradeStaffed(S, shipLvNow() + 1),
+  shipUpgradeLocked, shipUpgradeLockReason, shipBayFull, shipUpgradeLaunchReason, shipUpgradeStaffed: () => shipUpgradeStaffed(S, shipLvNow() + 1),
   shipUpgradeShortfallText: () => shipUpgradeShortfallText(S, shipLvNow() + 1),
   shipUpgradeWorkSec: () => shipUpgradeWorkSec(QD), tickShipUpgrade, suEnv,
   setCrewRole: (k, n) => { if (!S.crewRoles) S.crewRoles = {}; S.crewRoles[k] = Math.max(0, n | 0); save(); UPK.k = ''; upUI(); return Object.assign({}, S.crewRoles); },
@@ -6665,6 +6683,7 @@ function frame() {
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
   BAY.tick(now);   // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
+  if (BST && BST.T && BST.T.ready) syncBooster();   // own.booster is set in BAY.tick; show the cradle the same frame
   updShipSfx();
   updTruck(); updMineRev(gdt); updDrillV3h(dt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). v3h ore + mast lamps use digOn. updTruck poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
