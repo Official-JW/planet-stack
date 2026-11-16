@@ -2643,7 +2643,8 @@ function loadShipUpgrade() {
     loadBooster();   // gc/mechazilla: cradle parents to ST-10B drive origin
   });
 }
-function padMzWanted() { return QD.get('mz') === '1' || padLvNow() >= 20; }
+const PAD_MZ_LV = 10;            // Jacob 11/15: chopsticks / r2t2, boarding, catch, tanks b, crane hide and pad camera from pad Lv10. Control Tower stays at 20. Below Lv10 the pad is unchanged.
+function padMzWanted() { return QD.get('mz') === '1' || padLvNow() >= PAD_MZ_LV; }
 function boosterWanted() {   // 'st10b' | 'pad' | null. Economy/unlock: S.bay.own.booster (gc2/bay-upgrades). QA: ?booster=1|st10b|pad
   const q = QD.get('booster');
   if (q === 'pad') return 'pad';
@@ -2670,7 +2671,7 @@ function applyPadMzCam() {   // r2t2 game camera: Cam_Target (8.75, 51.75, −13
   SITECAM[PADI] = { k: d / camera.userData.dist, dx: ov.ct.x, dz: ov.ct.z, ly: ov.ct.y, ct: true, d, fw, ov: 'mz-r2t2', rest: 'mz', mz: true };
   window.__ps3d.padRest = { src: 'mz', ct: [ov.ct.x, ov.ct.y, ov.ct.z], frame_w: fw };
 }
-function mzBoardingOn() { return padMzWanted() && padLvNow() >= 20 && MZ && MZ.T && MZ.T.ready && MZ.T.root && MZ.T.root.visible; }
+function mzBoardingOn() { return padMzWanted() && MZ && MZ.T && MZ.T.ready && MZ.T.root && MZ.T.root.visible; }
 function mzStackOn() {   // ship stacked on the booster (catch set-down, or booster already on the turntable)
   const tt = MZ && MZ.T && MZ.T.nodes && MZ.T.nodes.Mount_Turntable;
   return !!(BST && BST.T && BST.T.booster && tt && BST.T.booster.parent === tt);
@@ -3691,14 +3692,40 @@ canvas.addEventListener('wheel', (e) => {
 
 // ===== HUD
 if (CFG.showCrystals) $('cry').closest('.cell').hidden = false;
+const MONEY_ICON_URL = '../qa3d/ui/icon_credits.svg';   // swap this const (or the file it points at) for the gold Planet Stack coin; do not hard-code a second money icon
+{ const ico = document.querySelector('#hud i.hi.cr'); if (ico) ico.style.setProperty('--i', 'url(' + MONEY_ICON_URL + ')'); }
 const moneyEl = $('money'), rateEl = $('rate'), cryEl = $('cry'), binEl = $('bin'), binFill = binEl.firstElementChild;
-let lastMoneyTxt = '', lastMoneyV = 0, lastBin = -1;
+let lastMoneyTxt = '', lastMoneyV = 0, lastBin = -1, lastShipTxt = '';
 moneyEl.addEventListener('animationend', (e) => { if (e.animationName === 'tick') moneyEl.classList.remove('tick'); });
+function shipTripPct(s, t, half) {   // 0–100 on the outbound (half=0) or return (half=1) leg, from saved trip stamps
+  const dur = shipDur(CG.awaySec, s) * 1000; if (!(dur > 0)) return 0;
+  const u = clamp((t - s.t0) / dur, 0, 1);
+  return Math.round(clamp((half ? u - 0.5 : u) / 0.5, 0, 1) * 100);
+}
+function shipHudLine(c, t) {           // compact live status for the top HUD (fits 375 px)
+  if (typeof shipUpgradeBusy === 'function' && shipUpgradeBusy(S)) return 'Docked at bay';
+  const s = c && c.sh; if (!s) return 'Ship: At pad';
+  if (s.st === 'pad') {
+    if (c.rd || (c.pc && pcHold(c.pc.k))) return 'Loading';
+    return 'Ship: At pad';
+  }
+  if (s.st === 'board' || s.st === 'launch') return 'Launching';
+  if (s.st === 'away') return (t < s.t0 + shipDur(CG.awaySec, s) * 500) ? ('To Earth ' + shipTripPct(s, t, 0) + '%') : ('Returning ' + shipTripPct(s, t, 1) + '%');
+  if (s.st === 'land') return 'Landing';
+  if (s.st === 'deboard') return 'Ship: At pad';
+  return 'Ship: At pad';
+}
+function shipHudText(t = nowMs()) {
+  const a = shipHudLine(S.cg, t);
+  const ship2 = !!(S.bay && S.bay.own && S.bay.own.ship2);
+  if (ship2 && a !== 'Docked at bay') return a + ' · 2 docked';   // second hull is at the bay; the line is the active / nearest trip
+  return a;
+}
 function hud() {
   const mt = DEV ? '∞' : fmt(S.money); if (mt !== lastMoneyTxt) { moneyEl.textContent = mt; lastMoneyTxt = mt; moneyEl.classList.toggle('long', mt.length > 10);
     if (S.money > lastMoneyV && !moneyEl.classList.contains('bump')) moneyEl.classList.add('tick'); }   // soft tick on any increase (transform/opacity only, no forced reflow)
   lastMoneyV = S.money;
-  const om = oreMin(); rateEl.textContent = om < 10 ? om.toFixed(1) : Math.round(om);
+  const st = shipHudText(); if (st !== lastShipTxt) { rateEl.textContent = st; lastShipTxt = st; rateEl.classList.toggle('long', st.length > 18); }
   if (CFG.showCrystals) cryEl.textContent = S.crystals;   // paid currency (real money only); hidden until the shop lands
   const bf = TC.ts.shown; if (Math.abs(bf - lastBin) > .002) { lastBin = bf; binFill.style.transform = `scaleX(${bf.toFixed(3)})`; }   // bar = the truck bed
   binEl.classList.toggle('full', TC.ts.ph !== 'fill' && TC.ts.shown >= 1);
@@ -4498,7 +4525,8 @@ function stampGuard(now = nowMs()) {
 }
 const fuelAt = (t) => { const s = S.cg.sh; return (s.st === 'pad' || s.st === 'deboard') ? fuelNow(t).g / CFG.econ.fuel.tank : s.st === 'launch' ? 1 : 0; };   // tank 0–1: fills from touchdown at the pump rate (refuelSec(S.fuelLv)), from the Refinery stock (fuelSolve)
 const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the (level-scaled) climb, empty while away/landing
-const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= holdCap() && fuelAt(t) >= 1; };   // full hold only (the chip shows on this)
+function crewEnRoute(t = nowMs()) { return !!(typeof wkPreHab === 'function' && wkPreHab() && typeof wkArrived === 'function' && !wkArrived(t)); }   // pre-Habitat: miner/driver taxi + walks; Launch must wait (Director 11/07)
+const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= holdCap() && fuelAt(t) >= 1 && !crewEnRoute(t); };   // full hold, fuelled, and the boarding crew are at the pad
 const launchBlocked = (h = S.cg.sh.hold) => CFG.econ.launchBelowMin === 'block' && !(launchPayFor(h) > 0);   // 'block' = no launch under a full hold. A short first flight is not an exception
 const canLaunch = (t = nowMs()) => launchReady(t) && !launchBlocked() && !shipUpgradeBusy(S);   // every launch entry point (HUD chip, ship card, cgLaunch) goes through this  // gc/ship-upgrade: blocked while the transporter has the ship
 function cgLaunch() {                 // Launch button: stored as a timestamp in S.cg (sh.req); the sim launches at it (after a lift into the hold finishes)
@@ -4508,7 +4536,7 @@ function cgLaunch() {                 // Launch button: stored as a timestamp in
   if (pointBeat === 'launch') pointerDone = true; return true;
 }
 function loadOne() { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } S.cg.ml = Math.min((S.cg.ml || 0) + 1, holdCap()); save(); }
-function setShipTgl(k) { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } S.cg[k] = !S.cg[k]; save(); UPK.k = ''; upUI(); }   // settle first, so a switch applies from now
+function setShipTgl(k) { const t = nowMs(); if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } S.cg[k] = !S.cg[k]; if (RT.ready && t >= S.rt - 1000 && t - S.rt < AWAY_MS) { settleTo(t, null); S.rt = t; } save(); UPK.k = ''; upUI(); }   // settle before the switch so it applies from now, then again so Auto Launch can lift off the same tap when the ship is already ready
 function astroPhase(c, t) {
   const a = c.as; if (a.st !== 'ready') return a.st;
   if (c.pc.k === 'unload') { const T = pcSec('unload'); const u = (t - c.pc.t0) / (T * 1000); return u >= 1 - CG.checkSec / T ? 'check_in' : 'guide'; }
@@ -5736,7 +5764,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   ship: { name: 'Launch Pad', ico: 'ship', launch: true, kick: 'Pad',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${holdCap()}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
     sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'deboard' ? 'Deboarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? (crewWin(t) ? `On the way to Earth · crew ${crewOk(s.crew).length}/${maxPicks()}` : 'On the way to Earth') : 'Landing'; },
-    btn: () => { const s = S.cg.sh, t = nowMs(); if (shipUpgradeBusy(S)) return [shipUpgradeLaunchReason(), false]; if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < holdCap()) return [`Hold ${s.hold}/${holdCap()}`, false]; if (s.req) return ['Launching…', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
+    btn: () => { const s = S.cg.sh, t = nowMs(); if (shipUpgradeBusy(S)) return [shipUpgradeLaunchReason(), false]; if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < holdCap()) return [`Hold ${s.hold}/${holdCap()}`, false]; if (s.req) return ['Launching…', false]; if (s.hold >= holdCap() && fuelAt(t) >= 1 && crewEnRoute(t)) return ['Crew en route', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fueling' : 'Awaiting cargo', false]; },
     buy: () => { if (crewWin()) return crewOpen(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
   shipUp: { name: 'Ship Upgrade', ico: 'ship', lock: () => shipUpgradeLocked(), get lockSub() { return shipUpgradeLockReason(); },  // gc/ship-upgrade: staff + docked + not mid-job
@@ -5749,7 +5777,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   padUp: { name: 'Launch Pad', ico: 'ship', lock: () => padUpLocked(), lockSub: 'Upgrade while the ship is on the pad',   // issue 23 / GD: the pad's own level path (Lv10 = launch tower)
     lv: () => padLvNow(), max: () => padLvNow() >= PAD_UP.max, cost: () => padCost(), buy: () => buyPad(),
     big: (m) => m || padLvNow() + 1 >= PAD_LAUNCH_TOWER_LV ? ['Launch tower', 'crew access'] : ['Ladder', 'crew access'],
-    sub: (m) => { const lv = padLvNow(); if (lv < PAD_LAUNCH_TOWER_LV - 1) return `Launch tower at Lv ${PAD_LAUNCH_TOWER_LV}`; if (lv === PAD_LAUNCH_TOWER_LV - 1) return 'Next level: the launch tower replaces the ladder'; return (m || lv >= 20) ? 'Control Tower built' : 'Control Tower at Lv 20'; },
+    sub: (m) => { const lv = padLvNow(); if (lv < PAD_LAUNCH_TOWER_LV - 1) return `Launch tower at Lv ${PAD_LAUNCH_TOWER_LV}`; if (lv === PAD_LAUNCH_TOWER_LV - 1) return 'Next level: the launch tower replaces the ladder'; return (m || lv >= 20) ? 'Control Tower built' : 'Control Tower at Lv 20'; },   // FLAG (GC2 Launch Pad card, do not change economy): still says Control Tower at Lv 20. Chopsticks now start at Lv10; this copy and pad prices are untouched.
     meter: () => [PAD_UP.max, Math.min(padLvNow(), PAD_UP.max)] },
   crew: { name: 'Return Crew', ico: 'habitat', crew: true },   // gc-crewpick: opened by crewPrompt / the ship card; no tap target of its own
   // gc-ui2 (item 3): station buildings with no upgrades yet
@@ -6372,7 +6400,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, padMzLegacyCtx, syncBooster, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_MZ_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, padMzLegacyCtx, syncBooster, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
@@ -6915,7 +6943,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, catchUp, settleTo, save, toScreen, drillCost, chuteCost, rate, fmt, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
   buildRoute, MK, poseNow: () => { resync(); updTruck(); tickShipUpgrade(nowMs()); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
-  get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, CRANE_TIME_MULT, craneLoadSec, craneJobSec, pcSec, rideSecNow, rideDoorSecNow, refLoadSecNow, dockSec, dockClipEnd, dockAnimSec, get cargoLog() { return CG_LOG.slice(); },
+  get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, setShipTgl, crewEnRoute, launchReady, canLaunch, MONEY_ICON_URL, shipHudText, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, CRANE_TIME_MULT, craneLoadSec, craneJobSec, pcSec, rideSecNow, rideDoorSecNow, refLoadSecNow, dockSec, dockClipEnd, dockAnimSec, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, MR, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
   get focus() { return { i: FOC.i, w: +FOC.w.toFixed(3), ph: FOC.ph, q: FOC.q.length, to: FOC.to && FOC.to.name, t: FOC.i < 0 ? 0 : +((performance.now() - FOC.seg0) / 1000).toFixed(2) }; },

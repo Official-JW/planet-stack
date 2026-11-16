@@ -282,19 +282,19 @@ export function createPadMechazilla(THREE) {
 
   function applyElevator() {
     const el = T.nodes.TowerElevator;
-    if (el) el.visible = T.lv >= 20;
+    if (el) el.visible = T.lv >= 10;   // chopsticks elevator from pad Lv10 (Jacob 11/15)
   }
 
   function applyTanks() {
     if (!T.tanks) return;
-    const lv20 = T.lv >= 20;
-    const p = lv20 ? PAD_TANKS_POS.lv20 : PAD_TANKS_POS.below;
+    const mzOn = T.lv >= 10;   // tanks b rides with the MZ pad from Lv10; below Lv10 Pad_Base already has the tanks
+    const p = mzOn ? PAD_TANKS_POS.lv20 : PAD_TANKS_POS.below;
     T.tanks.position.set(p.x, p.y, p.z);
     T.tanks.rotation.set(0, 0, 0);
-    if (T.tanksSlab) T.tanksSlab.visible = !!lv20;
-    // Below Lv20 the approved Pad_Base mesh already includes these tanks.
+    if (T.tanksSlab) T.tanksSlab.visible = !!mzOn;
+    // Below Lv10 the approved Pad_Base mesh already includes these tanks.
     // Showing the new GLB there would double them, so the root is hidden.
-    T.tanks.visible = !!lv20;
+    T.tanks.visible = !!mzOn;
   }
 
   function stopClips(except) {
