@@ -1932,9 +1932,10 @@ function v3hOnBed(ti, local, out) {
 function v3hUpdOre(drilling) {
   if (!V3H.ore.length) return;
   const beltDur = 3.2, pourDur = 0.85;
-  const fill0 = (RIG[0] && RIG[0].ts && RIG[0].ts.fill) || 0;
+  const tc = Math.max(0, RIG.indexOf(TC));   // gc2 ore-chute: pour into the truck under the chute (TC), as each rig's chute_pour did before v3h; was hard-wired to Truck 1
+  const fill0 = (RIG[tc] && RIG[tc].ts && RIG[tc].ts.fill) || 0;
   _bedOff.set(2.45, 0.42 + 1.2 * Math.min(1, Math.max(0, fill0)), 0.08);
-  const land = V3H.beds && V3H.beds[0] ? v3hOnBed(0, _bedOff, _vc) : V3H.spout;
+  const land = V3H.beds && V3H.beds[tc] ? v3hOnBed(tc, _bedOff, _vc) : V3H.spout;
   for (const pack of V3H.ore) {
     const slots = pack.slots;
     let b0 = 0, b1 = 0;
