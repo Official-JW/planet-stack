@@ -1930,9 +1930,10 @@ function v3hOnBed(ti, local, out) {
 function v3hUpdOre(drilling) {
   if (!V3H.ore.length) return;
   const beltDur = 3.2, pourDur = 0.85;
-  const fill0 = (RIG[0] && RIG[0].ts && RIG[0].ts.fill) || 0;
+  const tc = Math.max(0, RIG.indexOf(TC));   // gc2 shipcrane: pour into the truck under the chute (TC), as each rig's chute_pour did before v3h; was hard-wired to Truck 1
+  const fill0 = (RIG[tc] && RIG[tc].ts && RIG[tc].ts.fill) || 0;
   _bedOff.set(2.45, 0.42 + 1.2 * Math.min(1, Math.max(0, fill0)), 0.08);
-  const land = V3H.beds && V3H.beds[0] ? v3hOnBed(0, _bedOff, _vc) : V3H.spout;
+  const land = V3H.beds && V3H.beds[tc] ? v3hOnBed(tc, _bedOff, _vc) : V3H.spout;
   for (const pack of V3H.ore) {
     const slots = pack.slots;
     let b0 = 0, b1 = 0;
@@ -5879,6 +5880,9 @@ const UPT = [
   // gc-ui2 (EM 15:52 item 3): the main building of each station with no upgrades yet opens a 'Coming soon' card (gray box until its GLB is in)
   { id: 'lifeSupport', p: 'soonLS', site: 0, objs: () => soonObjs(0, ['LS_Paint', 'LS_Metal']), hl: () => soonObjs(0, ['LS_Paint', 'LS_Metal']) },
   { id: 'dock', p: 'soonDock', site: DOCKI, objs: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']), hl: () => soonObjs(DOCKI, ['Base_Paint', 'Base_Metal']) },
+  // gc2/shipyard-crane (Jacob 11/17 8:33 AM PT, spec print_shop_and_shipyard_card.md): the glass 3D print shop opens its own upgrade card (BAY.printShop).
+  // Before 'shipyard' so a ray on the print shop (also in that list) picks this card (ties go to the earlier target). No glow clones (hl empty).
+  { id: 'printShop', p: 'printShop', site: SHIPI, objs: () => soonObjs(SHIPI, ['PS04_Static', 'PS04_Bridge', 'PS04_Head', 'PS04_PrintGlow']).filter(o => o !== phBox[SHIPI]), hl: () => [] },
   { id: 'shipyard', p: 'soonShipyard', site: SHIPI, objs: () => soonObjs(SHIPI, ['HB01_Static', 'HB01_DoorFront', 'HB01_DoorSide', 'HB01_Decks', 'HB01_Welders', 'HB01_BuildStack', 'HB20_Static', 'HB20_DoorFrontA', 'HB20_DoorFrontB', 'HB20_DoorSide', 'HB20_DecksA', 'HB20_DecksB', 'HB20_WeldersA', 'HB20_WeldersB', 'HB20_BuildStackA', 'HB20_BuildStackB', 'HB30_Static', 'HB30_DoorFrontA', 'HB30_DoorFrontB', 'HB30_DoorSide', 'HB30_DecksA', 'HB30_DecksB', 'HB30_WeldersA', 'HB30_WeldersB', 'HB30_BuildStackA', 'HB30_BuildStackB', 'HB30_ExtendedRoof', 'PS04_Static', 'PS04_Bridge', 'PS04_Head', 'PS04_PrintGlow']), hl: () => soonObjs(SHIPI, ['HB01_Static', 'HB20_Static', 'HB30_Static', 'PS04_Static']) },   // hall (lv19_b / lv20_c / lv30_c) + PS04; terrain and the invisible shipyard_base apron are excluded
   { id: 'habitat', p: 'soonHabitat', site: HABI, objs: () => habTapMeshes(), hl: () => habTapMeshes() },   // pinch-zoom: tower meshes only (no ground apron)
   { id: 'engineering', p: 'soonEng', site: 7, objs: () => engTapMeshes(), hl: () => engTapMeshes() },
@@ -6385,7 +6389,7 @@ Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUp
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 // gc2/bay-upgrades: Shipyard Bay card (UP.bayUp), hall afford glow, ship upgrade time x bayTimeMul, bay build slots. Reads the ship upgrade state, never writes its entry.
-BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, nowMs, logU, save, settle: (t) => settleTo(t, null), popAtBuy, openUp: (id) => openUp(id),
+BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, nowMs, logU, save, settle: (t) => settleTo(t, null), popAtBuy, pop, openUp: (id) => openUp(id),
   refresh: () => { UPK.k = ''; upUI(); hud(); }, shipUpgradeBusy: () => shipUpgradeBusy(S), hall: () => stationObjs[SHIPI] || null,
   shipUpgradeWork0: () => { const e = suEnv(); return SU.schedule(e.padX, e.bayX, S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT).tWork0; },
   CFG, SU, suEnv, driveV: SU.timings.DRIVE_V, stationX: () => SHIPI * GAP });   // bay B route: reads SU / suEnv, sets only CFG.shipyardCrawlerStopX during a bay-B job (see BAY_B_ROUTE)

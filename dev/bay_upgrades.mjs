@@ -27,6 +27,15 @@ export const BAY_RACK = 6, BAY_RACK2 = 12;
 // PLACEHOLDER: ring 60 s (no number given yet).
 export const BAY_BASE_SEC = { ship2: 3600, booster: 5400, ring: 60 };
 export const BAY_LOOK_TIERS = [10, 20, 30, 40, 50];
+// ---- 3D Print Shop (Jacob 11/17 8:33 AM PT via Game Director; spec planet-stack/specs/print_shop_and_shipyard_card.md) ----
+// Its own upgrade card (tap the glass print shop): ring print 600 s at Lv1, x0.88 per level, max Lv10, Lv1->2 $150k then x1.15, Lv5 adds a
+// second print bed (2 rings at once). Rings stay $100k (paid when queued; the conveyor into the bay stays free). The print time also takes the
+// bay's x0.98 per bay level (bayTimeMul, as ring builds already did), so Print Shop Lv1 + Bay Lv1 = 600 s. Save: S.bay.ps (level), S.bay.rq (queued).
+export const PS_MAX = 10, PS_COST0 = 150000, PS_COST_GROWTH = 1.15, PS_RING_SEC = 600, PS_TIME_MUL_PER_LV = 0.88, PS_BED2_LV = 5;
+const clampPs = (lv) => Math.max(1, Math.min(PS_MAX, Math.floor(+lv) || 1));
+export const psCost = (lv) => (lv | 0) >= PS_MAX ? 0 : Math.round(PS_COST0 * PS_COST_GROWTH ** (clampPs(lv) - 1));   // the step lv -> lv + 1
+export const psRingSec = (lv) => PS_RING_SEC * PS_TIME_MUL_PER_LV ** (clampPs(lv) - 1);   // before the bay's bayTimeMul
+export const psBeds = (lv) => clampPs(lv) >= PS_BED2_LV ? 2 : 1;
 export const BAY_LOOK_NAMES = { 0: 'approved hall', 10: 'second welding platform', 20: 'wide hall, 2 ship spots', 30: 'wide hall + extended roof', 40: 'second ring rack', 50: 'gold-tier hall trim' };
 const SHIP_KINDS = ['ship2', 'booster'];
 // ---- Lv20 bay B route (Game Director 11/15 3:40 PM PT) ----
@@ -59,6 +68,7 @@ export function migrateBay(S) {   // additive: never removes or renames another 
   if (!b.own || typeof b.own !== 'object') b.own = {};
   b.own.ship2 = b.own.ship2 ? 1 : 0; b.own.booster = b.own.booster ? 1 : 0;
   b.rings = Math.max(0, Math.floor(+b.rings) || 0);
+  b.ps = clampPs(b.ps); b.rq = Math.max(0, Math.floor(+b.rq) || 0);   // Print Shop level, rings paid and waiting for a print bed
   return b;
 }
 
@@ -72,6 +82,9 @@ const CSS = `#bayTgls{display:flex;flex-direction:column;align-items:stretch;gap
 #bayTgls .tgl.afford .su-go{animation:bayAfford 1.5s ease-in-out infinite}
 @keyframes bayAfford{0%,100%{filter:brightness(1)}50%{filter:brightness(1.45) saturate(1.3)}}
 @media (prefers-reduced-motion:reduce){#bayTgls .tgl.afford .su-go{animation:none;filter:brightness(1.25)}}
+#bayTgls .tgl[hidden]{display:none}#bayTgls .tgl.off{opacity:.5;cursor:default}#bayTgls .tgl.off .su-meta,#bayTgls .tgl.busy .su-meta{white-space:normal}#bayTgls .tgl.off .su-go,#bayTgls .tgl.busy .su-go{background:#232a38;color:#9aa1ae}
+#bayTgls .su-pb{grid-column:1 / span 2;grid-row:3;height:4px;background:#232a38;overflow:hidden}#bayTgls .su-pb[hidden]{display:none}#bayTgls .su-pb i{display:block;height:100%;width:0;background:#7ff3ff}
+#bayTgls .tgl.shipup.pb{grid-template-rows:auto auto auto}
 #upBig.bayBig{white-space:normal;overflow-wrap:anywhere}#upBig.bayBig small{display:block;margin:5px 0 0;white-space:normal}`;   /* bay card only: the label wraps under the % so it can't run past the panel */
 
 export function createBayUpgrades(getS) {
@@ -84,6 +97,12 @@ export function createBayUpgrades(getS) {
     if (q != null && q !== '' && isFinite(+q) && +q >= 1) return clampLv(q);
     return bay().lv;
   }
+  function psLv() {   // ?pslv=N (dev QA) or S.bay.ps
+    const q = A.D && A.D.QD && A.D.QD.get('pslv');
+    if (q != null && q !== '' && isFinite(+q) && +q >= 1) return clampPs(q);
+    return bay().ps;
+  }
+  const ringSec = (lv = lvNow(), pl = psLv()) => psRingSec(pl) * bayTimeMul(lv);
   const locked = () => !!(A.D && !A.D.isBuilt('yard'));   // the hall must be built first
   const shipUpBusy = () => !!(A.D && A.D.shipUpgradeBusy());
   const jobsOf = (ks) => bay().jobs.filter(j => ks.includes(j.k));
@@ -99,9 +118,8 @@ export function createBayUpgrades(getS) {
       if (b.own[k]) r.push('Already built'); else if (jobsOf([k]).length) r.push('Already building');
       if (slotsUsed() >= baySlots(lv)) r.push(`Bay full (${slotsUsed()}/${baySlots(lv)} spots)`);
     } else if (k === 'ring') {
-      const rj = jobsOf(['ring']).length;
-      if (b.rings + rj >= bayRackCap(lv)) r.push(`Ring rack full (${bayRackCap(lv)})`);
-      if (rj >= bayRingLanes(lv)) r.push(bayRingLanes(lv) > 1 ? 'Both welding platforms busy' : 'Welding platform busy');
+      const rj = jobsOf(['ring']).length;   // a ring past the free print beds waits in the queue (b.rq), so busy beds don't block it
+      if (b.rings + rj + b.rq >= bayRackCap(lv)) r.push(`Ring rack full (${bayRackCap(lv)})`);
     } else return ['unknown build'];
     const c = price(k); if (!D.canPay(c)) r.push('Need ' + D.fmt(c));
     return r;
@@ -111,16 +129,21 @@ export function createBayUpgrades(getS) {
   function start(k) {   // logic entry for a ship / booster / ring build (no button yet; QA hook and the future build UI call this)
     const D = A.D, w = why(k); if (w.length) return { ok: false, why: w };
     const t = D.nowMs(), lv = lvNow(), mul = bayTimeMul(lv), c = price(k); D.settle(t); D.pay(c);
-    const j = { k, t0: t, sec: +(BAY_BASE_SEC[k] * mul).toFixed(3), mul: +mul.toFixed(6) }; if (SHIP_KINDS.includes(k)) j.spot = freeSpot(lv) || 'A'; bay().jobs.push(j);
+    if (k === 'ring' && jobsOf(['ring']).length >= psBeds(psLv())) { bay().rq++; D.save(); D.refresh(); D.logU('upgrade', `Print Shop: ring queued (${D.fmt(c)})`); return { ok: true, queued: bay().rq }; }
+    const j = { k, t0: t, sec: +((k === 'ring' ? ringSec(lv) : BAY_BASE_SEC[k] * mul)).toFixed(3), mul: +mul.toFixed(6) }; if (k === 'ring') j.ps = psLv(); if (SHIP_KINDS.includes(k)) j.spot = freeSpot(lv) || 'A'; bay().jobs.push(j);
     D.save(); D.refresh(); D.logU('upgrade', `Shipyard: ${k === 'ship2' ? 'second ship' : k} build started (${D.fmt(c)}, ${Math.round(j.sec)} s)`);
     return { ok: true, job: Object.assign({}, j) };
   }
+  // a queued ring's job; built BEFORE b.jobs.push (lvNow / psLv call bay(), and migrateBay swaps in a new filtered jobs array)
+  const ringJob = (t0) => ({ k: 'ring', t0, sec: +ringSec().toFixed(3), mul: +bayTimeMul(lvNow()).toFixed(6), ps: psLv() });
   function tick(t) {   // every frame: finish due jobs, scale a new ship upgrade's work time once
     const D = A.D; if (!D) return; const s = S(), b = bay(); let ch = false;
     for (let i = b.jobs.length - 1; i >= 0; i--) { const j = b.jobs[i]; if (t < j.t0 + j.sec * 1000) continue;
       b.jobs.splice(i, 1); ch = true; A.lastDone.push({ k: j.k, at: t });
       if (j.k === 'ring') b.rings = Math.min(b.rings + 1, BAY_RACK2); else b.own[j.k] = 1;
-      D.logU('upgrade', `Shipyard: ${j.k === 'ship2' ? 'second ship' : j.k} built`); }
+      D.logU('upgrade', `Shipyard: ${j.k === 'ship2' ? 'second ship' : j.k} built`);
+      if (j.k === 'ring' && b.rq > 0) { const n = ringJob(j.t0 + j.sec * 1000); b.rq--; b.jobs.push(n); i = b.jobs.length; } }   // the freed bed takes the next queued ring at the moment it freed (offline catch-up chains)
+    while (b.rq > 0 && jobsOf(['ring']).length < psBeds(psLv())) { const n = ringJob(t); b.rq--; b.jobs.push(n); ch = true; }   // Lv5: the second bed picks up a waiting ring
     if (shipUpBusy() && s.upg && !(s.upg.bayK > 0)) {
       const u = (t - s.upg.t0) / 1000, tw0 = D.shipUpgradeWork0();
       if (u < tw0 && s.upg.workSec > 0) { const mul = bayTimeMul(lvNow()); s.upg.bayW0 = +s.upg.workSec; s.upg.workSec = +(s.upg.workSec * mul).toFixed(3); s.upg.bayK = +mul.toFixed(6);
@@ -215,6 +238,30 @@ export function createBayUpgrades(getS) {
     D.logU('upgrade', `Shipyard Bay Lv ${lv + 1} (${D.fmt(c)}): build + upgrade time ${tp(lv + 1)}%${GATE_POP[lv + 1] ? ' · ' + GATE_POP[lv + 1] : ''}`);
     return true;
   }
+  // ---- 3D Print Shop card (UP.printShop) ----
+  const mmss = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, x = sec % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+  function ringLine() { const b = bay(), rj = jobsOf(['ring']).length, beds = psBeds(psLv());
+    return `Printing ${rj}/${beds} bed${beds > 1 ? 's' : ''} · queue ${b.rq} · rack ${b.rings}/${bayRackCap(lvNow())}`; }
+  function psCard() {
+    return { name: '3D Print Shop', ico: 'shipyard', lock: () => locked(), lockSub: 'Build the Shipyard first',
+      lv: () => psLv(), max: () => psLv() >= PS_MAX, cost: () => psCost(psLv()), buy: () => psBuy(),
+      big: (m) => { const l = psLv(); return [m ? mmss(ringSec(lvNow(), l)) : `${mmss(ringSec(lvNow(), l))} → ${mmss(ringSec(lvNow(), l + 1))}`, 'per ring']; },
+      sub: (m) => { const l = psLv(), nx = m ? 'All print shop upgrades built' : l + 1 === PS_BED2_LV ? 'Next level: second print bed (2 rings at once)' : l < PS_BED2_LV ? `Second print bed at Lv ${PS_BED2_LV}` : '';
+        return ringLine() + (nx ? '\n' + nx : ''); },
+      meter: () => [PS_MAX, psLv()] };
+  }
+  function psBuy() {
+    const D = A.D, l = psLv(), c = psCost(l); if (l >= PS_MAX || locked() || !D.canPay(c)) return false;
+    D.settle(D.nowMs()); D.pay(c); bay().ps = l + 1;
+    tick(D.nowMs());   // Lv5: a queued ring starts on the new bed right away
+    D.save(); D.refresh();
+    D.popAtBuy(l + 1 === PS_BED2_LV ? 'Second print bed · 2 rings at once' : `Ring print ${mmss(ringSec(lvNow(), l + 1))}`);
+    D.logU('upgrade', `3D Print Shop Lv ${l + 1} (${D.fmt(c)}): ring print ${mmss(ringSec(lvNow(), l + 1))}${l + 1 === PS_BED2_LV ? ' · second print bed' : ''}`);
+    return true;
+  }
+  function setPsLv(lv) { bay().ps = clampPs(lv); if (A.D) { A.D.save(); A.D.refresh(); } return psLv(); }   // QA
+
   function setLv(lv) { bay().lv = clampLv(lv); applyLook(); if (A.D) { A.D.save(); A.D.refresh(); } return lvNow(); }   // QA
 
   // the BAY UPGRADE row on the Shipyard card (like PAD UPGRADE on the ship card); cyan pulse on its button while affordable
@@ -222,25 +269,56 @@ export function createBayUpgrades(getS) {
     const D = A.D; if (!D) return;
     if (!document.getElementById('bayCss')) { const st = document.createElement('style'); st.id = 'bayCss'; st.textContent = CSS; document.head.append(st); }
     const bg = document.getElementById('upBig'); if (bg) bg.classList.toggle('bayBig', upCur === 'bayUp');
-    const show = upCur === 'soonShipyard' && !locked();
+    const ship = upCur === 'soonShipyard' && !locked(), shop = upCur === 'printShop' && !locked(), show = ship || shop;
     if (!A.row) { if (!show) return;
       const w = document.createElement('div'); w.id = 'bayTgls';
-      const b = document.createElement('button'); b.className = 'tgl shipup'; b.dataset.k = 'bayUp';
-      const l = document.createElement('span'); l.className = 'tg-lab'; l.textContent = 'BAY UPGRADE';
-      const m = document.createElement('span'); m.className = 'su-meta'; const g = document.createElement('span'); g.className = 'su-go';
-      b.append(l, m, g); b.addEventListener('pointerdown', (e) => e.stopPropagation()); b.addEventListener('click', (e) => { e.stopPropagation(); D.openUp('bayUp'); });
-      w.append(b); A.row = { w, b, m, g, k: '' }; }
+      const mk = (k, lab, fn) => { const b = document.createElement('button'); b.className = 'tgl shipup'; b.dataset.k = k;
+        const l = document.createElement('span'); l.className = 'tg-lab'; l.textContent = lab;
+        const m = document.createElement('span'); m.className = 'su-meta'; const g = document.createElement('span'); g.className = 'su-go';
+        const pb = document.createElement('span'); pb.className = 'su-pb'; pb.hidden = true; pb.append(document.createElement('i'));
+        b.append(l, m, g, pb); b.addEventListener('pointerdown', (e) => e.stopPropagation()); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+        w.append(b); return { b, m, g, pb, k: '' }; };
+      A.row = { w, k: '' };
+      A.row.bay = mk('bayUp', 'BAY UPGRADE', () => D.openUp('bayUp'));
+      A.row.ship2 = mk('ship2', 'BUILD NEW SHIP', () => buildTap('ship2'));
+      A.row.booster = mk('booster', 'BUILD BOOSTER', () => buildTap('booster'));
+      A.row.ring = mk('ring', 'PRINT RING', () => buildTap('ring'));
+      // compat: the earlier single-row fields
+      Object.assign(A.row, { b: A.row.bay.b, m: A.row.bay.m, g: A.row.bay.g }); }
     const R = A.row, sub = document.getElementById('upSub');
     if (show && sub && R.w.previousElementSibling !== sub) sub.insertAdjacentElement('afterend', R.w);
     R.w.hidden = !show; if (!show) return;
-    const lv = lvNow(), mx = lv >= BAY_MAX, c = bayCost(lv), ok = !mx && D.canPay(c), k = [lv, mx, c, ok].join('|'); if (k === R.k) return; R.k = k;
-    R.m.textContent = mx ? `LV ${lv} · MAX` : `LV ${lv} · ${D.fmt(c)}`; R.g.textContent = mx ? 'MAX' : ok ? 'UPGRADE' : 'NEED ' + D.fmt(c);
-    R.b.classList.toggle('afford', ok);
+    const set = (r, vis, meta, go, cls, pbf) => { r.b.hidden = !vis; if (!vis) return; const k = [meta, go, cls, pbf == null ? '' : pbf.toFixed(3)].join('|'); if (k === r.k) return; r.k = k;
+      r.m.textContent = meta; r.g.textContent = go; r.b.classList.toggle('afford', cls === 'afford'); r.b.classList.toggle('off', cls === 'off'); r.b.classList.toggle('busy', cls === 'busy');
+      r.pb.hidden = pbf == null; r.b.classList.toggle('pb', pbf != null); if (pbf != null) r.pb.firstChild.style.width = (Math.max(0, Math.min(1, pbf)) * 100).toFixed(1) + '%'; };
+    const lv = lvNow(), mx = lv >= BAY_MAX, c = bayCost(lv), ok = !mx && D.canPay(c);
+    set(R.bay, ship, mx ? `LV ${lv} · MAX` : `LV ${lv} · ${D.fmt(c)}`, mx ? 'MAX' : ok ? 'UPGRADE' : 'NEED ' + D.fmt(c), ok ? 'afford' : '');
+    const t = D.nowMs(), b = bay();
+    for (const k of SHIP_KINDS) {   // spec: both rows always visible; grayed with the requirement + price until the bay level unlocks them
+      const gate = k === 'ship2' ? BAY_SHIP2_LV : BAY_BOOSTER_LV, pr = price(k), j = jobsOf([k])[0];
+      if (!ship) { set(R[k], false); continue; }
+      if (lv < gate) { set(R[k], true, `Needs Shipyard Lv${gate} · ${D.fmt(pr)}`, 'LOCKED', 'off'); continue; }
+      if (b.own[k]) { set(R[k], true, 'Built', 'BUILT', 'busy'); continue; }
+      if (j) { const left = (j.t0 + j.sec * 1000 - t) / 1000; set(R[k], true, `Building · ${mmss(left)} left`, 'BUILDING', 'busy', 1 - left / j.sec); continue; }
+      const w = why(k), sec = BAY_BASE_SEC[k] * bayTimeMul(lv), full = w.find(x => x.startsWith('Bay full'));
+      set(R[k], true, `${D.fmt(pr)} · ${mmss(sec)}`, full ? 'BAY FULL' : w.length ? 'NEED ' + D.fmt(pr) : 'BUILD', w.length ? '' : 'afford');
+    }
+    if (!shop) set(R.ring, false);
+    else { const rj = jobsOf(['ring']).sort((x, y) => x.t0 - y.t0), w = why('ring'), full = w.find(x => x.startsWith('Ring rack full'));
+      const lead = rj.length ? rj.reduce((a, x) => (x.t0 + x.sec * 1000 < a.t0 + a.sec * 1000 ? x : a)) : null, f = lead ? (t - lead.t0) / (lead.sec * 1000) : null;
+      set(R.ring, true, `${D.fmt(BAY_RING_PRICE)} · ${mmss(ringSec())}` + (lead ? ` · ${Math.floor(Math.max(0, Math.min(1, f)) * 100)}%` : ''), full ? 'RACK FULL' : w.length ? 'NEED ' + D.fmt(BAY_RING_PRICE) : rj.length >= psBeds(psLv()) ? 'QUEUE' : 'PRINT', w.length ? '' : 'afford', f); }
+  }
+  function buildTap(k) {   // Build / Print buttons: the same BAY.start as the QA hook (prices, x0.98 times, slot + rack rules)
+    const D = A.D; if (!D || locked()) return; if ((k === 'ship2' || k === 'booster') && lvNow() < (k === 'ship2' ? BAY_SHIP2_LV : BAY_BOOSTER_LV)) return;
+    const r = start(k); if (A.row && A.row[k]) A.row[k].k = '';
+    const el = A.row && A.row[k] && A.row[k].b; const pop = (txt) => { if (el && D.pop) { const q = el.getBoundingClientRect(); D.pop(txt, q.left + q.width / 2, q.top - 8, 'info'); } else D.popAtBuy(txt); };
+    if (r.ok) pop(k === 'ring' ? (r.queued ? `Ring queued · ${r.queued} waiting` : 'Ring printing') : k === 'ship2' ? 'Second ship build started' : 'Booster build started');
+    else if (r.why && r.why.length) pop(r.why[0]);
   }
 
   function install(D) {   // D: main.js deps (see the call site)
     A.D = D; bay();
-    D.UP.bayUp = card();
+    D.UP.bayUp = card(); D.UP.printShop = psCard();
     // world glow (gc-afford): the hall pulses cyan while the next bay level is affordable. Glow-only entry (no tap target, no new tap rect).
     // It yields to the Shipyard card's own ship-upgrade pulse on the same meshes (and is listed before it), so the two never clone one mesh twice.
     const shipT = D.UPT.find(t => t.id === 'shipyard');
@@ -261,8 +339,9 @@ export function createBayUpgrades(getS) {
       jobs: b.jobs.map(j => Object.assign({ left: A.D ? +Math.max(0, j.t0 + j.sec * 1000 - A.D.nowMs()) / 1000 : null }, j)), lookTier: A.lookTier,
       look: BAY_LOOK_NAMES[A.lookTier], lookLog: A.lookLog.slice(), canStart: { ship2: why('ship2'), booster: why('booster'), ring: why('ring') },
       glow: A.D && A.D.GLOW ? !!A.D.GLOW.on.bayUp : false, locked: locked(), spots: [...spotsTaken()], upgradeSpot: shipUpBusy() && S().upg ? (S().upg.bayB ? 'B' : 'A') : null,
+      ps: { lv: psLv(), max: PS_MAX, cost: psCost(psLv()), ringSec: +ringSec().toFixed(3), beds: psBeds(psLv()), queue: bay().rq, printing: jobsOf(['ring']).length },
       bayB: A.bayB, crawlerStopX: A.D && A.D.CFG ? A.D.CFG.shipyardCrawlerStopX : null, route: BAY_B_ROUTE };
   }
-  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, upgradeBlockReason, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
-    consts: { BAY_MAX, BAY_COST0, BAY_COST_GROWTH, BAY_TIME_MUL_PER_LV, BAY_SHIP2_PRICE, BAY_BOOSTER_PRICE, BAY_RING_PRICE, BAY_BASE_SEC, BAY_LOOK_TIERS } };
+  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, psLv, setPsLv, psBuy, ringSec, upgradeBlockReason, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
+    consts: { BAY_MAX, BAY_COST0, BAY_COST_GROWTH, BAY_TIME_MUL_PER_LV, BAY_SHIP2_PRICE, BAY_BOOSTER_PRICE, BAY_RING_PRICE, BAY_BASE_SEC, BAY_LOOK_TIERS, PS_MAX, PS_COST0, PS_COST_GROWTH, PS_RING_SEC, PS_TIME_MUL_PER_LV, PS_BED2_LV } };
 }
