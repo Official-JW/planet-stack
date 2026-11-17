@@ -6423,7 +6423,7 @@ Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUp
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 // gc2/bay-upgrades: Shipyard Bay card (UP.bayUp), hall afford glow, ship upgrade time x bayTimeMul, bay build slots. Reads the ship upgrade state, never writes its entry.
-BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, nowMs, logU, save, settle: (t) => settleTo(t, null), popAtBuy, pop, openUp: (id) => openUp(id),
+BAY.install({ QD, UP, UPT, GLOW, GLOW_T, glowWant, isBuilt, canPay, pay, fmt, nowMs, logU, save, settle: (t) => settleTo(t, null), popAtBuy, pop, openUp: (id) => openUp(id), crewLock: () => (shipUpgradeStaffed(S, shipLvNow() + 1) ? '' : shipUpgradeShortfallText(S, shipLvNow() + 1)),
   refresh: () => { UPK.k = ''; upUI(); hud(); }, shipUpgradeBusy: () => shipUpgradeBusy(S), hall: () => stationObjs[SHIPI] || null,
   shipUpgradeWork0: () => { const e = suEnv(); return SU.schedule(e.padX, e.bayX, S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT).tWork0; },
   CFG, SU, suEnv, driveV: SU.timings.DRIVE_V, stationX: () => SHIPI * GAP });   // bay B route: reads SU / suEnv, sets only CFG.shipyardCrawlerStopX during a bay-B job (see BAY_B_ROUTE)

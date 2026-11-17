@@ -82,7 +82,7 @@ const CSS = `#bayTgls{display:flex;flex-direction:column;align-items:stretch;gap
 #bayTgls .tgl.afford .su-go{animation:bayAfford 1.5s ease-in-out infinite}
 @keyframes bayAfford{0%,100%{filter:brightness(1)}50%{filter:brightness(1.45) saturate(1.3)}}
 @media (prefers-reduced-motion:reduce){#bayTgls .tgl.afford .su-go{animation:none;filter:brightness(1.25)}}
-#bayTgls .tgl[hidden]{display:none}#bayTgls .tgl.off{opacity:.5;cursor:default}#bayTgls .tgl.off .su-meta,#bayTgls .tgl.busy .su-meta{white-space:normal}#bayTgls .tgl.off .su-go,#bayTgls .tgl.busy .su-go{background:#232a38;color:#9aa1ae}
+#bayTgls .tgl[hidden]{display:none}#bayTgls .tgl.crew .su-go{max-width:150px;white-space:normal;font:800 10px/1.2 system-ui;letter-spacing:.04em;text-transform:uppercase}#bayTgls .tgl.off{opacity:.5;cursor:default}#bayTgls .tgl.off .su-meta,#bayTgls .tgl.busy .su-meta{white-space:normal}#bayTgls .tgl.off .su-go,#bayTgls .tgl.busy .su-go{background:#232a38;color:#9aa1ae}
 #bayTgls .su-pb{grid-column:1 / span 2;grid-row:3;height:4px;background:#232a38;overflow:hidden}#bayTgls .su-pb[hidden]{display:none}#bayTgls .su-pb i{display:block;height:100%;width:0;background:#7ff3ff}
 #bayTgls .tgl.shipup.pb{grid-template-rows:auto auto auto}
 #upBig.bayBig{white-space:normal;overflow-wrap:anywhere}#upBig.bayBig small{display:block;margin:5px 0 0;white-space:normal}`;   /* bay card only: the label wraps under the % so it can't run past the panel */
@@ -103,7 +103,9 @@ export function createBayUpgrades(getS) {
     return bay().ps;
   }
   const ringSec = (lv = lvNow(), pl = psLv()) => psRingSec(pl) * bayTimeMul(lv);
-  const locked = () => !!(A.D && !A.D.isBuilt('yard'));   // the hall must be built first
+  const locked = () => !!(A.D && !A.D.isBuilt('yard'));
+  // the Shipyard card's crew lock, read from main.js (shipUpgradeStaffed / shipUpgradeShortfallText for the next ship level): '' when staffed
+  const crewNeed = () => { try { return (A.D && typeof A.D.crewLock === 'function' && A.D.crewLock()) || ''; } catch (e) { return ''; } };   // the hall must be built first
   const shipUpBusy = () => !!(A.D && A.D.shipUpgradeBusy());
   const jobsOf = (ks) => bay().jobs.filter(j => ks.includes(j.k));
   function slotsUsed() { return (shipUpBusy() ? 1 : 0) + jobsOf(SHIP_KINDS).length; }
@@ -116,6 +118,7 @@ export function createBayUpgrades(getS) {
       const gate = k === 'ship2' ? BAY_SHIP2_LV : BAY_BOOSTER_LV;
       if (lv < gate) r.push(k === 'ship2' ? `Needs Bay Lv ${gate}` : `Needs Bay Lv ${gate} (extended roof)`);
       if (b.own[k]) r.push('Already built'); else if (jobsOf([k]).length) r.push('Already building');
+      const crew = crewNeed(); if (crew) r.push(crew);   // GD 11/17 1:01 PM: no ship / booster build while the Shipyard is crew-locked
       if (slotsUsed() >= baySlots(lv)) r.push(`Bay full (${slotsUsed()}/${baySlots(lv)} spots)`);
     } else if (k === 'ring') {
       const rj = jobsOf(['ring']).length;   // a ring past the free print beds waits in the queue (b.rq), so busy beds don't block it
@@ -289,7 +292,7 @@ export function createBayUpgrades(getS) {
     if (show && sub && R.w.previousElementSibling !== sub) sub.insertAdjacentElement('afterend', R.w);
     R.w.hidden = !show; if (!show) return;
     const set = (r, vis, meta, go, cls, pbf) => { r.b.hidden = !vis; if (!vis) return; const k = [meta, go, cls, pbf == null ? '' : pbf.toFixed(3)].join('|'); if (k === r.k) return; r.k = k;
-      r.m.textContent = meta; r.g.textContent = go; r.b.classList.toggle('afford', cls === 'afford'); r.b.classList.toggle('off', cls === 'off'); r.b.classList.toggle('busy', cls === 'busy');
+      r.m.textContent = meta; r.g.textContent = go; r.b.classList.toggle('afford', cls === 'afford'); r.b.classList.toggle('off', /\boff\b/.test(cls || '')); r.b.classList.toggle('crew', /\bcrew\b/.test(cls || '')); r.b.classList.toggle('busy', cls === 'busy');
       r.pb.hidden = pbf == null; r.b.classList.toggle('pb', pbf != null); if (pbf != null) r.pb.firstChild.style.width = (Math.max(0, Math.min(1, pbf)) * 100).toFixed(1) + '%'; };
     const lv = lvNow(), mx = lv >= BAY_MAX, c = bayCost(lv), ok = !mx && D.canPay(c);
     set(R.bay, ship, mx ? `LV ${lv} · MAX` : `LV ${lv} · ${D.fmt(c)}`, mx ? 'MAX' : ok ? 'UPGRADE' : 'NEED ' + D.fmt(c), ok ? 'afford' : '');
@@ -300,6 +303,7 @@ export function createBayUpgrades(getS) {
       if (lv < gate) { set(R[k], true, `Needs Shipyard Lv${gate} · ${D.fmt(pr)}`, 'LOCKED', 'off'); continue; }
       if (b.own[k]) { set(R[k], true, 'Built', 'BUILT', 'busy'); continue; }
       if (j) { const left = (j.t0 + j.sec * 1000 - t) / 1000; set(R[k], true, `Building · ${mmss(left)} left`, 'BUILDING', 'busy', 1 - left / j.sec); continue; }
+      const crew = crewNeed(); if (crew) { set(R[k], true, `${D.fmt(pr)} · ${mmss(BAY_BASE_SEC[k] * bayTimeMul(lv))}`, crew, 'off crew'); continue; }   // crew-locked: grayed, the requirement in place of BUILD
       const w = why(k), sec = BAY_BASE_SEC[k] * bayTimeMul(lv), full = w.find(x => x.startsWith('Bay full'));
       set(R[k], true, `${D.fmt(pr)} · ${mmss(sec)}`, full ? 'BAY FULL' : w.length ? 'NEED ' + D.fmt(pr) : 'BUILD', w.length ? '' : 'afford');
     }
