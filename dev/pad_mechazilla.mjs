@@ -10,7 +10,8 @@ export const PAD_MZ_LEGS_URL = '../dev/models/pad_mechazilla_r2_legs_ff11108e.gl
 export const PAD_MZ_LEGS_MD5 = 'ff11108ec8cc25040848f55be8765b29';
 export const PAD_TANKS_URL = '../dev/models/pad_tanks_lox_lch4_b_711c5574.glb?v=711c5574';
 export const PAD_TANKS_MD5 = '711c5574c77b83aceb7edf0d3aeaa4bf';
-export const PAD_MZ_CAM = { ct: { x: 8.75, y: 51.75, z: -13.0 }, frame_w: 109.5 };
+export const PAD_MZ_CAM = { ct: { x: 8.75, y: 51.75, z: -13.0 }, frame_w: 210, frame_h: 140 };   // Jacob 11/17: pull back so the full chopstick tower, stacked ship, arm, elevator and pad base fit at 375×812 / 375×667 / 1280×800. Same look-at and 18° angle; frame_h is a height floor (HUD band).
+export const PAD_MZ_LV = 10;   // chopsticks / elevator / arm boarding from this pad level up (never a literal 20)
 export const PAD_TANKS_POS = {
   below: { x: -16.54, y: 0, z: -6.20 },
   lv20: { x: -41.69, y: 0, z: -6.20 },
@@ -282,12 +283,12 @@ export function createPadMechazilla(THREE) {
 
   function applyElevator() {
     const el = T.nodes.TowerElevator;
-    if (el) el.visible = T.lv >= 10;   // chopsticks elevator from pad Lv10 (Jacob 11/15)
+    if (el) el.visible = T.lv >= PAD_MZ_LV;   // chopsticks elevator from PAD_MZ_LV (Jacob 11/15, 11/17)
   }
 
   function applyTanks() {
     if (!T.tanks) return;
-    const mzOn = T.lv >= 10;   // tanks b rides with the MZ pad from Lv10; below Lv10 Pad_Base already has the tanks
+    const mzOn = T.lv >= PAD_MZ_LV;   // tanks b rides with the MZ pad from PAD_MZ_LV; below that Pad_Base already has the tanks
     const p = mzOn ? PAD_TANKS_POS.lv20 : PAD_TANKS_POS.below;
     T.tanks.position.set(p.x, p.y, p.z);
     T.tanks.rotation.set(0, 0, 0);
@@ -405,10 +406,13 @@ export function createPadMechazilla(THREE) {
   function followCrew(people) {
     if (!people || !people.length || !T.root) return [];
     T.root.updateMatrixWorld(true);
+    const marks = [];
+    for (let i = 1; ; i++) { const m = T.nodes['Crew_Mark_' + i]; if (!m) break; marks.push(m); }
     const out = [];
     for (let i = 0; i < people.length; i++) {
       const p = people[i];
-      const mark = T.nodes['Crew_Mark_' + (i + 1)];
+      const mark = marks.length ? marks[i % marks.length] : null;
+      const slot = marks.length ? Math.floor(i / marks.length) : 0;
       if (!p || !p.obj || !mark) {
         if (p && p.obj) { p.mode = 'hide'; p.obj.visible = false; }
         else if (p) p.mode = 'idle';
@@ -416,6 +420,11 @@ export function createPadMechazilla(THREE) {
       }
       mark.updateWorldMatrix(true, false);
       mark.matrixWorld.decompose(_p, _q, _s);
+      if (slot > 0) {
+        const side = new THREE.Vector3((slot % 2) ? -0.55 : 0.55, 0, slot > 1 ? 0.4 : 0);
+        side.applyQuaternion(_q);
+        _p.add(side);
+      }
       const sc = Math.min(_s.x, _s.y, _s.z);
       const hide = sc < 0.05;
       if (p.obj.parent !== T.root) {
@@ -463,6 +472,32 @@ export function createPadMechazilla(THREE) {
     return poseBoard(Math.max(0, dur - tSec), stack);
   }
 
+  // After a landing the clip sits at its end (elevator up, arm retracted, turntable 0). Playing it
+  // backward first swings the crew arm over the hatch, then the crew walk off, the arm retracts,
+  // and the elevator comes down — clear of chopsticks / catch / the next launch.
+  function hatchElevY(stack) {
+    const k = stack ? '_eyStack' : '_eyMount';
+    if (T[k] != null) return T[k];
+    const ev = T.nodes.TowerElevator;
+    if (!ev) return stack ? 93.032 : 38.2;
+    const yNow = ev.position.y;
+    poseBoard(stack ? MZ_BOARD_STACK_SEC : MZ_BOARD_MOUNT_SEC, stack);
+    T[k] = ev.position.y;
+    ev.position.y = yNow;
+    return T[k];
+  }
+  function poseReceive(u, stack) {   // land: raise the elevator only; keep the arm retracted and the turntable at 0
+    const t = Math.max(0, Math.min(1, +u || 0));
+    poseBoard(0, !!stack);
+    const ev = T.nodes.TowerElevator;
+    if (ev) {
+      const y0 = ev.position.y, y1 = hatchElevY(!!stack);
+      ev.position.y = y0 + (y1 - y0) * t;
+      ev.updateWorldMatrix(true, true);
+    }
+    return { u: t, stack: !!stack, elevY: ev ? ev.position.y : null };
+  }
+
   function turntableYaw() {
     const tt = T.nodes.Mount_Turntable;
     if (!tt) return 0;
@@ -492,7 +527,7 @@ export function createPadMechazilla(THREE) {
   function tickDeboard(tb, people, opts) {
     if (!T.ready || !T.root || !T.root.visible) return null;
     const stack = !!(opts && opts.stack);
-    poseBoardReverse(tb, stack);
+    poseBoardReverse(tb, stack);   // from clip end: arm swings in, crew exit, arm back, elevator down
     const marks = followCrew(people);
     return {
       clip: stack ? 'TowerCrewBoard_Stack' : 'TowerCrewBoard_Mount',
@@ -619,10 +654,10 @@ export function createPadMechazilla(THREE) {
 
   return {
     T, load, bind, bindLegs, bindHatch, setActive, setPadLv, play, poseClip,
-    poseCatch, poseBoard, poseBoardReverse, poseLegs, followShip, followCrew, releasePeople,
+    poseCatch, poseBoard, poseBoardReverse, poseReceive, poseLegs, followShip, followCrew, releasePeople,
     tick, tickBoard, tickDeboard, info, applyLegacyHide, legacyInfo, collectLegacy, applyTanks,
     consts: {
-      PAD_MZ_URL, PAD_MZ_MD5, PAD_MZ_CAM, PAD_MZ_STANDIN, PAD_MZ_NODES, PAD_MZ_CLIPS,
+      PAD_MZ_URL, PAD_MZ_MD5, PAD_MZ_CAM, PAD_MZ_LV, PAD_MZ_STANDIN, PAD_MZ_NODES, PAD_MZ_CLIPS,
       PAD_MZ_LEGS_URL, PAD_MZ_LEGS_MD5, PAD_TANKS_URL, PAD_TANKS_MD5, PAD_TANKS_POS,
       MZ_CATCH_SEC, MZ_BOARD_MOUNT_SEC, MZ_BOARD_STACK_SEC,
     },
