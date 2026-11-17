@@ -15,7 +15,7 @@ const BAY = createBayUpgrades(() => S);   // no-op until BAY.install (after the 
 // --- gc/ship-upgrade (begin) ---
 import { createShipUpgrade, migrateShipUpgrade, shipUpgradeBusy, shipUpgradeStaffed, shipUpgradeShortfallText, shipUpgradeWorkSec, SHIP_UPGRADE_REQ, BAY_X, PATH_Z, WORK_SEC_DEFAULT } from './ship_upgrade.mjs';
 // --- gc/ship-upgrade (end) ---
-import { createPadMechazilla, PAD_MZ_URL, PAD_MZ_CAM, mzBoardSeconds, mzDeboardSeconds } from './pad_mechazilla.mjs';   // gc/mechazilla: r2t2 final pad (elevator+arm in the chopstick tower, no CrewTower)
+import { createPadMechazilla, PAD_MZ_URL, PAD_MZ_CAM, PAD_TOWER_LV, PAD_MZ_LV, padTowerSrc, mzBoardSeconds, mzDeboardSeconds } from './pad_mechazilla.mjs';   // gc/mzcrew: Lv10-19 ship tower, Lv20 r2t2 Mechazilla
 import { createBooster } from './booster.mjs';   // gc/mechazilla: booster r2 + upright ST-10B cradle (economy/unlock stay on gc2/bay-upgrades)
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
@@ -551,11 +551,11 @@ const HB1_RAMP = { x0: 712, x1: 714, h: 0.18, z0: -31.95, z1: -0.05, mesh: null 
 // gc-art2 Mine terrain v3b hole (world XZ): the terrain GLB replaces the global ground inside the Mine patch (Mine-local x ±80, z −460..+94; its ground mesh
 // ends at z 93.985, measured, not the +95 in the notes). The ground grid lines nearest these 4 edges are snapped onto them (UVs follow), so the hole is
 // whole cells: no overlap strip (z-fight) and no gap. The apron under the ground gets the same hole. Both holes switch on only once the terrain is in.
-const T_Z0 = -460, T_Z1 = 93.98, SY_Z1 = 230;   // A&A fix1: x [X−80, X+80), z [−460, +93.98]; Shipyard z max 230
+const T_Z0 = -460, T_Z1 = 93.98, SY_Z1 = 230, PAD_Z1 = 93.0;   // A&A fix1: x [X−80, X+80), z [−460, +93.98]; Shipyard z max 230. Pad terrain front is z 93.0 (measured); using T_Z1 left a 1 m gap and a hard horizon line at the pulled-back Lv10+ pad camera.
 const MINE_HOLE = { x0: GAP - 80, x1: GAP + 79.99, z0: T_Z0, z1: T_Z1 };   // the terrain's own edge verts (x −80.005 / +79.991, z −460.003 / +93.985) so ground and terrain meet with no gap
 const REF_HOLE  = { x0: MINE_HOLE.x1, x1: RX + 80, z0: T_Z0, z1: T_Z1 };   // gc/terrain: fix1 uses the same 93.98 front edge as the Mine (was v3 93.0)
 const DOCK_HOLE = { x0: REF_HOLE.x1,  x1: DOCKI * GAP + 80, z0: T_Z0, z1: T_Z1 };
-const PAD_HOLE  = { x0: DOCK_HOLE.x1, x1: PADI * GAP + 80,  z0: T_Z0, z1: T_Z1 };
+const PAD_HOLE  = { x0: DOCK_HOLE.x1, x1: PADI * GAP + 80,  z0: T_Z0, z1: PAD_Z1 };   // pad-only front; other stations keep T_Z1
 const SY_HOLE   = { x0: PAD_HOLE.x1,  x1: SHIPI * GAP + 80, z0: T_Z0, z1: SY_Z1 };
 const HAB_HOLE  = { x0: SY_HOLE.x1,   x1: HABI * GAP + 80,  z0: T_Z0, z1: T_Z1 };
 const HOLES = { mine: MINE_HOLE, ref: REF_HOLE, dock: DOCK_HOLE, pad: PAD_HOLE, shipyard: SY_HOLE, hab: HAB_HOLE };
@@ -593,10 +593,12 @@ function edgeBlendOne(m, MINE_HOLE, key) {
     for (const R of Object.values(HOLES)) { snapX[Math.round((R.x0 - (GX0 - W / 2)) / dx)] = R.x0; snapX[Math.round((R.x1 - (GX0 - W / 2)) / dx)] = R.x1; }
     for (const z of [T_Z0, T_Z1]) snapZ[Math.round((z - (GZ0 - D / 2)) / dz)] = z;
     const syZ1Row = Math.round((SY_Z1 - (GZ0 - D / 2)) / dz);   // Shipyard front edge z 230, only inside the shipyard x span (do not warp other stations' front ground)
+    const padZ1Row = Math.round((PAD_Z1 - (GZ0 - D / 2)) / dz);   // pad terrain front z 93.0, only inside the pad x span
     for (let i = 0; i < ps.count; i++) { const ix = i % 261, iy = Math.floor(i / 261);
       if (snapX[ix] !== undefined) ps.setX(i, snapX[ix] - GX0); if (snapZ[iy] !== undefined) ps.setZ(i, snapZ[iy] - GZ0);
       const wx = ps.getX(i) + GX0;
       if (iy === syZ1Row && wx > SY_HOLE.x0 + 0.005 && wx < SY_HOLE.x1 - 0.005) ps.setZ(i, SY_Z1 - GZ0);
+      if (iy === padZ1Row && wx > PAD_HOLE.x0 + 0.005 && wx < PAD_HOLE.x1 - 0.005) ps.setZ(i, PAD_Z1 - GZ0);
       uv.setXY(i, (ps.getX(i) + W / 2) / W, 1 - (ps.getZ(i) + D / 2) / D); }
     const full = g.index.array.slice(), keepFor = (rs) => { const keep = [];   // index with the given holes cut (whole cells, centre inside)
       for (let t = 0; t < full.length; t += 6) { let cx = 0, cz = 0; for (let k = 0; k < 6; k++) { cx += ps.getX(full[t + k]); cz += ps.getZ(full[t + k]); } cx = cx / 6 + GX0; cz = cz / 6 + GZ0;
@@ -2644,8 +2646,11 @@ function loadShipUpgrade() {
     loadBooster();   // gc/mechazilla: cradle parents to ST-10B drive origin
   });
 }
-const PAD_MZ_LV = 10;            // Jacob 11/15: chopsticks / r2t2, boarding, catch, tanks b, crane hide and pad camera from pad Lv10. Control Tower stays at 20. Below Lv10 the pad is unchanged.
-function padMzWanted() { return QD.get('mz') === '1' || padLvNow() >= PAD_MZ_LV; }
+// PAD_TOWER_LV (10): ship-sized elevator/arm tower. PAD_MZ_LV (20): chopsticks, catch, stack, r2t2 crane-in-GLB, tall camera. Control Tower stays at 20. Below PAD_TOWER_LV the pad is unchanged (1720 ladder).
+function padTowerWanted() { return QD.get('mz') === '1' || padLvNow() >= PAD_TOWER_LV; }   // load / show the ship or MZ tower and board via elevator+arm
+function padMzWanted() { return QD.get('mz') === '1' || padLvNow() >= PAD_MZ_LV; }   // chopsticks / catch / stack / r2t2-only bits
+function padTowerSrcNow() { return padTowerSrc(padLvNow(), { forceMz: QD.get('mz') === '1' }); }
+function padUsesLegacyTower(lv = padLvNow()) { return padUsesTower(lv) && !padTowerWanted(); }   // pre-ship-tower A&A crew tower only below PAD_TOWER_LV (never at 10+ once the ship tower is in)
 function boosterWanted() {   // 'st10b' | 'pad' | null. Economy/unlock: S.bay.own.booster (gc2/bay-upgrades). QA: ?booster=1|st10b|pad
   const q = QD.get('booster');
   if (q === 'pad') return 'pad';
@@ -2664,38 +2669,282 @@ function padMzLegacyCtx() {   // live roots for the visibility-only hide in pad_
     shipState: st || null,
   };
 }
-function applyPadMzCam() {   // r2t2 game camera: Cam_Target (8.75, 51.75, −13), frame_w 109.5
-  const C = SITECAM[PADI]; if (!C || !camera.userData.dist) return;
-  if (!padMzWanted()) return;
-  const ov = PAD_MZ_CAM, fw = ov.frame_w;
-  const d = (fw / 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-  SITECAM[PADI] = { k: d / camera.userData.dist, dx: ov.ct.x, dz: ov.ct.z, ly: ov.ct.y, ct: true, d, fw, ov: 'mz-r2t2', rest: 'mz', mz: true };
-  window.__ps3d.padRest = { src: 'mz', ct: [ov.ct.x, ov.ct.y, ov.ct.z], frame_w: fw };
+function applyCrewLadderVisible() {   // visibility only; never edit hull / Ship_Placeholder materials
+  const show = !padUsesTower();
+  if (ACC.A && ACC.A.root) setLadderVisible(ACC.A.root, show);
+  const isPadLadder = (o) => {
+    const n = o.name || '';
+    if (!n || /Landing_Leg/i.test(n)) return false;
+    return /^LadderStage_/.test(n) || n === 'Ladder_FootPlate' || n === 'Ladder_Sleeve' || n === 'Ladder_Foot' || n === 'PackRoot' || n === 'Rails' || (/^Ladder/i.test(n));
+  };
+  const isShipLadder = (o) => {
+    const n = o.name || '';
+    if (!n || /Landing_Leg/i.test(n) || n === 'Landing_Legs') return false;
+    return /^LadderStage_/.test(n) || n === 'Ladder_FootPlate' || n === 'Ladder_Sleeve' || n === 'Ladder_Foot' || /^Ladder/i.test(n);
+  };
+  const setIn = (root, pred, on) => { if (!root) return; root.traverse((o) => { if (pred(o) && (o.isMesh || o.isInstancedMesh || o.isGroup)) o.visible = on; }); };
+  if (show) {
+    setIn(ACC.A && ACC.A.root, isPadLadder, true);
+    setIn(cg3.padArt, isPadLadder, true);
+    setIn(cg3.ship, isShipLadder, true);
+    return;
+  }
+  const foot = cg3.padArt && cg3.padArt.getObjectByName('Ladder_Foot');
+  if (foot) foot.visible = false;
+  setIn(ACC.A && ACC.A.root, isPadLadder, false);
+  setIn(cg3.padArt, isPadLadder, false);
+  setIn(cg3.ship, isShipLadder, false);
 }
-function mzBoardingOn() { return padMzWanted() && MZ && MZ.T && MZ.T.ready && MZ.T.root && MZ.T.root.visible; }
-function mzStackOn() {   // ship stacked on the booster (catch set-down, or booster already on the turntable)
+const _mzFramePts = [];
+const _mzFrameBox = new THREE.Box3();
+function mzFramePts() {   // visible tower + ship + booster mesh boxes; skip kilometre-wide ground
+  _mzFramePts.length = 0;
+  const push = (o) => {
+    if (!o) return;
+    o.updateWorldMatrix(true, true);
+    o.traverse((m) => {
+      if (!m.isMesh || !m.geometry || !m.geometry.attributes || !m.geometry.attributes.position) return;
+      for (let n = m; n; n = n.parent) if (n.visible === false) return;
+      const pos = m.geometry.attributes.position, mw = m.matrixWorld, v = _mzCamTmp.v;
+      // Skip kilometre-wide ground / terrain patches (keep the pad slab and tower).
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+      const bb = m.geometry.boundingBox;
+      const wx = Math.abs(bb.max.x - bb.min.x) * (m.scale ? Math.abs(m.scale.x) : 1);
+      const wz = Math.abs(bb.max.z - bb.min.z) * (m.scale ? Math.abs(m.scale.z) : 1);
+      if (wx > 400 || wz > 400) return;
+      // Real surface verts, not AABB corners (those sit in empty space in front of a tall tower and drag the look-at into the ground).
+      const stride = Math.max(1, Math.floor(pos.count / 48));
+      for (let i = 0; i < pos.count; i += stride) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(mw);
+        if (v.y < -0.5) continue;
+        _mzFramePts.push(v.x, v.y, v.z);
+      }
+    });
+  };
+  const skipDeck = MZ && MZ.T && MZ.T.src && MZ.T.src.kind === 'lv10';
+  const deckName = (n) => n && (n.name === 'Mount' || n.name === 'Mount_Turntable' || n.name === 'MZ_Crawler_Apron');
+  const pushTower = (o) => {
+    if (!o) return;
+    o.updateWorldMatrix(true, true);
+    o.traverse((m) => {
+      if (!m.isMesh || !m.geometry || !m.geometry.attributes || !m.geometry.attributes.position) return;
+      for (let n = m; n; n = n.parent) {
+        if (n.visible === false) return;
+        if (skipDeck && deckName(n)) return;   // Lv10: frame the tower + ship, not the pad deck / crawler apron
+      }
+      const pos = m.geometry.attributes.position, mw = m.matrixWorld, v = _mzCamTmp.v;
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+      const bb = m.geometry.boundingBox;
+      const wx = Math.abs(bb.max.x - bb.min.x) * (m.scale ? Math.abs(m.scale.x) : 1);
+      const wz = Math.abs(bb.max.z - bb.min.z) * (m.scale ? Math.abs(m.scale.z) : 1);
+      if (wx > 400 || wz > 400) return;
+      const stride = Math.max(1, Math.floor(pos.count / 48));
+      for (let i = 0; i < pos.count; i += stride) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(mw);
+        if (v.y < -0.5) continue;
+        _mzFramePts.push(v.x, v.y, v.z);
+      }
+    });
+  };
+  if (MZ && MZ.T && MZ.T.ready && MZ.T.root) {
+    if (skipDeck) pushTower(MZ.T.root);
+    else push(MZ.T.root);
+  }
+  if (cg3 && cg3.ship) push(cg3.ship);
+  if (BST && BST.T && BST.T.booster && BST.T.booster.visible) push(BST.T.booster);
+  return _mzFramePts;
+}
+const _mzCamTmp = { mc: null, v: new THREE.Vector3() };
+function applyPadMzCam() {   // same 18° look direction as PAD_MZ_CAM.ct; distance from the real tower+stacked-ship box so they fill 70–75% of the HUD–label band, centred, across aspects
+  const C = SITECAM[PADI]; if (!C || !camera.userData.dist) return;
+  if (!padTowerWanted()) return;
+  const ov = PAD_MZ_CAM;
+  const e = THREE.MathUtils.degToRad(CAM.elev);
+  const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  let lx = SX[PADI] + ov.ct.x, ly = ov.ct.y, lz = ov.ct.z;
+  const bd = (typeof band === 'function') ? band() : null;
+  const bandTop = (bd && (bd.bot - bd.top) > 60) ? bd.top : 0;
+  const bandBot = (bd && (bd.bot - bd.top) > 60) ? bd.bot : H;
+  const bandH = Math.max(1, bandBot - bandTop);
+  const bandMid = (bandTop + bandBot) / 2;
+  const target = (ov.fill > 0 && ov.fill < 1) ? ov.fill : 0.725;
+  const applyFallback = () => {
+    const fw = ov.frame_w || 210;
+    let d = (fw / 2) / (vt * camera.aspect);
+    const fh = ov.frame_h > 0 ? ov.frame_h : 0;
+    if (fh) {
+      const hk = (bd && (bd.bot - bd.top) > 60) ? (H / 2) / ((bd.bot - bd.top) / 2) : 1;
+      d = Math.max(d, hk * (fh / 2) / vt);
+    }
+    const kind = (MZ.T && MZ.T.src && MZ.T.src.kind) || padTowerSrcNow().kind;
+    const restSrc = kind === 'lv10' ? 'lv10' : 'mz';
+    SITECAM[PADI] = { k: d / camera.userData.dist, dx: ov.ct.x, dz: ov.ct.z, ly: ov.ct.y, ct: true, d, fw, fh, ov: restSrc === 'lv10' ? 'pad-lv10' : 'mz-r2t2', rest: restSrc, mz: kind === 'r2t2', tower: true };
+    window.__ps3d.padRest = { src: restSrc, kind, ct: [ov.ct.x, ov.ct.y, ov.ct.z], frame_w: fw, frame_h: fh || undefined };
+  };
+  const pts = mzFramePts();
+  if (pts.length < 24) { applyFallback(); return; }
+  if (!_mzCamTmp.mc) _mzCamTmp.mc = camera.clone();
+  const mc = _mzCamTmp.mc, pv = _mzCamTmp.v;
+  mc.fov = camera.fov; mc.aspect = camera.aspect; mc.near = camera.near; mc.far = camera.far;
+  mc.updateProjectionMatrix();
+  const project = (d, lx, ly, lz) => {
+    mc.position.set(lx, ly + d * Math.sin(e), lz + d * Math.cos(e));
+    mc.lookAt(lx, ly, lz);
+    mc.updateMatrixWorld();
+    let yMin = Infinity, yMax = -Infinity, xMin = Infinity, xMax = -Infinity, n = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      pv.set(pts[i], pts[i + 1], pts[i + 2]).project(mc);
+      if (pv.z < -1 || pv.z > 1) continue;
+      const x = (pv.x + 1) / 2 * W, y = (1 - pv.y) / 2 * H;
+      if (y < yMin) yMin = y; if (y > yMax) yMax = y;
+      if (x < xMin) xMin = x; if (x > xMax) xMax = x;
+      n++;
+    }
+    const span = n ? (yMax - yMin) : 0;
+    return { n, yMin, yMax, xMin, xMax, span, fill: span / bandH, midY: (yMin + yMax) / 2, midX: (xMin + xMax) / 2 };
+  };
+  const fitD = (lx, ly, lz) => {
+    let lo = 80, hi = 1200, d = 400;
+    for (let i = 0; i < 22; i++) {
+      d = (lo + hi) / 2;
+      const pr = project(d, lx, ly, lz);
+      if (!pr.n) { hi = d; continue; }
+      if (pr.fill > target) lo = d; else hi = d;   // fill too big → d too small → search farther
+    }
+    d = (lo + hi) / 2;
+    for (let i = 0; i < 18; i++) {   // 375×667 must still fit whole in the band
+      const pr = project(d, lx, ly, lz);
+      if (pr.n && pr.yMin >= bandTop + 2 && pr.yMax <= bandBot - 2) break;
+      d *= 1.05;
+      if (d > 1600) break;
+    }
+    return d;
+  };
+  let d = fitD(lx, ly, lz);
+  for (let i = 0; i < 6; i++) {   // centre in the band; keep the 18° / −Z look direction, slide the look-at, then re-fit distance
+    const pr = project(d, lx, ly, lz);
+    if (!pr.n) break;
+    const mPerPxY = (2 * d * vt) / H;
+    const mPerPxX = (2 * d * vt * camera.aspect) / W;
+    ly -= (pr.midY - bandMid) * mPerPxY;
+    lx += (pr.midX - (W / 2)) * mPerPxX;
+    d = fitD(lx, ly, lz);
+  }
+  const pr = project(d, lx, ly, lz);
+  const fw = 2 * d * vt * camera.aspect, fh = 2 * d * vt;
+  const kind = (MZ.T && MZ.T.src && MZ.T.src.kind) || padTowerSrcNow().kind;
+  const restSrc = kind === 'lv10' ? 'lv10' : 'mz';
+  SITECAM[PADI] = { k: d / camera.userData.dist, dx: lx - SX[PADI], dz: lz, ly, ct: true, d, fw, fh, ov: restSrc === 'lv10' ? 'pad-lv10' : 'mz-r2t2', rest: restSrc, mz: kind === 'r2t2', tower: true, fill: pr.fill };
+  window.__ps3d.padRest = {
+    src: restSrc, kind, lv: padLvNow(),
+    ct: [+(lx - SX[PADI]).toFixed(3), +ly.toFixed(3), +lz.toFixed(3)],
+    frame_w: +fw.toFixed(2), frame_h: +fh.toFixed(2),
+    fill: +pr.fill.toFixed(4),
+    band: [+bandTop.toFixed(1), +bandBot.toFixed(1)],
+    proj: { top: +pr.yMin.toFixed(1), bot: +pr.yMax.toFixed(1) },
+  };
+}
+function mzBoardingOn() { return padTowerWanted() && MZ && MZ.T && MZ.T.ready && MZ.T.root && MZ.T.root.visible; }
+function mzStackOn() {   // ship stacked on the booster (catch set-down, or booster already on the turntable). Lv10-19 has no stack clip / chopsticks.
+  if (!padMzWanted()) return false;
+  if (MZ && MZ.T && MZ.T.data && MZ.T.data.hasStackBoard === false) return false;
   const tt = MZ && MZ.T && MZ.T.nodes && MZ.T.nodes.Mount_Turntable;
   return !!(BST && BST.T && BST.T.booster && tt && BST.T.booster.parent === tt);
 }
-function applyPadMz() {   // show the r2t2 chopsticks tower at pad Lv20 or ?mz=1. Does not edit the Lv10 crew tower or control tower.
-  const on = padMzWanted();
+// Lv20+ with an owned booster: load on the mount, then chopsticks stack, then crew board at stacked height, then launch.
+function mzWantStackLaunch() {
+  return !!(typeof padMzWanted === 'function' && padMzWanted()
+    && S && S.bay && S.bay.own && S.bay.own.booster
+    && MZ && MZ.T && MZ.T.ready
+    && MZ.T.acts && MZ.T.acts.Catch_Lift_Swing_SetDown
+    && BST && BST.T && BST.T.ready && BST.T.booster);
+}
+function mzStackSec() {
+  const d = MZ && MZ.T && MZ.T.data && MZ.T.data.catchSec;
+  if (d > 0) return d;
+  const c = MZ && MZ.consts && MZ.consts.MZ_CATCH_SEC;
+  return c > 0 ? c : 43;
+}
+function mzKeepBoosterOnPad() {
+  const sh = S.cg && S.cg.sh;
+  if (!sh) return false;
+  if (sh.st === 'stack') return mzWantStackLaunch();
+  return !!(sh.stk && (sh.st === 'board' || sh.st === 'launch'));
+}
+function mzCargoBlocked() {            // never start (or keep) a pad load while stacked / stacking
+  const sh = S.cg && S.cg.sh;
+  if (!sh) return false;
+  if (sh.st === 'stack') return true;
+  return !!(typeof mzStackOn === 'function' && mzStackOn());
+}
+function mzUpdateStack(tb) {           // existing chopsticks art, no new crane: lift the hull mount → booster Ship_Seat over catchSec
+  if (!MZ || !MZ.T || !MZ.T.ready || !cg3 || !cg3.ship) return null;
+  const ship = cg3.ship;
+  const dur = mzStackSec();
+  const u = Math.max(0, Math.min(1, (+tb || 0) / Math.max(1e-6, dur)));
+  const k = u * u * (3 - 2 * u);
+  const y0 = mzShipMountY();
+  const y1 = (mzStackOn() ? mzShipSeatY() : 64.422);
+  if (!cg3._mzStackPose) {
+    if (MZ.followShip) MZ.followShip(ship);
+    cg3._mzStackPose = { x: ship.position.x, z: ship.position.z, qx: ship.quaternion.x, qy: ship.quaternion.y, qz: ship.quaternion.z, qw: ship.quaternion.w };
+  }
+  // Chopsticks stay at board rest (bind / retracted) for the whole slide. Do not pose the
+  // catch lift — that clip reaches toward the ship. Snap to stacked board rest at the end.
+  if (u >= 0.99) { if (MZ.poseBoard) MZ.poseBoard(0, true); }
+  else if (MZ.poseBoard) MZ.poseBoard(0, false);
+  const y = y0 + (y1 - y0) * k;
+  const P = cg3._mzStackPose;
+  ship.position.set(P.x, y, P.z);
+  ship.quaternion.set(P.qx, P.qy, P.qz, P.qw);
+  const tt = MZ.T.nodes && MZ.T.nodes.Mount_Turntable;
+  if (tt && BST && BST.placeOnTurntable && y >= Math.min(y1 - 0.5, y0 + 40)) BST.placeOnTurntable(tt);
+  if (u >= 0.99 && mzStackOn()) mzPlaceStackedShip();
+  else ship.updateMatrixWorld(true);
+  return { u, y: +ship.position.y.toFixed(3), stacked: mzStackOn() };
+}
+function applyPadMz() {   // show the ship tower at PAD_TOWER_LV+ or the r2t2 Mechazilla at PAD_MZ_LV+ / ?mz=1.
+  const on = padTowerWanted();
+  const src = padTowerSrcNow();
   const hook = () => {
     if (MZ.T.ready) MZ.setPadLv(padLvNow());
     MZ.applyLegacyHide(padMzLegacyCtx(), on);
-    if (on) applyPadMzCam(); else if (typeof padRestApply === 'function') { try { padRestApply(); } catch (e) {} }
-    window.__ps3d.padMz = Object.assign(MZ.T.ready ? MZ.info() : { ready: false, visible: false }, { legacyHide: MZ.legacyInfo() });
+    if (on) {
+      if (cg3.ship && MZ.T.ready && MZ.followShip(cg3.ship)) {
+        const y = +cg3.ship.position.y.toFixed(4);
+        if (y > 5) cg3.mzMountY = y;   // ignore a pre-track cache of shipY0 (0)
+      }
+      applyPadMzCam();
+      mzSyncPadCargo();
+    } else {
+      if (cg3) cg3.mzMountY = null;
+      if (typeof padRestApply === 'function') { try { padRestApply(); } catch (e) {} }
+      mzSyncPadCargo();
+    }
+    window.__ps3d.padMz = Object.assign(MZ.T.ready ? MZ.info() : { ready: false, visible: false }, { legacyHide: MZ.legacyInfo(), wanted: on, src });
   };
-  if (on) hook();
-  if (on && cg3.padArt && !MZ.T.ready && !MZ.T.failed) MZ.load(loader, cg3.padArt, (info) => {
-    MZ.setActive(true);
-    MZ.setPadLv(padLvNow());
-    const skirt = cg3.ship && (cg3.ship.getObjectByName('Aft_Skirt_Module') || cg3.ship.getObjectByName('Aft_Skirt') || cg3.ship.getObjectByName('Aft_Skirt_Seat'));
-    if (skirt) MZ.bindLegs(skirt);
-    if (cg3.hatchMx && cg3.hatchClips) MZ.bindHatch(cg3.hatchMx, cg3.hatchClips);
-    hook();
-  });
-  else if (MZ.T.ready) { MZ.setActive(on); hook(); }
-  else if (!on) hook();
+  if (on && cg3.padArt) {
+    if (MZ.T.loading) {   // an in-flight fetch will swap itself if _wantSrc changes
+      MZ.T._wantSrc = src;
+      hook();
+    } else {
+      const have = MZ.T.ready && MZ.T.src && MZ.T.src.url;
+      if (have && have !== src.url) MZ.unloadTower();
+      if (!MZ.T.ready && !MZ.T.failed && !MZ.T.loading) {
+        hook();
+        MZ.load(loader, cg3.padArt, (info) => {
+          MZ.setActive(true);
+          MZ.setPadLv(padLvNow());
+          const skirt = cg3.ship && (cg3.ship.getObjectByName('Aft_Skirt_Module') || cg3.ship.getObjectByName('Aft_Skirt') || cg3.ship.getObjectByName('Aft_Skirt_Seat'));
+          if (skirt) MZ.bindLegs(skirt);
+          if (cg3.hatchMx && cg3.hatchClips) MZ.bindHatch(cg3.hatchMx, cg3.hatchClips);
+          hook();
+        }, undefined, src);
+      } else if (MZ.T.ready) { MZ.setActive(on); hook(); }
+      else hook();
+    }
+  } else if (MZ.T.ready) { MZ.setActive(on); hook(); }
+  else hook();
 }
 function loadBooster() {
   if (!SU.T || !SU.T.root) return;
@@ -2707,13 +2956,19 @@ function loadBooster() {
 }
 function syncBooster() {
   if (!BST.T.ready) return;
+  if (typeof mzKeepBoosterOnPad === 'function' && mzKeepBoosterOnPad()) {
+    const tt = MZ && MZ.T && MZ.T.nodes && MZ.T.nodes.Mount_Turntable;
+    if (tt && BST.placeOnTurntable) BST.placeOnTurntable(tt);
+    window.__ps3d.booster = Object.assign(BST.info(), { want: 'pad', mode: BST.T.mode });
+    return;
+  }
   const want = boosterWanted();
   const goal = want || 'hidden';
   if (BST.T.mode !== goal) BST.sync({ show: !!want, mode: want || 'st10b', st10b: SU.T && SU.T.root, pad: cg3.padArt });
   window.__ps3d.booster = Object.assign(BST.info(), { want, mode: BST.T.mode });
 }
 // --- gc/ship-upgrade (end) ---
-// Launch Pad level: Lv1–Lv9 keep the 1720 ladder; Lv10+ uses the A&A launch tower;
+// Launch Pad level: Lv1–Lv9 keep the 1720 ladder; from PAD_TOWER_LV (10) the ship-tower elevator and arm replace that boarding path;
 // Lv20 adds the Control Tower (east of the pad). Default 1. ?padlv=N (dev QA, read from QD like ts) or S.padLv (clamped 1..20). Bought on the Launch Pad upgrade card (padUp, buyPad).
 function padLvNow() {
   const q = QD.get('padlv');  // QA flag: read from QD (Q is stripped except rm)
@@ -2739,18 +2994,19 @@ function padCost() {
 const padUpLocked = () => !(S.cg && S.cg.sh && S.cg.sh.st === 'pad' && !S.cg.sh.req && !(S.wk && S.wk.go > 0));   // ship on the pad, no launch queued, no crew walking out: a trip never swaps ladder ↔ tower mid-sequence
 function setPadLv(lv) {
   S.padLv = Math.max(1, Math.min(PAD_UP.max, lv | 0));
+  if (WK) WK.mzApproach = null;
   applyPadTower();
   applyControlTower();
   applyPadMz();
 }
 function applyPadTower() {
-  const on = padUsesTower();
+  const on = padUsesLegacyTower();   // do not load or activate the A&A crew tower once MZ boarding is wanted
   if (on && cg3.padArt && !TW.T.ready && !TW.T.failed) TW.load(loader, cg3.padArt, cg3.ship, (info) => {
     setLadderVisible(ACC.A.root, false);
     window.__ps3d.lv10tower = Object.assign(TW.info(), { url: TOWER_URL, padLv: padLvNow() });
   });
   TW.setActive(on && TW.T.ready);
-  if (ACC.A.root) setLadderVisible(ACC.A.root, !on);
+  if (ACC.A.root) setLadderVisible(ACC.A.root, !padUsesTower());   // ladder still hides at Lv10+; independent of the A&A tower
   if (TW.T.receptacle) TW.T.receptacle.visible = !!(on && TW.T.ready);
 }
 function applyControlTower() {
@@ -2760,15 +3016,16 @@ function applyControlTower() {
     window.__ps3d.controlTower = Object.assign(CT.info(), { padLv: padLvNow() });
   });
   CT.setActive(on && CT.T.ready);
+  if (CT.T.ready) window.__ps3d.controlTower = Object.assign(CT.info(), { padLv: padLvNow() });
 }
 function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-out. Pre-Habitat this is the old 4-crew BOARD_SEC.
   sh = sh || (S.cg && S.cg.sh) || null;
   // Freeze duration on the trip so leaving the pad / retargeting never shortens boarding into an instant launch.
   if (sh && sh.bsec > 0) return sh.bsec;
   const fly = flyCrew(sh); if (!BD.on || !fly.length) return 0;
-  // Lv20 r2t2: TowerCrewBoard_Mount / _Stack clip length (52 / 58 s). Lv10: elevator + arm + QD, constants, not the GLB.
-  if (mzBoardingOn()) return mzBoardSeconds(fly.length, mzStackOn());
-  if (padUsesTower()) return towerBoardSeconds(fly.length);
+  // Ship / MZ tower: TowerCrewBoard_Mount / _Stack clip length (measured; lv10 Mount is 68.5 s).
+  if (padTowerWanted()) return mzBoardSeconds(fly.length, mzStackOn());
+  if (padUsesLegacyTower()) return towerBoardSeconds(fly.length);
   // 1720 ladder: deploy, one climber at a time, stow, then launch. Nominal until the mesh rungs are read.
   if (ACC.A.ready || !ACC.A.failed) return accessSeconds(fly.length, ACC.A.rungs || null);
   let m = 0; for (const c of fly) { const ins = BOARD_INSIDE[c.board] || 0; if (ins > m) m = ins; }
@@ -2779,8 +3036,8 @@ function deboardOf(c = S.cg) { const s = c && c.sh; return s && s.st === 'deboar
 function deboardSec(sh) {
   const fly = flyCrew(sh || (S.cg && S.cg.sh) || null);
   const n = Math.max(1, fly.length || tripFly(sh || (S.cg && S.cg.sh)) || CFG.crew0);
-  if (mzBoardingOn()) return mzDeboardSeconds(n, mzStackOn());
-  if (padUsesTower()) return towerDeboardSeconds(n);
+  if (padTowerWanted()) return mzDeboardSeconds(n, mzStackOn());
+  if (padUsesLegacyTower()) return towerDeboardSeconds(n);
   if (!ACC.A.failed) return accessDeboardSeconds(n, ACC.A.rungs || null);
   return accessDeboardSeconds(n, null);
 }
@@ -2985,10 +3242,43 @@ function towerUpdateDeboard(tb) {
   if (info) window.__ps3d.lv10tower = Object.assign(TW.info(), { tb: +tb.toFixed(2), done: +info.done.toFixed(2), deboard: true, padLv: padLvNow() });
   BC.w = 0; BC.ph = 'off'; BC.tb = tb;
 }
+function mzShipMountY() {
+  // A&A Ship_Track rest is y 9.6 in pad space. Cache the seated local Y after the first
+  // rest followShip so a mid-catch track does not become the launch / land base.
+  if (cg3 && cg3.mzMountY != null) return cg3.mzMountY;
+  return 9.6;
+}
+function mzShipSeatY() {
+  const booster = BST && BST.T && BST.T.booster;
+  const seat = booster && booster.getObjectByName('Ship_Seat');
+  if (!seat || !cg3 || !cg3.ship) return 64.422;
+  seat.updateWorldMatrix(true, false);
+  const w = seat.getWorldPosition(new THREE.Vector3());
+  if (cg3.ship.parent) { cg3.ship.parent.updateWorldMatrix(true, false); cg3.ship.parent.worldToLocal(w); }
+  return w.y;
+}
+function mzPlaceStackedShip() {
+  // Board / deboard clips yaw Ship_Track but do not key its position. Stopping the catch
+  // clip restores the pad-rest track (y 9.6), so followShip would drop the ship while the
+  // stack arm is at hatch y 93. Sit the ship on the booster's Ship_Seat (y 64.42) so the
+  // hatch meets the arm; keep the clip yaw from followShip. Catch itself still drives the
+  // track, and mount board/deboard is unchanged (mzStackOn is false).
+  if (!mzStackOn() || !cg3 || !cg3.ship) return false;
+  const booster = BST && BST.T && BST.T.booster;
+  const seat = booster && booster.getObjectByName('Ship_Seat');
+  if (!seat) return false;
+  const ship = cg3.ship;
+  seat.updateWorldMatrix(true, false);
+  seat.getWorldPosition(ship.position);
+  if (ship.parent) { ship.parent.updateWorldMatrix(true, false); ship.parent.worldToLocal(ship.position); }
+  ship.updateMatrixWorld(true);
+  return true;
+}
 function mzUpdateBoard(tb) {
   const people = accessPeople();
   const info = MZ.tickBoard(tb, people, { stack: mzStackOn() });
   if (cg3.ship) MZ.followShip(cg3.ship);
+  if (mzStackOn()) mzPlaceStackedShip();
   for (const p of people) {
     if (p.mode === 'walk' && p.acts) { p.obj.userData._accHeld = 0; wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true); }
     else if (p.acts) { for (const n in p.acts) p.acts[n].setEffectiveWeight(0); p.obj.userData._accHeld = 1; }
@@ -3003,6 +3293,7 @@ function mzUpdateDeboard(tb) {
   const people = accessPeople();
   const info = MZ.tickDeboard(tb, people, { stack: mzStackOn() });
   if (cg3.ship) MZ.followShip(cg3.ship);
+  if (mzStackOn()) mzPlaceStackedShip();
   for (const p of people) {
     if (p.mode === 'walk' && p.acts) { p.obj.userData._accHeld = 0; wkPlay(p, 'walk', Math.max(0, tb) * 0.85, true); }
     else if (p.acts) { for (const n in p.acts) p.acts[n].setEffectiveWeight(0); p.obj.userData._accHeld = 1; }
@@ -3031,9 +3322,9 @@ function mzPoseCatch(t, opts) {
   if (opts && opts.stack && BST && BST.T && BST.T.ready && tt) BST.placeOnTurntable(tt);
   return { ok, t, info: MZ.info(), ship: cg3.ship && [+cg3.ship.position.x.toFixed(2), +cg3.ship.position.y.toFixed(2), +cg3.ship.position.z.toFixed(2)] };
 }
-function towerPoseAt(tb) {   // QA: pose L10 boarding, or r2t2 chopstick-elevator boarding at Lv20.
-  if (mzBoardingOn()) return mzUpdateBoard(tb);
-  if (!TW.T.ready || !padUsesTower()) return null;
+function towerPoseAt(tb) {   // QA: pose L10 ladder-tower boarding, or the ship/MZ elevator boarding from PAD_TOWER_LV.
+  if (padTowerWanted()) return mzBoardingOn() ? mzUpdateBoard(tb) : null;
+  if (!TW.T.ready || !padUsesLegacyTower()) return null;
   const people = accessPeople();
   const info = TW.tickBoard(tb, people);
   for (const p of people) {
@@ -3083,8 +3374,9 @@ function updCrew() {
     }
     return;
   }
-  if (mzBoardingOn() && !bNow && !dNow) mzReleasePeople();
-  if (padUsesTower() && TW.T.ready && !mzBoardingOn()) {
+  if (padTowerWanted() && !bNow && !dNow) mzReleasePeople();
+  if (padTowerWanted() && (bNow || dNow) && !mzBoardingOn()) return;   // tower wanted but not ready yet: do not fall back to the A&A tower or ladder
+  if (padUsesLegacyTower() && TW.T.ready) {
     towerReleasePeople();
     const st = S.cg && S.cg.sh && S.cg.sh.st;
     if (TW.T.resetT0) {
@@ -3179,7 +3471,19 @@ function wkAt(poly, s) { const p = poly.pts; if (s <= 0) { const a = p[0], b = p
   if (s >= poly.L) { const a = p[p.length - 2] || p[0], b = p[p.length - 1]; return [b[0], b[1], Math.atan2(b[0] - a[0], b[1] - a[1])]; }
   let lo = 0, hi = poly.seg.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (poly.seg[m] <= s) lo = m; else hi = m; }
   const a = p[lo], b = p[hi], u = (s - poly.seg[lo]) / (poly.seg[hi] - poly.seg[lo] || 1); return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, Math.atan2(b[0] - a[0], b[1] - a[1])]; }
-function wkLadder() { if (padUsesTower()) return [PX + 8.24, -8.6]; if (!WK.ladder) WK.ladder = [PX + 3.854, -10.775]; return WK.ladder; }
+function wkMzApproach() {   // walk-up / walk-off at the tower elevator doors (Crew_Mark_1 at rest), not the old A&A tower
+  const data = MZ && MZ.towerData;
+  if (data && data.approachXZ) return data.approachXZ;
+  const mark = MZ && MZ.T && MZ.T.nodes && MZ.T.nodes.Crew_Mark_1;
+  if (mark) {
+    mark.updateWorldMatrix(true, false);
+    const v = mark.getWorldPosition(new THREE.Vector3());
+    if (v.y < 2) { WK.mzApproach = [v.x, v.z]; return WK.mzApproach; }   // only cache at ground; mid-clip the mark rides the arm
+  }
+  if (WK.mzApproach) return WK.mzApproach;
+  return [PX, 0];   // GLB not ready and no measured mark yet; never a chopstick-model coordinate
+}
+function wkLadder() { if (padTowerWanted()) return wkMzApproach(); if (padUsesTower()) return [PX + 8.24, -8.6]; if (!WK.ladder) WK.ladder = [PX + 3.854, -10.775]; return WK.ladder; }
 function wkRoad(from, to) { const z = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ;
   if (Math.abs(from[1] - z) < 0.08) return wkPoly([from, [to[0], z], to]); return wkPoly([from, [from[0], z], [to[0], z], to]); }
 function wkHomes() { const d = (MK && MK.Operator_Deck) || { x: -4.5, z: 6.5 }, l = (MK && MK.Path_Load) || { x: 11, z: 9 };
@@ -3557,7 +3861,7 @@ function padRestPts() {
 }
 const padRestK0 = (pts) => { const s = new THREE.Box3().setFromPoints(pts).getBoundingSphere(new THREE.Sphere()); return 1.2 * s.radius / camera.userData.dist; };   // camera starts outside the ship (from closer in the centring runs away)
 function padRestApply() {              // after fitSite(PADI) set the override frame: replace it with the ship fit when the ship nodes are there
-  if (padMzWanted()) { applyPadMzCam(); return; }
+  if (padTowerWanted()) { applyPadMzCam(); return; }
   const C = SITECAM[PADI]; if (!C || !cg3.padArt) return;
   let pts = null, t = null; try { pts = padRestPts(); t = pts && padLoadFit(pts, padRestK0(pts)); } catch (e) { console.warn('pad rest camera: fit failed', e); }
   if (!t) { C.rest = 'override'; window.__ps3d.padRest = { src: 'override', why: pts ? 'no fit' : 'ship nodes missing' }; return; }
@@ -3754,8 +4058,12 @@ function shipHudLine(c, t) {           // compact live status for the top HUD (f
   const s = c && c.sh; if (!s) return 'Ship: At pad';
   if (s.st === 'pad') {
     if (c.rd || (c.pc && pcHold(c.pc.k))) return 'Loading';
+    // Stacked with room in the hold: stay on 'Loading' (no crane) until the next mount turn.
+    if (mzCargoBlocked() && holdN(c) < holdCap()) return 'Loading';
     return 'Ship: At pad';
   }
+  if (s.st === 'stack') return 'Stacking';
+  if (s.st === 'board' && s.stk) return 'Boarding';   // Lv20+ booster path only; mount board stays 'Launching'
   if (s.st === 'board' || s.st === 'launch') return 'Launching';
   if (s.st === 'away') return (t < s.t0 + shipDur(CG.awaySec, s) * 500) ? ('To Earth ' + shipTripPct(s, t, 0) + '%') : ('Returning ' + shipTripPct(s, t, 1) + '%');
   if (s.st === 'land') return 'Landing';
@@ -3804,6 +4112,7 @@ function shipBayWorkFrac(t = nowMs()) {   // read-only: existing S.upg + SU.sche
 function shipHudFrac(t = nowMs()) {    // mid-HUD bar, same ship / line as shipHudText, 0–1
   if (typeof shipUpgradeBusy === 'function' && shipUpgradeBusy(S)) return shipBayWorkFrac(t);
   const c = S.cg, s = c && c.sh; if (!s) return 0;
+  if (s.st === 'stack') { const d = mzStackSec() * 1000; return d > 0 ? clamp((t - s.t0) / d, 0, 1) : 0; }
   if (s.st === 'pad' || s.st === 'deboard') { const cap = holdCap(); return cap > 0 ? clamp((s.hold || 0) / cap, 0, 1) : 0; }
   if (s.st === 'board' || s.st === 'launch') return shipLaunchFrac(s, t);
   if (s.st === 'away') {
@@ -4466,13 +4775,19 @@ function cgDecide(c, t, acc) {      // acc = away catch-up. EM/Director 10/29: a
     // ca-dock: no more empty-flatbed Dock 'load' trips (Dock boxes go straight to the hold, Dock-first, below); a save mid-trip still finishes it
     if (!c.pc.k && crAt(c, t)) { const fbW = c.fb.st === 'unload' && c.fb.bed > 0 && c.bay >= CG.bayCap;   // gc-dockbld: flatbed waiting at the pad on a full bay → bay box first, so it can unload and go back
       if (c.fb.st === 'unload' && c.as.st === 'ready' && c.fb.bed > 0 && c.bay < CG.bayCap) { c.fb.bed--; c.pc = { k: 'unload', t0: t }; ch = true; cgEv('pad_crane_unload', t, { slot: c.fb.bed + 1 }); }
-      else if (s.st === 'pad' && !s.req && c.dk > 0 && !fbW && holdN(c) < holdCap() && !dockBusy(c, t) && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
-      else if (s.st === 'pad' && !s.req && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < holdCap() && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
+      else if (s.st === 'pad' && !s.req && !mzCargoBlocked() && c.dk > 0 && !fbW && holdN(c) < holdCap() && !dockBusy(c, t) && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.dk--; c.pc = { k: 'dock', t0: t, w: pcWait(c, 'dock', t) }; ch = true; cgEv('dock_lift', t, { slot: holdN(c) + 1, dock: c.dk }); }   // ca-dock: Dock first
+      else if (s.st === 'pad' && !s.req && !mzCargoBlocked() && (c.dk === 0 || fbW) && c.bay > 0 && holdN(c) < holdCap() && (c.autoLoad || c.ml > 0)) { if (!c.autoLoad) c.ml--; c.bay--; c.pc = { k: 'hold', t0: t, w: pcWait(c, 'hold', t) }; ch = true; cgEv('pad_crane_hold', t, { slot: holdN(c) + 1 }); }
     }
     if (c.fb.st === 'unload' && c.fb.bed === 0 && c.pc.k !== 'unload' && c.as.st === 'ready') { c.fb = { st: 'back', t0: t, bed: 0 }; c.as = { st: 'walk_back', t0: t }; ch = true; cgEv('fb_return', t); }
     if (wkShouldPickup(c)) wkEnsurePickup(c, t, acc);
     if (s.st === 'pad' && !pcHold(c.pc.k) && !c.rd && t >= fuelFinishAt(c) && s.hold >= holdCap() && ((c.autoLaunch && !s.man) || (s.req && t >= s.req))) {   // Jacob 11/1: full hold only; Auto Launch or the Launch tap
       if (wkPreHab(s) && !wkArrived(t)) { wkEnsurePickup(c, t, acc); }
+      else if (mzWantStackLaunch() && mzStackOn()) {
+        const flyN = (S.wk && S.wk.go > 0 && !(S.wk.down > 0)) ? CFG.crew0 : residentFlyers(), bsec = boardSec({ fly: flyN });   // already stacked: board at stack height, do not load
+        c.sh = Object.assign({}, s, { st: bsec ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0, fm: shipFlightAt(), bsec: bsec || 0, stk: 1 }); ch = true; cgEv(bsec ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0, fly: flyN, fm: shipFlightAt(), bsec, stk: 1 }); }
+      else if (mzWantStackLaunch()) {
+        const flyN = (S.wk && S.wk.go > 0 && !(S.wk.down > 0)) ? CFG.crew0 : residentFlyers(), bsec = mzBoardSeconds(flyN, true);
+        c.sh = Object.assign({}, s, { st: 'stack', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0, fm: shipFlightAt(), bsec: bsec || 0, stk: 1 }); ch = true; cgEv('stack', t, { hold: s.hold, fly: flyN, fm: shipFlightAt(), bsec, stackSec: mzStackSec() }); }
       else {
       const flyN = (S.wk && S.wk.go > 0 && !(S.wk.down > 0)) ? CFG.crew0 : residentFlyers(), bsec = boardSec({ fly: flyN });   // snapshot who leaves; a Habitat bought later does not pull them back
       c.sh = Object.assign({}, s, { st: bsec ? 'board' : 'launch', t0: t, req: 0, man: 0, rh: s.req ? (s.rh || s.hold) : 0, fly: flyN, left: flyN >= CFG.crew0 ? t : 0, fm: shipFlightAt(), bsec: bsec || 0 }); ch = true; cgEv(bsec ? 'board' : 'launch', t, { hold: s.hold, partial: false, locked: s.req ? (s.rh || s.hold) : 0, fly: flyN, fm: shipFlightAt(), bsec }); } }   // fm + bsec frozen for this trip
@@ -4484,7 +4799,7 @@ const shipReady = (c, t) => c.sh.st === 'pad' && t >= fuelFinishAt(c) && !shipUp
 // ca-dock (EM 17:48): the ship 'takes boxes' only when it is on the pad, fuelled, no Launch tap pending and its hold has room. It can't take boxes while
 // refuelling, away (board / launch / away / land), with a full hold, or with a Launch tap pending: then a loaded flatbed stores at the Dock (cap CFG.dock.cap).
 // Each box is counted once: +1 Dock when its store clip ends, −1 Dock when PC-1 lifts it (Dock-first, also during the refuel); one Dock crane (dockBusy), no loop.
-const shipTakes = (c, t) => shipReady(c, t) && !c.sh.req && holdN(c) < holdCap() && c.autoLoad;   // ca-cargoride: the crate riding in counts
+const shipTakes = (c, t) => shipReady(c, t) && !c.sh.req && holdN(c) < holdCap() && c.autoLoad && !mzCargoBlocked();   // ca-cargoride: the crate riding in counts
 const dockSec = (f) => f.dk === 'load' ? CPH.dock.loadSec * CRANE_TIME_MULT : Math.max(1, f.bed || CG.perTrip) * craneJobSec(CFG.dock.storeS * CRANE_TIME_MULT);   // gc-dockfix item 1: store stop = per crate (base 3 s × 1.5, floored at craneLoadSec). Load-trip 42 s × 1.5 stays (already long).
 const tripN = (c) => c.ft ? CG.perTrip : (CG.firstTrip || CG.perTrip);   // gc-dockfix item 6: a new save's first flatbed trip leaves with CG.firstTrip crate(s); every later trip CG.perTrip
 function cgNext(c) {
@@ -4495,7 +4810,7 @@ function cgNext(c) {
   if (!c.pc.k && c.dk > 0 && s.st === 'pad' && dockBusyEnd(c) > c.t) T(dockBusyEnd(c));   // ca-dock: Dock crane free again → the next Dock-first lift
   if (c.as.st === 'walk_out' || c.as.st === 'walk_back') T(c.as.t0 + (c.as.st === 'walk_out' ? CG.walkOutSec : CG.walkBackSec) * 1000);
   if (c.pc.k) T(pcEnd(c.pc));
-  if (s.st === 'board') T(s.t0 + boardSec(s) * 1000); else if (s.st === 'launch') T(s.t0 + shipDur(CG.launchSec, s) * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + shipDur(CG.awaySec, s) * 500 : s.t0 + shipDur(CG.awaySec, s) * 1000); else if (s.st === 'land') T(s.t0 + shipDur(CG.landSec, s) * 1000); else if (s.st === 'deboard') T(s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000);
+  if (s.st === 'stack') T(s.t0 + mzStackSec() * 1000); else if (s.st === 'board') T(s.t0 + boardSec(s) * 1000); else if (s.st === 'launch') T(s.t0 + shipDur(CG.launchSec, s) * 1000); else if (s.st === 'away') T(payEarth() && s.cargo > 0 ? s.t0 + shipDur(CG.awaySec, s) * 500 : s.t0 + shipDur(CG.awaySec, s) * 1000); else if (s.st === 'land') T(s.t0 + shipDur(CG.landSec, s) * 1000); else if (s.st === 'deboard') T(s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000);
   else { if (s.hold >= holdCap() && !pcHold(c.pc.k) && fuelFinishAt(c) > c.t) T(fuelFinishAt(c)); if (s.req > c.t) T(s.req);
     if (S.wk && S.wk.go > 0 && !S.wk.down) { const arr = S.wk.go + wkGatherSec() * 1000; if (arr > c.t) T(arr); }
     if (S.wk && S.wk.down > 0) { const home = wkHomeAt(); if (home > c.t) T(home); } }
@@ -4520,17 +4835,23 @@ function cgComplete(c, t, acc) {
     c.pc = { k: '', t0: 0 };
   }
   const s = c.sh;
-  if (s.st === 'board' && s.t0 + boardSec(s) * 1000 <= t) { const tl = s.t0 + boardSec(s) * 1000; const bsec = boardSec(s); c.sh = Object.assign({}, s, { st: 'launch', t0: tl, bsec }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: bsec }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once). fly + left stay on sh.
+  if (s.st === 'stack' && s.t0 + mzStackSec() * 1000 <= t) {
+    const tl = s.t0 + mzStackSec() * 1000, bsec = s.bsec > 0 ? s.bsec : mzBoardSeconds(s.fly || 0, true);
+    if (cg3) cg3._mzStackPose = null;
+    if (bsec) { c.sh = Object.assign({}, s, { st: 'board', t0: tl, bsec, stk: 1 }); cgEv('board', tl, { hold: s.hold, partial: false, locked: s.rh || s.hold || 0, fly: s.fly, fm: s.fm, bsec, stk: 1 }); }
+    else { c.sh = Object.assign({}, s, { st: 'launch', t0: tl, bsec: 0, stk: 1 }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: 0, stk: 1 }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }
+  }
+  else if (s.st === 'board' && s.t0 + boardSec(s) * 1000 <= t) { const tl = s.t0 + boardSec(s) * 1000; const bsec = boardSec(s); c.sh = Object.assign({}, s, { st: 'launch', t0: tl, bsec }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: bsec }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once). fly + left stay on sh.
   else if (s.st === 'launch' && s.t0 + shipDur(CG.launchSec, s) * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
     c.launches++; cgEv('departed', t, { boxes: s.hold });
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, n: s.hold, pur: cargoPurity(), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 };   // gc-batch7: n = crates aboard at departure (display only; survives the Earth drop). fly / left / fm ride with the trip
   } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + shipDur(CG.awaySec, s) * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
     c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
   } else if (s.st === 'away' && s.t0 + shipDur(CG.awaySec, s) * 1000 <= t) { c.sh = { st: 'land', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.cargo || 0, n: s.n, pur: s.pur, crew: crewOk(s.crew), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 }; cgEv('landing', t); }   // gc-crewpick: the pick rides home. fm keeps the landing clock
-  else if (s.st === 'land' && s.t0 + shipDur(CG.landSec, s) * 1000 <= t) {           // touchdown → deboard (bay/ladder/climb-down/walk), then pad. Drop-off credited once here.
+  else if (s.st === 'land' && s.t0 + shipDur(CG.landSec, s) * 1000 <= t) {           // touchdown → deboard (ship/MZ arm/elevator from PAD_TOWER_LV, else bay/ladder/climb-down/walk), then pad. Drop-off credited once here.
     const left = s.left > 0 && (s.fly >= CFG.crew0) ? s.left : 0, origGo = S.wk && S.wk.go > 0 && s.fly >= CFG.crew0 ? S.wk.go : 0;
     const flyN = s.fly || 0;
-    const needDeboard = !ACC.A.failed && (flyN > 0 || crewOk(s.crew).length > 0);
+    const needDeboard = (padTowerWanted() || !ACC.A.failed) && (flyN > 0 || crewOk(s.crew).length > 0);
     if (left > 0) payPend(left, acc); else if (origGo > 0) payPend(origGo, acc);
     fuelAnchor(c, t, 0); cgEv('landed', t); crewLand(c, t, s.crew);
     if (s.cargo > 0) cgDeliver(c, s.cargo, s.pur, t, acc);
@@ -4542,7 +4863,7 @@ function cgComplete(c, t, acc) {
       cgEv('deboard', t, { dsec, fly: flyN });
     } else {
       c.sh = { st: 'pad', t0: t, hold: 0, f0: t, req: 0 };
-      if (padUsesTower() && TW.T.ready && TW.T.retracted) TW.T.resetT0 = t;
+      if (padUsesLegacyTower() && TW.T.ready && TW.T.retracted) TW.T.resetT0 = t;
       if (origGo > 0) { if (!S.wk) S.wk = { go: origGo, down: 0, cx: 0, cz: 0 }; S.wk.down = t; }
       else if (left > 0) shiftTrucks(t - left);
     }
@@ -4616,7 +4937,7 @@ function stampGuard(now = nowMs()) {
   return g;
 }
 const fuelAt = (t) => { const s = S.cg.sh; return (s.st === 'pad' || s.st === 'deboard') ? fuelNow(t).g / CFG.econ.fuel.tank : s.st === 'launch' ? 1 : 0; };   // tank 0–1: fills from touchdown at the pump rate (refuelSec(S.fuelLv)), from the Refinery stock (fuelSolve)
-const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : s.st === 'board' ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the (level-scaled) climb, empty while away/landing
+const fuelGauge = (t) => { const s = S.cg.sh; return s.st === 'pad' ? fuelAt(t) : (s.st === 'board' || s.st === 'stack') ? 1 : s.st === 'launch' ? clamp(1 - (t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1) : 0; };   // HUD fuel gauge: fuelAt on the pad (f0 = touchdown), drains over the (level-scaled) climb, empty while away/landing
 function crewEnRoute(t = nowMs()) { return !!(typeof wkPreHab === 'function' && wkPreHab() && typeof wkArrived === 'function' && !wkArrived(t)); }   // pre-Habitat: miner/driver taxi + walks; Launch must wait (Director 11/07)
 const launchReady = (t = nowMs()) => { const s = S.cg.sh; return s.st === 'pad' && !s.req && s.hold >= holdCap() && fuelAt(t) >= 1 && !crewEnRoute(t); };   // full hold, fuelled, and the boarding crew are at the pad
 const launchBlocked = (h = S.cg.sh.hold) => CFG.econ.launchBelowMin === 'block' && !(launchPayFor(h) > 0);   // 'block' = no launch under a full hold. A short first flight is not an exception
@@ -4786,6 +5107,100 @@ function holdExtend(holds, yaws, maxN) {   // bind-time only. Art markers stay a
     for (const src of foot) { if (holds.length >= maxN) break; const p = holds[src].clone(); p.y = yMax + layer * dy; holds.push(p); yaws.push(yaws[src] || 0); }
   }
 }
+
+// Lv10+ cargo: drive the visible r2t2 pad crane (attached beside the tower at
+// (3.5, 0, 8.32); same crane at Lv20 mount and stacked). Live PC-1 is hidden
+// by applyLegacyHide and is too short (sheave 22.966). The r2t2 mast was
+// raised 9.948 m (sheave 32.914, hmax 31.564) so the same cranePose solve
+// reaches a ship seated on the Mount (y 9.6). Heights are bound to the seated
+// ship Y (mount, or booster Ship_Seat when stacked) — never Y 0. Lv1-9 keeps
+// the live PC-1 bind in cgBind and never enters this path.
+function mzTowerCrane() {
+  return (typeof padTowerWanted === 'function' && padTowerWanted() && MZ && MZ.T && MZ.T.ready && MZ.T.nodes && MZ.T.nodes.Crane) ? MZ.T.nodes.Crane : null;
+}
+function mzCargoSeatY() {
+  if (typeof mzStackOn === 'function' && mzStackOn()) return mzShipSeatY();
+  return mzShipMountY();
+}
+function mzBindPcTo(root) {
+  const A = CARGO_ALIAS;
+  root.updateMatrixWorld(true);
+  const sl = findA(root, A.slew), tr = findA(root, A.trolley), ho = findA(root, A.hoist), hk = findA(root, A.hook);
+  if (!sl || !tr || !ho || !hk) return null;
+  const wp = (o) => o ? o.getWorldPosition(new THREE.Vector3()) : null, base = root.getWorldPosition(new THREE.Vector3());
+  let u = null; root.traverse(n => { if (!u && n.userData && n.userData.sheave_y > 0) u = n.userData; });
+  const glb = u ? { sheave: u.sheave_y, drop: u.hook_drop_m, rest: u.hook_rest_local_y, rmin: u.trolley_min_m, rmax: u.trolley_max_m, hmin: u.hoist_min_m || .6, hmax: u.hoist_max_m || 8.3 } : null;
+  if (glb) for (const o of [sl, tr, ho, hk]) if (o) o.userData.q0 = o.userData.q0 || o.quaternion.clone();
+  const C = { root, sl, tr, ho, hk, cable: tr && tr.userData.cable, base, top: wp(sl).y, jib: glb ? glb.rmax : CPH.pad.jib, rmin: glb ? glb.rmin : 1.2, glb, slots: null, pick: null, drop: null };
+  if (cg3.padArt) {
+    const w = (n) => { const o = cg3.pg.getObjectByName(n); return o ? o.getWorldPosition(new THREE.Vector3()) : null; };
+    C.pick = w('Pick_Point'); C.drop = w('Drop_Point');
+  }
+  C.hiUnload = CPH.pad.hiUnload; C.hiHold = CPH.pad.hiHold;
+  return C;
+}
+function mzRefreshHiHold(C) {
+  if (!C || !cg3.ship || typeof RDT === 'undefined' || !RDT.tray || !RDT.seat) return;
+  cg3.ship.updateMatrixWorld(true);
+  C.hiHold = RDT.seat.clone().applyMatrix4(cg3.ship.matrixWorld).y + BOXP.hookY;
+}
+function mzBindHoseEnds(on) {
+  // Bind LOX/CH4 hookup ends to seated ship Y. Approved art hides the pad hoses
+  // at the tower (HIDE_PAD_NODES); keep them hidden and still move the ends.
+  if (!cg3 || !cg3.padArt) return;
+  const hookup = cg3.padArt.getObjectByName('Fuel_Hookup');
+  const hoses = ['Hose_LOX', 'Hose_LCH4'].map((n) => cg3.padArt.getObjectByName(n)).filter(Boolean);
+  const seatY = on ? mzCargoSeatY() : 0;
+  const bump = (arr, y0) => { if (Array.isArray(arr) && arr.length > 1) arr[1] = y0 + seatY; };
+  if (hookup) {
+    if (hookup.userData._mzY0 == null) {
+      hookup.userData._mzY0 = hookup.position.y;
+      hookup.userData._mzEx0 = {
+        LOX: hookup.userData.LOX && hookup.userData.LOX.slice(),
+        LCH4: hookup.userData.LCH4 && hookup.userData.LCH4.slice(),
+        LOX_QD_parked: hookup.userData.LOX_QD_parked && hookup.userData.LOX_QD_parked.slice(),
+        LCH4_QD_parked: hookup.userData.LCH4_QD_parked && hookup.userData.LCH4_QD_parked.slice(),
+      };
+    }
+    hookup.position.y = hookup.userData._mzY0 + seatY;
+    const ex0 = hookup.userData._mzEx0 || {};
+    if (hookup.userData.LOX && ex0.LOX) bump(hookup.userData.LOX, ex0.LOX[1]);
+    if (hookup.userData.LCH4 && ex0.LCH4) bump(hookup.userData.LCH4, ex0.LCH4[1]);
+    // parked stand QDs stay on the apron (y 1.62); only the ship-side hookup follows the hull
+  }
+  for (const h of hoses) {
+    if (h.userData._mzY0 == null) h.userData._mzY0 = h.position.y;
+    h.userData.mzHoseEndY = (hookup ? hookup.position.y : 4.45 + seatY);
+  }
+}
+function mzSyncPadCargo() {
+  if (!cg3 || !cg3.padArt) return;
+  const crane = mzTowerCrane();
+  if (crane) {
+    if (!cg3.PC || cg3.PC.root !== crane) {
+      const C = mzBindPcTo(crane);
+      if (C) { cg3.PC = C; cg3._mzPcOn = true; }
+    }
+    mzRefreshHiHold(cg3.PC);
+    mzBindHoseEnds(true);
+  } else if (cg3._mzPcOn) {
+    // Restore the live PC-1 only after a tower bind. Lv1-9 never enters this path
+    // (no rebind, no hose writes) so crate positions stay identical to 759e1c3/c5ebfee.
+    if (cg3.pc) {
+      const C = mzBindPcTo(cg3.pc);
+      if (C) {
+        if (typeof RDT !== 'undefined' && RDT.tray && RDT.seat && cg3.ship) {
+          const hy = RDT.seat.clone().applyMatrix4(cg3.ship.matrixWorld).y + BOXP.hookY;
+          if (C.hiHold > hy) C.hiHold = hy;
+        }
+        cg3.PC = C;
+      }
+    }
+    mzBindHoseEnds(false);
+    cg3._mzPcOn = false;
+  }
+}
+
 function cgBind() {
   const A = CARGO_ALIAS, bp = cg3.boxRoot || phBoxProp(), hp = findA(bp, A.boxHook), bb = findA(bp, A.boxBase); BOXP.hookY = hp && bb ? hp.position.y - bb.position.y : 1.5;
   const crane = (root, mast, jib) => { root.updateMatrixWorld(true); const sl = findA(root, A.slew), tr = findA(root, A.trolley), ho = findA(root, A.hoist), hk = findA(root, A.hook), pk = findA(root, A.pick), dp = findA(root, A.drop);
@@ -5251,7 +5666,7 @@ function brAdvU(u0, sec, uMax) { let u = u0, r = Math.max(0, sec); while (r > 1e
 function crDuty(c) { const f = c.fb, s = c.sh;
   if (f.st === 'unload' || c.pc.k) return true;
   if (((f.st === 'out' && !f.dk) || f.st === 'out2') && f.bed > 0) return true;   // loaded flatbed on its way to the pad (a Dock store run alone does not call him out)
-  return s.st === 'pad' && !s.req && (c.bay > 0 || c.dk > 0) && holdN(c) < holdCap() && (c.autoLoad || c.ml > 0); }
+  return s.st === 'pad' && !s.req && !mzCargoBlocked() && (c.bay > 0 || c.dk > 0) && holdN(c) < holdCap() && (c.autoLoad || c.ml > 0); }
 function crGet(c) { let r = c.cr;
   if (!r || typeof r !== 'object' || !/^(room|out|back)$/.test(r.m) || !isFinite(r.t0) || !isFinite(r.u0)) r = c.cr = crDuty(c) ? { m: 'out', t0: c.t, u0: BR_PATH.T, o: 0 } : { m: 'room', t0: c.t, u0: BRD.seat[0], o: 0 };
   if (!(r.o >= 0)) r.o = 0; return r; }
@@ -5400,7 +5815,7 @@ function padLoaded(g) {
   // --- gc/ship-upgrade (begin) ---
   loadShipUpgrade();
   // --- gc/ship-upgrade (end) ---
-  applyPadMz();   // gc/mechazilla: r2 chopsticks stand-in (hidden unless Lv20 or ?mz=1)
+  applyPadMz();   // gc/mzcrew: ship tower from PAD_TOWER_LV, r2t2 from PAD_MZ_LV / ?mz=1
 }
 function shipHoldLoad(rig) {          // AA1 V1 hold Lv1 under Ship_Placeholder at Attach_Hold (rides launch / landing with the hull); a failed load just leaves the hull bare
   const hull = rig.getObjectByName('Ship_Placeholder'); if (!hull || Q.get('hold') === 'off') return;
@@ -5417,6 +5832,7 @@ function padDoorAt(k, n) {             // ca-cargoride: the door at a pose set f
 function padDoorWant(c) {              // animation only: when the cargo tray should be open. Does not start/stop lifts, money, or crate counts.
   const s = c && c.sh;
   if (!s || s.st !== 'pad') return false;
+  if (mzCargoBlocked()) return false;   // Lv20+ stacked: no open tray / crane load
   if (shipUpgradeBusy(S)) return false;   // gc/ship-upgrade: no open tray while the hull is off the pad
   if (c.rd) return true;               // crate riding in
   if (pcHold(c.pc && c.pc.k)) return true;   // mid hold/dock lift — hook needs the open tray
@@ -5477,12 +5893,23 @@ function updCargo() {
   else if (cg3.wheels) { const W = cg3.wheels; fb.userData.wheelPos.forEach((p, i) => { _cq.setFromAxisAngle(_cv.set(0, 0, 1), -FBS.wa); W.setMatrixAt(i, _cm.compose(_cp.set(p[0], p[1], p[2]), _cq, _cs)); }); W.instanceMatrix.needsUpdate = true; }
   // ship
   const s = c.sh, sh = cg3.ship, pp = CPH.pad; let sy = cg3.shipY0 != null ? cg3.shipY0 : pp.padTop, vis = true;
+  // Lv10+ tower: the hull sits on Ship_Track (y 9.6) or the booster Ship_Seat. followShip /
+  // mzPlaceStackedShip pose it, but this function used to run after and write shipY0 (0),
+  // dropping the ship 9.6 m and leaving the S6 cab hanging off the tapered upper hull.
+  const towerSeat = typeof padTowerWanted === 'function' && padTowerWanted() && MZ && MZ.T && MZ.T.ready;
+  const towerBase = towerSeat ? ((typeof mzStackOn === 'function' && mzStackOn() && (s.st === 'launch' || s.st === 'land')) ? mzShipSeatY() : mzShipMountY()) : sy;
+  if (towerSeat) sy = towerBase;
   if (s.st === 'launch') { const u = clamp((t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1); sy += 160 * u * u * u; }
   else if (s.st === 'away') vis = false;
   else if (s.st === 'land') { const u = clamp((t - s.t0) / (shipDur(CG.landSec, s) * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
+  const gearAlt = sy - (towerSeat ? towerBase : (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop));
   // --- gc/ship-upgrade (begin) ---  skip pad y-write while the hull is attached to Ship_Seat
   if (SU.T.carrying) { sh.visible = true; updGear(s, t, 0); sh.updateMatrixWorld(true); updVfx(c, t); }
-  else { sh.visible = vis; sh.position.y = sy; updGear(s, t, sy - (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop)); sh.updateMatrixWorld(true); updVfx(c, t); }
+  else if (towerSeat && s.st !== 'launch' && s.st !== 'away' && s.st !== 'land') {
+    sh.visible = vis; updGear(s, t, 0); sh.updateMatrixWorld(true); updVfx(c, t);
+  }
+  else { sh.visible = vis; sh.position.y = sy; updGear(s, t, gearAlt); sh.updateMatrixWorld(true); updVfx(c, t); }
+  if (towerSeat) mzSyncPadCargo();
   // --- gc/ship-upgrade (end) ---
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
@@ -5855,8 +6282,8 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   // gc-ui3 (EM 17:36 item 7): the rocket opens its launch card (hold, fuel, state; the button launches when the HUD LAUNCH would), not 'Coming soon'
   ship: { name: 'Launch Pad', ico: 'ship', launch: true, kick: 'Pad',
     big: () => { const s = S.cg.sh, a = s.st === 'away' || s.st === 'land'; return [`${a ? (s.n >= 0 ? s.n : (s.cargo || 0)) : s.hold}/${holdCap()}`, 'crates aboard']; },   // gc-batch7: away / land show the count that left (sh.n)
-    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'board' ? 'Boarding' : s.st === 'deboard' ? 'Deboarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? (crewWin(t) ? `On the way to Earth · crew ${crewOk(s.crew).length}/${maxPicks()}` : 'On the way to Earth') : 'Landing'; },
-    btn: () => { const s = S.cg.sh, t = nowMs(); if (shipUpgradeBusy(S)) return [shipUpgradeLaunchReason(), false]; if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < holdCap()) return [`Hold ${s.hold}/${holdCap()}`, false]; if (s.req) return ['Launching…', false]; if (s.hold >= holdCap() && fuelAt(t) >= 1 && crewEnRoute(t)) return ['Crew en route', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
+    sub: () => { const s = S.cg.sh, t = nowMs(); return s.st === 'pad' ? `Fuel ${Math.floor(fuelGauge(t) * 100 + 1e-9)}% · Launch pay +${fmt(launchPayFor(s.hold))}${launchPayFor(s.hold) > 0 ? '' : ` (needs ${launchMinBoxes()})`}\nDrop-off +${fmt(dropoffPay(s.hold))}` : s.st === 'stack' ? 'Stacking' : s.st === 'board' ? 'Boarding' : s.st === 'deboard' ? 'Deboarding' : s.st === 'launch' ? 'Lifting off' : s.st === 'away' ? (crewWin(t) ? `On the way to Earth · crew ${crewOk(s.crew).length}/${maxPicks()}` : 'On the way to Earth') : 'Landing'; },
+    btn: () => { const s = S.cg.sh, t = nowMs(); if (shipUpgradeBusy(S)) return [shipUpgradeLaunchReason(), false]; if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st === 'stack') return ['Stacking', false]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < holdCap()) return [`Hold ${s.hold}/${holdCap()}`, false]; if (s.req) return ['Launching…', false]; if (s.hold >= holdCap() && fuelAt(t) >= 1 && crewEnRoute(t)) return ['Crew en route', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fueling' : 'Awaiting cargo', false]; },
     buy: () => { if (crewWin()) return crewOpen(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
   shipUp: { name: 'Ship Upgrade', ico: 'ship', lock: () => shipUpgradeLocked(), get lockSub() { return shipUpgradeLockReason(); },  // gc/ship-upgrade: staff + docked + not mid-job
@@ -6495,7 +6922,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_MZ_LV, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, padMzLegacyCtx, syncBooster, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mechazilla)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_TOWER_LV, PAD_MZ_LV, padUsesLegacyTower, wkMzApproach, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, applyPadMzCam, applyCrewLadderVisible, padMzLegacyCtx, syncBooster, padTowerWanted, padTowerSrcNow, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn, mzPlaceStackedShip, mzShipMountY, mzShipSeatY, mzSyncPadCargo, mzTowerCrane, mzCargoSeatY, mzWantStackLaunch, mzStackSec, mzKeepBoosterOnPad, mzCargoBlocked, mzUpdateStack });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mzcrew)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
@@ -6996,9 +7423,25 @@ function frame() {
   if (MZ && MZ.T && MZ.T.ready) {
     MZ.tick(gdt);
     const st = S.cg && S.cg.sh && S.cg.sh.st;
-    if (padMzWanted() && cg3.ship && st !== 'launch' && st !== 'away' && st !== 'land' && !boardOf() && !deboardOf()) MZ.followShip(cg3.ship);
+    if (padTowerWanted() && st === 'stack') {
+      mzUpdateStack((nowMs() - S.cg.sh.t0) / 1000);
+    } else if (padTowerWanted() && st === 'land') {
+      const dur = shipDur(CG.landSec, S.cg.sh) * 1000;
+      const u = dur > 0 ? clamp((nowMs() - S.cg.sh.t0) / dur, 0, 1) : 1;
+      MZ.poseReceive(u, mzStackOn());   // elevator rises to the hatch; arm stays parked until deboard (Extend / reverse board)
+    } else if (padTowerWanted() && st === 'launch') {
+      const stack = mzStackOn();
+      const down = MZ.T.data && (stack ? MZ.T.data.elevDownStackSec : MZ.T.data.elevDownMountSec);
+      if (down > 0 && MZ.poseElevDown) MZ.poseElevDown(Math.min((nowMs() - S.cg.sh.t0) / 1000, down), stack);
+    } else if (padTowerWanted() && cg3.ship && st !== 'away' && !boardOf() && !deboardOf()) {
+      if (MZ.followShip(cg3.ship)) {
+        const y = +cg3.ship.position.y.toFixed(4);
+        if (y > 5) cg3.mzMountY = y;
+      }
+    }
   }
-  if (MZ && padMzWanted()) MZ.applyLegacyHide(padMzLegacyCtx(), true);   // re-hide after late TW/ACC loads and applyPadTower
+  if (MZ && padTowerWanted()) MZ.applyLegacyHide(padMzLegacyCtx(), true);   // re-hide after late TW/ACC loads and applyPadTower
+  applyCrewLadderVisible();   // Lv10+: no ship / pad / access ladder on board or land; Lv1–9 unchanged
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
   BAY.tick(now);   // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
@@ -7018,7 +7461,7 @@ function frame() {
   updFillArc();
   updRefDust(); updChunks(dt); updFx(dt); updHL(); updGlow(); updTiers(dt);
   updEve(); cargoBayLabel();   // Cargo Bay label: every frame, after the camera and the cargo sim
-  { const bLate = boardOf(); if (ACC.A.ready && bLate) accessUpdate((nowMs() - bLate.B) / 1000); }
+  { const bLate = boardOf(); if (ACC.A.ready && bLate && !padUsesTower()) accessUpdate((nowMs() - bLate.B) / 1000); }
   uiT += dt; if (uiT > .1) { uiT = 0; hud(); upUI(); cargoUI(); }
   saveT += dt; if (saveT > CFG.saveEvery) { saveT = 0; save(); }
   renderer.render(scene, camera); upPoseRec();
@@ -7037,7 +7480,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get boxIM() { return cg3.boxParts && cg3.boxParts[0] ? cg3.boxParts[0].im : null; }, cargoDoorK: () => (cg3.door ? +cg3.door.k.toFixed(3) : null),   // ca-cargoride QA read-outs
   get eveId() { return (EC.call || EC.ring || {}).id; }, get ec() { return { ring: EC.ring && EC.ring.id, call: EC.call && EC.call.id, open: ecIsOpen(), missed: S.missed, dim: hudEl.classList.contains('ec-hud-dim'), li: EC.li }; },
   ecAnswer: () => ecAnswer(), ecHangUp, ecOpen, sparks, S, CFG, goSite, STATIONS, catchUp, settleTo, save, toScreen, drillCost, chuteCost, rate, fmt, fillSec, fillAt, loadValue, oreMin, RT, R, TV, safeArea, band, poseAt, fbPoseAt, kinAt, pathAt, oreMinOf: oreMin, hallDoorCfg: CFG.hallDoor,
-  buildRoute, MK, poseNow: () => { resync(); updTruck(); tickShipUpgrade(nowMs()); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
+  buildRoute, MK, poseNow: () => { resync(); updTruck(); tickShipUpgrade(nowMs()); if (S.cg && S.cg.sh && S.cg.sh.st === 'stack') mzUpdateStack((nowMs() - S.cg.sh.t0) / 1000); updCargo(); if (tMixer) tMixer.update(0); if (t2Mixer) t2Mixer.update(0); updMet(); },
   get cargo() { return cargoState(); }, get cgLog() { return CG_LOG.slice(); }, shiftTk, stampGuard, stampGap, migrateSave, DOCKI, PADI, SHIPI, HABI, PX, cgLaunch, setShipTgl, crewEnRoute, launchReady, canLaunch, MONEY_ICON_URL, MONEY_ICON_URL_2X, shipHudText, shipHudFit, shipHudRefit, shipHudFrac, shipLaunchFrac, shipBayWorkFrac, shipTripPct, hud, cargoUI, setMusic, get music() { return { on: S.set.music !== false, tracks: musTracks().length, ctx: MUS.ctx ? MUS.ctx.state : 'none', cur: MUS.cur, ducked: MUS.ducked, plays: MUS.plays.slice(), switchIn: MUS.ctx && MUS.v ? +(MUS.switchAt - MUS.ctx.currentTime).toFixed(1) : null, loaded: MUS.bufs.map(b => !!b), gain: MUS.gain ? +MUS.gain.gain.value.toFixed(3) : 0, err: MUS.err.slice() }; }, musicDuck, musNext() { MUS.switchAt = 0; }, get eveVoice() { return VOX.src ? VOX.played[VOX.played.length - 1] : null; }, cg3, CART, FB, CPH, CARGO_ALIAS, DOCK_LOAD_S, CRANE_TIME_MULT, craneLoadSec, craneJobSec, pcSec, rideSecNow, rideDoorSecNow, refLoadSecNow, dockSec, dockClipEnd, dockAnimSec, get cargoLog() { return CG_LOG.slice(); },
   warpTo: () => {},   // DEV: no clock skips
   hold: () => null, /* DEV: no clock freeze */ TS, truckState: TS, poseAt, R, TV, RMK, get wheel() { return { ang: WH.a, dist: WH.d }; }, OP, CREW, SITECAM, CAM_OVERRIDE, MR, stationObjs, tap, focusTier, FOCT, THREE, popXY, SPD, nowMs,
@@ -7063,7 +7506,7 @@ function qaSkipToTouchdown() {
   const from = S.cg.sh.st, m0 = S.money, w0 = WARP;
   if (from === 'pad') return { ok: false, reason: 'no_trip', st: from };
   for (let i = 0; i < 8 && S.cg.sh.st !== 'pad'; i++) {
-    const s = S.cg.sh, due = s.st === 'board' ? s.t0 + boardSec(s) * 1000 : s.st === 'deboard' ? s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000 : s.st === 'launch' ? s.t0 + shipDur(CG.launchSec, s) * 1000 : s.st === 'land' ? s.t0 + shipDur(CG.landSec, s) * 1000
+    const s = S.cg.sh, due = s.st === 'stack' ? s.t0 + mzStackSec() * 1000 : s.st === 'board' ? s.t0 + boardSec(s) * 1000 : s.st === 'deboard' ? s.t0 + (s.dsec != null ? s.dsec : deboardSec(s)) * 1000 : s.st === 'launch' ? s.t0 + shipDur(CG.launchSec, s) * 1000 : s.st === 'land' ? s.t0 + shipDur(CG.landSec, s) * 1000
       : s.st === 'away' ? s.t0 + shipDur(CG.awaySec, s) * (payEarth() && s.cargo > 0 ? 500 : 1000) : t;
     if (due > t) WARP += due - t + 1;
     t = nowMs(); settleTo(t, null); S.rt = t;

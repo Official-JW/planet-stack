@@ -1,35 +1,61 @@
-// Mechazilla pad loader (gc/mechazilla). r2 try-2 final pad: crew elevator and
-// arm live inside the chopstick tower (no separate CrewTower). Node names,
-// clips, camera and legs retarget: art_next/pad_mechazilla/r2/glb/EXPORT_r2t2.md.
+// Pad tower loader (gc/mechazilla, gc/mzcrew). Crew elevator / arm / boarding
+// look up r2t2 node NAMES on whichever tower GLB padTowerSrc returns, so the
+// Lv10-19 ship-sized tower (no chopsticks) and the Lv20 r2t2 Mechazilla share
+// the same boarding code. Heights and clip timings are measured from those
+// nodes at bind, not hard-coded to the chopstick model. Chopstick nodes are
+// optional: boarding, deboarding and the landing arm work when they are absent.
+// Catch / stack set-down need the chopstick nodes and Catch_Lift_Swing_SetDown,
+// and only run from PAD_MZ_LV (20). Export notes: art_next/pad_tower_lv10/r1/EXPORT_lv10_r1.md
+// and art_next/pad_mechazilla/r2/glb/EXPORT_r2t2.md.
 // Tanks: art_next/pad_mechazilla/r2/tanks/README_tanks.md (v b).
 
 export const PAD_MZ_URL = '../dev/models/pad_mechazilla_r2t2_3cd3ade5.glb?v=3cd3ade5';
 export const PAD_MZ_MD5 = '3cd3ade5c13720331b279d63129e9622';
+export const PAD_TOWER_LV10_URL = '../dev/models/pad_tower_lv10_r1_4c8bae53.glb?v=4c8bae53';
+export const PAD_TOWER_LV10_MD5 = '4c8bae53df7502137cdc5ca0f41b047b';
 export const PAD_MZ_STANDIN = false;
 export const PAD_MZ_LEGS_URL = '../dev/models/pad_mechazilla_r2_legs_ff11108e.glb?v=ff11108e';
 export const PAD_MZ_LEGS_MD5 = 'ff11108ec8cc25040848f55be8765b29';
 export const PAD_TANKS_URL = '../dev/models/pad_tanks_lox_lch4_b_711c5574.glb?v=711c5574';
 export const PAD_TANKS_MD5 = '711c5574c77b83aceb7edf0d3aeaa4bf';
-export const PAD_MZ_CAM = { ct: { x: 8.75, y: 51.75, z: -13.0 }, frame_w: 109.5 };
+export const PAD_MZ_CAM = { ct: { x: 8.75, y: 51.75, z: -13.0 }, fill: 0.725, frame_w: 210, frame_h: 140 };   // same look-at / 18°; distance is computed from the tower+stacked-ship box so they fill 70–75% of the HUD–label band. frame_w/h are fallback only if the box is not ready.
+export const PAD_TOWER_LV = 10;   // ship-sized crew elevator / arm tower (no chopsticks)
+export const PAD_MZ_LV = 20;   // full Mechazilla: chopsticks, catch, stack, tall r2t2 camera
 export const PAD_TANKS_POS = {
   below: { x: -16.54, y: 0, z: -6.20 },
   lv20: { x: -41.69, y: 0, z: -6.20 },
 };
-export const PAD_MZ_NODES = [
-  'Tower', 'Chopsticks', 'Carriage', 'Arm_L', 'Arm_R', 'Ship_Attach',
-  'Mount', 'Mount_Turntable',
-  'TowerElevator', 'TowerCrewArm', 'TowerCrewArm_S3', 'TowerCrewArm_S4',
-  'TowerCrewArm_S5', 'TowerCrewArm_S6', 'TowerCrewArm_Door_L', 'TowerCrewArm_Door_R',
-  'Crane', 'Cam_Target', 'Ship_Track', 'Crew_Mark_1', 'Crew_Mark_2',
+// A&A contract: crew elevator + arm + boarding. Same names on the current r2t2
+// GLB and on the future Lv10-19 ship-sized tower (no chopsticks).
+export const PAD_TOWER_CREW_NODES = [
+  'Tower', 'TowerElevator', 'TowerCrewArm',
+  'TowerCrewArm_S3', 'TowerCrewArm_S4', 'TowerCrewArm_S5', 'TowerCrewArm_S6',
+  'TowerCrewArm_Door_L', 'TowerCrewArm_Door_R',
+  'Crew_Mark_1', 'Crew_Mark_2',
+  'Mount', 'Mount_Turntable', 'Ship_Track', 'Cam_Target', 'Crane',
 ];
-export const PAD_MZ_CLIPS = [
-  'Catch_Lift_Swing_SetDown',
+export const PAD_TOWER_CREW_CLIPS = [
   'TowerCrewBoard_Mount', 'TowerCrewBoard_Stack',
   'TowerCrewArm_Extend', 'TowerCrewArm_Retract',
   'TowerElevator_Down_Mount', 'TowerElevator_Down_Stack',
+];
+// Chopsticks / catch only (Lv20 full Mechazilla). Must not be required to board.
+export const PAD_TOWER_CHOP_NODES = ['Chopsticks', 'Carriage', 'Arm_L', 'Arm_R', 'Ship_Attach'];
+export const PAD_TOWER_CHOP_CLIPS = ['Catch_Lift_Swing_SetDown'];
+export const PAD_MZ_NODES = [...PAD_TOWER_CREW_NODES, ...PAD_TOWER_CHOP_NODES];
+export const PAD_MZ_CLIPS = [
+  ...PAD_TOWER_CHOP_CLIPS,
+  ...PAD_TOWER_CREW_CLIPS,
   'crane_lift', 'crane_swing', 'crane_lower',
   'crane_lift_bay', 'crane_swing_hold', 'crane_lower_hold',
 ];
+// Lv10-19: pad_tower_lv10_r1 (ship tower). Lv20+ or forceMz: r2t2 Mechazilla.
+export function padTowerSrc(lv, opts) {
+  lv = lv | 0;
+  if ((opts && opts.forceMz) || lv >= PAD_MZ_LV) return { url: PAD_MZ_URL, md5: PAD_MZ_MD5, kind: 'r2t2', lv };
+  if (lv >= PAD_TOWER_LV) return { url: PAD_TOWER_LV10_URL, md5: PAD_TOWER_LV10_MD5, kind: 'lv10', lv };
+  return { url: PAD_MZ_URL, md5: PAD_MZ_MD5, kind: 'r2t2', lv };
+}
 export const MZ_CATCH_SEC = 43;
 export const MZ_BOARD_MOUNT_SEC = 52;
 export const MZ_BOARD_STACK_SEC = 58;
@@ -41,6 +67,8 @@ export const MZ_HATCH_OPEN_MOUNT = [31.0, 32.2];
 export const MZ_HATCH_CLOSE_MOUNT = [38.0, 39.2];
 export const MZ_HATCH_OPEN_STACK = [37.0, 38.2];
 export const MZ_HATCH_CLOSE_STACK = [44.0, 45.2];
+export const MZ_HATCH_OPEN_LV10 = [32.0, 33.2];
+export const MZ_HATCH_CLOSE_LV10 = [53.5, 54.7];
 
 function isShown(o, root) {
   for (let n = o; n; n = n.parent) { if (n.visible === false) return false; if (n === root) break; }
@@ -65,12 +93,15 @@ function countMesh(root, skip) {
 // setActive / setLadderVisible / attachReceptacle, and does not edit
 // lv10_tower, access1720, control_tower, or the Launch Pad card.
 export const HIDE_TOWER_NODES = ['Tower', 'Arm_Pivot', 'Elevator_Cab', 'QD_Pivot'];
-// Pad_Base stays hidden at Lv20 (clash with the r2t2 Mount). Tanks come from
-// pad_tanks_lox_lch4_b at Lv20. Below Lv20 Pad_Base (and its baked tanks) stays
-// visible, so the tanks GLB is hidden then to avoid doubling.
+// Pad_Base stays hidden whenever a ship/MZ tower Mount is shown (clash with
+// the deck). Tanks come from pad_tanks_lox_lch4_b then. Below PAD_TOWER_LV,
+// Pad_Base (and its baked tanks) stays visible, so the tanks GLB is hidden
+// to avoid doubling. The live pad crane is hidden when this GLB (or the
+// r2t2 donor attached at Lv10-19) already has a Crane.
 export const HIDE_PAD_NODES = ['Pad_Base', 'Ladder_Foot', 'Hose_LOX', 'Hose_LCH4'];
 export const HIDE_ACCESS_NODES = ['PackRoot', 'Ladder_FootPlate'];
-// Live pad crane z-fights the r2t2 crane (hoist-fixed) at Lv20.
+// Live pad crane z-fights the r2t2 crane (hoist-fixed). Same when that crane
+// is attached as a donor on the Lv10-19 tower.
 export const HIDE_LIVE_CRANE = ['Crane'];
 
 function isUnder(o, root) {
@@ -87,11 +118,15 @@ export function shipNeedsReceptacle(ctx) {
   return st === 'launch' || st === 'away' || st === 'land';
 }
 
+let _towerData = null;   // measured from the loaded tower GLB (clip durations, elevator / arm heights)
+export function towerData() { return _towerData; }
 export function mzBoardSeconds(n, stack) {
+  const d = _towerData && (stack ? _towerData.stack : _towerData.mount);
+  if (d && d.dur > 0) return d.dur;
   return stack ? MZ_BOARD_STACK_SEC : MZ_BOARD_MOUNT_SEC;
 }
 export function mzDeboardSeconds(n, stack) {
-  return stack ? MZ_BOARD_STACK_SEC : MZ_BOARD_MOUNT_SEC;
+  return mzBoardSeconds(n, stack);
 }
 
 export function createPadMechazilla(THREE) {
@@ -101,10 +136,12 @@ export function createPadMechazilla(THREE) {
     legacyOn: false, legacySaved: null, legacyHidden: [],
     tanks: null, tanksSlab: null, tanksReady: false,
     legsClips: [], legsMx: null, legsActs: {}, legsReady: false, legsMissing: [],
-    cabLights: [],
+    cabLights: [], elevLight: null,
+    src: null,      // padTowerSrc actually bound (lv10 vs r2t2)
     lv: 1,
     clip: '',
     hatch: null,          // { mx, ca: { crew_hatch_open, crew_hatch_close } }
+    data: null,           // elevator / arm heights and clip timings read from nodes
   };
   const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
   const _lp = new THREE.Vector3(), _lq = new THREE.Quaternion(), _ls = new THREE.Vector3();
@@ -142,7 +179,127 @@ export function createPadMechazilla(THREE) {
     add(-1.6, 1.9, 0, 3.0);
   }
 
-  function bind(gltf, padRoot) {
+  function addElevLight(el) {
+    if (!el || T.elevLight) return;
+    const l = new THREE.PointLight(new THREE.Color(1, 0.94, 0.84), 4.0, 6, 2);
+    l.name = 'TowerElevatorLight';
+    l.position.set(0, 2.1, 0);
+    el.add(l);
+    T.elevLight = l;
+  }
+
+  // r2t2 leftovers the Lv10 export left out: hoist-fixed Crane, and the crawler
+  // apron slab past Mount x = 25 (the ST-10B lane). Cloned from the r2t2 GLB
+  // into the Lv10 root at the same local pose as the approved stills.
+  function sliceMountApron(mount, donor, xMin) {
+    if (!mount || !donor) return null;
+    const group = new THREE.Group();
+    group.name = 'MZ_Crawler_Apron';
+    const v = new THREE.Vector3();
+    const rootInv = new THREE.Matrix4().copy(donor.matrixWorld).invert();
+    const toLocal = new THREE.Matrix4();
+    let tris = 0;
+    mount.updateWorldMatrix(true, true);
+    mount.traverse((m) => {
+      if (!m.isMesh || !m.geometry) return;
+      const geom = m.geometry;
+      const pos = geom.getAttribute('position');
+      if (!pos) return;
+      const mw = m.matrixWorld;
+      toLocal.multiplyMatrices(rootInv, mw);
+      const idx = geom.index;
+      const keep = [];
+      // Donor-root (pad-local) x: the lv10 Mount already ends at the east edge strip (x = 25).
+      const locX = (i) => { v.fromBufferAttribute(pos, i).applyMatrix4(toLocal); return v.x; };
+      // Keep a triangle only when it lives on the apron (centroid past the
+      // deck edge). A single long deck triangle can have one vert past xMin
+      // and would otherwise pull the whole pad slab along with it.
+      const tri = (a, b, c) => (locX(a) + locX(b) + locX(c)) / 3 > xMin;
+      if (idx) {
+        for (let i = 0; i < idx.count; i += 3) {
+          const a = idx.getX(i), b = idx.getX(i + 1), c = idx.getX(i + 2);
+          if (tri(a, b, c)) keep.push(a, b, c);
+        }
+      } else {
+        for (let i = 0; i < pos.count; i += 3) {
+          if (tri(i, i + 1, i + 2)) keep.push(i, i + 1, i + 2);
+        }
+      }
+      if (!keep.length) return;
+      // Compact to the kept triangles only. A cloned geometry with a new
+      // index still holds the full Mount vertex buffer, and mzFramePts
+      // samples that buffer (which would pull the camera into the deck).
+      const ng = new THREE.BufferGeometry();
+      const copyAttr = (name) => {
+        const src = geom.getAttribute(name); if (!src) return;
+        const item = src.itemSize;
+        const arr = new Float32Array(keep.length * item);
+        for (let i = 0; i < keep.length; i++) {
+          for (let k = 0; k < item; k++) arr[i * item + k] = src.getComponent(keep[i], k);
+        }
+        ng.setAttribute(name, new THREE.BufferAttribute(arr, item, src.normalized));
+      };
+      copyAttr('position');
+      copyAttr('normal');
+      copyAttr('color');
+      copyAttr('MZCol');
+      if (!ng.getAttribute('normal')) ng.computeVertexNormals();
+      ng.computeBoundingBox();
+      ng.computeBoundingSphere();
+      const mesh = new THREE.Mesh(ng, m.material);
+      mesh.name = (m.name || 'Mount') + '_Apron';
+      // Bake the mesh's donor-root-local pose onto the clone; T.root is also pad-local.
+      const local = toLocal.clone();
+      local.decompose(mesh.position, mesh.quaternion, mesh.scale);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.matrixAutoUpdate = true;
+      group.add(mesh);
+      tris += keep.length / 3;
+    });
+    return tris ? group : null;
+  }
+  function attachDonorExtras(gltf) {
+    if (!T.root || !gltf || !gltf.scene) return;
+    const padRoot = T.root.parent;
+    const donor = gltf.scene;
+    // Parent the donor at the pad origin so world matrices match the live pad,
+    // then attach() pieces onto T.root (keeps world pose, including children).
+    if (padRoot) padRoot.add(donor);
+    donor.position.set(0, 0, 0);
+    donor.rotation.set(0, 0, 0);
+    donor.scale.set(1, 1, 1);
+    donor.updateMatrixWorld(true);
+    if (!T.nodes.Crane) {
+      const crane = donor.getObjectByName('Crane');
+      if (crane) {
+        crane.updateWorldMatrix(true, true);
+        T.root.attach(crane);
+        crane.traverse((m) => {
+          m.matrixAutoUpdate = true;
+          if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
+        });
+        T.root.updateMatrixWorld(true);
+        crane.updateMatrixWorld(true);
+        T.nodes.Crane = crane;
+        const ci = T.missing.indexOf('Crane');
+        if (ci >= 0) T.missing.splice(ci, 1);
+      }
+    }
+    if (!T.nodes.MZ_Crawler_Apron) {
+      const mount = donor.getObjectByName('Mount');
+      const apron = mount && sliceMountApron(mount, donor, 25);
+      if (apron) {
+        T.root.add(apron);
+        T.root.updateMatrixWorld(true);
+        apron.updateMatrixWorld(true);
+        T.nodes.MZ_Crawler_Apron = apron;
+      }
+    }
+    if (padRoot && donor.parent === padRoot) padRoot.remove(donor);
+  }
+
+  function bind(gltf, padRoot, src) {
     const root = gltf.scene;
     root.name = 'Pad_Mechazilla';
     root.position.set(0, 0, 0);
@@ -157,10 +314,16 @@ export function createPadMechazilla(THREE) {
       T.nodes[n] = o || null;
       if (!o) T.missing.push(n);
     }
+    // Optional Lv10 car doors / hoist cables (r2t2 has none). Clips drive them.
+    for (const n of ['TowerElevator_Door_L', 'TowerElevator_Door_R', 'TowerElevator_Cables']) {
+      T.nodes[n] = root.getObjectByName(n) || null;
+    }
     bindMaterials(root);
     addCabLights(T.nodes.TowerCrewArm_S6);
-    // r2t2 Mount and Crane are the Lv20 deck + hoist-fixed PC-1. The live
-    // Pad_Base / Crane are hidden only while MZ is wanted (applyLegacyHide).
+    addElevLight(T.nodes.TowerElevator);
+    T.src = src || T.src || padTowerSrc(T.lv);
+    // Mount (and Crane, when present or later attached from the r2t2 donor)
+    // replace the live Pad_Base / Crane while the tower is wanted.
     if (T.nodes.Mount) T.nodes.Mount.visible = true;
     if (T.nodes.Crane) T.nodes.Crane.visible = true;
     T.mx = new THREE.AnimationMixer(root);
@@ -177,7 +340,127 @@ export function createPadMechazilla(THREE) {
     }
     T.ready = true;
     T.failed = false;
+    readTowerData();
     return info();
+  }
+
+  function clipDuration(name) {
+    const a = T.acts[name];
+    return a && a.getClip() ? a.getClip().duration : 0;
+  }
+  function armReach() {
+    // Full telescoping reach: cab (S6) world distance from the elevator, not just S2's local X.
+    const ev = T.nodes.TowerElevator;
+    const cab = T.nodes.TowerCrewArm_S6 || T.nodes.TowerCrewArm;
+    if (!ev || !cab) return T.nodes.TowerCrewArm ? T.nodes.TowerCrewArm.position.x : null;
+    ev.updateWorldMatrix(true, true);
+    cab.updateWorldMatrix(true, false);
+    ev.getWorldPosition(_lp); cab.getWorldPosition(_p);
+    return Math.hypot(_p.x - _lp.x, _p.z - _lp.z);
+  }
+  function marksHidden() {
+    let n = 0, hid = 0;
+    for (let i = 1; ; i++) {
+      const m = T.nodes['Crew_Mark_' + i]; if (!m) break;
+      n++;
+      m.updateWorldMatrix(true, false);
+      m.matrixWorld.decompose(_p, _q, _s);
+      if (Math.min(_s.x, _s.y, _s.z) < 0.01) hid++;
+    }
+    return n > 0 && hid === n;
+  }
+  function sampleRig(clip, t) {
+    poseClip(clip, t);   // only this clip; a leftover board clip would corrupt stack / mount samples
+    const ev = T.nodes.TowerElevator, arm = T.nodes.TowerCrewArm, mark = T.nodes.Crew_Mark_1;
+    let markX = null, markY = null, markZ = null;
+    if (mark) {
+      mark.updateWorldMatrix(true, false);
+      mark.matrixWorld.decompose(_p, _q, _s);
+      markX = _p.x; markY = _p.y; markZ = _p.z;
+    }
+    return {
+      t,
+      elevY: ev ? ev.position.y : null,
+      armX: arm ? arm.position.x : null,
+      reach: armReach(),
+      hidden: marksHidden(),
+      markX, markY, markZ,
+    };
+  }
+  function measureBoard(clip) {
+    const dur = clipDuration(clip);
+    if (!dur) return null;
+    const step = Math.max(0.1, dur / 200);
+    const rest = sampleRig(clip, 0);
+    let elevYMax = rest.elevY, reachMax = rest.reach, lastHiddenStart = null, run = null, armOutT = null;
+    let approachXZ = (rest.markY != null && rest.markY < 4 && rest.markX != null) ? [rest.markX, rest.markZ] : null;
+    const samples = [rest];
+    for (let t = step; t <= dur + 1e-6; t += step) samples.push(sampleRig(clip, t));
+    for (const s of samples) {
+      if (s.elevY != null) elevYMax = elevYMax == null ? s.elevY : Math.max(elevYMax, s.elevY);
+      if (s.reach != null) reachMax = reachMax == null ? s.reach : Math.max(reachMax, s.reach);
+      if (s.hidden) { if (run == null) run = s.t; lastHiddenStart = run; }
+      else run = null;
+    }
+    const hatchEnter = lastHiddenStart;
+    const span = (reachMax != null && rest.reach != null) ? (reachMax - rest.reach) : 0;
+    if (span > 0.25) {
+      for (const s of samples) {
+        if (s.reach != null && (s.reach - rest.reach) >= 0.99 * span) { armOutT = s.t; break; }
+      }
+    }
+    const hatch = {};
+    if (armOutT != null) hatch.open = [armOutT, armOutT + 1.2];
+    if (hatchEnter != null) hatch.close = [hatchEnter, hatchEnter + 1.2];
+    poseClip(clip, 0);
+    return {
+      clip, dur,
+      elevY0: rest.elevY, elevYHatch: elevYMax,
+      armX0: rest.armX, armXOut: samples.reduce((m, s) => (s.armX == null ? m : (m == null ? s.armX : Math.max(m, s.armX))), rest.armX),
+      armReach0: rest.reach, armReachOut: reachMax,
+      armOutT, hatchEnter, hatch,
+      approachXZ,
+    };
+  }
+  function readTowerData() {
+    const missingCrew = PAD_TOWER_CREW_NODES.filter((n) => !T.nodes[n]);
+    const missingChop = PAD_TOWER_CHOP_NODES.filter((n) => !T.nodes[n]);
+    const mount = measureBoard('TowerCrewBoard_Mount');
+    const stack = measureBoard('TowerCrewBoard_Stack');
+    const data = {
+      src: T.src || padTowerSrc(T.lv),
+      hasCrew: !!T.nodes.TowerElevator && !!(T.acts.TowerCrewBoard_Mount || (mount && mount.dur)),
+      hasChopsticks: PAD_TOWER_CHOP_NODES.every((n) => !!T.nodes[n]),
+      hasCatch: !!T.acts.Catch_Lift_Swing_SetDown,
+      hasStackBoard: !!(stack && stack.dur),
+      missingCrew, missingChop,
+      catchSec: clipDuration('Catch_Lift_Swing_SetDown') || 0,
+      elevDownMountSec: clipDuration('TowerElevator_Down_Mount') || 0,
+      elevDownStackSec: clipDuration('TowerElevator_Down_Stack') || 0,
+      armExtendSec: clipDuration('TowerCrewArm_Extend') || 0,
+      armRetractSec: clipDuration('TowerCrewArm_Retract') || 0,
+      mount, stack,
+      approachXZ: (mount && mount.approachXZ) || (stack && stack.approachXZ) || null,
+    };
+    T.data = data;
+    _towerData = data;
+    stopClips();
+    if (T.acts.TowerCrewBoard_Mount) poseClip('TowerCrewBoard_Mount', 0);
+    return data;
+  }
+  function boardDur(stack) {
+    const d = T.data && (stack ? T.data.stack : T.data.mount);
+    if (d && d.dur > 0) return d.dur;
+    return stack ? MZ_BOARD_STACK_SEC : MZ_BOARD_MOUNT_SEC;
+  }
+  function hatchWindows(stack) {
+    const kind = (T.src && T.src.kind) || (T.data && T.data.src && T.data.src.kind);
+    if (kind === 'lv10') return { open: MZ_HATCH_OPEN_LV10, close: MZ_HATCH_CLOSE_LV10 };
+    const d = T.data && (stack ? T.data.stack : T.data.mount);
+    if (d && d.hatch && d.hatch.open && d.hatch.close) return d.hatch;
+    return stack
+      ? { open: MZ_HATCH_OPEN_STACK, close: MZ_HATCH_CLOSE_STACK }
+      : { open: MZ_HATCH_OPEN_MOUNT, close: MZ_HATCH_CLOSE_MOUNT };
   }
 
   function bindTanks(gltf, padRoot) {
@@ -242,24 +525,55 @@ export function createPadMechazilla(THREE) {
     }
   }
 
-  function load(loader, padRoot, onOk, onErr) {
-    if (T.ready) { if (onOk) onOk(info()); return; }
+  function unloadTower() {
+    stopClips();
+    if (T.mx) { T.mx.stopAllAction(); T.mx = null; }
+    if (T.root && T.root.parent) T.root.parent.remove(T.root);
+    T.root = null;
+    T.nodes = {};
+    T.acts = {};
+    T.clips = [];
+    T.missing = [];
+    T.cabLights = [];
+    T.elevLight = null;
+    T.ready = false;
+    T.failed = false;
+    T.loading = false;
+    T.clip = '';
+    T.data = null;
+    T.src = null;
+    T._eyMount = null;
+    T._eyStack = null;
+  }
+
+  function load(loader, padRoot, onOk, onErr, src) {
+    src = src || padTowerSrc(T.lv);
+    T._wantSrc = src;
+    if (T.ready && T.src && T.src.url === src.url) { if (onOk) onOk(info()); return; }
     if (T.loading) return;
+    if (T.ready) unloadTower();
     if (!padRoot) { const e = new Error('pad root missing'); T.failed = true; if (onErr) onErr(e); return; }
     T.loading = true;
-    let left = 3, err = null;
+    const thisSrc = src;
+    const needExtras = thisSrc.kind === 'lv10';
+    let left = needExtras ? 4 : 3, err = null;
     const done = () => {
       left--;
       if (left > 0) return;
       T.loading = false;
+      if (T._wantSrc && T._wantSrc.url !== thisSrc.url) {
+        unloadTower();
+        load(loader, padRoot, onOk, onErr, T._wantSrc);
+        return;
+      }
       if (err && !T.ready) { T.failed = true; if (onErr) onErr(err); }
       else if (T.ready && onOk) onOk(info());
     };
-    loader.load(PAD_MZ_URL, (g) => {
-      try { bind(g, padRoot); }
+    loader.load(thisSrc.url, (g) => {
+      try { bind(g, padRoot, thisSrc); }
       catch (e) { err = err || e; T.failed = true; console.warn('Pad Mechazilla bind failed', e); }
       done();
-    }, undefined, (e) => { err = err || e; console.warn('Pad Mechazilla GLB failed to load', PAD_MZ_URL, e); done(); });
+    }, undefined, (e) => { err = err || e; console.warn('Pad Mechazilla GLB failed to load', thisSrc.url, e); done(); });
     loader.load(PAD_MZ_LEGS_URL, (g) => {
       try { bindLegsGltf(g); }
       catch (e) { console.warn('Pad Mechazilla legs bind failed', e); }
@@ -270,6 +584,13 @@ export function createPadMechazilla(THREE) {
       catch (e) { console.warn('Pad tanks bind failed', e); }
       done();
     }, undefined, (e) => { console.warn('Pad tanks GLB failed to load', PAD_TANKS_URL, e); done(); });
+    if (needExtras) {
+      loader.load(PAD_MZ_URL, (g) => {
+        try { attachDonorExtras(g); }
+        catch (e) { console.warn('Pad lv10 crane/apron extras failed', e); }
+        done();
+      }, undefined, (e) => { console.warn('Pad lv10 extras GLB failed to load', PAD_MZ_URL, e); done(); });
+    }
   }
 
   function setActive(on) { if (T.root) T.root.visible = !!on; }
@@ -282,19 +603,20 @@ export function createPadMechazilla(THREE) {
 
   function applyElevator() {
     const el = T.nodes.TowerElevator;
-    if (el) el.visible = T.lv >= 10;   // chopsticks elevator from pad Lv10 (Jacob 11/15)
+    if (el) el.visible = T.lv >= PAD_TOWER_LV;   // ship / MZ elevator from PAD_TOWER_LV
   }
 
   function applyTanks() {
     if (!T.tanks) return;
-    const mzOn = T.lv >= 10;   // tanks b rides with the MZ pad from Lv10; below Lv10 Pad_Base already has the tanks
+    const towerOn = T.lv >= PAD_TOWER_LV;   // tanks b rides with the tower Mount (Pad_Base is hidden)
+    const mzOn = T.lv >= PAD_MZ_LV;
     const p = mzOn ? PAD_TANKS_POS.lv20 : PAD_TANKS_POS.below;
     T.tanks.position.set(p.x, p.y, p.z);
     T.tanks.rotation.set(0, 0, 0);
-    if (T.tanksSlab) T.tanksSlab.visible = !!mzOn;
-    // Below Lv10 the approved Pad_Base mesh already includes these tanks.
+    if (T.tanksSlab) T.tanksSlab.visible = !!towerOn;
+    // Below PAD_TOWER_LV the approved Pad_Base mesh already includes these tanks.
     // Showing the new GLB there would double them, so the root is hidden.
-    T.tanks.visible = !!mzOn;
+    T.tanks.visible = !!towerOn;
   }
 
   function stopClips(except) {
@@ -312,16 +634,18 @@ export function createPadMechazilla(THREE) {
     if (!keep) stopClips(new Set([name]));
     const dur = a.getClip().duration;
     const t = Math.max(0, Math.min(tSec, dur));
-    if (!a.isRunning() || a.paused === false) {
-      a.reset();
-      a.setLoop(THREE.LoopOnce, 1);
-      a.clampWhenFinished = true;
-      a.enabled = true;
-      a.play();
-    }
-    a.paused = true;
-    a.time = t;
+    a.reset();
+    a.setLoop(THREE.LoopOnce, 1);
+    a.clampWhenFinished = true;
     a.enabled = true;
+    a.play();
+    a.paused = true;
+    // Nudge first so a second pose at the same time (e.g. poseBoard(0) after
+    // poseReceive wrote TowerElevator.position.y) still reapplies the clip.
+    const nudge = t >= dur ? Math.max(0, t - 1e-4) : Math.min(dur, t + 1e-4);
+    a.time = nudge;
+    if (T.mx) T.mx.update(0);
+    a.time = t;
     T.clip = name;
     if (T.mx) T.mx.update(0);
     if (T.root) T.root.updateMatrixWorld(true);
@@ -358,8 +682,7 @@ export function createPadMechazilla(THREE) {
 
   function poseHatch(tb, stack) {
     const H = T.hatch; if (!H || !H.ca) return;
-    const openW = stack ? MZ_HATCH_OPEN_STACK : MZ_HATCH_OPEN_MOUNT;
-    const closeW = stack ? MZ_HATCH_CLOSE_STACK : MZ_HATCH_CLOSE_MOUNT;
+    const hw = hatchWindows(!!stack), openW = hw.open, closeW = hw.close;
     const open = H.ca.crew_hatch_open, close = H.ca.crew_hatch_close;
     const durO = open ? open.getClip().duration : 1.2;
     const durC = close ? close.getClip().duration : 1.2;
@@ -405,10 +728,13 @@ export function createPadMechazilla(THREE) {
   function followCrew(people) {
     if (!people || !people.length || !T.root) return [];
     T.root.updateMatrixWorld(true);
+    const marks = [];
+    for (let i = 1; ; i++) { const m = T.nodes['Crew_Mark_' + i]; if (!m) break; marks.push(m); }
     const out = [];
     for (let i = 0; i < people.length; i++) {
       const p = people[i];
-      const mark = T.nodes['Crew_Mark_' + (i + 1)];
+      const mark = marks.length ? marks[i % marks.length] : null;
+      const slot = marks.length ? Math.floor(i / marks.length) : 0;
       if (!p || !p.obj || !mark) {
         if (p && p.obj) { p.mode = 'hide'; p.obj.visible = false; }
         else if (p) p.mode = 'idle';
@@ -416,6 +742,11 @@ export function createPadMechazilla(THREE) {
       }
       mark.updateWorldMatrix(true, false);
       mark.matrixWorld.decompose(_p, _q, _s);
+      if (slot > 0) {
+        const side = new THREE.Vector3((slot % 2) ? -0.55 : 0.55, 0, slot > 1 ? 0.4 : 0);
+        side.applyQuaternion(_q);
+        _p.add(side);
+      }
       const sc = Math.min(_s.x, _s.y, _s.z);
       const hide = sc < 0.05;
       if (p.obj.parent !== T.root) {
@@ -444,23 +775,61 @@ export function createPadMechazilla(THREE) {
   }
 
   function poseCatch(tSec) {
+    if (!T.acts.Catch_Lift_Swing_SetDown) return false;   // no chopsticks / catch clip: leave the tower alone
     const ok = poseClip('Catch_Lift_Swing_SetDown', tSec);
     poseLegs(tSec);
     return ok;
   }
 
   function poseBoard(tSec, stack) {
-    const name = stack ? 'TowerCrewBoard_Stack' : 'TowerCrewBoard_Mount';
+    const want = stack ? 'TowerCrewBoard_Stack' : 'TowerCrewBoard_Mount';
+    const name = T.acts[want] ? want : (T.acts.TowerCrewBoard_Mount ? 'TowerCrewBoard_Mount' : want);
     const ok = poseClip(name, tSec);
     poseHatch(tSec, !!stack);
     return ok;
   }
 
   function poseBoardReverse(tSec, stack) {
-    const name = stack ? 'TowerCrewBoard_Stack' : 'TowerCrewBoard_Mount';
+    const want = stack ? 'TowerCrewBoard_Stack' : 'TowerCrewBoard_Mount';
+    const name = T.acts[want] ? want : (T.acts.TowerCrewBoard_Mount ? 'TowerCrewBoard_Mount' : want);
     const a = T.acts[name]; if (!a) return false;
     const dur = a.getClip().duration;
     return poseBoard(Math.max(0, dur - tSec), stack);
+  }
+
+  // After a landing the clip sits at its end (elevator up, arm retracted, turntable 0). Playing it
+  // backward first swings the crew arm over the hatch, then the crew walk off, the arm retracts,
+  // and the elevator comes down — clear of chopsticks / catch / the next launch.
+  function hatchElevY(stack) {
+    const d = T.data && (stack ? T.data.stack : T.data.mount);
+    if (d && d.elevYHatch != null) return d.elevYHatch;
+    const k = stack ? '_eyStack' : '_eyMount';
+    if (T[k] != null) return T[k];
+    const ev = T.nodes.TowerElevator;
+    if (!ev) return null;   // no chopstick-model fallback; elevator height must come from the node / clip
+    const yNow = ev.position.y;
+    poseBoard(boardDur(!!stack), stack);
+    T[k] = ev.position.y;
+    ev.position.y = yNow;
+    return T[k];
+  }
+  function poseReceive(u, stack) {   // land: raise the elevator only; keep the arm retracted and the turntable at 0
+    const t = Math.max(0, Math.min(1, +u || 0));
+    poseBoard(0, !!stack);
+    const ev = T.nodes.TowerElevator;
+    if (ev) {
+      const y0 = ev.position.y, y1 = hatchElevY(!!stack);
+      ev.position.y = y0 + (y1 - y0) * t;
+      ev.updateWorldMatrix(true, true);
+    }
+    return { u: t, stack: !!stack, elevY: ev ? ev.position.y : null };
+  }
+
+  function poseElevDown(tSec, stack) {   // empty-car ride after boarding (clip leaves the car at the hatch)
+    const name = (stack && T.acts.TowerElevator_Down_Stack) ? 'TowerElevator_Down_Stack'
+      : (T.acts.TowerElevator_Down_Mount ? 'TowerElevator_Down_Mount' : null);
+    if (!name) return false;
+    return poseClip(name, tSec);   // Down clip keys the car + cables; board rest is the bind pose
   }
 
   function turntableYaw() {
@@ -481,7 +850,7 @@ export function createPadMechazilla(THREE) {
     return {
       clip: stack ? 'TowerCrewBoard_Stack' : 'TowerCrewBoard_Mount',
       stack, tb,
-      launch: stack ? MZ_BOARD_STACK_SEC : MZ_BOARD_MOUNT_SEC,
+      launch: boardDur(stack),
       elevY: ev ? ev.position.y : null,
       armX: arm ? arm.position.x : null,
       turntableDeg: +(tt * 180 / Math.PI).toFixed(2),
@@ -492,12 +861,12 @@ export function createPadMechazilla(THREE) {
   function tickDeboard(tb, people, opts) {
     if (!T.ready || !T.root || !T.root.visible) return null;
     const stack = !!(opts && opts.stack);
-    poseBoardReverse(tb, stack);
+    poseBoardReverse(tb, stack);   // from clip end: arm swings in, crew exit, arm back, elevator down
     const marks = followCrew(people);
     return {
       clip: stack ? 'TowerCrewBoard_Stack' : 'TowerCrewBoard_Mount',
       stack, tb, deboard: true, reversed: true,
-      done: stack ? MZ_BOARD_STACK_SEC : MZ_BOARD_MOUNT_SEC,
+      done: boardDur(stack),
       marks,
     };
   }
@@ -524,7 +893,7 @@ export function createPadMechazilla(THREE) {
     }
     const tanks = T.tanks ? countMesh(T.tanks) : { draws: 0, tris: 0 };
     return {
-      ready: T.ready, failed: T.failed, standin: PAD_MZ_STANDIN, url: PAD_MZ_URL, md5: PAD_MZ_MD5,
+      ready: T.ready, failed: T.failed, standin: PAD_MZ_STANDIN, kind: (T.src && T.src.kind) || (T.data && T.data.src && T.data.src.kind) || 'r2t2', url: (T.data && T.data.src && T.data.src.url) || PAD_MZ_URL, md5: (T.data && T.data.src && T.data.src.md5) || PAD_MZ_MD5,
       visible: !!(T.root && T.root.visible),
       draws: vis.draws, tris: vis.tris,
       drawsAll: allDraws, trisAll: Math.round(allTris),
@@ -532,6 +901,16 @@ export function createPadMechazilla(THREE) {
       hidden: [],
       hasCrewTower: !!T.nodes.CrewTower,
       hasTowerElevator: !!T.nodes.TowerElevator,
+      hasChopsticks: !!(T.data && T.data.hasChopsticks),
+      hasCatch: !!(T.data && T.data.hasCatch),
+      data: T.data && {
+        hasCrew: T.data.hasCrew, hasChopsticks: T.data.hasChopsticks, hasCatch: T.data.hasCatch, hasStackBoard: T.data.hasStackBoard,
+        missingCrew: T.data.missingCrew, missingChop: T.data.missingChop,
+        catchSec: T.data.catchSec,
+        mount: T.data.mount && { dur: T.data.mount.dur, elevY0: T.data.mount.elevY0, elevYHatch: T.data.mount.elevYHatch, armX0: T.data.mount.armX0, armXOut: T.data.mount.armXOut, armReach0: T.data.mount.armReach0, armReachOut: T.data.mount.armReachOut, armOutT: T.data.mount.armOutT, hatch: T.data.mount.hatch, approachXZ: T.data.mount.approachXZ },
+        stack: T.data.stack && { dur: T.data.stack.dur, elevY0: T.data.stack.elevY0, elevYHatch: T.data.stack.elevYHatch, armX0: T.data.stack.armX0, armXOut: T.data.stack.armXOut, armReach0: T.data.stack.armReach0, armReachOut: T.data.stack.armReachOut, armOutT: T.data.stack.armOutT, hatch: T.data.stack.hatch },
+        approachXZ: T.data.approachXZ,
+      },
       cam: PAD_MZ_CAM,
       legacyHide: legacyInfo(),
       tanks: T.tanksReady ? {
@@ -542,7 +921,9 @@ export function createPadMechazilla(THREE) {
         draws: tanks.draws, tris: tanks.tris,
       } : { ready: false },
       legs: { ready: T.legsReady, md5: PAD_MZ_LEGS_MD5, missing: T.legsMissing.slice(), clips: T.legsClips.map((c) => c.name) },
-      lights: T.cabLights.length,
+      lights: T.cabLights.length + (T.elevLight ? 1 : 0),
+      hasApron: !!T.nodes.MZ_Crawler_Apron,
+      hasDonorCrane: !!(T.nodes.Crane && T.src && T.src.kind === 'lv10'),
       clip: T.clip,
       turntableDeg: +(turntableYaw() * 180 / Math.PI).toFixed(2),
     };
@@ -619,10 +1000,12 @@ export function createPadMechazilla(THREE) {
 
   return {
     T, load, bind, bindLegs, bindHatch, setActive, setPadLv, play, poseClip,
-    poseCatch, poseBoard, poseBoardReverse, poseLegs, followShip, followCrew, releasePeople,
+    poseCatch, poseBoard, poseBoardReverse, poseReceive, poseElevDown, poseLegs, followShip, followCrew, releasePeople, unloadTower,
     tick, tickBoard, tickDeboard, info, applyLegacyHide, legacyInfo, collectLegacy, applyTanks,
+    get towerData() { return T.data; }, boardDur, hatchElevY,
     consts: {
-      PAD_MZ_URL, PAD_MZ_MD5, PAD_MZ_CAM, PAD_MZ_STANDIN, PAD_MZ_NODES, PAD_MZ_CLIPS,
+      PAD_MZ_URL, PAD_MZ_MD5, PAD_TOWER_LV10_URL, PAD_TOWER_LV10_MD5, PAD_MZ_CAM, PAD_TOWER_LV, PAD_MZ_LV, PAD_MZ_STANDIN, PAD_MZ_NODES, PAD_MZ_CLIPS,
+      PAD_TOWER_CREW_NODES, PAD_TOWER_CREW_CLIPS, PAD_TOWER_CHOP_NODES, PAD_TOWER_CHOP_CLIPS, padTowerSrc,
       PAD_MZ_LEGS_URL, PAD_MZ_LEGS_MD5, PAD_TANKS_URL, PAD_TANKS_MD5, PAD_TANKS_POS,
       MZ_CATCH_SEC, MZ_BOARD_MOUNT_SEC, MZ_BOARD_STACK_SEC,
     },
