@@ -4031,8 +4031,8 @@ canvas.addEventListener('wheel', (e) => {
 
 // ===== HUD
 if (CFG.showCrystals) $('cry').closest('.cell').hidden = false;
-const MONEY_ICON_URL = '../qa3d/ui/icon_coin_64.png';     // 1x gold Starship coin (Jacob 11/16 coin 2). Swap these consts or the files; do not hard-code a second money icon.
-const MONEY_ICON_URL_2X = '../qa3d/ui/icon_coin_128.png'; // 2x / retina
+const MONEY_ICON_URL = '../qa3d/ui/icon_coin_64.png?v=r3c';     // 1x gold Starship coin (Jacob 11/16 coin 2). Swap these consts or the files; do not hard-code a second money icon.
+const MONEY_ICON_URL_2X = '../qa3d/ui/icon_coin_128.png?v=r3c'; // 2x / retina
 { const ico = document.querySelector('#hud i.hi.cr');
   if (ico) {
     const set = 'image-set(url("' + MONEY_ICON_URL + '") 1x, url("' + MONEY_ICON_URL_2X + '") 2x)';
