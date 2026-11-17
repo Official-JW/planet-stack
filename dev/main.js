@@ -2856,7 +2856,16 @@ function applyPadMz() {   // show the ship tower at PAD_TOWER_LV+ or the r2t2 Me
   const hook = () => {
     if (MZ.T.ready) MZ.setPadLv(padLvNow());
     MZ.applyLegacyHide(padMzLegacyCtx(), on);
-    if (on) applyPadMzCam(); else if (typeof padRestApply === 'function') { try { padRestApply(); } catch (e) {} }
+    if (on) {
+      if (cg3.ship && MZ.T.ready && MZ.followShip(cg3.ship)) {
+        const y = +cg3.ship.position.y.toFixed(4);
+        if (y > 5) cg3.mzMountY = y;   // ignore a pre-track cache of shipY0 (0)
+      }
+      applyPadMzCam();
+    } else {
+      if (cg3) cg3.mzMountY = null;
+      if (typeof padRestApply === 'function') { try { padRestApply(); } catch (e) {} }
+    }
     window.__ps3d.padMz = Object.assign(MZ.T.ready ? MZ.info() : { ready: false, visible: false }, { legacyHide: MZ.legacyInfo(), wanted: on, src });
   };
   if (on && cg3.padArt) {
@@ -3171,6 +3180,21 @@ function towerUpdateDeboard(tb) {
   }
   if (info) window.__ps3d.lv10tower = Object.assign(TW.info(), { tb: +tb.toFixed(2), done: +info.done.toFixed(2), deboard: true, padLv: padLvNow() });
   BC.w = 0; BC.ph = 'off'; BC.tb = tb;
+}
+function mzShipMountY() {
+  // A&A Ship_Track rest is y 9.6 in pad space. Cache the seated local Y after the first
+  // rest followShip so a mid-catch track does not become the launch / land base.
+  if (cg3 && cg3.mzMountY != null) return cg3.mzMountY;
+  return 9.6;
+}
+function mzShipSeatY() {
+  const booster = BST && BST.T && BST.T.booster;
+  const seat = booster && booster.getObjectByName('Ship_Seat');
+  if (!seat || !cg3 || !cg3.ship) return 64.422;
+  seat.updateWorldMatrix(true, false);
+  const w = seat.getWorldPosition(new THREE.Vector3());
+  if (cg3.ship.parent) { cg3.ship.parent.updateWorldMatrix(true, false); cg3.ship.parent.worldToLocal(w); }
+  return w.y;
 }
 function mzPlaceStackedShip() {
   // Board / deboard clips yaw Ship_Track but do not key its position. Stopping the catch
@@ -5696,12 +5720,22 @@ function updCargo() {
   else if (cg3.wheels) { const W = cg3.wheels; fb.userData.wheelPos.forEach((p, i) => { _cq.setFromAxisAngle(_cv.set(0, 0, 1), -FBS.wa); W.setMatrixAt(i, _cm.compose(_cp.set(p[0], p[1], p[2]), _cq, _cs)); }); W.instanceMatrix.needsUpdate = true; }
   // ship
   const s = c.sh, sh = cg3.ship, pp = CPH.pad; let sy = cg3.shipY0 != null ? cg3.shipY0 : pp.padTop, vis = true;
+  // Lv10+ tower: the hull sits on Ship_Track (y 9.6) or the booster Ship_Seat. followShip /
+  // mzPlaceStackedShip pose it, but this function used to run after and write shipY0 (0),
+  // dropping the ship 9.6 m and leaving the S6 cab hanging off the tapered upper hull.
+  const towerSeat = typeof padTowerWanted === 'function' && padTowerWanted() && MZ && MZ.T && MZ.T.ready;
+  const towerBase = towerSeat ? ((typeof mzStackOn === 'function' && mzStackOn() && (s.st === 'launch' || s.st === 'land')) ? mzShipSeatY() : mzShipMountY()) : sy;
+  if (towerSeat) sy = towerBase;
   if (s.st === 'launch') { const u = clamp((t - s.t0) / (shipDur(CG.launchSec, s) * 1000), 0, 1); sy += 160 * u * u * u; }
   else if (s.st === 'away') vis = false;
   else if (s.st === 'land') { const u = clamp((t - s.t0) / (shipDur(CG.landSec, s) * 1000), 0, 1); sy += 160 * (1 - u) ** 3; }
+  const gearAlt = sy - (towerSeat ? towerBase : (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop));
   // --- gc/ship-upgrade (begin) ---  skip pad y-write while the hull is attached to Ship_Seat
   if (SU.T.carrying) { sh.visible = true; updGear(s, t, 0); sh.updateMatrixWorld(true); updVfx(c, t); }
-  else { sh.visible = vis; sh.position.y = sy; updGear(s, t, sy - (cg3.shipY0 != null ? cg3.shipY0 : pp.padTop)); sh.updateMatrixWorld(true); updVfx(c, t); }
+  else if (towerSeat && s.st !== 'launch' && s.st !== 'away' && s.st !== 'land') {
+    sh.visible = vis; updGear(s, t, 0); sh.updateMatrixWorld(true); updVfx(c, t);
+  }
+  else { sh.visible = vis; sh.position.y = sy; updGear(s, t, gearAlt); sh.updateMatrixWorld(true); updVfx(c, t); }
   // --- gc/ship-upgrade (end) ---
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
@@ -7220,7 +7254,12 @@ function frame() {
       const stack = mzStackOn();
       const down = MZ.T.data && (stack ? MZ.T.data.elevDownStackSec : MZ.T.data.elevDownMountSec);
       if (down > 0 && MZ.poseElevDown) MZ.poseElevDown(Math.min((nowMs() - S.cg.sh.t0) / 1000, down), stack);
-    } else if (padTowerWanted() && cg3.ship && st !== 'away' && !boardOf() && !deboardOf()) MZ.followShip(cg3.ship);
+    } else if (padTowerWanted() && cg3.ship && st !== 'away' && !boardOf() && !deboardOf()) {
+      if (MZ.followShip(cg3.ship)) {
+        const y = +cg3.ship.position.y.toFixed(4);
+        if (y > 5) cg3.mzMountY = y;
+      }
+    }
   }
   if (MZ && padTowerWanted()) MZ.applyLegacyHide(padMzLegacyCtx(), true);   // re-hide after late TW/ACC loads and applyPadTower
   applyCrewLadderVisible();   // Lv10+: no ship / pad / access ladder on board or land; Lv1–9 unchanged
