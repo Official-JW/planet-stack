@@ -2667,25 +2667,28 @@ function padMzLegacyCtx() {   // live roots for the visibility-only hide in pad_
 function applyCrewLadderVisible() {   // visibility only; never edit hull / Ship_Placeholder materials
   const show = !padUsesTower();
   if (ACC.A && ACC.A.root) setLadderVisible(ACC.A.root, show);
-  if (show) return;
-  const foot = cg3.padArt && cg3.padArt.getObjectByName('Ladder_Foot');
-  if (foot) foot.visible = false;
-  const hideLadderNode = (o) => {
+  const isPadLadder = (o) => {
     const n = o.name || '';
-    if (!n) return false;
-    if (/Landing_Leg/i.test(n)) return false;
+    if (!n || /Landing_Leg/i.test(n)) return false;
     return /^LadderStage_/.test(n) || n === 'Ladder_FootPlate' || n === 'Ladder_Sleeve' || n === 'Ladder_Foot' || n === 'PackRoot' || n === 'Rails' || (/^Ladder/i.test(n));
   };
-  const hideIn = (root) => { if (!root) return; root.traverse((o) => { if (hideLadderNode(o) && (o.isMesh || o.isInstancedMesh || o.isGroup)) o.visible = false; }); };
-  hideIn(ACC.A && ACC.A.root);
-  hideIn(cg3.padArt);
-  if (cg3.ship) {
-    cg3.ship.traverse((o) => {
-      const n = o.name || '';
-      if (!n || /Landing_Leg/i.test(n)) return;
-      if ((/^LadderStage_/.test(n) || n === 'Ladder_FootPlate' || n === 'Ladder_Sleeve' || n === 'Ladder_Foot' || (/^Ladder/i.test(n) && n !== 'Landing_Legs')) && (o.isMesh || o.isInstancedMesh || o.isGroup)) o.visible = false;
-    });
+  const isShipLadder = (o) => {
+    const n = o.name || '';
+    if (!n || /Landing_Leg/i.test(n) || n === 'Landing_Legs') return false;
+    return /^LadderStage_/.test(n) || n === 'Ladder_FootPlate' || n === 'Ladder_Sleeve' || n === 'Ladder_Foot' || /^Ladder/i.test(n);
+  };
+  const setIn = (root, pred, on) => { if (!root) return; root.traverse((o) => { if (pred(o) && (o.isMesh || o.isInstancedMesh || o.isGroup)) o.visible = on; }); };
+  if (show) {
+    setIn(ACC.A && ACC.A.root, isPadLadder, true);
+    setIn(cg3.padArt, isPadLadder, true);
+    setIn(cg3.ship, isShipLadder, true);
+    return;
   }
+  const foot = cg3.padArt && cg3.padArt.getObjectByName('Ladder_Foot');
+  if (foot) foot.visible = false;
+  setIn(ACC.A && ACC.A.root, isPadLadder, false);
+  setIn(cg3.padArt, isPadLadder, false);
+  setIn(cg3.ship, isShipLadder, false);
 }
 function applyPadMzCam() {   // r2t2: same look-at and 18° angle as PAD_MZ_CAM; pull back so the full tower / stacked ship / arm / pad fit in the HUD band
   const C = SITECAM[PADI]; if (!C || !camera.userData.dist) return;
@@ -2792,6 +2795,7 @@ function applyControlTower() {
     window.__ps3d.controlTower = Object.assign(CT.info(), { padLv: padLvNow() });
   });
   CT.setActive(on && CT.T.ready);
+  if (CT.T.ready) window.__ps3d.controlTower = Object.assign(CT.info(), { padLv: padLvNow() });
 }
 function boardSec(sh) {   // lead-in + last flying climber inside + hold + ease-out. Pre-Habitat this is the old 4-crew BOARD_SEC.
   sh = sh || (S.cg && S.cg.sh) || null;
@@ -3212,7 +3216,9 @@ function wkAt(poly, s) { const p = poly.pts; if (s <= 0) { const a = p[0], b = p
   if (s >= poly.L) { const a = p[p.length - 2] || p[0], b = p[p.length - 1]; return [b[0], b[1], Math.atan2(b[0] - a[0], b[1] - a[1])]; }
   let lo = 0, hi = poly.seg.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (poly.seg[m] <= s) lo = m; else hi = m; }
   const a = p[lo], b = p[hi], u = (s - poly.seg[lo]) / (poly.seg[hi] - poly.seg[lo] || 1); return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, Math.atan2(b[0] - a[0], b[1] - a[1])]; }
-function wkMzApproach() {   // walk-up / walk-off at the chopstick elevator doors (Crew_Mark_1 at rest), not the old A&A tower
+function wkMzApproach() {   // walk-up / walk-off at the tower elevator doors (Crew_Mark_1 at rest), not the old A&A tower
+  const data = MZ && MZ.towerData;
+  if (data && data.approachXZ) return data.approachXZ;
   const mark = MZ && MZ.T && MZ.T.nodes && MZ.T.nodes.Crew_Mark_1;
   if (mark) {
     mark.updateWorldMatrix(true, false);
@@ -3220,7 +3226,7 @@ function wkMzApproach() {   // walk-up / walk-off at the chopstick elevator door
     if (v.y < 2) { WK.mzApproach = [v.x, v.z]; return WK.mzApproach; }   // only cache at ground; mid-clip the mark rides the arm
   }
   if (WK.mzApproach) return WK.mzApproach;
-  return [PX + 8.681, -31.581];   // r2t2 rest mark fallback until the GLB is ready
+  return [PX, 0];   // GLB not ready and no measured mark yet; never a chopstick-model coordinate
 }
 function wkLadder() { if (padMzWanted()) return wkMzApproach(); if (padUsesTower()) return [PX + 8.24, -8.6]; if (!WK.ladder) WK.ladder = [PX + 3.854, -10.775]; return WK.ladder; }
 function wkRoad(from, to) { const z = (typeof ROAD !== 'undefined' && ROAD.zIn != null) ? ROAD.zIn : WK.roadZ;
