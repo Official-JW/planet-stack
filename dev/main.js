@@ -2889,10 +2889,10 @@ function mzUpdateStack(tb) {           // existing chopsticks art, no new crane:
     if (MZ.followShip) MZ.followShip(ship);
     cg3._mzStackPose = { x: ship.position.x, z: ship.position.z, qx: ship.quaternion.x, qy: ship.quaternion.y, qz: ship.quaternion.z, qw: ship.quaternion.w };
   }
-  // Catch clip 5–15 s is the vertical lift (track 9.6 → 26.6, carriage up). Hold that high pose
-  // while the hull continues to the seat (~64.4); snap chopsticks to stacked board rest at the end.
+  // Chopsticks stay at board rest (bind / retracted) for the whole slide. Do not pose the
+  // catch lift — that clip reaches toward the ship. Snap to stacked board rest at the end.
   if (u >= 0.99) { if (MZ.poseBoard) MZ.poseBoard(0, true); }
-  else { MZ.poseCatch(Math.min(15, 5 + k * 10)); }
+  else if (MZ.poseBoard) MZ.poseBoard(0, false);
   const y = y0 + (y1 - y0) * k;
   const P = cg3._mzStackPose;
   ship.position.set(P.x, y, P.z);
