@@ -3659,30 +3659,64 @@ function _pinchMid() {
   const a = [..._ptrs.values()]; if (a.length < 2) return null;
   return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) };
 }
-canvas.addEventListener('pointerdown', (e) => {
+function zoomPtrsReset() {   // every gesture starts fresh: drop leftover fingers from a missed end/cancel
+  _ptrs.clear();
+  _pinch = null;
+  ZOOM.pinching = false;
+}
+function _ptrDown(e) {
+  if (e.isPrimary && _ptrs.size) zoomPtrsReset();   // a new primary contact is a new gesture
   _ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   if (_ptrs.size >= 2) {
     const m = _pinchMid();
     if (m && m.d > 8) { _pinch = { d0: m.d, z0: ZOOM.z, mx: m.x, my: m.y }; ZOOM.pinching = true; if (drag) { try { canvas.releasePointerCapture(drag.id); } catch (_) {} drag = null; } }
   }
-}, true);
-canvas.addEventListener('pointermove', (e) => {
+}
+function _ptrMove(e) {
   if (!_ptrs.has(e.pointerId)) return;
   _ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (_pinch && _ptrs.size >= 2) {
     const m = _pinchMid(); if (!m || m.d < 4) return;
-    const target = zoomClamp(_pinch.z0 * (_pinch.d0 / Math.max(1e-3, m.d)));
+    const target = zoomClamp(_pinch.z0 * (_pinch.d0 / Math.max(1e-3, m.d)));   // spread = zoom in, pinch = zoom out (approved)
     const factor = target / Math.max(1e-6, ZOOM.z);
     zoomApply(factor, m.x, m.y);
     e.preventDefault();
   }
-}, true);
+}
 function _ptrUp(e) {
-  _ptrs.delete(e.pointerId);
+  if (e && e.pointerId != null) _ptrs.delete(e.pointerId);
+  if (_ptrs.size < 2) { _pinch = null; ZOOM.pinching = false; }
+  if (_ptrs.size === 0) zoomPtrsReset();
+}
+function _ptrLost(e) {
+  if (e && e.buttons) return;   // still down: we only released capture (swipe → pinch handoff)
+  _ptrUp(e);
+}
+function _touchEnd(e) {
+  if (!e.touches || e.touches.length === 0) { zoomPtrsReset(); return; }
+  if (e.changedTouches) for (const t of e.changedTouches) { _ptrs.delete(t.identifier); if (t.identifier != null) _ptrs.delete(t.identifier); }
   if (_ptrs.size < 2) { _pinch = null; ZOOM.pinching = false; }
 }
+canvas.addEventListener('pointerdown', _ptrDown, true);
+canvas.addEventListener('pointermove', _ptrMove, true);
 canvas.addEventListener('pointerup', _ptrUp, true);
 canvas.addEventListener('pointercancel', _ptrUp, true);
+canvas.addEventListener('lostpointercapture', _ptrLost, true);
+// Window-level end/cancel/move: a finger lifting or sliding off the canvas must not leave a stale entry (iPhone: "fingers always on the screen").
+window.addEventListener('pointerup', _ptrUp, true);
+window.addEventListener('pointercancel', _ptrUp, true);
+window.addEventListener('pointermove', _ptrMove, true);
+window.addEventListener('lostpointercapture', _ptrLost, true);
+for (const ev of ['touchend', 'touchcancel']) window.addEventListener(ev, _touchEnd, { capture: true, passive: true });
+window.addEventListener('blur', zoomPtrsReset);
+document.addEventListener('visibilitychange', () => { if (document.hidden) zoomPtrsReset(); });
+function _gesture(e) {
+  const onGame = e.target === canvas || (canvas && canvas.contains(e.target));
+  if (onGame) e.preventDefault();
+  if (e.type === 'gestureend') zoomPtrsReset();
+}
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) window.addEventListener(ev, _gesture, { capture: true, passive: false });
 canvas.addEventListener('wheel', (e) => {
   // Trackpad pinch = ctrl+wheel on macOS; plain wheel also zooms the game cam.
   e.preventDefault();
@@ -7008,7 +7042,7 @@ Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ render
   get camX() { return camX; }, set camX(v) { camX = target = +v; }, get coverGone() { return coverGone; }, get eveOpen() { return ecIsOpen(); }, get cashTarget() { return cashTarget().id; }, get sheetOpen() { return sheetOpen; } }));
 buildRoute();                         // temporary (README fallback) route: drawn under the cover only; nothing settles on it (B1)
 setTimeout(() => { if (!RT.ready) { console.warn('route markers still loading after 30 s: settling on the fallback route'); RT.mine = RT.ref = true; routeReady(); } }, 30000);
-Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, ZOOM, zoomApply, zoomClamp, get BOARD_SEC() { return boardSec(); }, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
+Object.defineProperties(window.__ps3d, Object.getOwnPropertyDescriptors({ VFX, vfxPhase, updVfx, CREW_BOARD, BD, BC, BCAM, CAMLOOK, ZOOM, zoomApply, zoomClamp, zoomPtrsReset, get pinchCount() { return _ptrs.size; }, get pinchActive() { return !!(_pinch || ZOOM.pinching); }, get BOARD_SEC() { return boardSec(); }, crewCount, rxAlpha, makeFollowCam, boardOf, crewPose: crewPoseB, crewCamAt, crewCamW, updCrew, placeCamera, band, PADCAM, padCam: LD, padLoadTarget, padLoadPts,
   get crew() { return { tb: +BC.tb.toFixed(3), w: +BC.w.toFixed(4), ph: BC.ph, bc: S.bc || null, vis: !!(BD.root && BD.root.visible), cur: BD.cur }; } }));
 hud(); upUI();
 loadRig(); loadTruck(); loadMeteor(); loadOperator(); loadCrew(); loadMineTerrain(); loadFix1Terrains(); loadDrillV3h();
