@@ -2862,9 +2862,11 @@ function applyPadMz() {   // show the ship tower at PAD_TOWER_LV+ or the r2t2 Me
         if (y > 5) cg3.mzMountY = y;   // ignore a pre-track cache of shipY0 (0)
       }
       applyPadMzCam();
+      mzSyncPadCargo();
     } else {
       if (cg3) cg3.mzMountY = null;
       if (typeof padRestApply === 'function') { try { padRestApply(); } catch (e) {} }
+      mzSyncPadCargo();
     }
     window.__ps3d.padMz = Object.assign(MZ.T.ready ? MZ.info() : { ready: false, visible: false }, { legacyHide: MZ.legacyInfo(), wanted: on, src });
   };
@@ -5029,6 +5031,100 @@ function holdExtend(holds, yaws, maxN) {   // bind-time only. Art markers stay a
     for (const src of foot) { if (holds.length >= maxN) break; const p = holds[src].clone(); p.y = yMax + layer * dy; holds.push(p); yaws.push(yaws[src] || 0); }
   }
 }
+
+// Lv10+ cargo: drive the visible r2t2 pad crane (attached beside the tower at
+// (3.5, 0, 8.32); same crane at Lv20 mount and stacked). Live PC-1 is hidden
+// by applyLegacyHide and is too short (sheave 22.966). The r2t2 mast was
+// raised 9.948 m (sheave 32.914, hmax 31.564) so the same cranePose solve
+// reaches a ship seated on the Mount (y 9.6). Heights are bound to the seated
+// ship Y (mount, or booster Ship_Seat when stacked) — never Y 0. Lv1-9 keeps
+// the live PC-1 bind in cgBind and never enters this path.
+function mzTowerCrane() {
+  return (typeof padTowerWanted === 'function' && padTowerWanted() && MZ && MZ.T && MZ.T.ready && MZ.T.nodes && MZ.T.nodes.Crane) ? MZ.T.nodes.Crane : null;
+}
+function mzCargoSeatY() {
+  if (typeof mzStackOn === 'function' && mzStackOn()) return mzShipSeatY();
+  return mzShipMountY();
+}
+function mzBindPcTo(root) {
+  const A = CARGO_ALIAS;
+  root.updateMatrixWorld(true);
+  const sl = findA(root, A.slew), tr = findA(root, A.trolley), ho = findA(root, A.hoist), hk = findA(root, A.hook);
+  if (!sl || !tr || !ho || !hk) return null;
+  const wp = (o) => o ? o.getWorldPosition(new THREE.Vector3()) : null, base = root.getWorldPosition(new THREE.Vector3());
+  let u = null; root.traverse(n => { if (!u && n.userData && n.userData.sheave_y > 0) u = n.userData; });
+  const glb = u ? { sheave: u.sheave_y, drop: u.hook_drop_m, rest: u.hook_rest_local_y, rmin: u.trolley_min_m, rmax: u.trolley_max_m, hmin: u.hoist_min_m || .6, hmax: u.hoist_max_m || 8.3 } : null;
+  if (glb) for (const o of [sl, tr, ho, hk]) if (o) o.userData.q0 = o.userData.q0 || o.quaternion.clone();
+  const C = { root, sl, tr, ho, hk, cable: tr && tr.userData.cable, base, top: wp(sl).y, jib: glb ? glb.rmax : CPH.pad.jib, rmin: glb ? glb.rmin : 1.2, glb, slots: null, pick: null, drop: null };
+  if (cg3.padArt) {
+    const w = (n) => { const o = cg3.pg.getObjectByName(n); return o ? o.getWorldPosition(new THREE.Vector3()) : null; };
+    C.pick = w('Pick_Point'); C.drop = w('Drop_Point');
+  }
+  C.hiUnload = CPH.pad.hiUnload; C.hiHold = CPH.pad.hiHold;
+  return C;
+}
+function mzRefreshHiHold(C) {
+  if (!C || !cg3.ship || typeof RDT === 'undefined' || !RDT.tray || !RDT.seat) return;
+  cg3.ship.updateMatrixWorld(true);
+  C.hiHold = RDT.seat.clone().applyMatrix4(cg3.ship.matrixWorld).y + BOXP.hookY;
+}
+function mzBindHoseEnds(on) {
+  // Bind LOX/CH4 hookup ends to seated ship Y. Approved art hides the pad hoses
+  // at the tower (HIDE_PAD_NODES); keep them hidden and still move the ends.
+  if (!cg3 || !cg3.padArt) return;
+  const hookup = cg3.padArt.getObjectByName('Fuel_Hookup');
+  const hoses = ['Hose_LOX', 'Hose_LCH4'].map((n) => cg3.padArt.getObjectByName(n)).filter(Boolean);
+  const seatY = on ? mzCargoSeatY() : 0;
+  const bump = (arr, y0) => { if (Array.isArray(arr) && arr.length > 1) arr[1] = y0 + seatY; };
+  if (hookup) {
+    if (hookup.userData._mzY0 == null) {
+      hookup.userData._mzY0 = hookup.position.y;
+      hookup.userData._mzEx0 = {
+        LOX: hookup.userData.LOX && hookup.userData.LOX.slice(),
+        LCH4: hookup.userData.LCH4 && hookup.userData.LCH4.slice(),
+        LOX_QD_parked: hookup.userData.LOX_QD_parked && hookup.userData.LOX_QD_parked.slice(),
+        LCH4_QD_parked: hookup.userData.LCH4_QD_parked && hookup.userData.LCH4_QD_parked.slice(),
+      };
+    }
+    hookup.position.y = hookup.userData._mzY0 + seatY;
+    const ex0 = hookup.userData._mzEx0 || {};
+    if (hookup.userData.LOX && ex0.LOX) bump(hookup.userData.LOX, ex0.LOX[1]);
+    if (hookup.userData.LCH4 && ex0.LCH4) bump(hookup.userData.LCH4, ex0.LCH4[1]);
+    // parked stand QDs stay on the apron (y 1.62); only the ship-side hookup follows the hull
+  }
+  for (const h of hoses) {
+    if (h.userData._mzY0 == null) h.userData._mzY0 = h.position.y;
+    h.userData.mzHoseEndY = (hookup ? hookup.position.y : 4.45 + seatY);
+  }
+}
+function mzSyncPadCargo() {
+  if (!cg3 || !cg3.padArt) return;
+  const crane = mzTowerCrane();
+  if (crane) {
+    if (!cg3.PC || cg3.PC.root !== crane) {
+      const C = mzBindPcTo(crane);
+      if (C) { cg3.PC = C; cg3._mzPcOn = true; }
+    }
+    mzRefreshHiHold(cg3.PC);
+    mzBindHoseEnds(true);
+  } else if (cg3._mzPcOn) {
+    // Restore the live PC-1 only after a tower bind. Lv1-9 never enters this path
+    // (no rebind, no hose writes) so crate positions stay identical to 759e1c3/c5ebfee.
+    if (cg3.pc) {
+      const C = mzBindPcTo(cg3.pc);
+      if (C) {
+        if (typeof RDT !== 'undefined' && RDT.tray && RDT.seat && cg3.ship) {
+          const hy = RDT.seat.clone().applyMatrix4(cg3.ship.matrixWorld).y + BOXP.hookY;
+          if (C.hiHold > hy) C.hiHold = hy;
+        }
+        cg3.PC = C;
+      }
+    }
+    mzBindHoseEnds(false);
+    cg3._mzPcOn = false;
+  }
+}
+
 function cgBind() {
   const A = CARGO_ALIAS, bp = cg3.boxRoot || phBoxProp(), hp = findA(bp, A.boxHook), bb = findA(bp, A.boxBase); BOXP.hookY = hp && bb ? hp.position.y - bb.position.y : 1.5;
   const crane = (root, mast, jib) => { root.updateMatrixWorld(true); const sl = findA(root, A.slew), tr = findA(root, A.trolley), ho = findA(root, A.hoist), hk = findA(root, A.hook), pk = findA(root, A.pick), dp = findA(root, A.drop);
@@ -5736,6 +5832,7 @@ function updCargo() {
     sh.visible = vis; updGear(s, t, 0); sh.updateMatrixWorld(true); updVfx(c, t);
   }
   else { sh.visible = vis; sh.position.y = sy; updGear(s, t, gearAlt); sh.updateMatrixWorld(true); updVfx(c, t); }
+  if (towerSeat) mzSyncPadCargo();
   // --- gc/ship-upgrade (end) ---
   cg3.fuelFill.scale.y = Math.max(.01, 5.9 * fuelAt(t));
   // astronaut
@@ -6745,7 +6842,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_TOWER_LV, PAD_MZ_LV, padUsesLegacyTower, wkMzApproach, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, applyPadMzCam, applyCrewLadderVisible, padMzLegacyCtx, syncBooster, padTowerWanted, padTowerSrcNow, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mzcrew)
+Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_TOWER_LV, PAD_MZ_LV, padUsesLegacyTower, wkMzApproach, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, applyPadMzCam, applyCrewLadderVisible, padMzLegacyCtx, syncBooster, padTowerWanted, padTowerSrcNow, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn, mzPlaceStackedShip, mzShipMountY, mzShipSeatY, mzSyncPadCargo, mzTowerCrane, mzCargoSeatY });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mzcrew)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
