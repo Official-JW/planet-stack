@@ -1,6 +1,7 @@
 // Shipyard Bay upgrade path (Jacob 11/15 2:23-2:26 PM PT via Game Director; spec planet-stack/specs/shipyard_bay_upgrades.md).
 // The bay has its own upgrade card (styled like the Launch Pad card): Lv1-50, Lv1->2 costs $50k, +10% per level.
-//   Every level: ship upgrade time and ship / booster / ring build time x 0.98 (bayTimeMul = 0.98^(lv-1)).
+//   Every level: ship upgrade time, ship / booster build time and ring stacking x 0.98 (bayTimeMul = 0.98^(lv-1)). Not ring PRINT time
+//   (ring economy, Decisions 11/21: printing is Print Shop levels only).
 //   Lv10: second welding platform -> 2 rings stacked at once (bayRingLanes).
 //   Lv20: 2 bay spots (ship upgrade / ship build side by side, baySlots) + the second ship can be built ($2.5M).
 //   Lv30: extended roof -> the booster can be built ($5M; the upright booster on the transporter is 57.7 m, the Lv1-29 door is 48 m).
@@ -24,17 +25,25 @@ export const BAY_WELD2_LV = 10, BAY_SLOTS2_LV = 20, BAY_SHIP2_LV = 20, BAY_BOOST
 export const BAY_SHIP2_PRICE = 2500000, BAY_BOOSTER_PRICE = 5000000, BAY_RING_PRICE = 100000;
 export const BAY_RACK = 6, BAY_RACK2 = 12;
 // Base build times in game seconds at Bay Lv1, before bayTimeMul (Game Director 11/15 17:02: second ship 3600 s, booster 5400 s).
-// PLACEHOLDER: ring 60 s (no number given yet).
+// ring: 60 s = the STACK time per ring at Bay Lv1 (ring economy, locked 11/21), x bayTimeMul. Print time is psRingSec (Print Shop only).
 export const BAY_BASE_SEC = { ship2: 3600, booster: 5400, ring: 60 };
+// ---- Ring economy (spec planet-stack/specs/ring_economy.md, Decisions locked 2026-11-21; counts Jacob 11/21 10:27 AM PT) ----
+// Rings spent: 1 per ship upgrade (both ships share S.shipLv), 8 for the second ship, 12 for the booster. No rush buy: $100k is always a print.
+// A build may start short of rings: cash is paid at the start, the job pulls rings from the rack as it stacks (60 s x bayTimeMul each, 1 at a
+// time, 2 at once from Bay Lv10) and its build clock (3600 / 5400 s x bayTimeMul) only runs while it holds enough rings: the clock may reach
+// sec x got / n, so with an empty rack it waits ("Waiting for rings") and waiting never burns build time. Done = clock done + every ring stacked.
+// Rings stay off the HUD (Print Shop, Shipyard and Ship cards only). Save (additive): S.bay.rt = landing stamps of the rack rings (oldest first,
+// length = S.bay.rings); a ring-economy job adds { n, got, p, pt, ln, ss }. Jobs without n (started before this) keep the old t0 + sec finish.
+export const BAY_RINGS = { shipUp: 1, ship2: 8, booster: 12 };
 export const BAY_LOOK_TIERS = [10, 20, 30, 40, 50];
 // ---- 3D Print Shop (Jacob 11/17 8:33 AM PT via Game Director; spec planet-stack/specs/print_shop_and_shipyard_card.md) ----
 // Its own upgrade card (tap the glass print shop): ring print 600 s at Lv1, x0.88 per level, max Lv10, Lv1->2 $150k then x1.15, Lv5 adds a
-// second print bed (2 rings at once). Rings stay $100k (paid when queued; the conveyor into the bay stays free). The print time also takes the
-// bay's x0.98 per bay level (bayTimeMul, as ring builds already did), so Print Shop Lv1 + Bay Lv1 = 600 s. Save: S.bay.ps (level), S.bay.rq (queued).
+// second print bed (2 rings at once). Rings stay $100k (paid when queued; the conveyor into the bay stays free). The
+// bay level does NOT change print time (ring economy decision 4, 11/21: the bay's x0.98 is stacking / builds only). Save: S.bay.ps (level), S.bay.rq (queued).
 export const PS_MAX = 10, PS_COST0 = 150000, PS_COST_GROWTH = 1.15, PS_RING_SEC = 600, PS_TIME_MUL_PER_LV = 0.88, PS_BED2_LV = 5;
 const clampPs = (lv) => Math.max(1, Math.min(PS_MAX, Math.floor(+lv) || 1));
 export const psCost = (lv) => (lv | 0) >= PS_MAX ? 0 : Math.round(PS_COST0 * PS_COST_GROWTH ** (clampPs(lv) - 1));   // the step lv -> lv + 1
-export const psRingSec = (lv) => PS_RING_SEC * PS_TIME_MUL_PER_LV ** (clampPs(lv) - 1);   // before the bay's bayTimeMul
+export const psRingSec = (lv) => PS_RING_SEC * PS_TIME_MUL_PER_LV ** (clampPs(lv) - 1);   // the whole print time (no bay multiplier)
 export const psBeds = (lv) => clampPs(lv) >= PS_BED2_LV ? 2 : 1;
 export const BAY_LOOK_NAMES = { 0: 'approved hall', 10: 'second welding platform', 20: 'wide hall, 2 ship spots', 30: 'wide hall + extended roof', 40: 'second ring rack', 50: 'gold-tier hall trim' };
 const SHIP_KINDS = ['ship2', 'booster'];
@@ -69,6 +78,11 @@ export function migrateBay(S) {   // additive: never removes or renames another 
   b.own.ship2 = b.own.ship2 ? 1 : 0; b.own.booster = b.own.booster ? 1 : 0;
   b.rings = Math.max(0, Math.floor(+b.rings) || 0);
   b.ps = clampPs(b.ps); b.rq = Math.max(0, Math.floor(+b.rq) || 0);   // Print Shop level, rings paid and waiting for a print bed
+  // ring economy: rack landing stamps (oldest first), one per rack ring; rings from older saves count as landed long ago (0)
+  if (!Array.isArray(b.rt)) b.rt = []; b.rt = b.rt.map(x => +x > 0 ? +x : 0).sort((x, y) => x - y);
+  while (b.rt.length < b.rings) b.rt.unshift(0); while (b.rt.length > b.rings) b.rt.pop();
+  for (const j of b.jobs) if (j.n > 0) { j.n = Math.floor(+j.n); j.got = Math.max(0, Math.min(j.n, Math.floor(+j.got) || 0)); j.p = Math.max(0, +j.p || 0);
+    if (!(j.pt > 0)) j.pt = j.t0; if (!Array.isArray(j.ln)) j.ln = []; j.ln = j.ln.filter(x => +x > 0).map(Number); if (!(j.ss > 0)) j.ss = +(BAY_BASE_SEC.ring * (j.mul > 0 ? j.mul : 1)).toFixed(3); }
   return b;
 }
 
@@ -102,7 +116,7 @@ export function createBayUpgrades(getS) {
     if (q != null && q !== '' && isFinite(+q) && +q >= 1) return clampPs(q);
     return bay().ps;
   }
-  const ringSec = (lv = lvNow(), pl = psLv()) => psRingSec(pl) * bayTimeMul(lv);
+  const ringSec = (lv = lvNow(), pl = psLv()) => psRingSec(pl);   // ring economy 11/21: Print Shop level only (lv kept for callers, ignored)
   const locked = () => !!(A.D && !A.D.isBuilt('yard'));
   // the Shipyard card's crew lock, read from main.js (shipUpgradeStaffed / shipUpgradeShortfallText for the next ship level): '' when staffed
   const crewNeed = () => { try { return (A.D && typeof A.D.crewLock === 'function' && A.D.crewLock()) || ''; } catch (e) { return ''; } };   // the hall must be built first
@@ -133,20 +147,55 @@ export function createBayUpgrades(getS) {
     const D = A.D, w = why(k); if (w.length) return { ok: false, why: w };
     const t = D.nowMs(), lv = lvNow(), mul = bayTimeMul(lv), c = price(k); D.settle(t); D.pay(c);
     if (k === 'ring' && jobsOf(['ring']).length >= psBeds(psLv())) { bay().rq++; D.save(); D.refresh(); D.logU('upgrade', `Print Shop: ring queued (${D.fmt(c)})`); return { ok: true, queued: bay().rq }; }
-    const j = { k, t0: t, sec: +((k === 'ring' ? ringSec(lv) : BAY_BASE_SEC[k] * mul)).toFixed(3), mul: +mul.toFixed(6) }; if (k === 'ring') j.ps = psLv(); if (SHIP_KINDS.includes(k)) j.spot = freeSpot(lv) || 'A'; bay().jobs.push(j);
-    D.save(); D.refresh(); D.logU('upgrade', `Shipyard: ${k === 'ship2' ? 'second ship' : k} build started (${D.fmt(c)}, ${Math.round(j.sec)} s)`);
+    const j = { k, t0: t, sec: +((k === 'ring' ? ringSec(lv) : BAY_BASE_SEC[k] * mul)).toFixed(3), mul: k === 'ring' ? 1 : +mul.toFixed(6) }; if (k === 'ring') j.ps = psLv();
+    if (SHIP_KINDS.includes(k)) { j.spot = freeSpot(lv) || 'A'; Object.assign(j, { n: BAY_RINGS[k], got: 0, p: 0, pt: t, ln: [], ss: +(BAY_BASE_SEC.ring * mul).toFixed(3) }); }   // ring economy
+    bay().jobs.push(j); if (j.n) simBuilds(t);   // rings already on the rack start stacking now
+    D.save(); D.refresh(); D.logU('upgrade', `Shipyard: ${k === 'ship2' ? 'second ship' : k} build started (${D.fmt(c)}, ${Math.round(j.sec)} s${j.n ? `, ${j.n} rings` : ''})`);
     return { ok: true, job: Object.assign({}, j) };
   }
   // a queued ring's job; built BEFORE b.jobs.push (lvNow / psLv call bay(), and migrateBay swaps in a new filtered jobs array)
-  const ringJob = (t0) => ({ k: 'ring', t0, sec: +ringSec().toFixed(3), mul: +bayTimeMul(lvNow()).toFixed(6), ps: psLv() });
+  const ringJob = (t0) => ({ k: 'ring', t0, sec: +ringSec().toFixed(3), mul: 1, ps: psLv() });
+  // ---- ring economy: rack pulls + build stacking ----
+  function landRing(at) { const b = bay(); b.rings = Math.min(b.rings + 1, BAY_RACK2); let i = b.rt.length; while (i > 0 && b.rt[i - 1] > at) i--; b.rt.splice(i, 0, at); while (b.rt.length > b.rings) b.rt.shift(); }
+  // take the oldest rack ring that had landed by `by`; returns when it became usable (max(from, its landing)), or null if none
+  function pullRing(from, by = from) { const b = bay(); if (!(b.rings > 0)) return null; const s = b.rt.length ? b.rt[0] : 0; if (s > by) return null;
+    b.rt.shift(); b.rings--; return Math.max(from, s); }
+  const ringJobsOf = () => bay().jobs.filter(j => SHIP_KINDS.includes(j.k) && j.n > 0);
+  const jobCap = (j) => j.sec * j.got / j.n;   // build seconds the job may run with the rings it holds
+  const jobWaiting = (j, t) => j.n > 0 && j.got < j.n && j.p >= jobCap(j) - 1e-6;
+  const jobDone = (j, t) => j.got >= j.n && j.p >= j.sec - 1e-6 && !j.ln.some(e => e > t);
+  function jobLeft(j, t) { if (!(j.n > 0)) return Math.max(0, (j.t0 + j.sec * 1000 - t) / 1000); return Math.max(j.sec - j.p, ...j.ln.map(e => (e - t) / 1000), 0); }
+  // advance every ring-economy build from its pt to t on one shared set of welding lanes (event steps: ring landings, lane frees, clock caps), so a
+  // reload or an offline catch-up lands on the same state as a session left open. Returns true when a ring was pulled.
+  function simBuilds(t) {
+    const js = ringJobsOf(); if (!js.length) return false; const b = bay(), lanes = bayRingLanes(lvNow());
+    let now = Math.min(t, ...js.map(j => j.pt)), pulled = false;
+    const busy = (x) => js.reduce((a, j) => a + j.ln.filter(e => e > x).length, 0);
+    for (let g = 0; g < 2000; g++) {
+      for (const j of js) { if (j.pt > now) continue;   // pulls: a free lane + a landed ring, oldest job first
+        while (j.got < j.n && busy(now) < lanes) { const r = pullRing(now); if (r == null) break; j.ln = j.ln.filter(e => e > now); j.ln.push(now + j.ss * 1000); j.got++; pulled = true; } }
+      let nx = t;
+      for (const j of js) { if (j.pt > now) { nx = Math.min(nx, j.pt); continue; } const cap = jobCap(j); if (j.p < cap) nx = Math.min(nx, now + (cap - j.p) * 1000);
+        for (const e of j.ln) if (e > now) nx = Math.min(nx, e); }
+      const rl = b.rt.find(x => x > now); if (rl != null) nx = Math.min(nx, rl);
+      nx = Math.max(nx, now);
+      for (const j of js) { if (j.pt > now) continue; const cap = jobCap(j); if (j.p < cap) j.p = Math.min(cap, j.p + (nx - now) / 1000); }
+      now = nx; if (now >= t) break;
+    }
+    for (const j of js) if (j.pt <= t) { j.pt = t; j.ln = j.ln.filter(e => e > t); j.p = +j.p.toFixed(3); }
+    return pulled;
+  }
   function tick(t) {   // every frame: finish due jobs, scale a new ship upgrade's work time once
     const D = A.D; if (!D) return; const s = S(), b = bay(); let ch = false;
-    for (let i = b.jobs.length - 1; i >= 0; i--) { const j = b.jobs[i]; if (t < j.t0 + j.sec * 1000) continue;
+    for (let i = b.jobs.length - 1; i >= 0; i--) { const j = b.jobs[i]; if (j.n > 0 || t < j.t0 + j.sec * 1000) continue;   // ring-economy builds finish below
       b.jobs.splice(i, 1); ch = true; A.lastDone.push({ k: j.k, at: t });
-      if (j.k === 'ring') b.rings = Math.min(b.rings + 1, BAY_RACK2); else b.own[j.k] = 1;
+      if (j.k === 'ring') landRing(j.t0 + j.sec * 1000); else b.own[j.k] = 1;
       D.logU('upgrade', `Shipyard: ${j.k === 'ship2' ? 'second ship' : j.k} built`);
       if (j.k === 'ring' && b.rq > 0) { const n = ringJob(j.t0 + j.sec * 1000); b.rq--; b.jobs.push(n); i = b.jobs.length; } }   // the freed bed takes the next queued ring at the moment it freed (offline catch-up chains)
     while (b.rq > 0 && jobsOf(['ring']).length < psBeds(psLv())) { const n = ringJob(t); b.rq--; b.jobs.push(n); ch = true; }   // Lv5: the second bed picks up a waiting ring
+    if (simBuilds(t)) ch = true;   // ring economy: stack rack rings into running builds, run their clocks
+    for (const j of ringJobsOf()) if (jobDone(j, t)) { const bb = bay(); bb.jobs.splice(bb.jobs.indexOf(j), 1); bb.own[j.k] = 1; ch = true; A.lastDone.push({ k: j.k, at: t });
+      D.logU('upgrade', `Shipyard: ${j.k === 'ship2' ? 'second ship' : j.k} built (${j.n} rings)`); }
     if (shipUpBusy() && s.upg && !(s.upg.bayK > 0)) {
       const u = (t - s.upg.t0) / 1000, tw0 = D.shipUpgradeWork0();
       if (u < tw0 && s.upg.workSec > 0) { const mul = bayTimeMul(lvNow()); s.upg.bayW0 = +s.upg.workSec; s.upg.workSec = +(s.upg.workSec * mul).toFixed(3); s.upg.bayK = +mul.toFixed(6);
@@ -204,7 +253,9 @@ export function createBayUpgrades(getS) {
     SU.place(x, (e.shipY0 != null ? e.shipY0 : 0) - 0.45, z); SU.T.root.rotation.y = yaw; SU.T.root.updateMatrixWorld(true);
     return (A.bayB = { ph: ph.k, x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(3), d: d == null ? null : +d.toFixed(2), L: +L.toFixed(2) });
   }
-  function shift(d) { const s = getS(); if (!s || !s.bay || !Array.isArray(s.bay.jobs)) return; for (const j of s.bay.jobs) if (j && j.t0 > 0) j.t0 += d; }
+  function shift(d) { const s = getS(); if (!s || !s.bay || !Array.isArray(s.bay.jobs)) return;
+    for (const j of s.bay.jobs) if (j && j.t0 > 0) { j.t0 += d; if (j.pt > 0) j.pt += d; if (Array.isArray(j.ln)) j.ln = j.ln.map(e => e > 0 ? e + d : e); }
+    if (Array.isArray(s.bay.rt)) s.bay.rt = s.bay.rt.map(e => e > 0 ? e + d : e); }   // ring economy: rack landing stamps move too
 
   // ---- look hooks (no art yet: the approved hall stays at every level) ----
   // Named hooks for Art & Animation's bay looks (tonight: Lv20 wide hall with bay B, Lv30 wide hall + extended roof). Each gets (tier, lv, ctx);
@@ -300,12 +351,16 @@ export function createBayUpgrades(getS) {
     for (const k of SHIP_KINDS) {   // spec: both rows always visible; grayed with the requirement + price until the bay level unlocks them
       const gate = k === 'ship2' ? BAY_SHIP2_LV : BAY_BOOSTER_LV, pr = price(k), j = jobsOf([k])[0];
       if (!ship) { set(R[k], false); continue; }
-      if (lv < gate) { set(R[k], true, `Needs Shipyard Lv${gate} · ${D.fmt(pr)}`, 'LOCKED', 'off'); continue; }
+      const rn = `${BAY_RINGS[k]} rings`;   // ring economy: the ring need on both rows
+      if (lv < gate) { set(R[k], true, `Needs Shipyard Lv${gate} · ${D.fmt(pr)} · ${rn}`, 'LOCKED', 'off'); continue; }
       if (b.own[k]) { set(R[k], true, 'Built', 'BUILT', 'busy'); continue; }
+      if (j && j.n > 0) { const g = `${j.got}/${j.n} rings`;
+        if (jobWaiting(j, t)) { set(R[k], true, `Waiting for rings · ${g}`, 'WAITING', 'busy', j.p / j.sec); continue; }
+        set(R[k], true, `Building · ${g} · ${mmss(jobLeft(j, t))} left`, 'BUILDING', 'busy', j.p / j.sec); continue; }
       if (j) { const left = (j.t0 + j.sec * 1000 - t) / 1000; set(R[k], true, `Building · ${mmss(left)} left`, 'BUILDING', 'busy', 1 - left / j.sec); continue; }
-      const crew = crewNeed(); if (crew) { set(R[k], true, `${D.fmt(pr)} · ${mmss(BAY_BASE_SEC[k] * bayTimeMul(lv))}`, crew, 'off crew'); continue; }   // crew-locked: grayed, the requirement in place of BUILD
+      const crew = crewNeed(); if (crew) { set(R[k], true, `${D.fmt(pr)} · ${rn} · ${mmss(BAY_BASE_SEC[k] * bayTimeMul(lv))}`, crew, 'off crew'); continue; }   // crew-locked: grayed, the requirement in place of BUILD
       const w = why(k), sec = BAY_BASE_SEC[k] * bayTimeMul(lv), full = w.find(x => x.startsWith('Bay full'));
-      set(R[k], true, `${D.fmt(pr)} · ${mmss(sec)}`, full ? 'BAY FULL' : w.length ? 'NEED ' + D.fmt(pr) : 'BUILD', w.length ? '' : 'afford');
+      set(R[k], true, `${D.fmt(pr)} · ${rn} · ${mmss(sec)}`, full ? 'BAY FULL' : w.length ? 'NEED ' + D.fmt(pr) : 'BUILD', w.length ? '' : 'afford');
     }
     if (!shop) set(R.ring, false);
     else { const rj = jobsOf(['ring']).sort((x, y) => x.t0 - y.t0), w = why('ring'), full = w.find(x => x.startsWith('Ring rack full'));
@@ -340,12 +395,14 @@ export function createBayUpgrades(getS) {
     const lv = lvNow(), b = bay();
     return { lv, saved: b.lv, max: BAY_MAX, cost: bayCost(lv), totalTo: bayTotalTo(lv), mul: +bayTimeMul(lv).toFixed(6), timePct: tp(lv), slots: baySlots(lv), slotsUsed: slotsUsed(),
       shipUpgradeBusy: shipUpBusy(), lanes: bayRingLanes(lv), rackCap: bayRackCap(lv), rings: b.rings, own: Object.assign({}, b.own),
-      jobs: b.jobs.map(j => Object.assign({ left: A.D ? +Math.max(0, j.t0 + j.sec * 1000 - A.D.nowMs()) / 1000 : null }, j)), lookTier: A.lookTier,
+      jobs: b.jobs.map(j => Object.assign({ left: A.D ? +jobLeft(j, A.D.nowMs()).toFixed(3) : null, waiting: A.D ? jobWaiting(j, A.D.nowMs()) : false }, j)), rt: b.rt.slice(), ringNeed: Object.assign({}, BAY_RINGS), lookTier: A.lookTier,
       look: BAY_LOOK_NAMES[A.lookTier], lookLog: A.lookLog.slice(), canStart: { ship2: why('ship2'), booster: why('booster'), ring: why('ring') },
       glow: A.D && A.D.GLOW ? !!A.D.GLOW.on.bayUp : false, locked: locked(), spots: [...spotsTaken()], upgradeSpot: shipUpBusy() && S().upg ? (S().upg.bayB ? 'B' : 'A') : null,
       ps: { lv: psLv(), max: PS_MAX, cost: psCost(psLv()), ringSec: +ringSec().toFixed(3), beds: psBeds(psLv()), queue: bay().rq, printing: jobsOf(['ring']).length },
       bayB: A.bayB, crawlerStopX: A.D && A.D.CFG ? A.D.CFG.shipyardCrawlerStopX : null, route: BAY_B_ROUTE };
   }
-  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, psLv, setPsLv, psBuy, ringSec, upgradeBlockReason, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
-    consts: { BAY_MAX, BAY_COST0, BAY_COST_GROWTH, BAY_TIME_MUL_PER_LV, BAY_SHIP2_PRICE, BAY_BOOSTER_PRICE, BAY_RING_PRICE, BAY_BASE_SEC, BAY_LOOK_TIERS, PS_MAX, PS_COST0, PS_COST_GROWTH, PS_RING_SEC, PS_TIME_MUL_PER_LV, PS_BED2_LV } };
+  function setRings(n, at) { const b = bay(); b.rings = 0; b.rt = []; const t = at != null ? at : (A.D ? A.D.nowMs() : 0); for (let i = 0; i < Math.max(0, Math.min(BAY_RACK2, n | 0)); i++) landRing(t); if (A.D) { A.D.save(); A.D.refresh(); } return b.rings; }   // QA
+  const ringsOnRack = () => bay().rings;
+  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, psLv, setPsLv, psBuy, ringSec, upgradeBlockReason, pullRing, ringsOnRack, setRings, simBuilds, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
+    consts: { BAY_MAX, BAY_COST0, BAY_COST_GROWTH, BAY_TIME_MUL_PER_LV, BAY_SHIP2_PRICE, BAY_BOOSTER_PRICE, BAY_RING_PRICE, BAY_BASE_SEC, BAY_LOOK_TIERS, PS_MAX, PS_COST0, PS_COST_GROWTH, PS_RING_SEC, PS_TIME_MUL_PER_LV, PS_BED2_LV, BAY_RINGS } };
 }

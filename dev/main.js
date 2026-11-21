@@ -2602,6 +2602,10 @@ function shipUpgradeLockReason() {
   return shipUpgradeShortfallText(S, shipLvNow() + 1) || 'Locked';
 }
 function shipUpgradeLaunchReason() { return 'Ship is at the Shipyard'; }
+// ring economy (spec ring_economy.md, locked 11/21): each ship upgrade spends 1 rack ring (both ships share S.shipLv). Card copy only, never the HUD.
+function shipUpgradeRingWait() { return !!(shipUpgradeBusy(S) && S.upg.rn > 0 && !S.upg.ring && SU.T.ready && (() => { const e = suEnv(); return (nowMs() - S.upg.t0) / 1000 >= SU.schedule(e.padX, e.bayX, S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT).tWork0; })()); }
+function shipUpgradeRingNote() { return (S.bay && S.bay.rings > 0) ? 'Needs 1 ring' : 'Need 1 more ring'; }
+function shipUpgradeLockSub() { const r = shipUpgradeLockReason(); return shipUpgradeRingWait() ? r + '\nWaiting for rings' : r; }
 function suEnv() {
   const y0 = cg3.shipY0 != null ? cg3.shipY0 : 0;
   const home = SU.T.shipHome;
@@ -2620,8 +2624,13 @@ function tickShipUpgrade(t = nowMs()) {
   if (!shipUpgradeBusy(S)) { SU.idle(env); return { ph: 'idle' }; }
   const work = S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT;
   const sch = SU.schedule(env.padX, env.bayX, work);
-  const u = Math.max(0, (t - S.upg.t0) / 1000);
-  if (u >= sch.tWork0 && !S.upg.applied) {
+  let u = Math.max(0, (t - S.upg.t0) / 1000);
+  if (S.upg.rn > 0 && !S.upg.ring && u >= sch.tWork0) {   // ring economy: the work phase stacks 1 rack ring; with an empty rack the ship waits in the bay
+    const r = BAY.pullRing(S.upg.t0 + sch.tWork0 * 1000, t);
+    if (r == null) u = sch.tWork0;   // 'Waiting for rings': held at the work start, the waiting time never burns the stack / work time
+    else { S.upg.ring = 1; S.upg.t0 = Math.max(S.upg.t0, r - sch.tWork0 * 1000); u = Math.max(0, (t - S.upg.t0) / 1000); save(); UPK.k = ''; upUI(); }
+  }
+  if (u >= sch.tWork0 && !S.upg.applied && !(S.upg.rn > 0 && !S.upg.ring)) {
     S.upg.applied = 1;
     const from = S.upg.fromLv | 0;
     if (shipLvNow() === from) S.shipLv = from + 1;
@@ -2629,7 +2638,7 @@ function tickShipUpgrade(t = nowMs()) {
     popAtBuy(`Hold ${holdCap()} · ${shipSeats()} seats`);
     logU('upgrade', `Ship Lv ${S.shipLv + 1}: hold ${holdCap()}, seats ${shipSeats()}, ${shipEngines()} engines`);
   }
-  if (u >= sch.tEnd) {
+  if (u >= sch.tEnd && !(S.upg.rn > 0 && !S.upg.ring)) {
     SU.idle(env);
     S.upg = { t0: 0 };
     save(); UPK.k = ''; upUI(); hud();
@@ -4107,6 +4116,7 @@ function shipBayWorkFrac(t = nowMs()) {   // read-only: existing S.upg + SU.sche
   const sch = (SU && SU.schedule && padX != null && bayX != null) ? SU.schedule(padX, bayX, work) : null;
   const end = sch && sch.tEnd > 0 ? sch.tEnd : work;
   if (!(end > 0)) return 0;
+  if (shipUpgradeRingWait() && sch) t = Math.min(t, S.upg.t0 + sch.tWork0 * 1000);   // ring economy: the bar holds while the job waits for a ring
   return clamp((t - S.upg.t0) / (end * 1000), 0, 1);
 }
 function shipHudFrac(t = nowMs()) {    // mid-HUD bar, same ship / line as shipHudText, 0–1
@@ -6286,8 +6296,8 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     btn: () => { const s = S.cg.sh, t = nowMs(); if (shipUpgradeBusy(S)) return [shipUpgradeLaunchReason(), false]; if (canLaunch(t)) return ['Launch', true]; if (crewWin(t)) return [`Pick crew · ${crewOk(s.crew).length}/${maxPicks()}`, true]; if (s.st === 'stack') return ['Stacking', false]; if (s.st !== 'pad') return ['In flight', false]; if (s.hold < holdCap()) return [`Hold ${s.hold}/${holdCap()}`, false]; if (s.req) return ['Launching…', false]; if (s.hold >= holdCap() && fuelAt(t) >= 1 && crewEnRoute(t)) return ['Crew en route', false]; if (launchReady(t)) return [`Needs ${launchMinBoxes()} crates`, false];
       return [fuelAt(t) < 1 ? 'Fueling' : 'Awaiting cargo', false]; },
     buy: () => { if (crewWin()) return crewOpen(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; closeUp('launch'); } } },
-  shipUp: { name: 'Ship Upgrade', ico: 'ship', lock: () => shipUpgradeLocked(), get lockSub() { return shipUpgradeLockReason(); },  // gc/ship-upgrade: staff + docked + not mid-job
-    lv: () => shipLvNow() + 1, max: () => shipLvNow() >= shipTop(), cost: () => shipUpgradeCost(), buy: () => buyShip(),
+  shipUp: { name: 'Ship Upgrade', ico: 'ship', lock: () => shipUpgradeLocked(), get lockSub() { return shipUpgradeLockSub(); },  // gc/ship-upgrade: staff + docked + not mid-job
+    lv: () => shipLvNow() + 1, max: () => shipLvNow() >= shipTop(), cost: () => shipUpgradeCost(), buy: () => buyShip(), ringNote: () => shipUpgradeRingNote(),
     big: (m) => { const a = shipRow(), b = m ? a : shipRow(shipLvNow() + 1); return [m ? `${a.hold}` : `${a.hold} → ${b.hold}`, 'hold']; },
     sub: (m) => { const a = shipRow(), i = shipLvNow(), ft = (k) => ( (CG.launchSec + CG.awaySec + CG.landSec) * shipRow(k).flight / 60 ).toFixed(1);
       if (m) return `${a.seats} seats\n${a.engines} engines\n${ft(i)} min flight`;
@@ -6303,8 +6313,8 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
   soonLS: { name: 'Life Support', ico: 'ls', info: true, big: () => ['', ''], sub: () => 'Life Support upgrades coming soon' },
   soonDock: { name: 'Cargo Space Dock', ico: 'dock', info: true, bld: ['dock', 'yard'], big: () => ['', ''], sub: () => 'Dock upgrades coming soon' },   // gc-batch8: builds the Dock, then the Shipyard (Jacob 06:48 'from the Dock card')
   soonShipyard: { name: 'Shipyard', ico: 'shipyard', bld: 'yard',  // gc/ship-upgrade: after the yard is built, this is the ship-upgrade card (not the Launch Pad card)
-    lock: () => shipUpgradeLocked(), get lockSub() { return shipUpgradeLockReason(); },
-    lv: () => shipLvNow() + 1, max: () => shipLvNow() >= shipTop(), cost: () => shipUpgradeCost(), buy: () => buyShip(),
+    lock: () => shipUpgradeLocked(), get lockSub() { return shipUpgradeLockSub(); },
+    lv: () => shipLvNow() + 1, max: () => shipLvNow() >= shipTop(), cost: () => shipUpgradeCost(), buy: () => buyShip(), ringNote: () => shipUpgradeRingNote(),
     big: (m) => { const a = shipRow(), b = m ? a : shipRow(shipLvNow() + 1); return [m ? `${a.hold}` : `${a.hold} → ${b.hold}`, 'hold']; },
     sub: (m) => { const a = shipRow(), i = shipLvNow(), ft = (k) => ( (CG.launchSec + CG.awaySec + CG.landSec) * shipRow(k).flight / 60 ).toFixed(1);
       if (m) return `${a.seats} seats\n${a.engines} engines\n${ft(i)} min flight`;
@@ -6760,7 +6770,8 @@ function upUI() {                      // refreshes the open card (0.1 s tick + 
   const lk = !!(P.lock && P.lock());   // gc-tapfix: a locked card (Chute before the drill) shows like a Coming soon card: no level / meter / cost, a disabled 'Locked' button
   const info = !!P.info || lk, max = !info && P.max(), lv = info ? 0 : P.lv(), c = info || max ? 0 : P.cost(), ok = !info && !max && canPay(c);
   const big = lk ? ['', ''] : P.big(max), sub = lk ? P.lockSub : P.sub ? P.sub(max) : '', mt = !info && P.meter ? P.meter() : null;
-  const k = [upCur, UPK.site, lk, lv, c, ok, max, big[0], big[1], sub, mt && mt.join()].join('|');
+  const rnote = !info && !max && P.ringNote ? P.ringNote() : '';   // ring economy: 'Needs 1 ring' beside the ship upgrade's cash price
+  const k = [upCur, UPK.site, lk, lv, c, ok, max, big[0], big[1], sub, mt && mt.join(), rnote].join('|');
   if (k !== UPK.k) { UPK.k = k;
     upEl.dataset.ico = P.ico; upEl.dataset.locked = lk ? '1' : ''; $('upKick').textContent = `${STATIONS[UPK.site]} · ${lk ? 'Locked' : info ? 'Coming soon' : 'Upgrade'}`;
     $('upName').textContent = P.name; $('upLv').textContent = info || P.once ? '' : `Level ${lv}`; fitTitle();
@@ -6771,6 +6782,7 @@ function upUI() {                      // refreshes the open card (0.1 s tick + 
     $('upSub').textContent = sub;
     const me = $('upMeter'); me.hidden = !mt; if (mt) { const [n, on] = mt; if (me.children.length !== n) me.innerHTML = '<i></i>'.repeat(n); [...me.children].forEach((x, i) => { x.className = i < on ? 'on' : (!max && i === on ? 'nx' : ''); }); }
     $('upCostRow').hidden = info; $('upCost').textContent = max ? '—' : fmt(c);
+    if (rnote) { const rs = document.createElement('small'); rs.id = 'upRing'; rs.textContent = ' · ' + rnote; rs.style.cssText = 'font:700 12px/1 system-ui;color:#7ff3ff;text-shadow:none;margin-left:6px;white-space:nowrap'; $('upCost').append(rs); }
     const shipLkTap = lk && (upCur === 'shipUp' || upCur === 'soonShipyard');   // keep Locked tappable so a bay-full (or other lock) tap can toast
     upBuy.disabled = shipLkTap ? false : !ok; upBuy.className = info || max ? 'max' : ok ? '' : 'need';
     upBuy.textContent = lk ? 'Locked' : info ? 'Coming soon' : max ? 'Max' : ok ? (P.once ? 'Buy' : 'Upgrade') : 'Need ' + fmt(c);
@@ -6914,10 +6926,11 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   const t = nowMs(); settleTo(t, null);
   pay(c);
   // --- gc/ship-upgrade (begin) ---
-  S.upg = { t0: t, fromLv: lv, workSec: shipUpgradeWorkSec(QD), applied: 0 };
+  const rings0 = S.bay && S.bay.rings > 0;
+  S.upg = { t0: t, fromLv: lv, workSec: shipUpgradeWorkSec(QD), applied: 0, rn: 1 };   // ring economy: rn = rings this upgrade stacks (pulled at its work phase)
   tickShipUpgrade(t);
   save(); UPK.k = ''; upUI(); hud();
-  popAtBuy('Upgrade in progress');
+  popAtBuy(rings0 ? 'Upgrade in progress' : 'Upgrade in progress · waiting for rings');
   logU('upgrade', `Ship upgrade to Lv ${lv + 2} started (${fmt(c)})`);
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
@@ -6926,7 +6939,7 @@ Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, 
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
-  shipUpgradeLocked, shipUpgradeLockReason, shipBayFull, shipUpgradeLaunchReason, shipUpgradeStaffed: () => shipUpgradeStaffed(S, shipLvNow() + 1),
+  shipUpgradeLocked, shipUpgradeLockReason, shipBayFull, shipUpgradeRingWait, shipUpgradeRingNote, shipUpgradeLaunchReason, shipUpgradeStaffed: () => shipUpgradeStaffed(S, shipLvNow() + 1),
   shipUpgradeShortfallText: () => shipUpgradeShortfallText(S, shipLvNow() + 1),
   shipUpgradeWorkSec: () => shipUpgradeWorkSec(QD), tickShipUpgrade, suEnv,
   setCrewRole: (k, n) => { if (!S.crewRoles) S.crewRoles = {}; S.crewRoles[k] = Math.max(0, n | 0); save(); UPK.k = ''; upUI(); return Object.assign({}, S.crewRoles); },
