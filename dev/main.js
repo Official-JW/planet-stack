@@ -6923,6 +6923,9 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   }
   const lv = shipLvNow(); if (lv >= shipTop()) return;
   const c = shipUpgradeCost(); if (!canPay(c)) return;
+  // ring economy: it may start with an empty rack while a paid ring is printing / queued (it waits at the Shipyard), but not with no ring at all,
+  // or the ship would sit at the Shipyard with no trips to pay for one (before the Shipyard is built there is no Print Shop)
+  if (!(BAY.ringsPaid() > 0)) { if (typeof PSD !== 'undefined' && PSD.toast) PSD.toast(isBuilt('yard') ? 'Need 1 ring · print one at the 3D Print Shop' : 'Need 1 ring · build the Shipyard to print rings'); return; }
   const t = nowMs(); settleTo(t, null);
   pay(c);
   // --- gc/ship-upgrade (begin) ---

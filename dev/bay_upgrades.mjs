@@ -169,11 +169,12 @@ export function createBayUpgrades(getS) {
   // reload or an offline catch-up lands on the same state as a session left open. Returns true when a ring was pulled.
   function simBuilds(t) {
     const js = ringJobsOf(); if (!js.length) return false; const b = bay(), lanes = bayRingLanes(lvNow());
+    const u = S().upg, keep = u && u.t0 > 0 && u.rn > 0 && !u.ring ? 1 : 0;   // a ship upgrade that still needs its ring goes first (the ship can't fly until it gets one)
     let now = Math.min(t, ...js.map(j => j.pt)), pulled = false;
     const busy = (x) => js.reduce((a, j) => a + j.ln.filter(e => e > x).length, 0);
     for (let g = 0; g < 2000; g++) {
       for (const j of js) { if (j.pt > now) continue;   // pulls: a free lane + a landed ring, oldest job first
-        while (j.got < j.n && busy(now) < lanes) { const r = pullRing(now); if (r == null) break; j.ln = j.ln.filter(e => e > now); j.ln.push(now + j.ss * 1000); j.got++; pulled = true; } }
+        while (j.got < j.n && busy(now) < lanes && b.rings > keep) { const r = pullRing(now); if (r == null) break; j.ln = j.ln.filter(e => e > now); j.ln.push(now + j.ss * 1000); j.got++; pulled = true; } }
       let nx = t;
       for (const j of js) { if (j.pt > now) { nx = Math.min(nx, j.pt); continue; } const cap = jobCap(j); if (j.p < cap) nx = Math.min(nx, now + (cap - j.p) * 1000);
         for (const e of j.ln) if (e > now) nx = Math.min(nx, e); }
@@ -403,6 +404,7 @@ export function createBayUpgrades(getS) {
   }
   function setRings(n, at) { const b = bay(); b.rings = 0; b.rt = []; const t = at != null ? at : (A.D ? A.D.nowMs() : 0); for (let i = 0; i < Math.max(0, Math.min(BAY_RACK2, n | 0)); i++) landRing(t); if (A.D) { A.D.save(); A.D.refresh(); } return b.rings; }   // QA
   const ringsOnRack = () => bay().rings;
-  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, psLv, setPsLv, psBuy, ringSec, upgradeBlockReason, pullRing, ringsOnRack, setRings, simBuilds, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
+  const ringsPaid = () => { const b = bay(); return b.rings + jobsOf(['ring']).length + b.rq; };   // on the rack + printing + queued
+  return { install, tick, shift, ui, buy, start, why, setLv, lvNow, psLv, setPsLv, psBuy, ringSec, upgradeBlockReason, pullRing, ringsOnRack, ringsPaid, setRings, simBuilds, onLook, onLv10Look, onLv20WideHall, onLv30ExtendedRoof, onLv40Rack, onLv50Gold, applyLook, info, slotsUsed, routeBayB: BAY_B_ROUTE,
     consts: { BAY_MAX, BAY_COST0, BAY_COST_GROWTH, BAY_TIME_MUL_PER_LV, BAY_SHIP2_PRICE, BAY_BOOSTER_PRICE, BAY_RING_PRICE, BAY_BASE_SEC, BAY_LOOK_TIERS, PS_MAX, PS_COST0, PS_COST_GROWTH, PS_RING_SEC, PS_TIME_MUL_PER_LV, PS_BED2_LV, BAY_RINGS } };
 }
