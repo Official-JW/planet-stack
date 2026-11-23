@@ -475,11 +475,11 @@ function econCost(tr, lv) { if (lv <= 1 && tr.first != null) return tr.first; co
 function refuelSec(lv = S.fuelLv) { const F = CFG.econ.fuel, n = F.levels, l = clamp(Math.round(lv) || 1, 1, n);
   if (Array.isArray(F.refuelTable) && F.refuelTable.length >= n) return F.refuelTable[l - 1];
   return n > 1 ? F.refuelSec + (F.refuelMinSec - F.refuelSec) * (l - 1) / (n - 1) : F.refuelSec; }
-// Booster refuel (Jacob via GD 11/22 7:24 PM PT): when the ship is stacked on the booster for its launches (pad Lv20+ with an owned booster), that pad
-// refuel takes 2x the pump time at the current level. One multiplier on the existing pump (no second tank / pump). It lives on the fuel anchor
+// Booster refuel (Jacob via GD 11/22 7:24 PM PT; GD 10:42 PM: Option 1 = a refuel on a booster flight, booster kept on the mount; held until the loader gate
+// allows loads while sitting stacked, so 2x is OFF for now) takes 2x the pump time at the current level. One multiplier on the existing pump (no second tank / pump). It lives on the fuel anchor
 // (S.cg.fu.bm, saved), and boosterFuelSync re-anchors at the old rate the moment it switches on or off, so the gauge never jumps and a reload matches.
 const BOOSTER_FUEL_MUL = 2;
-function boosterFuelWant() { return !!(padLvNow() >= PAD_MZ_LV && S.bay && S.bay.own && S.bay.own.booster); }   // economy state only (not GLB load), so reloads and offline agree
+function boosterFuelWant() { return false; }   // GD 11/22 10:47 PM: 2x OFF. Owning a booster (parked on ST-10B or its stand) is 1x. 2x returns only with the saved booster-flight flag + booster mount-stay (Option 1, held on the loader gate). The 2x UI, bm and the no-jump re-anchor stay; an old save with bm 2 is re-anchored to 1x on its first frame
 function boosterFuelMul(c = S.cg) { return c && c.fu && c.fu.bm > 1 ? +c.fu.bm : 1; }
 function boosterFuelSync(t = nowMs(), c = S.cg) { if (!c || !c.fu) return false; const want = boosterFuelWant() ? BOOSTER_FUEL_MUL : 1; if (want === boosterFuelMul(c)) return false;
   fuelAnchor(c, t); if (want > 1) c.fu.bm = want; else delete c.fu.bm; return true; }
@@ -7427,6 +7427,7 @@ function catchUp(card) {
   if (!RT.ready) { RT.card = RT.card || card; return 0; }             // B1: replayed once the marker route is final (routeReady)
   const now = nowMs(), el = (now - S.rt) / 1000;
   if (!(el > 0)) { S.rt = now; window.__ps3d.lastAway = { sec: Math.round(el), X: 0 }; return 0; }   // clock set backward: nothing
+  if (S.cg && S.cg.fu && S.cg.fu.t <= S.rt) boosterFuelSync(S.rt);   // gc/refuel10: the away replay uses the same multiplier rule as live play (2x off: an old bm 2 is re-anchored at the last-seen time)
   const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
   acc.drop = acc.full || !CFG.econ.offlineFormula ? 0 : offlineEarn(el); S.money += acc.drop;   // off by default: the replay above already credits (or holds) every landing; under offlineAfterSec it paid at the live rate
