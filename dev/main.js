@@ -475,13 +475,20 @@ function econCost(tr, lv) { if (lv <= 1 && tr.first != null) return tr.first; co
 function refuelSec(lv = S.fuelLv) { const F = CFG.econ.fuel, n = F.levels, l = clamp(Math.round(lv) || 1, 1, n);
   if (Array.isArray(F.refuelTable) && F.refuelTable.length >= n) return F.refuelTable[l - 1];
   return n > 1 ? F.refuelSec + (F.refuelMinSec - F.refuelSec) * (l - 1) / (n - 1) : F.refuelSec; }
-// Booster refuel (Jacob via GD 11/22 7:24 PM PT; GD 10:42 PM: Option 1 = a refuel on a booster flight, booster kept on the mount; held until the loader gate
-// allows loads while sitting stacked, so 2x is OFF for now) takes 2x the pump time at the current level. One multiplier on the existing pump (no second tank / pump). It lives on the fuel anchor
+// Booster refuel (Jacob via GD 11/22 7:24 PM PT; GD 11/23 12:04 AM: the refill after a booster flight, keyed on a saved flag; no booster mount-stay,
+// load-then-stack unchanged) takes 2x the pump time at the current level. One multiplier on the existing pump (no second tank / pump). It lives on the fuel anchor
 // (S.cg.fu.bm, saved), and boosterFuelSync re-anchors at the old rate the moment it switches on or off, so the gauge never jumps and a reload matches.
 const BOOSTER_FUEL_MUL = 2;
-function boosterFuelWant() { return false; }   // GD 11/22 10:47 PM: 2x OFF. Owning a booster (parked on ST-10B or its stand) is 1x. 2x returns only with the saved booster-flight flag + booster mount-stay (Option 1, held on the loader gate). The 2x UI, bm and the no-jump re-anchor stay; an old save with bm 2 is re-anchored to 1x on its first frame
+function boosterFuelWant(c = S.cg) { return !!(c && c.bf === 2); }   // GD 11/23 12:04 AM: 2x keys ONLY on the saved booster-flight flag (S.cg.bf 2 = the post-landing refill of a stacked flight). Owning / parking a booster is 1x
 function boosterFuelMul(c = S.cg) { return c && c.fu && c.fu.bm > 1 ? +c.fu.bm : 1; }
-function boosterFuelSync(t = nowMs(), c = S.cg) { if (!c || !c.fu) return false; const want = boosterFuelWant() ? BOOSTER_FUEL_MUL : 1; if (want === boosterFuelMul(c)) return false;
+// Booster-flight flag S.cg.bf (saved with S.cg; absent / 0 = 1x): 1 = this flight is stacked (set at stacking, live, and at the stacked departure, so the
+// away replay sets it too); 2 = that flight has landed and its post-landing refill runs at 2x (set at touchdown, cgComplete 'land'); cleared (deleted) the
+// moment that refill finishes (the tank's fuelFinishAt), so the next refuel is 1x. Every rate change re-anchors at the old rate first: no gauge jump.
+function boosterFuelSync(t = nowMs(), c = S.cg) { if (!c || !c.fu) return false; const sh = c.sh;
+  if (sh && sh.st === 'stack' && c.bf !== 1) c.bf = 1;   // flag set when the ship stacks for a launch
+  if (c.bf === 2 && sh && (sh.st === 'pad' || sh.st === 'deboard')) { const tf = fuelFinishAt(c); if (isFinite(tf) && tf <= t) {   // that refill finished → 1x from its finish time
+    if (boosterFuelMul(c) > 1) { fuelAnchor(c, Math.max(tf, c.fu.t)); delete c.fu.bm; } delete c.bf; return true; } }
+  const want = boosterFuelWant(c) ? BOOSTER_FUEL_MUL : 1; if (want === boosterFuelMul(c)) return false;
   fuelAnchor(c, t); if (want > 1) c.fu.bm = want; else delete c.fu.bm; return true; }
 const refuelMs = () => refuelSec() * 1000 * boosterFuelMul();       // the cargo sim, gauge and canLaunch all read this (was CFG.cargo.fuelFillSec)
 const fuelMaxLv = () => CFG.econ.fuel.levels;
@@ -4866,7 +4873,7 @@ function cgComplete(c, t, acc) {
   }
   else if (s.st === 'board' && s.t0 + boardSec(s) * 1000 <= t) { const tl = s.t0 + boardSec(s) * 1000; const bsec = boardSec(s); c.sh = Object.assign({}, s, { st: 'launch', t0: tl, bsec }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: bsec }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once). fly + left stay on sh.
   else if (s.st === 'launch' && s.t0 + shipDur(CG.launchSec, s) * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
-    c.launches++; cgEv('departed', t, { boxes: s.hold });
+    c.launches++; cgEv('departed', t, { boxes: s.hold }); if (s.stk) c.bf = 1;   // gc/refuel10: a stacked flight is a booster flight (flag also set live at 'stack')
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, n: s.hold, pur: cargoPurity(), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 };   // gc-batch7: n = crates aboard at departure (display only; survives the Earth drop). fly / left / fm ride with the trip
   } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + shipDur(CG.awaySec, s) * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
     c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
@@ -4876,7 +4883,7 @@ function cgComplete(c, t, acc) {
     const flyN = s.fly || 0;
     const needDeboard = (padTowerWanted() || !ACC.A.failed) && (flyN > 0 || crewOk(s.crew).length > 0);
     if (left > 0) payPend(left, acc); else if (origGo > 0) payPend(origGo, acc);
-    fuelAnchor(c, t, 0); cgEv('landed', t); crewLand(c, t, s.crew);
+    fuelAnchor(c, t, 0); if (c.bf === 1) c.bf = 2; else delete c.bf; boosterFuelSync(t, c); cgEv('landed', t); crewLand(c, t, s.crew);   // gc/refuel10: the refill after a booster flight runs at 2x from touchdown
     if (s.cargo > 0) cgDeliver(c, s.cargo, s.pur, t, acc);
     if (needDeboard) {
       const dsec = deboardSec({ fly: flyN || CFG.crew0, crew: s.crew });
@@ -7427,7 +7434,7 @@ function catchUp(card) {
   if (!RT.ready) { RT.card = RT.card || card; return 0; }             // B1: replayed once the marker route is final (routeReady)
   const now = nowMs(), el = (now - S.rt) / 1000;
   if (!(el > 0)) { S.rt = now; window.__ps3d.lastAway = { sec: Math.round(el), X: 0 }; return 0; }   // clock set backward: nothing
-  if (S.cg && S.cg.fu && S.cg.fu.t <= S.rt) boosterFuelSync(S.rt);   // gc/refuel10: the away replay uses the same multiplier rule as live play (2x off: an old bm 2 is re-anchored at the last-seen time)
+  if (S.cg && S.cg.fu && S.cg.fu.t <= S.rt) boosterFuelSync(S.rt);   // gc/refuel10: the away replay starts from the same multiplier as live play (flag state at the last-seen time; a finished 2x refill clears at its finish time)
   const acc = { base: 0, rich: 0, n: 0, full: el < CFG.offlineAfterSec }, capEnd = S.rt + CFG.offlineCapSec * 1000;
   if (now > capEnd) { settleTo(capEnd, acc); shiftTk(now - capEnd); } else settleTo(now, acc);   // past the cap the loop just resumes from where it stood
   acc.drop = acc.full || !CFG.econ.offlineFormula ? 0 : offlineEarn(el); S.money += acc.drop;   // off by default: the replay above already credits (or holds) every landing; under offlineAfterSec it paid at the live rate
