@@ -4873,7 +4873,7 @@ function cgComplete(c, t, acc) {
   }
   else if (s.st === 'board' && s.t0 + boardSec(s) * 1000 <= t) { const tl = s.t0 + boardSec(s) * 1000; const bsec = boardSec(s); c.sh = Object.assign({}, s, { st: 'launch', t0: tl, bsec }); cgEv('launch', tl, { hold: s.hold, partial: s.hold < holdCap(), board: bsec }); cgLaunchPay(c, s.rh || s.hold, tl, acc); c.fl = 1; }   // gc-dockfix item 3: pay on the count locked at the tap (s.rh); item 7: first-launch pass used here (once)   // crew inside: lift-off; launch pay in this same state change (once). fly + left stay on sh.
   else if (s.st === 'launch' && s.t0 + shipDur(CG.launchSec, s) * 1000 <= t) {        // top of the climb: the hold rides to Earth (cargo + purity frozen here), paid on landing (Phase 1 Step 2)
-    c.launches++; cgEv('departed', t, { boxes: s.hold }); if (s.stk) c.bf = 1;   // gc/refuel10: a stacked flight is a booster flight (flag also set live at 'stack')
+    c.launches++; cgEv('departed', t, { boxes: s.hold }); if (s.stk) c.bf = 1; else delete c.bf;   // gc/refuel10: a stacked flight is a booster flight (flag also set live at 'stack'); an unstacked one never is
     c.sh = { st: 'away', t0: t, hold: 0, f0: s.f0, req: 0, cargo: s.hold, n: s.hold, pur: cargoPurity(), fly: s.fly || 0, left: s.left || 0, fm: s.fm > 0 ? s.fm : 1 };   // gc-batch7: n = crates aboard at departure (display only; survives the Earth drop). fly / left / fm ride with the trip
   } else if (s.st === 'away' && payEarth() && s.cargo > 0 && s.t0 + shipDur(CG.awaySec, s) * 500 <= t) {   // payAt 'earth': at Earth half-way through the trip; cargo → 0 so touchdown pays nothing
     c.sh = Object.assign({}, s, { cargo: 0 }); cgEv('at_earth', t); cgDeliver(c, s.cargo, s.pur, t, acc);
