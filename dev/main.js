@@ -6451,7 +6451,11 @@ function padTankSoftBox(b) {
     const fx = w < PAD_TANK_MIN_PX ? PAD_TANK_MIN_PX / Math.max(1, w) : 1, fy = h < PAD_TANK_MIN_PX ? PAD_TANK_MIN_PX / Math.max(1, h) : 1;
     _uss.x *= fx * 1.02; _uss.y *= fy * 1.02; _uss.z *= fy * 1.02; b.setFromCenterAndSize(_usc, _uss); }
   return b; }
-function padTankBox(b) { const o = stationObjs[PADI]; if (!o) return null; o.updateWorldMatrix(true, false); const dx = padTanksDx();
+function padTankBox(b) {
+  // gc/refuel10 try 2: at Lv20+ the box is the moved tanks' own world bounds (Pad_Tanks GLB, placed by pad_mechazilla from PAD_TANKS_POS.lv20). The pad-local
+  // PAD_TANKS box + dx sat ~10 m (≈25 px) right of the drawn tanks (the tanks GLB rides the tower mount, not the pad origin). Fallback: PAD_TANKS + dx.
+  const T = padTanksMoved() && MZ && MZ.T && MZ.T.tanks; if (T && T.visible) { T.updateWorldMatrix(true, true); b.makeEmpty().expandByObject(T); if (!b.isEmpty()) return b; }
+  const o = stationObjs[PADI]; if (!o) return null; o.updateWorldMatrix(true, false); const dx = padTanksDx();
   b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set((i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0]) + dx, i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
 const PAD_DECK = { min: [-11, 0.05, -18], max: [13, 2.6, 11] };   // pad platform slab (cam-side +Z for phone taps); skip crane tower (~z≥12) and LOX/LCH4 (x≲-12)
 function shipDocked() { return !!(cg3.ship && cg3.ship.visible && S.cg && S.cg.sh && S.cg.sh.st === 'pad' && !shipUpgradeBusy(S) && !SU.T.carrying); }  // gc/ship-upgrade: not while seated on the transporter
