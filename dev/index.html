@@ -189,6 +189,7 @@ body.up-open #nbPlate,body.ec-shift #nbPlate{display:none}
 /* ---- cargo: Launch Pad fuel gauge (top-left of the safe band, Launch Pad only); HUD holo style, cyan on graphite. Positioned by transform, fill by scaleX */
 #fuelG{position:fixed;left:0;top:0;z-index:5;width:132px;height:34px;display:none;pointer-events:none;isolation:isolate;padding:6px 10px 0 12px;box-sizing:border-box;will-change:transform}
 #fuelG.on{display:block}
+#fuelG.bx{height:48px}#fuelG .bst{margin:5px 0 0;font:700 9px/10px system-ui;letter-spacing:.04em;color:#ffcf80;white-space:nowrap}#fuelG .bst[hidden]{display:none}
 #fuelG::before,#fuelG::after{content:'';position:absolute;z-index:-1;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
 #fuelG::before{inset:0;background:linear-gradient(110deg,#3ad0ffcc,#c9d3e699 45%,#8794ad55)}
 #fuelG::after{inset:1px;background:linear-gradient(180deg,#1a1f2ef2,#0b101cf2)}
@@ -389,7 +390,7 @@ body:has(#ecToast.is-in) #hud.ec-hud-dim{opacity:1}
   </div>
 <button id="launchBtn" aria-label="Launch the cargo ship now"><i></i><b>LAUNCH</b><small></small></button>
 <div id="storeChip" role="status"><i></i>STORAGE FULL</div>
-<div id="fuelG" role="status" aria-label="Launch Pad fuel"><div class="hd"><b>FUEL</b><em>0%</em></div><div class="tr"><i></i><s></s></div></div>
+<div id="fuelG" role="status" aria-label="Launch Pad fuel"><div class="hd"><b>FUEL</b><em>0%</em></div><div class="tr"><i></i><s></s></div><p class="bst" hidden>Booster: 2x fuel time</p></div>
 <button id="setBtn" aria-label="Settings" aria-expanded="false"><i></i></button>
 <div id="setPop" role="dialog" aria-label="Settings"><div class="k">SETTINGS <span class="devtag">DEV</span></div><button id="musTgl" role="switch" aria-checked="true">MUSIC<b>ON</b></button><div id="musNote"></div><button id="sfxTgl" role="switch" aria-checked="true">SOUND<b>ON</b></button><button id="voiceTgl" role="switch" aria-checked="true">VOICE<b>ON</b></button><button id="nameBtn">NAME<b></b></button><button id="devBugBtn">REPORT A BUG</button><div id="devBuild" class="devinfo"></div></div>
 <div id="point"><b></b><i></i></div>

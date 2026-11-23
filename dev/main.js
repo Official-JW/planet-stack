@@ -15,7 +15,7 @@ const BAY = createBayUpgrades(() => S);   // no-op until BAY.install (after the 
 // --- gc/ship-upgrade (begin) ---
 import { createShipUpgrade, migrateShipUpgrade, shipUpgradeBusy, shipUpgradeStaffed, shipUpgradeShortfallText, shipUpgradeWorkSec, SHIP_UPGRADE_REQ, BAY_X, PATH_Z, WORK_SEC_DEFAULT } from './ship_upgrade.mjs';
 // --- gc/ship-upgrade (end) ---
-import { createPadMechazilla, PAD_MZ_URL, PAD_MZ_CAM, PAD_TOWER_LV, PAD_MZ_LV, padTowerSrc, mzBoardSeconds, mzDeboardSeconds } from './pad_mechazilla.mjs';   // gc/mzcrew: Lv10-19 ship tower, Lv20 r2t2 Mechazilla
+import { createPadMechazilla, PAD_MZ_URL, PAD_MZ_CAM, PAD_TOWER_LV, PAD_MZ_LV, PAD_TANKS_POS, padTowerSrc, mzBoardSeconds, mzDeboardSeconds } from './pad_mechazilla.mjs';   // gc/mzcrew: Lv10-19 ship tower, Lv20 r2t2 Mechazilla
 import { createBooster } from './booster.mjs';   // gc/mechazilla: booster r2 + upright ST-10B cradle (economy/unlock stay on gc2/bay-upgrades)
 
 window.__ps3d = window.__ps3d || {};   // QA hooks (filled in as modules load; see the end of the file)
@@ -47,7 +47,7 @@ const CFG = {
     firstLaunchFree: true,              // the first-crate Eve note still rings once (S.cg.fl). It does not pay launchPay for a short hold
     costBumpFromTier: 3, costBump: 1.20,   // gc-retune (Director 20:09; sim try 2 of 2: +15% gave 3-week Mars D18, +20% D19): every upgrade track costs x costBump from tier (level) costBumpFromTier up (Lv3→4 on); tiers 1-2 unchanged
     purity: { base: 0.40, max: 1.00, step: 0.05, first: 8000, cost0: 15000, costGrowth: 1.6 },   // Locked: starts ~40%. max/step PLACEHOLDER (Lv1 40% → Lv13 100%); cost: early $10k–15k, ×1.6/level
-    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 10 * 60, levels: 5, first: 8000, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free; refuel 30 min base, upgrades to ~10 min. levels PLACEHOLDER (Lv1 30 → Lv5 10 min, −5 min/level); cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
+    fuel: { price: 0, refuelSec: 30 * 60, refuelMinSec: 5 * 60, levels: 10, refuelTable: [1800, 1475, 1210, 990, 810, 665, 545, 445, 365, 300], first: 8000, cost0: 12000, costGrowth: 1.6, tank: 100, makePerMin: 4, makePerLvl: 1, stockCap: 200, stockStart: 200, oldSaveStock: 200 },   // Locked: fuel free. Jacob 11/20: 10 levels, 30 → 5 min; GD table (refuelTable rules, spec refuel_levels.md; refuelMinSec informational). Was Lv1 30 → Lv5 10 min, −5 min/level; cost: early $10k–15k, ×1.6. Fuel stock (Director 10/29 16:40): tank 100 fuel (1% = 1), make 4/min, stock cap 200, new game / old saves full
     // P2-FUEL (Director LOCKED 10/31 8:29-8:31 AM PT; STATUS/engineering.md 246, QA/phase2_sim/summary_v4.md fuel table): LOX + LCH4 output per minute
     // = makePerMin + makePerLvl·(FuelLv−1) → 4/5/6/7/8 at Lv1-5; stock cap = stockCap·out/makePerMin (200·out/4) → 200/250/300/350/400. See fuelMake / fuelCap.
     // Phase 2 unlock prices (Director LOCKED 10/31 8:29 AM PT; QA/phase2_sim/summary_v4.md 'Price table' + prices_v4.csv). Constants only: no unlock code reads them yet.
@@ -326,7 +326,7 @@ let WARP = 0;   // QA only (__ps3d.warpTo): jumps the game clock forward as live
 let HOLD = null; // QA only (__ps3d.hold): freezes the game clock so slow test boxes can screenshot an exact pose
 const rawMs = () => (SPD === 1 ? Date.now() : T0 + (Date.now() - T0) * SPD) + WARP;
 const nowMs = () => (HOLD !== null ? HOLD : rawMs());
-const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, fuelLv: 1, purLv: 1, shipLv: 0, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 3, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29). shipLv 0 = base hull (old saves omit it)
+const S = { site: 1, money: CFG.startMoney, crystals: CFG.startCrystals, drill: 1, chute: 1, fuelLv: 1, fv: 2, purLv: 1, shipLv: 0, rovers: 1, dep: 0, loads: 0, eve: [], calls: [], log: [], missed: 0, tk: null, pend: [], trips: [], set: { music: true }, rt: nowMs(), ord: 3, ev: 1 };   // ev = economy save version (1 = Phase 1 econ, 10/29). shipLv 0 = base hull (old saves omit it)
 let hadRt = false;
 try { let sv = JSON.parse(localStorage.getItem(SAVEKEY) || '{}'); if (!sv || typeof sv !== 'object' || Array.isArray(sv)) sv = {}; hadRt = sv.rt > 0;
   migrateSave(sv, hadRt); Object.assign(S, sv); } catch (e) {}
@@ -357,6 +357,9 @@ function migrateSave(sv, hadRt) {
   // --- gc/ship-upgrade (begin) ---
   migrateShipUpgrade(sv);   // 561a538-era saves: specialist counters start at 0; S.upg job stamps default off. Never crashes a missing key.
   // --- gc/ship-upgrade (end) ---
+  // gc/refuel10 (spec refuel_levels.md): Fuel Refill 5 → 10 levels. One-shot fv flag: an old Lv1-5 save maps by time to 1/2/4/5/7 (nobody gets
+  // slower); new games carry fv 2 from the default S, so they (and any reload after this ran) are never remapped. No money refunded or charged.
+  if (!(sv.fv >= 2)) { if (typeof sv.fuelLv === 'number' && isFinite(sv.fuelLv)) sv.fuelLv = [1, 1, 2, 4, 5, 7][Math.max(1, Math.min(5, Math.floor(sv.fuelLv)))]; sv.fv = 2; }   // clamp(floor, 1, 5) inline: clamp is not defined yet at load
   return sv;
 }
 for (const k of ['eve', 'calls', 'log', 'pend', 'trips']) if (!Array.isArray(S[k])) S[k] = [];
@@ -467,17 +470,27 @@ const chuteLocked = () => S.drill <= 1 && S.chute <= 1;   // gc-tapfix (Director
 // ===== Refinery upgrades (Phase 1 steps 4-5): one building, two outputs (He-3 crates + ship fuel). Every number comes from CFG.econ (Coder's block).
 // cost(lv) = round(cost0 · costGrowth^(lv−1)) is the price of the next level when you are at lv (same rule as drill / chute)
 function econCost(tr, lv) { if (lv <= 1 && tr.first != null) return tr.first; const E = CFG.econ; return Math.round(tr.cost0 * tr.costGrowth ** (lv - 1) * (lv >= (E.costBumpFromTier || Infinity) ? (E.costBump || 1) : 1)); }   // gc-ui2 (EM 15:52 item 11): 'first' = the Lv1→2 price only (every station's first upgrade ≤ $8,000); later levels unchanged
-// Fuel: free (CFG.econ.fuel.price), refuel at the Launch Pad from refuelSec at Lv1 down to refuelMinSec at Lv `levels`, linear per level, clamped
+// Fuel: free (CFG.econ.fuel.price), refuel at the Launch Pad: refuelTable[lv - 1] (Jacob 11/20: Lv1 30:00 → Lv10 5:00, GD table), clamped;
+// without a full table the old linear refuelSec → refuelMinSec fallback
 function refuelSec(lv = S.fuelLv) { const F = CFG.econ.fuel, n = F.levels, l = clamp(Math.round(lv) || 1, 1, n);
+  if (Array.isArray(F.refuelTable) && F.refuelTable.length >= n) return F.refuelTable[l - 1];
   return n > 1 ? F.refuelSec + (F.refuelMinSec - F.refuelSec) * (l - 1) / (n - 1) : F.refuelSec; }
-const refuelMs = () => refuelSec() * 1000;                          // the cargo sim, gauge and canLaunch all read this (was CFG.cargo.fuelFillSec)
+// Booster refuel (Jacob via GD 11/22 7:24 PM PT): when the ship is stacked on the booster for its launches (pad Lv20+ with an owned booster), that pad
+// refuel takes 2x the pump time at the current level. One multiplier on the existing pump (no second tank / pump). It lives on the fuel anchor
+// (S.cg.fu.bm, saved), and boosterFuelSync re-anchors at the old rate the moment it switches on or off, so the gauge never jumps and a reload matches.
+const BOOSTER_FUEL_MUL = 2;
+function boosterFuelWant() { return !!(padLvNow() >= PAD_MZ_LV && S.bay && S.bay.own && S.bay.own.booster); }   // economy state only (not GLB load), so reloads and offline agree
+function boosterFuelMul(c = S.cg) { return c && c.fu && c.fu.bm > 1 ? +c.fu.bm : 1; }
+function boosterFuelSync(t = nowMs(), c = S.cg) { if (!c || !c.fu) return false; const want = boosterFuelWant() ? BOOSTER_FUEL_MUL : 1; if (want === boosterFuelMul(c)) return false;
+  fuelAnchor(c, t); if (want > 1) c.fu.bm = want; else delete c.fu.bm; return true; }
+const refuelMs = () => refuelSec() * 1000 * boosterFuelMul();       // the cargo sim, gauge and canLaunch all read this (was CFG.cargo.fuelFillSec)
 const fuelMaxLv = () => CFG.econ.fuel.levels;
 const fuelCost = () => econCost(CFG.econ.fuel, S.fuelLv);          // fuel UPGRADE price (the fuel itself costs CFG.econ.fuel.price)
 const fuelPrice = () => CFG.econ.fuel.price;
 // P2-FUEL: Refinery LOX + LCH4 output (fuel/min) and stock cap scale with the Fuel level (a missing / bad level reads as Lv1, clamped to levels)
 const fuelLvOk = (lv = S.fuelLv) => clamp(Math.floor(+lv) || 1, 1, CFG.econ.fuel.levels);
-const fuelMake = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return F.makePerMin + F.makePerLvl * (fuelLvOk(lv) - 1); };   // 4/5/6/7/8
-const fuelCap = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return Math.round(F.stockCap * fuelMake(lv) / F.makePerMin); };   // 200/250/300/350/400
+const fuelMake = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return F.makePerMin + F.makePerLvl * (fuelLvOk(lv) - 1); };   // Lv1-10: 4 … 13 fuel/min
+const fuelCap = (lv = S.fuelLv) => { const F = CFG.econ.fuel; return Math.round(F.stockCap * fuelMake(lv) / F.makePerMin); };   // Lv1-10: 200 … 650 (50 × make)
 // ---- Refinery fuel stock (Director 10/29 16:40), closed-form (no ticks). S.cg.fu = { t, v, g }: stock v and ship tank g (fuel units) at anchor time t.
 // The Refinery makes makePerMin into the stock all the time (capped at stockCap). On the pad the ship pumps at tank / refuelMs() (fuel level = pump speed)
 // and draws from the stock; at 0 stock it fills at the make rate (WAITING FOR FUEL). Full tank: no draw (away, boarding, launch). Re-anchored at
@@ -6049,7 +6062,7 @@ function cgPad() {                    // placeholder concrete pad under the pall
 }
 buildCargoRoute(); buildCargoProps(); buildCargoRoad(); loadCargoArt(); cgPad();
 const launchEl = $('launchBtn'), storeEl = $('storeChip'), LAUNCH_H = 54;   // LAUNCH_H = #launchBtn CSS height
-const fgEl = $('fuelG'), fgFill = fgEl.querySelector('.tr i'), fgLbl = fgEl.querySelector('b'), fgPct = fgEl.querySelector('em');
+const fgEl = $('fuelG'), fgFill = fgEl.querySelector('.tr i'), fgLbl = fgEl.querySelector('b'), fgPct = fgEl.querySelector('em'), fgBst = fgEl.querySelector('.bst');   // gc/refuel10: fgBst = the 'Booster: 2x fuel time' line
 const FG = { on: false, x: -1, y: -1, q: -1, p: -1, k: '' };   // last written values: the gauge touches the DOM only when what it shows changes (no layout reads)
 for (const el of [launchEl, storeEl]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
 launchEl.addEventListener('click', (e) => { e.stopPropagation(); if (cgLaunch()) { launchEl.classList.remove('on'); window.__ps3d.launchTaps = (window.__ps3d.launchTaps || 0) + 1; } });
@@ -6080,6 +6093,7 @@ function cargoUI() {                  // Launch button (bottom-right of the safe
   if (k !== FG.k) { FG.k = k; fgEl.classList.toggle('full', k === 'full' || k === 'wait'); fgEl.classList.toggle('wait', k === 'wait'); fgEl.classList.toggle('nofuel', k === 'nofuel'); fgLbl.textContent = k === 'full' ? 'FUEL FULL' : k === 'wait' ? 'AWAITING CARGO' : k === 'nofuel' ? 'WAITING FOR FUEL' : k === 'board' ? 'BOARDING' : k === 'launch' ? 'BURN' : k === 'away' ? 'SHIP AWAY' : k === 'land' ? 'LANDING' : 'FUEL'; FG.p = -1; }
   const cd = k === 'away' || k === 'land' ? shipEtaSec(t) : -1;   // gc-dockfix item 5: m:ss to touchdown from the saved trip stamps
   const pk = cd >= 0 ? -2 - cd : pc; if (pk !== FG.p) { FG.p = pk; fgPct.textContent = cd >= 0 ? mss(cd) : pc + '%'; }
+  const bx = boosterFuelMul() > 1; if (fgBst && bx !== FG.bx) { FG.bx = bx; fgBst.hidden = !bx; fgEl.classList.toggle('bx', bx); }   // gc/refuel10
 }
 
 // ===== Cargo Bay label (Director 10/25): floating 'CARGO BAY' / '<stored>/<max> crates' over the Cargo Space Dock, in the FUEL panel's HUD style.
@@ -6272,6 +6286,7 @@ const grab = upBuy;       // compat name: Eve's 'upgrade' pointer beat aims at t
 let upCur = null;         // open card id (UP key) or null
 const UPK = { k: '', s: -1, site: 0 };   // last card text key / last fuel stock shown (DOM is written only when they change)
 const fmtMin = (sec) => Math.round(sec / 6) / 10 + ' min';           // 1800 → '30 min', 450 → '7.5 min'
+const fmtMS = (sec) => { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); };   // gc/refuel10: 1475 → '24:35' (Fuel Refill card + its log line only)
 const pct = (p) => Math.round(p * 100) + '%';
 const oreOf = (lv) => Math.round(loadValue(lv) / CFG.oreValue);
 const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) / sub line / meter [segments, on] / buy; info cards (no buy) show a disabled 'Coming soon'
@@ -6284,8 +6299,8 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     sub: (m) => { const p = m ? refineryPurity() : purityAt(S.purLv + 1); return `${fmt(perCrateValue(p))}/crate · ${fmt(dropoffValue(p))}/hold`; },
     meter: () => [10, S.purLv >= purityMaxLv() ? 10 : (S.purLv - 1) % 10 + 1] },
   fuel: { name: 'Fuel Refill', ico: 'fuel', lv: () => S.fuelLv, max: () => S.fuelLv >= fuelMaxLv(), cost: () => fuelCost(), buy: () => buyFuel(), fuel: true,
-    big: (m) => [m ? fmtMin(refuelSec()).slice(0, -4) : `${fmtMin(refuelSec()).slice(0, -4)} → ${fmtMin(refuelSec(S.fuelLv + 1)).slice(0, -4)}`, 'min refuel'],
-    sub: (m) => (m ? `+${fuelMake()}/min, stock ${fuelCap()}` : `+${fuelMake()} → +${fuelMake(S.fuelLv + 1)}/min, stock ${fuelCap()} → ${fuelCap(S.fuelLv + 1)}`) + (fuelPrice() > 0 ? ` · ${fmt(fuelPrice())}/refuel` : ''),
+    big: (m) => [m ? fmtMS(refuelSec()) : `${fmtMS(refuelSec())} → ${fmtMS(refuelSec(S.fuelLv + 1))}`, 'refuel'],   // gc/refuel10: m:ss (table times are not whole minutes)
+    sub: (m) => (m ? `+${fuelMake()}/min, stock ${fuelCap()}` : `+${fuelMake()} → +${fuelMake(S.fuelLv + 1)}/min, stock ${fuelCap()} → ${fuelCap(S.fuelLv + 1)}`) + (fuelPrice() > 0 ? ` · ${fmt(fuelPrice())}/refuel` : '') + (boosterFuelMul() > 1 ? '\nBooster: 2x fuel time' : ''),
     meter: () => [fuelMaxLv(), Math.min(S.fuelLv, fuelMaxLv())] },
   truck: { name: 'Haul Truck', ico: 'truck', once: true, lock: () => !truck2Unlocked(), lockSub: 'Truck 2 unlocks later', lv: () => S.rovers, max: () => S.rovers >= CFG.roverMax, cost: () => CFG.econ.p2Prices.truck2, buy: () => buyTruck2(),   // ca-truck2: one-time Truck 2 buy
     big: () => [`${S.rovers}/${CFG.roverMax}`, 'HT-04 trucks'], sub: (m) => m ? 'Truck 2 on the haul loop · they take turns at the chute' : 'A second HT-04 on the haul loop · takes turns at the chute' },
@@ -6334,8 +6349,9 @@ const UPT = [
   { id: 'chute', p: 'chute', site: MINE, objs: () => v3hChuteTap(), hl: () => mrChuteHL() || v3hChuteTap() },   // ca-minerevamp: Chute_Glow when the GLB has it
   { id: 'refinery', p: 'purity', site: REF, objs: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Tier_05', 'Tier_08', 'Base_GlowRed']), hl: () => nodesOf(stationObjs[REF], ['Kiln_Drum', 'Base_GlowRed']) },
   { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBoxRaised(n, 3.2, 0.45, 9, 3.2, b) : null; }, hl: () => [] },
-  { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBoxRaised(n, 2.4, 0.45, 8, 2.4, b) : null; }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
-    add: (b) => padTankBox(b) },   // tanks stay; hose box no longer includes y=0 ground
+  { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { if (padTanksMoved()) return padTankBox(b);   // gc/refuel10: Lv20+ the tanks sit at x -41.69, the box follows them
+      const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBoxRaised(n, 2.4, 0.45, 8, 2.4, b) : padTankBox(b); }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
+    add: (b) => padTanksMoved() ? null : padTankBox(b) },   // tanks stay; hose box no longer includes y=0 ground
   { id: 'truck', p: 'truck', site: -1, own: true, objs: () => truckRoot ? [truckRoot] : [], hl: () => truckRoot ? [truckRoot] : [] },
   { id: 'truck2', p: 'truck', site: -1, own: true, objs: () => truck2Root && truck2Root.visible ? [truck2Root] : [], hl: () => truck2Root && truck2Root.visible ? [truck2Root] : [] },   // ca-truck2: the parked Truck 2 opens the same card (site -1 like Truck 1: no tap-invite glow clones)
   // Hull (docked only) opens the ship upgrade sheet. The hit is a meter-space box around the visual hull
@@ -6416,8 +6432,12 @@ function engTapMeshes() {
   return out;
 }
 const PAD_TANKS = { min: [-19.9, 0.4, -10.7], max: [-11.6, 10.9, -0.5] };   // pad-local tanks; y0=0.4 so ground in front of Habitat/pad doesn't count as fuel
-function padTankBox(b) { const o = stationObjs[PADI]; if (!o || !o.getObjectByName('Hose_LOX')) return null; o.updateWorldMatrix(true, false);
-  b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set(i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0], i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
+// gc/refuel10: the tank box follows the tanks (PAD_TANKS_POS in pad_mechazilla.mjs: 'below' x -16.54, 'lv20' x -41.69, same z), and no longer needs
+// Hose_LOX (the hoses are hidden at Lv10+). Below Lv20 the box is exactly the old one.
+const padTanksMoved = () => padLvNow() >= PAD_MZ_LV;
+const padTanksDx = () => padTanksMoved() ? PAD_TANKS_POS.lv20.x - PAD_TANKS_POS.below.x : 0;
+function padTankBox(b) { const o = stationObjs[PADI]; if (!o) return null; o.updateWorldMatrix(true, false); const dx = padTanksDx();
+  b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set((i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0]) + dx, i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
 const PAD_DECK = { min: [-11, 0.05, -18], max: [13, 2.6, 11] };   // pad platform slab (cam-side +Z for phone taps); skip crane tower (~z≥12) and LOX/LCH4 (x≲-12)
 function shipDocked() { return !!(cg3.ship && cg3.ship.visible && S.cg && S.cg.sh && S.cg.sh.st === 'pad' && !shipUpgradeBusy(S) && !SU.T.carrying); }  // gc/ship-upgrade: not while seated on the transporter
 function shipHitBox(b) {   // meter-space hull only. Quantized skirt/hold bounds are 0..16383; setFromObject on those
@@ -6892,7 +6912,7 @@ function buyFuel() {
   pay(c); S.fuelLv++;
   save(); upUI(); hud();
   popAtBuy('Fuel Lv ' + S.fuelLv);
-  logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMin(refuelSec())} · LOX+LCH4 +${fuelMake()}/min, stock ${fuelCap()}`);
+  logU('upgrade', `Fuel Refill Lv ${S.fuelLv}: refuel in ${fmtMS(refuelSec())} · LOX+LCH4 +${fuelMake()}/min, stock ${fuelCap()}`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
 function buyPad() {                 // Launch Pad Lv N → N+1 (issue 23 / GD). Lv10: the launch tower replaces the ladder (setPadLv → applyPadTower)
@@ -6938,7 +6958,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_TOWER_LV, PAD_MZ_LV, padUsesLegacyTower, wkMzApproach, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, applyPadMzCam, applyCrewLadderVisible, padMzLegacyCtx, syncBooster, padTowerWanted, padTowerSrcNow, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn, mzPlaceStackedShip, mzShipMountY, mzShipSeatY, mzSyncPadCargo, mzTowerCrane, mzCargoSeatY, mzWantStackLaunch, mzStackSec, mzKeepBoosterOnPad, mzCargoBlocked, mzUpdateStack });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mzcrew)
+Object.assign(window.__ps3d, { refuelTable: CFG.econ.fuel.refuelTable, fmtMS, fuelAt: (t) => fuelAt(t), fuelGauge: (t) => fuelGauge(t), fuelNowQ: (t) => fuelNow(t), boosterFuelWant, boosterFuelMul, boosterFuelSync, padTankBox, padTanksDx, migrateSaveFuel: (sv) => migrateSave(sv, true), refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_TOWER_LV, PAD_MZ_LV, padUsesLegacyTower, wkMzApproach, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, applyPadMzCam, applyCrewLadderVisible, padMzLegacyCtx, syncBooster, padTowerWanted, padTowerSrcNow, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn, mzPlaceStackedShip, mzShipMountY, mzShipSeatY, mzSyncPadCargo, mzTowerCrane, mzCargoSeatY, mzWantStackLaunch, mzStackSec, mzKeepBoosterOnPad, mzCargoBlocked, mzUpdateStack });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mzcrew)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
@@ -7372,7 +7392,7 @@ awayEl.addEventListener('pointerdown', (e) => e.stopPropagation());
 // (holdCap() boxes, one box per truck tip), so a cycle is the slower of making a hold (holdCap × truck cycle) and the ship turnaround.
 const offPurity = () => cargoPurity();   // one purity source (was S.purity with a base fallback)
 function offlineDropSec() {           // live seconds per Earth drop-off at the current drill / chute / ship-hold levels
-  const truck = fillSec() + (R.tl ? R.tl.trip : 60), ship = refuelSec() + boardSec() + CG.launchSec + CG.awaySec + CG.landSec;
+  const truck = fillSec() + (R.tl ? R.tl.trip : 60), ship = refuelSec() * boosterFuelMul() + boardSec() + CG.launchSec + CG.awaySec + CG.landSec;
   return Math.max(holdCap() * truck, ship);
 }
 function offlineEarn(sec) {           // whole dollars credited for sec seconds away (0 for ≤ 0, NaN or a bad config)
@@ -7460,7 +7480,9 @@ function frame() {
   applyCrewLadderVisible();   // Lv10+: no ship / pad / access ladder on board or land; Lv1–9 unchanged
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
-  BAY.tick(now);   // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
+  BAY.tick(now);
+  boosterFuelSync(now);   // gc/refuel10: booster 2x refuel on / off (re-anchored at the old rate)
+  // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
   syTickDoors();   // open DoorFrontB (3 s, parked in pockets) while a bay-B job is running; crawler stop stays GC2's 957
   if (BST && BST.T && BST.T.ready) syncBooster();   // own.booster is set in BAY.tick; show the cradle the same frame
   updShipSfx();
