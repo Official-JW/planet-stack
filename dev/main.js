@@ -6299,7 +6299,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
     sub: (m) => { const p = m ? refineryPurity() : purityAt(S.purLv + 1); return `${fmt(perCrateValue(p))}/crate · ${fmt(dropoffValue(p))}/hold`; },
     meter: () => [10, S.purLv >= purityMaxLv() ? 10 : (S.purLv - 1) % 10 + 1] },
   fuel: { name: 'Fuel Refill', ico: 'fuel', lv: () => S.fuelLv, max: () => S.fuelLv >= fuelMaxLv(), cost: () => fuelCost(), buy: () => buyFuel(), fuel: true,
-    big: (m) => [m ? fmtMS(refuelSec()) : `${fmtMS(refuelSec())} → ${fmtMS(refuelSec(S.fuelLv + 1))}`, 'refuel'],   // gc/refuel10: m:ss (table times are not whole minutes)
+    big: (m) => { const k = boosterFuelMul(); return [m ? fmtMS(refuelSec() * k) : `${fmtMS(refuelSec() * k)} → ${fmtMS(refuelSec(S.fuelLv + 1) * k)}`, 'refuel']; },   // gc/refuel10: m:ss (table times are not whole minutes); GD try 2 (a): the actual wait, both sides × the booster 2x while it is on
     sub: (m) => (m ? `+${fuelMake()}/min, stock ${fuelCap()}` : `+${fuelMake()} → +${fuelMake(S.fuelLv + 1)}/min, stock ${fuelCap()} → ${fuelCap(S.fuelLv + 1)}`) + (fuelPrice() > 0 ? ` · ${fmt(fuelPrice())}/refuel` : '') + (boosterFuelMul() > 1 ? '\nBooster: 2x fuel time' : ''),
     meter: () => [fuelMaxLv(), Math.min(S.fuelLv, fuelMaxLv())] },
   truck: { name: 'Haul Truck', ico: 'truck', once: true, lock: () => !truck2Unlocked(), lockSub: 'Truck 2 unlocks later', lv: () => S.rovers, max: () => S.rovers >= CFG.roverMax, cost: () => CFG.econ.p2Prices.truck2, buy: () => buyTruck2(),   // ca-truck2: one-time Truck 2 buy
@@ -6340,7 +6340,7 @@ const UP = {   // cards (UI-3 look): lv / max / cost / big (now → next, unit) 
 };
 // tap targets (p = card). objs: nodes whose world boxes make the rect; box: a world box made here (no own mesh); hl: what glows on tap
 const nodesOf = (root, names) => root ? names.map(n => root.getObjectByName(n)).filter(Boolean) : [];
-const _ub = new THREE.Box3(), _ub2 = new THREE.Box3(), _uv = new THREE.Vector3(), _uo = { x: 0, y: 0, z: 0 };
+const _ub = new THREE.Box3(), _ub2 = new THREE.Box3(), _ub3 = new THREE.Box3(), _uv = new THREE.Vector3(), _uo = { x: 0, y: 0, z: 0 };
 function upBox(nodes, hx, y1, hz, b) {   // world box around marker nodes: ±hx / ±hz metres, ground to y1
   b.makeEmpty(); for (const n of nodes) { n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x - hx, 0, _uv.z - hz)); n.getWorldPosition(_uv); b.expandByPoint(_uv.set(_uv.x + hx, y1, _uv.z + hz)); } return b;
 }
@@ -6351,7 +6351,8 @@ const UPT = [
   { id: 'fuelPlant', p: 'fuel', site: REF, box: (b) => { const n = nodesOf(stationObjs[REF], ['Fuel_Output']); return n.length ? upBoxRaised(n, 3.2, 0.45, 9, 3.2, b) : null; }, hl: () => [] },
   { id: 'padFuel', p: 'fuel', site: PADI, box: (b) => { if (padTanksMoved()) return padTankBox(b);   // gc/refuel10: Lv20+ the tanks sit at x -41.69, the box follows them
       const n = nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']); return n.length ? upBoxRaised(n, 2.4, 0.45, 8, 2.4, b) : padTankBox(b); }, hl: () => nodesOf(stationObjs[PADI], ['Hose_LOX', 'Hose_LCH4']),
-    add: (b) => padTanksMoved() ? null : padTankBox(b) },   // tanks stay; hose box no longer includes y=0 ground
+    add: (b) => padTanksMoved() ? null : padTankBox(b),   // tanks stay; hose box no longer includes y=0 ground
+    soft: (b) => padTankSoftBox(b) },   // gc/refuel10 GD try 2 (d): Lv20+ tanks grown to ≥ 60×60 CSS px; only picked when the ray hits no other target (never steals)
   { id: 'truck', p: 'truck', site: -1, own: true, objs: () => truckRoot ? [truckRoot] : [], hl: () => truckRoot ? [truckRoot] : [] },
   { id: 'truck2', p: 'truck', site: -1, own: true, objs: () => truck2Root && truck2Root.visible ? [truck2Root] : [], hl: () => truck2Root && truck2Root.visible ? [truck2Root] : [] },   // ca-truck2: the parked Truck 2 opens the same card (site -1 like Truck 1: no tap-invite glow clones)
   // Hull (docked only) opens the ship upgrade sheet. The hit is a meter-space box around the visual hull
@@ -6436,6 +6437,20 @@ const PAD_TANKS = { min: [-19.9, 0.4, -10.7], max: [-11.6, 10.9, -0.5] };   // p
 // Hose_LOX (the hoses are hidden at Lv10+). Below Lv20 the box is exactly the old one.
 const padTanksMoved = () => padLvNow() >= PAD_MZ_LV;
 const padTanksDx = () => padTanksMoved() ? PAD_TANKS_POS.lv20.x - PAD_TANKS_POS.below.x : 0;
+// gc/refuel10 GD try 2 (d): at pad Lv20+ the moved tanks project to ~21×30 px. Their 'soft' tap box is the tank box grown about its centre until it
+// projects to at least PAD_TANK_MIN_PX × PAD_TANK_MIN_PX CSS px (current camera, so pinch zoom keeps it ≥ 60), still placed from PAD_TANKS_POS via padTankBox.
+// pickRay only uses a soft box when the ray hits no other target, so the ship, pad platform, tower etc. keep every tap their own box/mesh gets.
+const PAD_TANK_MIN_PX = 64, _usc = new THREE.Vector3(), _uss = new THREE.Vector3();
+function boxRectPx(b) { camera.updateMatrixWorld(); let l = Infinity, r = -Infinity, tp = Infinity, bt = -Infinity;
+  for (let i = 0; i < 8; i++) { toScreen(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z, camera, _uo); if (_uo.z > 1) return null; l = Math.min(l, _uo.x); r = Math.max(r, _uo.x); tp = Math.min(tp, _uo.y); bt = Math.max(bt, _uo.y); }
+  return { l, r, t: tp, b: bt }; }
+function padTankSoftBox(b) {
+  if (!padTanksMoved() || !padTankBox(b) || b.isEmpty()) return null;
+  b.getCenter(_usc); b.getSize(_uss);
+  for (let k = 0; k < 4; k++) { const r = boxRectPx(b); if (!r) return null; const w = r.r - r.l, h = r.b - r.t; if (w >= PAD_TANK_MIN_PX && h >= PAD_TANK_MIN_PX) break;
+    const fx = w < PAD_TANK_MIN_PX ? PAD_TANK_MIN_PX / Math.max(1, w) : 1, fy = h < PAD_TANK_MIN_PX ? PAD_TANK_MIN_PX / Math.max(1, h) : 1;
+    _uss.x *= fx * 1.02; _uss.y *= fy * 1.02; _uss.z *= fy * 1.02; b.setFromCenterAndSize(_usc, _uss); }
+  return b; }
 function padTankBox(b) { const o = stationObjs[PADI]; if (!o) return null; o.updateWorldMatrix(true, false); const dx = padTanksDx();
   b.makeEmpty(); for (let i = 0; i < 8; i++) b.expandByPoint(_uv.set((i & 1 ? PAD_TANKS.max[0] : PAD_TANKS.min[0]) + dx, i & 2 ? PAD_TANKS.max[1] : PAD_TANKS.min[1], i & 4 ? PAD_TANKS.max[2] : PAD_TANKS.min[2]).applyMatrix4(o.matrixWorld)); return b; }
 const PAD_DECK = { min: [-11, 0.05, -18], max: [13, 2.6, 11] };   // pad platform slab (cam-side +Z for phone taps); skip crane tower (~z≥12) and LOX/LCH4 (x≲-12)
@@ -6496,6 +6511,7 @@ function upRect(t) {                   // projected CSS-px rect of a target now,
   if (t.box) b = t.box(_ub);
   else { const os = t.objs().filter(o => upShown(t.own ? o : o.parent)); if (!os.length) { upWhy = 'not loaded / hidden'; return null; } _ub.makeEmpty(); for (const o of os) { o.updateWorldMatrix(true, true); _ub.expandByObject(o); } b = _ub; }
   if (b && t.add) { const b2 = t.add(_ub2); if (b2 && !b2.isEmpty()) b.union(b2); }   // gc-ui2: extra world box (pad fuel tanks)
+  if (b && t.soft) { const b3 = t.soft(_ub3); if (b3 && !b3.isEmpty()) b.union(b3); }   // gc/refuel10: the grown Lv20 tank tap box (rect / highlight ring = what a tap opens)
   if (!b || b.isEmpty()) { upWhy = 'not loaded'; return null; }
   camera.updateMatrixWorld();
   let l = Infinity, r = -Infinity, tp = Infinity, bt = -Infinity;
@@ -6578,7 +6594,10 @@ function pickRay(x, y, t0) {           // t0: touch time (performance.now) → m
     const t = h.t, r = upRectG(t, t0); if (!r) continue; const { d, past } = upBoxDist(h, ray, t0);
     if (d < bD && !((t.id === 'ship' || t.id === 'padDeck') && (hitNearLadder(ray) || blockedByTower(ray, d)))) { bD = d; best = { t, r, ray: true, box: true, past, d: +d.toFixed(2) }; }
   }
-  window.__ps3d.lastRay = best ? { id: best.t.id, d: best.d, past: best.past, box: !!best.box, over: best.over || null } : null;
+  if (!best) for (const t of UPT) {     // gc/refuel10 GD try 2 (d): a soft (grown) tap box only when the ray hit no target's own box / mesh: never steals a tap
+    if (!t.soft || (t.site >= 0 && t.site !== S.site)) continue; const b = t.soft(_ub3); if (!b || b.isEmpty() || !ray.intersectBox(b, _urp)) continue;
+    const r = upRect(t); if (r) { best = { t, r, ray: true, soft: true, d: +_urp.distanceTo(ray.origin).toFixed(2) }; break; } }
+  window.__ps3d.lastRay = best ? { id: best.t.id, d: best.d, past: best.past, box: !!best.box, soft: !!best.soft, over: best.over || null } : null;
   return best;
 }
 function pickUp(x, y, t0) {            // pinch-zoom: MESH/BOX RAY only — never the old screen-rect fallback (it opened Habitat from ground in front).
@@ -6958,7 +6977,7 @@ function buyShip() {   // Docked only. Settle first so a full hold launches at t
   // --- gc/ship-upgrade (end) ---
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1;
 }
-Object.assign(window.__ps3d, { refuelTable: CFG.econ.fuel.refuelTable, fmtMS, fuelAt: (t) => fuelAt(t), fuelGauge: (t) => fuelGauge(t), fuelNowQ: (t) => fuelNow(t), boosterFuelWant, boosterFuelMul, boosterFuelSync, padTankBox, padTanksDx, migrateSaveFuel: (sv) => migrateSave(sv, true), refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_TOWER_LV, PAD_MZ_LV, padUsesLegacyTower, wkMzApproach, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, applyPadMzCam, applyCrewLadderVisible, padMzLegacyCtx, syncBooster, padTowerWanted, padTowerSrcNow, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn, mzPlaceStackedShip, mzShipMountY, mzShipSeatY, mzSyncPadCargo, mzTowerCrane, mzCargoSeatY, mzWantStackLaunch, mzStackSec, mzKeepBoosterOnPad, mzCargoBlocked, mzUpdateStack });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mzcrew)
+Object.assign(window.__ps3d, { refuelTable: CFG.econ.fuel.refuelTable, fmtMS, fuelAt: (t) => fuelAt(t), fuelGauge: (t) => fuelGauge(t), fuelNowQ: (t) => fuelNow(t), boosterFuelWant, boosterFuelMul, boosterFuelSync, padTankBox, padTanksDx, padTankSoftBox: () => { const b = padTankSoftBox(new THREE.Box3()); return b && boxRectPx(b); }, PAD_TANK_MIN_PX, migrateSaveFuel: (sv) => migrateSave(sv, true), refineryPurity, refuelSec, fuelCost, purityCost, purityAt, purityMaxLv, fuelMaxLv, econCost, dropoffValue, perCrateValue, holdCap, holdCapNow, shipSeats, seatCap, shipFreePassengerSeats, shipUpgradeCost, shipLvNow, shipEngines, shipFlightAt, tripFlightMul, shipFlame, shipDur, shipRow, shipTop, padLvNow, padUsesTower, padUsesControlTower, setPadLv, padCost, padUpLocked, buyPad, PAD_UP, PAD_PRICE_GROWTH_AFTER_10, PAD_LAUNCH_TOWER_LV, PAD_TOWER_LV, PAD_MZ_LV, padUsesLegacyTower, wkMzApproach, towerBoardSeconds, towerDeboardSeconds, towerPoseAt, TW, CT, MZ, BST, PAD_MZ_URL, PAD_MZ_CAM, applyPadMz, applyPadMzCam, applyCrewLadderVisible, padMzLegacyCtx, syncBooster, padTowerWanted, padTowerSrcNow, padMzWanted, boosterWanted, accessPeople, towerReleasePeople, ACC, mzPoseCatch, mzUpdateBoard, mzUpdateDeboard, mzBoardingOn, mzStackOn, mzPlaceStackedShip, mzShipMountY, mzShipSeatY, mzSyncPadCargo, mzTowerCrane, mzCargoSeatY, mzWantStackLaunch, mzStackSec, mzKeepBoosterOnPad, mzCargoBlocked, mzUpdateStack });   // QA hooks (Refinery lane + ship hull + Lv10 tower + Control Tower + gc/mzcrew)
 // --- gc/ship-upgrade (begin) ---
 Object.assign(window.__ps3d, {
   SU, SHIP_UPGRADE_REQ, migrateShipUpgrade, shipUpgradeBusy: () => shipUpgradeBusy(S),
