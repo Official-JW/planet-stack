@@ -2993,8 +2993,10 @@ function syncBooster() {
   }
   const want = boosterWanted();
   const goal = want || 'hidden';
-  if (BST.T.mode !== goal) BST.sync({ show: !!want, mode: want || 'st10b', st10b: SU.T && SU.T.root, pad: cg3.padArt });
+  // gc/cradle6: a live pad -> ST-10B return plays the r6 collar seat-in (BST.tick); load / reload seats closed.
+  if (BST.T.mode !== goal) BST.sync({ show: !!want, mode: want || 'st10b', st10b: SU.T && SU.T.root, pad: cg3.padArt, animate: BST.T.mode === 'pad' });
   window.__ps3d.booster = Object.assign(BST.info(), { want, mode: BST.T.mode });
+  if (!window.__ps3d.boosterCollar) window.__ps3d.boosterCollar = { info: () => BST.info().collar, seatInAt: BST.seatInAt, pose: BST.poseCollar, consts: BST.consts };   // QA
 }
 // --- gc/ship-upgrade (end) ---
 // Launch Pad level: Lv1–Lv9 keep the 1720 ladder; from PAD_TOWER_LV (10) the ship-tower elevator and arm replace that boarding path;
@@ -7516,6 +7518,7 @@ function frame() {
   // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
   syTickDoors();   // open DoorFrontB (3 s, parked in pockets) while a bay-B job is running; crawler stop stays GC2's 957
   if (BST && BST.T && BST.T.ready) syncBooster();   // own.booster is set in BAY.tick; show the cradle the same frame
+  if (BST && BST.T && BST.T.ready && BST.T.seq) BST.tick(gdt);   // gc/cradle6: collar open -> drop -> close
   updShipSfx();
   updTruck(); updMineRev(gdt); updDrillV3h(dt);        // ca-minerevamp (after updTruck: MR.fillNow / digOn are this frame's). v3h ore + mast lamps use digOn. updTruck poses the truck + sets its clips, then its mixer applies them this frame
   if (tMixer) tMixer.update(gdt);
