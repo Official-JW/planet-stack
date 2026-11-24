@@ -2638,6 +2638,7 @@ function suEnv() {
   return { ship: cg3.ship, shipY0: y0, padX, padZ, bayX: (typeof CFG.shipyardCrawlerStopX === 'number' ? CFG.shipyardCrawlerStopX : BAY_X), rest };
 }
 function tickShipUpgrade(t = nowMs()) {
+  t = yardClock(t);
   const env = suEnv();
   sySyncBuildStack();
   if (!SU.T.ready) return null;
@@ -4138,6 +4139,7 @@ function shipLaunchFrac(s, t) {        // boarding + climb, 0–1, from the froz
   return clamp(elapsed / total, 0, 1);
 }
 function shipBayWorkFrac(t = nowMs()) {   // read-only: existing S.upg + SU.schedule; do not start or edit the job
+  t = yardClock(t);
   if (!(S.upg && S.upg.t0 > 0)) return 0;
   const work = S.upg.workSec > 0 ? +S.upg.workSec : WORK_SEC_DEFAULT;
   const env = (typeof suEnv === 'function') ? suEnv() : null;
@@ -4476,17 +4478,21 @@ function tqInit() {                   // once the route is final: migrate old sa
              b: k.dep && (k.sr === 1 || k.sr === 3) ? (k.paid ? { by: 0, rel: tkB0(k) + TQ.tRelB * 1000 } : { by: 0, rel: 0 }) : { by: -1, rel: 0 } };
   }
 }
-// ===== gc/rnr (Jacob 11/23 21:10): once the ship has left and every ground cargo store is full, the Habitat
-// crew van picks up the Mine workers (miner + driver, plus any picked miners) and takes them home to rest.
-// The Mine clock freezes at S.rnr.go (no catch-up while they rest, same stamp-shift as mineresume). When the
-// ship is back on the pad and space opens (a store drops below cap, or the ship can take crates), the van
-// drives them back; production resumes from the frozen stamps at the Mine drop (S.rnr.hs). Habitat must be
-// built; a 4-crew flight already uses S.wk, so R&R does not start then. Cargo stores: Refinery pallet,
-// pad bay, and the Dock (only if it is built).
-function rnrNew() { return { go: 0, outT: 0, back: 0, hs: 0 }; }
+// ===== gc/rnr (Jacob 11/23 21:10, specialists 22:01): once the ship has left (liftoff = launch/away/land,
+// not board/stack) and every ground cargo store is full, the Habitat crew van picks up the Mine workers
+// (miner + driver, plus any picked miners) and the Shipyard specialists (eng / weld / mach / mech on the
+// Moon once the yard is built) and takes them home to rest. The Mine clock freezes at S.rnr.go (no catch-up
+// while they rest, same stamp-shift as mineresume); Shipyard work that needs the specialists (S.upg and
+// S.bay.jobs) freezes the same way until they are dropped back at the yard (S.rnr.ys). When the ship is
+// back on the pad and space opens (a store drops below cap, or the ship can take crates), the van drives
+// them back; production resumes from the frozen stamps (Mine at the Mine drop / S.rnr.hs, Shipyard at the
+// yard drop). If Auto Load is off and storage is still full after landing, they stay home until there is
+// room. Habitat must be built; a 4-crew flight already uses S.wk, so R&R does not start then. Cargo stores:
+// Refinery pallet, pad bay, and the Dock (only if it is built).
+function rnrNew() { return { go: 0, outT: 0, back: 0, hs: 0, ys: 0 }; }
 function rnrFix(o) {
   if (!o || typeof o !== 'object') return rnrNew();
-  return { go: +o.go || 0, outT: +o.outT || 0, back: +o.back || 0, hs: o.hs ? 1 : 0 };
+  return { go: +o.go || 0, outT: +o.outT || 0, back: +o.back || 0, hs: o.hs ? 1 : 0, ys: o.ys ? 1 : 0 };
 }
 function cargoStoresFull(c = S.cg) {
   if (!c) return false;
@@ -4497,12 +4503,31 @@ function cargoStoresFull(c = S.cg) {
 }
 function shipLeft(s) { s = s || (S.cg && S.cg.sh); return !!(s && (s.st === 'launch' || s.st === 'away' || s.st === 'land')); }
 function shipBack(s) { s = s || (S.cg && S.cg.sh); return !!(s && s.st === 'pad'); }
-function rnrRoles() { const extra = (S.crewRoles && S.crewRoles.miner > 0) ? Math.floor(S.crewRoles.miner) : 0; return Array.from({ length: Math.max(2, Math.min(8, 2 + extra)) }, () => 'miner'); }
-function rnrVanReady() { const cv = window.__ps3d && window.__ps3d.crewVan; return !!(cv && cv.rnrSchedule && cv.layout && cv.layout.mineH); }
-function rnrSch(mode) { const cv = window.__ps3d && window.__ps3d.crewVan; if (!cv || !cv.rnrSchedule) return { ready: false, tEnd: 180, tPick: 90, tDrop: 150 }; return cv.rnrSchedule(mode, rnrRoles()); }
+const RNR_YARD_ROLES = ['eng', 'weld', 'mach', 'mech'];
+function rnrYardRoles() {
+  const o = S.crewRoles || {}, out = [];
+  for (const k of RNR_YARD_ROLES) { const n = Math.floor(o[k] || 0); for (let i = 0; i < n; i++) out.push(k); }
+  return out;
+}
+function rnrHasYard() { return !!(S.bt && S.bt.yard === 1 && rnrYardRoles().length); }
+function rnrRoles() {
+  const extra = (S.crewRoles && S.crewRoles.miner > 0) ? Math.floor(S.crewRoles.miner) : 0;
+  const miners = Array.from({ length: Math.max(2, 2 + extra) }, () => 'miner');
+  const yard = rnrHasYard() ? rnrYardRoles() : [];
+  return miners.concat(yard).slice(0, 8);   // van seats (MAXP); every specialist still goes on logical rest
+}
+function rnrVanReady() {
+  const cv = window.__ps3d && window.__ps3d.crewVan, Lo = cv && cv.layout;
+  if (!(cv && cv.rnrSchedule && Lo && Lo.mineH)) return false;
+  if (rnrHasYard() && typeof Lo.sS !== 'number') return false;
+  return true;
+}
+function rnrSch(mode) { const cv = window.__ps3d && window.__ps3d.crewVan; if (!cv || !cv.rnrSchedule) return { ready: false, tEnd: 180, tPick: 90, tDrop: 150, tPickMine: 90, tPickYard: 0, tDropMine: 150, tDropYard: 0 }; return cv.rnrSchedule(mode, rnrRoles()); }
 function rnrSec(mode) { const sch = rnrSch(mode); return sch && sch.tEnd > 0 ? sch.tEnd : 180; }
-function rnrPickSec() { const sch = rnrSch('rnr_out'); return sch && sch.tPick > 0 ? sch.tPick : 90; }
-function rnrDropSec() { const sch = rnrSch('rnr_back'); return sch && sch.tDrop > 0 ? sch.tDrop : 150; }
+function rnrPickSec() { const sch = rnrSch('rnr_out'); const t = sch && (sch.tPickMine > 0 ? sch.tPickMine : sch.tPick); return t > 0 ? t : 90; }
+function rnrYardPickSec() { const sch = rnrSch('rnr_out'); return sch && sch.tPickYard > 0 ? sch.tPickYard : 0; }
+function rnrDropSec() { const sch = rnrSch('rnr_back'); const t = sch && (sch.tDropMine > 0 ? sch.tDropMine : sch.tDrop); return t > 0 ? t : 150; }
+function rnrYardDropSec() { const sch = rnrSch('rnr_back'); return sch && sch.tDropYard > 0 ? sch.tDropYard : 0; }
 function rnrLandEnd(t) { const cv = window.__ps3d && window.__ps3d.crewVan; if (!cv || !cv.landEnd) return 0; try { return cv.landEnd(t) || 0; } catch (e) { return 0; } }
 function rnrVanFreeAt(t) { const end = rnrLandEnd(t); return !(end > 0 && t < end); }
 function rnrSpaceFree(t) {
@@ -4529,6 +4554,10 @@ function rnrWorkAt() {
   if (!S.rnr || !(S.rnr.back > 0)) return 0;
   return S.rnr.back + rnrDropSec() * 1000;
 }
+function rnrYardAt() {
+  if (!S.rnr || !(S.rnr.back > 0) || !rnrHasYard()) return 0;
+  const sec = rnrYardDropSec(); return sec > 0 ? S.rnr.back + sec * 1000 : 0;
+}
 function rnrEndAt() {
   if (!S.rnr || !(S.rnr.back > 0)) return 0;
   return S.rnr.back + rnrSec('rnr_back') * 1000;
@@ -4547,15 +4576,33 @@ function rnrHideMineCrew(t) {
   for (const key of ['miner', 'driver']) { const p = WK.people[key]; if (p && p.obj) p.obj.visible = false; }
   return true;
 }
+function shiftYard(d) {   // slide Shipyard job stamps the same way shiftTrucks slides the Mine loop (no catch-up)
+  if (!d) return;
+  if (S.upg && S.upg.t0 > 0) S.upg.t0 += d;
+  if (typeof BAY !== 'undefined' && BAY && typeof BAY.shift === 'function') BAY.shift(d);
+}
+function rnrYardOffAt(t) {   // Shipyard work is frozen from go until the specialists are dropped back (ys)
+  if (!S.rnr || !(S.rnr.go > 0) || S.rnr.ys || !rnrHasYard()) return false;
+  return t >= S.rnr.go;
+}
 function rnrApplyShift(t) {
-  if (!S.rnr || !(S.rnr.go > 0) || S.rnr.hs) return false;
-  const at = rnrWorkAt(); if (!(at > 0) || t < at) return false;
-  const d = at - S.rnr.go; if (d > 0) shiftTrucks(d);
-  S.rnr.hs = 1; return true;
+  if (!S.rnr || !(S.rnr.go > 0)) return false;
+  let did = false;
+  if (!S.rnr.ys) {
+    if (!rnrHasYard()) { S.rnr.ys = 1; did = true; }
+    else {
+      const at = rnrYardAt();
+      if (at > 0 && t >= at) { const d = at - S.rnr.go; if (d > 0) shiftYard(d); S.rnr.ys = 1; did = true; }
+    }
+  }
+  if (!S.rnr.hs) {
+    const at = rnrWorkAt(); if (at > 0 && t >= at) { const d = at - S.rnr.go; if (d > 0) shiftTrucks(d); S.rnr.hs = 1; did = true; }
+  }
+  return did;
 }
 function rnrTick(t) {
   if (!S.rnr || typeof S.rnr !== 'object') S.rnr = rnrNew();
-  if (rnrShouldGo(t)) { S.rnr.go = t; S.rnr.outT = 0; S.rnr.back = 0; S.rnr.hs = 0; }
+  if (rnrShouldGo(t)) { S.rnr.go = t; S.rnr.outT = 0; S.rnr.back = 0; S.rnr.hs = 0; S.rnr.ys = rnrHasYard() ? 0 : 1; }
   if (S.rnr.go > 0 && !S.rnr.outT && rnrVanReady() && rnrVanFreeAt(Math.max(t, S.rnr.go))) {
     const end = rnrLandEnd(S.rnr.go); S.rnr.outT = end > S.rnr.go ? end : S.rnr.go;
   }
@@ -4564,7 +4611,7 @@ function rnrTick(t) {
     if (home > 0 && t >= home && rnrVanFreeAt(t)) S.rnr.back = t;
   }
   rnrApplyShift(t);
-  if (S.rnr.hs && S.rnr.back > 0 && t >= rnrEndAt()) S.rnr = rnrNew();
+  if (S.rnr.hs && S.rnr.ys && S.rnr.back > 0 && t >= rnrEndAt()) S.rnr = rnrNew();
 }
 function truckClock(t) {   // pre-Habitat: freeze at full-hold pickup (S.wk.go) until the home shift runs. Stay frozen when t >= wkHomeAt() but S.wk.hs is still 0, so settleTo cannot credit (go, home] and then slide the stamps (that replay parked logicalFill at 0). Old in-air saves without S.wk still use sh.left. gc/rnr: also freeze at S.rnr.go until the home shift (hs) after the van drops the workers back at the Mine.
   if (S.wk && S.wk.go > 0 && !S.wk.hs) { const go = S.wk.go; return t < go ? t : go; }
@@ -4574,6 +4621,10 @@ function truckClock(t) {   // pre-Habitat: freeze at full-hold pickup (S.wk.go) 
     const s = S.cg && S.cg.sh; if (s && s.st !== 'pad' && tripFly(s) >= CFG.crew0) {
       if (!(s.left > 0)) s.left = S.rt > 0 ? S.rt : t; return t < s.left ? t : s.left; }
   }
+  return t;
+}
+function yardClock(t) {   // gc/rnr: freeze Shipyard job clocks at S.rnr.go until the yard drop shift (ys)
+  if (S.rnr && S.rnr.go > 0 && !S.rnr.ys && rnrHasYard()) { const go = S.rnr.go; return t < go ? t : go; }
   return t;
 }
 const fillAt = (t, k = chuteTk()) => { if (!k || k.dep) return 1; const tc = truckClock(t); return clamp((tc - k.c0) / (fillSec() * 1000) + k.add, 0, 1); };
@@ -7012,7 +7063,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS, cargoStoresFull, shipLeft, shipBack, rnrShouldGo, rnrShouldBack, rnrTick, rnrApplyShift, rnrOffAt, rnrRoles, rnrHomeAt, rnrWorkAt, rnrEndAt, rnrSec, rnrPickSec, rnrDropSec, rnrSpaceFree, rnrSch });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS, cargoStoresFull, shipLeft, shipBack, rnrShouldGo, rnrShouldBack, rnrTick, rnrApplyShift, rnrOffAt, rnrYardOffAt, rnrRoles, rnrYardRoles, rnrHasYard, rnrHomeAt, rnrWorkAt, rnrYardAt, rnrEndAt, rnrSec, rnrPickSec, rnrYardPickSec, rnrDropSec, rnrYardDropSec, rnrSpaceFree, rnrSch, yardClock, shiftYard });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 // gc2/bay-upgrades: Shipyard Bay card (UP.bayUp), hall afford glow, ship upgrade time x bayTimeMul, bay build slots. Reads the ship upgrade state, never writes its entry.
@@ -7616,7 +7667,7 @@ function frame() {
   applyCrewLadderVisible();   // Lv10+: no ship / pad / access ladder on board or land; Lv1–9 unchanged
   if (BST && BST.T && BST.T.ready) syncBooster();
   updCargo();
-  BAY.tick(now);
+  BAY.tick(yardClock(now));   // gc/rnr: cap at S.rnr.go until the specialists are dropped back at the Shipyard
   boosterFuelSync(now);   // gc/refuel10: booster 2x refuel on / off (re-anchored at the old rate)
   // gc2/bay-upgrades: finish due bay builds; scale a new ship upgrade's work time once; bay-B crawler stop (pose: SU.poseAt wrapper)
   syTickDoors();   // open DoorFrontB (3 s, parked in pockets) while a bay-B job is running; crawler stop stays GC2's 957
