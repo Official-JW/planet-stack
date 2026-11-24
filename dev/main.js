@@ -3567,7 +3567,8 @@ function wkGatherSec() { if (!wkPreHab()) return 0; return Math.max(wkTaxiSchedu
 function wkReturnSec() { if (!wkPreHab()) return 0; return Math.max(wkTaxiSchedule('back').total, wkPersonSec('mech'), wkPersonSec('cm')); }
 function wkArrived(t) { if (!wkPreHab() || !S.wk || !(S.wk.go > 0)) return true; return t >= S.wk.go + wkGatherSec() * 1000; }
 function wkHomeAt() { if (!S.wk || !(S.wk.down > 0)) return 0; return S.wk.down + (wkDescSec() + wkReturnSec()) * 1000; }
-function minerOffAt(t) { if (S.wk && S.wk.go > 0) { if (S.wk.down > 0) return t >= S.wk.go && t < wkHomeAt(); return t >= S.wk.go; }
+function minerOffAt(t) { if (typeof rnrOffAt === 'function' && rnrOffAt(t)) return true;
+  if (S.wk && S.wk.go > 0) { if (S.wk.down > 0) return t >= S.wk.go && t < wkHomeAt(); return t >= S.wk.go; }
   const s = S.cg && S.cg.sh; return !!(s && s.st !== 'pad' && tripFly(s) >= CFG.crew0); }
 function wkCmBusy(t) { if (!S.wk || !(S.wk.go > 0)) return false; return S.wk.down > 0 ? t < wkHomeAt() : true; }
 function wkShouldPickup(c) { if (!wkPreHab(c && c.sh)) return false; if (holdN(c) >= holdCap()) return true; return !!(c.sh && c.sh.req && wkShortLaunchAllowed()); }
@@ -3686,6 +3687,7 @@ function wkUpd(t) { wkTryHome(t); if (!WK.ready) return;
   if (deboardOf() && ACC.A.ready) return; // ACC owns deboard bodies; truck reverse handled in updCrew
   if (S.wk && S.wk.down > 0) { const u = (t - S.wk.down) / 1000; if (u < wkDescSec()) { if (!(ACC.A.ready && !ACC.A.failed && (deboardOf() || (S.cg && S.cg.sh && S.cg.sh.st === 'deboard')))) wkPoseDescent(t); return; } wkDetachBoard(); wkPoseWalk(t, 'back'); return; }
   if (S.wk && S.wk.go > 0) { const s = S.cg && S.cg.sh; if (s && s.st !== 'pad') { wkHideFlyers(); return; } wkDetachBoard(); wkPoseWalk(t, 'out'); return; }
+  if (typeof rnrHideMineCrew === 'function' && rnrHideMineCrew(t)) return;
   if (WK.attached) wkDetachBoard(); wkParkIdle(); }
 function wkTryBind() { if (WK.ready || !WK.boardReady || !WK.brReady || !BD.root || !BRK.ok || !BRK.h) return;
   const o = BD.root, c1 = o.getObjectByName('Crew_1'), c2 = o.getObjectByName('Crew_2'), c3 = o.getObjectByName('Crew_3'), c4 = o.getObjectByName('Crew_4');
@@ -4474,8 +4476,99 @@ function tqInit() {                   // once the route is final: migrate old sa
              b: k.dep && (k.sr === 1 || k.sr === 3) ? (k.paid ? { by: 0, rel: tkB0(k) + TQ.tRelB * 1000 } : { by: 0, rel: 0 }) : { by: -1, rel: 0 } };
   }
 }
-function truckClock(t) {   // pre-Habitat: freeze at full-hold pickup (S.wk.go) until the home shift runs. Stay frozen when t >= wkHomeAt() but S.wk.hs is still 0, so settleTo cannot credit (go, home] and then slide the stamps (that replay parked logicalFill at 0). Old in-air saves without S.wk still use sh.left.
+// ===== gc/rnr (Jacob 11/23 21:10): once the ship has left and every ground cargo store is full, the Habitat
+// crew van picks up the Mine workers (miner + driver, plus any picked miners) and takes them home to rest.
+// The Mine clock freezes at S.rnr.go (no catch-up while they rest, same stamp-shift as mineresume). When the
+// ship is back on the pad and space opens (a store drops below cap, or the ship can take crates), the van
+// drives them back; production resumes from the frozen stamps at the Mine drop (S.rnr.hs). Habitat must be
+// built; a 4-crew flight already uses S.wk, so R&R does not start then. Cargo stores: Refinery pallet,
+// pad bay, and the Dock (only if it is built).
+function rnrNew() { return { go: 0, outT: 0, back: 0, hs: 0 }; }
+function rnrFix(o) {
+  if (!o || typeof o !== 'object') return rnrNew();
+  return { go: +o.go || 0, outT: +o.outT || 0, back: +o.back || 0, hs: o.hs ? 1 : 0 };
+}
+function cargoStoresFull(c = S.cg) {
+  if (!c) return false;
+  if ((c.ref && c.ref.length || 0) < CG.palletCap) return false;
+  if ((c.bay || 0) < CG.bayCap) return false;
+  if (S.bt && S.bt.dock === 1 && (c.dk || 0) < CFG.dock.cap) return false;
+  return true;
+}
+function shipLeft(s) { s = s || (S.cg && S.cg.sh); return !!(s && (s.st === 'launch' || s.st === 'away' || s.st === 'land')); }
+function shipBack(s) { s = s || (S.cg && S.cg.sh); return !!(s && s.st === 'pad'); }
+function rnrRoles() { const extra = (S.crewRoles && S.crewRoles.miner > 0) ? Math.floor(S.crewRoles.miner) : 0; return Array.from({ length: Math.max(2, Math.min(8, 2 + extra)) }, () => 'miner'); }
+function rnrVanReady() { const cv = window.__ps3d && window.__ps3d.crewVan; return !!(cv && cv.rnrSchedule && cv.layout && cv.layout.mineH); }
+function rnrSch(mode) { const cv = window.__ps3d && window.__ps3d.crewVan; if (!cv || !cv.rnrSchedule) return { ready: false, tEnd: 180, tPick: 90, tDrop: 150 }; return cv.rnrSchedule(mode, rnrRoles()); }
+function rnrSec(mode) { const sch = rnrSch(mode); return sch && sch.tEnd > 0 ? sch.tEnd : 180; }
+function rnrPickSec() { const sch = rnrSch('rnr_out'); return sch && sch.tPick > 0 ? sch.tPick : 90; }
+function rnrDropSec() { const sch = rnrSch('rnr_back'); return sch && sch.tDrop > 0 ? sch.tDrop : 150; }
+function rnrLandEnd(t) { const cv = window.__ps3d && window.__ps3d.crewVan; if (!cv || !cv.landEnd) return 0; try { return cv.landEnd(t) || 0; } catch (e) { return 0; } }
+function rnrVanFreeAt(t) { const end = rnrLandEnd(t); return !(end > 0 && t < end); }
+function rnrSpaceFree(t) {
+  const c = S.cg; if (!c) return false;
+  if (!cargoStoresFull(c)) return true;
+  try { if (typeof shipTakes === 'function' && shipTakes(c, t)) return true; } catch (e) {}
+  return false;
+}
+function rnrShouldGo(t) {
+  if (!(S.bt && S.bt.hab === 1)) return false;
+  if (S.wk && S.wk.go > 0) return false;
+  if (S.rnr && S.rnr.go > 0) return false;
+  const c = S.cg; return !!(c && shipLeft(c.sh) && cargoStoresFull(c));
+}
+function rnrShouldBack(t) {
+  if (!S.rnr || !(S.rnr.go > 0) || S.rnr.back > 0) return false;
+  return !!(shipBack() && rnrSpaceFree(t));
+}
+function rnrHomeAt() {
+  if (!S.rnr || !(S.rnr.outT > 0)) return 0;
+  return S.rnr.outT + rnrSec('rnr_out') * 1000;
+}
+function rnrWorkAt() {
+  if (!S.rnr || !(S.rnr.back > 0)) return 0;
+  return S.rnr.back + rnrDropSec() * 1000;
+}
+function rnrEndAt() {
+  if (!S.rnr || !(S.rnr.back > 0)) return 0;
+  return S.rnr.back + rnrSec('rnr_back') * 1000;
+}
+function rnrOffAt(t) {   // Mine is frozen from go until the workers are dropped back (hs). Visual minerAway uses this too.
+  if (!S.rnr || !(S.rnr.go > 0)) return false;
+  if (S.rnr.hs) return false;
+  return t >= S.rnr.go;
+}
+function rnrHideMineCrew(t) {
+  if (!WK.ready || !S.rnr || !(S.rnr.go > 0) || !(S.rnr.outT > 0)) return false;
+  const pick = S.rnr.outT + rnrPickSec() * 1000;
+  if (t < pick) return false;
+  if (S.rnr.back > 0 && t >= rnrWorkAt()) return false;
+  if (WK.attached) wkDetachBoard();
+  for (const key of ['miner', 'driver']) { const p = WK.people[key]; if (p && p.obj) p.obj.visible = false; }
+  return true;
+}
+function rnrApplyShift(t) {
+  if (!S.rnr || !(S.rnr.go > 0) || S.rnr.hs) return false;
+  const at = rnrWorkAt(); if (!(at > 0) || t < at) return false;
+  const d = at - S.rnr.go; if (d > 0) shiftTrucks(d);
+  S.rnr.hs = 1; return true;
+}
+function rnrTick(t) {
+  if (!S.rnr || typeof S.rnr !== 'object') S.rnr = rnrNew();
+  if (rnrShouldGo(t)) { S.rnr.go = t; S.rnr.outT = 0; S.rnr.back = 0; S.rnr.hs = 0; }
+  if (S.rnr.go > 0 && !S.rnr.outT && rnrVanReady() && rnrVanFreeAt(Math.max(t, S.rnr.go))) {
+    const end = rnrLandEnd(S.rnr.go); S.rnr.outT = end > S.rnr.go ? end : S.rnr.go;
+  }
+  if (rnrShouldBack(t) && rnrVanReady()) {
+    const home = rnrHomeAt();
+    if (home > 0 && t >= home && rnrVanFreeAt(t)) S.rnr.back = t;
+  }
+  rnrApplyShift(t);
+  if (S.rnr.hs && S.rnr.back > 0 && t >= rnrEndAt()) S.rnr = rnrNew();
+}
+function truckClock(t) {   // pre-Habitat: freeze at full-hold pickup (S.wk.go) until the home shift runs. Stay frozen when t >= wkHomeAt() but S.wk.hs is still 0, so settleTo cannot credit (go, home] and then slide the stamps (that replay parked logicalFill at 0). Old in-air saves without S.wk still use sh.left. gc/rnr: also freeze at S.rnr.go until the home shift (hs) after the van drops the workers back at the Mine.
   if (S.wk && S.wk.go > 0 && !S.wk.hs) { const go = S.wk.go; return t < go ? t : go; }
+  if (S.rnr && S.rnr.go > 0 && !S.rnr.hs) { const go = S.rnr.go; return t < go ? t : go; }
   if (minerOffAt(t)) {
     const go = S.wk && S.wk.go > 0 ? S.wk.go : 0; if (go > 0) return t < go ? t : go;
     const s = S.cg && S.cg.sh; if (s && s.st !== 'pad' && tripFly(s) >= CFG.crew0) {
@@ -4588,7 +4681,8 @@ function settleTo(T, acc) {
   const tl = R.tl; if (!tl || !RT.ready) return;          // B1: nothing settles on the temporary route
   tqInit();
   wkApplyHomeShift(T);   // before any Mine truck event: the frozen gap is [go, home), and a second call sees S.wk.hs
-  const n = fleetN(), pause = () => residentFlyers() >= CFG.crew0 || (S.cg && S.cg.sh && S.cg.sh.left > 0);
+  rnrTick(T); rnrApplyShift(T);   // gc/rnr: start / return the rest trip; shift Mine stamps at the Mine drop before any truck event
+  const n = fleetN(), pause = () => residentFlyers() >= CFG.crew0 || (S.cg && S.cg.sh && S.cg.sh.left > 0) || !!(S.rnr && S.rnr.go > 0 && !S.rnr.hs);
   if (!pause()) {   // Habitat built and nobody is frozen: the original order (every truck event, then the cargo sim)
     payPend(T, acc);
     for (let g = 0; g < 60000; g++) {
@@ -4764,6 +4858,7 @@ if (!S.cg || S.cg.v !== 1) S.cg = cgInit(S.rt);   // saves from before the cargo
 if (S.cg.autoLoad === undefined) S.cg.autoLoad = true; if (S.cg.autoLaunch === undefined) S.cg.autoLaunch = false;   // Jacob 11/1: ship switches (Qwen)
 if (!S.wk || typeof S.wk !== 'object') S.wk = { go: 0, down: 0, cx: 0, cz: 0, hs: 0 };
 else { S.wk.go = +S.wk.go || 0; S.wk.down = +S.wk.down || 0; S.wk.cx = +S.wk.cx || 0; S.wk.cz = +S.wk.cz || 0; S.wk.hs = S.wk.hs ? 1 : 0; }
+S.rnr = rnrFix(S.rnr);
 fuelFu(S.cg); S.cg.fu.v = clamp(+S.cg.fu.v || 0, 0, fuelCap());   // P2-FUEL: an old save's stock is clamped to this level's cap (200/250/300/350/400). fuel stock: saves from before ca-econ-fuelstock start with a full stock (oldSaveStock) and keep their tank level
 if (!S.cg.pay || typeof S.cg.pay !== 'object' || !(S.cg.pay.at > 0)) S.cg.pay = null;   // econ: last shown drop-off {at, amt, shown}; old saves / new games / bad value → none (pendPay default just below)
 if (!(S.cg.fl >= 0)) S.cg.fl = S.cg.launches > 0 ? 1 : 0;   // gc-dockfix item 7: first-launch pass used (1) / open (0); a save that already launched has used it
@@ -4956,7 +5051,7 @@ function cgSettle(T, acc) {
     c.t = Math.max(c.t, nx); cgComplete(c, c.t, acc);
   }
 }
-function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; if (c.rd) c.rd.t0 += d; if (c.dOpen) c.dOpen += d; if (c.rcT) c.rcT += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.sh.left) c.sh.left += d; if (c.fu) c.fu.t += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } if (c.cr) { c.cr.t0 += d; if (c.cr.o) c.cr.o += d; } if (S.wk) { if (S.wk.go) S.wk.go += d; if (S.wk.down) S.wk.down += d; } }
+function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); if (c.rc) c.rc += d; c.fb.t0 += d; if (c.dka) c.dka.t0 += d; if (c.pc.k) c.pc.t0 += d; if (c.rd) c.rd.t0 += d; if (c.dOpen) c.dOpen += d; if (c.rcT) c.rcT += d; c.as.t0 += d; c.sh.t0 += d; c.sh.f0 += d; if (c.sh.req) c.sh.req += d; if (c.sh.left) c.sh.left += d; if (c.fu) c.fu.t += d; if (c.brS) { for (let i = 0; i < c.brS.length; i++) c.brS[i] += d; for (const q of c.brQ) q[0] += d; if (c.brD != null) c.brD += d; } if (c.cr) { c.cr.t0 += d; if (c.cr.o) c.cr.o += d; } if (S.wk) { if (S.wk.go) S.wk.go += d; if (S.wk.down) S.wk.down += d; } if (S.rnr) { if (S.rnr.go) S.rnr.go += d; if (S.rnr.outT) S.rnr.outT += d; if (S.rnr.back) S.rnr.back += d; } }
 // Save-stamp guard (10/24): a save written on a clock ahead of this one (?speed=N / warpTo QA runs, a device clock set back) holds its stamps in the
 // future, and the loops would freeze until the clock caught up. gap = newest already-happened stamp − now (S.rt, S.tk c0/lr/dep, S.cg t/rc/fb/pc/as/sh
 // t0, f0, req, S.log / S.calls at). Over 1 s, every stamp moves back by gap (shiftTk: S.tk + S.pend + S.cg; S.rt; log / calls), so the state and every
@@ -4964,7 +5059,7 @@ function cgShift(d) { const c = S.cg; c.t += d; c.ref = c.ref.map(x => x + d); i
 // design (sealSec, richPayDelay), so they move with the rest but do not set the gap.
 function stampGap(now) {
   const k = S.tk || {}, c = S.cg; let m = S.rt > 0 ? S.rt : 0;
-  const v = [k.c0, k.lr, k.dep, k.hr, k.tp, k.hm]; if (S.tk2) v.push(S.tk2.c0, S.tk2.lr, S.tk2.dep, S.tk2.hr, S.tk2.tp, S.tk2.hm); if (c) v.push(c.t, c.rc, c.fb && c.fb.t0, c.dka && c.dka.t0, c.pc && c.pc.k ? c.pc.t0 : 0, c.rd ? c.rd.t0 : 0, c.as && c.as.t0, c.sh && c.sh.t0, c.sh && c.sh.f0, c.sh && c.sh.req, c.sh && c.sh.left, c.fu && c.fu.t); if (S.wk) v.push(S.wk.go, S.wk.down); if (S.upg && S.upg.t0) v.push(S.upg.t0);  // gc/ship-upgrade: job start is a live stamp
+  const v = [k.c0, k.lr, k.dep, k.hr, k.tp, k.hm]; if (S.tk2) v.push(S.tk2.c0, S.tk2.lr, S.tk2.dep, S.tk2.hr, S.tk2.tp, S.tk2.hm); if (c) v.push(c.t, c.rc, c.fb && c.fb.t0, c.dka && c.dka.t0, c.pc && c.pc.k ? c.pc.t0 : 0, c.rd ? c.rd.t0 : 0, c.as && c.as.t0, c.sh && c.sh.t0, c.sh && c.sh.f0, c.sh && c.sh.req, c.sh && c.sh.left, c.fu && c.fu.t); if (S.wk) v.push(S.wk.go, S.wk.down); if (S.rnr) v.push(S.rnr.go, S.rnr.outT, S.rnr.back); if (S.upg && S.upg.t0) v.push(S.upg.t0);  // gc/ship-upgrade: job start is a live stamp
   for (const a of [S.log, S.calls]) if (Array.isArray(a)) for (const e of a) if (e) v.push(e.at);
   for (const x of v) if (x > m) m = x;
   return m - now;
@@ -6917,7 +7012,7 @@ function buildSt(k) {
   popAtBuy(B.name + ' built'); logU('upgrade', `${B.name} built (${fmt(c)})`);
   window.__ps3d.buys = (window.__ps3d.buys || 0) + 1; window.__ps3d.lastBuild = { k, cost: c, money: S.money };
 }
-Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
+Object.assign(window.__ps3d, { accessAssertFeet, deboardSec, deboardOf, accessUpdateDeboard, auditTapTargets, freezeClock: (on) => { if (on) { if (HOLD === null) HOLD = rawMs(); } else if (HOLD !== null) { WARP += HOLD - rawMs(); HOLD = null; } }, BLD, isBuilt, buildSt, bldApply, nbUI, addPopulation, habFreeBeds, residentFlyers, flyCrew, boardSec, truckClock, minerAway, crewWin, crewTap, crewPrompt, crewOpen, crewLock, maxPicks, freeBeds, freeSeats, CREW_ROLES, HAB_BEDS, cargoStoresFull, shipLeft, shipBack, rnrShouldGo, rnrShouldBack, rnrTick, rnrApplyShift, rnrOffAt, rnrRoles, rnrHomeAt, rnrWorkAt, rnrEndAt, rnrSec, rnrPickSec, rnrDropSec, rnrSpaceFree, rnrSch });   // gc-hab54 + gc-crewpick hooks. shipFreePassengerSeats / shipSeats / seatCap belong to economy.   // QA hooks + the ui() / GLB-load calls (gc-batch8)
 for (const k in BLD) bldApply(BLD[k].i); nbUI();
 const popAtBuy = (txt) => { const r = upBuy.getBoundingClientRect(); pop(txt, r.left + r.width / 2, r.top - 8, 'info'); };
 // gc2/bay-upgrades: Shipyard Bay card (UP.bayUp), hall afford glow, ship upgrade time x bayTimeMul, bay build slots. Reads the ship upgrade state, never writes its entry.
@@ -7476,6 +7571,7 @@ function cvLanded(td, s) {   // riders = this landing's picked crew who joined (
     if (window.__ps3d.crewVan) window.__ps3d.crewVan.landed(td, roles); else (window.__ps3d.cvQ = window.__ps3d.cvQ || []).push([td, roles]); } catch (e) {} }
 const CV = createCrewVan(THREE, { scene, PX, SHIPI, HABI, MINEI: MINE, mergeGeometries,
   habBuilt: () => !!(S.bt && S.bt.hab === 1), yardBuilt: () => !!(S.bt && S.bt.yard === 1), trailOn: () => TRAIL_ON, ladder: () => wkLadder(),
+  rnr: () => S.rnr, rnrRoles,
   marker: (i, n) => { const r = stationObjs[i], o = r && r.getObjectByName(n); if (!o) return null; const v = new THREE.Vector3(); o.getWorldPosition(v); return [v.x, v.z]; },
   groundRoots: () => [[PADI, 'Pad_Base'], [SHIPI, 'shipyard_base'], [HABI, 'Hab_Paint']].map(([i, n]) => stationObjs[i] && stationObjs[i].getObjectByName(n)),   // floor meshes only (cheap rays)
   terrainRoots: () => { const a = ['mineTerrain', 'refTerrain', 'dockTerrain', 'padTerrain', 'shipyardTerrain', 'habTerrain'].map(k => window.__ps3d[k]);
@@ -7594,7 +7690,7 @@ function qaSkipToTouchdown() {
   return { ok: S.cg.sh.st === 'pad', from, st: S.cg.sh.st, paid: S.money - m0, skippedSec: Math.round((WARP - w0) / 1000) };
 }
 if (QA_ON) {
-  window.PS_QA = Object.freeze({ scale: SPD, skipToTouchdown: qaSkipToTouchdown });
+  window.PS_QA = Object.freeze({ scale: SPD, skipToTouchdown: qaSkipToTouchdown, warp: (ms) => { WARP += (+ms || 0); } });
   if (SPD !== 1) { const b = document.createElement('div'); b.id = 'qaBadge'; b.textContent = 'QA x' + +SPD.toFixed(2); b.setAttribute('aria-hidden', 'true');
     b.style.cssText = 'position:fixed;left:110px;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:6;pointer-events:none;font:700 10px/1 ui-monospace,monospace;color:#ffd84d;background:#000a;padding:4px 6px;border-radius:6px';
     document.body.appendChild(b); }

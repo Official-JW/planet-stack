@@ -20,7 +20,7 @@ const DOOR_SEC = 1.2, STAGGER = 1.1, MAXP = 8;   // door slide time, gap between
 const GAUGE = 2.0, TRAIL_W = GAUGE / 0.652, TRAIL_V = 0.249, FADE_M = 4;   // truck trail: ruts 0.652 of the width apart; v 0.249 per m
 const TRAIL_U = [0, .076, .174, .272, .5, .728, .826, .924, 1], TRAIL_R = [1, 1, .59, 1, 1, 1, .59, 1, 1], TRAIL_A = .98;
 const KEY = 'ps3d_crewvan';
-const DEST = (role, yard) => role === 'miner' ? 'mine' : (role === 'eng' || role === 'mech') && yard ? 'ship' : 'hab';   // Jacob 1:02 PM: miners → Mine, mechanics (+ engineers) → Shipyard once built; others live in the Habitat
+const DEST = (role, yard) => (role === 'miner' || role === 'driver') ? 'mine' : (role === 'eng' || role === 'mech') && yard ? 'ship' : 'hab';   // Jacob 1:02 PM: miners → Mine, mechanics (+ engineers) → Shipyard once built; others live in the Habitat
 const VHAUL = 14, ALAT = 2.5;          // Mine run only: top speed on the long road (off-screen) and the corner limit (lateral m/s²), so it slows for the U-turn
 const TERR = [100, 420, -10, 94];      // x0 x1 z0 z1 where the Mine/Refinery terrain is not flat (probed heights, 5 m grid); rays elsewhere skip it
 
@@ -234,7 +234,58 @@ export function createCrewVan(THREE, D) {
     if (mine.length) { run('mineH'); drop(Lo.mineH.L, mine, Lo.mineWalk, 'mine', 'mineH'); run('ret');
       legs.push({ k: 'drive', P: 'main', t0: t, t1: t + driveSec(Lo.main.L), s0: 0, s1: Lo.main.L }); t += driveSec(Lo.main.L); }   // back past the pad, home to the Habitat stop
     const tEnd = Math.max(t, ...rid.map(r => r.tDone || 0));
-    return { roles, rid, tIn, tOpen, tClose, tGo, legs, tEnd };
+    return { roles, rid, tIn, tOpen, tClose, tGo, legs, tEnd, tPick: 0, tDrop: tEnd, mode: 'land' };
+  }
+  // R&R: Habitat van to the Mine and back (existing mineH / ret / main paths; no new art).
+  // rnr_out: leave the Habitat stop, pick up Mine workers, drop them at the Habitat.
+  // rnr_back: pick them up at the Habitat, drop them at the Mine, park at the Habitat.
+  function scheduleRnr(trip, Lo) {
+    const roles = (trip.roles || ['miner', 'miner']).filter(Boolean).slice(0, MAXP);
+    const mode = trip.mode === 'rnr_back' ? 'rnr_back' : 'rnr_out';
+    const rid = roles.map((role) => ({ role, dest: mode === 'rnr_back' ? 'mine' : 'hab' }));
+    const empty = { roles, rid, tIn: 0, tOpen: 0, tClose: 0, tGo: 0, legs: [], tEnd: 180, tPick: 90, tDrop: 150, mode, ready: false };
+    if (!Lo || !Lo.mineH || !Lo.ret || !Lo.prof || !Lo.prof.mineH || !Lo.prof.ret) return empty;
+    const legs = []; let t = 0;
+    const ids = rid.map((_, i) => i);
+    const stopAt = (sStop, walkPts, key, P, kind) => {
+      const [x, z, yaw] = along(Lo[P], sStop), ins = doorW(x, z, yaw, 0, .3), dp = doorW(x, z, yaw, 0, 1.5);
+      const around = key === 'mine' ? [doorW(x, z, yaw, 3.6, 1.6), doorW(x, z, yaw, 3.6, -1.6)] : [doorW(x, z, yaw, -3.3, 2.0)];
+      const dO = t, pts = (walkPts || []).filter(Boolean);
+      if (kind === 'pick') {
+        let tq = t + DOOR_SEC;
+        for (const i of ids) {
+          const r = rid[i], fromWork = pts.length ? pts.slice().reverse() : [doorW(x, z, yaw, 4.2, 3.2)];
+          r.walk = poly([...fromWork, ...around.slice().reverse(), dp]); r.q = dp;
+          r.t0 = Math.max(0, dO - r.walk.L / WALK_V); r.tArr = r.t0 + r.walk.L / WALK_V;
+          r.inPl = poly([r.q, ins]); r.tIn0 = Math.max(r.tArr, tq); r.tGone = r.tIn0 + r.inPl.L / WALK_V; tq = r.tIn0 + STAGGER;
+        }
+        const last = ids.length ? Math.max(...ids.map(i => rid[i].tGone)) : t + DOOR_SEC;
+        const tc = last + .3, t1 = tc + DOOR_SEC;
+        legs.push({ k: 'stop', P, t0: dO, t1, s: sStop, open: dO, close: tc, key }); t = t1;
+      } else {
+        let tq = t + DOOR_SEC;
+        for (const i of ids) {
+          const r = rid[i]; r.dropPl = poly([ins, dp, ...around, ...pts]); r.tOut = tq; r.tDone = tq + r.dropPl.L / WALK_V; tq += STAGGER;
+        }
+        const tc = (ids.length ? tq - STAGGER + 2.4 / WALK_V : t + DOOR_SEC) + .2;
+        const clear = Math.max(0, ...ids.map(i => rid[i].tOut + rid[i].dropPl.s[Math.min(rid[i].dropPl.s.length - 1, 2 + around.length)] / WALK_V + .5));
+        const t1 = Math.max(tc + DOOR_SEC, clear);
+        legs.push({ k: 'stop', P, t0: dO, t1, s: sStop, open: dO, close: tc, key }); t = t1;
+      }
+    };
+    const run = (P) => { const T = Lo.prof[P].T; legs.push({ k: 'run', P, t0: t, t1: t + T }); t += T; };
+    const driveMain = (s0, s1) => { const L = Math.abs(s1 - s0); legs.push({ k: 'drive', P: 'main', t0: t, t1: t + driveSec(L), s0, s1 }); t += driveSec(L); };
+    if (mode === 'rnr_out') {
+      run('mineH'); stopAt(Lo.mineH.L, Lo.mineWalk, 'mine', 'mineH', 'pick');
+      run('ret'); driveMain(0, Lo.main.L); stopAt(Lo.main.L, Lo.habWalk, 'hab', 'main', 'drop');
+    } else {
+      stopAt(Lo.main.L, Lo.habWalk, 'hab', 'main', 'pick');
+      run('mineH'); stopAt(Lo.mineH.L, Lo.mineWalk, 'mine', 'mineH', 'drop');
+      run('ret'); driveMain(0, Lo.main.L);
+    }
+    const tPick = ids.length ? Math.max(...ids.map(i => rid[i].tGone || 0)) : 0;
+    const tDrop = ids.length ? Math.max(...ids.map(i => rid[i].tDone || 0)) : t;
+    return { roles, rid, tIn: 0, tOpen: 0, tClose: 0, tGo: 0, legs, tEnd: Math.max(t, tDrop, tPick), tPick, tDrop, mode, ready: true };
   }
   function vanAt(trip, sch, Lo, u) {   // van pose + door at u seconds into the trip
     if (u < sch.tIn) { const d = driveDist(Lo.inPath.L, u), p = along(Lo.inPath, d); return { p, door: 0, ph: 'in' }; }
@@ -251,15 +302,26 @@ export function createCrewVan(THREE, D) {
   function update(now) {
     try {
       if (!D.habBuilt()) { if (st.van) st.van.visible = false; if (st.trail) st.trail.visible = false; if (st.trail2) st.trail2.visible = false; for (const p of st.people) if (p) p.g.visible = false; return; }
-      if (!Lo) { Lo = layout(); if (!Lo) return; }
+      if (!Lo || !Lo.mineH) { const next = layout(); if (next) Lo = next; if (!Lo) return; }
       if (!st.van) st.van = mkVan();
       if (!st.trail && D.trailOn()) { const t0 = performance.now(); if (buildTrail(Lo)) { st.buildMs = Math.round(performance.now() - t0); st.defer = true; } } if (st.trail) st.trail.visible = true;
       if (st.defer) st.defer = false; else if (st.trail && !st.trail2 && Lo.mineTrail) { const t0 = performance.now(); if (buildMineTrail(Lo)) st.buildMs2 = Math.round(performance.now() - t0); } if (st.trail2) st.trail2.visible = true;
       st.ready = true;
-      const trip = st.trip; let u = trip ? (now - trip.T) / 1000 : 1e9;
-      const key = trip && trip.T + '|' + trip.roles.join() + '|' + !!D.yardBuilt(); if (trip && (!st.sch || schKey !== key)) { st.sch = schedule(trip, Lo); schKey = key; }
+      const rnr = D.rnr && D.rnr(), roles = (D.rnrRoles && D.rnrRoles()) || (rnr && rnr.roles) || ['miner', 'miner'];
+      const rnrTrip = rnr && rnr.back > 0 ? { T: rnr.back, roles, mode: 'rnr_back' } : rnr && rnr.outT > 0 ? { T: rnr.outT, roles, mode: 'rnr_out' } : null;
+      const land = st.trip && st.trip.T > 0 && (!st.trip.mode || st.trip.mode === 'land') ? st.trip : null;
+      let landEnd = 0;
+      if (land) {
+        const lk = land.T + '|' + (land.roles || []).join() + '|' + !!D.yardBuilt() + '|land';
+        const lsch = (st.landSch && st.landKey === lk) ? st.landSch : schedule(land, Lo);
+        st.landSch = lsch; st.landKey = lk; landEnd = land.T + lsch.tEnd * 1000;
+      }
+      const trip = (land && now < landEnd + 1000) ? land : rnrTrip;
+      let u = trip ? (now - trip.T) / 1000 : 1e9;
+      const key = trip && trip.T + '|' + (trip.roles || []).join() + '|' + !!D.yardBuilt() + '|' + (trip.mode || 'land');
+      if (trip && (!st.sch || schKey !== key)) { st.sch = (trip.mode === 'rnr_out' || trip.mode === 'rnr_back') ? scheduleRnr(trip, Lo) : schedule(trip, Lo); schKey = key; }
       const sch = st.sch;
-      if (!trip || u < 0 || u > sch.tEnd + 1) {   // idle: parked at the Habitat stop
+      if (!trip || u < 0 || !sch || u > sch.tEnd + 1) {   // idle: parked at the Habitat stop
         const p = along(Lo.main, Lo.main.L); st.van.visible = true; st.van.position.set(p[0], groundY(p[0], p[1]), p[1]); st.van.rotation.set(0, p[2], 0); setDoor(0);
         for (const q of st.people) if (q) q.g.visible = false; st.ph = 'parked'; return;
       }
@@ -280,7 +342,17 @@ export function createCrewVan(THREE, D) {
   }
   function landed(T, roles) {   // a deboard just ended at T (game ms); roles = the picked crew who joined this landing
     roles = (roles || []).filter(Boolean); if (!roles.length) return;
-    st.trip = { T, roles }; st.sch = null; try { localStorage.setItem(KEY, JSON.stringify(st.trip)); } catch (e) {}
+    st.trip = { T, roles, mode: 'land' }; st.sch = null; try { localStorage.setItem(KEY, JSON.stringify(st.trip)); } catch (e) {}
   }
-  return { st, update, landed, get layout() { return Lo; }, info: (now) => ({ ready: st.ready, ph: st.ph, trip: st.trip, u: st.trip ? (now - st.trip.T) / 1000 : null, tEnd: st.sch && st.sch.tEnd, legs: st.sch && st.sch.legs, rid: st.sch && st.sch.rid.map(r => ({ role: r.role, dest: r.dest, t0: r.t0, tArr: +r.tArr.toFixed(1), tGone: +r.tGone.toFixed(1), tOut: r.tOut && +r.tOut.toFixed(1), tDone: r.tDone && +r.tDone.toFixed(1) })), err: st.err, buildMs: st.buildMs, buildMs2: st.buildMs2 }) };
+  function landEnd(now) {   // ms when a landing trip is finished (0 if none). Used so R&R waits for the van.
+    if (!st.trip || !(st.trip.T > 0) || (st.trip.mode && st.trip.mode !== 'land')) return 0;
+    if (!Lo) Lo = layout(); if (!Lo) return st.trip.T + 180000;
+    const sch = schedule(st.trip, Lo); return st.trip.T + sch.tEnd * 1000;
+  }
+  function busy(now) { const end = landEnd(now); return end > 0 && now < end; }
+  function rnrSchedule(mode, roles) {
+    if (!Lo) Lo = layout();
+    return scheduleRnr({ T: 0, roles: roles || ['miner', 'miner'], mode: mode === 'rnr_back' ? 'rnr_back' : 'rnr_out' }, Lo);
+  }
+  return { st, update, landed, busy, landEnd, rnrSchedule, get layout() { return Lo; }, info: (now) => ({ ready: st.ready, ph: st.ph, trip: st.trip, rnr: D.rnr && D.rnr(), u: st.sch && st.trip ? (now - (st.trip.T || 0)) / 1000 : (D.rnr && D.rnr() && (D.rnr().back || D.rnr().outT) ? (now - (D.rnr().back || D.rnr().outT)) / 1000 : null), tEnd: st.sch && st.sch.tEnd, tPick: st.sch && st.sch.tPick, tDrop: st.sch && st.sch.tDrop, mode: st.sch && st.sch.mode, legs: st.sch && st.sch.legs, rid: st.sch && st.sch.rid && st.sch.rid.map(r => ({ role: r.role, dest: r.dest, t0: r.t0, tArr: +r.tArr.toFixed(1), tGone: +r.tGone.toFixed(1), tOut: r.tOut && +r.tOut.toFixed(1), tDone: r.tDone && +r.tDone.toFixed(1) })), err: st.err, buildMs: st.buildMs, buildMs2: st.buildMs2 }) };
 }
